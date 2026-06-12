@@ -193,13 +193,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_seed_table_scan_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::FunctionDecl:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::StructDecl:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::EnumDecl:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::ImplDecl:[\s\S]*PublicImplSurfaceUnsupported/,
-    "AST-only seed scan must own unsupported public surface rejection so hash materialization does not need a separate pre-scan",
+    /selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported/,
+    "AST-only seed scan must keep unsupported non-declaration surface rejection in the shared non-declaration helper",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::FunctionDecl:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::StructDecl:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::EnumDecl:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::ImplDecl:[\s\S]*PublicImplSurfaceUnsupported/,
-    "token-aware seed scan must share the same unsupported public surface rejection contract",
+    /selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_result[\s\S]*SelfhostModuleDeclarationKind::Function:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Struct:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Enum:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Impl:[\s\S]*PublicImplSurfaceUnsupported[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_item_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result/,
+    "AST-only seed scan must dispatch through the shared declaration classifier and still reject public non-trait declarations",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_with_tokens_result[\s\S]*SelfhostModuleDeclarationKind::Trait:[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result[\s\S]*SelfhostModuleDeclarationKind::Function:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Struct:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Enum:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Impl:[\s\S]*PublicImplSurfaceUnsupported[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result/,
+    "token-aware seed scan must share the same declaration classifier and non-declaration rejection contract",
 );
 assert.match(
     source,

@@ -21,11 +21,13 @@ function sectionBetween(source, start, end) {
 
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
+const tokenGateRelPath = "stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl";
 const tySourceRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_source.nepl";
 const proofStoreRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl";
 
 const source = read(relPath);
 const facade = read(facadeRelPath);
+const tokenGateSource = read(tokenGateRelPath);
 const tySource = read(tySourceRelPath);
 const proofStore = read(proofStoreRelPath);
 const sourceCode = source
@@ -127,6 +129,21 @@ assert.match(
     source,
     /selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_loop[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error/,
     "hash-owned token-aware loop must reuse only the token gate item helper and map typed seed errors into hash errors",
+);
+assert.match(
+    tokenGateSource,
+    /selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported/,
+    "token gate must keep unsupported non-declaration surface rejection in its non-declaration helper",
+);
+assert.match(
+    tokenGateSource,
+    /selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result[\s\S]*SelfhostModuleDeclarationKind::Trait:[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_trait_item_result[\s\S]*SelfhostModuleDeclarationKind::Function:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Struct:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Enum:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Impl:[\s\S]*PublicImplSurfaceUnsupported/,
+    "token gate must keep public non-trait declaration rejection in its declaration helper",
+);
+assert.match(
+    tokenGateSource,
+    /pub fn selfhost_memo_trait_public_surface_token_gate_scan_item_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*Option::Some declaration_kind:[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result[\s\S]*Option::None:[\s\S]*selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result/,
+    "token gate item scan must dispatch through the shared declaration classifier before token-aware trait normalization",
 );
 assert.match(
     source,

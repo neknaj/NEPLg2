@@ -279,17 +279,18 @@ fn selfhost_memo_trait_public_surface_token_gate_public_decl_supported_result %f
         Option::None:
             Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing
 
-//: selfhost_memo_trait_public_surface_token_gate_scan_item_result: module item 1 件を token-aware seed table へ[反映/はんえい]する
+//: selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result: declaration ではない module item を token gate の seed scan に[反映/はんえい]する
 //:
 //: [目的/もくてき]:
-//: - hash materializer 側の 1 pass loop から、token-aware trait normalization だけを再利用できるようにします。
+//: - hash materializer と seed wrapper が見る token-aware item policy を、declaration 分類と非declaration policy に分けます。
+//: - AST-only seed scan と同じく、`selfhost_module_item_kind_declaration` で declaration kind を確定した後の非declaration item だけを扱います。
 //:
 //: [契約/けいやく]:
-//: - この関数は token gate module の境界としては `pub` ですが、`module.nepl` facade は token gate module を公開しません。呼び出し先を hash materializer に限定する設計により、token-aware API が checker facade へ漏れない状態を保ちます。
-pub fn selfhost_memo_trait_public_surface_token_gate_scan_item_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item:
-    match item.kind:
-        SelfhostModuleItemKind::TraitDecl:
-            selfhost_memo_trait_public_surface_token_gate_scan_trait_item_result source tokens table item
+//: - import / use / prelude / no-prelude は Phase 1 public surface では扱えないため、typed seed error として拒否します。
+//: - doc comment、test directive、conditional directive、raw backend text は `MemoKey` / `MemoValue` seed を追加しないので table をそのまま返します。
+//: - declaration kind がここへ到達した場合は分類境界の破損として fail-closed にします。
+fn selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result %fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItemKind Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \table\kind:
+    match kind:
         SelfhostModuleItemKind::DocComment:
             Result::Ok table
         SelfhostModuleItemKind::MlstrLine:
@@ -324,30 +325,64 @@ pub fn selfhost_memo_trait_public_surface_token_gate_scan_item_result %impure fn
             Result::Ok table
         SelfhostModuleItemKind::LlvmIrText:
             Result::Ok table
+        SelfhostModuleItemKind::TraitDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
         SelfhostModuleItemKind::FunctionDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported
+        SelfhostModuleItemKind::StructDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported
+
+//: selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result: declaration item 1 件を token-aware seed table へ[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - trait declaration だけが token-aware marker / method-bearing signature normalization へ進みます。
+//: - public non-trait declaration はこの同じ item pass で拒否し、hash materializer が別の unsupported-surface pass を持たない状態を保ちます。
+fn selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem impure fn SelfhostModuleDeclarationKind Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item\declaration_kind:
+    match declaration_kind:
+        SelfhostModuleDeclarationKind::Trait:
+            selfhost_memo_trait_public_surface_token_gate_scan_trait_item_result source tokens table item
+        SelfhostModuleDeclarationKind::Function:
             match selfhost_memo_trait_public_surface_token_gate_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::StructDecl:
+        SelfhostModuleDeclarationKind::Struct:
             match selfhost_memo_trait_public_surface_token_gate_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::EnumDecl:
+        SelfhostModuleDeclarationKind::Enum:
             match selfhost_memo_trait_public_surface_token_gate_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::ImplDecl:
+        SelfhostModuleDeclarationKind::Impl:
             match selfhost_memo_trait_public_surface_token_gate_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
+
+//: selfhost_memo_trait_public_surface_token_gate_scan_item_result: module item 1 件を token-aware seed table へ[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - hash materializer 側の 1 pass loop から、token-aware trait normalization だけを再利用できるようにします。
+//:
+//: [契約/けいやく]:
+//: - この関数は token gate module の境界としては `pub` ですが、`module.nepl` facade は token gate module を公開しません。呼び出し先を hash materializer に限定する設計により、token-aware API が checker facade へ漏れない状態を保ちます。
+pub fn selfhost_memo_trait_public_surface_token_gate_scan_item_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item:
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some declaration_kind:
+            selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result source tokens table item declaration_kind
+        Option::None:
+            selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result table item.kind
 
 //: selfhost_memo_trait_public_surface_token_gate_scan_module_loop: token-aware module item stream を[走査/そうさ]する
 fn selfhost_memo_trait_public_surface_token_gate_scan_module_loop %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst impure fn SelfhostMemoTraitStableSourceSeedTable impure fn i32 impure fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\ast\table\idx\n:

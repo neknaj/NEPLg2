@@ -1,3 +1,54 @@
+# 2026-06-12 Agent selfhost public surface token item dispatch checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査が効く enum / Result、match による網羅的分類、DAG を壊さない依存方向、source text / span / lexeme / diagnostic を accepted authority にしない境界、探索範囲削減、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/token-seed-scan-dedup-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost public surface token item scan dispatch dedup checkpoint
+- classification: selfhost implementation slice review
+- decision: `memo_trait_public_surface_seed.nepl` と `memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` による declaration / non-declaration の二段階 dispatch へ寄せた。AST-only と token-aware の scan 本体が `SelfhostModuleItemKind` 全 variant の長い列挙を個別に持つ構造をやめ、non-declaration policy helper と declaration policy helper に分けた。
+- policy/spec:
+  - seed から token gate を import しない。`token_gate` は seed error / table 型に依存するため、`seed -> token_gate -> seed` の循環を作らない。
+  - `module.nepl` facade は引き続き token gate / token-aware helper を re-export しない。token-aware gate は facade-external internal boundary のままにする。
+  - accepted seed は marker / method normalizer の `normalized_signature_hash` からだけ取り出す。source text、span、lexeme、display name、diagnostic text、path は分類と fail-closed 判定にだけ使い、hash / trusted source identity authority にはしない。
+  - trusted source identity は registry / evidence producer 境界に閉じる。今回の dispatch helper は source identity、proof store、core/ty store、HIR、Resource IR、backend へ接続しない。
+  - final dedup としては、shared scan core と専用 error enum を別 module に分け、seed/hash/token gate が各自の error enum へ写像する設計が必要である。今回の checkpoint はその前段であり、issue 完了扱いにはしない。
+- implementation/test:
+  - `memo_trait_public_surface_seed.nepl` に `selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result`、`selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_result`、token-aware declaration helper を追加した。
+  - `memo_trait_public_surface_token_gate.nepl` に `selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result` と declaration helper を追加した。
+  - seed / token_gate の item scan entry は `selfhost_module_item_kind_declaration item.kind` で分岐し、trait declaration だけ token-aware normalization へ進める。public function / struct / enum / impl は同じ item pass で typed error にする。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` は seed 側の二段階 dispatch、non-declaration fail-closed policy、token-aware declaration helper を固定するように更新した。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` は token gate 側の二段階 dispatch、non-declaration helper、declaration helper、hash materializer からの token gate item helper 利用を固定するように更新した。
+- subagent review:
+  - subagent_review_ids: `019ebb25-2522-7990-b5f8-ece185dafe21`
+  - subagent_review_count: 1 design review, 1 implementation checkpoint review
+  - Euclid initial review: Blocker として seed から token_gate を直接呼ぶ案と token-aware scan を facade に出す案を禁止。Required として final design は shared lower implementation と dedicated error enum に分け、seed/hash/token_gate が各自の error へ写像するべきと指摘した。
+  - Euclid implementation review: Blocker なし。Required として token_gate 側の two-stage dispatch も source policy で固定すること、note/issue で今回変更を shared core 化前の checkpoint と明記して完了扱いしないことを求めた。同じ slice 内で反映した。Non-blocker として declaration variant が non-declaration helper へ到達した場合の fail-closed は妥当、doc comment は classification boundary と fail-closed 理由を説明しており、line-count / comment-length cap は混入していないと評価した。Question なし。Approve は条件付き。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` の運用方針に沿って `nodesrc/test_selfhost_zenn_review_gate_contract.js` を通し、review response をもとに Required を同じ slice 内で反映した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: token-aware item scan が再び `SelfhostModuleItemKind` の長い列挙を AST-only / token-aware / token_gate の各本体に持つ退行、token_gate の dispatch 境界未固定、facade exposure、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: なし。focused contract、focused doctest、split/proof contract、Zenn review gate、source policy regression、issues check、git diff check は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - item kind dispatch は既存 `selfhost_module_item_kind_declaration` で declaration / non-declaration を先に分ける。これにより、token-aware path が trait normalization のために見るべき item と、directive / raw block / public non-trait fail-closed policy の探索範囲が構造上分離された。
+  - final shared core 化までは seed と token_gate の policy helper 重複は残る。次 slice では専用 error enum を持つ lower scan core へ移し、seed/hash/token_gate 側で error mapping する。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+  - pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -o target/selfhost_seed_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - warning_checked: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。今回差分由来の warning / failure はない。
+- 次 slice: shared token-aware public surface seed scan core と専用 error enum を追加し、seed/hash/token_gate が各自の error enum へ写像する構造にする。その後、registry convenience path の candidate scanner + materializer 二重走査、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を継続する。
+
 # 2026-06-12 Agent selfhost trait body segmenter scan cursor checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、parser utility と checker / proof / HIR / Resource / backend のDAG、source text / lexeme / path / diagnostic を authority にしないこと、探索範囲削減、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

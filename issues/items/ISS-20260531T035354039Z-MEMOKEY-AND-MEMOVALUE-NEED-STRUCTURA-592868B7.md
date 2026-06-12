@@ -56,6 +56,16 @@ Accepted tests should cover primitive scalar/unit/structural Copy values; reject
 
 Current Phase 1 regression is covered by `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`.
 
+## 2026-06-12 selfhost public surface token item dispatch checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。
+
+この checkpoint では、AST-only seed scan と token-aware seed scan の本体が `SelfhostModuleItemKind` の長い全列挙を個別に持つ構造をやめ、non-declaration item policy と declaration item policy に分けた。trait declaration だけが marker / method-bearing trait signature normalization へ進み、public function / struct / enum / impl は同じ item pass で typed error にする。import / use / prelude / no-prelude は Phase 1 local memo trait pair surface を越えるため fail-closed に拒否する。
+
+subagent review では、`memo_trait_public_surface_seed.nepl` から `memo_trait_public_surface_token_gate.nepl` を直接呼ぶ案は `seed -> token_gate -> seed` の循環 import を作るため不可と判断した。final dedup には、shared token-aware public surface seed scan core と専用 error enum を切り出し、seed/hash/token_gate が各自の error enum へ写像する設計が必要である。今回の変更はその前段 checkpoint であり、この issue を完了扱いにはしない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` と `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` で更新し、seed 側と token_gate 側の二段階 dispatch、facade 非公開、trusted source identity 非生成、source/span/lexeme を accepted authority にしない境界を固定した。検証は focused contracts、seed/hash doctest、split/proof contract、Zenn review gate、source policy regression、issues check、`git diff --check` を通した。
+
 ## 2026-06-12 selfhost canonical key payload bytes codec checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl` を追加し、`.neplproof` reader / serializer 全体の前段として serialized canonical key tree payload の bytes codec を分離した。

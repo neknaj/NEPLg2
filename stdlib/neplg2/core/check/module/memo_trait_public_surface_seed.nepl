@@ -845,11 +845,18 @@ fn selfhost_memo_trait_public_surface_seed_public_decl_supported_result %fn Self
         Option::None:
             Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing
 
-//: selfhost_memo_trait_public_surface_seed_table_scan_item_result: item 1 件を seed table へ[反映/はんえい]する
-fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item:
-    match item.kind:
-        SelfhostModuleItemKind::TraitDecl:
-            selfhost_memo_trait_public_surface_seed_table_scan_trait_item_result source table item
+//: selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result: declaration ではない module item を public surface seed scan に[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - AST-only scan と token-aware scan が、directive / raw block / doc comment の扱いを別々に持たないようにします。
+//: - declaration item の分類は `selfhost_module_item_kind_declaration` に寄せ、この helper は「declaration ではない item」の policy だけを担当します。
+//:
+//: [契約/けいやく]:
+//: - import / use / prelude / no-prelude は Phase 1 の local memo trait pair surface を越えるため fail-closed にします。
+//: - doc comment、test directive、target/profile/capability 条件、raw backend text は public memo trait seed を増減させないため table をそのまま返します。
+//: - declaration kind がここへ到達した場合は caller の分類境界が壊れているため、typed error で拒否します。
+fn selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result %fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItemKind Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \table\kind:
+    match kind:
         SelfhostModuleItemKind::DocComment:
             Result::Ok table
         SelfhostModuleItemKind::MlstrLine:
@@ -884,30 +891,58 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn Sel
             Result::Ok table
         SelfhostModuleItemKind::LlvmIrText:
             Result::Ok table
+        SelfhostModuleItemKind::TraitDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
         SelfhostModuleItemKind::FunctionDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported
+        SelfhostModuleItemKind::StructDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported
+        SelfhostModuleItemKind::EnumDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported
+        SelfhostModuleItemKind::ImplDecl:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_result: declaration item 1 件を AST-only seed table へ[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - module item kind から declaration kind への対応は `module_ast` の shared helper に任せます。
+//: - public non-trait declaration の fail-closed 判定はここへ集約し、token-aware path と同じ classification 境界を使います。
+fn selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem fn SelfhostModuleDeclarationKind Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item\declaration_kind:
+    match declaration_kind:
+        SelfhostModuleDeclarationKind::Trait:
+            selfhost_memo_trait_public_surface_seed_table_scan_trait_item_result source table item
+        SelfhostModuleDeclarationKind::Function:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::StructDecl:
+        SelfhostModuleDeclarationKind::Struct:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::EnumDecl:
+        SelfhostModuleDeclarationKind::Enum:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::ImplDecl:
+        SelfhostModuleDeclarationKind::Impl:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_item_result: item 1 件を seed table へ[反映/はんえい]する
+fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item:
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some declaration_kind:
+            selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_result source table item declaration_kind
+        Option::None:
+            selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result table item.kind
 
 //: selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result: token-aware seed table へ classified trait name を[反映/はんえい]する
 fn selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn str impure fn SelfhostModuleDeclarationVisibility impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\name\visibility\item:
@@ -988,69 +1023,46 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_res
         Option::None:
             Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
 
-//: selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result: token-aware item scan を[行/おこな]う
-fn selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item:
-    match item.kind:
-        SelfhostModuleItemKind::TraitDecl:
+//: selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_with_tokens_result: declaration item 1 件を token-aware seed table へ[反映/はんえい]する
+//:
+//: [目的/もくてき]:
+//: - method-bearing trait だけが token stream を必要とします。non-trait declaration の public surface rejection は AST-only path と同じ helper を使います。
+fn selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem impure fn SelfhostModuleDeclarationKind Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item\declaration_kind:
+    match declaration_kind:
+        SelfhostModuleDeclarationKind::Trait:
             selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result source tokens table item
-        SelfhostModuleItemKind::DocComment:
-            Result::Ok table
-        SelfhostModuleItemKind::MlstrLine:
-            Result::Ok table
-        SelfhostModuleItemKind::EntryDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::TargetDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::ImportDirective:
-            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported
-        SelfhostModuleItemKind::UseDirective:
-            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported
-        SelfhostModuleItemKind::TestDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::IfTargetDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::IfProfileDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::CapabilityDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::PreludeDirective:
-            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported
-        SelfhostModuleItemKind::NoPreludeDirective:
-            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported
-        SelfhostModuleItemKind::IntrinsicDirective:
-            Result::Ok table
-        SelfhostModuleItemKind::WasmBlock:
-            Result::Ok table
-        SelfhostModuleItemKind::LlvmIrBlock:
-            Result::Ok table
-        SelfhostModuleItemKind::WasmText:
-            Result::Ok table
-        SelfhostModuleItemKind::LlvmIrText:
-            Result::Ok table
-        SelfhostModuleItemKind::FunctionDecl:
+        SelfhostModuleDeclarationKind::Function:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::StructDecl:
+        SelfhostModuleDeclarationKind::Struct:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::EnumDecl:
+        SelfhostModuleDeclarationKind::Enum:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
-        SelfhostModuleItemKind::ImplDecl:
+        SelfhostModuleDeclarationKind::Impl:
             match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
                 Result::Ok _private:
                     Result::Ok table
                 Result::Err error:
                     Result::Err error
+
+//: selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result: token-aware item scan を[行/おこな]う
+fn selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\item:
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some declaration_kind:
+            selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_with_tokens_result source tokens table item declaration_kind
+        Option::None:
+            selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result table item.kind
 
 //: selfhost_memo_trait_public_surface_seed_table_scan_module_loop: module item stream を[走査/そうさ]する
 fn selfhost_memo_trait_public_surface_seed_table_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitStableSourceSeedTable fn i32 fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\ast\table\idx\n:
