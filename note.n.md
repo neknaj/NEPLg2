@@ -56860,3 +56860,43 @@ MERGE_APPROVED
 - re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
 - `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。
+## 2026-06-12 Agent selfhost memo trait decoded candidate record checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-decoded-candidate-record-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認済み。静的検査、typed enum error、Result API、pure core / boundary 分離、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_decoded.nepl` に `SelfhostMemoTraitNeplProofDecodedCandidateRecord` と `SelfhostMemoTraitNeplProofDecodedCandidateErrorKind` を追加した。
+- `selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result` は decoded artifact owner、lookup target fingerprint、candidate range、range 内 offset を受け取り、artifact invariant、range / offset、target fingerprint、index entry と record の対応を fail-closed に再検査してから Copy payload pair を返す。
+- `CandidateAccessInvalid(SelfhostMemoTraitNeplProofDecodedCandidateErrorKind)` を追加し、`CandidateRangeInvalid`、`CandidateOffsetOutOfRange`、`CandidateIndexEntryMissing`、`CandidateRecordEntryMissing`、`CandidateTargetFingerprintMismatch`、`CandidateRecordFingerprintMismatch`、`CandidateRecordHashMismatch`、`CandidateRecordValidationUnexpected(SelfhostMemoTraitNeplProofArtifactErrorKind)` を `CandidateMissing`、`LookupInvalid`、単体 accessor の `RecordEntryMissing` / `IndexEntryMissing` と分けた。
+- candidate record は proof acceptance ではない。canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残す。
+- stage0 smoke に accepted candidate record、invalid range、candidate offset error、target fingerprint mismatch、collision group offset=1 candidate を追加し、source policy で candidate record struct、candidate error enum、target fingerprint check、entry / record match、typed equality、proof-store / preseed / source / checker-HIR-resource-backend への逆依存禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Hume に、decoded artifact candidate record projection boundary が現在の selfhost / memo trait / `.neplproof` issues の次段として妥当か、Zenn方針に反しないか、追加すべきテストや source policy がないかレビューを依頼した。
+- Hume review: Blocker なし。Required として、projection API 名と契約を candidate record projection と明確にすること、projection-local range / offset / missing / fingerprint mismatch / payload hash mismatch を typed error で分けること、`validate_result`、range / offset guard、index read、record read、`index_entry_matches_record_result` の順を保つこと、doc comment に proof acceptance ではないことを明記すること、accepted projection / offset out of range / malformed range / mismatch / collision offset の source policy または smoke を追加することを求めた。
+- Required 対応として、projection-local missing を `CandidateIndexEntryMissing` / `CandidateRecordEntryMissing` に分け、target mismatch、record fingerprint mismatch、record hash mismatch、unexpected validator error をそれぞれ typed variant にした。safe stage0 で直接到達できる invalid range、offset out of range、target mismatch、collision offset は実行 smoke に入れ、record fingerprint/hash mismatch は `selfhost_memo_trait_neplproof_index_entry_matches_record_result` の typed mapping と source policy で固定した。
+
+### verification_initial
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-decoded-candidate-record.json`
+
+### verification_final
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-decoded-candidate-record.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`

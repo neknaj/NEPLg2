@@ -1102,6 +1102,14 @@ source text、span、path suffix、display name、diagnostic text、lexeme は l
 
 この follow-up でも range は proof acceptance ではない。binary search は candidate group の開始位置だけを縮小し、canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残す。`IndexEntryMissing`、`CandidateMissing`、sorted order corruption の typed error も既存の `SelfhostMemoTraitNeplProofSortedIndexErrorKind` のまま保持する。
 
+2026-06-12 follow-up で、decoded artifact owner 側に `selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result` を追加した。この boundary は `lookup_result` が返した `SelfhostMemoTraitNeplProofIndexCandidateRange`、caller が lookup に使った target fingerprint、range 内の相対 offset を受け取り、artifact invariant、range / offset、target fingerprint、index entry と record の対応を再検査したうえで `SelfhostMemoTraitNeplProofDecodedCandidateRecord` を返す。
+
+candidate record は index entry と record の Copy payload pair であり、artifact owner 内部の storage location や参照を外へ出さない。`CandidateAccessInvalid(SelfhostMemoTraitNeplProofDecodedCandidateErrorKind)` は invalid range、offset out of range、projection-local index / record slot missing、target fingerprint mismatch、index-entry / record fingerprint mismatch、index-entry / record payload hash mismatch、unexpected artifact validator error を typed variant として保持する。これにより、後段の preseed / proof store / producer gate は vector slot を直接読み直さず、同じ fail-closed projection boundary を通って candidate record を受け取れる。
+
+projection-local missing は既存の単体 accessor error である `RecordEntryMissing` / `IndexEntryMissing` へ混ぜない。`record_at_result` と `index_at_result` は artifact 全体から単体 slot を読む defensive accessor であり、candidate projection は lookup range、target fingerprint、index entry、record ordinal の関係も含めて検査する別責務だからである。
+
+この follow-up でも candidate record は proof acceptance ではない。target fingerprint と record payload hash の整合を再確認しても、canonical payload decode、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続の authority として残る。`memo_trait_proof_decoded.nepl` は引き続き proof store / preseed / source construction へ direct import せず、decoded artifact owner と candidate projection だけを担当する。
+
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
 ### 2026-06-12 memo trait `.neplproof` sorted index producer checkpoint

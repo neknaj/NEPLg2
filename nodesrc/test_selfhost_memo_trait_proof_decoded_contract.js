@@ -38,6 +38,10 @@ const constructorImplementation = codeSliceBetween(
 );
 const lookupImplementation = codeSliceBetween(
     "pub fn selfhost_memo_trait_neplproof_decoded_artifact_lookup_result",
+    "//: selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result",
+);
+const candidateImplementation = codeSliceBetween(
+    "pub fn selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result",
     "//: selfhost_memo_trait_neplproof_decoded_artifact_record_at_result",
 );
 
@@ -101,6 +105,11 @@ assert.match(
 );
 assert.match(
     source,
+    /lower-bound binary search[\s\S]*O\(n \* m \+ m \* m \+ log m \+ c\)[\s\S]*candidate_record_at_result[\s\S]*range \/ offset \/ target fingerprint \/ index entry と record の対応を O\(1\) で検査/,
+    "decoded artifact documentation must describe the sorted-index lookup complexity and candidate record accessor cost",
+);
+assert.match(
+    source,
     /失敗時には、入力 `records` owner と、構築済み `indexes` owner をこの module が閉じます/,
     "decoded artifact documentation must state failure-path ownership cleanup",
 );
@@ -116,8 +125,18 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:[\s\S]*HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*IndexBuildInvalid %SelfhostMemoTraitNeplProofIndexProducerErrorKind[\s\S]*TableValidationInvalid %SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*SortedIndexInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind[\s\S]*LookupInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind[\s\S]*CandidateMissing[\s\S]*RecordEntryMissing[\s\S]*IndexEntryMissing/,
-    "decoded artifact owner errors must preserve typed nested error payloads and split valid candidate misses from lookup corruption",
+    /pub struct SelfhostMemoTraitNeplProofDecodedCandidateRecord:[\s\S]*index_entry %SelfhostMemoTraitNeplProofIndexEntry[\s\S]*record %SelfhostMemoTraitNeplProofRecord/,
+    "decoded candidate record result must pair the candidate index entry with the copied decoded record",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofDecodedCandidateErrorKind:[\s\S]*CandidateRangeInvalid[\s\S]*CandidateOffsetOutOfRange[\s\S]*CandidateIndexEntryMissing[\s\S]*CandidateRecordEntryMissing[\s\S]*CandidateTargetFingerprintMismatch[\s\S]*CandidateRecordFingerprintMismatch[\s\S]*CandidateRecordHashMismatch[\s\S]*CandidateRecordValidationUnexpected %SelfhostMemoTraitNeplProofArtifactErrorKind/,
+    "decoded candidate access errors must classify invalid range, invalid offset, projection-local missing entries, target mismatch, record fingerprint mismatch, record hash mismatch, and unexpected validator errors as typed variants",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:[\s\S]*HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*IndexBuildInvalid %SelfhostMemoTraitNeplProofIndexProducerErrorKind[\s\S]*TableValidationInvalid %SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*SortedIndexInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind[\s\S]*LookupInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind[\s\S]*CandidateMissing[\s\S]*CandidateAccessInvalid %SelfhostMemoTraitNeplProofDecodedCandidateErrorKind[\s\S]*RecordEntryMissing[\s\S]*IndexEntryMissing/,
+    "decoded artifact owner errors must preserve typed nested error payloads and split valid candidate misses, candidate access failure, and lookup corruption",
 );
 assert.match(
     source,
@@ -155,6 +174,26 @@ assert.match(
     "decoded artifact lookup must delegate to the sorted index public lookup boundary while splitting valid candidate miss from typed lookup corruption",
 );
 assert.match(
+    candidateImplementation,
+    /selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact[\s\S]*lt range\.start_index 0[\s\S]*le range\.candidate_count 0[\s\S]*CandidateRangeInvalid[\s\S]*lt candidate_offset 0[\s\S]*ge candidate_offset range\.candidate_count[\s\S]*CandidateOffsetOutOfRange/,
+    "candidate record accessor must validate artifact invariants and reject invalid range or offset before reading vectors",
+);
+assert.match(
+    candidateImplementation,
+    /let index_slot %i32 add range\.start_index candidate_offset[\s\S]*lt index_slot range\.start_index[\s\S]*v::get indexes index_slot[\s\S]*CandidateIndexEntryMissing/,
+    "candidate record accessor must derive the index slot defensively and classify projection-local missing index entries",
+);
+assert.match(
+    candidateImplementation,
+    /not selfhost_memo_trait_canonical_type_fingerprint_eq entry\.canonical_fingerprint target[\s\S]*CandidateTargetFingerprintMismatch[\s\S]*v::get records entry\.record_ordinal[\s\S]*CandidateRecordEntryMissing/,
+    "candidate record accessor must verify the target fingerprint before reading the pointed record and classify projection-local missing records",
+);
+assert.match(
+    candidateImplementation,
+    /selfhost_memo_trait_neplproof_index_entry_matches_record_result entry record[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_record_new entry record[\s\S]*CandidateRecordFingerprintMismatch[\s\S]*CandidateRecordHashMismatch[\s\S]*CandidateRecordValidationUnexpected kind/,
+    "candidate record accessor must re-check index-entry to record consistency and split fingerprint/hash mismatch from unexpected validator payloads",
+);
+assert.match(
     source,
     /pub fn selfhost_memo_trait_neplproof_decoded_artifact_record_at_result[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact[\s\S]*v::get records record_ordinal[\s\S]*RecordEntryMissing/,
     "record accessor must validate the artifact and classify defensive record slot absence",
@@ -166,13 +205,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_index_producer_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_index_validation_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_sorted_index_error_kind_eq/,
-    "decoded artifact error equality must compare all nested typed payloads instead of stringifying errors",
+    /pub fn selfhost_memo_trait_neplproof_decoded_candidate_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq[\s\S]*pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_index_producer_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_index_validation_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_sorted_index_error_kind_eq[\s\S]*selfhost_memo_trait_neplproof_decoded_candidate_error_kind_eq/,
+    "decoded artifact error equality must compare all nested typed payloads, including candidate access errors, instead of stringifying errors",
 );
 assert.match(
     source,
-    /pub fn selfhost_memo_trait_neplproof_decoded_artifact_stage0[\s\S]*selfhost_memo_trait_neplproof_artifact_stage0[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one[\s\S]*accepted_lookup[\s\S]*accepted_record[\s\S]*accepted_index[\s\S]*missing_lookup[\s\S]*invalid_record_result/,
-    "stage0 smoke must reuse the artifact schema accepted record and cover lookup, record access, index access, missing candidate, and invalid-record rejection",
+    /pub fn selfhost_memo_trait_neplproof_decoded_artifact_stage0[\s\S]*selfhost_memo_trait_neplproof_artifact_stage0[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one[\s\S]*accepted_lookup[\s\S]*accepted_candidate_record[\s\S]*candidate_range_error[\s\S]*candidate_offset_error[\s\S]*candidate_target_error[\s\S]*accepted_collision_candidate_record[\s\S]*accepted_record[\s\S]*accepted_index[\s\S]*missing_lookup[\s\S]*invalid_record_result/,
+    "stage0 smoke must reuse the artifact schema accepted record and cover lookup, candidate record access, invalid range, offset rejection, target mismatch, collision offset, record access, index access, missing candidate, and invalid-record rejection",
 );
 assert.doesNotMatch(
     codeOnly,

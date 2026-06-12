@@ -723,6 +723,32 @@ focused doctest の timing では `compile_ms=13572`、`resource_static_check=12
 
 この checkpoint 後の残件は、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` decoded artifact candidate record checkpoint
+
+`memo_trait_proof_decoded.nepl` に、sorted index lookup が返した candidate range から index entry と decoded record を copy-out する public boundary を追加した。
+
+`selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result` は `&SelfhostMemoTraitNeplProofDecodedArtifact`、lookup に使った `SelfhostMemoTraitCanonicalTypeFingerprint`、`SelfhostMemoTraitNeplProofIndexCandidateRange`、range 内の相対 offset を受け取る。artifact invariant を再検査し、range / offset、overflow defensive guard、target fingerprint、index entry と record の対応を確認してから `SelfhostMemoTraitNeplProofDecodedCandidateRecord` を返す。
+
+`SelfhostMemoTraitNeplProofDecodedCandidateRecord` は `index_entry` と `record` の Copy payload pair であり、artifact owner 内部の storage location や reference は外へ出さない。これは proof acceptance ではなく、後続の canonical payload decode、policy、proof kind、decoded batch preseed、proof store lookup、producer gate へ渡す候補 projection である。
+
+error は `SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid(SelfhostMemoTraitNeplProofDecodedCandidateErrorKind)` として分けた。`CandidateRangeInvalid`、`CandidateOffsetOutOfRange`、`CandidateIndexEntryMissing`、`CandidateRecordEntryMissing`、`CandidateTargetFingerprintMismatch`、`CandidateRecordFingerprintMismatch`、`CandidateRecordHashMismatch`、`CandidateRecordValidationUnexpected(SelfhostMemoTraitNeplProofArtifactErrorKind)` を typed variant として保持し、`CandidateMissing`、`LookupInvalid`、単体 accessor の `RecordEntryMissing` / `IndexEntryMissing` と混ぜない。equality helper も wildcard を使わず、nested payload まで比較する。
+
+stage0 smoke は accepted lookup range から candidate record を取り出せること、invalid range が `CandidateRangeInvalid` になること、`candidate_offset = range.candidate_count` が `CandidateOffsetOutOfRange` になること、別 fingerprint target が `CandidateTargetFingerprintMismatch` になること、同じ fingerprint の collision group で `offset=1` の record を取り出せることを追加で確認する。source policy は candidate record struct、candidate error enum、artifact validation、range / offset guard、target fingerprint check、index-entry / record match、typed error equality、proof-store / preseed / source / checker-HIR-resource-backend direct dependency 禁止を固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-decoded-candidate-record.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後も、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

@@ -14,6 +14,7 @@
 //: - `selfhost_memo_trait_neplproof_decoded_artifact_from_records` は record vector owner を受け取り、sorted sidecar index を作り、header validation、decoded table validation、sorted order validation を通した場合だけ artifact owner を返します。
 //: - 失敗時には、入力 `records` owner と、構築済み `indexes` owner をこの module が閉じます。caller は error payload だけを受け取ります。
 //: - artifact lookup は candidate range だけを返します。index hit、fingerprint hit、record payload hash match だけで proof を受理する経路はありません。
+//: - candidate record accessor は、lookup が返した range と target fingerprint を受け取り、range 内の index entry と record の対応を再検査してから Copy payload として返します。
 //: - `CandidateMissing` は有効な artifact に対象 fingerprint の候補がないことを表す正常な lookup miss です。header / table / sorted order の破損とは分けて扱います。
 //: - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId` は decoded artifact owner の authority ではありません。
 //:
@@ -25,16 +26,22 @@
 //: [計算量/けいさんりょう]:
 //: - `from_records` は sorted index producer の O(n^2) と decoded table validation の O(n * m + m * m) に従います。ここで n は record 数、m は index entry 数です。
 //: - `validate_result` は header validation、table validation、sorted order validation を再実行するため、現 stage では O(n * m + m * m) です。
-//: - `lookup_result` は現 stage では validation 後に sorted index を線形 scan するため O(n * m + m * m + m) です。sorted contract があるため、後続では同じ Result 型のまま lookup 部分を O(log m + c) へ移せます。
+//: - `lookup_result` は validation 後に sorted index の lower-bound binary search と collision group count を行うため O(n * m + m * m + log m + c) です。c は同じ fingerprint の candidate 数です。
+//: - `candidate_record_at_result` は validation を再実行した後、range / offset / target fingerprint / index entry と record の対応を O(1) で検査します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -50,11 +57,16 @@
 //:         Result::Ok summary:
 //:             let expected_range SelfhostMemoTraitNeplProofIndexCandidateRange 0 1
 //:             let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_index_candidate_range_eq (unwrap_ok summary.accepted_lookup) expected_range
-//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_decoded_artifact_record_result_is_ok summary.accepted_record
-//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_decoded_artifact_index_result_is_ok summary.accepted_index
-//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.missing_lookup) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing
-//:             let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.invalid_record) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
-//:             let shown checks_print_report checks5
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_decoded_candidate_record_result_is_ok summary.accepted_candidate_record
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.candidate_range_error) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.candidate_offset_error) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.candidate_target_error) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_neplproof_decoded_candidate_record_result_is_ok summary.accepted_collision_candidate_record
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_neplproof_decoded_artifact_record_result_is_ok summary.accepted_record
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_neplproof_decoded_artifact_index_result_is_ok summary.accepted_index
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.missing_lookup) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.invalid_record) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+//:             let shown checks_print_report checks10
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "decoded neplproof artifact stage0 setup failed"
@@ -89,6 +101,42 @@ pub struct SelfhostMemoTraitNeplProofDecodedArtifact:
     records %Vec SelfhostMemoTraitNeplProofRecord
     indexes %Vec SelfhostMemoTraitNeplProofIndexEntry
 
+//: SelfhostMemoTraitNeplProofDecodedCandidateRecord: candidate range から copy-out した index / record pair
+//:
+//: [目的/もくてき]:
+//: - lookup range が指す index entry と、その entry が指す decoded record を 1 つの値として返します。
+//:
+//: [契約/けいやく]:
+//: - この値は proof acceptance ではありません。caller は canonical payload decode、policy、proof kind、producer gate を続けて検査します。
+//: - `index_entry` と `record` は Copy payload です。artifact owner 内部の storage location や参照は外へ出しません。
+pub struct SelfhostMemoTraitNeplProofDecodedCandidateRecord:
+    index_entry %SelfhostMemoTraitNeplProofIndexEntry
+    record %SelfhostMemoTraitNeplProofRecord
+
+//: SelfhostMemoTraitNeplProofDecodedCandidateErrorKind: candidate range から record を取り出す時の拒否理由
+//:
+//: [目的/もくてき]:
+//: - lookup miss や artifact validation failure とは別に、caller が渡した range / offset / target と index entry / record の対応不整合を typed enum として表します。
+//:
+//: [分類/ぶんるい]:
+//: - `CandidateRangeInvalid`: range の開始位置または候補数が candidate group として成立しません。
+//: - `CandidateOffsetOutOfRange`: range 内の相対 offset が candidate 数の外側を指しました。
+//: - `CandidateIndexEntryMissing`: range 内の index slot を読めない defensive failure です。
+//: - `CandidateRecordEntryMissing`: index entry が指す record slot を読めない defensive failure です。
+//: - `CandidateTargetFingerprintMismatch`: range 内の index entry が caller の target fingerprint と一致しません。
+//: - `CandidateRecordFingerprintMismatch`: index entry が指す record の canonical fingerprint が一致しません。
+//: - `CandidateRecordHashMismatch`: index entry が指す record の payload hash が一致しません。
+//: - `CandidateRecordValidationUnexpected`: index entry と record の対応検査から、上記以外の artifact schema error が返った defensive failure です。
+pub enum SelfhostMemoTraitNeplProofDecodedCandidateErrorKind:
+    CandidateRangeInvalid
+    CandidateOffsetOutOfRange
+    CandidateIndexEntryMissing
+    CandidateRecordEntryMissing
+    CandidateTargetFingerprintMismatch
+    CandidateRecordFingerprintMismatch
+    CandidateRecordHashMismatch
+    CandidateRecordValidationUnexpected %SelfhostMemoTraitNeplProofArtifactErrorKind
+
 //: SelfhostMemoTraitNeplProofDecodedArtifactErrorKind: decoded artifact owner boundary の拒否理由
 //:
 //: [目的/もくてき]:
@@ -101,6 +149,7 @@ pub struct SelfhostMemoTraitNeplProofDecodedArtifact:
 //: - `SortedIndexInvalid`: sorted order validation が拒否しました。
 //: - `LookupInvalid`: candidate lookup の前提となる header / table / sorted order validation が拒否しました。
 //: - `CandidateMissing`: artifact は有効ですが、対象 fingerprint の候補が存在しません。
+//: - `CandidateAccessInvalid`: lookup range から candidate record を取り出す時、range / offset / target / record 対応が拒否されました。
 //: - `RecordEntryMissing` と `IndexEntryMissing`: artifact validation を通した後に vector slot を読めない defensive failure です。
 pub enum SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:
     HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
@@ -109,16 +158,38 @@ pub enum SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:
     SortedIndexInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind
     LookupInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind
     CandidateMissing
+    CandidateAccessInvalid %SelfhostMemoTraitNeplProofDecodedCandidateErrorKind
     RecordEntryMissing
     IndexEntryMissing
 
 //: SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary: decoded artifact owner contract の代表 smoke
 pub struct SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary:
     accepted_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    accepted_candidate_record %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    candidate_range_error %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    candidate_offset_error %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    candidate_target_error %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    accepted_collision_candidate_record %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
     accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
     accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
     missing_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
     invalid_record %Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedCandidateRecord:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedCandidateRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedCandidateRecord:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedCandidateRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedCandidateErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedCandidateErrorKind SelfhostMemoTraitNeplProofDecodedCandidateErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedCandidateErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedCandidateErrorKind SelfhostMemoTraitNeplProofDecodedCandidateErrorKind \self:
+        self
 
 impl Clone for SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:
     fn clone %fn &SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \self:
@@ -139,6 +210,10 @@ impl Copy for SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary:
 //: selfhost_memo_trait_neplproof_decoded_artifact_new: validation 済み decoded artifact owner を[作/つく]る
 fn selfhost_memo_trait_neplproof_decoded_artifact_new %fn SelfhostMemoTraitNeplProofHeader fn Vec SelfhostMemoTraitNeplProofRecord fn Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifact \header\records\indexes:
     SelfhostMemoTraitNeplProofDecodedArtifact header records indexes
+
+//: selfhost_memo_trait_neplproof_decoded_candidate_record_new: candidate record copy-out payload を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_candidate_record_new %fn SelfhostMemoTraitNeplProofIndexEntry fn SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedCandidateRecord \index_entry\record:
+    SelfhostMemoTraitNeplProofDecodedCandidateRecord index_entry record
 
 //: selfhost_memo_trait_neplproof_decoded_artifact_free: decoded artifact owner を[閉/と]じる
 //:
@@ -234,6 +309,84 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_lookup_result %fn &Selfhos
                 SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing:
                     Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing
 
+//: selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result: candidate range から record を copy-out する
+//:
+//: [目的/もくてき]:
+//: - sorted index lookup が返した candidate range のうち、caller が指定した相対 offset の candidate を index entry と record の pair として返します。
+//:
+//: [契約/けいやく]:
+//: - artifact invariant を再検査した後、range、offset、target fingerprint、index entry と record の対応を fail-closed に確認します。
+//: - `target` は `selfhost_memo_trait_neplproof_decoded_artifact_lookup_result` に渡した fingerprint と同じ値を渡します。この検査により、任意の range を proof authority として扱う誤用を防ぎます。
+//: - 戻り値は proof acceptance ではありません。caller は canonical payload decode、payload hash 再計算、policy、proof kind、preseed decision、producer gate を続けて検査します。
+//: - `Ok(candidate)` の `index_entry` と `record` は Copy payload です。artifact owner の storage location や参照は外に出ません。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result %fn &SelfhostMemoTraitNeplProofDecodedArtifact fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitNeplProofIndexCandidateRange fn i32 Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \artifact\target\range\candidate_offset:
+    match selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact:
+        Result::Ok _valid:
+            if:
+                or:
+                    lt range.start_index 0
+                    le range.candidate_count 0
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid
+                else:
+                    if:
+                        or:
+                            lt candidate_offset 0
+                            ge candidate_offset range.candidate_count
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange
+                        else:
+                            let index_slot %i32 add range.start_index candidate_offset
+                            if:
+                                lt index_slot range.start_index
+                                then:
+                                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid
+                                else:
+                                    let indexes %&Vec SelfhostMemoTraitNeplProofIndexEntry field::get_ref artifact "indexes"
+                                    match v::get indexes index_slot:
+                                        Option::Some entry:
+                                            if:
+                                                not selfhost_memo_trait_canonical_type_fingerprint_eq entry.canonical_fingerprint target
+                                                then:
+                                                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch
+                                                else:
+                                                    let records %&Vec SelfhostMemoTraitNeplProofRecord field::get_ref artifact "records"
+                                                    match v::get records entry.record_ordinal:
+                                                        Option::Some record:
+                                                            match selfhost_memo_trait_neplproof_index_entry_matches_record_result entry record:
+                                                                Result::Ok _match:
+                                                                    Result::Ok selfhost_memo_trait_neplproof_decoded_candidate_record_new entry record
+                                                                Result::Err kind:
+                                                                    match kind:
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                                        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected kind
+                                                        Option::None:
+                                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing
+        Result::Err kind:
+            Result::Err kind
+
 //: selfhost_memo_trait_neplproof_decoded_artifact_record_at_result: decoded artifact から record を copy-out する
 //:
 //: [契約/けいやく]:
@@ -268,6 +421,158 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_index_at_result %fn &Selfh
         Result::Err kind:
             Result::Err kind
 
+//: selfhost_memo_trait_neplproof_decoded_candidate_error_kind_eq: candidate access error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ variant は payload も比較します。
+//: - wildcard arm は使いません。error variant を追加した場合、この equality も明示的に更新します。
+pub fn selfhost_memo_trait_neplproof_decoded_candidate_error_kind_eq %fn SelfhostMemoTraitNeplProofDecodedCandidateErrorKind fn SelfhostMemoTraitNeplProofDecodedCandidateErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    true
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateOffsetOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateIndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateTargetFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordHashMismatch:
+                    false
+                SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRecordValidationUnexpected b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+
 //: selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq: decoded artifact error が同じ分類か[返/かえ]す
 //:
 //: [契約/けいやく]:
@@ -289,6 +594,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
                     false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
+                    false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
@@ -306,6 +613,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
@@ -325,6 +634,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
                     false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
+                    false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
@@ -342,6 +653,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
@@ -361,6 +674,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                     selfhost_memo_trait_neplproof_sorted_index_error_kind_eq a_kind b_kind
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
                     false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
+                    false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
@@ -379,6 +694,28 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
                     true
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid b_kind:
+                    selfhost_memo_trait_neplproof_decoded_candidate_error_kind_eq a_kind b_kind
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
@@ -396,6 +733,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     true
@@ -415,6 +754,8 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
                     false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid _b_kind:
+                    false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
                     false
                 SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
@@ -424,6 +765,14 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn Selfhost
 pub fn selfhost_memo_trait_neplproof_decoded_artifact_lookup_result_is_ok %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind bool \result:
     match result:
         Result::Ok _range:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_decoded_candidate_record_result_is_ok: candidate record accessor result が accepted candidate か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_decoded_candidate_record_result_is_ok %fn Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _candidate:
             true
         Result::Err _kind:
             false
@@ -463,9 +812,22 @@ fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one %impure fn 
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_two: 2 record の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_two %impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \first\second:
+    let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records0:
+            match selfhost_memo_trait_neplproof_decoded_artifact_record_push records0 first:
+                Result::Ok records1:
+                    selfhost_memo_trait_neplproof_decoded_artifact_record_push records1 second
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary \accepted_lookup\accepted_record\accepted_index\missing_lookup\invalid_record:
-    SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary accepted_lookup accepted_record accepted_index missing_lookup invalid_record
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary \accepted_lookup\accepted_candidate_record\candidate_range_error\candidate_offset_error\candidate_target_error\accepted_collision_candidate_record\accepted_record\accepted_index\missing_lookup\invalid_record:
+    SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary accepted_lookup accepted_candidate_record candidate_range_error candidate_offset_error candidate_target_error accepted_collision_candidate_record accepted_record accepted_index missing_lookup invalid_record
 
 //: selfhost_memo_trait_neplproof_decoded_artifact_stage0_run_artifact: Vec owner から artifact accessor 群を[実行/じっこう]する
 //:
@@ -475,13 +837,53 @@ fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_run_artifact %impure fn
     match selfhost_memo_trait_neplproof_decoded_artifact_from_records records:
         Result::Ok artifact:
             let accepted_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_lookup_result &artifact accepted_fingerprint
+            let accepted_candidate_record %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind match accepted_lookup:
+                Result::Ok range:
+                    selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result &artifact accepted_fingerprint range 0
+                Result::Err kind:
+                    Result::Err kind
+            let invalid_range %SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofIndexCandidateRange -1 1
+            let candidate_range_error %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result &artifact accepted_fingerprint invalid_range 0
+            let candidate_offset_error %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind match accepted_lookup:
+                Result::Ok range:
+                    selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result &artifact accepted_fingerprint range range.candidate_count
+                Result::Err kind:
+                    Result::Err kind
+            let candidate_target_error %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind match accepted_lookup:
+                Result::Ok range:
+                    selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result &artifact missing_fingerprint range 0
+                Result::Err kind:
+                    Result::Err kind
+            let accepted_collision_candidate_record %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateAccessInvalid SelfhostMemoTraitNeplProofDecodedCandidateErrorKind::CandidateRangeInvalid
             let accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_record_at_result &artifact 0
             let accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_index_at_result &artifact 0
             let missing_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_lookup_result &artifact missing_fingerprint
             selfhost_memo_trait_neplproof_decoded_artifact_free artifact
-            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new accepted_lookup accepted_record accepted_index missing_lookup (Result::Ok unit)
+            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new accepted_lookup accepted_candidate_record candidate_range_error candidate_offset_error candidate_target_error accepted_collision_candidate_record accepted_record accepted_index missing_lookup (Result::Ok unit)
         Result::Err kind:
             Result::Err kind
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0_collision_candidate: collision group の 2 件目 candidate を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 同じ canonical fingerprint を持つ 2 record が、破損ではなく collision candidate group として扱われることを candidate projection boundary で確認します。
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_collision_candidate %impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \first_record\second_record\accepted_fingerprint:
+    match selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_two first_record second_record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_decoded_artifact_from_records records:
+                Result::Ok artifact:
+                    let accepted_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_lookup_result &artifact accepted_fingerprint
+                    let accepted_candidate %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind match accepted_lookup:
+                        Result::Ok range:
+                            selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result &artifact accepted_fingerprint range 1
+                        Result::Err kind:
+                            Result::Err kind
+                    selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+                    accepted_candidate
+                Result::Err kind:
+                    Result::Err kind
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed e
 
 //: selfhost_memo_trait_neplproof_decoded_artifact_stage0_invalid_record: invalid record の constructor error を[返/かえ]す
 fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_invalid_record %impure fn SelfhostMemoTraitNeplProofRecord Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \invalid_record:
@@ -509,13 +911,16 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_stage0 %impure fn void Res
             let missing_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint accepted_fingerprint.schema_version add accepted_fingerprint.root_hash 1
             let first_proof_kind %SelfhostMemoTraitStoredProofKind *field::get_ref &first_record "proof_kind"
             let first_proof %SelfhostMemoTraitStoredAggregateProof *field::get_ref &first_record "proof"
+            let first_record_payload_hash %i32 *field::get_ref &first_record "record_payload_hash"
+            let second_same_fingerprint_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key first_proof_kind first_proof add first_record_payload_hash 1
             let invalid_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key first_proof_kind first_proof 0
             match selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one first_record:
                 Result::Ok records:
                     match selfhost_memo_trait_neplproof_decoded_artifact_stage0_run_artifact records accepted_fingerprint missing_fingerprint:
                         Result::Ok partial_summary:
                             let invalid_record_result %Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_stage0_invalid_record invalid_record
-                            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new partial_summary.accepted_lookup partial_summary.accepted_record partial_summary.accepted_index partial_summary.missing_lookup invalid_record_result
+                            let accepted_collision_candidate_record %Result SelfhostMemoTraitNeplProofDecodedCandidateRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_stage0_collision_candidate first_record second_same_fingerprint_record accepted_fingerprint
+                            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new partial_summary.accepted_lookup partial_summary.accepted_candidate_record partial_summary.candidate_range_error partial_summary.candidate_offset_error partial_summary.candidate_target_error accepted_collision_candidate_record partial_summary.accepted_record partial_summary.accepted_index partial_summary.missing_lookup invalid_record_result
                         Result::Err _kind:
                             Result::Err StdErrorKind::InvalidOperation
                 Result::Err e:
