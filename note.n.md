@@ -1,3 +1,54 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue stable definition key checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、性能、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-trait-stable-definition-key-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` stable trait definition key producer
+- classification: selfhost implementation slice review
+- decision: full public surface hash / recursive aggregate / Copy-Drop-Eq-Hash pure evidence へ進む前に、module identity と public surface から作られる module fingerprint、trait kind、declaration ordinal を typed stable definition key へ正規化する独立 producer を先に固定する。source text、span、path、display、diagnostic を authority にせず、`core/ty` や proof store への逆依存も作らない。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_definition_key.nepl` を追加し、`SelfhostMemoTraitStableDefinitionKey`、`SelfhostMemoTraitStableDefinitionKeyErrorKind`、schema version、typed `Result` API、equality、stage0 doctest を定義した。
+  - stable definition key payload は `kind`、`schema_version`、`module_fingerprint`、`definition_key_hash` を named field として保持する。schema version は fold material と equality に含め、将来の canonical key format 変更時に旧証明と混同しない。
+  - `module_fingerprint == 0`、`declaration_ordinal = none`、`declaration_ordinal = some 0`、derived `definition_key_hash == 0` を typed enum error で拒否する。placeholder や欠落を bool や文字列へ潰さない。
+  - `memo_trait_source_evidence_producer.nepl` は stable definition key producer を direct import し、seed から stable evidence を作るときに `definition_key.definition_key_hash` を source symbol fingerprint として使うようにした。
+  - stable definition key module は `module.nepl` facade から re-export しない。stable facade に出す前に full public surface / import graph / stored proof key boundary が固まっていないため、checker-layer internal producer として扱う。
+- implementation/test:
+  - `nodesrc/test_selfhost_memo_trait_definition_key_contract.js` を追加し、目的 / 契約 / 現状 / 計算量 / doctest、schema version、source kind code、placeholder rejection、equality、facade 非公開、source / span / path / display / diagnostic 非 authority、registry / source record / proof store 直結禁止を固定した。
+  - `nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js` を更新し、source evidence producer が stable definition key producer を経由すること、key error を seed error surface へ payload 付きで写すこと、raw ordinal hash に戻らないことを固定した。
+  - `nodesrc/run_source_policy_regressions.js` に新しい source policy regression を追加した。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Fermat は Blocker なし。Required として新規 file の staging、stable key payload への schema / version field 追加、`note.n.md` / issue / `todo.md` 更新を指摘した。schema field は payload / equality / contract / fold へ反映済みで、記録更新もこの checkpoint で行う。
+  - Goodall は Blocker なし。Required として contract が schema version を検査すること、module fingerprint の意味を module identity + public surface の合成 fingerprint と明記すること、`ModuleFingerprintPlaceholder` の error mapping を説明することを指摘した。source policy と doc comment、mapping helper comment へ反映した。
+- policy/spec:
+  - Blocker: なし。
+  - Required: schema version を key payload / fold / equality / source policy へ含め、module fingerprint の authority を source spelling ではなく typed module / public surface seed 側へ限定した。
+  - Non-blocker: facade 非公開、proof store 非直結、registry / source identity record の直生成禁止、source text / span / path / diagnostic 非 authority は維持した。
+  - Question: 次 slice で full public surface hash の re-export / import graph を扱うとき、module fingerprint producer を `.neplmeta` public interface artifact と同一境界へ寄せるか、checker-layer seed producer の内部 helper に閉じるかを決める必要がある。
+  - Approve: review 指摘の Required を反映後、focused contract と focused doctest は pass。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: stable definition key が source spelling や raw ordinal hash へ戻ると、将来の `.neplmeta` / proof store key が不安定になるため、schema version、typed source kind、module fingerprint、declaration ordinal、placeholder rejection、facade 非公開を regression で固定した。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で確認する。今回の実装ではその分類を note に記録し、Required を同じ slice 内で反映した。
+  - source policy: updated and focused rerun.
+  - 今回差分由来 warning: なし。新規 contract は schema version 追加後の実装へ同期済み。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - stable definition key は typed seed の小さな固定 field だけを fold し、source-wide scan や探索的候補列挙を増やさない。
+  - source evidence producer は既存 seed table traversal の中で key producer を呼び、accepted path で source text / span / path を再走査しない。
+  - Residual: full public surface hash、import graph aggregate、proof store stored key へ進む段階で、module fingerprint の計算を重複させない shared boundary を決める必要がある。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_definition_key_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_definition_key.nepl -i stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-definition-key-focused4.json`
+  - 既存 warning: Node の WASI experimental warning が doctest 実行中に表示される。
+- residual:
+  - re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue method public surface gate checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。

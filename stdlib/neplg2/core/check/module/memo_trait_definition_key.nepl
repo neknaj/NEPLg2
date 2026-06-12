@@ -1,0 +1,278 @@
+#indent 4
+
+//: # check/module/memo_trait_definition_key
+//: `MemoKey` / `MemoValue` trait definition の stable definition key を[作/つく]る checker-layer producer です。
+//:
+//: [目的/もくてき]:
+//: - public surface seed が持つ trait-local declaration ordinal を、そのまま trusted source identity の symbol fingerprint にしないための境界です。
+//: - module fingerprint、source kind、schema version、declaration ordinal を typed input として受け取り、`MemoKey` / `MemoValue` の source identity に入れる stable definition key fingerprint を作ります。
+//: - source text、span、lexeme、path suffix、display name、diagnostic text は accepted key の authority にしません。
+//:
+//: [契約/けいやく]:
+//: - `module_fingerprint` は caller がすでに module identity と public surface を検査して作った nonzero fingerprint です。`0` は placeholder として拒否します。
+//: - `declaration_ordinal` は public surface materializer がその module public surface 内で割り当てた trait definition の ordinal seed です。`none` と `some 0` は accepted key へ進みません。
+//: - `kind` は `MemoKey` と `MemoValue` の key space を分けます。同じ module fingerprint と ordinal でも kind が違えば別の stable definition key になります。
+//: - この module は trusted registry や `signature_available=true` source record を作りません。signature fingerprint と registry validation は既存の stable source evidence / fingerprint gate の責務です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 の stable definition key は、schema version、module fingerprint、kind、public surface ordinal の deterministic folding です。
+//: - re-export を含む full public surface hash、stable nominal key、serialized `.neplmeta` / `.neplproof` 由来の key は後続 slice で、この module の入力である module fingerprint / declaration ordinal を置き換えます。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力は固定個数の Copy payload だけなので、key 生成と比較は O(1) 時間・O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_definition_key" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_policy" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_stable_definition_key_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_key
+//:     let checks2 checks_push checks1 check is_ok summary.accepted_value
+//:     let checks3 checks_push checks2 check summary.key_value_differ
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_stable_definition_key_error_kind_eq (unwrap_err summary.missing_ordinal_rejected) SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_stable_definition_key_error_kind_eq (unwrap_err summary.placeholder_ordinal_rejected) SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_stable_definition_key_error_kind_eq (unwrap_err summary.module_placeholder_rejected) SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder SelfhostMemoTraitSourceKind::MemoValueTrait
+//:     let shown checks_print_report checks6
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+
+//: SelfhostMemoTraitStableDefinitionKey: trait definition の stable key payload
+//:
+//: [目的/もくてき]:
+//: - source identity の symbol fingerprint に入れる trait definition key を、kind と module fingerprint 付きで保持します。
+//:
+//: [契約/けいやく]:
+//: - `kind` は `MemoKey` / `MemoValue` のどちらの trait definition かを表します。
+//: - `module_fingerprint` は caller が検査した module identity + public surface fingerprint です。
+//: - `schema_version` は definition key folding rule の version です。serialized artifact が入った後も、この field が変われば古い key を別物として扱います。
+//: - `definition_key_hash` は source text や path ではなく、schema version、module fingerprint、kind、declaration ordinal から作った nonzero fingerprint です。
+pub struct SelfhostMemoTraitStableDefinitionKey:
+    kind %SelfhostMemoTraitSourceKind
+    schema_version %i32
+    module_fingerprint %i32
+    definition_key_hash %i32
+
+//: SelfhostMemoTraitStableDefinitionKeyErrorKind: stable definition key の拒否理由
+//:
+//: [目的/もくてき]:
+//: - key を作れない理由を bool や表示文字列に潰さず、source kind payload 付きの enum として返します。
+pub enum SelfhostMemoTraitStableDefinitionKeyErrorKind:
+    ModuleFingerprintPlaceholder %SelfhostMemoTraitSourceKind
+    DeclarationOrdinalMissing %SelfhostMemoTraitSourceKind
+    DeclarationOrdinalPlaceholder %SelfhostMemoTraitSourceKind
+    DefinitionKeyFingerprintPlaceholder %SelfhostMemoTraitSourceKind
+
+//: SelfhostMemoTraitStableDefinitionKeyStage0Summary: stable definition key smoke の[代表/だいひょう][結果/けっか]
+//:
+//: [目的/もくてき]:
+//: - accepted key/value と、欠落・placeholder の代表 fail-closed path を 1 つにまとめます。
+pub struct SelfhostMemoTraitStableDefinitionKeyStage0Summary:
+    accepted_key %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind
+    accepted_value %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind
+    missing_ordinal_rejected %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind
+    placeholder_ordinal_rejected %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind
+    module_placeholder_rejected %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind
+    key_value_differ %bool
+
+impl Clone for SelfhostMemoTraitStableDefinitionKey:
+    fn clone %fn &SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKey \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableDefinitionKey:
+    fn copy_mark %fn SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKey \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableDefinitionKeyErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableDefinitionKeyErrorKind SelfhostMemoTraitStableDefinitionKeyErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableDefinitionKeyErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableDefinitionKeyErrorKind SelfhostMemoTraitStableDefinitionKeyErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableDefinitionKeyStage0Summary:
+    fn clone %fn &SelfhostMemoTraitStableDefinitionKeyStage0Summary SelfhostMemoTraitStableDefinitionKeyStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableDefinitionKeyStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitStableDefinitionKeyStage0Summary SelfhostMemoTraitStableDefinitionKeyStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_stable_definition_key_new: stable definition key payload を[作/つく]る
+fn selfhost_memo_trait_stable_definition_key_new %fn SelfhostMemoTraitSourceKind fn i32 fn i32 fn i32 SelfhostMemoTraitStableDefinitionKey \kind\schema_version\module_fingerprint\definition_key_hash:
+    SelfhostMemoTraitStableDefinitionKey kind schema_version module_fingerprint definition_key_hash
+
+//: selfhost_memo_trait_stable_definition_key_schema_version: stable definition key schema version を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - この値は key folding rule の一部です。field 構成や accepted input の意味を変える場合は、この version を変更します。
+pub fn selfhost_memo_trait_stable_definition_key_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_stable_definition_key_kind_code: source kind を key space code へ[写/うつ]す
+fn selfhost_memo_trait_stable_definition_key_kind_code %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            42101
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            42102
+
+//: selfhost_memo_trait_stable_definition_key_mix2: stable key 用 fingerprint を[混/ま]ぜる
+fn selfhost_memo_trait_stable_definition_key_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_stable_definition_key_mix3: stable key 用 fingerprint 3 値を[混/ま]ぜる
+fn selfhost_memo_trait_stable_definition_key_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_stable_definition_key_mix2 a b c
+
+//: selfhost_memo_trait_stable_definition_key_fold_result: 検査済み seed から key hash を[作/つく]る
+fn selfhost_memo_trait_stable_definition_key_fold_result %fn SelfhostMemoTraitSourceKind fn i32 fn i32 Result i32 SelfhostMemoTraitStableDefinitionKeyErrorKind \kind\module_fingerprint\declaration_ordinal:
+    let kind_code %i32 selfhost_memo_trait_stable_definition_key_kind_code kind
+    let schema_version %i32 selfhost_memo_trait_stable_definition_key_schema_version
+    let base %i32 selfhost_memo_trait_stable_definition_key_mix3 module_fingerprint kind_code declaration_ordinal
+    let fingerprint %i32 selfhost_memo_trait_stable_definition_key_mix2 schema_version base
+    if:
+        eq fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder kind
+        else:
+            Result::Ok fingerprint
+
+//: selfhost_memo_trait_stable_definition_key_result: source kind と ordinal seed から stable definition key を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public surface materializer が与えた trait-local ordinal seed を、source identity の symbol fingerprint として使える typed key へ変換します。
+//:
+//: [契約/けいやく]:
+//: - module fingerprint と declaration ordinal は nonzero である必要があります。
+//: - 成功時の `definition_key_hash` は schema version と `kind` を fold に含むため、version が違う key や `MemoKey` / `MemoValue` の key space は分離されます。
+//:
+//: [現状/げんじょう]:
+//: - この key は Phase 1 public surface ordinal を使います。full interface artifact では stable nominal symbol key を同じ API の入力側へ接続します。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed-size payload の検査と folding だけなので O(1) です。
+pub fn selfhost_memo_trait_stable_definition_key_result %fn SelfhostMemoTraitSourceKind fn i32 fn Option i32 Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind \kind\module_fingerprint\declaration_ordinal:
+    if:
+        eq module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder kind
+        else:
+            match declaration_ordinal:
+                Option::Some ordinal:
+                    if:
+                        eq ordinal 0
+                        then:
+                            Result::Err SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder kind
+                        else:
+                            match selfhost_memo_trait_stable_definition_key_fold_result kind module_fingerprint ordinal:
+                                Result::Ok definition_key_hash:
+                                    Result::Ok selfhost_memo_trait_stable_definition_key_new kind selfhost_memo_trait_stable_definition_key_schema_version module_fingerprint definition_key_hash
+                                Result::Err fold_error:
+                                    Result::Err fold_error
+                Option::None:
+                    Result::Err SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing kind
+
+//: selfhost_memo_trait_stable_definition_key_eq: stable definition key が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_definition_key_eq %fn SelfhostMemoTraitStableDefinitionKey fn SelfhostMemoTraitStableDefinitionKey bool \a\b:
+    and:
+        selfhost_memo_trait_source_kind_eq a.kind b.kind
+        and:
+            eq a.schema_version b.schema_version
+            and:
+                eq a.module_fingerprint b.module_fingerprint
+                eq a.definition_key_hash b.definition_key_hash
+
+//: selfhost_memo_trait_stable_definition_key_error_kind_eq: stable definition key error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_definition_key_error_kind_eq %fn SelfhostMemoTraitStableDefinitionKeyErrorKind fn SelfhostMemoTraitStableDefinitionKeyErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder kind:
+            match b:
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder other_kind:
+                    selfhost_memo_trait_source_kind_eq kind other_kind
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder _other_kind:
+                    false
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing kind:
+            match b:
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing other_kind:
+                    selfhost_memo_trait_source_kind_eq kind other_kind
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder _other_kind:
+                    false
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder kind:
+            match b:
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder other_kind:
+                    selfhost_memo_trait_source_kind_eq kind other_kind
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder _other_kind:
+                    false
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder kind:
+            match b:
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder _other_kind:
+                    false
+                SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder other_kind:
+                    selfhost_memo_trait_source_kind_eq kind other_kind
+
+//: selfhost_memo_trait_stable_definition_key_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_stable_definition_key_stage0_summary_new %fn Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind fn Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind fn Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind fn Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind fn Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind fn bool SelfhostMemoTraitStableDefinitionKeyStage0Summary \accepted_key\accepted_value\missing_ordinal_rejected\placeholder_ordinal_rejected\module_placeholder_rejected\key_value_differ:
+    SelfhostMemoTraitStableDefinitionKeyStage0Summary accepted_key accepted_value missing_ordinal_rejected placeholder_ordinal_rejected module_placeholder_rejected key_value_differ
+
+//: selfhost_memo_trait_stable_definition_key_stage0: stable definition key の代表結果を[返/かえ]す
+pub fn selfhost_memo_trait_stable_definition_key_stage0 %fn void SelfhostMemoTraitStableDefinitionKeyStage0Summary \void:
+    let accepted_key %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind:
+        selfhost_memo_trait_stable_definition_key_result SelfhostMemoTraitSourceKind::MemoKeyTrait 31 (some 11)
+    let accepted_value %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind:
+        selfhost_memo_trait_stable_definition_key_result SelfhostMemoTraitSourceKind::MemoValueTrait 31 (some 11)
+    let missing_ordinal_rejected %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind:
+        selfhost_memo_trait_stable_definition_key_result SelfhostMemoTraitSourceKind::MemoKeyTrait 31 none
+    let placeholder_ordinal_rejected %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind:
+        selfhost_memo_trait_stable_definition_key_result SelfhostMemoTraitSourceKind::MemoKeyTrait 31 (some 0)
+    let module_placeholder_rejected %Result SelfhostMemoTraitStableDefinitionKey SelfhostMemoTraitStableDefinitionKeyErrorKind:
+        selfhost_memo_trait_stable_definition_key_result SelfhostMemoTraitSourceKind::MemoValueTrait 0 (some 12)
+    let key_value_differ %bool:
+        match accepted_key:
+            Result::Ok key:
+                match accepted_value:
+                    Result::Ok value:
+                        not selfhost_memo_trait_stable_definition_key_eq key value
+                    Result::Err _value_error:
+                        false
+            Result::Err _key_error:
+                false
+    selfhost_memo_trait_stable_definition_key_stage0_summary_new accepted_key accepted_value missing_ordinal_rejected placeholder_ordinal_rejected module_placeholder_rejected key_value_differ

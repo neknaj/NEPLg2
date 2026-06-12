@@ -15,7 +15,7 @@
 //: - 成功時も accepted registry を直接作りません。`SelfhostMemoTraitStableSourceEvidenceTable` を返し、registry へ進む場合は `selfhost_memo_trait_trusted_source_registry_from_stable_evidence_result` を通します。
 //:
 //: [現状/げんじょう]:
-//: - この module は full public surface materializer ではありません。re-export、trait body、method signature normalization、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力からの seed 生成は後続 slice で実装します。
+//: - この module は full public surface materializer ではありません。re-export、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力からの seed 生成は後続 slice で実装します。
 //: - `public_surface_hash` と `normalized_signature_hash` は、この module が計算するのではなく、すでに typed evidence として渡された値を折りたたみます。計算規則そのものは public surface materializer 側の責務です。
 //:
 //: [計算量/けいさんりょう]:
@@ -58,6 +58,7 @@
 #import "neplg2/core/syntax/ast/module_ast" as *
 #import "neplg2/core/ty/ty/memo_trait_policy" as *
 #import "neplg2/core/ty/ty/memo_trait_source" as *
+#import "./memo_trait_definition_key" as *
 #import "./memo_trait_source_fingerprint" as *
 
 //: SelfhostMemoTraitStableSourceModuleSeed: module-level stable source evidence seed
@@ -81,7 +82,7 @@ pub struct SelfhostMemoTraitStableSourceModuleSeed:
 //: [契約/けいやく]:
 //: - `kind` は seed がどの memo trait source を表すかを示します。
 //: - `visibility` は public surface に含められる declaration かどうかを示します。private declaration は accepted evidence になりません。
-//: - `declaration_ordinal` は public surface materializer が与える trait-local declaration key の Phase 1 seed です。単独では stable nominal key ではありません。
+//: - `declaration_ordinal` は public surface materializer が与える trait-local declaration key の Phase 1 seed です。accepted path では `memo_trait_definition_key` を通して stable definition key へ変換します。
 //: - `normalized_signature_hash` は trait signature normalization の結果を表します。この module は normalization 自体を行いません。
 pub struct SelfhostMemoTraitStableSourceTraitSeed:
     kind %SelfhostMemoTraitSourceKind
@@ -226,7 +227,7 @@ pub fn selfhost_memo_trait_stable_source_module_seed_new %fn Option i32 fn Optio
 //: - `declaration_ordinal` と `normalized_signature_hash` の欠落・placeholder は、seed table producer が source kind ごとの enum error として返します。
 //:
 //: [現状/げんじょう]:
-//: - `declaration_ordinal` は Phase 1 の trait-local seed であり、単独では stable nominal key ではありません。stable trait definition key は後続 slice で別途生成します。
+//: - `declaration_ordinal` は Phase 1 の trait-local seed であり、単独では trusted source identity の symbol fingerprint になりません。`memo_trait_definition_key` が module fingerprint と source kind を合わせて stable definition key へ変換します。
 //:
 //: [計算量/けいさんりょう]:
 //: - field を 4 つ束ねるだけなので O(1) 時間・O(1) 追加空間です。
@@ -417,6 +418,38 @@ fn selfhost_memo_trait_stable_source_seed_kind_code %fn SelfhostMemoTraitSourceK
         SelfhostMemoTraitSourceKind::MemoValueTrait:
             1002
 
+//: selfhost_memo_trait_stable_source_seed_definition_key_error_result: stable definition key error を seed error へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - source evidence producer の既存 error surface を保ちつつ、definition key producer の typed error payload を bool に潰さず key/value 別 seed error へ変換します。
+//: - `ModuleFingerprintPlaceholder` は、この関数へ来る前に module identity / public surface の欠落と placeholder を拒否した後の合成 module fingerprint `0` を表すため、既存 surface では derived symbol fingerprint placeholder に写します。
+fn selfhost_memo_trait_stable_source_seed_definition_key_error_result %fn SelfhostMemoTraitStableDefinitionKeyErrorKind SelfhostMemoTraitStableSourceSeedErrorKind \error:
+    match error:
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::ModuleFingerprintPlaceholder kind:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSymbolFingerprintPlaceholder
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSymbolFingerprintPlaceholder
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalMissing kind:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalMissing
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalMissing
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::DeclarationOrdinalPlaceholder kind:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalPlaceholder
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalPlaceholder
+        SelfhostMemoTraitStableDefinitionKeyErrorKind::DefinitionKeyFingerprintPlaceholder kind:
+            match kind:
+                SelfhostMemoTraitSourceKind::MemoKeyTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSymbolFingerprintPlaceholder
+                SelfhostMemoTraitSourceKind::MemoValueTrait:
+                    SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSymbolFingerprintPlaceholder
+
 //: selfhost_memo_trait_stable_source_seed_module_hash_result: module seed から module fingerprint を[作/つく]る
 fn selfhost_memo_trait_stable_source_seed_module_hash_result %fn SelfhostMemoTraitStableSourceModuleSeed Result i32 SelfhostMemoTraitStableSourceSeedErrorKind \module_seed:
     match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.module_identity_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModuleIdentityFingerprintPlaceholder:
@@ -439,32 +472,27 @@ fn selfhost_memo_trait_stable_source_key_seed_to_evidence_result %fn i32 fn Self
             if:
                 selfhost_memo_trait_stable_source_seed_visibility_public seed.visibility
                 then:
-                    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.declaration_ordinal SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDeclarationOrdinalPlaceholder:
-                        Result::Ok declaration_ordinal:
+                    match selfhost_memo_trait_stable_definition_key_result seed.kind module_hash seed.declaration_ordinal:
+                        Result::Ok definition_key:
                             match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.normalized_signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyNormalizedSignatureFingerprintPlaceholder:
                                 Result::Ok normalized_signature_hash:
                                     match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.public_surface_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintPlaceholder:
                                         Result::Ok public_surface_hash:
                                             let kind_code %i32 selfhost_memo_trait_stable_source_seed_kind_code seed.kind
-                                            let symbol_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 module_hash kind_code declaration_ordinal
                                             let signature_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 normalized_signature_hash kind_code public_surface_hash
-                                            match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result symbol_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSymbolFingerprintPlaceholder:
-                                                Result::Ok accepted_symbol_hash:
-                                                    match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSignatureFingerprintPlaceholder:
-                                                        Result::Ok accepted_signature_hash:
-                                                            let fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
-                                                                selfhost_memo_trait_stable_source_fingerprint_evidence_new (some module_hash) (some accepted_symbol_hash) (some accepted_signature_hash)
-                                                            Result::Ok selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait fingerprint
-                                                        Result::Err signature_folding_error:
-                                                            Result::Err signature_folding_error
-                                                Result::Err symbol_folding_error:
-                                                    Result::Err symbol_folding_error
+                                            match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyDerivedSignatureFingerprintPlaceholder:
+                                                Result::Ok accepted_signature_hash:
+                                                    let fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+                                                        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some module_hash) (some definition_key.definition_key_hash) (some accepted_signature_hash)
+                                                    Result::Ok selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoKeyTrait fingerprint
+                                                Result::Err signature_folding_error:
+                                                    Result::Err signature_folding_error
                                         Result::Err public_surface_error:
                                             Result::Err public_surface_error
                                 Result::Err signature_error:
                                     Result::Err signature_error
-                        Result::Err ordinal_error:
-                            Result::Err ordinal_error
+                        Result::Err definition_key_error:
+                            Result::Err selfhost_memo_trait_stable_source_seed_definition_key_error_result definition_key_error
                 else:
                     Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoKeyVisibilityPrivate
         else:
@@ -478,32 +506,27 @@ fn selfhost_memo_trait_stable_source_value_seed_to_evidence_result %fn i32 fn Se
             if:
                 selfhost_memo_trait_stable_source_seed_visibility_public seed.visibility
                 then:
-                    match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.declaration_ordinal SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDeclarationOrdinalPlaceholder:
-                        Result::Ok declaration_ordinal:
+                    match selfhost_memo_trait_stable_definition_key_result seed.kind module_hash seed.declaration_ordinal:
+                        Result::Ok definition_key:
                             match selfhost_memo_trait_stable_source_seed_fingerprint_value_result seed.normalized_signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueNormalizedSignatureFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueNormalizedSignatureFingerprintPlaceholder:
                                 Result::Ok normalized_signature_hash:
                                     match selfhost_memo_trait_stable_source_seed_fingerprint_value_result module_seed.public_surface_hash SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintMissing SelfhostMemoTraitStableSourceSeedErrorKind::ModulePublicSurfaceFingerprintPlaceholder:
                                         Result::Ok public_surface_hash:
                                             let kind_code %i32 selfhost_memo_trait_stable_source_seed_kind_code seed.kind
-                                            let symbol_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 module_hash kind_code declaration_ordinal
                                             let signature_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 normalized_signature_hash kind_code public_surface_hash
-                                            match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result symbol_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSymbolFingerprintPlaceholder:
-                                                Result::Ok accepted_symbol_hash:
-                                                    match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSignatureFingerprintPlaceholder:
-                                                        Result::Ok accepted_signature_hash:
-                                                            let fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
-                                                                selfhost_memo_trait_stable_source_fingerprint_evidence_new (some module_hash) (some accepted_symbol_hash) (some accepted_signature_hash)
-                                                            Result::Ok selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoValueTrait fingerprint
-                                                        Result::Err signature_folding_error:
-                                                            Result::Err signature_folding_error
-                                                Result::Err symbol_folding_error:
-                                                    Result::Err symbol_folding_error
+                                            match selfhost_memo_trait_stable_source_seed_derived_fingerprint_result signature_hash SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueDerivedSignatureFingerprintPlaceholder:
+                                                Result::Ok accepted_signature_hash:
+                                                    let fingerprint %SelfhostMemoTraitStableSourceFingerprintEvidence:
+                                                        selfhost_memo_trait_stable_source_fingerprint_evidence_new (some module_hash) (some definition_key.definition_key_hash) (some accepted_signature_hash)
+                                                    Result::Ok selfhost_memo_trait_stable_source_evidence_record_new SelfhostMemoTraitSourceKind::MemoValueTrait fingerprint
+                                                Result::Err signature_folding_error:
+                                                    Result::Err signature_folding_error
                                         Result::Err public_surface_error:
                                             Result::Err public_surface_error
                                 Result::Err signature_error:
                                     Result::Err signature_error
-                        Result::Err ordinal_error:
-                            Result::Err ordinal_error
+                        Result::Err definition_key_error:
+                            Result::Err selfhost_memo_trait_stable_source_seed_definition_key_error_result definition_key_error
                 else:
                     Result::Err SelfhostMemoTraitStableSourceSeedErrorKind::MemoValueVisibilityPrivate
         else:

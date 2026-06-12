@@ -255,3 +255,17 @@ source policy は `nodesrc/test_selfhost_memo_trait_method_signature_contract.js
 `memo_trait_public_surface_hash.nepl` は schema domain code を marker / method-bearing 用に更新し、token-aware materializer では facade-external internal module `memo_trait_public_surface_token_gate.nepl` を通して seed table を取得する。token-aware materializer / registry helper は `pub fn` にせず、`stdlib/neplg2/core/check/module.nepl` の `pub #import ... as *` から安定 facade に漏れないようにした。Fermat の review で facade premature export が blocker として見つかり、`test_selfhost_module_checker_split_contract.js` と `test_selfhost_proof_entry_contract.js` がその漏れを再現したため、token-aware shared gate を facade 外へ分離して修正した。
 
 この checkpoint でも full public surface materializer ではない。残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。性能残件として、public surface seed の scanner / seed scan 二重走査、facade-external token gate と seed module private token scan の重複、`trait_body_segmenter` の next-index recomputation を後続 slice へ残す。
+
+## 2026-06-12 selfhost memo trait stable definition key checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_definition_key.nepl` を追加し、`MemoKey` / `MemoValue` trait definition の stable definition key を作る checker-layer producer を実装した。
+
+この producer は full public surface hash や proof store stored key の完成形ではない。入力は trait kind、caller が用意した module fingerprint、declaration ordinal に限定し、それらから schema version 付きの `SelfhostMemoTraitStableDefinitionKey` を返す。`schema_version`、`kind`、`module_fingerprint`、`definition_key_hash` は named field として保持し、equality でもすべて比較する。これにより、将来 key format が変わった場合に古い proof artifact と混同しない。
+
+`module_fingerprint == 0`、declaration ordinal 欠落、declaration ordinal placeholder、derived definition key placeholder は `SelfhostMemoTraitStableDefinitionKeyErrorKind` として fail-closed に返す。source text、span、syntax range、file path、display name、diagnostic text は accepted key authority にしない。`memo_trait_definition_key.nepl` は `core/ty`、source identity record、proof store へ依存せず、`module.nepl` facade からも re-export しない。
+
+`memo_trait_source_evidence_producer.nepl` は direct import で stable definition key producer を使うようになった。seed から stable evidence を作る accepted path では、raw `module_hash + kind + declaration_ordinal` fold ではなく `selfhost_memo_trait_stable_definition_key_result` を通し、`definition_key.definition_key_hash` を source symbol fingerprint として使う。stable definition key error は既存 seed error surface へ payload 付きで写す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_definition_key_contract.js` と `nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js` で固定した。検査内容は、目的 / 契約 / 現状 / 計算量 / doctest、schema version、source kind code、placeholder rejection、facade 非公開、source spelling 非 authority、registry / source identity / `signature_available=true` record の直生成禁止、proof store 直結禁止、行数制限 / doc comment 長制限禁止を含む。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。性能面では、module fingerprint 計算が `.neplmeta` public interface artifact と checker-layer seed producer の間で重複しないように、次 slice で shared boundary を決める必要がある。

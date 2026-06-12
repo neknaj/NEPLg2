@@ -13,11 +13,13 @@ function read(rel) {
 
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
+const definitionKeyRelPath = "stdlib/neplg2/core/check/module/memo_trait_definition_key.nepl";
 const tySourceRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_source.nepl";
 const proofStoreRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl";
 
 const source = read(relPath);
 const facade = read(facadeRelPath);
+const definitionKey = read(definitionKeyRelPath);
 const tySource = read(tySourceRelPath);
 const proofStore = read(proofStoreRelPath);
 
@@ -38,8 +40,18 @@ assert.match(
 );
 assert.match(
     source,
-    /full public surface materializer ではありません[\s\S]*re-export、trait body、method signature normalization、stable nominal key、serialized `.neplmeta` \/ `.neplproof` 入力/,
+    /full public surface materializer ではありません[\s\S]*re-export、stable nominal key、serialized `.neplmeta` \/ `.neplproof` 入力/,
     "seed producer must state the full public surface materializer residual explicitly",
+);
+assert.match(
+    source,
+    /#import "\.\/memo_trait_definition_key" as \*/,
+    "seed producer must import the stable definition key producer",
+);
+assert.doesNotMatch(
+    facade,
+    /memo_trait_definition_key/,
+    "module checker facade must not export the stable definition key internal producer prematurely",
 );
 assert.match(
     source,
@@ -78,13 +90,13 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_stable_source_key_seed_to_evidence_result[\s\S]*MemoKeyDerivedSymbolFingerprintPlaceholder[\s\S]*MemoKeyDerivedSignatureFingerprintPlaceholder/,
-    "MemoKey seed folding must reject derived zero symbol and signature fingerprints",
+    /selfhost_memo_trait_stable_source_seed_definition_key_error_result[\s\S]*MemoKeyDerivedSymbolFingerprintPlaceholder[\s\S]*MemoValueDerivedSymbolFingerprintPlaceholder/,
+    "seed producer must map stable definition key fingerprint placeholders to key/value symbol fingerprint errors",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_stable_source_value_seed_to_evidence_result[\s\S]*MemoValueDerivedSymbolFingerprintPlaceholder[\s\S]*MemoValueDerivedSignatureFingerprintPlaceholder/,
-    "MemoValue seed folding must reject derived zero symbol and signature fingerprints",
+    /selfhost_memo_trait_stable_definition_key_result seed\.kind module_hash seed\.declaration_ordinal/,
+    "seed producer must obtain source symbol fingerprints from the stable definition key producer",
 );
 for (const fnName of [
     "selfhost_memo_trait_stable_source_module_seed_new",
@@ -108,8 +120,9 @@ for (const required of [
     "SelfhostMemoTraitSourceKind::MemoKeyTrait",
     "MemoKeySeedKindMismatch",
     "MemoKeyVisibilityPrivate",
-    "MemoKeyDeclarationOrdinalMissing",
     "MemoKeyNormalizedSignatureFingerprintMissing",
+    "selfhost_memo_trait_stable_definition_key_result",
+    "definition_key.definition_key_hash",
     "selfhost_memo_trait_stable_source_fingerprint_evidence_new",
 ]) {
     assert.match(keySeedConversion[0], new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `MemoKey seed conversion must contain ${required}`);
@@ -120,8 +133,9 @@ for (const required of [
     "SelfhostMemoTraitSourceKind::MemoValueTrait",
     "MemoValueSeedKindMismatch",
     "MemoValueVisibilityPrivate",
-    "MemoValueDeclarationOrdinalMissing",
     "MemoValueNormalizedSignatureFingerprintMissing",
+    "selfhost_memo_trait_stable_definition_key_result",
+    "definition_key.definition_key_hash",
     "selfhost_memo_trait_stable_source_fingerprint_evidence_new",
 ]) {
     assert.match(valueSeedConversion[0], new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), `MemoValue seed conversion must contain ${required}`);
@@ -140,6 +154,16 @@ assert.doesNotMatch(
     source,
     /selfhost_memo_trait_source_identity_new/,
     "seed producer must not construct accepted source identities directly",
+);
+assert.doesNotMatch(
+    source,
+    /let symbol_hash %i32 selfhost_memo_trait_stable_source_seed_mix3 module_hash kind_code declaration_ordinal/,
+    "seed producer must not construct source symbol fingerprints directly from raw declaration ordinals",
+);
+assert.doesNotMatch(
+    definitionKey,
+    /selfhost_memo_trait_source_identity_new|selfhost_memo_trait_definition_source_record_new/,
+    "stable definition key producer must not construct accepted source identities or source records",
 );
 assert.doesNotMatch(
     source,
