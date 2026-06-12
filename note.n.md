@@ -1,3 +1,60 @@
+# 2026-06-13 Agent selfhost memo trait `.neplproof` payload section reader checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、DAG に沿った責務分割、外部観測可能な authority と内部 materialization の分離、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-payload-reader-20260613`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` canonical payload bytes section reader
+- classification: selfhost implementation slice review
+- decision: `.neplproof` fixed-width record-only reader の後段として、record table 直後の canonical payload bytes section を読み、decoded artifact owner、materialized canonical key arena owner、record ordinal 対応 key id vector owner を束ねる reader extension を追加した。serializer や persistent map へは進まず、preseed が期待する input bundle を作るところで切る。
+- policy/spec:
+  - payload section は record-only prefix の直後にあり、各 record につき `payload_byte_len` word と、その byte 数ぶんの canonical payload codec bytes を持つ。
+  - record-only prefix は既存 `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result` に委譲する。payload reader は record tag decode や proof acceptance の別 authority を作らない。
+  - payload bytes は `selfhost_memo_trait_canonical_key_payload_decode_result` で decode し、decode ごとの arena-local root を `selfhost_canonical_type_key_copy_from_arena` で共有 materialized arena へ複製する。
+  - reader は proof store / preseed / producer を import しない。payload hash、canonical fingerprint、policy、proof kind、store relation は後続 preseed / proof store が再検査する。
+  - source text、span、path suffix、display name、diagnostic text、lexeme、record payload hash 単独、fingerprint hit 単独、store-local id、session-local `SelfhostTypeId` は payload reader の accepted authority にしない。
+  - 失敗時には、この module が作った decoded artifact owner、materialized key arena owner、materialized key id vector owner、payload slice owner、decoded payload owner を閉じる。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl` を追加し、typed materialized artifact bundle、typed error enum、nested error equality、record prefix copy、payload length/range check、payload decode/materialization loop、stage0 smoke を実装した。
+  - `stdlib/neplg2/core/ty/ty.nepl` と `nodesrc/selfhost_ty_sources.js` に payload reader を `reader -> payload_reader -> preseed` の順で登録した。
+  - `nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js` を追加し、DAG、authority、owner cleanup、typed error、source order、doc comment、stage0、line count / doc comment length cap 禁止を固定した。
+  - 既存 `test_selfhost_memo_trait_proof_reader_contract.js` と `test_selfhost_memo_trait_proof_decoded_contract.js` の source order 契約を payload reader 挿入後の順序へ更新した。
+- subagent review:
+  - subagent_review_ids: `019ebc7f-df7b-7300-858f-870975312793`, `019ebaf1-6a05-74c0-90a2-29f2e3c0080d`
+  - subagent_review_count: 1 design review before implementation, 2 implementation reviews after implementation
+  - design review result: 次 slice は serializer ではなく、既存 `memo_trait_proof_reader.nepl` の上に canonical payload bytes section reader と materialized key id projection を追加するのがよいと判断した。reader は proof acceptance authority ではなく、preseed bridge の入力を作るだけに留めるべきと確認した。
+  - Blocker: なし。payload reader 本体は `reader` までに閉じており、`preseed` / `proof_store` / `producer` import はない。source text / span / path / display / diagnostic / lexeme / session-local `SelfhostTypeId` もコード側 authority にしていない。
+  - Required: 最新 checkpoint が implementation review を依頼済みのままにしており、Zenn review gate が `Question` 欄不足で warning を出した。review 結果をこの checkpoint に反映し、`node nodesrc/test_selfhost_zenn_review_gate_contract.js` で解消済みである。
+  - Required response: design review に従い、serializer ではなく payload reader / materialized key id projection だけを今回 slice にした。proof_store / preseed / producer import は削除した。`core/option` import を明示し、transitive import へ依存しないようにした。
+  - Non-blocker: authority 除外 doc は record payload hash / fingerprint hit 単独を明記していたが、index hit 単独の文言が弱かった。module doc と source policy を更新し、`index hit 単独` も reader authority ではないと固定した。
+  - Non-blocker: `selfhost_memo_trait_neplproof_payload_reader_abort_without_arena` が未使用だった。copy failure 時の target arena cleanup は `selfhost_canonical_type_key_copy_from_arena` の契約で成立しているため、未使用 helper を削除した。
+  - Non-blocker: payload reader は record-only prefix を一度 copy して既存 reader に渡すため O(p) の追加 copy がある。現 slice では既存 reader の trailing-bytes 契約を再利用するためにこの形を採る。後続で reader cursor API を追加する場合は copy を除ける。
+  - Non-blocker: materialized key id が record ordinal / store-local id / serialized id ではない契約を source policy が直接見てもよいという指摘があった。`nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js` に struct doc の契約検査を追加した。
+  - Re-review summary: 2 件目の implementation review は Blocker / Required なし。payload reader が proof_store / preseed / producer へ依存しないこと、source-derived authority を使わないこと、owner cleanup と typed enum error が妥当であること、日本語 doc comment と doctest が方針を満たすこと、行数 / コメント長制限を追加していないことを確認した。
+  - Question: なし。
+  - Approve: subagent review は code-level Blocker なしと判断した。Required は durable note 記録不足のみで、この checkpoint に反映済みである。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` の運用方針に沿い、review response の Blocker / Required / Non-blocker / Question / Approve を同じ checkpoint に記録した。
+- source_policy:
+  - source_policy: updated
+  - source policy: `nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js` と関連 reader / decoded contract を更新した。
+  - source_policy_reason: payload reader が proof_store / preseed / producer へ依存する退行、source-derived authority や session-local id を artifact authority にする退行、record payload hash / fingerprint hit だけで受理する退行、owner cleanup 抜け、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: 初回の source policy regression では、最新 checkpoint の review gate 記録に `Question` 欄などの固定項目が不足していたため warning が出た。subagent review 結果を反映した後、`node nodesrc/test_selfhost_zenn_review_gate_contract.js` は pass 済みである。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - record-only prefix copy は O(p)、payload section decode は payload byte 総量 b と canonical key tree 総 node/edge 数 k に対して O(b + k)、materialized key id vector 構築は O(n) である。
+  - この reader は FileSystem、source scan、proof store lookup、preseed acceptance を行わない。cache設計に頼らず、reader自体の探索空間を serialized section の線形 scan に閉じる。
+  - focused doctest の stage timings では `resource_static_initialized_moves` と `resource_static_owner_obligations` が支配的であり、コンパイル高速化 issue 側の次分析対象として記録する。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-payload-reader.json`
+  - pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl -n 1`
+- 次 slice: `.neplproof` serializer、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を継続する。
+
 # 2026-06-12 Agent selfhost `.neplproof` header reader codec checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、pure core と host / CLI boundary の分離、parser、checker、HIR、Resource IR、backend へ逆依存しない DAG、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

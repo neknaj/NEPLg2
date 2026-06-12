@@ -419,6 +419,29 @@ decoded artifact owner は `selfhost_memo_trait_neplproof_decoded_artifact_from_
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` serializer、canonical payload bytes section reader、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 payload section reader checkpoint
+
+`.neplproof` fixed-width record-only reader の後段として、`stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl` を追加した。この reader は record table 直後の canonical payload bytes section を record ordinal 順に読み、decoded artifact owner、共有 materialized canonical key arena owner、record ordinal 対応 materialized key id vector owner を束ねて返す。
+
+payload section は各 record につき `payload_byte_len` word と、その byte 数ぶんの canonical payload codec bytes を持つ。record-only prefix は既存 `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result` に渡して検査し、payload bytes は `selfhost_memo_trait_canonical_key_payload_decode_result` で decode する。decode ごとの arena-local root は `selfhost_canonical_type_key_copy_from_arena` により、共有 materialized arena へ複製する。
+
+この checkpoint は proof acceptance ではない。payload reader は proof store、preseed、producer を import せず、proof store lookup / append / preseed API を呼ばない。payload hash、canonical fingerprint、policy、proof kind、store relation、producer gate は後続 preseed / proof store が再検査する。source text、span、path suffix、display name、diagnostic text、lexeme、record payload hash 単独、fingerprint hit 単独、index hit 単独、store-local id、session-local `SelfhostTypeId` は reader の accepted authority にしない。
+
+失敗時には、この module が作った decoded artifact owner、materialized key arena owner、materialized key id vector owner、payload slice owner、decoded payload owner を閉じる。error は `HeaderReadInvalid`、`RecordDecodeInvalid`、`PayloadLengthWordInvalid`、`PayloadBytesUnexpectedEnd`、`PayloadDecodeInvalid`、`MaterializedKeyCopyInvalid`、`TrailingBytes` などの typed enum variant として返す。nested error equality も word codec、payload codec、reader、canonical key copy error の比較へ委譲する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js` を追加し、facade re-export、`reader -> payload_reader -> preseed` source order、proof_store / preseed / producer import 禁止、record reader / payload codec / canonical key copy への委譲、source-derived authority 禁止、owner cleanup、stage0 smoke、行数制限 / doc comment 長制限禁止を固定した。既存 reader / decoded policy は payload reader 挿入後の source order へ更新した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-payload-reader.json`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl -n 1`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost memo trait `.neplproof` header reader codec checkpoint
 
 `.neplproof` record reader / serializer の前段として、`stdlib/neplg2/core/ty/ty/memo_trait_artifact_word_codec.nepl` と `stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl` を追加した。

@@ -1,0 +1,880 @@
+#indent 4
+
+//: # ty/memo_trait_proof_payload_reader
+//: `.neplproof` の record table に続く canonical payload bytes section を[読/よ]み、preseed が[使/つか]える materialized key owner へ[変換/へんかん]する reader extension です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_proof_reader.nepl` は header と fixed-width record table を typed decoded artifact へ戻します。この module は、その直後に続く canonical payload bytes section を record ordinal と 1 対 1 に対応させます。
+//: - payload bytes は `memo_trait_canonical_key_payload_codec.nepl` で decode し、decode ごとの arena-local root を、共有 `SelfhostCanonicalTypeKeyArena` へ `selfhost_canonical_type_key_copy_from_arena` で複製します。
+//: - 返り値は decoded artifact owner、materialized key arena owner、record ordinal と対応する materialized key id vector owner を 1 つに束ねます。これは `memo_trait_proof_preseed.nepl` の batch projector が期待する入力形と同じです。
+//:
+//: [契約/けいやく]:
+//: - `.neplproof` payload section は record-only prefix の直後にあり、各 record につき `payload_byte_len` word と、その byte 数ぶんの canonical payload codec bytes を持ちます。
+//: - record-only prefix は既存の `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result` に渡して検査します。この module は record tag や stored proof の別 authority を作りません。
+//: - payload bytes decode は materialized key を作るだけです。payload hash、canonical fingerprint、policy、proof kind、store relation の受理判定は preseed / proof store 側が再検査します。
+//: - `SelfhostTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme、record payload hash 単独、fingerprint hit 単独、index hit 単独は、この reader の authority ではありません。
+//: - 失敗時は、この module が作った decoded artifact owner、materialized key arena owner、materialized key id vector owner、payload slice owner を閉じます。caller は error payload だけを受け取ります。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 は record-only decoded artifact と payload section を読むだけです。serialized index table、persistent stable map、serializer、generic type argument identity、full public surface hash は後続 slice の責務です。
+//: - payload section の長さ word は 31-bit nonnegative word codec を使います。payload の中身そのものは canonical payload codec の schema と終端検査に委譲します。
+//: - この module は preseed module を import しません。依存方向を `reader -> payload reader -> preseed caller` に保ち、preseed の判定規則を reader へ逆流させないためです。
+//:
+//: [計算量/けいさんりょう]:
+//: - record-only prefix copy は byte 数 p に対して O(p) です。record table decode は既存 reader の O(n) 境界に従います。
+//: - payload section decode は record 数 n、payload byte 総量 b、canonical key tree 総 node/edge 数 k に対して O(b + k) です。
+//: - materialized key id vector の構築は O(n) です。lookup、proof acceptance、proof store relation 判定、FileSystem、source scan は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_payload_reader" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_neplproof_payload_reader_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_payload_reader_unit_result_is_ok summary.accepted
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_payload_reader_error_kind_eq (unwrap_err summary.short_payload) SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesUnexpectedEnd
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_payload_reader_error_kind_eq (unwrap_err summary.payload_decode_invalid) SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadDecodeInvalid SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::FunctionTypeUnsupported
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_payload_reader_error_kind_eq (unwrap_err summary.trailing_bytes) SelfhostMemoTraitNeplProofPayloadReaderErrorKind::TrailingBytes
+//:             let shown checks_print_report checks4
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "neplproof payload reader stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./id" as *
+#import "./key" as *
+#import "./memo_trait_artifact_word_codec" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
+#import "./memo_trait_canonical_key_payload_codec" as *
+#import "./memo_trait_proof_artifact" as *
+#import "./memo_trait_proof_decoded" as *
+#import "./memo_trait_proof_reader" as *
+
+//: SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact: payload section reader の owner bundle
+//:
+//: [目的/もくてき]:
+//: - decoded artifact と、それに対応する materialized canonical key arena / key id table を同じ lifetime で扱います。
+//:
+//: [契約/けいやく]:
+//: - `materialized_key_ids[i]` は `artifact.records[i]` の canonical payload bytes から materialize された root key です。
+//: - `materialized_key_ids` の id は `materialized_key_arena` 内だけで意味を持ちます。record ordinal、store-local id、serialized id として扱ってはいけません。
+pub struct SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact:
+    artifact %SelfhostMemoTraitNeplProofDecodedArtifact
+    materialized_key_arena %SelfhostCanonicalTypeKeyArena
+    materialized_key_ids %Vec SelfhostCanonicalTypeKeyId
+
+//: SelfhostMemoTraitNeplProofPayloadReaderErrorKind: payload section reader の拒否理由
+//:
+//: [分類/ぶんるい]:
+//: - header / record prefix の失敗は既存 reader error を payload として保持します。
+//: - payload bytes の範囲不整合、payload decode、materialized arena copy、key id vector push を別 variant に分けます。
+pub enum SelfhostMemoTraitNeplProofPayloadReaderErrorKind:
+    HeaderReadInvalid %SelfhostMemoTraitNeplProofReaderErrorKind
+    RecordPrefixAllocInvalid %StdErrorKind
+    RecordPrefixPushInvalid %StdErrorKind
+    RecordPrefixUnexpectedEnd
+    RecordDecodeInvalid %SelfhostMemoTraitNeplProofReaderErrorKind
+    PayloadLengthWordInvalid %SelfhostMemoTraitArtifactWordReadErrorKind
+    PayloadLengthInvalid
+    PayloadBytesUnexpectedEnd
+    PayloadBytesAllocInvalid %StdErrorKind
+    PayloadBytesPushInvalid %StdErrorKind
+    PayloadDecodeInvalid %SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind
+    MaterializedArenaAllocInvalid %StdErrorKind
+    MaterializedKeyCopyInvalid %SelfhostCanonicalTypeKeyCopyErrorKind
+    MaterializedKeyIdAllocInvalid %StdErrorKind
+    MaterializedKeyIdPushInvalid %StdErrorKind
+    TrailingBytes
+
+struct SelfhostMemoTraitNeplProofPayloadReaderStep:
+    materialized_key_arena %SelfhostCanonicalTypeKeyArena
+    materialized_key_ids %Vec SelfhostCanonicalTypeKeyId
+    next_byte_offset %i32
+
+//: SelfhostMemoTraitNeplProofPayloadReaderStage0Summary: payload reader の代表 smoke
+pub struct SelfhostMemoTraitNeplProofPayloadReaderStage0Summary:
+    accepted %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind
+    short_payload %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind
+    payload_decode_invalid %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind
+    trailing_bytes %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofPayloadReaderErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofPayloadReaderErrorKind SelfhostMemoTraitNeplProofPayloadReaderErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofPayloadReaderErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofPayloadReaderErrorKind SelfhostMemoTraitNeplProofPayloadReaderErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofPayloadReaderStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofPayloadReaderStage0Summary SelfhostMemoTraitNeplProofPayloadReaderStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofPayloadReaderStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofPayloadReaderStage0Summary SelfhostMemoTraitNeplProofPayloadReaderStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_free: materialized artifact bundle を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - decoded artifact、materialized key arena、key id vector をすべて閉じます。
+//: - key id vector は Copy payload だけを持つため `v::free` だけで十分です。
+pub fn selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_free %impure fn SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact unit \artifact:
+    selfhost_memo_trait_neplproof_decoded_artifact_free field::get artifact "artifact"
+    selfhost_canonical_type_key_arena_free field::get artifact "materialized_key_arena"
+    v::free field::get artifact "materialized_key_ids"
+
+//: selfhost_memo_trait_neplproof_payload_reader_header_words: payload reader が前段 prefix として扱う header word 数
+fn selfhost_memo_trait_neplproof_payload_reader_header_words %fn void i32 \void:
+    6
+
+//: selfhost_memo_trait_neplproof_payload_reader_record_words: payload reader が前段 prefix として扱う record word 数
+fn selfhost_memo_trait_neplproof_payload_reader_record_words %fn void i32 \void:
+    31
+
+//: selfhost_memo_trait_neplproof_payload_reader_record_only_word_count: record-only prefix の word 数を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_record_only_word_count %fn SelfhostMemoTraitNeplProofHeader i32 \header:
+    add selfhost_memo_trait_neplproof_payload_reader_header_words mul header.record_count selfhost_memo_trait_neplproof_payload_reader_record_words
+
+//: selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count: record-only prefix の byte 数を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count %fn SelfhostMemoTraitNeplProofHeader i32 \header:
+    mul selfhost_memo_trait_neplproof_payload_reader_record_only_word_count header 4
+
+//: selfhost_memo_trait_neplproof_payload_reader_step_new: payload decode loop の owner state を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_step_new %impure fn SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn i32 SelfhostMemoTraitNeplProofPayloadReaderStep \arena\key_ids\next_byte_offset:
+    SelfhostMemoTraitNeplProofPayloadReaderStep arena key_ids next_byte_offset
+
+//: selfhost_memo_trait_neplproof_payload_reader_abort: 3 owner を[閉/と]じて error を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_abort %impure fn SelfhostMemoTraitNeplProofDecodedArtifact impure fn SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitNeplProofPayloadReaderErrorKind Result SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind \artifact\arena\key_ids\kind:
+    selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+    selfhost_canonical_type_key_arena_free arena
+    v::free key_ids
+    Result::Err kind
+
+//: selfhost_memo_trait_neplproof_payload_reader_copy_byte_push: copied bytes vector へ 1 byte を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_copy_byte_push %impure fn Vec u8 impure fn u8 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \out\byte:
+    match v::push out byte:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesPushInvalid error
+
+//: selfhost_memo_trait_neplproof_payload_reader_copy_range_loop: byte range を owner vector へ[複写/ふくしゃ]する
+fn selfhost_memo_trait_neplproof_payload_reader_copy_range_loop %impure fn &Vec u8 impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \source\out\start\idx\count:
+    if:
+        ge idx count
+        then:
+            Result::Ok out
+        else:
+            let source_offset %i32 add start idx
+            match v::get source source_offset:
+                Option::Some byte:
+                    match selfhost_memo_trait_neplproof_payload_reader_copy_byte_push out byte:
+                        Result::Ok next_out:
+                            selfhost_memo_trait_neplproof_payload_reader_copy_range_loop source next_out start add idx 1 count
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    v::free out
+                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesUnexpectedEnd
+
+//: selfhost_memo_trait_neplproof_payload_reader_copy_range_result: byte range owner を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_copy_range_result %impure fn &Vec u8 impure fn i32 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \source\start\count:
+    let out_result %Result Vec u8 StdErrorKind v::new
+    match out_result:
+        Result::Ok out:
+            selfhost_memo_trait_neplproof_payload_reader_copy_range_loop source out start 0 count
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesAllocInvalid e
+
+//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_push: record prefix 用 Vec push error を別分類へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_push %impure fn Vec u8 impure fn u8 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \out\byte:
+    match v::push out byte:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixPushInvalid error
+
+//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop: record-only prefix bytes を[複写/ふくしゃ]する
+fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop %impure fn &Vec u8 impure fn Vec u8 impure fn i32 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \source\out\idx\count:
+    if:
+        ge idx count
+        then:
+            Result::Ok out
+        else:
+            match v::get source idx:
+                Option::Some byte:
+                    match selfhost_memo_trait_neplproof_payload_reader_record_prefix_push out byte:
+                        Result::Ok next_out:
+                            selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop source next_out add idx 1 count
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    v::free out
+                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixUnexpectedEnd
+
+//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_result: record-only reader に渡す prefix bytes を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_result %impure fn &Vec u8 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \bytes\byte_count:
+    let prefix_result %Result Vec u8 StdErrorKind v::new
+    match prefix_result:
+        Result::Ok prefix:
+            selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop bytes prefix 0 byte_count
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixAllocInvalid e
+
+//: selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result: prefix bytes を既存 reader へ[渡/わた]す
+fn selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind \bytes\header:
+    let prefix_byte_count %i32 selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count header
+    match selfhost_memo_trait_neplproof_payload_reader_record_prefix_result bytes prefix_byte_count:
+        Result::Ok prefix:
+            let artifact_result %Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result &prefix
+            v::free prefix
+            match artifact_result:
+                Result::Ok artifact:
+                    Result::Ok artifact
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_length_result: payload section の length word を[読/よ]む
+fn selfhost_memo_trait_neplproof_payload_reader_length_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \bytes\offset:
+    match selfhost_memo_trait_artifact_word_codec_word_at_byte_result bytes offset:
+        Result::Ok length:
+            Result::Ok length
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthWordInvalid e
+
+//: selfhost_memo_trait_neplproof_payload_reader_payload_end_result: section の次 offset を[検査/けんさ]して[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_payload_end_result %fn &Vec u8 fn i32 fn i32 Result i32 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \bytes\offset\payload_length:
+    if:
+        lt payload_length 0
+        then:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthInvalid
+        else:
+            let payload_start %i32 add offset 4
+            if:
+                lt payload_start offset
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthInvalid
+                else:
+                    let payload_end %i32 add payload_start payload_length
+                    if:
+                        lt payload_end payload_start
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthInvalid
+                        else:
+                            if:
+                                gt payload_end v::len bytes
+                                then:
+                                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesUnexpectedEnd
+                                else:
+                                    Result::Ok payload_end
+
+//: selfhost_memo_trait_neplproof_payload_reader_decode_one_result: 1 record 分の payload bytes を materialize する
+fn selfhost_memo_trait_neplproof_payload_reader_decode_one_result %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 impure fn SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn i32 impure fn i32 Result SelfhostMemoTraitNeplProofPayloadReaderStep SelfhostMemoTraitNeplProofPayloadReaderErrorKind \nominal_table\bytes\materialized_key_arena\materialized_key_ids\record_ordinal\offset:
+    match selfhost_memo_trait_neplproof_payload_reader_length_result bytes offset:
+        Result::Ok payload_length:
+            match selfhost_memo_trait_neplproof_payload_reader_payload_end_result bytes offset payload_length:
+                Result::Ok next_offset:
+                    let payload_start %i32 add offset 4
+                    match selfhost_memo_trait_neplproof_payload_reader_copy_range_result bytes payload_start payload_length:
+                        Result::Ok payload_bytes:
+                            match selfhost_memo_trait_canonical_key_payload_decode_result nominal_table &payload_bytes:
+                                Result::Ok decoded:
+                                    let decoded_arena %&SelfhostCanonicalTypeKeyArena field::get_ref &decoded "arena"
+                                    let decoded_root %SelfhostCanonicalTypeKeyId *field::get_ref &decoded "root"
+                                    match selfhost_canonical_type_key_copy_from_arena decoded_arena materialized_key_arena decoded_root:
+                                        Result::Ok copied:
+                                            let copied_key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &copied
+                                            let next_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena copied
+                                            selfhost_memo_trait_canonical_key_payload_decoded_free decoded
+                                            v::free payload_bytes
+                                            match v::push materialized_key_ids copied_key_id:
+                                                Result::Ok next_key_ids:
+                                                    Result::Ok selfhost_memo_trait_neplproof_payload_reader_step_new next_arena next_key_ids next_offset
+                                                Result::Err e:
+                                                    let error %StdErrorKind field::get e "error"
+                                                    v::free v::vec_push_error_vec e
+                                                    selfhost_canonical_type_key_arena_free next_arena
+                                                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdPushInvalid error
+                                        Result::Err copy_error:
+                                            selfhost_memo_trait_canonical_key_payload_decoded_free decoded
+                                            v::free payload_bytes
+                                            v::free materialized_key_ids
+                                            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyCopyInvalid copy_error
+                                Result::Err decode_error:
+                                    v::free payload_bytes
+                                    selfhost_canonical_type_key_arena_free materialized_key_arena
+                                    v::free materialized_key_ids
+                                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadDecodeInvalid decode_error
+                        Result::Err e:
+                            selfhost_canonical_type_key_arena_free materialized_key_arena
+                            v::free materialized_key_ids
+                            Result::Err e
+                Result::Err e:
+                    selfhost_canonical_type_key_arena_free materialized_key_arena
+                    v::free materialized_key_ids
+                    Result::Err e
+        Result::Err e:
+            selfhost_canonical_type_key_arena_free materialized_key_arena
+            v::free materialized_key_ids
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_loop: payload section を record ordinal 順に[読/よ]む
+fn selfhost_memo_trait_neplproof_payload_reader_loop %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofDecodedArtifact impure fn SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind \nominal_table\bytes\artifact\materialized_key_arena\materialized_key_ids\record_ordinal\record_count\offset:
+    if:
+        ge record_ordinal record_count
+        then:
+            let actual_len %i32 v::len bytes
+            if:
+                lt actual_len offset
+                then:
+                    selfhost_memo_trait_neplproof_payload_reader_abort artifact materialized_key_arena materialized_key_ids SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesUnexpectedEnd
+                else:
+                    if:
+                        gt actual_len offset
+                        then:
+                            selfhost_memo_trait_neplproof_payload_reader_abort artifact materialized_key_arena materialized_key_ids SelfhostMemoTraitNeplProofPayloadReaderErrorKind::TrailingBytes
+                        else:
+                            Result::Ok SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact artifact materialized_key_arena materialized_key_ids
+        else:
+            match selfhost_memo_trait_neplproof_payload_reader_decode_one_result nominal_table bytes materialized_key_arena materialized_key_ids record_ordinal offset:
+                Result::Ok step:
+                    let next_arena %SelfhostCanonicalTypeKeyArena field::get step "materialized_key_arena"
+                    let next_key_ids %Vec SelfhostCanonicalTypeKeyId field::get step "materialized_key_ids"
+                    let next_offset %i32 field::get step "next_byte_offset"
+                    selfhost_memo_trait_neplproof_payload_reader_loop nominal_table bytes artifact next_arena next_key_ids add record_ordinal 1 record_count next_offset
+                Result::Err e:
+                    selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result: `.neplproof` bytes から materialized artifact bundle を[作/つく]る
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(bundle)`: decoded artifact、共有 materialized key arena、record ordinal 対応 key id vector を返します。caller は `selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_free` で閉じます。
+//: - `Err(kind)`: header / record / payload section / materialization のいずれかで fail-closed になりました。内部で作った owner は閉じています。
+//:
+//: [契約/けいやく]:
+//: - この関数は proof store へ投入しません。proof acceptance は caller が preseed module の batch path へ渡した後に行います。
+//: - record-only prefix は既存 reader へ渡し、payload section は `record_count` 件だけ順に decode します。
+pub fn selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 Result SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind \nominal_table\bytes:
+    match selfhost_memo_trait_neplproof_reader_header_result bytes:
+        Result::Ok header:
+            match selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result bytes header:
+                Result::Ok artifact:
+                    match selfhost_canonical_type_key_arena_new:
+                        Result::Ok materialized_key_arena:
+                            let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+                            match key_ids_result:
+                                Result::Ok key_ids:
+                                    let payload_offset %i32 selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count header
+                                    selfhost_memo_trait_neplproof_payload_reader_loop nominal_table bytes artifact materialized_key_arena key_ids 0 header.record_count payload_offset
+                                Result::Err e:
+                                    selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+                                    selfhost_canonical_type_key_arena_free materialized_key_arena
+                                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdAllocInvalid e
+                        Result::Err e:
+                            selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+                            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedArenaAllocInvalid e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::HeaderReadInvalid e
+
+//: selfhost_memo_trait_neplproof_payload_reader_unit_result_is_ok: unit result が成功か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_payload_reader_unit_result_is_ok %fn Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind bool \result:
+    match result:
+        Result::Ok _unit:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_payload_reader_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_payload_reader_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_neplproof_payload_reader_std_error_kind_code a selfhost_memo_trait_neplproof_payload_reader_std_error_kind_code b
+
+//: selfhost_memo_trait_neplproof_payload_reader_error_kind_code: payload reader error の一次分類 code を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_error_kind_code %fn SelfhostMemoTraitNeplProofPayloadReaderErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::HeaderReadInvalid _inner:
+            1
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixAllocInvalid _inner:
+            2
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixPushInvalid _inner:
+            3
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixUnexpectedEnd:
+            4
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid _inner:
+            5
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthWordInvalid _inner:
+            6
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthInvalid:
+            7
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesUnexpectedEnd:
+            8
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesAllocInvalid _inner:
+            9
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesPushInvalid _inner:
+            10
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadDecodeInvalid _inner:
+            11
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedArenaAllocInvalid _inner:
+            12
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyCopyInvalid _inner:
+            13
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdAllocInvalid _inner:
+            14
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdPushInvalid _inner:
+            15
+        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::TrailingBytes:
+            16
+
+//: selfhost_memo_trait_neplproof_payload_reader_error_kind_eq: payload reader error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_payload_reader_error_kind_eq %fn SelfhostMemoTraitNeplProofPayloadReaderErrorKind fn SelfhostMemoTraitNeplProofPayloadReaderErrorKind bool \a\b:
+    if:
+        ne selfhost_memo_trait_neplproof_payload_reader_error_kind_code a selfhost_memo_trait_neplproof_payload_reader_error_kind_code b
+        then:
+            false
+        else:
+            match a:
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::HeaderReadInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::HeaderReadInvalid b_kind:
+                            selfhost_memo_trait_neplproof_reader_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixAllocInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixAllocInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixPushInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixPushInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid b_kind:
+                            selfhost_memo_trait_neplproof_reader_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthWordInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadLengthWordInvalid b_kind:
+                            selfhost_memo_trait_artifact_word_codec_read_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesAllocInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesAllocInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesPushInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadBytesPushInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadDecodeInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::PayloadDecodeInvalid b_kind:
+                            selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedArenaAllocInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedArenaAllocInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyCopyInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyCopyInvalid b_kind:
+                            selfhost_canonical_type_key_copy_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdAllocInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdAllocInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdPushInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedKeyIdPushInvalid b_kind:
+                            selfhost_memo_trait_neplproof_payload_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                _:
+                    true
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_push_word: stage0 fixture に word を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_word %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\word:
+    selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes word
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_push_header: stage0 `.neplproof` header を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_header %impure fn Vec u8 Result Vec u8 StdErrorKind \bytes:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes selfhost_memo_trait_neplproof_reader_magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes1 selfhost_memo_trait_neplproof_artifact_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes2 selfhost_memo_trait_canonical_key_payload_schema_version:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes3 selfhost_memo_trait_neplproof_policy_schema_version:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes4 1:
+                                        Result::Ok bytes5:
+                                            selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes5 1
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_record_word_value: stage0 record field 値を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_record_word_value %fn i32 i32 \field_ordinal:
+    match field_ordinal:
+        0:
+            selfhost_memo_trait_canonical_key_payload_schema_version
+        1:
+            selfhost_memo_trait_canonical_key_payload_schema_version
+        2:
+            1001
+        3:
+            2002
+        4:
+            1
+        5:
+            10
+        6:
+            11
+        7:
+            12
+        8:
+            2
+        9:
+            20
+        10:
+            21
+        11:
+            22
+        12:
+            selfhost_memo_trait_neplproof_policy_schema_version
+        13:
+            1
+        14:
+            30
+        15:
+            31
+        16:
+            32
+        17:
+            1
+        18:
+            1
+        19:
+            0
+        20:
+            0
+        21:
+            1
+        22:
+            1
+        23:
+            1
+        24:
+            1
+        25:
+            1
+        26:
+            1
+        27:
+            0
+        28:
+            1
+        29:
+            0
+        30:
+            3003
+        _:
+            0
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop: stage0 record を[線形/せんけい]に[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\field_ordinal:
+    if:
+        ge field_ordinal selfhost_memo_trait_neplproof_payload_reader_record_words
+        then:
+            Result::Ok bytes
+        else:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes selfhost_memo_trait_neplproof_payload_reader_stage0_record_word_value field_ordinal:
+                Result::Ok next:
+                    selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop next add field_ordinal 1
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix: header と 1 record を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix %impure fn void Result Vec u8 StdErrorKind \void:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_header bytes0:
+                Result::Ok bytes1:
+                    selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop bytes1 0
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_push_payload_header: canonical payload header を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_payload_header %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\node_tag:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes selfhost_memo_trait_canonical_key_payload_codec_magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes1 selfhost_memo_trait_canonical_key_payload_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes2 1:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes3 0:
+                                Result::Ok bytes4:
+                                    selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes4 0
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_push_payload_node: canonical payload node を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_payload_node %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\node_tag:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes node_tag:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes1 selfhost_memo_trait_stable_nominal_key_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes2 31:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes3 41:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes4 1:
+                                        Result::Ok bytes5:
+                                            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes5 1:
+                                                Result::Ok bytes6:
+                                                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes6 0:
+                                                        Result::Ok bytes7:
+                                                            selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes7 0
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_payload_bytes: canonical payload bytes fixture を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_payload_bytes %impure fn i32 Result Vec u8 StdErrorKind \node_tag:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_payload_header bytes0 node_tag:
+                Result::Ok bytes1:
+                    selfhost_memo_trait_neplproof_payload_reader_stage0_push_payload_node bytes1 node_tag
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_loop: payload bytes を artifact bytes へ[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_loop %impure fn Vec u8 impure fn &Vec u8 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\payload\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok bytes
+        else:
+            match v::get payload idx:
+                Option::Some byte:
+                    match v::push bytes byte:
+                        Result::Ok next:
+                            selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_loop next payload add idx 1 n
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Option::None:
+                    v::free bytes
+                    Result::Err StdErrorKind::IndexOutOfBounds
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_owned: payload owner を artifact bytes へ[移/うつ]す
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_owned %impure fn Vec u8 impure fn Vec u8 Result Vec u8 StdErrorKind \bytes\payload:
+    let payload_len %i32 v::len &payload
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes payload_len:
+        Result::Ok with_len:
+            let result %Result Vec u8 StdErrorKind selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_loop with_len &payload 0 payload_len
+            v::free payload
+            result
+        Result::Err e:
+            v::free payload
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_artifact_bytes: record prefix と payload section を[持/も]つ bytes を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_artifact_bytes %impure fn i32 Result Vec u8 StdErrorKind \node_tag:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix:
+        Result::Ok prefix:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_payload_bytes node_tag:
+                Result::Ok payload:
+                    selfhost_memo_trait_neplproof_payload_reader_stage0_append_payload_owned prefix payload
+                Result::Err e:
+                    v::free prefix
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_short_payload_bytes: 長さ word だけを過大にした bytes を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_short_payload_bytes %impure fn void Result Vec u8 StdErrorKind \void:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix:
+        Result::Ok prefix:
+            selfhost_memo_trait_neplproof_payload_reader_stage0_push_word prefix 64
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_trailing_bytes: valid payload 後に trailing word を[足/た]す
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_trailing_bytes %impure fn void Result Vec u8 StdErrorKind \void:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_artifact_bytes 2:
+        Result::Ok bytes:
+            selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes 999
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_build_nominal_table: stage0 用 stable nominal table を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_build_nominal_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_run_owned: artifact bytes owner を[読/よ]んで bundle を[閉/と]じる
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_run_owned %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn Vec u8 Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind \nominal_table\bytes:
+    let result %Result SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result nominal_table &bytes
+    v::free bytes
+    match result:
+        Result::Ok artifact:
+            selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_free artifact
+            Result::Ok unit
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_summary_new %fn Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind fn Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind fn Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind fn Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind SelfhostMemoTraitNeplProofPayloadReaderStage0Summary \accepted\short_payload\payload_decode_invalid\trailing_bytes:
+    SelfhostMemoTraitNeplProofPayloadReaderStage0Summary accepted short_payload payload_decode_invalid trailing_bytes
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_after_table: nominal table 準備後に smoke を[実行/じっこう]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_after_table %impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitNeplProofPayloadReaderStage0Summary StdErrorKind \nominal_table:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_artifact_bytes 2:
+        Result::Ok accepted_bytes:
+            let accepted %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_payload_reader_stage0_run_owned &nominal_table accepted_bytes
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_short_payload_bytes:
+                Result::Ok short_bytes:
+                    let short_payload %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_payload_reader_stage0_run_owned &nominal_table short_bytes
+                    match selfhost_memo_trait_neplproof_payload_reader_stage0_artifact_bytes 5:
+                        Result::Ok invalid_payload_bytes:
+                            let payload_decode_invalid %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_payload_reader_stage0_run_owned &nominal_table invalid_payload_bytes
+                            match selfhost_memo_trait_neplproof_payload_reader_stage0_trailing_bytes:
+                                Result::Ok trailing_bytes_source:
+                                    let trailing_bytes %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_payload_reader_stage0_run_owned &nominal_table trailing_bytes_source
+                                    let summary %SelfhostMemoTraitNeplProofPayloadReaderStage0Summary selfhost_memo_trait_neplproof_payload_reader_stage0_summary_new accepted short_payload payload_decode_invalid trailing_bytes
+                                    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+                                    Result::Ok summary
+                                Result::Err e:
+                                    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0: payload section reader の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_payload_reader_stage0 %impure fn void Result SelfhostMemoTraitNeplProofPayloadReaderStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_neplproof_payload_reader_stage0_build_nominal_table:
+        Result::Ok nominal_table:
+            selfhost_memo_trait_neplproof_payload_reader_stage0_after_table nominal_table
+        Result::Err e:
+            Result::Err e
