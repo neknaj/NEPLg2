@@ -20,6 +20,7 @@
 //: - 既存の `selfhost_memo_trait_proof_store_push` / `selfhost_memo_trait_proof_store_lookup_record` は session-local compatibility path です。これらは `stable_fingerprint = none` の record を扱い、stable proof artifact としては再利用しません。
 //: - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_lookup_record_stable_key` は stable nominal key table から canonical type fingerprint を作り、`stable_fingerprint = some(...)` の record だけを永続 key 入力として受理します。stable push は同じ canonical key、policy、stable fingerprint の duplicate を `StableDuplicate` として拒否します。stable index は fingerprint で候補を減らすための hint であり、fingerprint が一致しても cross-arena canonical equality、policy equality、proof kind、producer gate は必ず実行します。
 //: - `SelfhostMemoTraitProofStorePreseedDecision` は `.neplproof` reader が store へ record を投入する前に、既存 record と同一 payload なら再投入不要、同じ identity で異なる payload なら conflict、未登録なら追加可能、という判断を typed enum として固定します。ここでも stable fingerprint 単独や表示文字列を authority にしません。
+//: - decoded `.neplproof` record は、artifact schema validation と canonical key materialization を済ませてから `selfhost_memo_trait_proof_store_preseed_decision_materialized_key` へ渡します。この公開 API は store-local identity struct を外へ出さず、caller が所有する canonical key arena と store の arena を cross-arena equality で比較します。
 //: - stable index が候補を返せないにもかかわらず full stable scan では proof を受理できる場合、store の index invariant が壊れているため `StableIndexMissing` として fail-closed にします。
 //:
 //: [計算量/けいさんりょう]:
@@ -740,6 +741,87 @@ fn selfhost_memo_trait_proof_store_preseed_decision_loop %fn &SelfhostCanonicalT
 //: - proof kind は identity には含めず、payload equality で比較します。
 fn selfhost_memo_trait_proof_store_preseed_decision %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStorePreseedDecision \key_arena\records\candidate\proof_kind\proof:
     selfhost_memo_trait_proof_store_preseed_decision_loop key_arena records candidate proof_kind proof 0
+
+//: selfhost_memo_trait_proof_store_record_materialized_identity_matches: decoded key と record の stable identity が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が canonical key payload を caller-owned arena へ復元した後、store-local `SelfhostMemoTraitProofStoreStableIdentity` を作らずに既存 record と比較できるようにします。
+//:
+//: [契約/けいやく]:
+//: - record 側は `stable_fingerprint = Some` の stable proof record だけを対象にします。legacy record は serialized preseed identity を持たないため一致しません。
+//: - canonical key は store arena と candidate arena の構造一致で比較します。candidate fingerprint だけの一致、または store-local id 数値の一致では受理しません。
+//: - policy と canonical fingerprint の両方が一致した場合だけ、同じ artifact identity とみなします。
+fn selfhost_memo_trait_proof_store_record_materialized_identity_matches %fn &SelfhostCanonicalTypeKeyArena fn SelfhostMemoTraitProofStoreRecord fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint bool \store_key_arena\record\candidate_arena\candidate_key\candidate_policy\candidate_fingerprint:
+    match record.stable_fingerprint:
+        Option::Some record_fingerprint:
+            and:
+                selfhost_memo_trait_proof_store_canonical_key_equal_cross store_key_arena record.key_id candidate_arena candidate_key
+                and:
+                    selfhost_memo_trait_proof_store_policy_eq record.policy candidate_policy
+                    selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint candidate_fingerprint
+        Option::None:
+            false
+
+//: selfhost_memo_trait_proof_store_preseed_decision_for_materialized_record: decoded candidate と 1 record の関係を[分類/ぶんるい]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `AcceptMissing`: この record は decoded candidate と別 identity です。caller は次の record を探索します。
+//: - `ExistingMatching`: 同じ identity で、proof kind と proof payload も一致します。
+//: - `RejectedConflict`: 同じ identity ですが payload が違います。caller は上書きせず fail-closed にできます。
+fn selfhost_memo_trait_proof_store_preseed_decision_for_materialized_record %fn &SelfhostCanonicalTypeKeyArena fn SelfhostMemoTraitProofStoreRecord fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStorePreseedDecision \store_key_arena\record\candidate_arena\candidate_key\candidate_policy\candidate_fingerprint\proof_kind\proof:
+    if:
+        selfhost_memo_trait_proof_store_record_materialized_identity_matches store_key_arena record candidate_arena candidate_key candidate_policy candidate_fingerprint
+        then:
+            if:
+                selfhost_memo_trait_proof_store_record_payload_matches record proof_kind proof
+                then:
+                    SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching
+                else:
+                    SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+        else:
+            SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing
+
+//: selfhost_memo_trait_proof_store_preseed_decision_materialized_loop: decoded candidate の preseed 判定を[線形/せんけい][探索/たんさく]する
+//:
+//: [契約/けいやく]:
+//: - conflict は探索を止めます。同一 identity の差分 payload を後続 record の一致で隠してはいけません。
+//: - identity が違う record と legacy record は `AcceptMissing` として扱い、探索を継続します。
+fn selfhost_memo_trait_proof_store_preseed_decision_materialized_loop %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof fn i32 SelfhostMemoTraitProofStorePreseedDecision \store_key_arena\records\candidate_arena\candidate_key\candidate_policy\candidate_fingerprint\proof_kind\proof\idx:
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_proof_store_preseed_decision_for_materialized_record store_key_arena record candidate_arena candidate_key candidate_policy candidate_fingerprint proof_kind proof:
+                        SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+                            selfhost_memo_trait_proof_store_preseed_decision_materialized_loop store_key_arena records candidate_arena candidate_key candidate_policy candidate_fingerprint proof_kind proof add idx 1
+                        SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+                            SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching
+                        SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+                            SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+                Option::None:
+                    SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing
+
+//: selfhost_memo_trait_proof_store_preseed_decision_materialized_key: decoded canonical key の preseed 判定を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が decoded canonical key payload を一時 arena へ復元した後、その key と typed policy / fingerprint / proof payload を store の既存 stable record と照合します。
+//:
+//: [契約/けいやく]:
+//: - この関数は store と candidate arena を変更しません。
+//: - `candidate_key` は `candidate_arena` 内だけで意味を持ちます。store に保存されている key id とは数値比較しません。
+//: - `candidate_policy` と `candidate_fingerprint` は、artifact record key validation と decoded canonical key payload の照合を済ませた値を渡します。この関数は proof store の重複 / conflict 判定だけを担当します。
+//: - proof kind は identity には含めず、payload equality で比較します。
+//:
+//: [計算量/けいさんりょう]:
+//: - record 数 n と canonical key tree size k に対して O(n * k) です。永続 map 化する後続 slice でも、この関数の判定規則を authority とします。
+pub fn selfhost_memo_trait_proof_store_preseed_decision_materialized_key %fn &SelfhostMemoTraitProofStore fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStorePreseedDecision \store\candidate_arena\candidate_key\candidate_policy\candidate_fingerprint\proof_kind\proof:
+    let store_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref store "key_arena"
+    let records %&Vec SelfhostMemoTraitProofStoreRecord field::get_ref store "records"
+    selfhost_memo_trait_proof_store_preseed_decision_materialized_loop store_key_arena records candidate_arena candidate_key candidate_policy candidate_fingerprint proof_kind proof 0
 
 //: selfhost_memo_trait_proof_store_preseed_decision_eq: preseed decision が同じか[返/かえ]す
 //:
@@ -1570,8 +1652,7 @@ fn selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable_loop %fn &Se
                 Option::Some record:
                     match record.stable_fingerprint:
                         Option::Some fingerprint:
-                            let candidate %SelfhostMemoTraitProofStoreStableIdentity selfhost_memo_trait_proof_store_stable_identity_new record.key_id record.policy fingerprint
-                            Result::Ok selfhost_memo_trait_proof_store_preseed_decision key_arena records candidate proof_kind proof
+                            Result::Ok selfhost_memo_trait_proof_store_preseed_decision_materialized_key store key_arena record.key_id record.policy fingerprint proof_kind proof
                         Option::None:
                             selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable_loop store proof_kind proof add idx 1
                 Option::None:

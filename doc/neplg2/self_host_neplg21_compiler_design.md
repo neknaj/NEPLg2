@@ -1004,6 +1004,18 @@ Header は artifact schema、canonical payload schema、policy schema、record c
 
 この checkpoint により、後続の `.neplproof` reader / serializer は proof store の store-local stable identity struct を直接永続化せず、serialized canonical key payload と typed policy / proof payload を分離して実装する。
 
+### 2026-06-12 memo trait `.neplproof` decoded preseed materialization checkpoint
+
+`.neplproof` artifact schema と proof store preseed decision の間に、decoded record を materialized canonical key と照合する bridge boundary を追加した。
+
+この bridge は reader / serializer 本体ではない。Phase 1 では、caller が decoded canonical key payload から一時 `SelfhostCanonicalTypeKeyArena`、`SelfhostCanonicalTypeKeyId`、canonical payload hash、canonical fingerprint を作った後の接続点だけを固定する。binary codec、serialized canonical key tree payload、persistent stable map、disk / bundled artifact I/O は後続 slice に残す。
+
+bridge は decoded record key と record body を artifact schema boundary で再検査し、materialized key の存在、canonical payload hash、canonical fingerprint、solver policy をこの順で照合する。いずれかが壊れている場合は `SelfhostMemoTraitNeplProofPreseedErrorKind` の typed error として返し、proof store の decision へ進めない。
+
+照合を通過した record だけが `selfhost_memo_trait_proof_store_preseed_decision_materialized_key` へ渡される。store relation は `AcceptMissing`、`ExistingMatching`、`RejectedConflict` の typed enum で返し、同一 stable identity / 同一 payload の再投入は skip 可能、同一 stable identity / 差分 payload は fail-closed conflict として扱う。stage0 smoke は empty store の `AcceptMissing` だけでなく、stable proof を seed した store に対する bridge 経由の `ExistingMatching` と `RejectedConflict` も実行で固定する。
+
+永続 artifact の accepted authority は、serialized canonical key payload hash、canonical fingerprint、typed policy、proof kind、stored proof payload、record payload hash である。store-local `SelfhostCanonicalTypeKeyId`、`SelfhostMemoTraitProofStoreStableIdentity`、session-local `SelfhostTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme は bridge API の入力 authority にしない。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

@@ -56108,3 +56108,42 @@ MERGE_APPROVED
 - method segment header から method name / type annotation / effect / default body shape を stable normalized signature evidence へ変換する normalizer は未実装である。
 - method-bearing `MemoKey` / `MemoValue` trait definition を public surface seed / stable source evidence へ接続する producer は未実装である。
 - re-export / import graph を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未完了である。
+
+## 2026-06-12 Agent selfhost memo trait `.neplproof` decoded preseed materialization checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-preseed-boundary-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、純粋関数、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl` を追加し、decoded `.neplproof` record を materialized canonical key と照合してから proof store preseed decision へ渡す bridge boundary を作った。
+- bridge は artifact record key / record body を再検証し、materialized key existence、canonical payload hash、canonical fingerprint、policy を fail-closed に確認してから、`selfhost_memo_trait_proof_store_preseed_decision_materialized_key` へ委譲する。
+- `SelfhostMemoTraitNeplProofPreseedErrorKind` は artifact schema error、materialized key missing、payload hash mismatch、fingerprint mismatch、policy mismatch を typed enum として分け、bool や表示文字列には潰さない。
+- `memo_trait_proof_store.nepl` に public materialized preseed API を追加し、store-local stable identity struct を外へ出さずに caller-owned canonical key arena と store-owned arena を cross-arena equality で比較するようにした。
+- stage0 smoke は empty store の `AcceptMissing`、seed 済み store の `ExistingMatching`、seed 済み store の `RejectedConflict`、missing key、payload hash mismatch、fingerprint mismatch、policy mismatch、invalid artifact record を同じ decoded bridge public API 経由で確認する。
+- `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` を追加し、facade re-export、artifact schema validation、proof store delegation、materialized key existence、hash / fingerprint / policy check order、stage0 skip / conflict、owner cleanup、store-local ID 非永続化、fingerprint-only acceptance 禁止、line count / doc comment length cap 禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に decoded preseed materialization checkpoint を追記した。
+
+### subagent_review
+
+- Hilbert review: bridge boundary は概ね妥当だが、bridge API 自身の stage0 / doctest が `ExistingMatching` と `RejectedConflict` を実行していないことを Required として指摘した。
+- 指摘を受け、proof store stage0 だけに依存せず、`selfhost_memo_trait_neplproof_record_preseed_decision_materialized` 経由で seeded store の `ExistingMatching` / `RejectedConflict` を実行するように修正した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -o tmp/selfhost-memo-trait-proof-preseed.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/selfhost-ty-proof-preseed-facade.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -o tmp/selfhost-memo-trait-proof-store-artifact.json -j 1 --assert-io --dist web/dist` total=2 passed=2 failed=0
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+
+### residual
+
+- `.neplproof` reader / serializer、serialized canonical key tree payload codec、canonical payload hash producer、proof store append from decoded record、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。

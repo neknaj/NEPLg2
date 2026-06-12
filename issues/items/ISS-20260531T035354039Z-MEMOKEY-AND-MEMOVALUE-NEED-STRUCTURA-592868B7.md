@@ -327,6 +327,35 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` decoded preseed materialization checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl` を追加し、decoded `.neplproof` record を materialized canonical key と照合してから proof store preseed decision へ進める bridge boundary を作った。
+
+この checkpoint は `.neplproof` reader / serializer 本体ではない。binary / text codec、canonical key tree payload serialization、payload hash producer、disk / bundled artifact I/O は後続 slice とする。今回の責務は、reader が decoded record と decoded canonical key payload を得た後、artifact schema validation、materialized key existence、canonical payload hash、canonical fingerprint、policy を照合し、問題がない場合だけ proof store の materialized preseed API へ委譲することである。
+
+`SelfhostMemoTraitNeplProofPreseedErrorKind` は `ArtifactRecordInvalid`、`MaterializedCanonicalKeyMissing`、`MaterializedFingerprintMismatch`、`MaterializedPolicyMismatch`、`CanonicalPayloadHashMismatch` を持つ。artifact schema error は nested typed error を保持し、payload hash / fingerprint / policy mismatch はそれぞれ別 variant として扱う。bool や表示文字列に潰さず、caller が artifact discard、通常検査 fallback、diagnostic を選べるようにした。
+
+proof store 側には `selfhost_memo_trait_proof_store_preseed_decision_materialized_key` を追加した。この public API は store-local `SelfhostMemoTraitProofStoreStableIdentity` を外へ出さず、caller-owned canonical key arena と store-owned canonical key arena を cross-arena equality で比較する。identity 判定は stable record fingerprint、canonical key equality、policy equality、fingerprint equality をすべて要求し、fingerprint-only acceptance は作らない。
+
+stage0 smoke は empty store に対する `AcceptMissing` に加えて、stable proof を seed した store に対する decoded bridge API 経由の `ExistingMatching` と `RejectedConflict` を確認する。`RejectedConflict` は同じ key / policy / fingerprint / payload hash でも proof kind が違う decoded record を使い、same stable identity の差分 payload を上書きや first-wins で隠さないことを固定した。
+
+subagent review では Hilbert が、bridge 境界自体は妥当だが、bridge API 自身の stage0 が `ExistingMatching` / `RejectedConflict` を実行していないことを Required として指摘した。修正後は proof store stage0 に依存せず、`selfhost_memo_trait_neplproof_record_preseed_decision_materialized` 経由で seeded store の skip / conflict を実行するようにした。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` を追加し、facade re-export、artifact schema validation、proof store delegation、materialized key existence、payload hash / fingerprint / policy check order、bridge stage0 の `ExistingMatching` / `RejectedConflict`、owner cleanup、artifact schema への store-local ID 混入禁止、fingerprint-only acceptance 禁止、line count / doc comment length cap 禁止を固定した。`nodesrc/run_source_policy_regressions.js` にも登録した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -o tmp/selfhost-memo-trait-proof-preseed.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/selfhost-ty-proof-preseed-facade.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -o tmp/selfhost-memo-trait-proof-store-artifact.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+この checkpoint 後の残件は、`.neplproof` reader / serializer、serialized canonical key tree payload codec、canonical payload hash producer、decoded record から proof store append への投入、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を接続することである。
+
 ## 2026-06-12 selfhost memo trait `.neplproof` artifact schema checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl` を追加し、`MemoKey` / `MemoValue` stored proof を `.neplproof` artifact へ載せる前段の typed schema boundary を固定した。
