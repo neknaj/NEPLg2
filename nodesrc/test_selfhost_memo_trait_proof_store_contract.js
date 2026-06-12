@@ -85,6 +85,11 @@ assert.match(
     /struct SelfhostMemoTraitProofStoreStableIdentity:[\s\S]*key_id %SelfhostCanonicalTypeKeyId[\s\S]*policy %SelfhostMemoTraitProofStorePolicy[\s\S]*stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint/,
     "stable proof store must represent the duplicate and future stable-map identity as a typed store-local identity",
 );
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitProofStorePreseedDecision:[\s\S]*AcceptMissing[\s\S]*ExistingMatching[\s\S]*RejectedConflict/,
+    "stable proof preseed must expose append, existing-match, and conflict outcomes as typed enum variants",
+);
 const stableIdentityStruct = source.match(
     /struct SelfhostMemoTraitProofStoreStableIdentity:\n(?:(?:    .+)\n)+/,
 );
@@ -101,6 +106,11 @@ assert.match(
     source,
     /SelfhostMemoTraitProofStoreStableIdentity: stable proof の store-local identity[\s\S]*そのまま `\.neplproof` へ書き出してはいけません[\s\S]*proof kind は stable identity に含めません/,
     "stable proof identity documentation must distinguish store-local identity from serialized .neplproof identity and exclude proof kind deliberately",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitProofStorePreseedDecision: stable proof preseed の store-local 判定[\s\S]*ExistingMatching[\s\S]*同じ stable identity[\s\S]*proof kind と stored proof payload も完全に一致[\s\S]*RejectedConflict[\s\S]*proof kind または stored proof payload が違う/,
+    "preseed decision documentation must specify existing-match versus conflict semantics at the stable identity boundary",
 );
 assert.match(
     source,
@@ -146,6 +156,41 @@ assert.match(
     source,
     /fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop[\s\S]*SelfhostMemoTraitProofStoreStableIdentity[\s\S]*selfhost_memo_trait_proof_store_record_stable_identity_matches key_arena record candidate/,
     "stable duplicate scan must operate on the typed stable identity boundary instead of a loose argument tuple",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_stored_proof_kind_eq[\s\S]*SelfhostMemoTraitStoredProofKind::KeyAndValue[\s\S]*SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported[\s\S]*SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported/,
+    "preseed payload equality must compare stored proof kind explicitly",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_stored_aggregate_proof_eq[\s\S]*selfhost_memo_trait_aggregate_field_evidence_eq a\.fields b\.fields[\s\S]*selfhost_memo_trait_aggregate_proof_status_eq a\.copy_proof b\.copy_proof[\s\S]*selfhost_memo_trait_aggregate_proof_status_eq a\.drop_proof b\.drop_proof[\s\S]*selfhost_memo_trait_aggregate_proof_status_eq a\.eq_proof b\.eq_proof[\s\S]*selfhost_memo_trait_aggregate_proof_status_eq a\.hash_proof b\.hash_proof[\s\S]*selfhost_memo_trait_aggregate_hazard_evidence_eq a\.hazard b\.hazard[\s\S]*selfhost_memo_trait_result_payload_eq a\.key_result b\.key_result[\s\S]*selfhost_memo_trait_result_payload_eq a\.value_result b\.value_result/,
+    "stored aggregate proof equality must compare every current proof payload field",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_result_payload_eq[\s\S]*Result::Ok _a_unit:[\s\S]*Result::Ok _b_unit:[\s\S]*true[\s\S]*Result::Err a_kind:[\s\S]*Result::Err b_kind:[\s\S]*selfhost_memo_trait_reject_kind_eq a_kind b_kind/,
+    "preseed payload equality must compare Result tags and reject-kind payloads",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_record_payload_matches[\s\S]*selfhost_memo_trait_stored_proof_kind_eq record\.proof_kind proof_kind[\s\S]*selfhost_memo_trait_stored_aggregate_proof_eq record\.proof proof/,
+    "preseed payload matching must include proof kind and stored aggregate proof",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_preseed_decision_for_record[\s\S]*selfhost_memo_trait_proof_store_record_stable_identity_matches key_arena record candidate[\s\S]*selfhost_memo_trait_proof_store_record_payload_matches record proof_kind proof[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing/,
+    "preseed decision must classify same identity plus same payload as ExistingMatching and same identity plus different payload as RejectedConflict",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_preseed_decision_loop[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_proof_store_preseed_decision_loop key_arena records candidate proof_kind proof add idx 1[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict/,
+    "preseed scan must continue after non-matching records and must stop on existing-match or conflict",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_proof_store_preseed_decision_eq[\s\S]*AcceptMissing[\s\S]*ExistingMatching[\s\S]*RejectedConflict/,
+    "preseed decision equality must let doctests compare typed decisions without strings or bool-only output",
 );
 assert.match(
     source,
@@ -254,8 +299,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch[\s\S]*selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.stable_found[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch[\s\S]*selfhost_memo_trait_proof_store_push_error_kind_eq \(unwrap_err summary\.stable_duplicate\) SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate/,
-    "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, unsupported proof kind rejection, stable lookup acceptance, legacy stable-fingerprint rejection, stable mismatch rejection, and stable duplicate rejection",
+    /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch[\s\S]*selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.stable_found[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch[\s\S]*selfhost_memo_trait_proof_store_push_error_kind_eq \(unwrap_err summary\.stable_duplicate\) SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate[\s\S]*selfhost_memo_trait_proof_store_preseed_decision_eq summary\.preseed_existing_matching SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching[\s\S]*selfhost_memo_trait_proof_store_preseed_decision_eq summary\.preseed_rejected_conflict SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict/,
+    "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, unsupported proof kind rejection, stable lookup acceptance, legacy stable-fingerprint rejection, stable mismatch rejection, stable duplicate rejection, and preseed existing/conflict decisions",
 );
 assert.doesNotMatch(
     source,

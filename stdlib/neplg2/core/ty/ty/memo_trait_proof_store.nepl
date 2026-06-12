@@ -19,17 +19,18 @@
 //: - solver policy identity は source identity と rule identity の typed payload であり、raw `trait_source_hash` や raw `rule_hash` を proof store record の authority にしません。
 //: - 既存の `selfhost_memo_trait_proof_store_push` / `selfhost_memo_trait_proof_store_lookup_record` は session-local compatibility path です。これらは `stable_fingerprint = none` の record を扱い、stable proof artifact としては再利用しません。
 //: - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_lookup_record_stable_key` は stable nominal key table から canonical type fingerprint を作り、`stable_fingerprint = some(...)` の record だけを永続 key 入力として受理します。stable push は同じ canonical key、policy、stable fingerprint の duplicate を `StableDuplicate` として拒否します。stable index は fingerprint で候補を減らすための hint であり、fingerprint が一致しても cross-arena canonical equality、policy equality、proof kind、producer gate は必ず実行します。
+//: - `SelfhostMemoTraitProofStorePreseedDecision` は `.neplproof` reader が store へ record を投入する前に、既存 record と同一 payload なら再投入不要、同じ identity で異なる payload なら conflict、未登録なら追加可能、という判断を typed enum として固定します。ここでも stable fingerprint 単独や表示文字列を authority にしません。
 //: - stable index が候補を返せないにもかかわらず full stable scan では proof を受理できる場合、store の index invariant が壊れているため `StableIndexMissing` として fail-closed にします。
 //:
 //: [計算量/けいさんりょう]:
 //: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。stable proof 追加はさらに stable index push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
-//: - stable proof duplicate 検査は既存 record 数 n と canonical key tree size k に対して O(n * k) です。Phase 1 では duplicate を silent first-wins にせず typed error にすることを優先し、後続の stable map 化で O(k) 近くへ下げます。
+//: - stable proof duplicate 検査と preseed 判定は既存 record 数 n と canonical key tree size k に対して O(n * k) です。Phase 1 では duplicate / conflict を silent first-wins にせず typed error や typed decision にすることを優先し、後続の stable map 化で O(k) 近くへ下げます。
 //: - 通常 lookup は一時 canonical key projection O(k) と、store record 数 n に対する線形探索 O(n * k) です。
 //: - stable lookup の accepted fast path は stable index entry 数 s と fingerprint collision candidate 数 c に対して O(s + c * k) です。失敗時は legacy record missing / fingerprint mismatch / policy mismatch の診断精度を保つため full stable scan O(n * k) へ戻します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -39,6 +40,8 @@
 //: ##: [6] ok
 //: ##: [7] ok
 //: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -61,7 +64,9 @@
 //:             let checks7 checks_push checks6 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.stable_legacy_missing) SelfhostMemoTraitProofStoreLookupErrorKind::RecordStableFingerprintMissing
 //:             let checks8 checks_push checks7 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.stable_mismatch) SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch
 //:             let checks9 checks_push checks8 check selfhost_memo_trait_proof_store_push_error_kind_eq (unwrap_err summary.stable_duplicate) SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate
-//:             let shown checks_print_report checks9
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_proof_store_preseed_decision_eq summary.preseed_existing_matching SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching
+//:             let checks11 checks_push checks10 check selfhost_memo_trait_proof_store_preseed_decision_eq summary.preseed_rejected_conflict SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+//:             let shown checks_print_report checks11
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "memo trait proof store stage0 setup failed"
@@ -171,6 +176,22 @@ struct SelfhostMemoTraitProofStoreStableIdentity:
     policy %SelfhostMemoTraitProofStorePolicy
     stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
 
+//: SelfhostMemoTraitProofStorePreseedDecision: stable proof preseed の store-local 判定
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader や bundled artifact loader が、store に proof record を追加する前に、既存 store と candidate の関係を typed payload として受け取れるようにします。
+//: - 既存一致、未登録、conflict を `bool` や文字列へ潰さず、呼び出し側が上書き禁止 / skip / append を明確に選べるようにします。
+//:
+//: [契約/けいやく]:
+//: - `AcceptMissing` は、同じ stable identity を持つ record が store に存在しないことを表します。
+//: - `ExistingMatching` は、同じ stable identity を持つ record があり、proof kind と stored proof payload も完全に一致したことを表します。preseed caller は同じ record を再追加せず skip できます。
+//: - `RejectedConflict` は、同じ stable identity を持つ record があるにもかかわらず、proof kind または stored proof payload が違うことを表します。上書きや first-wins で隠してはいけません。
+//: - この判定は store-local canonical key id を使うため、そのまま serialized `.neplproof` key にはしません。永続 reader は canonical key を store arena へ materialize した後、この判定を使います。
+pub enum SelfhostMemoTraitProofStorePreseedDecision:
+    AcceptMissing
+    ExistingMatching
+    RejectedConflict
+
 //: SelfhostMemoTraitProofStorePushErrorKind: store 追加失敗の分類
 pub enum SelfhostMemoTraitProofStorePushErrorKind:
     TypeProjectionFailed
@@ -205,6 +226,8 @@ pub struct SelfhostMemoTraitProofStoreStage0Summary:
     stable_legacy_missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
     stable_mismatch %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
     stable_duplicate %Result unit SelfhostMemoTraitProofStorePushErrorKind
+    preseed_existing_matching %SelfhostMemoTraitProofStorePreseedDecision
+    preseed_rejected_conflict %SelfhostMemoTraitProofStorePreseedDecision
 
 impl Clone for SelfhostMemoTraitStoredProofKind:
     fn clone %fn &SelfhostMemoTraitStoredProofKind SelfhostMemoTraitStoredProofKind \self:
@@ -244,6 +267,14 @@ impl Clone for SelfhostMemoTraitProofStoreStableIdentity:
 
 impl Copy for SelfhostMemoTraitProofStoreStableIdentity:
     fn copy_mark %fn SelfhostMemoTraitProofStoreStableIdentity SelfhostMemoTraitProofStoreStableIdentity \self:
+        self
+
+impl Clone for SelfhostMemoTraitProofStorePreseedDecision:
+    fn clone %fn &SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitProofStorePreseedDecision \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStorePreseedDecision:
+    fn copy_mark %fn SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitProofStorePreseedDecision \self:
         self
 
 impl Clone for SelfhostMemoTraitProofStorePushErrorKind:
@@ -371,6 +402,375 @@ fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop %fn &SelfhostCan
 //: - `false`: stable proof として同じ identity の record はありません。
 fn selfhost_memo_trait_proof_store_stable_duplicate_exists %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity bool \key_arena\records\candidate:
     selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records candidate 0
+
+//: selfhost_memo_trait_stored_proof_kind_eq: stored proof kind が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - preseed 判定では proof kind を stable identity には含めませんが、payload equality では比較します。同じ key / policy / fingerprint でも、kind が違う record は同じ proof ではありません。
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。stored proof kind を追加した場合、この equality の更新漏れが match の網羅性や source policy review で見える形にします。
+fn selfhost_memo_trait_stored_proof_kind_eq %fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredProofKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStoredProofKind::KeyAndValue:
+            match b:
+                SelfhostMemoTraitStoredProofKind::KeyAndValue:
+                    true
+                SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported:
+                    false
+                SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported:
+                    false
+        SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported:
+            match b:
+                SelfhostMemoTraitStoredProofKind::KeyAndValue:
+                    false
+                SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported:
+                    true
+                SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported:
+                    false
+        SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported:
+            match b:
+                SelfhostMemoTraitStoredProofKind::KeyAndValue:
+                    false
+                SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported:
+                    false
+                SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported:
+                    true
+
+//: selfhost_memo_trait_aggregate_field_range_eq: field range payload が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `Known(range)` の tag だけを比較してしまうと、別の field table 範囲を同じ proof と誤認します。preseed conflict 判定では range の payload まで比較します。
+fn selfhost_memo_trait_aggregate_field_range_eq %fn SelfhostMemoTraitAggregateFieldRange fn SelfhostMemoTraitAggregateFieldRange bool \a\b:
+    and:
+        eq a.first_field b.first_field
+        eq a.field_count b.field_count
+
+//: selfhost_memo_trait_aggregate_field_evidence_eq: field evidence が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `Known` は range payload まで比較します。missing / generic / cycle の各拒否境界も別 variant として扱います。
+fn selfhost_memo_trait_aggregate_field_evidence_eq %fn SelfhostMemoTraitAggregateFieldEvidence fn SelfhostMemoTraitAggregateFieldEvidence bool \a\b:
+    match a:
+        SelfhostMemoTraitAggregateFieldEvidence::Known a_range:
+            match b:
+                SelfhostMemoTraitAggregateFieldEvidence::Known b_range:
+                    selfhost_memo_trait_aggregate_field_range_eq a_range b_range
+                SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+                    false
+        SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+            match b:
+                SelfhostMemoTraitAggregateFieldEvidence::Known _b_range:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+                    true
+                SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+                    false
+        SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+            match b:
+                SelfhostMemoTraitAggregateFieldEvidence::Known _b_range:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+                    true
+                SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+                    false
+        SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+            match b:
+                SelfhostMemoTraitAggregateFieldEvidence::Known _b_range:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+                    false
+                SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+                    true
+
+//: selfhost_memo_trait_aggregate_proof_status_eq: operation proof status が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - Copy / Drop / Eq / Hash proof は同じ enum を共有します。preseed conflict 判定では `Proven` と `Missing`、`Impure`、`Unknown` を明確に区別します。
+fn selfhost_memo_trait_aggregate_proof_status_eq %fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \a\b:
+    match a:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            match b:
+                SelfhostMemoTraitAggregateProofStatus::Proven:
+                    true
+                SelfhostMemoTraitAggregateProofStatus::Missing:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Impure:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Unknown:
+                    false
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            match b:
+                SelfhostMemoTraitAggregateProofStatus::Proven:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Missing:
+                    true
+                SelfhostMemoTraitAggregateProofStatus::Impure:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Unknown:
+                    false
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            match b:
+                SelfhostMemoTraitAggregateProofStatus::Proven:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Missing:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Impure:
+                    true
+                SelfhostMemoTraitAggregateProofStatus::Unknown:
+                    false
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            match b:
+                SelfhostMemoTraitAggregateProofStatus::Proven:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Missing:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Impure:
+                    false
+                SelfhostMemoTraitAggregateProofStatus::Unknown:
+                    true
+
+//: selfhost_memo_trait_aggregate_hazard_evidence_eq: cache hazard evidence が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - hazard は private cache purity の安全境界です。`NoHazard` とそれ以外を一括の bool にせず、どの hazard で拒否された proof かまで preseed equality に含めます。
+fn selfhost_memo_trait_aggregate_hazard_evidence_eq %fn SelfhostMemoTraitAggregateHazardEvidence fn SelfhostMemoTraitAggregateHazardEvidence bool \a\b:
+    match a:
+        SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+            match b:
+                SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+                    true
+                SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+                    false
+        SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+            match b:
+                SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+                    true
+                SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+                    false
+        SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+            match b:
+                SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+                    true
+                SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+                    false
+        SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+            match b:
+                SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+                    true
+                SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+                    false
+        SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+            match b:
+                SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+                    true
+                SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+                    false
+        SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+            match b:
+                SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+                    false
+                SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+                    true
+
+//: selfhost_memo_trait_result_payload_eq: MemoKey / MemoValue result payload が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `Ok(unit)` 同士は一致します。
+//: - `Err(kind)` 同士は `SelfhostMemoTraitRejectKind` の typed equality で比較します。
+//: - 成功と失敗は一致しません。
+fn selfhost_memo_trait_result_payload_eq %fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind bool \a\b:
+    match a:
+        Result::Ok _a_unit:
+            match b:
+                Result::Ok _b_unit:
+                    true
+                Result::Err _b_kind:
+                    false
+        Result::Err a_kind:
+            match b:
+                Result::Ok _b_unit:
+                    false
+                Result::Err b_kind:
+                    selfhost_memo_trait_reject_kind_eq a_kind b_kind
+
+//: selfhost_memo_trait_stored_aggregate_proof_eq: stored proof payload が完全に同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - preseed conflict 判定が、proof の一部だけを見て stale artifact を既存一致と誤認しないようにします。
+//:
+//: [契約/けいやく]:
+//: - fields、Copy、Drop、Eq、Hash、hazard、key result、value result をすべて比較します。
+//: - stored proof に field が追加された場合、この関数と source policy を同時に更新する必要があります。
+fn selfhost_memo_trait_stored_aggregate_proof_eq %fn SelfhostMemoTraitStoredAggregateProof fn SelfhostMemoTraitStoredAggregateProof bool \a\b:
+    and:
+        selfhost_memo_trait_aggregate_field_evidence_eq a.fields b.fields
+        and:
+            selfhost_memo_trait_aggregate_proof_status_eq a.copy_proof b.copy_proof
+            and:
+                selfhost_memo_trait_aggregate_proof_status_eq a.drop_proof b.drop_proof
+                and:
+                    selfhost_memo_trait_aggregate_proof_status_eq a.eq_proof b.eq_proof
+                    and:
+                        selfhost_memo_trait_aggregate_proof_status_eq a.hash_proof b.hash_proof
+                        and:
+                            selfhost_memo_trait_aggregate_hazard_evidence_eq a.hazard b.hazard
+                            and:
+                                selfhost_memo_trait_result_payload_eq a.key_result b.key_result
+                                selfhost_memo_trait_result_payload_eq a.value_result b.value_result
+
+//: selfhost_memo_trait_proof_store_record_payload_matches: record と candidate proof payload が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - stable identity の一致後に、既存 record を再利用できる同一 payload なのか、同じ identity に対する conflict なのかを分けます。
+fn selfhost_memo_trait_proof_store_record_payload_matches %fn SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof bool \record\proof_kind\proof:
+    and:
+        selfhost_memo_trait_stored_proof_kind_eq record.proof_kind proof_kind
+        selfhost_memo_trait_stored_aggregate_proof_eq record.proof proof
+
+//: selfhost_memo_trait_proof_store_preseed_decision_for_record: 1 record と candidate の preseed 関係を[分類/ぶんるい]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `AcceptMissing`: この record は candidate と別 identity です。caller は次の record を探索します。
+//: - `ExistingMatching`: この record は同じ identity かつ同じ payload です。
+//: - `RejectedConflict`: この record は同じ identity ですが payload が違います。
+fn selfhost_memo_trait_proof_store_preseed_decision_for_record %fn &SelfhostCanonicalTypeKeyArena fn SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStorePreseedDecision \key_arena\record\candidate\proof_kind\proof:
+    if:
+        selfhost_memo_trait_proof_store_record_stable_identity_matches key_arena record candidate
+        then:
+            if:
+                selfhost_memo_trait_proof_store_record_payload_matches record proof_kind proof
+                then:
+                    SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching
+                else:
+                    SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+        else:
+            SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing
+
+//: selfhost_memo_trait_proof_store_preseed_decision_loop: store-local stable identity の preseed 判定を[線形/せんけい][探索/たんさく]する
+//:
+//: [契約/けいやく]:
+//: - conflict は探索を止めて `RejectedConflict` を返します。同じ identity の差分 payload を後続 record で隠してはいけません。
+//: - legacy record は stable identity helper 側で対象外になり、探索は継続します。
+fn selfhost_memo_trait_proof_store_preseed_decision_loop %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof fn i32 SelfhostMemoTraitProofStorePreseedDecision \key_arena\records\candidate\proof_kind\proof\idx:
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_proof_store_preseed_decision_for_record key_arena record candidate proof_kind proof:
+                        SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+                            selfhost_memo_trait_proof_store_preseed_decision_loop key_arena records candidate proof_kind proof add idx 1
+                        SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+                            SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching
+                        SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+                            SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict
+                Option::None:
+                    SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing
+
+//: selfhost_memo_trait_proof_store_preseed_decision: store-local stable proof preseed の[分類/ぶんるい]を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が materialize した candidate を store へ追加する前に、append / skip / reject のどれに進むべきかを判定する境界です。
+//:
+//: [契約/けいやく]:
+//: - この関数は store を変更しません。
+//: - `candidate.key_id` は `key_arena` と対で意味を持つ store-local id です。
+//: - proof kind は identity には含めず、payload equality で比較します。
+fn selfhost_memo_trait_proof_store_preseed_decision %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStorePreseedDecision \key_arena\records\candidate\proof_kind\proof:
+    selfhost_memo_trait_proof_store_preseed_decision_loop key_arena records candidate proof_kind proof 0
+
+//: selfhost_memo_trait_proof_store_preseed_decision_eq: preseed decision が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が preseed の skip / append / conflict 境界を表示文字列ではなく typed enum で確認できるようにします。
+pub fn selfhost_memo_trait_proof_store_preseed_decision_eq %fn SelfhostMemoTraitProofStorePreseedDecision fn SelfhostMemoTraitProofStorePreseedDecision bool \a\b:
+    match a:
+        SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+            match b:
+                SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+                    true
+                SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+                    false
+                SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+                    false
+        SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+            match b:
+                SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+                    false
+                SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+                    true
+                SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+                    false
+        SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+            match b:
+                SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:
+                    false
+                SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:
+                    false
+                SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:
+                    true
 
 //: selfhost_memo_trait_proof_store_push_error_kind_eq: push error の分類と payload が同じか[返/かえ]す
 //:
@@ -1089,8 +1489,8 @@ pub fn selfhost_memo_trait_proof_store_lookup_record_stable_key %impure fn &Self
 //:
 //: [契約/けいやく]:
 //: - この helper は検査結果を変換せず、各 `Result` をそのまま保持します。
-fn selfhost_memo_trait_proof_store_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result unit SelfhostMemoTraitProofStorePushErrorKind SelfhostMemoTraitProofStoreStage0Summary \found\stale_policy\missing_key\primitive_rejected\unsupported_kind\stable_found\stable_legacy_missing\stable_mismatch\stable_duplicate:
-    SelfhostMemoTraitProofStoreStage0Summary found stale_policy missing_key primitive_rejected unsupported_kind stable_found stable_legacy_missing stable_mismatch stable_duplicate
+fn selfhost_memo_trait_proof_store_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result unit SelfhostMemoTraitProofStorePushErrorKind fn SelfhostMemoTraitProofStorePreseedDecision fn SelfhostMemoTraitProofStorePreseedDecision SelfhostMemoTraitProofStoreStage0Summary \found\stale_policy\missing_key\primitive_rejected\unsupported_kind\stable_found\stable_legacy_missing\stable_mismatch\stable_duplicate\preseed_existing_matching\preseed_rejected_conflict:
+    SelfhostMemoTraitProofStoreStage0Summary found stale_policy missing_key primitive_rejected unsupported_kind stable_found stable_legacy_missing stable_mismatch stable_duplicate preseed_existing_matching preseed_rejected_conflict
 
 //: selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition: stage0 用 stable nominal key table を definition fingerprint 指定で[作/つく]る
 //:
@@ -1148,6 +1548,41 @@ fn selfhost_memo_trait_proof_store_stage0_duplicate_rejection %impure fn &Selfho
                     Result::Err kind
         Result::Err e:
             Result::Err selfhost_memo_trait_proof_store_push_error_from_std e
+
+//: selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable_loop: stage0 store の最初の stable record から preseed 判定を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stage0 smoke が、実際に stable push された record を使って `ExistingMatching` と `RejectedConflict` を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - legacy record は `stable_fingerprint = none` なので skip します。
+//: - stable record が見つからない場合は stage0 setup の内部不整合として `InvalidOperation` を返します。
+fn selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable_loop %fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof fn i32 Result SelfhostMemoTraitProofStorePreseedDecision StdErrorKind \store\proof_kind\proof\idx:
+    let key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref store "key_arena"
+    let records %&Vec SelfhostMemoTraitProofStoreRecord field::get_ref store "records"
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            Result::Err StdErrorKind::InvalidOperation
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    match record.stable_fingerprint:
+                        Option::Some fingerprint:
+                            let candidate %SelfhostMemoTraitProofStoreStableIdentity selfhost_memo_trait_proof_store_stable_identity_new record.key_id record.policy fingerprint
+                            Result::Ok selfhost_memo_trait_proof_store_preseed_decision key_arena records candidate proof_kind proof
+                        Option::None:
+                            selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable_loop store proof_kind proof add idx 1
+                Option::None:
+                    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable: stage0 preseed 判定を[開始/かいし]する
+//:
+//: [目的/もくてき]:
+//: - stage0 の短い test fixture が store-local identity の内部構造を直接組み立てず、stable record から candidate identity を取り出せるようにします。
+fn selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable %fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStorePreseedDecision StdErrorKind \store\proof_kind\proof:
+    selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable_loop store proof_kind proof 0
 
 //: selfhost_memo_trait_proof_store_stage0_finish: stage0 owner を[解放/かいほう]して summary を[返/かえ]す
 //:
@@ -1211,6 +1646,12 @@ fn selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_table %im
     selfhost_memo_trait_stable_nominal_key_table_free nominal_table
     selfhost_memo_trait_proof_store_stage0_abort_with_store arena store
 
+//: selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_tables: proof store と stable nominal table 2 つを[閉/と]じる
+fn selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_tables %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\store\nominal_table\mismatched_nominal_table:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_memo_trait_stable_nominal_key_table_free mismatched_nominal_table
+    selfhost_memo_trait_proof_store_stage0_abort_with_store arena store
+
 //: selfhost_memo_trait_proof_store_stage0_after_store: proof store を使う代表 lookup scenario を[構築/こうちく]する
 //:
 //: [目的/もくてき]:
@@ -1251,8 +1692,16 @@ fn selfhost_memo_trait_proof_store_stage0_after_store %impure fn SelfhostTypeAre
                                                             let stable_found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &nominal_table &store3 policy named_id
                                                             let stable_mismatch %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &mismatched_nominal_table &store3 policy named_id
                                                             let stable_duplicate %Result unit SelfhostMemoTraitProofStorePushErrorKind selfhost_memo_trait_proof_store_stage0_duplicate_rejection &arena &nominal_table policy named_id ok_proof
-                                                            let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported stable_found stable_legacy_missing stable_mismatch stable_duplicate
-                                                            selfhost_memo_trait_proof_store_stage0_finish_with_nominal_tables arena store3 nominal_table mismatched_nominal_table summary
+                                                            match selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable &store3 SelfhostMemoTraitStoredProofKind::KeyAndValue ok_proof:
+                                                                Result::Ok preseed_existing_matching:
+                                                                    match selfhost_memo_trait_proof_store_stage0_preseed_from_first_stable &store3 SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported ok_proof:
+                                                                        Result::Ok preseed_rejected_conflict:
+                                                                            let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported stable_found stable_legacy_missing stable_mismatch stable_duplicate preseed_existing_matching preseed_rejected_conflict
+                                                                            selfhost_memo_trait_proof_store_stage0_finish_with_nominal_tables arena store3 nominal_table mismatched_nominal_table summary
+                                                                        Result::Err _e:
+                                                                            selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_tables arena store3 nominal_table mismatched_nominal_table
+                                                                Result::Err _e:
+                                                                    selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_tables arena store3 nominal_table mismatched_nominal_table
                                                         Result::Err _e:
                                                             selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables arena nominal_table mismatched_nominal_table
                                                 Result::Err _e:

@@ -1,3 +1,56 @@
+# 2026-06-12 Agent selfhost memo trait proof store preseed decision checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査が効く enum / struct / Result / match を authority とし、文字列、bool だけの判定、first-wins、上書きで proof conflict を隠さないことを判断基準にした。試作段階であっても雑な公開 API や曖昧な cache semantics は残さない。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/memo-proof-preseed-boundary-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost proof store store-local preseed conflict decision boundary
+- classification: selfhost implementation slice review
+- decision: `.neplproof` reader / serializer へ進む前に、store-local stable identity 上の preseed 判定を typed enum として固定した。`AcceptMissing` は追加可能、`ExistingMatching` は既存 record を skip してよい同一 payload、`RejectedConflict` は同じ identity に異なる proof payload が来たため fail-closed にすべき conflict を表す。
+- policy/spec:
+  - stable identity は引き続き `SelfhostCanonicalTypeKeyId`、`SelfhostMemoTraitProofStorePolicy`、`SelfhostMemoTraitCanonicalTypeFingerprint` の組であり、`proof_kind` は identity に含めない。
+  - `proof_kind` は payload equality 側で比較する。同じ key / policy / fingerprint でも `KeyAndValue` と `KeyOnlyUnsupported` は同じ proof ではない。
+  - payload equality は `fields`、`copy_proof`、`drop_proof`、`eq_proof`、`hash_proof`、`hazard`、`key_result`、`value_result` をすべて比較する。`Known(range)` は `first_field` / `field_count` まで、`Result::Err` は `SelfhostMemoTraitRejectKind` payload まで比較する。
+  - legacy `stable_fingerprint = none` record は preseed 判定の stable identity 対象外にする。
+  - `SelfhostTypeId`、`SelfhostNamedTypeId`、record_index、source text、span、path、display、diagnostic、lexeme は preseed authority にしない。
+- implementation/test:
+  - `SelfhostMemoTraitProofStorePreseedDecision` を追加し、append / skip / reject の判断を enum payload にした。
+  - `selfhost_memo_trait_stored_aggregate_proof_eq` と関連 equality を追加し、stored proof payload の全 field を比較するようにした。
+  - `selfhost_memo_trait_proof_store_preseed_decision` を追加し、同じ identity かつ同じ payload なら `ExistingMatching`、同じ identity かつ payload mismatch なら `RejectedConflict`、一致 record がなければ `AcceptMissing` を返すようにした。
+  - stage0 smoke に `preseed_existing_matching` と `preseed_rejected_conflict` を追加し、同じ stable record から既存一致と kind mismatch conflict の両方を実行で固定した。
+  - preseed smoke の失敗経路で `store3` owner が残らないよう、`selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_tables` を追加した。
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、preseed enum、payload equality、record payload match、preseed scan、stage0 existing/conflict、line count / doc comment length cap 禁止を source policy として固定した。
+- subagent review:
+  - subagent_review_ids: `019eba2a-ce9d-77a2-bc17-b728140b1240`, `019eba31-52a8-7b71-98a7-ab9db0b00bf5`
+  - subagent_review_count: 2
+  - Beauvoir: Blocker なし。`AcceptMissing` / `ExistingMatching` / `RejectedConflict` は `.neplproof` reader / serializer と proof store preseed の自然な前段であり、同じ stable identity の再投入を常に duplicate error にせず同一 payload skip と conflict に分ける判断は妥当と評価した。
+  - Required response: conflict は fail-closed、existing matching は append せず skip、proof kind は identity ではなく payload equality に含める、payload equality は stored proof の全 field と Result payload まで比較する、source policy は fingerprint-only / stable_index-only / source text authority / line count cap を禁止する、という指摘を実装と policy に反映した。
+  - Confucius: Blocker なし。Required なし。typed enum で conflict を隠していないこと、proof_kind が identity ではなく payload equality 側で比較されていること、payload 比較漏れ、owner cleanup、source policy 固定不足が見つからないことを確認した。
+  - Non-blocker: stage0 の `RejectedConflict` 実行例は proof_kind 差分で踏んでいる。fields / proof status / hazard / key_result / value_result の差分は実装と source policy で固定済みだが、将来さらに強めるなら payload 各 field 差分の behavioral doctest を追加できる。
+  - Question: proof kind を stable identity に含めるかは、前 checkpoint と同じく含めない判断を維持した。proof kind は payload equality で比較し、same identity の異種 proof は `RejectedConflict` にする。
+  - Approve: Confucius は実装 / owner cleanup / source policy に Blocker / Required なしと評価した。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review response の形式と応答漏れを確認する gate として既存運用されている。今回の response は Blocker / Required / Non-blocker / Question / Approve を note に明示し、Required と Question への応答を同じ slice 内で実装した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: preseed decision が bool / string / first-wins / source text authority / fingerprint-only authority / stable_index-only authority / line count cap へ退行しないようにするため。
+  - 既存 warning: stdlib / selfhost documentation gap sample、Node WASI ExperimentalWarning、Git の CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` は latest note checkpoint の `Non-blocker` 欠落で warning になった。implementation review 完了後に `Blocker` / `Required` / `Non-blocker` / `Question` / `Approve` を追記し、再実行では今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - preseed 判定は現時点では record 数 n と canonical key tree size k に対して O(n * k) である。Phase 1 では silent first-wins を避ける正確な semantics を優先し、永続 artifact 用 stable map / serialized index で後続高速化する。
+  - focused doctest の compile は重く、今回 run では `compile_ms=25659`、`resource_static_check=24649.136ms`、`resource_static_initialized_moves=21411.239ms`、`resource_static_owner_obligations=2579.69ms` だった。これは selfhost proof file の大きさと Resource checker 探索範囲の問題であり、RPN cold base issue と同じく cache だけでなく checker algorithm の探索範囲削減を継続する。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-preseed-focused.json`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - warning_checked: `git diff --check` は whitespace error なし。working-copy の CRLF warning は表示されたが、今回差分の trailing whitespace ではない。
+- 次 slice: `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity、full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を継続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue proof store stable identity checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、探索範囲削減、cache / prechecked artifact、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。

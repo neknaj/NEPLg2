@@ -327,6 +327,34 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
+
+`memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。
+
+`AcceptMissing` は同じ stable identity を持つ record が無く、candidate を追加してよい状態を表す。`ExistingMatching` は同じ stable identity と同じ proof payload が既にあるため、reader が再追加せず skip してよい状態を表す。`RejectedConflict` は同じ stable identity に異なる proof payload が見つかった状態であり、上書き、後勝ち、first-wins、warning-only で続行してはいけない。
+
+stable identity は既存 checkpoint と同じく `SelfhostCanonicalTypeKeyId`、`SelfhostMemoTraitProofStorePolicy`、`SelfhostMemoTraitCanonicalTypeFingerprint` の組である。`proof_kind` は stable identity に含めず、payload equality で比較する。これにより、same key / policy / fingerprint の `KeyAndValue` と `KeyOnlyUnsupported` が共存して lookup の挿入順に意味が依存する退行を避ける。
+
+stored proof payload equality は、`fields`、`copy_proof`、`drop_proof`、`eq_proof`、`hash_proof`、`hazard`、`key_result`、`value_result` をすべて比較する。`Known(range)` は range payload まで、`Result::Err(kind)` は `SelfhostMemoTraitRejectKind` まで比較し、bool や表示文字列には潰さない。legacy `stable_fingerprint = none` record は preseed 判定の stable identity 対象から除外する。
+
+stage0 smoke では、stable push 済み record に対して同じ proof kind / payload を候補にした場合に `ExistingMatching` になること、同じ identity でも proof kind が違う場合に `RejectedConflict` になることを実行で固定した。preseed smoke の失敗経路では、`store3` と stable nominal table 2 つを閉じる abort helper を追加し、テスト用の失敗経路でも owner boundary を曖昧にしないようにした。
+
+subagent review では Beauvoir が、この slice は `.neplproof` reader / serializer と proof store preseed の自然な前段であり、same stable identity の再投入を常に duplicate error にせず existing matching と conflict に分ける方針を妥当と評価した。Required として、conflict fail-closed、existing matching skip、proof kind の payload equality 側比較、stored proof 全 field 比較、fingerprint-only / stable_index-only / source text authority / line count cap 禁止の source policy 固定を求めたため、同じ slice 内で反映した。
+
+実装後 review では Confucius が Blocker / Required なしで approve した。typed enum で conflict を隠していないこと、proof kind が identity ではなく payload equality 側で比較されていること、payload 比較漏れ、owner cleanup、source policy 固定不足がないことを確認した。Non-blocker として、stage0 の `RejectedConflict` 実行例は proof kind 差分で踏んでおり、将来さらに強めるなら fields / proof status / hazard / key_result / value_result 各 field 差分の behavioral doctest を追加できると指摘した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、preseed enum、preseed decision doc、stored proof kind equality、stored aggregate proof equality、Result payload equality、record payload matching、preseed scan、stage0 existing / conflict regression、line count / doc comment length cap 禁止を固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-preseed-focused.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store stable identity checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStoreStableIdentity` を追加し、stable duplicate 判定と将来の stable map / serialized index preseed が共有する store-local identity boundary を名前付き struct にした。
