@@ -56283,3 +56283,48 @@ MERGE_APPROVED
 
 - `.neplproof` reader / serializer、複数 decoded record を atomic working store へ投入する batch preseed loop、persistent stable map / serialized index は未完了である。
 - generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
+
+## 2026-06-12 Agent selfhost decoded neplproof batch preseed checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-batch-preseed-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、純粋 core、DAG、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `SelfhostMemoTraitNeplProofDecodedBatchRecord` を追加し、materialized canonical key id、expected policy、typed artifact record を batch input としてまとめた。
+- `SelfhostMemoTraitNeplProofPreseedBatchErrorKind` と `SelfhostMemoTraitNeplProofPreseedBatchError` を追加し、batch failure を record ordinal と typed nested error として保持するようにした。
+- `selfhost_memo_trait_neplproof_decoded_record_batch_append` を追加し、複数 decoded record を入力順に working proof store へ preseed する public boundary を作った。
+- batch append は `AcceptMissing` append と `ExistingMatching` skip を成功とし、`RejectedConflict`、record validation、fingerprint、payload hash、policy、store append、vector read failure を fail-closed error として返す。失敗時には partial seeded store を成功値として返さない。
+- single-record append の obsolete helper `selfhost_memo_trait_neplproof_record_append_decoded_decision` を削除し、live path を `record_append_decoded_checked -> record_append_materialized_checked -> record_append_materialized_decision` に整理した。
+- stage0 smoke に empty batch、同一 record 2 件の existing match skip、2 件目 conflict、2 件目 invalid record を追加し、doctest の checks は 12 件になった。
+- `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` は public batch API、ordinal error、nested equality、入力順 loop、store cleanup、materialized fingerprint 再計算、live append path、stage0 summary、計算量 doc、obsolete helper 復活禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と issue に checkpoint を追記し、`todo.md` から batch preseed loop 残件を外した。
+
+### subagent_review
+
+- Bohr review: Blocker なし。Required として、contract が未使用 helper `selfhost_memo_trait_neplproof_record_append_decoded_decision` を見ており live path の `record_append_materialized_decision` / `record_append_materialized_checked` を十分に固定していない点を指摘した。
+- Required 対応として obsolete helper を削除し、contract を live path の materialized decision / checked helper に切り替え、古い helper 名の復活を negative check で拒否するようにした。
+- Non-blocker として、`selfhost_memo_trait_neplproof_preseed_stage0` doc comment に batch smoke の説明が不足している点を指摘されたため、empty / skip / conflict / invalid record と ordinal error / fail-closed ownership boundary を追記した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -o tmp/selfhost-preseed-batch.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` reader / serializer、persistent stable map / serialized index は未完了である。
+- generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
+- preseed doctest の compile timing では `resource_static_initialized_moves` と `resource_static_owner_obligations` が支配的で、RPN cold base 高速化と同じ Resource static check 系の根本改善課題が残る。

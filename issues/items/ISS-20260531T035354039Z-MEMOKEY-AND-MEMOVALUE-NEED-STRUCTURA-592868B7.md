@@ -341,6 +341,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost decoded `.neplproof` batch preseed checkpoint
+
+`memo_trait_proof_preseed.nepl` に `SelfhostMemoTraitNeplProofDecodedBatchRecord`、`SelfhostMemoTraitNeplProofPreseedBatchErrorKind`、`SelfhostMemoTraitNeplProofPreseedBatchError` を追加し、複数 decoded record を working proof store へ順に投入する batch preseed boundary を追加した。
+
+batch input は materialized canonical key id、期待する proof store policy、typed artifact record を named field で持つ。`.neplproof` reader / serializer、record bytes decode、persistent stable map、serialized index はこの boundary の責務に含めず、既存の single-record materialized append boundary を record ごとに呼ぶ。fingerprint、payload hash、policy、record schema は single-record boundary 内で再検査されるため、batch record の key id だけを authority として受理しない。
+
+`selfhost_memo_trait_neplproof_decoded_record_batch_append` は store owner を消費し、すべての record が `AcceptMissing` append または `ExistingMatching` skip で成功した場合だけ `Ok(store)` を返す。`RejectedConflict`、record validation、fingerprint、payload hash、policy、store append のいずれかで失敗した場合は、single-record append boundary が入力 store を閉じ、batch error は `record_ordinal` と nested append error を保持する。vector read が失敗した場合も `RecordMissing` として store を閉じ、partial seeded store を成功値として返さない。
+
+stage0 smoke は empty batch、同一 record 2 件による existing match skip、2 件目 conflict による ordinal 1 の `RejectedConflict`、2 件目 invalid record による ordinal 1 の typed decision error を確認する。source policy は `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` で、batch record/error 型、nested equality、public batch API、入力順 loop、store cleanup、materialized fingerprint 再計算、stage0 summary、計算量 doc、line count / doc comment length cap 禁止を固定した。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost decoded `.neplproof` single-record append checkpoint
 
 decoded canonical key payload bytes から proof store へ single record を投入する境界を接続した。

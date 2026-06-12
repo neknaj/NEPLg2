@@ -63,6 +63,21 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostMemoTraitNeplProofDecodedBatchRecord:[\s\S]*materialized_key_id %SelfhostCanonicalTypeKeyId[\s\S]*expected_policy %SelfhostMemoTraitProofStorePolicy[\s\S]*record %SelfhostMemoTraitNeplProofRecord/,
+    "batch preseed records must bundle the materialized canonical key id, expected policy, and typed artifact record",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofPreseedBatchErrorKind:[\s\S]*RecordMissing[\s\S]*RecordAppendInvalid %SelfhostMemoTraitNeplProofPreseedAppendErrorKind/,
+    "batch preseed errors must distinguish missing vector entries from nested single-record append failures",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitNeplProofPreseedBatchError:[\s\S]*record_ordinal %i32[\s\S]*kind %SelfhostMemoTraitNeplProofPreseedBatchErrorKind/,
+    "batch preseed errors must carry the failing record ordinal and typed batch error kind",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq[\s\S]*ArtifactRecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadDecodeInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadMaterializationInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error[\s\S]*MaterializedFingerprintInvalid a_error[\s\S]*selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadHashMismatch/,
     "preseed error equality must compare nested artifact, decode, payload materialization, and fingerprint error payloads",
 );
@@ -70,6 +85,16 @@ assert.match(
     source,
     /pub fn selfhost_memo_trait_neplproof_preseed_append_error_kind_eq[\s\S]*DecisionInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_preseed_error_kind_eq a_error b_error[\s\S]*RejectedConflict[\s\S]*StoreAppendInvalid a_error[\s\S]*selfhost_memo_trait_proof_store_push_error_kind_eq a_error b_error/,
     "preseed append error equality must compare nested decision and store push payloads",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_preseed_batch_error_kind_eq[\s\S]*RecordMissing[\s\S]*RecordAppendInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_preseed_append_error_kind_eq a_error b_error/,
+    "preseed batch error equality must compare nested single-record append error payloads",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_preseed_batch_error_eq[\s\S]*eq a\.record_ordinal b\.record_ordinal[\s\S]*selfhost_memo_trait_neplproof_preseed_batch_error_kind_eq a\.kind b\.kind/,
+    "preseed batch error equality must require both the failing ordinal and typed error kind to match",
 );
 assert.match(
     source,
@@ -108,13 +133,43 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_neplproof_record_append_decoded_decision[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_proof_store_push_materialized_key store materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record\.proof_kind record\.proof[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:[\s\S]*Result::Ok store[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*RejectedConflict/,
-    "append API must append only on AcceptMissing, skip ExistingMatching, and fail-closed on RejectedConflict",
+    /selfhost_memo_trait_neplproof_record_append_materialized_decision[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_proof_store_push_materialized_key store materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record\.proof_kind record\.proof[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching:[\s\S]*Result::Ok store[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict:[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*RejectedConflict/,
+    "live append path must append only on AcceptMissing, skip ExistingMatching, and fail-closed on RejectedConflict",
+);
+assert.doesNotMatch(
+    source,
+    /selfhost_memo_trait_neplproof_record_append_decoded_decision/,
+    "preseed contract must not be anchored to an obsolete decoded-decision helper that is not on the public append path",
 );
 assert.match(
     source,
     /selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes[\s\S]*selfhost_memo_trait_canonical_key_payload_decode_result nominal_table canonical_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_checked store nominal_table &decoded expected_policy record[\s\S]*selfhost_memo_trait_canonical_key_payload_decoded_free decoded[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*CanonicalPayloadDecodeInvalid decode_error/,
     "append API must free decoded owners and close the input store on bytes decode failure",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_neplproof_record_append_materialized_checked[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_result nominal_table materialized_key_arena materialized_key_id[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &store nominal_table materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record[\s\S]*selfhost_memo_trait_neplproof_record_append_materialized_decision store materialized_key_arena materialized_key_id expected_policy materialized_fingerprint record decision[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*DecisionInvalid decision_error[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*MaterializedFingerprintInvalid fingerprint_error/,
+    "materialized append helper must recompute the canonical fingerprint, delegate to the live decision helper, and close the store on decision or fingerprint failure",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_decoded_record_batch_append %impure fn SelfhostMemoTraitProofStore impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &SelfhostCanonicalTypeKeyArena impure fn &Vec SelfhostMemoTraitNeplProofDecodedBatchRecord Result SelfhostMemoTraitProofStore SelfhostMemoTraitNeplProofPreseedBatchError/,
+    "preseed bridge must expose a public batch append API over materialized decoded .neplproof records",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_record_batch_append_loop[\s\S]*let n %i32 v::len records[\s\S]*match v::get records idx:[\s\S]*selfhost_memo_trait_neplproof_decoded_record_batch_append_one store nominal_table materialized_key_arena batch_record idx[\s\S]*selfhost_memo_trait_neplproof_decoded_record_batch_append_loop next_store nominal_table materialized_key_arena records add idx 1[\s\S]*selfhost_memo_trait_proof_store_free store[\s\S]*RecordMissing/,
+    "batch append loop must process records in order, report the failing ordinal, and close the store if the vector read fails",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_record_batch_append_one[\s\S]*selfhost_memo_trait_neplproof_record_append_materialized_checked store nominal_table materialized_key_arena batch_record\.materialized_key_id batch_record\.expected_policy batch_record\.record[\s\S]*selfhost_memo_trait_neplproof_decoded_record_batch_append_error record_ordinal append_error/,
+    "batch append must wrap single-record append failures with the batch record ordinal",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_record_batch_append:[\s\S]*\[計算量\/けいさんりょう\]:[\s\S]*O\(m \* n \* k \+ materialization\)/,
+    "batch append documentation must record the current complexity and materialization cost",
 );
 assert.match(
     source,
@@ -138,6 +193,11 @@ assert.match(
 );
 assert.match(
     source,
+    /SelfhostMemoTraitNeplProofPreseedStage0Summary:[\s\S]*batch_empty %Result unit SelfhostMemoTraitNeplProofPreseedBatchError[\s\S]*batch_existing_matching %Result unit SelfhostMemoTraitNeplProofPreseedBatchError[\s\S]*batch_rejected_conflict %Result unit SelfhostMemoTraitNeplProofPreseedBatchError[\s\S]*batch_invalid_record %Result unit SelfhostMemoTraitNeplProofPreseedBatchError/,
+    "preseed stage0 summary must include batch smoke cases for empty, matching, conflict, and invalid-record inputs",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_neplproof_preseed_stage0_payload_bytes[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_decoded_payload_bytes &store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::AcceptMissing:[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store/,
     "preseed stage0 must build canonical payload bytes, classify an empty-store decoded record, and append it through the public decoded append API",
 );
@@ -145,6 +205,11 @@ assert.match(
     source,
     /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes appended_store &nominal_table &canonical_payload_bytes policy valid_record[\s\S]*let existing_matching[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::ExistingMatching[\s\S]*let conflict_record[\s\S]*SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported[\s\S]*selfhost_memo_trait_neplproof_record_append_decoded_payload_bytes existing_store &nominal_table &canonical_payload_bytes policy conflict_record[\s\S]*SelfhostMemoTraitNeplProofPreseedAppendErrorKind::RejectedConflict[\s\S]*SelfhostMemoTraitProofStorePreseedDecision::RejectedConflict/,
     "preseed stage0 must exercise ExistingMatching and RejectedConflict through the public decoded append API, not through direct materialized decisions",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_empty &nominal_table &materialized_key_arena[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_same_record_skip &nominal_table &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_conflict &nominal_table &materialized_key_arena materialized_key_id policy valid_record conflict_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_batch_invalid_record &nominal_table &materialized_key_arena materialized_key_id policy valid_record invalid_record/,
+    "preseed stage0 must exercise the public batch API before returning its summary",
 );
 assert.match(
     source,

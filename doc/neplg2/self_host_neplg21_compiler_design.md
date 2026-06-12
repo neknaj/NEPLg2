@@ -1044,6 +1044,18 @@ subagent review では、codec を「hash を読む境界」にせず「typed de
 
 この checkpoint 後も、`.neplproof` record reader / serializer、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` decoded batch preseed checkpoint
+
+decoded canonical key payload codec と single-record append boundary の次段として、複数の materialized decoded `.neplproof` record を working proof store へ順に preseed する batch boundary を `memo_trait_proof_preseed.nepl` に追加した。
+
+batch input は `SelfhostMemoTraitNeplProofDecodedBatchRecord` として、materialized canonical key id、期待する proof store policy、typed artifact record を名前付き field で持つ。reader / serializer、record bytes decode、serialized index、persistent stable map はこの boundary の責務に含めない。これにより、reader は「record 群を読む」責務、preseed boundary は「materialized record を検査して store へ投入する」責務に分かれる。
+
+`selfhost_memo_trait_neplproof_decoded_record_batch_append` は入力 store owner を消費し、すべての record が `AcceptMissing` append または `ExistingMatching` skip として処理された場合だけ `Ok(store)` を返す。途中で `RejectedConflict`、record validation、fingerprint、payload hash、policy、store append のいずれかが失敗した場合は、single-record append boundary の contract に従って store owner を閉じ、batch 側は `record_ordinal` と typed nested error を持つ `SelfhostMemoTraitNeplProofPreseedBatchError` を返す。vector entry が取得できない場合も `RecordMissing` として store を閉じ、partial seeded store を成功値として返さない。
+
+stage0 smoke は empty batch、同一 record 2 件による `ExistingMatching` skip、2 件目 conflict による ordinal 1 の `RejectedConflict`、2 件目 invalid record による ordinal 1 の `DecisionInvalid(ArtifactRecordInvalid(...))` を確認する。contract test は public batch API、ordinal 付き error、nested append error equality、入力順 loop、store cleanup、materialized fingerprint 再計算、計算量説明を固定する。
+
+この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。
