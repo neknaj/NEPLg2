@@ -1,0 +1,285 @@
+#indent 4
+
+//: # ty/memo_trait_proof_reader
+//: `.neplproof` artifact bytes から typed header を[読/よ]む reader 前段です。
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` の永続 bytes を、proof store や decoded artifact owner へ渡す前に fail-closed に分類します。
+//: - この module は artifact bytes の magic word と header word を読み、既存の `memo_trait_proof_artifact.nepl` header validator へ接続します。
+//: - little-endian word decode は `memo_trait_artifact_word_codec.nepl` の共有 contract を使い、canonical key payload codec と同じ 31-bit nonnegative word 規則を使います。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_memo_trait_neplproof_reader_header_result` は header prefix だけを読みます。record / index / canonical payload bytes は読みません。
+//: - magic word が違う場合は `MagicMismatch` として拒否し、artifact schema validator へ進めません。
+//: - word decode error は `WordReadInvalid(kind)` として保持します。short header と high-bit word を schema mismatch へ混ぜません。
+//: - header word が読めた後は、必ず `selfhost_memo_trait_neplproof_header_result` を通し、artifact schema、canonical payload schema、policy schema、record/index count を既存 authority で検査します。
+//: - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId` は header reader の authority ではありません。
+//:
+//: [現状/げんじょう]:
+//: - この slice は reader header boundary です。record body reader、canonical payload bytes table reader、serializer、persistent stable map、proof store preseed は後続 slice で接続します。
+//: - header prefix reader は trailing bytes を拒否しません。完全な `.neplproof` reader は、この header の `record_count` / `index_count` を使って record table と index table の終端を別途検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - header decode は固定 6 word だけを読むため O(1) です。
+//: - FileSystem、module graph、source scan、proof store lookup は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_artifact_word_codec" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_artifact" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_reader" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_neplproof_reader_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_reader_header_result_is_ok summary.accepted_header
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_reader_error_kind_eq (unwrap_err summary.magic_mismatch) SelfhostMemoTraitNeplProofReaderErrorKind::MagicMismatch
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_reader_error_kind_eq (unwrap_err summary.short_header) SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_reader_error_kind_eq (unwrap_err summary.schema_mismatch) SelfhostMemoTraitNeplProofReaderErrorKind::HeaderInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch
+//:             let shown checks_print_report checks4
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "neplproof reader stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./memo_trait_artifact_word_codec" as *
+#import "./memo_trait_canonical_key_payload" as *
+#import "./memo_trait_proof_artifact" as *
+
+//: SelfhostMemoTraitNeplProofReaderErrorKind: `.neplproof` header reader の拒否理由
+//:
+//: [分類/ぶんるい]:
+//: - `MagicMismatch`: bytes の先頭 word が `.neplproof` magic ではありません。
+//: - `WordReadInvalid(kind)`: header word を読む段階で short input または unsupported high-bit word が見つかりました。
+//: - `HeaderInvalid(kind)`: word は読めたが、artifact header schema / count validator が拒否しました。
+pub enum SelfhostMemoTraitNeplProofReaderErrorKind:
+    MagicMismatch
+    WordReadInvalid %SelfhostMemoTraitArtifactWordReadErrorKind
+    HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+
+//: SelfhostMemoTraitNeplProofReaderStage0Summary: header reader の代表 smoke
+pub struct SelfhostMemoTraitNeplProofReaderStage0Summary:
+    accepted_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind
+    magic_mismatch %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind
+    short_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind
+    schema_mismatch %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofReaderErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofReaderErrorKind SelfhostMemoTraitNeplProofReaderErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofReaderErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofReaderErrorKind SelfhostMemoTraitNeplProofReaderErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofReaderStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofReaderStage0Summary SelfhostMemoTraitNeplProofReaderStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofReaderStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofReaderStage0Summary SelfhostMemoTraitNeplProofReaderStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_neplproof_reader_magic: `.neplproof` artifact header の magic word
+//:
+//: [契約/けいやく]:
+//: - canonical key payload codec の magic とは別 namespace です。別 payload を `.neplproof` 全体として誤読しないため、reader は schema word より先にこの値を確認します。
+pub fn selfhost_memo_trait_neplproof_reader_magic %fn void i32 \void:
+    792013
+
+//: selfhost_memo_trait_neplproof_reader_header_words: `.neplproof` header prefix の word 数
+fn selfhost_memo_trait_neplproof_reader_header_words %fn void i32 \void:
+    6
+
+//: selfhost_memo_trait_neplproof_reader_word_result: header word を[読/よ]み reader error へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_reader_word_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitNeplProofReaderErrorKind \bytes\word_index:
+    match selfhost_memo_trait_artifact_word_codec_word_at_index_result bytes word_index:
+        Result::Ok word:
+            Result::Ok word
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid kind
+
+//: selfhost_memo_trait_neplproof_reader_header_checked_result: header word 群を artifact header validator へ[渡/わた]す
+fn selfhost_memo_trait_neplproof_reader_header_checked_result %fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind \artifact_schema\canonical_schema\policy_schema\record_count\index_count:
+    match selfhost_memo_trait_neplproof_header_result artifact_schema canonical_schema policy_schema record_count index_count:
+        Result::Ok header:
+            Result::Ok header
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::HeaderInvalid kind
+
+//: selfhost_memo_trait_neplproof_reader_header_result: `.neplproof` bytes から typed header を[読/よ]む
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(header)`: magic と header schema/count validation を通過しました。
+//: - `Err(kind)`: magic mismatch、word decode failure、または artifact header validation failure です。
+pub fn selfhost_memo_trait_neplproof_reader_header_result %fn &Vec u8 Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind \bytes:
+    match selfhost_memo_trait_neplproof_reader_word_result bytes 0:
+        Result::Ok magic:
+            if:
+                ne magic selfhost_memo_trait_neplproof_reader_magic
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::MagicMismatch
+                else:
+                    match selfhost_memo_trait_neplproof_reader_word_result bytes 1:
+                        Result::Ok artifact_schema:
+                            match selfhost_memo_trait_neplproof_reader_word_result bytes 2:
+                                Result::Ok canonical_schema:
+                                    match selfhost_memo_trait_neplproof_reader_word_result bytes 3:
+                                        Result::Ok policy_schema:
+                                            match selfhost_memo_trait_neplproof_reader_word_result bytes 4:
+                                                Result::Ok record_count:
+                                                    match selfhost_memo_trait_neplproof_reader_word_result bytes 5:
+                                                        Result::Ok index_count:
+                                                            selfhost_memo_trait_neplproof_reader_header_checked_result artifact_schema canonical_schema policy_schema record_count index_count
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_header_result_is_ok: header reader result が成功か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_reader_header_result_is_ok %fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind bool \result:
+    match result:
+        Result::Ok _header:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_reader_error_kind_eq: reader error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ variant は payload も比較します。wildcard arm は使いません。
+pub fn selfhost_memo_trait_neplproof_reader_error_kind_eq %fn SelfhostMemoTraitNeplProofReaderErrorKind fn SelfhostMemoTraitNeplProofReaderErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofReaderErrorKind::MagicMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofReaderErrorKind::MagicMismatch:
+                    true
+                SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofReaderErrorKind::HeaderInvalid _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofReaderErrorKind::MagicMismatch:
+                    false
+                SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid b_kind:
+                    selfhost_memo_trait_artifact_word_codec_read_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofReaderErrorKind::HeaderInvalid _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofReaderErrorKind::HeaderInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofReaderErrorKind::MagicMismatch:
+                    false
+                SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofReaderErrorKind::HeaderInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+
+//: selfhost_memo_trait_neplproof_reader_stage0_push_header_with_schema: stage0 header bytes を[作/つく]る
+fn selfhost_memo_trait_neplproof_reader_stage0_push_header_with_schema %impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\magic\artifact_schema\canonical_schema\policy_schema\record_count\index_count:
+    match selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes1 artifact_schema:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes2 canonical_schema:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes3 policy_schema:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes4 record_count:
+                                        Result::Ok bytes5:
+                                            selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes5 index_count
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_stage0_header_bytes: stage0 用 header bytes を[作/つく]る
+fn selfhost_memo_trait_neplproof_reader_stage0_header_bytes %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \magic\artifact_schema\canonical_schema\policy_schema\record_count\index_count:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes:
+            selfhost_memo_trait_neplproof_reader_stage0_push_header_with_schema bytes magic artifact_schema canonical_schema policy_schema record_count index_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_stage0_short_header_bytes: magic だけを持つ short header を[作/つく]る
+fn selfhost_memo_trait_neplproof_reader_stage0_short_header_bytes %impure fn void Result Vec u8 StdErrorKind \void:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes:
+            selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes selfhost_memo_trait_neplproof_reader_magic
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_stage0_run_owned: header bytes owner を[読/よ]んで[閉/と]じる
+fn selfhost_memo_trait_neplproof_reader_stage0_run_owned %impure fn Vec u8 Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind \bytes:
+    let result %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_header_result &bytes
+    v::free bytes
+    result
+
+//: selfhost_memo_trait_neplproof_reader_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_reader_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind SelfhostMemoTraitNeplProofReaderStage0Summary \accepted_header\magic_mismatch\short_header\schema_mismatch:
+    SelfhostMemoTraitNeplProofReaderStage0Summary accepted_header magic_mismatch short_header schema_mismatch
+
+//: selfhost_memo_trait_neplproof_reader_stage0_after_accepted: accepted header bytes 後の smoke を[続/つづ]ける
+fn selfhost_memo_trait_neplproof_reader_stage0_after_accepted %impure fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind Result SelfhostMemoTraitNeplProofReaderStage0Summary StdErrorKind \accepted_header:
+    let canonical_schema %i32 selfhost_memo_trait_canonical_key_payload_schema_version
+    let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
+    match selfhost_memo_trait_neplproof_reader_stage0_header_bytes add selfhost_memo_trait_neplproof_reader_magic 1 selfhost_memo_trait_neplproof_artifact_schema_version canonical_schema policy_schema 2 2:
+        Result::Ok magic_bytes:
+            let magic_mismatch %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_stage0_run_owned magic_bytes
+            match selfhost_memo_trait_neplproof_reader_stage0_short_header_bytes:
+                Result::Ok short_bytes:
+                    let short_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_stage0_run_owned short_bytes
+                    match selfhost_memo_trait_neplproof_reader_stage0_header_bytes selfhost_memo_trait_neplproof_reader_magic add selfhost_memo_trait_neplproof_artifact_schema_version 1 canonical_schema policy_schema 2 2:
+                        Result::Ok schema_bytes:
+                            let schema_mismatch %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_stage0_run_owned schema_bytes
+                            Result::Ok selfhost_memo_trait_neplproof_reader_stage0_summary_new accepted_header magic_mismatch short_header schema_mismatch
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_stage0: reader header boundary の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_reader_stage0 %impure fn void Result SelfhostMemoTraitNeplProofReaderStage0Summary StdErrorKind \void:
+    let canonical_schema %i32 selfhost_memo_trait_canonical_key_payload_schema_version
+    let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
+    match selfhost_memo_trait_neplproof_reader_stage0_header_bytes selfhost_memo_trait_neplproof_reader_magic selfhost_memo_trait_neplproof_artifact_schema_version canonical_schema policy_schema 2 2:
+        Result::Ok accepted_bytes:
+            let accepted_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_stage0_run_owned accepted_bytes
+            selfhost_memo_trait_neplproof_reader_stage0_after_accepted accepted_header
+        Result::Err e:
+            Result::Err e

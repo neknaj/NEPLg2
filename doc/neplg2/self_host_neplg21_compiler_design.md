@@ -1184,6 +1184,20 @@ accepted authority は従来どおり seed table、public surface hash materiali
 
 この checkpoint 後も、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` header reader codec checkpoint
+
+`.neplproof` record reader / serializer へ進む前段として、永続 artifact が共有する 31-bit little-endian word codec と、`.neplproof` header prefix reader を追加した。
+
+`memo_trait_artifact_word_codec.nepl` は 4 byte little-endian word decode と word append だけを担当する。Phase 1 artifact word は `0 <= word <= 0x7fffffff` の nonnegative 31-bit 値に限定し、4 byte 目の high bit が立つ入力は `WordHighBitUnsupported`、4 byte を読めない入力は `UnexpectedEnd` として分けて拒否する。writer は負の word を `NegativeWordUnsupported` として拒否し、vector push 失敗を `PushFailed(StdErrorKind)` として保持する。これにより canonical key payload codec と `.neplproof` reader が byte/word 規則を重複実装しない。
+
+`memo_trait_canonical_key_payload_codec.nepl` は shared word codec を import し、byte offset / word index reader と word writer を委譲するようにした。canonical key payload codec は引き続き payload schema、kind、argument range、materialized canonical key tree への復元を担当し、低水準 byte-to-word authority は shared codec に閉じる。
+
+`memo_trait_proof_reader.nepl` は `.neplproof` header prefix だけを読む。先頭 magic word `792013` を確認した後、artifact schema、canonical payload schema、policy schema、record count、index count の 5 word を読み、既存 `selfhost_memo_trait_neplproof_header_result` へ渡す。magic mismatch、word read failure、artifact header validation failure は `SelfhostMemoTraitNeplProofReaderErrorKind` の別 variant として保持し、schema mismatch や short input を bool / diagnostic string へ潰さない。
+
+この reader は trailing bytes を拒否せず、record vector、sidecar index vector、canonical payload bytes table、proof store preseed、artifact file I/O へ進まない。したがって、この checkpoint は `.neplproof` 全体の受理ではない。proof acceptance authority は引き続き canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate に残る。source text、span、path suffix、display name、diagnostic text、lexeme、store-local id、session-local `TypeId` は header reader / shared word codec の authority にしない。
+
+計算量は header prefix decode が固定 6 word の O(1)、word decode が O(1)、word append が償却 O(1) である。この checkpoint 後も、`.neplproof` record body reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

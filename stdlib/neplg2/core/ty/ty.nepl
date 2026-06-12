@@ -56,10 +56,12 @@ pub #import "./ty/memo_trait_policy" as *
 pub #import "./ty/memo_trait_source" as *
 pub #import "./ty/memo_trait_canonical_key" as *
 pub #import "./ty/memo_trait_canonical_key_payload" as *
+pub #import "./ty/memo_trait_artifact_word_codec" as *
 pub #import "./ty/memo_trait_canonical_key_payload_codec" as *
 pub #import "./ty/memo_trait_proof_store" as *
 pub #import "./ty/memo_trait_proof_artifact" as *
 pub #import "./ty/memo_trait_proof_index" as *
+pub #import "./ty/memo_trait_proof_reader" as *
 pub #import "./ty/memo_trait_proof_decoded" as *
 pub #import "./ty/memo_trait_proof_preseed" as *
 pub #import "./ty/stage0" as *

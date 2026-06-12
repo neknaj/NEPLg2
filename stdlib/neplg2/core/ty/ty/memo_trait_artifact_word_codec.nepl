@@ -1,0 +1,403 @@
+#indent 4
+
+//: # ty/memo_trait_artifact_word_codec
+//: selfhost compiler の永続 artifact が共有する 31-bit little-endian word codec です。
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` や canonical key payload の reader が、同じ byte-to-word 規則を別々に実装しないようにします。
+//: - artifact bytes は `Vec u8` として渡し、この module は 4 byte を 1 word とする little-endian decode と、stage0 / serializer 用の word append だけを担当します。
+//: - decode / encode の低水準 error は typed enum で返し、上位 reader は自分の error enum へ写像します。
+//:
+//: [契約/けいやく]:
+//: - Phase 1 の artifact word は `0 <= word <= 0x7fffffff` の 31-bit nonnegative 値だけです。
+//: - decode 時に 4 byte 目の high bit が立っている場合は `WordHighBitUnsupported` として拒否します。将来 signed word や variable-length encoding を追加する場合は schema version を上げ、別 contract として扱います。
+//: - `word_at_index_result` は word index を byte offset へ変換するだけで、payload schema、record count、trailing bytes は判定しません。header / record reader がそれぞれの schema 境界で判断します。
+//: - `push_word_result` は入力 `Vec` owner を消費します。負の word は `NegativeWordUnsupported` として入力 owner を閉じ、push 失敗では stdlib vector が返す owner を閉じて `PushFailed(kind)` を返します。
+//:
+//: [現状/げんじょう]:
+//: - この module は FileSystem、path、source text、span、diagnostic text を扱いません。
+//: - Phase 1 writer helper は stage0 fixture と serializer 前段用です。`.neplproof` 全体の serializer は後続 slice で、同じ `push_word_result` を使って record payload を並べます。
+//:
+//: [計算量/けいさんりょう]:
+//: - word decode は O(1) です。
+//: - word append は固定 4 回の `Vec::push` だけなので、償却 O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_artifact_word_codec" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_artifact_word_codec_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_artifact_word_codec_read_word_result_is_ok_value summary.roundtrip_word 66051
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_artifact_word_codec_read_error_kind_eq (unwrap_err summary.unexpected_end) SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_artifact_word_codec_read_error_kind_eq (unwrap_err summary.high_bit_word) SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_artifact_word_codec_write_error_kind_eq (unwrap_err summary.negative_write) SelfhostMemoTraitArtifactWordWriteErrorKind::NegativeWordUnsupported
+//:             let shown checks_print_report checks4
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "artifact word codec stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/cast" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: SelfhostMemoTraitArtifactWordReadErrorKind: artifact word decode の拒否理由
+//:
+//: [分類/ぶんるい]:
+//: - `UnexpectedEnd`: 指定した byte offset から 4 byte を読めません。
+//: - `WordHighBitUnsupported`: 4 byte 目の high bit が立っており、31-bit nonnegative word として受理できません。
+pub enum SelfhostMemoTraitArtifactWordReadErrorKind:
+    UnexpectedEnd
+    WordHighBitUnsupported
+
+//: SelfhostMemoTraitArtifactWordWriteErrorKind: artifact word encode の拒否理由
+//:
+//: [分類/ぶんるい]:
+//: - `NegativeWordUnsupported`: Phase 1 artifact word は nonnegative だけなので、負値を書けません。
+//: - `PushFailed(kind)`: output byte vector の拡張に失敗しました。`kind` は stdlib vector の error をそのまま保持します。
+pub enum SelfhostMemoTraitArtifactWordWriteErrorKind:
+    NegativeWordUnsupported
+    PushFailed %StdErrorKind
+
+//: SelfhostMemoTraitArtifactWordCodecStage0Summary: word codec の代表 smoke
+pub struct SelfhostMemoTraitArtifactWordCodecStage0Summary:
+    roundtrip_word %Result i32 SelfhostMemoTraitArtifactWordReadErrorKind
+    unexpected_end %Result i32 SelfhostMemoTraitArtifactWordReadErrorKind
+    high_bit_word %Result i32 SelfhostMemoTraitArtifactWordReadErrorKind
+    negative_write %Result unit SelfhostMemoTraitArtifactWordWriteErrorKind
+
+impl Clone for SelfhostMemoTraitArtifactWordReadErrorKind:
+    fn clone %fn &SelfhostMemoTraitArtifactWordReadErrorKind SelfhostMemoTraitArtifactWordReadErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitArtifactWordReadErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitArtifactWordReadErrorKind SelfhostMemoTraitArtifactWordReadErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitArtifactWordWriteErrorKind:
+    fn clone %fn &SelfhostMemoTraitArtifactWordWriteErrorKind SelfhostMemoTraitArtifactWordWriteErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitArtifactWordWriteErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitArtifactWordWriteErrorKind SelfhostMemoTraitArtifactWordWriteErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitArtifactWordCodecStage0Summary:
+    fn clone %fn &SelfhostMemoTraitArtifactWordCodecStage0Summary SelfhostMemoTraitArtifactWordCodecStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitArtifactWordCodecStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitArtifactWordCodecStage0Summary SelfhostMemoTraitArtifactWordCodecStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_artifact_word_codec_word_at_byte_result: byte offset から little-endian word を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `byte_offset` は byte 単位です。負数または 4 byte を読めない位置は `UnexpectedEnd` として拒否します。
+//: - decode は schema validation を行いません。caller が magic word、schema version、record count、trailing bytes を検査します。
+pub fn selfhost_memo_trait_artifact_word_codec_word_at_byte_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitArtifactWordReadErrorKind \bytes\byte_offset:
+    let byte_len %i32 v::len bytes
+    if:
+        or lt byte_offset 0 ge add byte_offset 3 byte_len
+        then:
+            Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+        else:
+            match v::get bytes byte_offset:
+                Option::Some b0_raw:
+                    match v::get bytes add byte_offset 1:
+                        Option::Some b1_raw:
+                            match v::get bytes add byte_offset 2:
+                                Option::Some b2_raw:
+                                    match v::get bytes add byte_offset 3:
+                                        Option::Some b3_raw:
+                                            let b3 %i32 cast b3_raw
+                                            if:
+                                                gt b3 127
+                                                then:
+                                                    Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported
+                                                else:
+                                                    let b0 %i32 cast b0_raw
+                                                    let b1 %i32 cast b1_raw
+                                                    let b2 %i32 cast b2_raw
+                                                    let lo %i32 add b0 mul b1 256
+                                                    let hi %i32 add mul b2 65536 mul b3 16777216
+                                                    Result::Ok add lo hi
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+                        Option::None:
+                            Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+                Option::None:
+                    Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+
+//: selfhost_memo_trait_artifact_word_codec_word_at_index_result: word index から little-endian word を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `word_index` は 4 byte word 単位です。`word_index * 4` が byte offset になります。
+pub fn selfhost_memo_trait_artifact_word_codec_word_at_index_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitArtifactWordReadErrorKind \bytes\word_index:
+    if:
+        lt word_index 0
+        then:
+            Result::Err SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+        else:
+            selfhost_memo_trait_artifact_word_codec_word_at_byte_result bytes mul word_index 4
+
+//: selfhost_memo_trait_artifact_word_codec_push_byte: output bytes に 1 byte を[追加/ついか]する
+fn selfhost_memo_trait_artifact_word_codec_push_byte %impure fn Vec u8 impure fn i32 Result Vec u8 SelfhostMemoTraitArtifactWordWriteErrorKind \bytes\value:
+    match v::push bytes %u8 cast value:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitArtifactWordWriteErrorKind::PushFailed error
+
+//: selfhost_memo_trait_artifact_word_codec_push_word_result: output bytes に little-endian word を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `word` が負の場合、入力 `bytes` owner を閉じて `NegativeWordUnsupported` を返します。
+//: - 成功時は 4 byte を little-endian order で追加した新しい `Vec u8` owner を返します。
+pub fn selfhost_memo_trait_artifact_word_codec_push_word_result %impure fn Vec u8 impure fn i32 Result Vec u8 SelfhostMemoTraitArtifactWordWriteErrorKind \bytes\word:
+    if:
+        lt word 0
+        then:
+            v::free bytes
+            Result::Err SelfhostMemoTraitArtifactWordWriteErrorKind::NegativeWordUnsupported
+        else:
+            let b0 %i32 rem_s word 256
+            let q1 %i32 div_s word 256
+            let b1 %i32 rem_s q1 256
+            let q2 %i32 div_s q1 256
+            let b2 %i32 rem_s q2 256
+            let q3 %i32 div_s q2 256
+            let b3 %i32 rem_s q3 256
+            match selfhost_memo_trait_artifact_word_codec_push_byte bytes b0:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_artifact_word_codec_push_byte bytes1 b1:
+                        Result::Ok bytes2:
+                            match selfhost_memo_trait_artifact_word_codec_push_byte bytes2 b2:
+                                Result::Ok bytes3:
+                                    selfhost_memo_trait_artifact_word_codec_push_byte bytes3 b3
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_artifact_word_codec_write_error_to_std: write error を stage0 互換の StdErrorKind へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - 既存の stage0 fixture が `StdErrorKind` を返す場所で、低水準 writer error の owner cleanup contract を共有したまま互換性を保ちます。
+pub fn selfhost_memo_trait_artifact_word_codec_write_error_to_std %fn SelfhostMemoTraitArtifactWordWriteErrorKind StdErrorKind \kind:
+    match kind:
+        SelfhostMemoTraitArtifactWordWriteErrorKind::NegativeWordUnsupported:
+            StdErrorKind::InvalidOperation
+        SelfhostMemoTraitArtifactWordWriteErrorKind::PushFailed error:
+            error
+
+//: selfhost_memo_trait_artifact_word_codec_push_word_std_result: output bytes に word を[追加/ついか]し StdErrorKind で[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 既存 caller が stdlib vector error と同じ error surface を期待する場合の薄い adapter です。
+pub fn selfhost_memo_trait_artifact_word_codec_push_word_std_result %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\word:
+    match selfhost_memo_trait_artifact_word_codec_push_word_result bytes word:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            Result::Err selfhost_memo_trait_artifact_word_codec_write_error_to_std e
+
+//: selfhost_memo_trait_artifact_word_codec_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_artifact_word_codec_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    match a:
+        StdErrorKind::Failure:
+            match b:
+                StdErrorKind::Failure:
+                    true
+                _:
+                    false
+        StdErrorKind::OutOfMemory:
+            match b:
+                StdErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+        StdErrorKind::EmptyCollection:
+            match b:
+                StdErrorKind::EmptyCollection:
+                    true
+                _:
+                    false
+        StdErrorKind::IndexOutOfBounds:
+            match b:
+                StdErrorKind::IndexOutOfBounds:
+                    true
+                _:
+                    false
+        StdErrorKind::KeyNotFound:
+            match b:
+                StdErrorKind::KeyNotFound:
+                    true
+                _:
+                    false
+        StdErrorKind::CapacityExceeded:
+            match b:
+                StdErrorKind::CapacityExceeded:
+                    true
+                _:
+                    false
+        StdErrorKind::InvalidOperation:
+            match b:
+                StdErrorKind::InvalidOperation:
+                    true
+                _:
+                    false
+        StdErrorKind::InvalidUtf8:
+            match b:
+                StdErrorKind::InvalidUtf8:
+                    true
+                _:
+                    false
+        StdErrorKind::ParseError:
+            match b:
+                StdErrorKind::ParseError:
+                    true
+                _:
+                    false
+        StdErrorKind::IoError:
+            match b:
+                StdErrorKind::IoError:
+                    true
+                _:
+                    false
+        StdErrorKind::Other:
+            match b:
+                StdErrorKind::Other:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_artifact_word_codec_read_error_kind_eq: read error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_artifact_word_codec_read_error_kind_eq %fn SelfhostMemoTraitArtifactWordReadErrorKind fn SelfhostMemoTraitArtifactWordReadErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd:
+            match b:
+                SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd:
+                    true
+                SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported:
+                    false
+        SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported:
+            match b:
+                SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd:
+                    false
+                SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported:
+                    true
+
+//: selfhost_memo_trait_artifact_word_codec_read_word_result_is_ok_value: word read result が期待値の Ok か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy が、`unwrap_ok` や外部の汎用比較関数へ依存せずに typed result の成功値を確認できるようにします。
+//: - `Err` は error kind の種類に関係なく false です。error kind の分類は `selfhost_memo_trait_artifact_word_codec_read_error_kind_eq` で別に確認します。
+pub fn selfhost_memo_trait_artifact_word_codec_read_word_result_is_ok_value %fn Result i32 SelfhostMemoTraitArtifactWordReadErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_artifact_word_codec_write_error_kind_eq: write error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_artifact_word_codec_write_error_kind_eq %fn SelfhostMemoTraitArtifactWordWriteErrorKind fn SelfhostMemoTraitArtifactWordWriteErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitArtifactWordWriteErrorKind::NegativeWordUnsupported:
+            match b:
+                SelfhostMemoTraitArtifactWordWriteErrorKind::NegativeWordUnsupported:
+                    true
+                SelfhostMemoTraitArtifactWordWriteErrorKind::PushFailed _error:
+                    false
+        SelfhostMemoTraitArtifactWordWriteErrorKind::PushFailed a_error:
+            match b:
+                SelfhostMemoTraitArtifactWordWriteErrorKind::NegativeWordUnsupported:
+                    false
+                SelfhostMemoTraitArtifactWordWriteErrorKind::PushFailed b_error:
+                    selfhost_memo_trait_artifact_word_codec_std_error_kind_eq a_error b_error
+
+//: selfhost_memo_trait_artifact_word_codec_push_word_unit_owned: stage0 用に word append 結果を unit へ[畳/たた]む
+fn selfhost_memo_trait_artifact_word_codec_push_word_unit_owned %impure fn Vec u8 impure fn i32 Result unit SelfhostMemoTraitArtifactWordWriteErrorKind \bytes\word:
+    match selfhost_memo_trait_artifact_word_codec_push_word_result bytes word:
+        Result::Ok next:
+            v::free next
+            Result::Ok unit
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_artifact_word_codec_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_artifact_word_codec_stage0_summary_new %fn Result i32 SelfhostMemoTraitArtifactWordReadErrorKind fn Result i32 SelfhostMemoTraitArtifactWordReadErrorKind fn Result i32 SelfhostMemoTraitArtifactWordReadErrorKind fn Result unit SelfhostMemoTraitArtifactWordWriteErrorKind SelfhostMemoTraitArtifactWordCodecStage0Summary \roundtrip_word\unexpected_end\high_bit_word\negative_write:
+    SelfhostMemoTraitArtifactWordCodecStage0Summary roundtrip_word unexpected_end high_bit_word negative_write
+
+//: selfhost_memo_trait_artifact_word_codec_stage0_after_roundtrip: roundtrip bytes owner を[閉/と]じて summary を[返/かえ]す
+fn selfhost_memo_trait_artifact_word_codec_stage0_after_roundtrip %impure fn Vec u8 Result SelfhostMemoTraitArtifactWordCodecStage0Summary StdErrorKind \roundtrip_bytes:
+    let roundtrip_word %Result i32 SelfhostMemoTraitArtifactWordReadErrorKind selfhost_memo_trait_artifact_word_codec_word_at_index_result &roundtrip_bytes 0
+    let unexpected_end %Result i32 SelfhostMemoTraitArtifactWordReadErrorKind selfhost_memo_trait_artifact_word_codec_word_at_index_result &roundtrip_bytes 1
+    v::free roundtrip_bytes
+    let high_bit_bytes_result %Result Vec u8 StdErrorKind v::new
+    match high_bit_bytes_result:
+        Result::Ok high_bit_bytes0:
+            match selfhost_memo_trait_artifact_word_codec_push_byte high_bit_bytes0 0:
+                Result::Ok high_bit_bytes1:
+                    match selfhost_memo_trait_artifact_word_codec_push_byte high_bit_bytes1 0:
+                        Result::Ok high_bit_bytes2:
+                            match selfhost_memo_trait_artifact_word_codec_push_byte high_bit_bytes2 0:
+                                Result::Ok high_bit_bytes3:
+                                    match selfhost_memo_trait_artifact_word_codec_push_byte high_bit_bytes3 128:
+                                        Result::Ok high_bit_bytes4:
+                                            let high_bit_word %Result i32 SelfhostMemoTraitArtifactWordReadErrorKind selfhost_memo_trait_artifact_word_codec_word_at_index_result &high_bit_bytes4 0
+                                            v::free high_bit_bytes4
+                                            let negative_bytes_result %Result Vec u8 StdErrorKind v::new
+                                            match negative_bytes_result:
+                                                Result::Ok negative_bytes:
+                                                    let negative_write %Result unit SelfhostMemoTraitArtifactWordWriteErrorKind selfhost_memo_trait_artifact_word_codec_push_word_unit_owned negative_bytes sub 0 1
+                                                    Result::Ok selfhost_memo_trait_artifact_word_codec_stage0_summary_new roundtrip_word unexpected_end high_bit_word negative_write
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err selfhost_memo_trait_artifact_word_codec_write_error_to_std e
+                                Result::Err e:
+                                    Result::Err selfhost_memo_trait_artifact_word_codec_write_error_to_std e
+                        Result::Err e:
+                            Result::Err selfhost_memo_trait_artifact_word_codec_write_error_to_std e
+                Result::Err e:
+                    Result::Err selfhost_memo_trait_artifact_word_codec_write_error_to_std e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_artifact_word_codec_stage0: word codec の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_artifact_word_codec_stage0 %impure fn void Result SelfhostMemoTraitArtifactWordCodecStage0Summary StdErrorKind \void:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes:
+            match selfhost_memo_trait_artifact_word_codec_push_word_result bytes 66051:
+                Result::Ok roundtrip_bytes:
+                    selfhost_memo_trait_artifact_word_codec_stage0_after_roundtrip roundtrip_bytes
+                Result::Err e:
+                    Result::Err selfhost_memo_trait_artifact_word_codec_write_error_to_std e
+        Result::Err e:
+            Result::Err e

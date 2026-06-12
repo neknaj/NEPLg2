@@ -399,6 +399,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` header reader codec checkpoint
+
+`.neplproof` record reader / serializer の前段として、`stdlib/neplg2/core/ty/ty/memo_trait_artifact_word_codec.nepl` と `stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl` を追加した。
+
+shared word codec は 31-bit nonnegative little-endian word の decode / encode だけを担当する。short input は `UnexpectedEnd`、4 byte 目 high bit は `WordHighBitUnsupported`、負の write は `NegativeWordUnsupported`、vector push failure は `PushFailed(StdErrorKind)` として分け、payload schema や proof acceptance へ混ぜない。`memo_trait_canonical_key_payload_codec.nepl` は byte offset / word index reader と word writer をこの shared codec へ委譲し、canonical key tree payload の復元責務に集中する。
+
+`.neplproof` header reader は先頭 magic word `792013` と 5 個の header word を読み、既存 `selfhost_memo_trait_neplproof_header_result` に schema / count validation を委譲する。reader error は `MagicMismatch`、`WordReadInvalid(SelfhostMemoTraitArtifactWordReadErrorKind)`、`HeaderInvalid(SelfhostMemoTraitNeplProofArtifactErrorKind)` に分ける。
+
+この checkpoint は `.neplproof` 全体の受理ではない。reader は trailing bytes、record body、sidecar index body、canonical payload bytes table、proof store preseed、artifact file I/O を扱わない。source text、span、path suffix、display name、diagnostic text、lexeme、store-local id、session-local `TypeId` は accepted authority にしない。
+
+source policy は shared codec re-export、dependency order、reader error taxonomy、proof artifact header validator への委譲、proof store / preseed / decoded artifact への逆依存禁止、source-derived authority 禁止、行数制限や doc comment 長制限の禁止を固定する。
+
+この checkpoint 後の残件は、`.neplproof` record body reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
+
 ## 2026-06-12 selfhost public surface registry single-pass checkpoint
 
 `memo_trait_public_surface_hash.nepl` の registry convenience path で残っていた candidate scanner と public surface hash materializer の module item stream 二重走査を、combined registry materializer へ移した。

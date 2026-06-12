@@ -66,7 +66,6 @@
 //: ```
 
 #import "alloc/collections/vec" as v
-#import "core/cast" as *
 #import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
@@ -75,6 +74,7 @@
 #import "./id" as *
 #import "./key" as *
 #import "./kind/model" as *
+#import "./memo_trait_artifact_word_codec" as *
 #import "./memo_trait_canonical_key" as *
 #import "./memo_trait_canonical_key_payload" as *
 
@@ -192,6 +192,14 @@ fn selfhost_memo_trait_canonical_key_payload_codec_error_from_std %fn StdErrorKi
         _:
             SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::OutOfMemory
 
+//: selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read: 共有 word codec の read error を payload decode error へ[写/うつ]す
+fn selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read %fn SelfhostMemoTraitArtifactWordReadErrorKind SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \kind:
+    match kind:
+        SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd:
+            SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+        SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported:
+            SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::WordHighBitUnsupported
+
 //: selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_eq: stable nominal key が同じか[返/かえ]す
 fn selfhost_memo_trait_canonical_key_payload_codec_stable_nominal_key_eq %fn SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitStableNominalKey bool \a\b:
     and:
@@ -306,49 +314,19 @@ fn selfhost_memo_trait_canonical_key_payload_codec_primitive_kind_result %fn i32
 //: [契約/けいやく]:
 //: - Phase 1 は 31-bit nonnegative word だけを受理します。4 byte 目の high bit が立つ場合は負値または将来拡張値として拒否します。
 fn selfhost_memo_trait_canonical_key_payload_codec_word_at_byte_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \bytes\byte_offset:
-    let byte_len %i32 v::len bytes
-    if:
-        or lt byte_offset 0 ge add byte_offset 3 byte_len
-        then:
-            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
-        else:
-            match v::get bytes byte_offset:
-                Option::Some b0_raw:
-                    match v::get bytes add byte_offset 1:
-                        Option::Some b1_raw:
-                            match v::get bytes add byte_offset 2:
-                                Option::Some b2_raw:
-                                    match v::get bytes add byte_offset 3:
-                                        Option::Some b3_raw:
-                                            let b3 %i32 cast b3_raw
-                                            if:
-                                                gt b3 127
-                                                then:
-                                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::WordHighBitUnsupported
-                                                else:
-                                                    let b0 %i32 cast b0_raw
-                                                    let b1 %i32 cast b1_raw
-                                                    let b2 %i32 cast b2_raw
-                                                    let lo %i32 add b0 mul b1 256
-                                                    let hi %i32 add mul b2 65536 mul b3 16777216
-                                                    Result::Ok add lo hi
-                                        Option::None:
-                                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
-                                Option::None:
-                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
-                        Option::None:
-                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
-                Option::None:
-                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
+    match selfhost_memo_trait_artifact_word_codec_word_at_byte_result bytes byte_offset:
+        Result::Ok word:
+            Result::Ok word
+        Result::Err kind:
+            Result::Err selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read kind
 
 //: selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result: word index から little-endian word を[読/よ]む
 fn selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result %fn &Vec u8 fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind \bytes\word_index:
-    if:
-        lt word_index 0
-        then:
-            Result::Err SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd
-        else:
-            selfhost_memo_trait_canonical_key_payload_codec_word_at_byte_result bytes mul word_index 4
+    match selfhost_memo_trait_artifact_word_codec_word_at_index_result bytes word_index:
+        Result::Ok word:
+            Result::Ok word
+        Result::Err kind:
+            Result::Err selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read kind
 
 //: selfhost_memo_trait_canonical_key_payload_codec_node_word_index: node field の word index を[返/かえ]す
 fn selfhost_memo_trait_canonical_key_payload_codec_node_word_index %fn i32 fn i32 i32 \node_index\field_index:
@@ -810,44 +788,9 @@ pub fn selfhost_memo_trait_canonical_key_payload_decode_error_kind_eq %fn Selfho
                 _:
                     false
 
-//: selfhost_memo_trait_canonical_key_payload_codec_push_byte: stage0 bytes に 1 byte を[追加/ついか]する
-fn selfhost_memo_trait_canonical_key_payload_codec_push_byte %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\value:
-    match v::push bytes %u8 cast value:
-        Result::Ok next:
-            Result::Ok next
-        Result::Err e:
-            let error %StdErrorKind field::get e "error"
-            v::free v::vec_push_error_vec e
-            Result::Err error
-
 //: selfhost_memo_trait_canonical_key_payload_codec_push_word: stage0 bytes に little-endian word を[追加/ついか]する
 fn selfhost_memo_trait_canonical_key_payload_codec_push_word %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\word:
-    if:
-        lt word 0
-        then:
-            v::free bytes
-            Result::Err StdErrorKind::InvalidOperation
-        else:
-            let b0 %i32 rem_s word 256
-            let q1 %i32 div_s word 256
-            let b1 %i32 rem_s q1 256
-            let q2 %i32 div_s q1 256
-            let b2 %i32 rem_s q2 256
-            let q3 %i32 div_s q2 256
-            let b3 %i32 rem_s q3 256
-            match selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes b0:
-                Result::Ok bytes1:
-                    match selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes1 b1:
-                        Result::Ok bytes2:
-                            match selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes2 b2:
-                                Result::Ok bytes3:
-                                    selfhost_memo_trait_canonical_key_payload_codec_push_byte bytes3 b3
-                                Result::Err e:
-                                    Result::Err e
-                        Result::Err e:
-                            Result::Err e
-                Result::Err e:
-                    Result::Err e
+    selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes word
 
 //: selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header_with_schema: stage0 header を[追加/ついか]する
 fn selfhost_memo_trait_canonical_key_payload_codec_stage0_push_header_with_schema %impure fn Vec u8 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Vec u8 StdErrorKind \bytes\schema_version\node_count\arg_count\root_index:

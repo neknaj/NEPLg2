@@ -1,3 +1,56 @@
+# 2026-06-12 Agent selfhost `.neplproof` header reader codec checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、pure core と host / CLI boundary の分離、parser、checker、HIR、Resource IR、backend へ逆依存しない DAG、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-reader-header-codec-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` header reader codec boundary
+- classification: selfhost implementation slice review
+- decision: `.neplproof` record reader / serializer 全体へ進む前に、永続 artifact 共通の 31-bit little-endian word codec と `.neplproof` header prefix reader を追加し、canonical key payload codec の重複した byte/word decode と writer を shared codec へ委譲した。
+- policy/spec:
+  - `memo_trait_artifact_word_codec.nepl` は 31-bit nonnegative little-endian word の decode / encode だけを担当し、short input、high-bit word、negative write、push failure を typed enum error として分ける。
+  - `memo_trait_proof_reader.nepl` は magic word `792013` と 6 word header prefix だけを読み、schema / count validation は既存 `memo_trait_proof_artifact.nepl` の header validator に委譲する。
+  - header reader は proof acceptance authority ではない。canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残す。
+  - source text、span、path suffix、display name、diagnostic text、lexeme、store-local id、session-local `TypeId` は shared word codec / header reader の accepted authority にしない。
+  - header prefix reader は trailing bytes を拒否せず、record body、sidecar index body、proof store preseed、artifact file I/O へ進まない。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_artifact_word_codec.nepl` を追加し、typed read/write error、Result adapter、stage0 smoke、typed equality helper を実装した。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl` は shared word codec を import し、byte offset / word index reader と word writer を委譲するようにした。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl` を追加し、magic mismatch、word read failure、header schema rejection を別 variant として返す public header reader を実装した。
+  - `stdlib/neplg2/core/ty/ty.nepl`、`nodesrc/selfhost_ty_sources.js`、source policy tests、`doc/neplg2/self_host_neplg21_compiler_design.md`、該当 issue、`todo.md` を更新した。
+- subagent review:
+  - subagent_review_ids: `019ebb25-2522-7990-b5f8-ece185dafe21`
+  - subagent_review_count: 1 implementation review
+  - Blocker: なし。
+  - Required: 新規ファイル 4 件が untracked なので commit 時に必ず含めること。対象は `memo_trait_artifact_word_codec.nepl`、`memo_trait_proof_reader.nepl`、`nodesrc/test_selfhost_memo_trait_artifact_word_codec_contract.js`、`nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`。
+  - Non-blocker: reader stage0 は `UnexpectedEnd` 経由の `WordReadInvalid` を確認しているが、`WordHighBitUnsupported` が reader error へ伝播する behavioral smoke は追加してもよい。shared word codec 側では high-bit rejection を確認済みなので必須ではない。
+  - Non-blocker: `selfhost_memo_trait_neplproof_reader_header_words` は 6 word header 契約の表明として有用だが、後続 record body reader が prefix cursor を扱う段階で実使用へ寄せてもよい。
+  - Question: なし。
+  - Approve: Blocker なし。Required は staging / commit 時に確認する運用項目として対応する。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` の運用方針に沿い、review response の Required / Non-blocker を同じ checkpoint に記録した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: shared word codec re-export、dependency order、reader error taxonomy、artifact header validator 委譲、proof store / preseed / decoded artifact への逆依存禁止、source-derived authority 禁止、line count / doc comment length cap 混入禁止を固定するため。
+  - 既存 warning: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: 初回の source policy regression で、既存 `memo_trait_proof_decoded` source-order 契約が新しい header reader 挿入を許していなかったため、`index -> reader -> decoded -> preseed` の順序契約へ更新した。更新後の `node nodesrc/run_source_policy_regressions.js --warn-only` では今回差分由来 warning / failure はない。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - shared word codec により canonical key payload codec と `.neplproof` reader の byte/word decode 重複を除き、各 reader は自分の schema validation だけに集中する。
+  - header prefix decode は固定 6 word の O(1)、word decode は O(1)、word append は償却 O(1) である。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_artifact_word_codec_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js`
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_artifact_word_codec.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-artifact-word-codec.json`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-reader.json`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload_codec.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-canonical-key-payload-codec-shared-word.json`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- 次 slice: `.neplproof` record body reader / serializer、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を継続する。
+
 # 2026-06-12 Agent selfhost memo trait `.neplproof` candidate range preseed checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、owner cleanup、DAG に沿った責務分割、proof acceptance authority と candidate narrowing の分離、探索範囲削減、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

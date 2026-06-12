@@ -24,6 +24,11 @@ assert.match(
     /^pub #import "\.\/ty\/memo_trait_canonical_key_payload_codec" as \*$/m,
     "ty facade must re-export the canonical key payload bytes codec",
 );
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_artifact_word_codec" as \*$/m,
+    "canonical key payload codec must share the artifact word codec instead of reimplementing low-level little-endian word rules",
+);
 assert.ok(
     TY_ROOT_REEXPORT_FILES.includes(relPath),
     "selfhost_ty_sources must include the codec in root re-export checks",
@@ -61,6 +66,31 @@ assert.match(
     source,
     /selfhost_memo_trait_canonical_key_payload_codec_header_checked_result[\s\S]*NodeCountNegative[\s\S]*ArgCountNegative[\s\S]*NodeCountLimitExceeded[\s\S]*ArgCountLimitExceeded[\s\S]*RootOutOfRange[\s\S]*TrailingBytes/,
     "header decoder must fail closed on negative counts, count limits, root range, and trailing bytes",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read[\s\S]*SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd[\s\S]*SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::UnexpectedEnd[\s\S]*SelfhostMemoTraitArtifactWordReadErrorKind::WordHighBitUnsupported[\s\S]*SelfhostMemoTraitCanonicalKeyPayloadDecodeErrorKind::WordHighBitUnsupported/,
+    "canonical key payload codec must map shared word read errors into its own typed decode error surface",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_canonical_key_payload_codec_word_at_byte_result[\s\S]*selfhost_memo_trait_artifact_word_codec_word_at_byte_result bytes byte_offset[\s\S]*selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read/,
+    "canonical key payload byte-offset reader must delegate to the shared artifact word codec",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_canonical_key_payload_codec_word_at_index_result[\s\S]*selfhost_memo_trait_artifact_word_codec_word_at_index_result bytes word_index[\s\S]*selfhost_memo_trait_canonical_key_payload_codec_error_from_word_read/,
+    "canonical key payload word-index reader must delegate to the shared artifact word codec",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_canonical_key_payload_codec_push_word[\s\S]*selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes word/,
+    "canonical key payload stage0 writer must delegate to the shared artifact word codec",
+);
+assert.doesNotMatch(
+    codeOnly,
+    /let b0 %i32 cast b0_raw|let b1 %i32 cast b1_raw|gt b3 127|rem_s word 256|div_s word 256/,
+    "canonical key payload codec must not keep a second copy of byte-to-word or word-to-byte arithmetic",
 );
 assert.match(
     source,
