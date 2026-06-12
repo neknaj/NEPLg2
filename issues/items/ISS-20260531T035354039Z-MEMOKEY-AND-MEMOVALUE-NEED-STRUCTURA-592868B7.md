@@ -749,6 +749,32 @@ stage0 smoke は accepted lookup range から candidate record を取り出せ�
 
 この checkpoint 後も、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+## 2026-06-12 selfhost memo trait `.neplproof` candidate batch record projector checkpoint
+
+`memo_trait_proof_preseed.nepl` に、sorted index lookup が返した candidate range から decoded batch append 用の `SelfhostMemoTraitNeplProofDecodedBatchRecord` を 1 件作る public boundary を追加した。
+
+`selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result` は `&SelfhostMemoTraitNeplProofDecodedArtifact`、`&SelfhostCanonicalTypeKeyArena`、`&Vec SelfhostCanonicalTypeKeyId`、期待する `SelfhostMemoTraitProofStorePolicy`、lookup target fingerprint、`SelfhostMemoTraitNeplProofIndexCandidateRange`、candidate range 内 offset を受け取る。内部では `selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result` を必ず通し、artifact invariant、range / offset、target fingerprint、index entry と record の対応を decoded artifact 側で再検査する。
+
+candidate range 内 offset は record ordinal でも materialized key id ordinal でもない。batch record projector は candidate accessor が返した `index_entry.record_ordinal` を取り出し、その ordinal で materialized key id vector を読む。件数不一致は `MaterializedKeyCountMismatch`、arena 内 key id 欠落は `MaterializedKeyMissing(record_ordinal)`、candidate accessor の拒否は `CandidateInvalid(SelfhostMemoTraitNeplProofDecodedBatchCandidateError { candidate_offset, kind })` として fail-closed にする。これにより、candidate narrowing の offset と decoded record の stable ordinal を混同しない。
+
+candidate record の nested payload は `field::get_ref` で `index_entry` と `record` を一段ずつ copy-out してから batch record へ束ねる。直接 `candidate_record.index_entry.record_ordinal` のように深く読む形にはしない。これは Resource IR 上で partial field move と未初期化 cell を作らず、Copy payload pair の owner lifecycle を明確に保つためである。
+
+この projector は proof acceptance ではない。candidate accessor が target fingerprint と record payload hash の整合を確認しても、canonical payload hash、canonical fingerprint、policy、store relation、producer gate は後続の decoded batch append と proof store preseed decision が再検査する。stage0 smoke は candidate success と candidate offset out-of-range を追加し、source policy は candidate accessor 経由、key id count check、`record_ordinal` による materialized key lookup、arena existence check、typed `CandidateInvalid` wrapping、`candidate_offset` を key id ordinal として使わないことを固定した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-preseed-candidate-batch.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後も、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

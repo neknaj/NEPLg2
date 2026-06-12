@@ -24,6 +24,14 @@ const artifactCodeOnly = artifact
     .split("\n")
     .filter((line) => !line.trimStart().startsWith("//:"))
     .join("\n");
+const candidateProjectorMatch = sourceCodeOnly.match(
+    /pub fn selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result[\s\S]*?(?=\nfn selfhost_memo_trait_neplproof_preseed_batch_error_new)/,
+);
+assert.ok(
+    candidateProjectorMatch,
+    "single-candidate projector body must remain inspectable by source policy",
+);
+const candidateProjector = candidateProjectorMatch[0];
 
 assert.match(
     facade,
@@ -87,8 +95,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind:[\s\S]*ArtifactInvalid %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind[\s\S]*MaterializedKeyCountMismatch[\s\S]*MaterializedKeyMissing %i32[\s\S]*RecordInvalid %SelfhostMemoTraitNeplProofDecodedBatchRecordError[\s\S]*BatchRecordAllocInvalid %StdErrorKind[\s\S]*BatchRecordPushInvalid %SelfhostMemoTraitNeplProofDecodedBatchStdError/,
-    "decoded batch builder errors must separate artifact invalidity, key-id coverage, record access, and vector allocation/push failures",
+    /pub struct SelfhostMemoTraitNeplProofDecodedBatchCandidateError:[\s\S]*candidate_offset %i32[\s\S]*kind %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind/,
+    "decoded batch builder candidate errors must keep the candidate-range offset and typed decoded-artifact error",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind:[\s\S]*ArtifactInvalid %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind[\s\S]*MaterializedKeyCountMismatch[\s\S]*MaterializedKeyMissing %i32[\s\S]*RecordInvalid %SelfhostMemoTraitNeplProofDecodedBatchRecordError[\s\S]*CandidateInvalid %SelfhostMemoTraitNeplProofDecodedBatchCandidateError[\s\S]*BatchRecordAllocInvalid %StdErrorKind[\s\S]*BatchRecordPushInvalid %SelfhostMemoTraitNeplProofDecodedBatchStdError/,
+    "decoded batch builder errors must separate artifact invalidity, key-id coverage, record access, candidate access, and vector allocation/push failures",
 );
 assert.match(
     source,
@@ -122,8 +135,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub fn selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq[\s\S]*ArtifactInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq a_error b_error[\s\S]*MaterializedKeyMissing a_ordinal[\s\S]*eq a_ordinal b_ordinal[\s\S]*RecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_error_eq a_error b_error[\s\S]*BatchRecordPushInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_std_error_eq a_error b_error/,
-    "decoded batch builder error equality must compare nested artifact, ordinal, and standard-error payloads",
+    /pub fn selfhost_memo_trait_neplproof_decoded_batch_build_error_kind_eq[\s\S]*ArtifactInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq a_error b_error[\s\S]*MaterializedKeyMissing a_ordinal[\s\S]*eq a_ordinal b_ordinal[\s\S]*RecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_error_eq a_error b_error[\s\S]*CandidateInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_candidate_error_eq a_error b_error[\s\S]*BatchRecordPushInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_std_error_eq a_error b_error/,
+    "decoded batch builder error equality must compare nested artifact, ordinal, candidate, and standard-error payloads",
 );
 assert.match(
     source,
@@ -192,6 +205,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result %impure fn &SelfhostMemoTraitNeplProofDecodedArtifact impure fn &SelfhostCanonicalTypeKeyArena impure fn &Vec SelfhostCanonicalTypeKeyId impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitNeplProofIndexCandidateRange impure fn i32 Result SelfhostMemoTraitNeplProofDecodedBatchRecord SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind/,
+    "preseed bridge must expose a single-candidate batch-record projector for sorted-index lookup paths",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_result[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact[\s\S]*let header %SelfhostMemoTraitNeplProofHeader \*field::get_ref artifact "header"[\s\S]*ne v::len materialized_key_ids header\.record_count[\s\S]*MaterializedKeyCountMismatch[\s\S]*let out_result %Result Vec SelfhostMemoTraitNeplProofDecodedBatchRecord StdErrorKind v::new[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop artifact materialized_key_arena materialized_key_ids expected_policy out 0 header\.record_count[\s\S]*ArtifactInvalid artifact_error/,
     "decoded artifact projector must validate artifact invariants, check materialized-key count, type its output vector, pass the materialized arena into the loop, and fail closed on invalid artifacts",
 );
@@ -199,6 +217,26 @@ assert.match(
     source,
     /selfhost_memo_trait_neplproof_decoded_batch_records_from_artifact_loop[\s\S]*v::get materialized_key_ids record_ordinal[\s\S]*selfhost_canonical_type_key_arena_get_node materialized_key_arena materialized_key_id[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_record_at_result artifact record_ordinal[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_new materialized_key_id expected_policy record[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_records_push out batch_record record_ordinal[\s\S]*v::free out[\s\S]*RecordInvalid build_error[\s\S]*v::free out[\s\S]*MaterializedKeyMissing record_ordinal/,
     "decoded artifact projector loop must pair records and materialized key ids by ordinal, verify each id exists in the materialized arena, and close partial output on record/key failures",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result[\s\S]*selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result artifact target candidate_range candidate_offset[\s\S]*ne v::len materialized_key_ids header\.record_count[\s\S]*MaterializedKeyCountMismatch[\s\S]*let candidate_index_entry %SelfhostMemoTraitNeplProofIndexEntry \*field::get_ref &candidate_record "index_entry"[\s\S]*let candidate_payload_record %SelfhostMemoTraitNeplProofRecord \*field::get_ref &candidate_record "record"[\s\S]*let record_ordinal %i32 candidate_index_entry\.record_ordinal[\s\S]*v::get materialized_key_ids record_ordinal[\s\S]*selfhost_canonical_type_key_arena_get_node materialized_key_arena materialized_key_id[\s\S]*selfhost_memo_trait_neplproof_decoded_batch_record_new materialized_key_id expected_policy candidate_payload_record[\s\S]*CandidateInvalid candidate_error/,
+    "single-candidate projector must use the decoded candidate accessor, use index_entry.record_ordinal for materialized-key lookup, verify arena existence, and type candidate failures",
+);
+assert.doesNotMatch(
+    source,
+    /v::get materialized_key_ids candidate_offset|v::get materialized_key_ids candidate_range\.start_index|v::get materialized_key_ids add candidate_range\.start_index candidate_offset|let record_ordinal %i32 candidate_offset/,
+    "single-candidate projector must not treat candidate offset as the decoded record ordinal or key-id ordinal",
+);
+assert.doesNotMatch(
+    candidateProjector,
+    /selfhost_memo_trait_neplproof_record_append|selfhost_memo_trait_neplproof_decoded_record_batch_append|selfhost_memo_trait_proof_store_preseed_decision/,
+    "single-candidate projector must not perform proof-store preseed decisions or append work",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result:[\s\S]*proof acceptance ではありません[\s\S]*selfhost_memo_trait_neplproof_record_append_materialized_checked[\s\S]*canonical payload hash[\s\S]*fingerprint[\s\S]*policy[\s\S]*store relation[\s\S]*candidate accessor は artifact validation、candidate range validation、target fingerprint check、index entry \/ record 対応検査を再実行します/,
+    "single-candidate projector documentation must state validation cost and delegate proof acceptance to the later append boundary",
 );
 assert.match(
     source,
@@ -242,8 +280,8 @@ assert.match(
 );
 assert.match(
     source,
-    /SelfhostMemoTraitNeplProofPreseedStage0Summary:[\s\S]*batch_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_from_artifact_count_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind/,
-    "preseed stage0 summary must include decoded artifact projector success and key-count mismatch smoke cases",
+    /SelfhostMemoTraitNeplProofPreseedStage0Summary:[\s\S]*batch_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_from_artifact_count_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_candidate_from_artifact %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind[\s\S]*batch_candidate_offset_mismatch %Result unit SelfhostMemoTraitNeplProofDecodedBatchBuildErrorKind/,
+    "preseed stage0 summary must include decoded artifact projector and candidate projector smoke cases",
 );
 assert.match(
     source,
@@ -262,8 +300,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch &materialized_key_arena policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record batch_from_artifact batch_from_artifact_count_mismatch/,
-    "preseed stage0 must exercise decoded artifact projection before returning its summary",
+    /selfhost_memo_trait_neplproof_preseed_stage0_after_appended_store[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_from_artifact &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_batch_count_mismatch &materialized_key_arena policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_candidate_from_artifact &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_decoded_candidate_offset_mismatch &materialized_key_arena materialized_key_id policy valid_record[\s\S]*selfhost_memo_trait_neplproof_preseed_stage0_summary_new accept_missing existing_matching rejected_conflict missing_key hash_mismatch fingerprint_mismatch policy_mismatch invalid_result batch_empty batch_existing_matching batch_rejected_conflict batch_invalid_record batch_from_artifact batch_from_artifact_count_mismatch batch_candidate_from_artifact batch_candidate_offset_mismatch/,
+    "preseed stage0 must exercise decoded artifact projection and candidate projection before returning its summary",
 );
 assert.match(
     source,

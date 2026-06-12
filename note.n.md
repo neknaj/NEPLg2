@@ -2199,6 +2199,50 @@ MERGE_APPROVED
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `git diff --check`
 
+## 2026-06-12 Agent selfhost memo trait `.neplproof` candidate batch record projector checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-candidate-batch-record-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。古い NEPLg2.0 記法は残っているが、現行仕様との差分は doc / issue / note 側で扱う。
+- zenn_policy: 2026-06-12 に再確認済み。Result / enum error、DAG、pure core / boundary 分離、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_preseed.nepl` に `selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result` を追加した。
+- この helper は decoded artifact、materialized canonical key arena、materialized key id vector、期待 policy、lookup target fingerprint、candidate range、candidate range 内 offset を受け取り、decoded artifact の `selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result` を通して `SelfhostMemoTraitNeplProofDecodedBatchRecord` 1 件を作る。
+- `candidate_offset` は candidate range 内 offset であり、materialized key id vector の ordinal ではない。key id lookup には candidate accessor が返す `index_entry.record_ordinal` を使う。
+- candidate accessor の拒否は `CandidateInvalid(SelfhostMemoTraitNeplProofDecodedBatchCandidateError { candidate_offset, kind })` として保持し、key id count mismatch、materialized arena missing、record invalid、allocation / push failure と混ぜない。
+- candidate record の nested payload は `field::get_ref` で `index_entry` と `record` を一段ずつ copy-out する。直接 deep field access で partial field move と Resource IR の未初期化 cell を作らない。
+- この helper は proof acceptance ではない。canonical payload hash、fingerprint、policy、store relation、producer gate は `selfhost_memo_trait_neplproof_record_append_materialized_checked` と proof store preseed decision が再検査する。
+- stage0 smoke に candidate success と candidate offset out-of-range を追加し、source policy で helper signature、candidate accessor 経由、`record_ordinal` lookup、arena existence check、proof-store decision / append 非実行、`candidate_offset` / `candidate_range.start_index` を key id ordinal として使わないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Hume に、candidate range から batch record 1 件を作る preseed helper が現在の selfhost / memo trait / `.neplproof` issue の次段として妥当か、Zenn方針に反しないか、追加すべき source policy がないかレビューを依頼した。
+- Hume review: Blocker なし。Required として、全件 projector を置き換えず single-candidate convenience boundary とすること、`candidate.index_entry.record_ordinal` で key id vector を読むこと、candidate accessor failure を typed error として潰さないこと、candidate accessor / record ordinal / key id lookup / arena existence / batch record creation の順を固定すること、proof acceptance ではないと doc comment に明記すること、source policy で `candidate_offset` や `range.start_index` を key id ordinal に使わないことと proof store append / decision 非実行を固定することを求めた。
+- Required 対応として、既存実装の順序を source policy で固定し、`candidate_offset` / `candidate_range.start_index` の key id ordinal 化禁止、helper 内 proof store append / decision 禁止、後段 `selfhost_memo_trait_neplproof_record_append_materialized_checked` への proof acceptance 委譲、candidate accessor validation cost を追加で固定した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-preseed-candidate-batch.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` reader / serializer、persistent stable map / serialized index の実体は未完了である。
+- generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+
 ## 2026-06-12 Agent Web Playground compiler worker recovery checkpoint
 
 ### scope

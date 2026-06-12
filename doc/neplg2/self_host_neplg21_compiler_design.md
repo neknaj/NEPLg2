@@ -1110,6 +1110,14 @@ projection-local missing は既存の単体 accessor error である `RecordEntr
 
 この follow-up でも candidate record は proof acceptance ではない。target fingerprint と record payload hash の整合を再確認しても、canonical payload decode、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続の authority として残る。`memo_trait_proof_decoded.nepl` は引き続き proof store / preseed / source construction へ direct import せず、decoded artifact owner と candidate projection だけを担当する。
 
+2026-06-12 follow-up で、preseed bridge 側に `selfhost_memo_trait_neplproof_decoded_batch_record_from_candidate_result` を追加した。この boundary は decoded artifact、materialized canonical key arena、materialized key id vector、期待する proof store policy、lookup target fingerprint、candidate range、candidate range 内 offset を受け取り、decoded artifact の candidate accessor を通して `SelfhostMemoTraitNeplProofDecodedBatchRecord` 1 件を作る。
+
+この boundary の重要な contract は、candidate range 内 offset と record ordinal / materialized key id ordinal を混同しないことである。materialized key id vector の lookup には `candidate_offset` ではなく、candidate accessor が返した `index_entry.record_ordinal` を使う。件数不一致は `MaterializedKeyCountMismatch`、arena 内の key id 欠落は `MaterializedKeyMissing(record_ordinal)`、candidate accessor の拒否は `CandidateInvalid(SelfhostMemoTraitNeplProofDecodedBatchCandidateError { candidate_offset, kind })` として保持する。
+
+実装では candidate record owner の nested field を直接深く読むのではなく、`field::get_ref` で `index_entry` と `record` を一段ずつ copy-out してから batch record を作る。これは Resource IR 上で partial field move と未初期化 cell を作らないための境界であり、候補投影の意味論ではなく、safe owner lifecycle を保つための実装 contract である。
+
+この single-candidate projector も proof acceptance authority ではない。candidate accessor が target fingerprint と index / record payload hash の整合を確認しても、canonical payload hash、canonical fingerprint、policy、store relation、producer gate は decoded batch append と proof store preseed decision が再検査する。source policy は、candidate accessor 経由、`record_ordinal` による key id lookup、arena existence check、typed `CandidateInvalid` wrapping、`candidate_offset` を key id ordinal として使わないことを固定する。
+
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
 ### 2026-06-12 memo trait `.neplproof` sorted index producer checkpoint
