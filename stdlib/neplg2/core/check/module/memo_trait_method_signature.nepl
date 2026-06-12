@@ -1,0 +1,736 @@
+#indent 4
+
+//: # check/module/memo_trait_method_signature
+//: `MemoKey` / `MemoValue` の method-bearing trait body を stable signature evidence へ正規化する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `trait_body_segmenter` が返した method header range / default body range を、`MemoKey` / `MemoValue` の public source identity に使える normalized signature fingerprint へ変換します。
+//: - source text は canonical surface spelling の分類にだけ使います。method 名、`Self` / `bool` / `i32` の type atom、literal default body、binder 参照の照合は spelling を読みますが、accepted fingerprint は受理後の固定 role code だけから作ります。
+//: - `core/ty` や proof store が parser-level range evidence を直接読む逆依存を作らないよう、この module は `core/check/module` 側の接続層に留めます。
+//:
+//: [契約/けいやく]:
+//: - `MemoKey` は `memo_key_eq` と `memo_key_hash32` の 2 method を、この順序で持つ場合だけ受理します。
+//: - `MemoValue` は `memo_value_mark` の 1 method を持つ場合だけ受理します。
+//: - type annotation は現 stdlib の canonical spelling だけを受理します。`Self`、`bool`、`i32` の spelling は source span から分類しますが、hash material には入れません。
+//: - default body は `false`、`0`、または lambda binder と同じ名前を返す canonical shape だけを受理します。将来は full expression normalizer が alpha-equivalence やより一般の default body を扱います。
+//: - 失敗は `SelfhostMemoTraitMethodSignatureErrorKind` で返します。bool や diagnostic text を public result にしません。
+//:
+//: [現状/げんじょう]:
+//: - この module は実 stdlib の `MemoKey` / `MemoValue` trait definition を stable source identity pipeline へ接続するための Phase 1 normalizer です。
+//: - re-export / import graph を含む full public surface hash、stable trait definition key、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は後続 slice で接続します。
+//:
+//: [計算量/けいさんりょう]:
+//: - method segmentation は trait body envelope 内の token 数 k に対して O(k) です。
+//: - method header / default body shape の検査は固定個数の token だけを見ます。spelling 比較は対象 token の span slice に比例しますが、比較対象 token 数は固定です。
+//: - 追加空間は segment list の method 数 m に比例します。現 `MemoKey` / `MemoValue` では m は最大 2 です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_method_signature" as *
+//:| #import "neplg2/core/syntax/parser/trait_body_segmenter" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_policy" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_method_signature_stage0
+//:     let checks0 checks_new
+//:     let expected_segment %SelfhostMemoTraitMethodSignatureErrorKind SelfhostMemoTraitMethodSignatureErrorKind::BodySegmentRejected SelfhostTraitBodyMethodSegmentErrorKind::UnexpectedTraitBodyItem
+//:     let expected_placeholder %SelfhostMemoTraitMethodSignatureErrorKind SelfhostMemoTraitMethodSignatureErrorKind::NormalizedHashPlaceholder SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_key
+//:     let checks2 checks_push checks1 check is_ok summary.accepted_value
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_method_signature_error_kind_eq (unwrap_err summary.wrong_name_rejected) SelfhostMemoTraitMethodSignatureErrorKind::HeaderNameMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyEq
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_method_signature_error_kind_eq (unwrap_err summary.wrong_body_rejected) SelfhostMemoTraitMethodSignatureErrorKind::DefaultBodyMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_method_signature_error_kind_eq (unwrap_err summary.wrong_count_rejected) SelfhostMemoTraitMethodSignatureErrorKind::MethodCountMismatch SelfhostMemoTraitSourceKind::MemoKeyTrait
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_method_signature_error_kind_eq (unwrap_err summary.wrong_type_rejected) SelfhostMemoTraitMethodSignatureErrorKind::HeaderTypeMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_method_signature_error_kind_eq (unwrap_err summary.wrong_lambda_rejected) SelfhostMemoTraitMethodSignatureErrorKind::HeaderLambdaMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_method_signature_error_kind_eq (unwrap_err summary.segment_rejected) expected_segment
+//:     let checks9 checks_push checks8 check selfhost_memo_trait_method_signature_error_kind_eq expected_placeholder expected_placeholder
+//:     let shown checks_print_report checks9
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "alloc/string/access" as string_access
+#import "alloc/string/search" as string_search
+#import "alloc/string/slice" as string_slice
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/syntax/lexer" as *
+#import "neplg2/core/syntax/parser/trait_body_segmenter" as *
+#import "neplg2/core/syntax/token" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+
+//: SelfhostMemoTraitMethodSignatureRole: memo trait method の normalized role
+//:
+//: [目的/もくてき]:
+//: - method 名の source spelling をそのまま hash に入れず、受理した method を compiler-known role に写します。
+//: - role は hash material と error payload の両方で使うため、文字列ではなく enum として保持します。
+pub enum SelfhostMemoTraitMethodSignatureRole:
+    MemoKeyEq
+    MemoKeyHash32
+    MemoValueMark
+
+//: SelfhostMemoTraitMethodSignatureTokenExpectation: fixed signature shape の token kind 期待値
+//:
+//: [目的/もくてき]:
+//: - `TokenKind` との照合を bool literal の羅列にせず、期待している token role を enum として明示します。
+enum SelfhostMemoTraitMethodSignatureTokenExpectation:
+    ExpectKwFn
+    ExpectIdent
+    ExpectPercent
+    ExpectBackslash
+    ExpectBoolLiteral
+    ExpectIntLiteral
+
+//: SelfhostMemoTraitMethodSignatureEvidence: method-bearing memo trait signature の成功 payload
+//:
+//: [目的/もくてき]:
+//: - trait kind、受理した method 数、normalized signature fingerprint をまとめます。
+//:
+//: [契約/けいやく]:
+//: - `normalized_signature_hash` は `some(nonzero)` のときだけ accepted evidence です。
+//: - hash material は role code と default body shape code だけであり、source span、range、lexeme を混ぜません。
+pub struct SelfhostMemoTraitMethodSignatureEvidence:
+    kind %SelfhostMemoTraitSourceKind
+    method_count %i32
+    normalized_signature_hash %Option i32
+
+//: SelfhostMemoTraitMethodSignatureErrorKind: method signature normalization の拒否理由
+//:
+//: [目的/もくてき]:
+//: - segmentation、method count、header name、type annotation、lambda header、default body、hash placeholder を typed enum として区別します。
+pub enum SelfhostMemoTraitMethodSignatureErrorKind:
+    BodySegmentRejected %SelfhostTraitBodyMethodSegmentErrorKind
+    MethodCountMismatch %SelfhostMemoTraitSourceKind
+    MethodUnavailable %SelfhostMemoTraitMethodSignatureRole
+    HeaderRangeMismatch %SelfhostMemoTraitMethodSignatureRole
+    HeaderNameMismatch %SelfhostMemoTraitMethodSignatureRole
+    HeaderTypeMismatch %SelfhostMemoTraitMethodSignatureRole
+    HeaderLambdaMismatch %SelfhostMemoTraitMethodSignatureRole
+    DefaultBodyMismatch %SelfhostMemoTraitMethodSignatureRole
+    NormalizedHashPlaceholder %SelfhostMemoTraitSourceKind
+    LexerRejected
+
+//: SelfhostMemoTraitMethodSignatureStage0Summary: method signature normalizer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted key/value path と、名前、method 数、type annotation、lambda header、default body、segmentation rejection の代表的な失敗をまとめます。
+pub struct SelfhostMemoTraitMethodSignatureStage0Summary:
+    accepted_key %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    accepted_value %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    wrong_name_rejected %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    wrong_body_rejected %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    wrong_count_rejected %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    wrong_type_rejected %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    wrong_lambda_rejected %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+    segment_rejected %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind
+
+impl Clone for SelfhostMemoTraitMethodSignatureRole:
+    fn clone %fn &SelfhostMemoTraitMethodSignatureRole SelfhostMemoTraitMethodSignatureRole \self:
+        *self
+
+impl Copy for SelfhostMemoTraitMethodSignatureRole:
+    fn copy_mark %fn SelfhostMemoTraitMethodSignatureRole SelfhostMemoTraitMethodSignatureRole \self:
+        self
+
+impl Clone for SelfhostMemoTraitMethodSignatureTokenExpectation:
+    fn clone %fn &SelfhostMemoTraitMethodSignatureTokenExpectation SelfhostMemoTraitMethodSignatureTokenExpectation \self:
+        *self
+
+impl Copy for SelfhostMemoTraitMethodSignatureTokenExpectation:
+    fn copy_mark %fn SelfhostMemoTraitMethodSignatureTokenExpectation SelfhostMemoTraitMethodSignatureTokenExpectation \self:
+        self
+
+impl Clone for SelfhostMemoTraitMethodSignatureEvidence:
+    fn clone %fn &SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitMethodSignatureEvidence:
+    fn copy_mark %fn SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitMethodSignatureErrorKind:
+    fn clone %fn &SelfhostMemoTraitMethodSignatureErrorKind SelfhostMemoTraitMethodSignatureErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitMethodSignatureErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitMethodSignatureErrorKind SelfhostMemoTraitMethodSignatureErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitMethodSignatureStage0Summary:
+    fn clone %fn &SelfhostMemoTraitMethodSignatureStage0Summary SelfhostMemoTraitMethodSignatureStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitMethodSignatureStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitMethodSignatureStage0Summary SelfhostMemoTraitMethodSignatureStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_method_signature_role_eq: method role が同じか[返/かえ]す
+pub fn selfhost_memo_trait_method_signature_role_eq %fn SelfhostMemoTraitMethodSignatureRole fn SelfhostMemoTraitMethodSignatureRole bool \a\b:
+    match a:
+        SelfhostMemoTraitMethodSignatureRole::MemoKeyEq:
+            match b:
+                SelfhostMemoTraitMethodSignatureRole::MemoKeyEq:
+                    true
+                SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32:
+                    false
+                SelfhostMemoTraitMethodSignatureRole::MemoValueMark:
+                    false
+        SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32:
+            match b:
+                SelfhostMemoTraitMethodSignatureRole::MemoKeyEq:
+                    false
+                SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32:
+                    true
+                SelfhostMemoTraitMethodSignatureRole::MemoValueMark:
+                    false
+        SelfhostMemoTraitMethodSignatureRole::MemoValueMark:
+            match b:
+                SelfhostMemoTraitMethodSignatureRole::MemoKeyEq:
+                    false
+                SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32:
+                    false
+                SelfhostMemoTraitMethodSignatureRole::MemoValueMark:
+                    true
+
+//: selfhost_memo_trait_method_signature_error_kind_eq: method signature error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_method_signature_error_kind_eq %fn SelfhostMemoTraitMethodSignatureErrorKind fn SelfhostMemoTraitMethodSignatureErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitMethodSignatureErrorKind::BodySegmentRejected segment_error:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::BodySegmentRejected other_segment_error:
+                    selfhost_trait_body_method_segment_error_kind_eq segment_error other_segment_error
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::MethodCountMismatch source_kind:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::MethodCountMismatch other_source_kind:
+                    selfhost_memo_trait_source_kind_eq source_kind other_source_kind
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::MethodUnavailable role:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::MethodUnavailable other_role:
+                    selfhost_memo_trait_method_signature_role_eq role other_role
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch role:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch other_role:
+                    selfhost_memo_trait_method_signature_role_eq role other_role
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::HeaderNameMismatch role:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::HeaderNameMismatch other_role:
+                    selfhost_memo_trait_method_signature_role_eq role other_role
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::HeaderTypeMismatch role:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::HeaderTypeMismatch other_role:
+                    selfhost_memo_trait_method_signature_role_eq role other_role
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::HeaderLambdaMismatch role:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::HeaderLambdaMismatch other_role:
+                    selfhost_memo_trait_method_signature_role_eq role other_role
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::DefaultBodyMismatch role:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::DefaultBodyMismatch other_role:
+                    selfhost_memo_trait_method_signature_role_eq role other_role
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::NormalizedHashPlaceholder source_kind:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::NormalizedHashPlaceholder other_source_kind:
+                    selfhost_memo_trait_source_kind_eq source_kind other_source_kind
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureErrorKind::LexerRejected:
+            match b:
+                SelfhostMemoTraitMethodSignatureErrorKind::LexerRejected:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_method_signature_token_at: syntax range 内の token を[返/かえ]す
+fn selfhost_memo_trait_method_signature_token_at %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 Option SelfhostToken \tokens\range\offset:
+    match range:
+        SelfhostSyntaxRange::Empty:
+            none
+        SelfhostSyntaxRange::Range items:
+            if:
+                or lt offset 0 ge offset items.token_count
+                then:
+                    none
+                else:
+                    v::get tokens add items.first_token offset
+
+//: selfhost_memo_trait_method_signature_range_count_is: range の token count が期待通りか[返/かえ]す
+fn selfhost_memo_trait_method_signature_range_count_is %fn SelfhostSyntaxRange fn i32 bool \range\expected:
+    match range:
+        SelfhostSyntaxRange::Empty:
+            false
+        SelfhostSyntaxRange::Range items:
+            and selfhost_syntax_range_is_valid range eq items.token_count expected
+
+//: selfhost_memo_trait_method_signature_token_kind_matches: token kind が期待 role と一致するか[返/かえ]す
+fn selfhost_memo_trait_method_signature_token_kind_matches %fn SelfhostToken fn SelfhostMemoTraitMethodSignatureTokenExpectation bool \token\expected:
+    match expected:
+        SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn:
+            match token.kind:
+                TokenKind::KwFn:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIdent:
+            match token.kind:
+                TokenKind::Ident:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectPercent:
+            match token.kind:
+                TokenKind::Percent:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectBackslash:
+            match token.kind:
+                TokenKind::Backslash:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectBoolLiteral:
+            match token.kind:
+                TokenKind::BoolLiteral:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIntLiteral:
+            match token.kind:
+                TokenKind::IntLiteral:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_method_signature_token_kind_at: range 内 token kind を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_token_kind_at %fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 fn SelfhostMemoTraitMethodSignatureTokenExpectation bool \tokens\range\offset\expected:
+    match selfhost_memo_trait_method_signature_token_at tokens range offset:
+        Option::Some token:
+            selfhost_memo_trait_method_signature_token_kind_matches token expected
+        Option::None:
+            false
+
+//: selfhost_memo_trait_method_signature_lexeme_at_eq: range 内 token の spelling が期待値と一致するか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - この helper は canonical surface spelling の分類にだけ使います。caller はこの文字列を fingerprint material にしてはいけません。
+//: - method 名、type atom、literal default body の固定 shape を分類するための helper です。semantic hash は分類後の role code だけから作ります。
+fn selfhost_memo_trait_method_signature_lexeme_at_eq %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 fn str bool \source\tokens\range\offset\expected:
+    match selfhost_memo_trait_method_signature_token_at tokens range offset:
+        Option::Some token:
+            if:
+                not source_span_is_valid token.span
+                then:
+                    false
+                else:
+                    match string_slice::str_slice_result source token.span.start token.span.end:
+                        Result::Ok lexeme:
+                            string_search::str_eq lexeme expected
+                        Result::Err _slice_error:
+                            false
+        Option::None:
+            false
+
+//: selfhost_memo_trait_method_signature_lexeme_at_same: 2 token の spelling が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `memo_value_mark` の default body が lambda binder 自体を返していることを確認します。
+//: - 固定文字列 `value` だけを見て受理すると、`\x: value` のように binder と body が対応しない method を accepted evidence に進めてしまうため、この helper で同一 binder 参照を検査します。
+//:
+//: [契約/けいやく]:
+//: - 比較対象は token span から得た spelling だけです。比較結果は shape classification に使いますが、source string は normalized fingerprint に混ぜません。
+fn selfhost_memo_trait_method_signature_lexeme_at_same %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange fn i32 fn SelfhostSyntaxRange fn i32 bool \source\tokens\left_range\left_offset\right_range\right_offset:
+    match selfhost_memo_trait_method_signature_token_at tokens left_range left_offset:
+        Option::Some left_token:
+            match selfhost_memo_trait_method_signature_token_at tokens right_range right_offset:
+                Option::Some right_token:
+                    if:
+                        or not source_span_is_valid left_token.span not source_span_is_valid right_token.span
+                        then:
+                            false
+                        else:
+                            match string_slice::str_slice_result source left_token.span.start left_token.span.end:
+                                Result::Ok left_lexeme:
+                                    match string_slice::str_slice_result source right_token.span.start right_token.span.end:
+                                        Result::Ok right_lexeme:
+                                            string_search::str_eq left_lexeme right_lexeme
+                                        Result::Err _right_slice_error:
+                                            false
+                                Result::Err _left_slice_error:
+                                    false
+                Option::None:
+                    false
+        Option::None:
+            false
+
+//: selfhost_memo_trait_method_signature_key_eq_header_name_ok: `memo_key_eq` header 名を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_eq_header_name_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\header:
+    selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 1 "memo_key_eq"
+
+//: selfhost_memo_trait_method_signature_key_eq_header_type_ok: `memo_key_eq` type annotation を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_eq_header_type_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\header:
+    and:
+        selfhost_memo_trait_method_signature_token_kind_at tokens header 2 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectPercent
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens header 3 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+            and:
+                selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 4 "Self"
+                and:
+                    selfhost_memo_trait_method_signature_token_kind_at tokens header 5 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+                    and:
+                        selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 6 "Self"
+                        selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 7 "bool"
+
+//: selfhost_memo_trait_method_signature_key_eq_header_lambda_ok: `memo_key_eq` lambda header の arity を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_eq_header_lambda_ok %fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \tokens\header:
+    and:
+        selfhost_memo_trait_method_signature_token_kind_at tokens header 8 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectBackslash
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens header 9 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIdent
+            and:
+                selfhost_memo_trait_method_signature_token_kind_at tokens header 10 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectBackslash
+                selfhost_memo_trait_method_signature_token_kind_at tokens header 11 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIdent
+
+//: selfhost_memo_trait_method_signature_key_hash_header_name_ok: `memo_key_hash32` header 名を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_hash_header_name_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\header:
+    selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 1 "memo_key_hash32"
+
+//: selfhost_memo_trait_method_signature_key_hash_header_type_ok: `memo_key_hash32` type annotation を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_hash_header_type_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\header:
+    and:
+        selfhost_memo_trait_method_signature_token_kind_at tokens header 2 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectPercent
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens header 3 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+            and:
+                selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 4 "Self"
+                selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 5 "i32"
+
+//: selfhost_memo_trait_method_signature_unary_lambda_ok: unary method lambda header の arity を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_unary_lambda_ok %fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \tokens\header:
+    and:
+        selfhost_memo_trait_method_signature_token_kind_at tokens header 6 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectBackslash
+        selfhost_memo_trait_method_signature_token_kind_at tokens header 7 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIdent
+
+//: selfhost_memo_trait_method_signature_value_mark_header_name_ok: `memo_value_mark` header 名を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_value_mark_header_name_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\header:
+    selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 1 "memo_value_mark"
+
+//: selfhost_memo_trait_method_signature_value_mark_header_type_ok: `memo_value_mark` type annotation を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_value_mark_header_type_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\header:
+    and:
+        selfhost_memo_trait_method_signature_token_kind_at tokens header 2 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectPercent
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens header 3 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+            and:
+                selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 4 "Self"
+                selfhost_memo_trait_method_signature_lexeme_at_eq source tokens header 5 "Self"
+
+//: selfhost_memo_trait_method_signature_key_eq_body_ok: `memo_key_eq` default body を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_eq_body_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\body:
+    and:
+        selfhost_memo_trait_method_signature_range_count_is body 1
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens body 0 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectBoolLiteral
+            selfhost_memo_trait_method_signature_lexeme_at_eq source tokens body 0 "false"
+
+//: selfhost_memo_trait_method_signature_key_hash_body_ok: `memo_key_hash32` default body を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_hash_body_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange bool \source\tokens\body:
+    and:
+        selfhost_memo_trait_method_signature_range_count_is body 1
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens body 0 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIntLiteral
+            selfhost_memo_trait_method_signature_lexeme_at_eq source tokens body 0 "0"
+
+//: selfhost_memo_trait_method_signature_value_mark_body_ok: `memo_value_mark` default body を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_value_mark_body_ok %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange fn SelfhostSyntaxRange bool \source\tokens\header\body:
+    and:
+        selfhost_memo_trait_method_signature_range_count_is body 1
+        and:
+            selfhost_memo_trait_method_signature_token_kind_at tokens body 0 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectIdent
+            selfhost_memo_trait_method_signature_lexeme_at_same source tokens header 7 body 0
+
+//: selfhost_memo_trait_method_signature_check_key_eq_header: `memo_key_eq` header を typed Result で[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_check_key_eq_header %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange Result unit SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\header:
+    if:
+        not selfhost_memo_trait_method_signature_range_count_is header 12
+        then:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyEq
+        else:
+            if:
+                not selfhost_memo_trait_method_signature_token_kind_at tokens header 0 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+                then:
+                    Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyEq
+                else:
+                    if:
+                        not selfhost_memo_trait_method_signature_key_eq_header_name_ok source tokens header
+                        then:
+                            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderNameMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyEq
+                        else:
+                            if:
+                                not selfhost_memo_trait_method_signature_key_eq_header_type_ok source tokens header
+                                then:
+                                    Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderTypeMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyEq
+                                else:
+                                    if:
+                                        not selfhost_memo_trait_method_signature_key_eq_header_lambda_ok tokens header
+                                        then:
+                                            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderLambdaMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyEq
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_memo_trait_method_signature_check_key_hash_header: `memo_key_hash32` header を typed Result で[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_check_key_hash_header %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange Result unit SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\header:
+    if:
+        not selfhost_memo_trait_method_signature_range_count_is header 8
+        then:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32
+        else:
+            if:
+                not selfhost_memo_trait_method_signature_token_kind_at tokens header 0 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+                then:
+                    Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32
+                else:
+                    if:
+                        not selfhost_memo_trait_method_signature_key_hash_header_name_ok source tokens header
+                        then:
+                            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderNameMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32
+                        else:
+                            if:
+                                not selfhost_memo_trait_method_signature_key_hash_header_type_ok source tokens header
+                                then:
+                                    Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderTypeMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32
+                                else:
+                                    if:
+                                        not selfhost_memo_trait_method_signature_unary_lambda_ok tokens header
+                                        then:
+                                            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderLambdaMismatch SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_memo_trait_method_signature_check_value_mark_header: `memo_value_mark` header を typed Result で[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_check_value_mark_header %fn str fn &Vec SelfhostToken fn SelfhostSyntaxRange Result unit SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\header:
+    if:
+        not selfhost_memo_trait_method_signature_range_count_is header 8
+        then:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+        else:
+            if:
+                not selfhost_memo_trait_method_signature_token_kind_at tokens header 0 SelfhostMemoTraitMethodSignatureTokenExpectation::ExpectKwFn
+                then:
+                    Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderRangeMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+                else:
+                    if:
+                        not selfhost_memo_trait_method_signature_value_mark_header_name_ok source tokens header
+                        then:
+                            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderNameMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+                        else:
+                            if:
+                                not selfhost_memo_trait_method_signature_value_mark_header_type_ok source tokens header
+                                then:
+                                    Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderTypeMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+                                else:
+                                    if:
+                                        not selfhost_memo_trait_method_signature_unary_lambda_ok tokens header
+                                        then:
+                                            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::HeaderLambdaMismatch SelfhostMemoTraitMethodSignatureRole::MemoValueMark
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_memo_trait_method_signature_check_role_result: 1 method segment を期待 role として[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_check_role_result %fn str fn &Vec SelfhostToken fn SelfhostTraitBodyMethodSegment fn SelfhostMemoTraitMethodSignatureRole Result unit SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\segment\role:
+    match role:
+        SelfhostMemoTraitMethodSignatureRole::MemoKeyEq:
+            match selfhost_memo_trait_method_signature_check_key_eq_header source tokens segment.header:
+                Result::Ok _header_ok:
+                    if selfhost_memo_trait_method_signature_key_eq_body_ok source tokens segment.default_body Result::Ok unit Result::Err SelfhostMemoTraitMethodSignatureErrorKind::DefaultBodyMismatch role
+                Result::Err e:
+                    Result::Err e
+        SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32:
+            match selfhost_memo_trait_method_signature_check_key_hash_header source tokens segment.header:
+                Result::Ok _header_ok:
+                    if selfhost_memo_trait_method_signature_key_hash_body_ok source tokens segment.default_body Result::Ok unit Result::Err SelfhostMemoTraitMethodSignatureErrorKind::DefaultBodyMismatch role
+                Result::Err e:
+                    Result::Err e
+        SelfhostMemoTraitMethodSignatureRole::MemoValueMark:
+            match selfhost_memo_trait_method_signature_check_value_mark_header source tokens segment.header:
+                Result::Ok _header_ok:
+                    if selfhost_memo_trait_method_signature_value_mark_body_ok source tokens segment.header segment.default_body Result::Ok unit Result::Err SelfhostMemoTraitMethodSignatureErrorKind::DefaultBodyMismatch role
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_method_signature_segment_result: segment list から指定 index の segment を[取/と]る
+fn selfhost_memo_trait_method_signature_segment_result %fn &SelfhostTraitBodyMethodSegmentList fn i32 fn SelfhostMemoTraitMethodSignatureRole Result SelfhostTraitBodyMethodSegment SelfhostMemoTraitMethodSignatureErrorKind \list\idx\role:
+    match selfhost_trait_body_method_segment_list_get list idx:
+        Option::Some segment:
+            Result::Ok segment
+        Option::None:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::MethodUnavailable role
+
+//: selfhost_memo_trait_method_signature_check_segment_at_result: 指定 index の method role を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_check_segment_at_result %fn str fn &Vec SelfhostToken fn &SelfhostTraitBodyMethodSegmentList fn i32 fn SelfhostMemoTraitMethodSignatureRole Result unit SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\list\idx\role:
+    match selfhost_memo_trait_method_signature_segment_result list idx role:
+        Result::Ok segment:
+            selfhost_memo_trait_method_signature_check_role_result source tokens segment role
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_method_signature_mix2: 2 つの signature role code を[混/ま]ぜる
+fn selfhost_memo_trait_method_signature_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_method_signature_mix3: 3 つの signature role code を[混/ま]ぜる
+fn selfhost_memo_trait_method_signature_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_method_signature_mix2 a b c
+
+//: selfhost_memo_trait_method_signature_hash: accepted method role set から normalized hash を[作/つく]る
+fn selfhost_memo_trait_method_signature_hash %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            selfhost_memo_trait_method_signature_mix3 4111 4211 4212
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            selfhost_memo_trait_method_signature_mix2 4112 4311
+
+//: selfhost_memo_trait_method_signature_evidence_result: accepted method set を evidence へ[写/うつ]す
+fn selfhost_memo_trait_method_signature_evidence_result %fn SelfhostMemoTraitSourceKind fn i32 Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind \kind\method_count:
+    let hash %i32 selfhost_memo_trait_method_signature_hash kind
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::NormalizedHashPlaceholder kind
+        else:
+            Result::Ok SelfhostMemoTraitMethodSignatureEvidence kind method_count some hash
+
+//: selfhost_memo_trait_method_signature_key_result: `MemoKey` の method set を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_key_result %fn str fn &Vec SelfhostToken fn &SelfhostTraitBodyMethodSegmentList Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\list:
+    if:
+        not eq selfhost_trait_body_method_segment_list_len list 2
+        then:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::MethodCountMismatch SelfhostMemoTraitSourceKind::MemoKeyTrait
+        else:
+            match selfhost_memo_trait_method_signature_check_segment_at_result source tokens list 0 SelfhostMemoTraitMethodSignatureRole::MemoKeyEq:
+                Result::Ok _eq_ok:
+                    match selfhost_memo_trait_method_signature_check_segment_at_result source tokens list 1 SelfhostMemoTraitMethodSignatureRole::MemoKeyHash32:
+                        Result::Ok _hash_ok:
+                            selfhost_memo_trait_method_signature_evidence_result SelfhostMemoTraitSourceKind::MemoKeyTrait 2
+                        Result::Err hash_error:
+                            Result::Err hash_error
+                Result::Err eq_error:
+                    Result::Err eq_error
+
+//: selfhost_memo_trait_method_signature_value_result: `MemoValue` の method set を[検査/けんさ]する
+fn selfhost_memo_trait_method_signature_value_result %fn str fn &Vec SelfhostToken fn &SelfhostTraitBodyMethodSegmentList Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\list:
+    if:
+        not eq selfhost_trait_body_method_segment_list_len list 1
+        then:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::MethodCountMismatch SelfhostMemoTraitSourceKind::MemoValueTrait
+        else:
+            match selfhost_memo_trait_method_signature_check_segment_at_result source tokens list 0 SelfhostMemoTraitMethodSignatureRole::MemoValueMark:
+                Result::Ok _mark_ok:
+                    selfhost_memo_trait_method_signature_evidence_result SelfhostMemoTraitSourceKind::MemoValueTrait 1
+                Result::Err mark_error:
+                    Result::Err mark_error
+
+//: selfhost_memo_trait_method_signature_result_with_segments: segment list を method signature evidence へ[正規化/せいきか]する
+//:
+//: [契約/けいやく]:
+//: - この helper は `selfhost_memo_trait_method_signature_result` の内部だけで使います。
+//: - 公開 API にしないことで、caller が segmenter を通していない fake segment aggregate を渡し、trusted signature pipeline を迂回する経路を作らないようにします。
+fn selfhost_memo_trait_method_signature_result_with_segments %fn str fn &Vec SelfhostToken fn SelfhostMemoTraitSourceKind fn &SelfhostTraitBodyMethodSegmentList Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\kind\list:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            selfhost_memo_trait_method_signature_key_result source tokens list
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            selfhost_memo_trait_method_signature_value_result source tokens list
+
+//: selfhost_memo_trait_method_signature_result: trait body envelope から method signature evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - parser-level method segmentation と checker-level method role normalization を接続します。
+//:
+//: [契約/けいやく]:
+//: - caller は、この envelope が public `MemoKey` / `MemoValue` trait declaration の body range であることを前段の module/public-surface gate で確認してから呼びます。
+//: - segmentation list owner はこの関数内で必ず閉じます。
+//: - source text は canonical spelling 分類にだけ使い、accepted evidence の hash は `selfhost_memo_trait_method_signature_hash` の固定 code から作ります。
+pub fn selfhost_memo_trait_method_signature_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitSourceKind impure fn SelfhostSyntaxRange Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind \source\tokens\kind\envelope:
+    match selfhost_trait_body_method_segment_list_from_envelope tokens envelope:
+        Result::Ok list:
+            let result %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind selfhost_memo_trait_method_signature_result_with_segments source tokens kind &list
+            selfhost_trait_body_method_segment_list_free list
+            result
+        Result::Err segment_error:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::BodySegmentRejected segment_error.kind
+
+//: selfhost_memo_trait_method_signature_stage0_envelope: stage0 source 全体を trait body envelope として[扱/あつか]う
+fn selfhost_memo_trait_method_signature_stage0_envelope %fn str fn &Vec SelfhostToken SelfhostSyntaxRange \source\tokens:
+    let token_count %i32 sub v::len tokens 1
+    selfhost_syntax_range_new_unchecked 0 token_count source_span_new_unchecked 0 0 string_access::len source
+
+//: selfhost_memo_trait_method_signature_stage0_result: source fixture を lex して normalizer に[通/とお]す
+fn selfhost_memo_trait_method_signature_stage0_result %impure fn str impure fn SelfhostMemoTraitSourceKind Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind \source\kind:
+    match lex_all source:
+        Result::Ok tokens:
+            let envelope %SelfhostSyntaxRange selfhost_memo_trait_method_signature_stage0_envelope source &tokens
+            let result %Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind selfhost_memo_trait_method_signature_result source &tokens kind envelope
+            v::free tokens
+            result
+        Result::Err _lex_error:
+            Result::Err SelfhostMemoTraitMethodSignatureErrorKind::LexerRejected
+
+//: selfhost_memo_trait_method_signature_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_method_signature_stage0_summary_new %fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind fn Result SelfhostMemoTraitMethodSignatureEvidence SelfhostMemoTraitMethodSignatureErrorKind SelfhostMemoTraitMethodSignatureStage0Summary \accepted_key\accepted_value\wrong_name_rejected\wrong_body_rejected\wrong_count_rejected\wrong_type_rejected\wrong_lambda_rejected\segment_rejected:
+    SelfhostMemoTraitMethodSignatureStage0Summary accepted_key accepted_value wrong_name_rejected wrong_body_rejected wrong_count_rejected wrong_type_rejected wrong_lambda_rejected segment_rejected
+
+//: selfhost_memo_trait_method_signature_stage0: method-bearing memo trait の代表結果を[返/かえ]す
+pub fn selfhost_memo_trait_method_signature_stage0 %impure fn void SelfhostMemoTraitMethodSignatureStage0Summary \void:
+    let key_source %str "fn memo_key_eq %fn Self fn Self bool \\a\\b: false\nfn memo_key_hash32 %fn Self i32 \\self: 0\n"
+    let value_source %str "fn memo_value_mark %fn Self Self \\value: value\n"
+    let wrong_name_source %str "fn memo_key_bad %fn Self fn Self bool \\a\\b: false\nfn memo_key_hash32 %fn Self i32 \\self: 0\n"
+    let wrong_body_source %str "fn memo_value_mark %fn Self Self \\x: value\n"
+    let wrong_count_source %str "fn memo_key_eq %fn Self fn Self bool \\a\\b: false\n"
+    let wrong_type_source %str "fn memo_value_mark %fn Self bool \\value: value\n"
+    let wrong_lambda_source %str "fn memo_value_mark %fn Self Self value value: value\n"
+    let segment_rejected_source %str "let x 1\n"
+    selfhost_memo_trait_method_signature_stage0_summary_new:
+        selfhost_memo_trait_method_signature_stage0_result key_source SelfhostMemoTraitSourceKind::MemoKeyTrait
+        selfhost_memo_trait_method_signature_stage0_result value_source SelfhostMemoTraitSourceKind::MemoValueTrait
+        selfhost_memo_trait_method_signature_stage0_result wrong_name_source SelfhostMemoTraitSourceKind::MemoKeyTrait
+        selfhost_memo_trait_method_signature_stage0_result wrong_body_source SelfhostMemoTraitSourceKind::MemoValueTrait
+        selfhost_memo_trait_method_signature_stage0_result wrong_count_source SelfhostMemoTraitSourceKind::MemoKeyTrait
+        selfhost_memo_trait_method_signature_stage0_result wrong_type_source SelfhostMemoTraitSourceKind::MemoValueTrait
+        selfhost_memo_trait_method_signature_stage0_result wrong_lambda_source SelfhostMemoTraitSourceKind::MemoValueTrait
+        selfhost_memo_trait_method_signature_stage0_result segment_rejected_source SelfhostMemoTraitSourceKind::MemoKeyTrait

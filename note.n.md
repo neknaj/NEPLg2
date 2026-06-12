@@ -1,3 +1,61 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue method signature normalizer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-trait-method-signature-normalizer-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` method-bearing trait signature normalizer
+- classification: selfhost implementation slice review
+- decision: `trait_body_segmenter` が返す method header / default body range を、checker-layer の standalone normalizer で fixed method role set へ正規化する。trusted source identity、public surface record、proof store record はこの module で直接作らず、後続の public surface / stable evidence gate が接続する。
+- implementation:
+  - `stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl` を追加し、`SelfhostMemoTraitMethodSignatureRole`、`SelfhostMemoTraitMethodSignatureEvidence`、`SelfhostMemoTraitMethodSignatureErrorKind`、stage0 smoke を定義した。
+  - `MemoKey` は `memo_key_eq` / `memo_key_hash32` の 2 method を固定順序で要求し、`MemoValue` は `memo_value_mark` の 1 method を要求する。method count、header range、method name、type annotation、lambda header、default body、segmenter rejection、hash placeholder は typed enum error で fail-closed に返す。
+  - source text は canonical surface spelling の分類に使う。method 名、`Self` / `bool` / `i32` の type atom、literal default body、binder 参照の照合は spelling を読むが、accepted fingerprint は受理後の fixed role code からだけ作る。
+  - `memo_value_mark` default body は固定文字列 `value` ではなく、lambda binder と body identifier の spelling が一致する場合だけ受理する。これにより `\x: value` のような対応しない binder 参照を accepted evidence に進めない。
+  - `selfhost_memo_trait_method_signature_result` は公開 API とし、segmenter を呼んで owner を必ず閉じる。`selfhost_memo_trait_method_signature_result_with_segments` は private helper にし、fake segment aggregate で segmenter provenance を迂回する経路を公開しない。
+  - `stdlib/neplg2/core/check/module.nepl` facade にはまだ re-export しない。stable public-surface gate がこの normalizer を消費するまでは、直接 module import できる leaf checker module として扱う。
+  - `nodesrc/test_selfhost_memo_trait_method_signature_contract.js` を追加し、DAG、typed Result / enum error、segmenter provenance、binder default body、source/span/range/lexeme非hash authority、facade非公開、trusted source identity直生成禁止、proof store非直結、行数制限 / doc comment長制限禁止を固定した。
+- implementation/test:
+  - 実装本体は checker-layer の `memo_trait_method_signature.nepl` に閉じ、`core/ty` と proof store へ逆依存を作らない。
+  - `module.nepl` facade は、stable public-surface gate に接続済みの public module だけを再exportする既存契約を維持する。
+  - テストは focused source policy、focused doctest、関連 memo trait surface contracts、関連 doctest、全体 source policy、issues check、diff check で確認する。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`, `019eb6ba-39dc-71e2-81ff-07eaeac1c305`
+  - subagent_review_count: 3
+  - Fermat は no blocker。Required として source text / lexeme / span を hash authority にしないこと、typed `Result`、method table / header normalization / policy adapter の責務分離を確認した。
+  - Goodall は Blocker として、type atom / default body 判定に spelling を使う実装と「identifier spelling だけ」とする説明がずれていること、`\x: value` が通り得る binder 不一致を指摘した。対応として canonical surface spelling classification と fixed role code hash の境界を文書化し、`memo_value_mark` は binder と body の同一 spelling を検査するようにした。
+  - Lagrange は Required として、`with_segments` の public API が segmenter provenance を迂回できることを指摘した。対応として helper を private にし、source policy で public bypass を禁止した。
+  - 追加 review では、`module.nepl` facade の premature re-export が `test_selfhost_module_checker_split_contract.js` / `test_selfhost_proof_entry_contract.js` の public module allowlist に反することを Blocker として指摘された。対応として facade re-export を外し、method signature normalizer は stable public-surface gate 接続前の leaf module に戻した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: method signature normalizer は trusted source identity の手前にあるため、source spelling / span / range / lexeme の hash authority 化、fake segment aggregate bypass、raw source identity constructor、`signature_available=true` record の直生成、proof store 直結、`core/ty` 逆依存、facade premature export を検出する必要がある。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で確認する。今回の実装ではその分類を note に記録し、Blocker / Required を同じ slice 内で反映した。
+  - source policy: updated and rerun.
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- policy/spec:
+  - Blocker: trusted source identity や source record を作らない standalone normalizerであり、source spellingは分類用、hashは fixed role code 用という境界を明文化した。
+  - Required: public API は envelope から segmenter を通す入口に限定し、method-bearing trait source identity への接続は後続 slice に残す。
+  - Non-blocker: public surface seed / hash はまだ marker trait shape を使っており、この method signature normalizerを accepted stable source evidence pipelineへ接続していない。
+  - Question: signature-only trait method を扱う場合は `trait_body_segmenter` と normalizer の contract を同時に更新する必要がある。
+  - Approve: review 後の focused source policy、focused doctest、関連 memo trait surface contract/doctest は pass。
+- performance:
+  - accepted path は segmenter の O(k) 走査に続き、固定 method 数の fixed index check だけを行う。
+  - spelling 比較は対象 token span slice に比例するが、比較対象 token 数は固定で、source-wide scan や探索的候補列挙には戻していない。
+  - Lagrange の residual として、`memo_trait_public_surface_seed.nepl` の scanner / seed scan 二重走査と `trait_body_segmenter` の next-index recomputation は次以降の性能 cleanup 候補に残す。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_method_signature_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl --no-tree --dist web/dist -o tmp/selfhost-memo-trait-method-signature-focused-after-review2.json -j 1 --assert-io`
+  - 検証済み: `node nodesrc/test_selfhost_trait_body_segmenter_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_signature_shape_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl -i stdlib/neplg2/core/check/module/memo_trait_signature_shape.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -i stdlib/neplg2/core/check/module.nepl --no-tree --dist web/dist -o tmp/selfhost-memo-trait-method-signature-related-after-review.json -j 1 --assert-io`
+  - 既存 warning: Node の WASI experimental warning が doctest / source policy 実行中に表示される。既存 doc coverage sample gaps は warning report として表示されるが、この差分由来ではない。
+  - 今回差分由来 warning: none in focused checks.
+- residual:
+  - method signature normalizer を public surface seed / stable source evidence producer へ接続し、実 stdlib の method-bearing `MemoKey` / `MemoValue` trait definition から trusted source registry を作る。
+  - re-export / import graph を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint は未実装で、次 slice 以降に残す。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue local public surface hash materializer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
