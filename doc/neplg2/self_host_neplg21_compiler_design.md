@@ -1098,7 +1098,9 @@ sorted order は `(canonical_fingerprint.schema_version, canonical_fingerprint.r
 
 source text、span、path suffix、display name、diagnostic text、lexeme は lookup key、sort key、tie-break authority にしない。proof store の stable sidecar index と artifact serialized index も混ぜず、artifact 側は record ordinal 候補、store 側は canonical equality / policy / producer gate という境界を保つ。
 
-現実装の lookup は decoded `Vec` の線形 scan である。ただし sorted order と candidate range の contract を先に固定したため、後続の `.neplproof` reader / serializer や persistent stable map は同じ `Result` / enum error を保ったまま binary search や serialized map へ置き換えられる。
+2026-06-12 follow-up で、現実装の lookup は decoded `Vec` 上の lower-bound binary search へ進めた。public lookup boundary は header validation、decoded table validation、sorted order check を省略せず、その後に half-open range `[low, high)` の binary search で `target <= entry.canonical_fingerprint` となる最初の index を求める。見つかった位置の fingerprint が target と一致する場合だけ、そこから同じ fingerprint の collision group を数える。candidate range lookup 自体は O(log m + c) である。c は同じ fingerprint の collision candidate 数である。
+
+この follow-up でも range は proof acceptance ではない。binary search は candidate group の開始位置だけを縮小し、canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残す。`IndexEntryMissing`、`CandidateMissing`、sorted order corruption の typed error も既存の `SelfhostMemoTraitNeplProofSortedIndexErrorKind` のまま保持する。
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 

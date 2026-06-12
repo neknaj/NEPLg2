@@ -26,15 +26,15 @@
 //: - lookup の `Err(HeaderInvalid(_))`、`Err(TableValidationRejected(_))`、`Err(FingerprintOrderInvalid)`、`Err(RecordOrdinalOrderInvalid)`、`Err(IndexEntryMissing)` は artifact を fail-closed に拒否すべき破損を表します。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 は decoded `Vec` 上で sorted contract と range lookup を行います。binary reader、serializer、persistent map、binary search は後続 slice です。
-//: - 現実装の lookup は線形 scan です。ただし sorted order と candidate range の contract を先に固定することで、後続 serializer / reader は同じ Result 型を保ったまま binary search や persistent stable map へ置き換えられます。
+//: - Phase 1 は decoded `Vec` 上で sorted contract と range lookup を行います。binary reader、serializer、persistent map は後続 slice です。
+//: - 現実装の lookup は sorted order validation 後に lower-bound binary search で candidate group の開始位置を探し、その位置から同じ fingerprint の entry だけを数えます。これにより、lookup の探索範囲を index table 全体ではなく `log m` と collision group に閉じます。
 //: - 現実装の producer は insertion sort 相当の bubble-back で index entry を並べます。これは small decoded artifact を先に fail-closed に扱うための Phase 1 実装であり、後続の binary writer / persistent map では同じ contract を保ったまま O(n log n) または O(n) の構築へ置き換えます。
 //:
 //: [計算量/けいさんりょう]:
 //: - producer は record 数 n に対して O(n^2) です。各 record の validation と entry construction は O(1)、push は償却 O(1)、bubble-back の合計が O(n^2) です。
 //: - header / table validation は `memo_trait_proof_artifact.nepl` の既存検査に従います。現 stage では record 数 n と index 数 m に対して O(n * m + m * m) の coverage 検査を含みます。
 //: - sorted order check は index 数 m に対して O(m) です。
-//: - candidate range lookup は現 stage では O(m) です。sorted contract があるため、後続では O(log m + c) に置き換えられます。c は同じ fingerprint の collision candidate 数です。
+//: - candidate range lookup は lower-bound binary search と collision group count により O(log m + c) です。c は同じ fingerprint の collision candidate 数です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
@@ -634,29 +634,57 @@ fn selfhost_memo_trait_neplproof_candidate_range_count_loop %fn &Vec SelfhostMem
                 Option::None:
                     Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::IndexEntryMissing
 
-//: selfhost_memo_trait_neplproof_candidate_range_lookup_loop: sorted index から target fingerprint group を[探/さが]す
-fn selfhost_memo_trait_neplproof_candidate_range_lookup_loop %fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind \indexes\target\idx:
-    let n %i32 v::len indexes
+//: selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop: target 以上になる[最初/さいしょ]の index を[二分探索/にぶんたんさく]する
+//:
+//: [契約/けいやく]:
+//: - `low` と `high` は half-open range `[low, high)` を表します。
+//: - 返り値は、`target <= entry.canonical_fingerprint` が成り立つ最初の index です。すべての entry が target より小さい場合は `high` を返します。
+//: - sorted order validation 済みの table を前提にしますが、defensive read failure は `IndexEntryMissing` として返します。
+fn selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop %fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 Result i32 SelfhostMemoTraitNeplProofSortedIndexErrorKind \indexes\target\low\high:
     if:
-        ge idx n
+        ge low high
         then:
-            Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing
+            Result::Ok low
         else:
-            match v::get indexes idx:
+            let mid %i32 add low div_s sub high low 2
+            match v::get indexes mid:
                 Option::Some entry:
                     if:
-                        selfhost_memo_trait_canonical_type_fingerprint_eq entry.canonical_fingerprint target
+                        selfhost_memo_trait_neplproof_fingerprint_lt entry.canonical_fingerprint target
                         then:
-                            selfhost_memo_trait_neplproof_candidate_range_count_loop indexes target idx idx 0
+                            selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop indexes target add mid 1 high
                         else:
-                            if:
-                                selfhost_memo_trait_neplproof_fingerprint_lt target entry.canonical_fingerprint
-                                then:
-                                    Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing
-                                else:
-                                    selfhost_memo_trait_neplproof_candidate_range_lookup_loop indexes target add idx 1
+                            selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop indexes target low mid
                 Option::None:
                     Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::IndexEntryMissing
+
+//: selfhost_memo_trait_neplproof_candidate_range_lookup_loop: sorted index から target fingerprint group を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - lookup は lower-bound binary search で最初の候補位置だけを決めます。
+//: - target と同じ fingerprint が見つかった場合だけ、そこから連続する collision group を数えます。
+//: - 返す range は proof acceptance ではなく、後続 preseed / proof store が検査する record ordinal 候補です。
+fn selfhost_memo_trait_neplproof_candidate_range_lookup_loop %fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofSortedIndexErrorKind \indexes\target:
+    let n %i32 v::len indexes
+    match selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop indexes target 0 n:
+        Result::Ok start:
+            if:
+                ge start n
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing
+                else:
+                    match v::get indexes start:
+                        Option::Some entry:
+                            if:
+                                selfhost_memo_trait_canonical_type_fingerprint_eq entry.canonical_fingerprint target
+                                then:
+                                    selfhost_memo_trait_neplproof_candidate_range_count_loop indexes target start start 0
+                                else:
+                                    Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing
+                        Option::None:
+                            Result::Err SelfhostMemoTraitNeplProofSortedIndexErrorKind::IndexEntryMissing
+        Result::Err kind:
+            Result::Err kind
 
 //: selfhost_memo_trait_neplproof_sorted_index_lookup_result: decoded `.neplproof` index から candidate range を[返/かえ]す
 //:
@@ -674,7 +702,7 @@ pub fn selfhost_memo_trait_neplproof_sorted_index_lookup_result %fn SelfhostMemo
                 Result::Ok _table_valid:
                     match selfhost_memo_trait_neplproof_sorted_index_order_result indexes:
                         Result::Ok _sorted:
-                            selfhost_memo_trait_neplproof_candidate_range_lookup_loop indexes target 0
+                            selfhost_memo_trait_neplproof_candidate_range_lookup_loop indexes target
                         Result::Err kind:
                             Result::Err kind
                 Result::Err kind:

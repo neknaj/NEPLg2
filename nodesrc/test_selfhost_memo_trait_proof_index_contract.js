@@ -146,8 +146,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_neplproof_candidate_range_lookup_loop[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq entry\.canonical_fingerprint target[\s\S]*selfhost_memo_trait_neplproof_candidate_range_count_loop[\s\S]*selfhost_memo_trait_neplproof_fingerprint_lt target entry\.canonical_fingerprint[\s\S]*CandidateMissing/,
-    "candidate lookup must return only the contiguous fingerprint range and may stop early once sorted order passes the target",
+    /candidate range lookup は lower-bound binary search と collision group count により O\(log m \+ c\)/,
+    "candidate lookup documentation must state the lower-bound search complexity",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop[\s\S]*ge low high[\s\S]*let mid %i32 add low div_s sub high low 2[\s\S]*selfhost_memo_trait_neplproof_fingerprint_lt entry\.canonical_fingerprint target[\s\S]*add mid 1 high[\s\S]*low mid/,
+    "candidate lookup must use a half-open lower-bound binary search before counting the collision group",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_candidate_range_lookup_loop[\s\S]*selfhost_memo_trait_neplproof_candidate_range_lower_bound_loop indexes target 0 n[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq entry\.canonical_fingerprint target[\s\S]*selfhost_memo_trait_neplproof_candidate_range_count_loop indexes target start start 0[\s\S]*CandidateMissing/,
+    "candidate lookup must return only the contiguous fingerprint range found by lower-bound search",
 );
 assert.match(
     source,

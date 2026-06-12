@@ -651,6 +651,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` で
 
 この checkpoint 後の残件は、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` sorted index lower-bound lookup checkpoint
+
+`memo_trait_proof_index.nepl` の public lookup contract は維持したまま、candidate group の開始位置探索を線形 scan から lower-bound binary search へ進めた。header validation、decoded table validation、sorted order check は引き続き public boundary 内で必ず実行し、その後に half-open range `[low, high)` で `target <= entry.canonical_fingerprint` となる最初の index を探す。
+
+見つかった位置の fingerprint が target と一致する場合だけ、そこから連続する collision group を数えて `SelfhostMemoTraitNeplProofIndexCandidateRange` を返す。target が table 内に存在しない場合は、target が最初の entry より小さい場合でも最後の entry より大きい場合でも `CandidateMissing` に閉じる。defensive read failure は `IndexEntryMissing` のままで、bool や表示文字列には潰さない。
+
+この checkpoint は proof acceptance ではない。binary search は artifact record ordinal 候補の探索範囲を O(log m + c) へ縮小するだけであり、canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続の authority として残す。c は同じ fingerprint の collision candidate 数である。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` を更新し、lower-bound helper、overflow しにくい `low + (high - low) / 2` midpoint、candidate group count、計算量 doc、fingerprint-only / index-only acceptance 禁止、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Euclid が、validation 順序を `header_result`、`index_table_result`、`sorted_index_order_result`、lower-bound lookup のまま保つこと、lookup key は fingerprint だけにし record ordinal を tie-break authority にしないこと、midpoint を `low + (high - low) / 2` にすること、`CandidateMissing` を有効 table 上の候補不在だけに限定すること、doc comment の現状 / 計算量を更新することを Required とした。実装と source policy はこの指摘に合わせた。
+
 ## 2026-06-12 selfhost memo trait `.neplproof` sorted index producer checkpoint
 
 `memo_trait_proof_index.nepl` に decoded record vector から sorted sidecar index vector を作る producer boundary を追加した。

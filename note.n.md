@@ -56725,6 +56725,52 @@ MERGE_APPROVED
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
 - `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。
 
+## 2026-06-12 Agent selfhost `.neplproof` sorted index lower-bound lookup checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-sorted-index-bsearch-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に確認済み。Result / enum による静的検査、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑な設計を残さない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_index.nepl` の sorted index lookup を、線形 scan から lower-bound binary search に変更した。
+- public lookup API は変更していない。header validation、decoded table validation、sorted order check を通した後だけ candidate range を返す。
+- lower-bound helper は half-open range `[low, high)` を使い、midpoint は `low + (high - low) / 2` の形で計算する。
+- target に一致する fingerprint が見つかった場合だけ、そこから同一 fingerprint の collision group を数える。
+- returned range は引き続き proof acceptance ではなく、artifact record ordinal 候補だけを表す。
+- `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` を更新し、lower-bound search、collision count、O(log m + c) doc、fingerprint-only / index-only acceptance 禁止を固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新し、最新状態が lower-bound lookup であることを記録した。
+
+### subagent_review
+
+- Euclid に、lower-bound binary search 化が既存 API / fail-closed validation / proof acceptance 境界 / source policy と整合するかレビューを依頼した。
+- Euclid review: Blocker なし。
+- Required として、validation 順序を `header_result`、`index_table_result`、`sorted_index_order_result`、lower-bound lookup のまま保つこと、lookup key は fingerprint だけにして record ordinal を tie-break authority にしないこと、midpoint を `low + (high - low) / 2` にすること、`CandidateMissing` と破損系 error を混ぜないこと、doc comment の現状 / 計算量を更新することを求めた。
+- Required 対応として、public lookup API の validation 順序を維持し、lower-bound helper は fingerprint 比較だけで開始位置を返す形にした。source policy は lower-bound helper、midpoint、candidate group count、O(log m + c) doc、validation-before-lookup を固定する。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-index-bsearch.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` record reader / serializer は未完了である。
+- persistent stable map / serialized index は未完了である。
+- generic instantiation 用 stable type argument identity は未完了である。
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
+
 ## 2026-06-12 Agent selfhost decoded neplproof batch projector checkpoint
 
 ### scope
