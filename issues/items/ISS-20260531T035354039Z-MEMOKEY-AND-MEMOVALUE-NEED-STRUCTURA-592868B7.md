@@ -229,3 +229,19 @@ subagent review では、segment 分割を stable `MemoKey` / `MemoValue` source
 runtime doctest は accepted 2 method、non-method top-level item、method body introducer 欠落、empty envelope を確認する。fixture 構築は `Result Vec SelfhostToken StdErrorKind` を使い、allocation failure を `OutOfMemory` に写して fail-closed に扱う。owner-backed aggregate field の解放は `field::get` を使い、直接 field access で compiler memory boundary を迂回しない。
 
 残件は、method segment の header range から method name / type annotation / effect / default body shape を stable normalized signature evidence へ変換する normalizer、method-bearing `MemoKey` / `MemoValue` trait definition を public surface seed / stable source evidence へ接続する producer、re-export / import graph を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。
+
+## 2026-06-12 selfhost memo trait method signature normalizer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_method_signature.nepl` を追加し、`trait_body_segmenter` が返す method header / default body range から `MemoKey` / `MemoValue` の method-bearing trait signature evidence を作る checker-layer normalizer を実装した。
+
+`MemoKey` は `memo_key_eq` / `memo_key_hash32` の 2 method を固定順序で要求し、`MemoValue` は `memo_value_mark` の 1 method を要求する。method count、header range、method name、type annotation、lambda header、default body、segmenter rejection、hash placeholder は `SelfhostMemoTraitMethodSignatureErrorKind` として fail-closed に返す。
+
+source text は canonical surface spelling の分類に使う。method 名、`Self` / `bool` / `i32` の type atom、literal default body、binder 参照の照合は source span から spelling を読むが、accepted fingerprint は受理後の fixed role code だけから作る。source span、syntax range、lexeme、path suffix、diagnostic text は hash material にしない。`memo_value_mark` は固定文字列 `value` を見るだけではなく、lambda binder と default body identifier の spelling が一致する場合だけ受理する。
+
+公開 API は `selfhost_memo_trait_method_signature_result` に限定した。この関数は envelope から segmenter を呼び、segment list owner を必ず閉じる。`selfhost_memo_trait_method_signature_result_with_segments` は private helper にし、fake segment aggregate で segmenter provenance を迂回する public bypass を作らない。`module.nepl` facade にはまだ re-export せず、stable public-surface gate がこの normalizer を消費するまでは直接 module import できる leaf checker module として扱う。
+
+subagent review では、source text / lexeme / span を hash authority にしないこと、spelling classification と fixed role code hash の境界を文書化すること、`memo_value_mark` の binder 不一致を拒否すること、`with_segments` を public API にしないことが Required / Blocker として確認された。実装では module doc、stage0、source policy を更新し、focused contract と doctest で退行を固定した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_method_signature_contract.js` で固定した。検査内容は、facade premature export の禁止、目的 / 契約 / 現状 / 計算量 / doctest、typed role / evidence / error、segmenter provenance、private with-segments helper、binder default body、hash function の source/span/range/lexeme 非依存、trusted source identity / registry / `signature_available=true` record の直生成禁止、`core/ty` / proof store 逆依存禁止、行数制限 / doc comment 長制限禁止を含む。
+
+この checkpoint 後も、method-bearing `MemoKey` / `MemoValue` trait definition は public surface seed / stable source evidence pipeline へ未接続である。残件は、この normalizer を public surface seed materializer と stable source evidence producer へ接続すること、re-export / import graph を含む full public surface hash、stable trait definition key producer、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。
