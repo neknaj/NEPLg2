@@ -399,6 +399,24 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait `.neplproof` persistent stable map checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_proof_stable_map.nepl` を追加し、decoded `.neplproof` record vector から persistent stable map entry vector を作る producer と、canonical fingerprint + canonical payload hash による candidate range lookup boundary を実装した。
+
+stable map entry は `canonical_fingerprint`、`canonical_payload_hash`、`policy`、`record_ordinal`、`record_payload_hash` を持つ。primary sort key は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, canonical_payload_hash)` で、同じ key の entry は `record_ordinal` 昇順で連続する。`policy` は後続の policy equality 用 payload として保持するが、sort key や proof acceptance authority にはしない。
+
+lookup は sorted order validation 後に half-open lower-bound binary search と collision group count を行い、探索範囲を `O(log m + c)` に閉じる。producer は record key と record body を artifact validator へ再投入し、不正 record や placeholder hash を typed enum error として fail-closed に返す。Phase 1 producer は insertion sort 相当の O(n^2) だが、public contract は後続の persistent binary writer / stable map codec へ置換できる形にした。
+
+この stable map は proof acceptance ではない。map hit、fingerprint hit、canonical payload hash hit、record payload hash hit だけで proof を受理する経路は持たない。canonical payload decode、payload hash 再計算、policy equality、proof kind、proof store preseed / lookup、producer gate は後続 boundary が再検査する。`SelfhostCanonicalTypeKeyId`、`SelfhostTypeId`、`SelfhostNamedTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme は stable map authority にしない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_stable_map_contract.js` を追加し、facade re-export、`nodesrc/selfhost_ty_sources.js` 登録、typed entry / range / error enum、record validator 委譲、lower-bound lookup、producer output order validation、proof store / decoded / reader / serializer への逆依存禁止、session-local id / source authority 禁止、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Anscombe が Blocker なしと評価した。Required として、stable map が proof store / preseed / producer gate を直接呼ばず candidate narrowing に限定されること、永続 authority に store-local / session-local id を入れないこと、source policy を専用に追加すること、module doc に目的・契約・現状・計算量・doctest を丁寧に書くこと、行数やコメント長を制限しないことを確認した。同じ slice 内で stable map を serializer と preseed の間に置く source order へ調整し、source policy と doctest で境界を固定した。
+
+検証は、stable map contract、ty split contract、Zenn review gate、stable map doctest、artifact / index / preseed contract、decoded / reader / payload reader / serializer order contract、source policy regression、issue check、diff whitespace check を通過した。source policy regression は既存 documentation sample gaps と Node WASI ExperimentalWarning を表示するが exit 0 であり、今回追加した stable map 境界の failure ではない。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-13 selfhost memo trait `.neplproof` serialized index codec checkpoint
 
 `.neplproof` の serialized sidecar index table を reader / serializer / payload reader の artifact codec path へ接続した。

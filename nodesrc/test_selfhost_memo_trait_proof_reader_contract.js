@@ -35,8 +35,8 @@ assert.ok(
 );
 assert.match(
     tySources,
-    /memo_trait_artifact_word_codec\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_canonical_key_payload_codec\.nepl"[\s\S]*memo_trait_proof_index\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_decoded\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_payload_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_serializer\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_preseed\.nepl"/,
-    "source order must place decoded artifact before the reader, payload reader, serializer, and preseed layers",
+    /memo_trait_artifact_word_codec\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_canonical_key_payload_codec\.nepl"[\s\S]*memo_trait_proof_index\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_decoded\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_payload_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_serializer\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_stable_map\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_preseed\.nepl"/,
+    "source order must place decoded artifact before the reader, payload reader, serializer, stable map, and preseed layers",
 );
 assert.match(
     source,

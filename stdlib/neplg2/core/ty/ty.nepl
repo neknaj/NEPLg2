@@ -65,5 +65,6 @@ pub #import "./ty/memo_trait_proof_decoded" as *
 pub #import "./ty/memo_trait_proof_reader" as *
 pub #import "./ty/memo_trait_proof_payload_reader" as *
 pub #import "./ty/memo_trait_proof_serializer" as *
+pub #import "./ty/memo_trait_proof_stable_map" as *
 pub #import "./ty/memo_trait_proof_preseed" as *
 pub #import "./ty/stage0" as *

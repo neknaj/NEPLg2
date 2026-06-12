@@ -27,6 +27,7 @@ const TY_ROOT_REEXPORT_FILES = [
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl",
+    "stdlib/neplg2/core/ty/ty/memo_trait_proof_stable_map.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl",
     "stdlib/neplg2/core/ty/ty/stage0.nepl",
 ];
@@ -56,6 +57,7 @@ const TY_SPLIT_FILES = [
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl",
+    "stdlib/neplg2/core/ty/ty/memo_trait_proof_stable_map.nepl",
     "stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl",
     "stdlib/neplg2/core/ty/ty/stage0.nepl",
 ];

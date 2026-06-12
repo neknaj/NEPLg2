@@ -57120,6 +57120,57 @@ MERGE_APPROVED
 - Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
 - `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。
 
+## 2026-06-13 Agent selfhost memo trait `.neplproof` stable map checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-stable-map-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-13 に再確認済み。静的検査、typed enum error、Result API、pure core / boundary 分離、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_stable_map.nepl` を追加し、decoded `.neplproof` record vector から persistent stable map entry vector を作る producer と、canonical fingerprint + canonical payload hash による lower-bound candidate range lookup を実装した。
+- stable map entry は `canonical_fingerprint`、`canonical_payload_hash`、`policy`、`record_ordinal`、`record_payload_hash` を保持する。sort key は canonical fingerprint と canonical payload hash だけで、同じ key の entry は `record_ordinal` 昇順にする。
+- `policy` は後続 policy equality 用 payload として entry に保持するが、sort key や proof acceptance authority にはしない。map hit、fingerprint hit、canonical payload hash hit、record payload hash hit だけで proof を受理する経路は持たない。
+- producer は `selfhost_memo_trait_neplproof_record_key_result`、`selfhost_memo_trait_neplproof_record_result`、`selfhost_memo_trait_neplproof_index_entry_result` へ委譲し、不正 record / placeholder hash / schema mismatch を typed enum error として fail-closed にする。
+- Phase 1 producer は insertion sort 相当の O(n^2) 実装だが、public contract は後続の persistent binary writer / stable map codec へ O(n log n) または O(n) の構築として置換できる形にした。
+- `ty.nepl` facade と `nodesrc/selfhost_ty_sources.js` は、stable map を serializer と preseed の間に配置する順序へ接続した。
+- `nodesrc/test_selfhost_memo_trait_proof_stable_map_contract.js` を追加し、source policy regression runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新し、永続 artifact 用 stable map を完了済み境界として記録した。
+
+### subagent_review
+
+- Anscombe review: Blocker なし。
+- Required として、stable map が proof store / preseed / producer gate を直接呼ばず candidate narrowing に限定されること、永続 authority に store-local / session-local id を入れないこと、source policy を専用に追加すること、module doc に目的・契約・現状・計算量・doctest を丁寧に書くこと、行数やコメント長を制限しないことを確認した。
+- Required 対応として、stable map の source order を serializer と preseed の間に寄せ、source policy と doctest で proof acceptance authority の分離、session-local id / source authority の禁止、line count / doc comment length cap 禁止を固定した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_stable_map_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_stable_map.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-stable-map.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- note: `nodesrc/run_source_policy_regressions.js --warn-only` は既存 documentation sample gaps と Node WASI ExperimentalWarning を表示するが exit 0。今回追加した stable map source policy と既存 reader / decoded / payload reader / serializer order contract は通過している。
+- unexecuted_verification: `trunk build` は stdlib selfhost slice で必須ではないため未実行。Rust / web build artifact 変更は今回含まない。
+
+### residual
+
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
+- generic instantiation 用 stable type argument identity は未完了である。
+
 ## 2026-06-12 Agent selfhost `.neplproof` sorted index lower-bound lookup checkpoint
 
 ### scope

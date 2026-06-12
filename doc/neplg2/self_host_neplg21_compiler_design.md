@@ -1250,6 +1250,22 @@ payload reader は payload section の開始位置を indexed prefix の byte co
 
 この checkpoint 後も、永続 artifact 用 stable map、generic type argument identity、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-13 memo trait `.neplproof` persistent stable map checkpoint
+
+`memo_trait_proof_stable_map.nepl` を追加し、decoded `.neplproof` record vector から persistent stable map entry vector を作る producer と、canonical fingerprint + canonical payload hash による candidate range lookup boundary を定義した。
+
+stable map entry は `canonical_fingerprint`、`canonical_payload_hash`、`policy`、`record_ordinal`、`record_payload_hash` を持つ。primary sort key は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, canonical_payload_hash)` であり、同じ key の entry は `record_ordinal` 昇順で連続する。`policy` は後続の policy equality のために entry に保持するが、sort key でも proof acceptance authority でもない。
+
+lookup はまず `selfhost_memo_trait_neplproof_stable_map_order_result` で sorted order を検査し、その後 half-open lower-bound binary search と collision group count に進む。これにより、reader / preseed は artifact record 全体ではなく `O(log m + c)` の stable-key candidate group だけを後続検査へ渡せる。`c` は同じ canonical fingerprint と canonical payload hash を持つ candidate 数である。
+
+producer は `selfhost_memo_trait_neplproof_stable_map_entry_from_record_result` を通して record key と record body を artifact validator へ再投入し、さらに stable map entry validator で ordinal / record payload hash 境界を確認する。不正 record、placeholder payload hash、schema mismatch は typed enum error として fail-closed に返す。Phase 1 producer は insertion sort 相当で O(n^2) だが、public contract は persistent binary writer / stable map codec が O(n log n) または O(n) の構築へ置換できる形にしている。
+
+この stable map は proof acceptance ではない。map hit、fingerprint hit、canonical payload hash hit、record payload hash hit だけで proof を受理する経路は持たない。canonical payload decode、payload hash 再計算、policy equality、proof kind、proof store preseed / lookup、producer gate は後続の decoded artifact / preseed / proof store boundary が再検査する。`SelfhostCanonicalTypeKeyId`、`SelfhostTypeId`、`SelfhostNamedTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme は stable map key、sort key、tie-break authority に入れない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_stable_map_contract.js` で、facade re-export、source list 登録、typed entry / range / error enum、record validator への委譲、lower-bound lookup、producer output order validation、proof store / decoded / reader / serializer への逆依存禁止、session-local id / source authority 禁止、line count / doc comment length cap 禁止を固定する。
+
+この checkpoint 後も、generic type argument identity、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

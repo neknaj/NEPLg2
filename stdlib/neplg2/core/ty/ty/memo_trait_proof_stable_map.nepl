@@ -1,0 +1,1042 @@
+#indent 4
+
+//: # ty/memo_trait_proof_stable_map
+//: `.neplproof` artifact の persistent stable map を、reader / preseed が proof store へ入る前に[安全/あんぜん]に[絞/しぼ]り[込/こ]むための contract module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_proof_index.nepl` は decoded artifact index table の fingerprint lookup を扱います。この module は、その次段で canonical fingerprint と canonical payload hash を組にした stable map key へ絞り込み、record ordinal candidate range を返します。
+//: - canonical payload hash を lookup key に含めることで、同じ fingerprint に複数の canonical key payload が入った artifact でも、後続 reader が走査する collision group を小さくします。
+//: - stable map entry は policy と record payload hash を保持しますが、proof acceptance authority ではありません。policy equality、canonical payload decode、payload hash 再計算、proof kind、producer gate、proof store lookup は後続の責務として残します。
+//: - lookup failure、sort order corruption、producer failure を bool や表示文字列へ潰さず、typed enum error として返します。
+//:
+//: [契約/けいやく]:
+//: - stable map の primary key は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, canonical_payload_hash)` の昇順です。同じ key の entry は record ordinal の昇順で連続します。
+//: - `policy` は entry に保存しますが、sort key でも proof acceptance authority でもありません。caller は returned range 内の entry ごとに policy equality を別途検査します。
+//: - `SelfhostCanonicalTypeKeyId`、`SelfhostTypeId`、`SelfhostNamedTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme は stable map key、sort key、tie-break authority に入りません。
+//: - `selfhost_memo_trait_neplproof_stable_map_entry_from_record_result` は record key と record body を artifact validator へ再投入し、その後 stable map entry validator を通します。不正 record から stable map entry を作りません。
+//: - `selfhost_memo_trait_neplproof_stable_map_build_result` は入力 record vector を借用し、成功時に stable map entry vector owner だけを返します。返す前に sorted order を検査します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - lookup の `Ok(range)` は stable map entry vector 内で同じ canonical fingerprint と canonical payload hash を持つ candidate group の開始 index と件数だけを表します。
+//: - `Err(CandidateMissing)` は、stable map は有効だが対象 key の candidate group が存在しないことを表します。
+//: - `Err(FingerprintOrderInvalid)`、`Err(PayloadHashOrderInvalid)`、`Err(RecordOrdinalOrderInvalid)`、`Err(EntryMissing)` は artifact map を fail-closed に拒否すべき破損です。
+//: - producer の `Err(RecordInvalid(_))`、`Err(EntryBuildRejected(_))`、`Err(ProducedOrderRejected(_))` は、writer / preseed が artifact stable map を fail-closed に拒否すべき理由です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 は decoded `Vec` 上で stable map entry を構築し、lower-bound binary search で range lookup を行います。
+//: - 現実装の producer は insertion sort 相当の bubble-back で entry を並べます。これは small decoded artifact を先に fail-closed に扱うための Phase 1 実装であり、後続の persistent binary writer / stable map codec では同じ contract を保ったまま O(n log n) または O(n) の構築へ置き換えます。
+//: - この module は proof store に record を入れず、proof store lookup も呼びません。candidate narrowing と proof acceptance を意図的に分離します。
+//:
+//: [計算量/けいさんりょう]:
+//: - producer は record 数 n に対して O(n^2) です。各 record の validation と entry construction は O(1)、push は償却 O(1)、bubble-back の合計が O(n^2) です。
+//: - sorted order check は entry 数 m に対して O(m) です。
+//: - candidate range lookup は lower-bound binary search と collision group count により O(log m + c) です。c は同じ canonical fingerprint と canonical payload hash を持つ candidate 数です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_artifact" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_stable_map" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_neplproof_stable_map_stage0:
+//:         Result::Ok summary:
+//:             let expected_range SelfhostMemoTraitNeplProofStableMapCandidateRange 0 1
+//:             let expected_collision_range SelfhostMemoTraitNeplProofStableMapCandidateRange 0 2
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_stable_map_candidate_range_eq (unwrap_ok summary.accepted_range) expected_range
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_stable_map_candidate_range_eq (unwrap_ok summary.accepted_collision_range) expected_collision_range
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_stable_map_error_kind_eq (unwrap_err summary.missing_candidate) SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_stable_map_error_kind_eq (unwrap_err summary.fingerprint_unsorted) SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_stable_map_error_kind_eq (unwrap_err summary.payload_hash_unsorted) SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_neplproof_stable_map_error_kind_eq (unwrap_err summary.ordinal_unsorted) SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_neplproof_stable_map_candidate_range_eq (unwrap_ok summary.built_first_range) expected_range
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_neplproof_stable_map_candidate_range_eq (unwrap_ok summary.built_collision_range) expected_collision_range
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_neplproof_stable_map_producer_error_kind_eq (unwrap_err summary.invalid_record) SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+//:             let shown checks_print_report checks9
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "stable neplproof map stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./memo_trait" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
+#import "./memo_trait_policy" as *
+#import "./memo_trait_proof_artifact" as *
+#import "./memo_trait_proof_store" as *
+
+//: SelfhostMemoTraitNeplProofStableMapEntry: persistent stable map の 1 entry
+//:
+//: [目的/もくてき]:
+//: - canonical fingerprint と canonical payload hash から、artifact record ordinal の候補へ進むための小さい entry を表します。
+//:
+//: [契約/けいやく]:
+//: - `canonical_fingerprint` と `canonical_payload_hash` が lookup key です。
+//: - `policy` は後続 policy equality のために保持しますが、この entry の hit だけでは proof を受理しません。
+//: - `record_ordinal` は decoded artifact record vector 内の ordinal です。
+//: - `record_payload_hash` は reader が entry と record body の対応を再確認するための sidecar です。
+pub struct SelfhostMemoTraitNeplProofStableMapEntry:
+    canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    canonical_payload_hash %i32
+    policy %SelfhostMemoTraitProofStorePolicy
+    record_ordinal %i32
+    record_payload_hash %i32
+
+//: SelfhostMemoTraitNeplProofStableMapCandidateRange: stable map 内の candidate group
+//:
+//: [契約/けいやく]:
+//: - `start_index` は stable map entry vector 内の開始位置です。
+//: - `candidate_count` は同じ canonical fingerprint と canonical payload hash を持つ連続 entry 数です。
+//: - この range は proof acceptance ではありません。caller は各 entry が指す record について policy、proof kind、canonical equality、producer gate を続けて検査します。
+pub struct SelfhostMemoTraitNeplProofStableMapCandidateRange:
+    start_index %i32
+    candidate_count %i32
+
+//: SelfhostMemoTraitNeplProofStableMapErrorKind: stable map lookup の拒否理由
+//:
+//: [目的/もくてき]:
+//: - entry validation、sort order corruption、candidate missing を 1 つの typed error として caller へ返します。
+pub enum SelfhostMemoTraitNeplProofStableMapErrorKind:
+    KeyInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    IndexEntryInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    EntryMissing
+    FingerprintOrderInvalid
+    PayloadHashOrderInvalid
+    RecordOrdinalOrderInvalid
+    CandidateMissing
+
+//: SelfhostMemoTraitNeplProofStableMapProducerErrorKind: stable map producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - decoded record vector から stable map owner を作る時の失敗を、表示文字列ではなく typed enum として呼び出し側へ返します。
+pub enum SelfhostMemoTraitNeplProofStableMapProducerErrorKind:
+    AllocFailed %StdErrorKind
+    PushFailed %StdErrorKind
+    RecordEntryMissing
+    EntryMissing
+    RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    EntryBuildRejected %SelfhostMemoTraitNeplProofStableMapErrorKind
+    ProducedOrderRejected %SelfhostMemoTraitNeplProofStableMapErrorKind
+
+//: SelfhostMemoTraitNeplProofStableMapStage0Summary: stable map contract の代表 smoke
+pub struct SelfhostMemoTraitNeplProofStableMapStage0Summary:
+    accepted_range %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    accepted_collision_range %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    missing_candidate %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    fingerprint_unsorted %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    payload_hash_unsorted %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    ordinal_unsorted %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    built_first_range %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    built_collision_range %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind
+    invalid_record %Result unit SelfhostMemoTraitNeplProofStableMapProducerErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofStableMapEntry:
+    fn clone %fn &SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofStableMapEntry:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofStableMapCandidateRange:
+    fn clone %fn &SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapCandidateRange \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofStableMapCandidateRange:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapCandidateRange \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofStableMapErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofStableMapErrorKind SelfhostMemoTraitNeplProofStableMapErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofStableMapErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofStableMapErrorKind SelfhostMemoTraitNeplProofStableMapErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofStableMapProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofStableMapProducerErrorKind SelfhostMemoTraitNeplProofStableMapProducerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofStableMapProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofStableMapProducerErrorKind SelfhostMemoTraitNeplProofStableMapProducerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofStableMapStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofStableMapStage0Summary SelfhostMemoTraitNeplProofStableMapStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofStableMapStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofStableMapStage0Summary SelfhostMemoTraitNeplProofStableMapStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_neplproof_stable_map_candidate_range_eq: candidate range payload が同じか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_stable_map_candidate_range_eq %fn SelfhostMemoTraitNeplProofStableMapCandidateRange fn SelfhostMemoTraitNeplProofStableMapCandidateRange bool \a\b:
+    and:
+        eq a.start_index b.start_index
+        eq a.candidate_count b.candidate_count
+
+//: selfhost_memo_trait_neplproof_stable_map_error_kind_eq: stable map error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ variant は payload も比較します。
+//: - wildcard arm は使いません。error variant を追加した場合、この equality も明示的に更新します。
+pub fn selfhost_memo_trait_neplproof_stable_map_error_kind_eq %fn SelfhostMemoTraitNeplProofStableMapErrorKind fn SelfhostMemoTraitNeplProofStableMapErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    true
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    true
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    true
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    false
+        SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                    false
+                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                    true
+
+//: selfhost_memo_trait_neplproof_stable_map_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_stable_map_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_neplproof_stable_map_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_neplproof_stable_map_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_neplproof_stable_map_std_error_kind_code a selfhost_memo_trait_neplproof_stable_map_std_error_kind_code b
+
+//: selfhost_memo_trait_neplproof_stable_map_producer_error_kind_eq: producer error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_stable_map_producer_error_kind_eq %fn SelfhostMemoTraitNeplProofStableMapProducerErrorKind fn SelfhostMemoTraitNeplProofStableMapProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed b_kind:
+                    selfhost_memo_trait_neplproof_stable_map_std_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed b_kind:
+                    selfhost_memo_trait_neplproof_stable_map_std_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected b_kind:
+                    selfhost_memo_trait_neplproof_stable_map_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _b_kind:
+                    false
+        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected b_kind:
+                    selfhost_memo_trait_neplproof_stable_map_error_kind_eq a_kind b_kind
+
+//: selfhost_memo_trait_neplproof_stable_map_fingerprint_lt: canonical fingerprint の stable order
+fn selfhost_memo_trait_neplproof_stable_map_fingerprint_lt %fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalTypeFingerprint bool \a\b:
+    if:
+        lt a.schema_version b.schema_version
+        then:
+            true
+        else:
+            if:
+                gt a.schema_version b.schema_version
+                then:
+                    false
+                else:
+                    lt a.root_hash b.root_hash
+
+//: selfhost_memo_trait_neplproof_stable_map_entry_key_lt: stable map key の stable order
+//:
+//: [契約/けいやく]:
+//: - 比較 key は canonical fingerprint と canonical payload hash だけです。
+//: - policy、record payload hash、source 表現、session-local id は key order に含めません。
+fn selfhost_memo_trait_neplproof_stable_map_entry_key_lt %fn SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitNeplProofStableMapEntry bool \a\b:
+    if:
+        selfhost_memo_trait_neplproof_stable_map_fingerprint_lt a.canonical_fingerprint b.canonical_fingerprint
+        then:
+            true
+        else:
+            if:
+                selfhost_memo_trait_canonical_type_fingerprint_eq a.canonical_fingerprint b.canonical_fingerprint
+                then:
+                    lt a.canonical_payload_hash b.canonical_payload_hash
+                else:
+                    false
+
+//: selfhost_memo_trait_neplproof_stable_map_target_lt: entry key と lookup target を[比較/ひかく]する
+fn selfhost_memo_trait_neplproof_stable_map_target_lt %fn SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 bool \entry\target_fingerprint\target_payload_hash:
+    if:
+        selfhost_memo_trait_neplproof_stable_map_fingerprint_lt entry.canonical_fingerprint target_fingerprint
+        then:
+            true
+        else:
+            if:
+                selfhost_memo_trait_canonical_type_fingerprint_eq entry.canonical_fingerprint target_fingerprint
+                then:
+                    lt entry.canonical_payload_hash target_payload_hash
+                else:
+                    false
+
+//: selfhost_memo_trait_neplproof_stable_map_entry_key_eq: entry key が target と一致するか[返/かえ]す
+fn selfhost_memo_trait_neplproof_stable_map_entry_key_eq %fn SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 bool \entry\target_fingerprint\target_payload_hash:
+    and:
+        selfhost_memo_trait_canonical_type_fingerprint_eq entry.canonical_fingerprint target_fingerprint
+        eq entry.canonical_payload_hash target_payload_hash
+
+//: selfhost_memo_trait_neplproof_stable_map_pair_result: 隣接 entry の sorted order を[検査/けんさ]する
+fn selfhost_memo_trait_neplproof_stable_map_pair_result %fn SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitNeplProofStableMapEntry Result unit SelfhostMemoTraitNeplProofStableMapErrorKind \previous\current:
+    if:
+        selfhost_memo_trait_neplproof_stable_map_fingerprint_lt current.canonical_fingerprint previous.canonical_fingerprint
+        then:
+            Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid
+        else:
+            if:
+                selfhost_memo_trait_canonical_type_fingerprint_eq previous.canonical_fingerprint current.canonical_fingerprint
+                then:
+                    if:
+                        lt current.canonical_payload_hash previous.canonical_payload_hash
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid
+                        else:
+                            if:
+                                eq previous.canonical_payload_hash current.canonical_payload_hash
+                                then:
+                                    if:
+                                        ge previous.record_ordinal current.record_ordinal
+                                        then:
+                                            Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid
+                                        else:
+                                            Result::Ok unit
+                                else:
+                                    Result::Ok unit
+                else:
+                    Result::Ok unit
+
+//: selfhost_memo_trait_neplproof_stable_map_order_tail_loop: 2 件目以降の order を[検査/けんさ]する
+fn selfhost_memo_trait_neplproof_stable_map_order_tail_loop %fn &Vec SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitNeplProofStableMapEntry fn i32 Result unit SelfhostMemoTraitNeplProofStableMapErrorKind \entries\previous\idx:
+    let n %i32 v::len entries
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match v::get entries idx:
+                Option::Some current:
+                    match selfhost_memo_trait_neplproof_stable_map_pair_result previous current:
+                        Result::Ok _unit:
+                            selfhost_memo_trait_neplproof_stable_map_order_tail_loop entries current add idx 1
+                        Result::Err kind:
+                            Result::Err kind
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing
+
+//: selfhost_memo_trait_neplproof_stable_map_order_result: stable map の sorted order を[検査/けんさ]する
+pub fn selfhost_memo_trait_neplproof_stable_map_order_result %fn &Vec SelfhostMemoTraitNeplProofStableMapEntry Result unit SelfhostMemoTraitNeplProofStableMapErrorKind \entries:
+    let n %i32 v::len entries
+    if:
+        le n 1
+        then:
+            Result::Ok unit
+        else:
+            match v::get entries 0:
+                Option::Some first:
+                    selfhost_memo_trait_neplproof_stable_map_order_tail_loop entries first 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing
+
+//: selfhost_memo_trait_neplproof_stable_map_count_loop: 同じ stable map key の[件数/けんすう]を[数/かぞ]える
+fn selfhost_memo_trait_neplproof_stable_map_count_loop %fn &Vec SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind \entries\target_fingerprint\target_payload_hash\start\idx\count:
+    let n %i32 v::len entries
+    if:
+        ge idx n
+        then:
+            Result::Ok SelfhostMemoTraitNeplProofStableMapCandidateRange start count
+        else:
+            match v::get entries idx:
+                Option::Some entry:
+                    if:
+                        selfhost_memo_trait_neplproof_stable_map_entry_key_eq entry target_fingerprint target_payload_hash
+                        then:
+                            selfhost_memo_trait_neplproof_stable_map_count_loop entries target_fingerprint target_payload_hash start add idx 1 add count 1
+                        else:
+                            Result::Ok SelfhostMemoTraitNeplProofStableMapCandidateRange start count
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing
+
+//: selfhost_memo_trait_neplproof_stable_map_lower_bound_loop: target key 以上になる[最初/さいしょ]の index を[二分探索/にぶんたんさく]する
+fn selfhost_memo_trait_neplproof_stable_map_lower_bound_loop %fn &Vec SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitNeplProofStableMapErrorKind \entries\target_fingerprint\target_payload_hash\low\high:
+    if:
+        ge low high
+        then:
+            Result::Ok low
+        else:
+            let mid %i32 add low div_s sub high low 2
+            match v::get entries mid:
+                Option::Some entry:
+                    if:
+                        selfhost_memo_trait_neplproof_stable_map_target_lt entry target_fingerprint target_payload_hash
+                        then:
+                            selfhost_memo_trait_neplproof_stable_map_lower_bound_loop entries target_fingerprint target_payload_hash add mid 1 high
+                        else:
+                            selfhost_memo_trait_neplproof_stable_map_lower_bound_loop entries target_fingerprint target_payload_hash low mid
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing
+
+//: selfhost_memo_trait_neplproof_stable_map_lookup_loop: sorted stable map から target key group を[探/さが]す
+fn selfhost_memo_trait_neplproof_stable_map_lookup_loop %fn &Vec SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind \entries\target_fingerprint\target_payload_hash:
+    let n %i32 v::len entries
+    match selfhost_memo_trait_neplproof_stable_map_lower_bound_loop entries target_fingerprint target_payload_hash 0 n:
+        Result::Ok start:
+            if:
+                ge start n
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing
+                else:
+                    match v::get entries start:
+                        Option::Some entry:
+                            if:
+                                selfhost_memo_trait_neplproof_stable_map_entry_key_eq entry target_fingerprint target_payload_hash
+                                then:
+                                    selfhost_memo_trait_neplproof_stable_map_count_loop entries target_fingerprint target_payload_hash start start 0
+                                else:
+                                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing
+                        Option::None:
+                            Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing
+        Result::Err kind:
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_stable_map_lookup_result: stable map から candidate range を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - sorted order check を通した後でなければ candidate range を返しません。
+//: - `Ok(range)` は proof acceptance ではありません。caller は range 内の entry が指す record ごとに canonical payload decode、payload hash 再計算、policy、proof kind、proof store preseed / lookup を通します。
+pub fn selfhost_memo_trait_neplproof_stable_map_lookup_result %fn &Vec SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind \entries\target_fingerprint\target_payload_hash:
+    match selfhost_memo_trait_neplproof_stable_map_order_result entries:
+        Result::Ok _sorted:
+            selfhost_memo_trait_neplproof_stable_map_lookup_loop entries target_fingerprint target_payload_hash
+        Result::Err kind:
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_stable_map_result_is_ok: lookup result が accepted range か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_stable_map_result_is_ok %fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind bool \result:
+    match result:
+        Result::Ok _range:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_stable_map_entry_result: stable map entry field を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - canonical key schema、canonical payload hash、policy schema は artifact record key validator へ委譲します。
+//: - record ordinal と record payload hash は artifact index entry validator へ委譲します。
+//: - 成功した entry も proof acceptance authority ではありません。
+pub fn selfhost_memo_trait_neplproof_stable_map_entry_result %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn SelfhostMemoTraitProofStorePolicy fn i32 fn i32 fn i32 Result SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapErrorKind \canonical_fingerprint\canonical_payload_hash\policy\record_ordinal\record_payload_hash\record_count:
+    match selfhost_memo_trait_neplproof_record_key_result canonical_fingerprint selfhost_memo_trait_canonical_key_payload_schema_version canonical_payload_hash policy:
+        Result::Ok _checked_key:
+            match selfhost_memo_trait_neplproof_index_entry_result canonical_fingerprint record_ordinal record_payload_hash record_count:
+                Result::Ok _checked_index:
+                    Result::Ok SelfhostMemoTraitNeplProofStableMapEntry canonical_fingerprint canonical_payload_hash policy record_ordinal record_payload_hash
+                Result::Err kind:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid kind
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid kind
+
+//: selfhost_memo_trait_neplproof_stable_map_entry_from_record_result: record から stable map entry を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - record key と record body は必ず artifact validator へ再投入します。
+//: - 作った stable map entry も stable map entry validator へ通します。
+//: - proof payload は stable map entry へ複製しません。
+pub fn selfhost_memo_trait_neplproof_stable_map_entry_from_record_result %fn SelfhostMemoTraitNeplProofRecord fn i32 fn i32 Result SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapErrorKind \record\record_ordinal\record_count:
+    match selfhost_memo_trait_neplproof_record_key_result record.key.canonical_fingerprint record.key.canonical_payload_schema_version record.key.canonical_payload_hash record.key.policy:
+        Result::Ok checked_key:
+            match selfhost_memo_trait_neplproof_record_result checked_key record.proof_kind record.proof record.record_payload_hash:
+                Result::Ok _checked_record:
+                    selfhost_memo_trait_neplproof_stable_map_entry_result record.key.canonical_fingerprint record.key.canonical_payload_hash record.key.policy record_ordinal record.record_payload_hash record_count
+                Result::Err kind:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid kind
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid kind
+
+//: selfhost_memo_trait_neplproof_stable_map_entry_lt: producer sort order
+fn selfhost_memo_trait_neplproof_stable_map_entry_lt %fn SelfhostMemoTraitNeplProofStableMapEntry fn SelfhostMemoTraitNeplProofStableMapEntry bool \a\b:
+    if:
+        selfhost_memo_trait_neplproof_stable_map_entry_key_lt a b
+        then:
+            true
+        else:
+            if:
+                and:
+                    selfhost_memo_trait_canonical_type_fingerprint_eq a.canonical_fingerprint b.canonical_fingerprint
+                    eq a.canonical_payload_hash b.canonical_payload_hash
+                then:
+                    lt a.record_ordinal b.record_ordinal
+                else:
+                    false
+
+//: selfhost_memo_trait_neplproof_stable_map_bubble_back_loop: push 済み entry を sorted order へ[戻/もど]す
+fn selfhost_memo_trait_neplproof_stable_map_bubble_back_loop %impure fn &Vec SelfhostMemoTraitNeplProofStableMapEntry impure fn i32 Result unit SelfhostMemoTraitNeplProofStableMapProducerErrorKind \entries\idx:
+    if:
+        le idx 0
+        then:
+            Result::Ok unit
+        else:
+            let previous_idx %i32 sub idx 1
+            match v::get entries previous_idx:
+                Option::Some previous:
+                    match v::get entries idx:
+                        Option::Some current:
+                            if:
+                                selfhost_memo_trait_neplproof_stable_map_entry_lt current previous
+                                then:
+                                    v::replace entries previous_idx current
+                                    v::replace entries idx previous
+                                    selfhost_memo_trait_neplproof_stable_map_bubble_back_loop entries previous_idx
+                                else:
+                                    Result::Ok unit
+                        Option::None:
+                            Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing
+
+//: selfhost_memo_trait_neplproof_stable_map_push_sorted: entry を[追加/ついか]し sorted order へ[整/ととの]える
+fn selfhost_memo_trait_neplproof_stable_map_push_sorted %impure fn Vec SelfhostMemoTraitNeplProofStableMapEntry impure fn SelfhostMemoTraitNeplProofStableMapEntry Result Vec SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapProducerErrorKind \entries\entry:
+    match v::push entries entry:
+        Result::Ok next_entries:
+            let next_len %i32 v::len &next_entries
+            let pushed_index %i32 sub next_len 1
+            match selfhost_memo_trait_neplproof_stable_map_bubble_back_loop &next_entries pushed_index:
+                Result::Ok _sorted:
+                    Result::Ok next_entries
+                Result::Err kind:
+                    v::free next_entries
+                    Result::Err kind
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed error
+
+//: selfhost_memo_trait_neplproof_stable_map_build_loop: decoded records から stable map を[構築/こうちく]する
+fn selfhost_memo_trait_neplproof_stable_map_build_loop %impure fn Vec SelfhostMemoTraitNeplProofStableMapEntry impure fn &Vec SelfhostMemoTraitNeplProofRecord impure fn i32 impure fn i32 Result Vec SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapProducerErrorKind \entries\records\idx\record_count:
+    if:
+        ge idx record_count
+        then:
+            Result::Ok entries
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_neplproof_stable_map_entry_from_record_result record idx record_count:
+                        Result::Ok entry:
+                            match selfhost_memo_trait_neplproof_stable_map_push_sorted entries entry:
+                                Result::Ok next_entries:
+                                    selfhost_memo_trait_neplproof_stable_map_build_loop next_entries records add idx 1 record_count
+                                Result::Err kind:
+                                    Result::Err kind
+                        Result::Err kind:
+                            v::free entries
+                            Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected kind
+                Option::None:
+                    v::free entries
+                    Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing
+
+//: selfhost_memo_trait_neplproof_stable_map_finish_build: producer output を sorted validator へ[通/とお]す
+fn selfhost_memo_trait_neplproof_stable_map_finish_build %impure fn Vec SelfhostMemoTraitNeplProofStableMapEntry Result Vec SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapProducerErrorKind \entries:
+    match selfhost_memo_trait_neplproof_stable_map_order_result &entries:
+        Result::Ok _order_valid:
+            Result::Ok entries
+        Result::Err kind:
+            v::free entries
+            Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected kind
+
+//: selfhost_memo_trait_neplproof_stable_map_build_result: decoded records から stable map を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` serializer / preseed writer が decoded record vector から stable map owner を作るための public producer API です。
+//:
+//: [契約/けいやく]:
+//: - 入力 record vector は借用し、成功時に stable map entry vector owner だけを返します。
+//: - record ごとに 1 つの stable map entry を作り、sorted order を検査した owner だけを返します。
+//: - 返す stable map は proof acceptance ではありません。caller は lookup 後に canonical payload decode、payload hash 再計算、policy、proof kind、proof store preseed / lookup、producer gate を続けます。
+//:
+//: [計算量/けいさんりょう]:
+//: - Phase 1 実装は insertion sort 相当のため O(n^2) です。後続の persistent binary writer / stable map codec では同じ Result contract を保って構築を高速化します。
+pub fn selfhost_memo_trait_neplproof_stable_map_build_result %impure fn &Vec SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapProducerErrorKind \records:
+    let entries_result %Result Vec SelfhostMemoTraitNeplProofStableMapEntry StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries0:
+            let record_count %i32 v::len records
+            match selfhost_memo_trait_neplproof_stable_map_build_loop entries0 records 0 record_count:
+                Result::Ok built_entries:
+                    selfhost_memo_trait_neplproof_stable_map_finish_build built_entries
+                Result::Err kind:
+                    Result::Err kind
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed e
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_policy: focused smoke 用 policy を[作/つく]る
+fn selfhost_memo_trait_neplproof_stable_map_stage0_policy %fn i32 SelfhostMemoTraitProofStorePolicy \policy_schema:
+    let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+    let value_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 20 21 22
+    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_source_identity_set_new key_source value_source
+    let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new policy_schema 1 30 31 32
+    selfhost_memo_trait_proof_store_policy_new sources rules
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_proof: focused smoke 用 proof を[作/つく]る
+fn selfhost_memo_trait_neplproof_stable_map_stage0_proof %fn void SelfhostMemoTraitStoredAggregateProof \void:
+    selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+
+//: selfhost_memo_trait_neplproof_stable_map_record_push: stage0 record vector へ record を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_stable_map_record_push %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \records\record:
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_stable_map_entry_push: stage0 stable map vector へ entry を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_stable_map_entry_push %impure fn Vec SelfhostMemoTraitNeplProofStableMapEntry impure fn SelfhostMemoTraitNeplProofStableMapEntry Result Vec SelfhostMemoTraitNeplProofStableMapEntry StdErrorKind \entries\entry:
+    match v::push entries entry:
+        Result::Ok next_entries:
+            Result::Ok next_entries
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_records_two: 2 record の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_stable_map_stage0_records_two %impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \first\second:
+    let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records0:
+            match selfhost_memo_trait_neplproof_stable_map_record_push records0 first:
+                Result::Ok records1:
+                    selfhost_memo_trait_neplproof_stable_map_record_push records1 second
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_entries_two: 2 stable map entry の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_stable_map_stage0_entries_two %impure fn SelfhostMemoTraitNeplProofStableMapEntry impure fn SelfhostMemoTraitNeplProofStableMapEntry Result Vec SelfhostMemoTraitNeplProofStableMapEntry StdErrorKind \first\second:
+    let entries_result %Result Vec SelfhostMemoTraitNeplProofStableMapEntry StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries0:
+            match selfhost_memo_trait_neplproof_stable_map_entry_push entries0 first:
+                Result::Ok entries1:
+                    selfhost_memo_trait_neplproof_stable_map_entry_push entries1 second
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries: Vec owner を[閉/と]じながら lookup を[実行/じっこう]する
+fn selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries %impure fn SelfhostMemoTraitNeplProofStableMapEntry impure fn SelfhostMemoTraitNeplProofStableMapEntry impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn i32 Result Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind StdErrorKind \first\second\target_fingerprint\target_payload_hash:
+    match selfhost_memo_trait_neplproof_stable_map_stage0_entries_two first second:
+        Result::Ok entries:
+            let lookup %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind selfhost_memo_trait_neplproof_stable_map_lookup_result &entries target_fingerprint target_payload_hash
+            v::free entries
+            Result::Ok lookup
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_run_producer_lookup: producer output を lookup へ[渡/わた]す
+fn selfhost_memo_trait_neplproof_stable_map_stage0_run_producer_lookup %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn i32 Result Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind SelfhostMemoTraitNeplProofStableMapProducerErrorKind \records\target_fingerprint\target_payload_hash:
+    match selfhost_memo_trait_neplproof_stable_map_build_result &records:
+        Result::Ok entries:
+            let lookup %Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind selfhost_memo_trait_neplproof_stable_map_lookup_result &entries target_fingerprint target_payload_hash
+            v::free records
+            v::free entries
+            Result::Ok lookup
+        Result::Err kind:
+            v::free records
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_run_invalid_record: invalid record を producer error として[返/かえ]す
+fn selfhost_memo_trait_neplproof_stable_map_stage0_run_invalid_record %impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result unit SelfhostMemoTraitNeplProofStableMapProducerErrorKind \invalid_record\second_record:
+    match selfhost_memo_trait_neplproof_stable_map_stage0_records_two invalid_record second_record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_stable_map_build_result &records:
+                Result::Ok entries:
+                    v::free records
+                    v::free entries
+                    Result::Ok unit
+                Result::Err kind:
+                    v::free records
+                    match kind:
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryBuildRejected inner:
+                            match inner:
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordInvalid artifact_kind:
+                                    Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid artifact_kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::KeyInvalid artifact_kind:
+                                    Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid artifact_kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::IndexEntryInvalid _artifact_kind:
+                                    Result::Err kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::EntryMissing:
+                                    Result::Err kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::FingerprintOrderInvalid:
+                                    Result::Err kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::PayloadHashOrderInvalid:
+                                    Result::Err kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::RecordOrdinalOrderInvalid:
+                                    Result::Err kind
+                                SelfhostMemoTraitNeplProofStableMapErrorKind::CandidateMissing:
+                                    Result::Err kind
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed _error:
+                            Result::Err kind
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::PushFailed _error:
+                            Result::Err kind
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordEntryMissing:
+                            Result::Err kind
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::EntryMissing:
+                            Result::Err kind
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::RecordInvalid _artifact_kind:
+                            Result::Err kind
+                        SelfhostMemoTraitNeplProofStableMapProducerErrorKind::ProducedOrderRejected _inner:
+                            Result::Err kind
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofStableMapProducerErrorKind::AllocFailed e
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_stable_map_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result SelfhostMemoTraitNeplProofStableMapCandidateRange SelfhostMemoTraitNeplProofStableMapErrorKind fn Result unit SelfhostMemoTraitNeplProofStableMapProducerErrorKind SelfhostMemoTraitNeplProofStableMapStage0Summary \accepted_range\accepted_collision_range\missing_candidate\fingerprint_unsorted\payload_hash_unsorted\ordinal_unsorted\built_first_range\built_collision_range\invalid_record:
+    SelfhostMemoTraitNeplProofStableMapStage0Summary accepted_range accepted_collision_range missing_candidate fingerprint_unsorted payload_hash_unsorted ordinal_unsorted built_first_range built_collision_range invalid_record
+
+//: selfhost_memo_trait_neplproof_stable_map_stage0: stable map contract の代表結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が accepted range、同一 stable key の collision group、missing candidate、各種 order corruption、producer build、invalid record rejection を同じ public API 経由で確認できるようにします。
+pub fn selfhost_memo_trait_neplproof_stable_map_stage0 %impure fn void Result SelfhostMemoTraitNeplProofStableMapStage0Summary StdErrorKind \void:
+    let canonical_schema %i32 selfhost_memo_trait_canonical_key_payload_schema_version
+    let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_stable_map_stage0_policy policy_schema
+    let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_neplproof_stable_map_stage0_proof
+    let first_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 1001
+    let second_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 2002
+    let missing_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 3003
+    let first_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey canonical_schema first_fingerprint 3003 policy
+    let second_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey canonical_schema second_fingerprint 3004 policy
+    let first_collision_key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey canonical_schema first_fingerprint 3003 policy
+    let first_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 4004
+    let second_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord second_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 5005
+    let first_collision_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_collision_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 5005
+    let invalid_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 0
+    let first_entry %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3003 policy 0 4004
+    let second_entry %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry second_fingerprint 3004 policy 1 5005
+    let collision_second_entry %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3003 policy 1 5005
+    let fingerprint_unsorted_first %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry second_fingerprint 3004 policy 1 5005
+    let fingerprint_unsorted_second %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3003 policy 0 4004
+    let payload_hash_unsorted_first %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3004 policy 1 5005
+    let payload_hash_unsorted_second %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3003 policy 0 4004
+    let ordinal_unsorted_first %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3003 policy 1 5005
+    let ordinal_unsorted_second %SelfhostMemoTraitNeplProofStableMapEntry SelfhostMemoTraitNeplProofStableMapEntry first_fingerprint 3003 policy 0 4004
+    match selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries first_entry second_entry first_fingerprint 3003:
+        Result::Ok accepted_range:
+            match selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries first_entry collision_second_entry first_fingerprint 3003:
+                Result::Ok accepted_collision_range:
+                    match selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries first_entry second_entry missing_fingerprint 3003:
+                        Result::Ok missing_candidate:
+                            match selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries fingerprint_unsorted_first fingerprint_unsorted_second first_fingerprint 3003:
+                                Result::Ok fingerprint_unsorted:
+                                    match selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries payload_hash_unsorted_first payload_hash_unsorted_second first_fingerprint 3003:
+                                        Result::Ok payload_hash_unsorted:
+                                            match selfhost_memo_trait_neplproof_stable_map_stage0_run_two_entries ordinal_unsorted_first ordinal_unsorted_second first_fingerprint 3003:
+                                                Result::Ok ordinal_unsorted:
+                                                    match selfhost_memo_trait_neplproof_stable_map_stage0_records_two second_record first_record:
+                                                        Result::Ok unordered_records:
+                                                            match selfhost_memo_trait_neplproof_stable_map_stage0_run_producer_lookup unordered_records first_fingerprint 3003:
+                                                                Result::Ok built_first_range:
+                                                                    match selfhost_memo_trait_neplproof_stable_map_stage0_records_two first_collision_record first_record:
+                                                                        Result::Ok collision_records:
+                                                                            match selfhost_memo_trait_neplproof_stable_map_stage0_run_producer_lookup collision_records first_fingerprint 3003:
+                                                                                Result::Ok built_collision_range:
+                                                                                    let invalid_record_result %Result unit SelfhostMemoTraitNeplProofStableMapProducerErrorKind selfhost_memo_trait_neplproof_stable_map_stage0_run_invalid_record invalid_record second_record
+                                                                                    Result::Ok selfhost_memo_trait_neplproof_stable_map_stage0_summary_new accepted_range accepted_collision_range missing_candidate fingerprint_unsorted payload_hash_unsorted ordinal_unsorted built_first_range built_collision_range invalid_record_result
+                                                                                Result::Err _e:
+                                                                                    Result::Err StdErrorKind::InvalidOperation
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err _e:
+                                                                    Result::Err StdErrorKind::InvalidOperation
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
