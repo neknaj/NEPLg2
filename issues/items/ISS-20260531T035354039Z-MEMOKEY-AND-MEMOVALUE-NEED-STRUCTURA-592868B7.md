@@ -399,6 +399,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost generic type argument identity checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_type_argument_identity.nepl` を追加し、generic instantiation の型引数列を `SelfhostTypeId` vector のまま永続 key material にしない stable identity boundary として分離した。
+
+`selfhost_memo_trait_stable_type_argument_identity_result` は、caller が渡した `&SelfhostTypeArena`、`&SelfhostMemoTraitStableNominalKeyTable`、`&Vec SelfhostTypeId` を受け取り、substitution 済み concrete type argument を `selfhost_canonical_type_key_project_from_arena`、`selfhost_memo_trait_canonical_type_fingerprint_result`、`selfhost_memo_trait_canonical_key_payload_hash_result` へ通す。entry は ordinal、canonical fingerprint、canonical payload hash のみを保持し、aggregate hash は schema version と一緒に比較する。aggregate hash は compact lookup key であり、最終的な同一性 authority ではない。
+
+この identity は proof acceptance ではない。MemoKey / MemoValue proof の受理、policy equality、producer gate、proof store lookup は後続に残す。source text、span、path、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId` は accepted authority にしない。
+
+失敗は `SelfhostMemoTraitStableTypeArgumentIdentityErrorKind` で typed enum 化した。projection failure、fingerprint rejection、payload rejection、entry push failure、type argument missing、hash placeholder を bool や表示文字列に潰さず fail-closed に返す。
+
+stage0 smoke は empty accepted identity、single accepted identity、ordered two-argument accepted identity、argument order sensitivity、missing nominal key、duplicate nominal key、type parameter unsupported、function type unsupported を public producer 経由で確認する。source policy は `nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js` で facade re-export、source list 登録、canonical producer delegation、typed error、forbidden authority、proof acceptance 非該当、line count / doc comment length cap 禁止を固定した。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary である。
+
 ## 2026-06-13 selfhost memo trait `.neplproof` persistent stable map checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_proof_stable_map.nepl` を追加し、decoded `.neplproof` record vector から persistent stable map entry vector を作る producer と、canonical fingerprint + canonical payload hash による candidate range lookup boundary を実装した。

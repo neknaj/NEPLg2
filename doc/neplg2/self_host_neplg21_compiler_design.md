@@ -1264,7 +1264,23 @@ producer は `selfhost_memo_trait_neplproof_stable_map_entry_from_record_result`
 
 source policy は `nodesrc/test_selfhost_memo_trait_proof_stable_map_contract.js` で、facade re-export、source list 登録、typed entry / range / error enum、record validator への委譲、lower-bound lookup、producer output order validation、proof store / decoded / reader / serializer への逆依存禁止、session-local id / source authority 禁止、line count / doc comment length cap 禁止を固定する。
 
-この checkpoint 後も、generic type argument identity、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
+### 2026-06-13 memo trait generic type argument identity checkpoint
+
+`memo_trait_type_argument_identity.nepl` を追加し、generic instantiation の型引数列を session-local `SelfhostTypeId` vector ではなく、canonical key projection、stable nominal key table、canonical fingerprint、canonical payload hash から作る stable identity へ正規化する境界を定義した。
+
+`SelfhostMemoTraitStableTypeArgumentIdentityEntry` は argument ordinal、canonical fingerprint、canonical payload hash を持つ。`SelfhostMemoTraitStableTypeArgumentIdentity` は entry vector と schema 付き aggregate hash を一緒に保持する。hash-only API も full identity producer を通ってから entry owner を閉じるため、hash-only path と entry-preserving path の authority は一致する。ただし aggregate hash は compact lookup key であり、最終的な同一性 authority ではない。後続 artifact は ordered entry vector と schema 付き hash を一緒に確認する。
+
+この identity は proof acceptance authority ではない。MemoKey / MemoValue proof の受理、policy equality、producer gate、proof store lookup、decoded `.neplproof` candidate の検証は後続 boundary が再検査する。source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId` は accepted authority にしない。出力 struct にもそれらの local id を保存しない。
+
+拒否理由は `SelfhostMemoTraitStableTypeArgumentIdentityErrorKind` に閉じた。type argument missing、canonical key projection failure、fingerprint rejection、payload rejection、entry push failure、identity hash placeholder を bool や diagnostic string に潰さず返す。stage0 smoke は empty accepted identity、single accepted identity、ordered two-argument accepted identity、argument order sensitivity、missing nominal key、duplicate nominal key、type parameter unsupported、function type unsupported を public producer 経由で確認する。
+
+計算量は、型引数数を n、各 canonical key tree の大きさを k、stable nominal key table の record 数を m とすると最悪 O(n * k * m) である。FileSystem、source scan、module graph、proof store lookup、Resource IR、backend codegen はこの identity producer では行わない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js` で、facade re-export、source list 登録、canonical key / payload producer への委譲、typed error enum、entry / aggregate hash schema、argument order fold、stage0 fail-closed paths、checker / HIR / Resource IR / backend への逆依存禁止、source-display authority 禁止、line count / doc comment length cap 禁止を固定する。
+
+この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
 ### Phase 11: Backend
 

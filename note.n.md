@@ -57346,3 +57346,50 @@ MERGE_APPROVED
 - pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `git diff --check`
+
+## 2026-06-13 Agent selfhost generic type argument identity checkpoint
+
+### scope
+
+- branch: `selfhost/generic-type-arg-identity-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-13 に `https://zenn.dev/bem130/articles/1b352797de94e7` を確認済み。試作段階でも、静的検査、typed enum error、Result API、pure core / boundary 分離、探索範囲削減、丁寧な doc comment、行数制限によるコメント抑制禁止、根本設計を優先する。
+
+### implementation
+
+- `memo_trait_type_argument_identity.nepl` を追加し、generic instantiation の型引数列を session-local `SelfhostTypeId` vector ではなく canonical key projection、stable nominal key table、canonical fingerprint、canonical payload hash に基づく stable identity へ正規化する境界を作った。
+- `SelfhostMemoTraitStableTypeArgumentIdentityEntry` は argument ordinal、canonical fingerprint、canonical payload hash だけを保持する。`SelfhostTypeId`、`SelfhostCanonicalTypeKeyId`、source text、span、path suffix、display name、diagnostic text、lexeme は accepted payload に入れない。
+- `SelfhostMemoTraitStableTypeArgumentIdentity` は ordered entry vector と schema 付き aggregate hash を一緒に持つ。aggregate hash は compact lookup key であり、最終 authority ではない。hash-only API も full identity producer を通してから entry owner を閉じるため、hash-only path と entry-preserving path の authority は一致する。
+- `SelfhostMemoTraitStableTypeArgumentIdentityErrorKind` で type argument missing、canonical projection rejection、fingerprint rejection、payload rejection、entry push failure、identity hash placeholder を区別し、bool や diagnostic string へ潰さない。
+- stage0 smoke は empty accepted identity、single accepted identity、ordered two-argument accepted identity、argument order sensitivity、missing nominal key、duplicate nominal key、type parameter unsupported、function type unsupported を public producer 経由で確認する。
+- `ty.nepl` facade、`nodesrc/selfhost_ty_sources.js`、source policy regression list、design doc、issue、`todo.md` を更新した。
+- documentation contract の増分警告を受け、内部 helper にも目的、契約、所有権、fail-closed 境界が読める日本語 doc comment を追加した。検査を緩めたり、コメント量の上限を設けたりしていない。
+
+### subagent_review
+
+- Bohr に、DAG、authority、owner cleanup、source policy、Zenn方針、doc comment の丁寧さをレビュー依頼した。
+- 初回 review: Blocker なし。Required として、module を canonical payload の後段へ置くこと、proof/codec へ依存しないこと、accepted payload に local id を入れないこと、aggregate hash 単独を最終 authority にしないこと、unresolved parameter/function を fail-closed にすること、empty / single / two args / missing / duplicate nominal / owner cleanup / line cap 禁止を source policy で固定することを求めた。
+- Required 対応として、facade と source list の順序を `memo_trait_canonical_key_payload` 後段へ置き、proof/artifact/codec import 禁止、local id payload 禁止、aggregate hash 単独禁止、fail-closed stage0、line count / doc comment length cap 禁止を source policy に固定した。
+- 追レビュー: Blocker なし。Required として、temporary canonical key arena の成功時 cleanup と、public identity free API が entry vector owner を閉じることを source policy で固定するよう求めた。
+- Required 対応として、`nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js` に成功時の `key_arena` free と `selfhost_memo_trait_stable_type_argument_identity_free` の `entries` free を確認する contract を追加した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_contract.js`
+- pass: `node nodesrc/test_selfhost_type_key_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_type_argument_identity.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-type-argument-identity.json` total=1 passed=1 failed=0
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- generic call lowering は、stable type-argument identity を HIR payload、monomorphize、artifact cache key に接続するまで `GenericCallIdentityUnsupported` を維持する。
+- generic memoized function identity は、typed type-argument identity payload と pure monomorphic / generic identity gate が揃うまで `GenericUnsupported` を維持する。
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。

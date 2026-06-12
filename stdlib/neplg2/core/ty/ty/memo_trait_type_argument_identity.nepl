@@ -1,0 +1,781 @@
+#indent 4
+
+//: # ty/memo_trait_type_argument_identity
+//: generic instantiation の型引数列を、session-local `SelfhostTypeId` ではなく canonical key payload に基づく stable identity へ正規化する module です。
+//:
+//: [目的/もくてき]:
+//: - generic function call、memoized function value、`.neplproof` proof key が、現在の type arena 内の `SelfhostTypeId` vector をそのまま永続 identity として使わないようにします。
+//: - caller が解決済み type argument の `Vec SelfhostTypeId` を渡すと、この module は各 TypeId を canonical type key へ投影し、stable nominal key table を通して canonical fingerprint と canonical payload hash を作ります。
+//: - 対象は substitution 済み concrete type argument identity です。未解決 generic parameter や function type はこの stage では accepted identity にしません。
+//: - 返す identity は、引数 ordinal、canonical fingerprint、canonical payload hash だけを保持します。source text、span、path、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId` は accepted authority にしません。
+//:
+//: [契約/けいやく]:
+//: - type argument の順序は identity の一部です。同じ型集合でも `T, U` と `U, T` は別の generic instantiation です。
+//: - `SelfhostMemoTraitStableTypeArgumentIdentityHash` は schema version と hash value を必ず一緒に比較します。hash value だけを比較してはいけません。
+//: - aggregate hash は compact lookup key であり、最終的な同一性 authority ではありません。後続 artifact は ordered entry vector と schema 付き hash を一緒に確認します。
+//: - 各型引数は既存 `selfhost_canonical_type_key_project_from_arena`、`selfhost_memo_trait_canonical_type_fingerprint_result`、`selfhost_memo_trait_canonical_key_payload_hash_result` を通ります。この module は canonical key projection や payload hash の独自実装を持ちません。
+//: - Type parameter、function type、missing nominal key、duplicate nominal key、壊れた arena は、下位 boundary の typed error を保持して fail-closed にします。
+//: - この identity は proof acceptance ではありません。MemoKey / MemoValue proof の受理、policy equality、producer gate、proof store lookup は後続の責務です。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `selfhost_memo_trait_stable_type_argument_identity_result` は owned entry vector を含む identity owner を返します。caller は不要になったら `selfhost_memo_trait_stable_type_argument_identity_free` で閉じます。
+//: - `selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result` は identity owner を内部で閉じ、aggregate hash だけを返す convenience API です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では stable nominal key table を caller が渡します。re-export / import graph を含む full public surface hash から nominal key table を作る producer は後続 slice です。
+//: - aggregate hash は小さい deterministic fingerprint です。将来の `.neplmeta` / `.neplproof` binary artifact では、この entry vector と hash を serialized key material として使います。
+//:
+//: [計算量/けいさんりょう]:
+//: - 型引数数を n、各 canonical key tree の大きさを k、stable nominal key table の record 数を m とすると、identity 作成は最悪 O(n * k * m) です。
+//: - source-wide scan、FileSystem、diagnostic formatting、proof store lookup、Resource IR、backend codegen は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_stable_type_argument_identity_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_stable_type_argument_identity_hash_result_is_ok summary.empty_accepted
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_stable_type_argument_identity_hash_result_is_ok summary.single_accepted
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_stable_type_argument_identity_hash_result_is_ok summary.accepted
+//:             let checks4 checks_push checks3 check summary.order_sensitive
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_stable_type_argument_identity_error_kind_eq (unwrap_err summary.missing_nominal) SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_stable_type_argument_identity_error_kind_eq (unwrap_err summary.duplicate_nominal) SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected SelfhostMemoTraitCanonicalFingerprintErrorKind::DuplicateNominalKey
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_stable_type_argument_identity_error_kind_eq (unwrap_err summary.parameter_unsupported) SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_stable_type_argument_identity_error_kind_eq (unwrap_err summary.function_unsupported) SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected SelfhostMemoTraitCanonicalFingerprintErrorKind::FunctionTypeUnsupported
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "stable type argument identity stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./key" as *
+#import "./kind/model" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
+
+//: SelfhostMemoTraitStableTypeArgumentIdentityHash: stable type argument identity の aggregate hash
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は fold material と unsupported variant 境界の version です。
+//: - `identity_hash` は nonzero でなければいけません。`0` は未計算または placeholder として拒否します。
+pub struct SelfhostMemoTraitStableTypeArgumentIdentityHash:
+    schema_version %i32
+    identity_hash %i32
+
+//: SelfhostMemoTraitStableTypeArgumentIdentityEntry: 1 個の型引数の stable identity entry
+//:
+//: [契約/けいやく]:
+//: - `ordinal` は generic parameter list 内の 0 origin index です。
+//: - `canonical_fingerprint` は stable map や lightweight lookup 用の fingerprint です。
+//: - `canonical_payload_hash` は serialized canonical key payload と同じ authority から作られる hash です。
+pub struct SelfhostMemoTraitStableTypeArgumentIdentityEntry:
+    ordinal %i32
+    canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+
+//: SelfhostMemoTraitStableTypeArgumentIdentity: generic instantiation 用 stable type argument identity
+//:
+//: [目的/もくてき]:
+//: - entry vector と aggregate hash を一緒に返し、hash だけではなく各 argument の stable material を後続 artifact writer が読めるようにします。
+pub struct SelfhostMemoTraitStableTypeArgumentIdentity:
+    entries %Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry
+    identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
+
+//: SelfhostMemoTraitStableTypeArgumentIdentityErrorKind: stable type argument identity 作成の拒否理由
+pub enum SelfhostMemoTraitStableTypeArgumentIdentityErrorKind:
+    TypeArgumentMissing
+    ProjectionRejected %SelfhostCanonicalTypeKeyProjectErrorKind
+    FingerprintRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind
+    PayloadRejected %SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    EntryPushFailed %StdErrorKind
+    IdentityHashPlaceholder
+
+//: SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary: stable type argument identity の代表 smoke
+pub struct SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary:
+    empty_accepted %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    single_accepted %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    accepted %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    order_sensitive %bool
+    missing_nominal %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    duplicate_nominal %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    parameter_unsupported %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    function_unsupported %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+
+impl Clone for SelfhostMemoTraitStableTypeArgumentIdentityHash:
+    fn clone %fn &SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityHash \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableTypeArgumentIdentityHash:
+    fn copy_mark %fn SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityHash \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableTypeArgumentIdentityEntry:
+    fn clone %fn &SelfhostMemoTraitStableTypeArgumentIdentityEntry SelfhostMemoTraitStableTypeArgumentIdentityEntry \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableTypeArgumentIdentityEntry:
+    fn copy_mark %fn SelfhostMemoTraitStableTypeArgumentIdentityEntry SelfhostMemoTraitStableTypeArgumentIdentityEntry \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableTypeArgumentIdentityErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableTypeArgumentIdentityErrorKind SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableTypeArgumentIdentityErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableTypeArgumentIdentityErrorKind SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary:
+    fn clone %fn &SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_stable_type_argument_identity_schema_version: type argument identity schema version
+pub fn selfhost_memo_trait_stable_type_argument_identity_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_stable_type_argument_identity_hash_eq: stable type argument identity hash が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_type_argument_identity_hash_eq %fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn SelfhostMemoTraitStableTypeArgumentIdentityHash bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        eq a.identity_hash b.identity_hash
+
+//: selfhost_memo_trait_stable_type_argument_identity_free: identity owner を[閉/と]じる
+pub fn selfhost_memo_trait_stable_type_argument_identity_free %impure fn SelfhostMemoTraitStableTypeArgumentIdentity unit \identity:
+    v::free field::get identity "entries"
+
+//: selfhost_memo_trait_stable_type_argument_identity_mix2: stable type argument identity 用に 2 値を[混/ま]ぜる
+fn selfhost_memo_trait_stable_type_argument_identity_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_stable_type_argument_identity_mix3: stable type argument identity 用に 3 値を[混/ま]ぜる
+fn selfhost_memo_trait_stable_type_argument_identity_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_stable_type_argument_identity_mix2 a b c
+
+//: selfhost_memo_trait_stable_type_argument_identity_mix4: stable type argument identity 用に 4 値を[混/ま]ぜる
+fn selfhost_memo_trait_stable_type_argument_identity_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_stable_type_argument_identity_mix2 (selfhost_memo_trait_stable_type_argument_identity_mix2 a b) (selfhost_memo_trait_stable_type_argument_identity_mix2 c d)
+
+//: selfhost_memo_trait_stable_type_argument_identity_nonzero_result: aggregate hash placeholder を拒否する
+fn selfhost_memo_trait_stable_type_argument_identity_nonzero_result %fn i32 Result i32 SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \hash:
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::IdentityHashPlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_stable_type_argument_identity_initial_hash: type argument count を含む初期 hash を[作/つく]る
+fn selfhost_memo_trait_stable_type_argument_identity_initial_hash %fn i32 i32 \argument_count:
+    selfhost_memo_trait_stable_type_argument_identity_mix3 891331 selfhost_memo_trait_stable_type_argument_identity_schema_version argument_count
+
+//: selfhost_memo_trait_stable_type_argument_identity_entry_hash: entry を aggregate fold material へ[写/うつ]す
+fn selfhost_memo_trait_stable_type_argument_identity_entry_hash %fn SelfhostMemoTraitStableTypeArgumentIdentityEntry i32 \entry:
+    let fingerprint_hash %i32 selfhost_memo_trait_stable_type_argument_identity_mix3 entry.canonical_fingerprint.schema_version entry.canonical_fingerprint.root_hash entry.ordinal
+    let payload_hash %i32 selfhost_memo_trait_stable_type_argument_identity_mix3 entry.canonical_payload_hash.schema_version entry.canonical_payload_hash.payload_hash entry.ordinal
+    selfhost_memo_trait_stable_type_argument_identity_mix4 891337 entry.ordinal fingerprint_hash payload_hash
+
+//: selfhost_memo_trait_stable_type_argument_identity_fold_entry_result: entry を aggregate hash に[畳/たた]む
+fn selfhost_memo_trait_stable_type_argument_identity_fold_entry_result %fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityEntry Result i32 SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \current_hash\entry:
+    selfhost_memo_trait_stable_type_argument_identity_nonzero_result selfhost_memo_trait_stable_type_argument_identity_mix2 current_hash selfhost_memo_trait_stable_type_argument_identity_entry_hash entry
+
+//: selfhost_memo_trait_stable_type_argument_identity_project_error_kind_code: projection error kind を比較用 code へ写す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostCanonicalTypeKeyProjectErrorKind` は値として比較できる公開 predicate をまだ持たないため、この module の error equality でだけ使う deterministic code に変換します。
+//: - code は永続 artifact の authority ではありません。新しい variant を足した場合に match を更新させるため、ここで全 variant を明示します。
+fn selfhost_memo_trait_stable_type_argument_identity_project_error_kind_code %fn SelfhostCanonicalTypeKeyProjectErrorKind i32 \kind:
+    match kind:
+        SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeRecord:
+            1
+        SelfhostCanonicalTypeKeyProjectErrorKind::MissingTypeArgument:
+            2
+        SelfhostCanonicalTypeKeyProjectErrorKind::MissingFunctionArgument:
+            3
+        SelfhostCanonicalTypeKeyProjectErrorKind::InvalidAppliedArgumentRange:
+            4
+        SelfhostCanonicalTypeKeyProjectErrorKind::InvalidFunctionArgumentRange:
+            5
+        SelfhostCanonicalTypeKeyProjectErrorKind::OutOfMemory:
+            6
+        SelfhostCanonicalTypeKeyProjectErrorKind::InternalInvariant:
+            7
+
+//: selfhost_memo_trait_stable_type_argument_identity_std_error_kind_code: stdlib error kind を比較用 code へ写す
+//:
+//: [目的/もくてき]:
+//: - vector push failure の原因を typed error として保持し、stage0 smoke が「どの kind が保持されたか」を確認できるようにします。
+//: - この code は診断や artifact key ではなく、`StdErrorKind` equality helper が無い段階の local comparison boundary です。
+fn selfhost_memo_trait_stable_type_argument_identity_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            1
+        StdErrorKind::OutOfMemory:
+            2
+        StdErrorKind::EmptyCollection:
+            3
+        StdErrorKind::IndexOutOfBounds:
+            4
+        StdErrorKind::KeyNotFound:
+            5
+        StdErrorKind::CapacityExceeded:
+            6
+        StdErrorKind::InvalidOperation:
+            7
+        StdErrorKind::InvalidUtf8:
+            8
+        StdErrorKind::ParseError:
+            9
+        StdErrorKind::IoError:
+            10
+        StdErrorKind::Other:
+            11
+
+//: selfhost_memo_trait_stable_type_argument_identity_error_kind_eq: error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_type_argument_identity_error_kind_eq %fn SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn SelfhostMemoTraitStableTypeArgumentIdentityErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::TypeArgumentMissing:
+            match b:
+                SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::TypeArgumentMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::ProjectionRejected a_kind:
+            match b:
+                SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::ProjectionRejected b_kind:
+                    eq selfhost_memo_trait_stable_type_argument_identity_project_error_kind_code a_kind selfhost_memo_trait_stable_type_argument_identity_project_error_kind_code b_kind
+                _:
+                    false
+        SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected a_kind:
+            match b:
+                SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected b_kind:
+                    selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_kind b_kind
+                _:
+                    false
+        SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::PayloadRejected a_kind:
+            match b:
+                SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::PayloadRejected b_kind:
+                    selfhost_memo_trait_canonical_key_payload_error_kind_eq a_kind b_kind
+                _:
+                    false
+        SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::EntryPushFailed a_kind:
+            match b:
+                SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::EntryPushFailed b_kind:
+                    eq selfhost_memo_trait_stable_type_argument_identity_std_error_kind_code a_kind selfhost_memo_trait_stable_type_argument_identity_std_error_kind_code b_kind
+                _:
+                    false
+        SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::IdentityHashPlaceholder:
+            match b:
+                SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::IdentityHashPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_stable_type_argument_identity_hash_result_is_ok: hash result が accepted か[返/かえ]す
+pub fn selfhost_memo_trait_stable_type_argument_identity_hash_result_is_ok %fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind bool \result:
+    match result:
+        Result::Ok _hash:
+            true
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_stable_type_argument_identity_entry_result: 1 型引数を stable entry へ[写/うつ]す
+pub fn selfhost_memo_trait_stable_type_argument_identity_entry_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentityEntry SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \types\nominal_table\type_id\ordinal:
+    match selfhost_canonical_type_key_project_from_arena types type_id:
+        Result::Ok allocated:
+            let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated
+            let key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated
+            match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &key_arena key_id:
+                Result::Ok fingerprint:
+                    match selfhost_memo_trait_canonical_key_payload_hash_result nominal_table &key_arena key_id:
+                        Result::Ok payload_hash:
+                            selfhost_canonical_type_key_arena_free key_arena
+                            Result::Ok SelfhostMemoTraitStableTypeArgumentIdentityEntry ordinal fingerprint payload_hash
+                        Result::Err payload_error:
+                            selfhost_canonical_type_key_arena_free key_arena
+                            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::PayloadRejected payload_error
+                Result::Err fingerprint_error:
+                    selfhost_canonical_type_key_arena_free key_arena
+                    Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::FingerprintRejected fingerprint_error
+        Result::Err project_error:
+            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::ProjectionRejected field::get project_error "kind"
+
+//: selfhost_memo_trait_stable_type_argument_identity_finish_result: entry owner と checked hash から identity owner を作る
+//:
+//: [契約/けいやく]:
+//: - `hash_value` が placeholder の `0` なら partial entry vector を閉じて拒否します。
+//: - 成功時は entry vector の所有権を返り値の identity に移します。caller は identity を使い終えたら free API で閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_finish_result %impure fn Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry impure fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentity SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \entries\hash_value:
+    match selfhost_memo_trait_stable_type_argument_identity_nonzero_result hash_value:
+        Result::Ok checked_hash:
+            let hash %SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_stable_type_argument_identity_schema_version checked_hash
+            Result::Ok SelfhostMemoTraitStableTypeArgumentIdentity entries hash
+        Result::Err e:
+            v::free entries
+            Result::Err e
+
+//: selfhost_memo_trait_stable_type_argument_identity_loop: 型引数 vector を左から stable entry に畳み込む
+//:
+//: [目的/もくてき]:
+//: - `idx` を ordinal として保持し、型引数の順序が aggregate hash と entry vector の両方へ反映されるようにします。
+//: - 途中で projection、fingerprint、payload、push のいずれかが失敗した場合は、これまでに作った entry vector を閉じて fail-closed にします。
+fn selfhost_memo_trait_stable_type_argument_identity_loop %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec SelfhostTypeId impure fn Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentity SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \types\nominal_table\type_args\entries\idx\n\current_hash:
+    if:
+        ge idx n
+        then:
+            selfhost_memo_trait_stable_type_argument_identity_finish_result entries current_hash
+        else:
+            match v::get type_args idx:
+                Option::Some type_id:
+                    match selfhost_memo_trait_stable_type_argument_identity_entry_result types nominal_table type_id idx:
+                        Result::Ok entry:
+                            match selfhost_memo_trait_stable_type_argument_identity_fold_entry_result current_hash entry:
+                                Result::Ok next_hash:
+                                    match v::push entries entry:
+                                        Result::Ok next_entries:
+                                            selfhost_memo_trait_stable_type_argument_identity_loop types nominal_table type_args next_entries add idx 1 n next_hash
+                                        Result::Err e:
+                                            let error %StdErrorKind field::get e "error"
+                                            v::free v::vec_push_error_vec e
+                                            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::EntryPushFailed error
+                                Result::Err e:
+                                    v::free entries
+                                    Result::Err e
+                        Result::Err e:
+                            v::free entries
+                            Result::Err e
+                Option::None:
+                    v::free entries
+                    Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::TypeArgumentMissing
+
+//: selfhost_memo_trait_stable_type_argument_identity_result: 型引数列を stable identity owner へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `type_args` の index 順をそのまま ordinal として使います。
+//: - 成功時は caller が閉じる owned identity を返します。
+//: - 失敗時は partial entry vector と一時 canonical key arena を閉じてから typed error を返します。
+pub fn selfhost_memo_trait_stable_type_argument_identity_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentity SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \types\nominal_table\type_args:
+    let n %i32 v::len type_args
+    let initial_hash %i32 selfhost_memo_trait_stable_type_argument_identity_initial_hash n
+    let entries_result %Result Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries:
+            selfhost_memo_trait_stable_type_argument_identity_loop types nominal_table type_args entries 0 n initial_hash
+        Result::Err e:
+            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::EntryPushFailed e
+
+//: selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result: 型引数列の aggregate hash だけを[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - caller が full entry vector を保存しない段階でも、generic instantiation の stable equality check を試せるようにします。
+//: - 内部では full identity を構築してから entry vector owner を閉じるため、hash-only path と full path の authority は一致します。
+pub fn selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \types\nominal_table\type_args:
+    match selfhost_memo_trait_stable_type_argument_identity_result types nominal_table type_args:
+        Result::Ok identity:
+            let entries %Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry field::get identity "entries"
+            let hash %SelfhostMemoTraitStableTypeArgumentIdentityHash field::get identity "identity_hash"
+            v::free entries
+            Result::Ok hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_summary_new: stage0 smoke の各結果を 1 つの summary に集約する
+//:
+//: [目的/もくてき]:
+//: - doctest 側が empty、single、accepted、順序差、fail-closed error をまとめて確認できるようにします。
+//: - ここでは検査結果を加工せず、各 branch の typed result をそのまま保持します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_summary_new %fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn bool fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary \empty_accepted\single_accepted\accepted\order_sensitive\missing_nominal\duplicate_nominal\parameter_unsupported\function_unsupported:
+    SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary empty_accepted single_accepted accepted order_sensitive missing_nominal duplicate_nominal parameter_unsupported function_unsupported
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_build_table: accepted case 用の stable nominal key table を作る
+//:
+//: [目的/もくてき]:
+//: - stage0 で使う nominal type `10` に、public surface 由来を模した stable nominal key を 1 件だけ対応付けます。
+//: - table owner は caller に返り、後続の success / abort path が必ず閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_build_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_build_duplicate_table: duplicate nominal rejection 用の table を作る
+//:
+//: [目的/もくてき]:
+//: - 同じ nominal id に 2 件の stable key record がある場合、fingerprint boundary が fail-closed になることを確認します。
+//: - 生成した table owner は duplicate 検査後に呼び出し元の collector が閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_build_duplicate_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    match selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key:
+                        Result::Ok table1:
+                            selfhost_memo_trait_stable_nominal_key_table_push table1 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg: stage0 用に 1 要素の type argument vector を作る
+//:
+//: [契約/けいやく]:
+//: - push 失敗時は push error が返した vector owner を閉じ、`StdErrorKind` だけを返します。
+//: - 成功時の vector owner は caller が identity 計算後に閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg %impure fn SelfhostTypeId Result Vec SelfhostTypeId StdErrorKind \a:
+    let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match args_result:
+        Result::Ok args0:
+            match v::push args0 a:
+                Result::Ok args1:
+                    Result::Ok args1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_two_args: stage0 用に 2 要素の type argument vector を作る
+//:
+//: [契約/けいやく]:
+//: - 2 回の push のどちらが失敗しても、stdlib Vec が返す owner を閉じてから typed error へ畳みます。
+//: - accepted と reversed の比較に使うため、引数順序をそのまま保存します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_two_args %impure fn SelfhostTypeId impure fn SelfhostTypeId Result Vec SelfhostTypeId StdErrorKind \a\b:
+    let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match args_result:
+        Result::Ok args0:
+            match v::push args0 a:
+                Result::Ok args1:
+                    match v::push args1 b:
+                        Result::Ok args2:
+                            Result::Ok args2
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_order_sensitive: accepted hash と reversed hash が区別されるか調べる
+//:
+//: [目的/もくてき]:
+//: - generic instantiation identity では型引数の集合ではなく順序付き列が authority であることを stage0 で固定します。
+//: - どちらかが rejected の場合は、順序差の検査自体を不成立として `false` を返します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_order_sensitive %fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind bool \accepted\reversed:
+    match accepted:
+        Result::Ok accepted_hash:
+            match reversed:
+                Result::Ok reversed_hash:
+                    not selfhost_memo_trait_stable_type_argument_identity_hash_eq accepted_hash reversed_hash
+                Result::Err _e:
+                    false
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_finish: stage0 で使った owner を閉じて summary を返す
+//:
+//: [契約/けいやく]:
+//: - type arena、accepted table、empty table の 3 つをここで閉じます。
+//: - summary 内の result は owner を含まない value だけなので、arena/table 解放後も観測可能な検査結果として使えます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\summary:
+    selfhost_type_arena_free arena
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    Result::Ok summary
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables: arena 取得前の stage0 abort で table owner を閉じる
+//:
+//: [目的/もくてき]:
+//: - accepted table と empty table の生成後、type arena が無い段階で失敗した path の解放処理を集約します。
+//: - failure reason は stage0 setup failure として `InvalidOperation` に畳みます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \table\empty_table:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all: stage0 abort で arena と table owner を閉じる
+//:
+//: [目的/もくてき]:
+//: - type arena 生成後に途中失敗した場合、arena を閉じてから table-only abort に合流します。
+//: - stage0 は代表境界の smoke なので、setup failure は個別検証結果ではなく stage0 全体の失敗として返します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table:
+    selfhost_type_arena_free arena
+    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_finish_with_empty_single: empty/single 検査を足して summary を完成させる
+//:
+//: [目的/もくてき]:
+//: - 空の型引数列、1 個の型引数列、2 個の型引数列を同じ identity path で処理し、generic arity ごとの特別扱いが無いことを確認します。
+//: - 作成した一時 vector は hash 計算直後に閉じ、summary には owner を残しません。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_finish_with_empty_single %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\accepted\reversed\missing_nominal\duplicate_nominal\parameter_unsupported\function_unsupported:
+    let empty_args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match empty_args_result:
+        Result::Ok empty_args:
+            let empty_accepted %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &table &empty_args
+            v::free empty_args
+            match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg i32_id:
+                Result::Ok single_args:
+                    let single_accepted %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &table &single_args
+                    v::free single_args
+                    let order_sensitive %bool selfhost_memo_trait_stable_type_argument_identity_stage0_order_sensitive accepted reversed
+                    let summary %SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary selfhost_memo_trait_stable_type_argument_identity_stage0_summary_new empty_accepted single_accepted accepted order_sensitive missing_nominal duplicate_nominal parameter_unsupported function_unsupported
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_finish arena table empty_table summary
+                Result::Err _e:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_collect_parameter: type parameter unsupported の拒否結果を集める
+//:
+//: [目的/もくてき]:
+//: - stable type argument identity は substitution 済み concrete type argument だけを accepted にするため、未解決 type parameter は fingerprint boundary で拒否されます。
+//: - 続けて function type unsupported も同じ owner set の中で検査し、最後に empty / single 検査へ進みます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_collect_parameter %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\applied_id\parameter_id\function_id\accepted\reversed\missing_nominal\duplicate_nominal:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg parameter_id:
+        Result::Ok parameter_args:
+            let parameter_unsupported %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &table &parameter_args
+            v::free parameter_args
+            match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg function_id:
+                Result::Ok function_args:
+                    let function_unsupported %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &table &function_args
+                    v::free function_args
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_finish_with_empty_single arena table empty_table i32_id accepted reversed missing_nominal duplicate_nominal parameter_unsupported function_unsupported
+                Result::Err _e:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_collect_duplicate: duplicate nominal key の拒否結果を集める
+//:
+//: [目的/もくてき]:
+//: - 同じ nominal id が複数の stable key に対応する場合、identity を曖昧なまま accepted にしないことを確認します。
+//: - duplicate table はこの collector の内部で閉じ、外側の accepted table / empty table の所有権境界と混ぜません。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_collect_duplicate %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\applied_id\parameter_id\function_id\accepted\reversed\missing_nominal:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_build_duplicate_table:
+        Result::Ok duplicate_table:
+            match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg applied_id:
+                Result::Ok duplicate_args:
+                    let duplicate_nominal %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &duplicate_table &duplicate_args
+                    v::free duplicate_args
+                    selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_collect_parameter arena table empty_table i32_id applied_id parameter_id function_id accepted reversed missing_nominal duplicate_nominal
+                Result::Err _e:
+                    selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_collect_missing: missing nominal key の拒否結果を集める
+//:
+//: [目的/もくてき]:
+//: - applied named type が type arena に存在しても、stable nominal key table に対応 record が無い場合は fail-closed になることを確認します。
+//: - 検査に使う empty table は stage0 全体の owner として最後まで保持し、成功 / abort path が閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_collect_missing %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\applied_id\parameter_id\function_id\accepted\reversed:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg applied_id:
+        Result::Ok missing_args:
+            let missing_nominal %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &empty_table &missing_args
+            v::free missing_args
+            selfhost_memo_trait_stable_type_argument_identity_stage0_collect_duplicate arena table empty_table i32_id applied_id parameter_id function_id accepted reversed missing_nominal
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_collect_reversed: reversed type argument hash を集める
+//:
+//: [目的/もくてき]:
+//: - `i32, Applied` と `Applied, i32` が異なる aggregate hash になることを確認するため、逆順の型引数列を作ります。
+//: - 一時 vector は hash 計算後すぐに閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_collect_reversed %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\applied_id\parameter_id\function_id\accepted:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_two_args applied_id i32_id:
+        Result::Ok reversed_args:
+            let reversed %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &table &reversed_args
+            v::free reversed_args
+            selfhost_memo_trait_stable_type_argument_identity_stage0_collect_missing arena table empty_table i32_id applied_id parameter_id function_id accepted reversed
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_collect_accepted: accepted type argument hash を集める
+//:
+//: [目的/もくてき]:
+//: - stable nominal key table で解決できる primitive + applied named type の通常成功 path を確認します。
+//: - accepted path の一時 vector は hash 計算後に閉じ、hash result だけを次の collector へ渡します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_collect_accepted %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\applied_id\parameter_id\function_id:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_two_args i32_id applied_id:
+        Result::Ok accepted_args:
+            let accepted %Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind selfhost_memo_trait_stable_type_argument_identity_hash_from_args_result &arena &table &accepted_args
+            v::free accepted_args
+            selfhost_memo_trait_stable_type_argument_identity_stage0_collect_reversed arena table empty_table i32_id applied_id parameter_id function_id accepted
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_after_function: function type 追加後の alloc owner を arena owner へ戻す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_arena_add_function` は追加された type id と arena owner を一緒に返すため、id を取り出して次の collector へ渡します。
+//: - function type は accepted ではなく unsupported path の検査対象です。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_after_function %impure fn SelfhostTypeArenaAlloc impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \function_alloc\table\empty_table\i32_id\applied_id\parameter_id:
+    let function_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &function_alloc
+    let arena_next %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_alloc
+    selfhost_memo_trait_stable_type_argument_identity_stage0_collect_accepted arena_next table empty_table i32_id applied_id parameter_id function_id
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_add_function: unsupported function type の検査用 type record を追加する
+//:
+//: [契約/けいやく]:
+//: - 関数型の parameter vector は arena に所有権を渡します。
+//: - arena add が失敗した場合、arena owner は下位 API へ移っているため table owner だけを閉じる abort path に合流します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_add_function %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\bool_id\applied_id\parameter_id:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg i32_id:
+        Result::Ok params:
+            match selfhost_type_arena_add_function arena params bool_id:
+                Result::Ok function_alloc:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_after_function function_alloc table empty_table i32_id applied_id parameter_id
+                Result::Err _e:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_after_parameter: type parameter 追加後の alloc owner を arena owner へ戻す
+//:
+//: [目的/もくてき]:
+//: - 未解決 type parameter の type id を取り出し、次の function type setup と later fail-closed 検査へ渡します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_after_parameter %impure fn SelfhostTypeArenaAlloc impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \parameter_alloc\table\empty_table\i32_id\bool_id\applied_id:
+    let parameter_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &parameter_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena parameter_alloc
+    selfhost_memo_trait_stable_type_argument_identity_stage0_add_function arena table empty_table i32_id bool_id applied_id parameter_id
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_add_parameter: unsupported type parameter の検査用 type record を追加する
+//:
+//: [目的/もくてき]:
+//: - generic binder identity がまだ未接続な未解決 parameter を accepted identity に混ぜないことを、代表値で確認します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_add_parameter %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\bool_id\applied_id:
+    let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+    match selfhost_type_arena_add_type_parameter arena binding:
+        Result::Ok parameter_alloc:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_after_parameter parameter_alloc table empty_table i32_id bool_id applied_id
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_after_applied: applied named type 追加後の alloc owner を arena owner へ戻す
+//:
+//: [目的/もくてき]:
+//: - accepted / missing / duplicate nominal key 検査で共通して使う applied named type の id を取り出します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_after_applied %impure fn SelfhostTypeArenaAlloc impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \applied_alloc\table\empty_table\i32_id\bool_id:
+    let applied_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+    selfhost_memo_trait_stable_type_argument_identity_stage0_add_parameter arena table empty_table i32_id bool_id applied_id
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_add_applied: stable nominal key 解決対象の applied named type を追加する
+//:
+//: [目的/もくてき]:
+//: - nominal id `10` と type argument `i32` を持つ applied named type を作り、canonical key projection と nominal key lookup の代表入力にします。
+//: - params vector は arena add に渡され、失敗時は下位 API の所有権規約に従って table abort へ進みます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_add_applied %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \arena\table\empty_table\i32_id\bool_id:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_one_arg i32_id:
+        Result::Ok params:
+            match selfhost_type_arena_add_applied_named arena nominal_id params:
+                Result::Ok applied_alloc:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_after_applied applied_alloc table empty_table i32_id bool_id
+                Result::Err _e:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_all arena table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_after_bool: Bool primitive 追加後の alloc owner を arena owner へ戻す
+//:
+//: [目的/もくてき]:
+//: - function type unsupported smoke の戻り値型として使う `bool` type id を取り出します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_after_bool %impure fn SelfhostTypeArenaAlloc impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \bool_alloc\table\empty_table\i32_id:
+    let bool_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &bool_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena bool_alloc
+    selfhost_memo_trait_stable_type_argument_identity_stage0_add_applied arena table empty_table i32_id bool_id
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_after_i32: I32 primitive 追加後に Bool primitive を続けて追加する
+//:
+//: [目的/もくてき]:
+//: - accepted identity、single argument、function type smoke の共通材料として `i32` id を保持したまま、次の primitive を arena に追加します。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_after_i32 %impure fn SelfhostTypeArenaAlloc impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \i32_alloc\table\empty_table:
+    let i32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+    match selfhost_type_arena_add_primitive arena SelfhostPrimitiveTypeKind::Bool:
+        Result::Ok bool_alloc:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_after_bool bool_alloc table empty_table i32_id
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0_after_tables: nominal key table 作成後に stage0 type arena を作る
+//:
+//: [目的/もくてき]:
+//: - stage0 の全検査で共有する accepted table と empty table を受け取り、型 arena の代表 record 生成を開始します。
+//: - arena 生成前後の失敗で解放すべき owner が異なるため、ここで table-only abort と arena-aware abort を分けます。
+fn selfhost_memo_trait_stable_type_argument_identity_stage0_after_tables %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \table\empty_table:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_after_i32 i32_alloc table empty_table
+                Result::Err _e:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_stable_type_argument_identity_stage0_abort_tables table empty_table
+
+//: selfhost_memo_trait_stable_type_argument_identity_stage0: stable type argument identity の代表境界を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - accepted identity、引数順序の違い、missing nominal key、type parameter unsupported、function type unsupported を実行で確認します。
+pub fn selfhost_memo_trait_stable_type_argument_identity_stage0 %impure fn void Result SelfhostMemoTraitStableTypeArgumentIdentityStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_stable_type_argument_identity_stage0_build_table:
+        Result::Ok table:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok empty_table:
+                    selfhost_memo_trait_stable_type_argument_identity_stage0_after_tables table empty_table
+                Result::Err _e:
+                    selfhost_memo_trait_stable_nominal_key_table_free table
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
