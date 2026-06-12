@@ -71,6 +71,11 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_memo_trait_canonical_type_fingerprint_eq[\s\S]*eq a\.schema_version b\.schema_version[\s\S]*eq a\.root_hash b\.root_hash/,
+    "canonical type fingerprint equality must compare both schema version and root hash",
+);
+assert.match(
+    source,
     /pub struct SelfhostMemoTraitCanonicalKeyStage0Summary:[\s\S]*parameter_unsupported %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*fuel_exhausted %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind/,
     "stage0 summary must execute-check the traversal fuel exhaustion boundary rather than relying only on source regex checks",
 );
@@ -146,8 +151,8 @@ assert.doesNotMatch(
 );
 assert.match(
     proofStore,
-    /memo_trait_canonical_key\.nepl[\s\S]*stable nominal key table と canonical type fingerprint の sidecar projection/,
-    "proof store documentation must acknowledge the sidecar stable canonical key projection without silently changing lookup semantics",
+    /memo_trait_canonical_key\.nepl[\s\S]*stable nominal key table と canonical type fingerprint の sidecar projection[\s\S]*stable API[\s\S]*cross-arena canonical equality[\s\S]*policy equality[\s\S]*producer gate/,
+    "proof store documentation must state that the stable sidecar path still requires canonical equality, policy equality, and producer gate validation",
 );
 assert.doesNotMatch(
     source,

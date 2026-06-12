@@ -10,14 +10,15 @@
 //: [契約/けいやく]:
 //: - store の key は canonical type key と `memo_trait_policy.nepl` が定義する typed solver policy identity の組です。policy が違う proof は、型構造が同じでも使いません。
 //: - canonical key が一致しても、stored proof は直接 consumer table へ流しません。現在 arena の `SelfhostTypeId` を使って `SelfhostMemoTraitAggregateProof` を再構成し、既存 producer gate が `Named` / `Applied` record と proof summary を再検査します。
-//: - `SelfhostNamedTypeId` は現段階では stable nominal key ではありません。`memo_trait_canonical_key.nepl` が stable nominal key table と canonical type fingerprint の sidecar projection を提供していますが、この store record はまだ既存 canonical key arena を保持します。store 本体の serialized key を置き換える段階では、その sidecar projection を stored proof key に接続します。
+//: - `SelfhostNamedTypeId` は現段階では stable nominal key ではありません。`memo_trait_canonical_key.nepl` が stable nominal key table と canonical type fingerprint の sidecar projection を提供します。この module の stable API は、その fingerprint を record の sidecar として保存し、永続 artifact 由来の proof 入力が同じ stable key を持つ場合だけ既存の canonical equality / policy / producer gate へ進めます。
 //: - stale policy、missing proof、unsupported proof kind、projection failure、producer rejection はすべて typed error として返し、bool や表示文字列には潰しません。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では `Vec` 線形探索です。後続で stable map / serialized `.neplproof` reader を追加する場合も、同じ policy identity と canonical equality を authority にします。
 //: - stored proof は field layout、Copy / Drop / Eq / Hash proof status、hazard、key/value result payload だけを持ち、TypeId や diagnostic span は持ちません。
 //: - solver policy identity は source identity と rule identity の typed payload であり、raw `trait_source_hash` や raw `rule_hash` を proof store record の authority にしません。
-//: - serialized proof artifact 用の canonical type fingerprint は `memo_trait_canonical_key.nepl` の責務です。この store は現在の session lookup を維持し、永続 fingerprint の計算を lookup loop へ混ぜません。
+//: - 既存の `selfhost_memo_trait_proof_store_push` / `selfhost_memo_trait_proof_store_lookup_record` は session-local compatibility path です。これらは `stable_fingerprint = none` の record を扱い、stable proof artifact としては再利用しません。
+//: - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_lookup_record_stable_key` は stable nominal key table から canonical type fingerprint を作り、`stable_fingerprint = some(...)` の record だけを永続 key 入力として受理します。fingerprint が一致しても、cross-arena canonical equality、policy equality、proof kind、producer gate は必ず実行します。
 //:
 //: [計算量/けいさんりょう]:
 //: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
@@ -25,12 +26,15 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -49,7 +53,10 @@
 //:             let checks3 checks_push checks2 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.missing_key) SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
 //:             let checks4 checks_push checks3 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.primitive_rejected) SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate
 //:             let checks5 checks_push checks4 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.unsupported_kind) SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch
-//:             let shown checks_print_report checks5
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_proof_store_lookup_result_is_accept summary.stable_found
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.stable_legacy_missing) SelfhostMemoTraitProofStoreLookupErrorKind::RecordStableFingerprintMissing
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_proof_store_lookup_error_kind_eq (unwrap_err summary.stable_mismatch) SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch
+//:             let shown checks_print_report checks8
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "memo trait proof store stage0 setup failed"
@@ -69,6 +76,7 @@
 #import "./kind/eq" as *
 #import "./kind/model" as *
 #import "./memo_trait" as *
+#import "./memo_trait_canonical_key" as *
 #import "./memo_trait_policy" as *
 #import "./memo_trait_source" as *
 #import "./memo_trait_producer" as *
@@ -102,9 +110,11 @@ pub struct SelfhostMemoTraitStoredAggregateProof:
 //:
 //: [目的/もくてき]:
 //: - `key_id` は、この store が所有する canonical key arena 内の root key です。
+//: - `stable_fingerprint` は serialized proof artifact 用の sidecar key です。既存 session-only push は `none` を保存し、stable push だけが `some(fingerprint)` を保存します。
 //: - record は `SelfhostTypeId` を持たず、policy と stored proof だけを保持します。
 pub struct SelfhostMemoTraitProofStoreRecord:
     key_id %SelfhostCanonicalTypeKeyId
+    stable_fingerprint %Option SelfhostMemoTraitCanonicalTypeFingerprint
     policy %SelfhostMemoTraitProofStorePolicy
     proof_kind %SelfhostMemoTraitStoredProofKind
     proof %SelfhostMemoTraitStoredAggregateProof
@@ -121,16 +131,20 @@ pub struct SelfhostMemoTraitProofStore:
 //: SelfhostMemoTraitProofStorePushErrorKind: store 追加失敗の分類
 pub enum SelfhostMemoTraitProofStorePushErrorKind:
     TypeProjectionFailed
+    StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind
     OutOfMemory
     InternalInvariant
 
 //: SelfhostMemoTraitProofStoreLookupErrorKind: store lookup 失敗の分類
 //:
 //: [目的/もくてき]:
-//: - fake evidence、stale policy、missing proof、unsupported proof kind、producer rejection を区別し、diagnostic が根本原因を選べるようにします。
+//: - fake evidence、stale policy、missing proof、stable fingerprint failure、unsupported proof kind、producer rejection を区別し、diagnostic が根本原因を選べるようにします。
 pub enum SelfhostMemoTraitProofStoreLookupErrorKind:
     TypeProjectionFailed
+    StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind
     MissingProof
+    RecordStableFingerprintMissing
+    StableFingerprintMismatch
     PolicyMismatch
     ProofKindMismatch
     ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind
@@ -142,6 +156,9 @@ pub struct SelfhostMemoTraitProofStoreStage0Summary:
     missing_key %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
     primitive_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
     unsupported_kind %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    stable_found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    stable_legacy_missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
+    stable_mismatch %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind
 
 impl Clone for SelfhostMemoTraitStoredProofKind:
     fn clone %fn &SelfhostMemoTraitStoredProofKind SelfhostMemoTraitStoredProofKind \self:
@@ -200,8 +217,11 @@ fn selfhost_memo_trait_stored_aggregate_proof_to_session %fn SelfhostMemoTraitSt
     selfhost_memo_trait_aggregate_proof_new type_id stored.fields stored.copy_proof stored.drop_proof stored.eq_proof stored.hash_proof stored.hazard stored.key_result stored.value_result
 
 //: selfhost_memo_trait_proof_store_record_new: store record を[作/つく]る
-fn selfhost_memo_trait_proof_store_record_new %fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStoreRecord \key_id\policy\proof_kind\proof:
-    SelfhostMemoTraitProofStoreRecord key_id policy proof_kind proof
+//:
+//: [契約/けいやく]:
+//: - この constructor は private helper です。caller は stable artifact 用 record なら `some(fingerprint)`、session-only compatibility record なら `none` を明示します。
+fn selfhost_memo_trait_proof_store_record_new %fn SelfhostCanonicalTypeKeyId fn Option SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitProofStoreRecord \key_id\stable_fingerprint\policy\proof_kind\proof:
+    SelfhostMemoTraitProofStoreRecord key_id stable_fingerprint policy proof_kind proof
 
 //: selfhost_memo_trait_proof_store_new: [空/から]の proof store を[作/つく]る
 pub fn selfhost_memo_trait_proof_store_new %impure fn void Result SelfhostMemoTraitProofStore StdErrorKind \void:
@@ -260,7 +280,7 @@ pub fn selfhost_memo_trait_proof_store_push_with_kind %impure fn &SelfhostTypeAr
         Result::Ok allocated_key:
             let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated_key
             let next_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated_key
-            let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new key_id policy proof_kind proof
+            let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new key_id none policy proof_kind proof
             match v::push records record:
                 Result::Ok next_records:
                     Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records
@@ -276,6 +296,45 @@ pub fn selfhost_memo_trait_proof_store_push_with_kind %impure fn &SelfhostTypeAr
 //: selfhost_memo_trait_proof_store_push: key/value 両用 proof を store へ[追加/ついか]する
 pub fn selfhost_memo_trait_proof_store_push %impure fn &SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\store\policy\type_id\proof:
     selfhost_memo_trait_proof_store_push_with_kind types store policy type_id SelfhostMemoTraitStoredProofKind::KeyAndValue proof
+
+//: selfhost_memo_trait_proof_store_push_with_kind_stable_key: stable fingerprint 付き proof を store へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` のような永続 artifact 入力に近い proof record では、session-local canonical key だけでなく stable nominal key table から作った canonical type fingerprint を保存します。
+//:
+//: [契約/けいやく]:
+//: - `stable_fingerprint` は `nominal_table` と store 内 canonical key arena から計算されます。caller が外から fingerprint を差し込む API は提供しません。
+//: - fingerprint projection が失敗した場合、この関数は入力 store owner から取り出した `records` と、projection 済みの `next_key_arena` を閉じ、`StableFingerprintProjectionRejected` を返します。
+//: - fingerprint が保存されても、lookup 成功には後段の cross-arena canonical equality、policy equality、proof kind、producer gate が必要です。
+pub fn selfhost_memo_trait_proof_store_push_with_kind_stable_key %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredProofKind impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\nominal_table\store\policy\type_id\proof_kind\proof:
+    let key_arena %SelfhostCanonicalTypeKeyArena field::get store "key_arena"
+    let records %Vec SelfhostMemoTraitProofStoreRecord field::get store "records"
+    match selfhost_canonical_type_key_project_into_arena types key_arena type_id:
+        Result::Ok allocated_key:
+            let key_id %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &allocated_key
+            let next_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated_key
+            match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &next_key_arena key_id:
+                Result::Ok fingerprint:
+                    let record %SelfhostMemoTraitProofStoreRecord selfhost_memo_trait_proof_store_record_new key_id (some fingerprint) policy proof_kind proof
+                    match v::push records record:
+                        Result::Ok next_records:
+                            Result::Ok SelfhostMemoTraitProofStore next_key_arena next_records
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            selfhost_canonical_type_key_arena_free next_key_arena
+                            Result::Err selfhost_memo_trait_proof_store_push_error_from_std error
+                Result::Err fingerprint_error:
+                    v::free records
+                    selfhost_canonical_type_key_arena_free next_key_arena
+                    Result::Err SelfhostMemoTraitProofStorePushErrorKind::StableFingerprintProjectionRejected fingerprint_error
+        Result::Err _e:
+            v::free records
+            Result::Err SelfhostMemoTraitProofStorePushErrorKind::TypeProjectionFailed
+
+//: selfhost_memo_trait_proof_store_push_stable_key: stable fingerprint 付き key/value 両用 proof を store へ[追加/ついか]する
+pub fn selfhost_memo_trait_proof_store_push_stable_key %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId impure fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitProofStore SelfhostMemoTraitProofStorePushErrorKind \types\nominal_table\store\policy\type_id\proof:
+    selfhost_memo_trait_proof_store_push_with_kind_stable_key types nominal_table store policy type_id SelfhostMemoTraitStoredProofKind::KeyAndValue proof
 
 //: selfhost_memo_trait_proof_store_lookup_result_is_accept: lookup result が成功か[返/かえ]す
 pub fn selfhost_memo_trait_proof_store_lookup_result_is_accept %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind bool \result:
@@ -294,14 +353,20 @@ fn selfhost_memo_trait_proof_store_lookup_error_kind_code %fn SelfhostMemoTraitP
     match kind:
         SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed:
             0
-        SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
+        SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintProjectionRejected _fingerprint_kind:
             1
-        SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
+        SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
             2
-        SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
+        SelfhostMemoTraitProofStoreLookupErrorKind::RecordStableFingerprintMissing:
             3
-        SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected _producer_kind:
+        SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch:
             4
+        SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch:
+            5
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProofKindMismatch:
+            6
+        SelfhostMemoTraitProofStoreLookupErrorKind::ProducerRejected _producer_kind:
+            7
 
 //: selfhost_memo_trait_proof_store_lookup_error_kind_eq: lookup error の分類と payload が同じか[返/かえ]す
 //:
@@ -316,9 +381,27 @@ pub fn selfhost_memo_trait_proof_store_lookup_error_kind_eq %fn SelfhostMemoTrai
                     true
                 _:
                     false
+        SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintProjectionRejected a_kind:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintProjectionRejected b_kind:
+                    selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_kind b_kind
+                _:
+                    false
         SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
             match b:
                 SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::RecordStableFingerprintMissing:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::RecordStableFingerprintMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch:
+            match b:
+                SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch:
                     true
                 _:
                     false
@@ -542,6 +625,78 @@ fn selfhost_memo_trait_proof_store_find_projected_loop %fn &SelfhostTypeArena fn
 fn selfhost_memo_trait_proof_store_find_projected %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key:
     selfhost_memo_trait_proof_store_find_projected_loop types store expected_policy type_id lookup_arena lookup_key 0 false
 
+//: selfhost_memo_trait_proof_store_find_projected_stable_end: stable lookup の探索終了理由を typed error へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - expected policy の record に stable fingerprint があったが一致しなかった場合は、stale policy より `StableFingerprintMismatch` を優先します。
+//: - expected policy の record が legacy `none` だけだった場合は、serialized proof 入力として使えないことを `RecordStableFingerprintMissing` で明示します。
+fn selfhost_memo_trait_proof_store_find_projected_stable_end %fn bool fn bool fn bool Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \saw_policy_mismatch\saw_stable_missing\saw_stable_mismatch:
+    if:
+        saw_stable_mismatch
+        then:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintMismatch
+        else:
+            if:
+                saw_stable_missing
+                then:
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::RecordStableFingerprintMissing
+                else:
+                    if:
+                        saw_policy_mismatch
+                        then:
+                            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::PolicyMismatch
+                        else:
+                            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::MissingProof
+
+//: selfhost_memo_trait_proof_store_find_projected_stable_loop: stable fingerprint 付き record を[線形/せんけい][探索/たんさく]する
+//:
+//: [目的/もくてき]:
+//: - lookup 時に作った canonical key と stable fingerprint の両方が、store record の key と一致する場合だけ producer gate へ進めます。
+//:
+//: [契約/けいやく]:
+//: - stable fingerprint は acceptance の十分条件ではありません。fingerprint が一致した record でも、cross-arena canonical equality、policy equality、proof kind、producer gate を必ず通します。
+//: - stable fingerprint の missing / mismatch は、canonical key と expected policy が一致した record に対してだけ記録します。無関係の record が診断を汚染しないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - 現段階では record 数 n と canonical key tree size k に対して O(n * k) です。stable map 化後は fingerprint を index にしますが、この slice では失敗分類と既存 authority の保持を優先します。
+fn selfhost_memo_trait_proof_store_find_projected_stable_loop %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn bool fn bool fn bool Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint\idx\saw_policy_mismatch\saw_stable_missing\saw_stable_mismatch:
+    let records %&Vec SelfhostMemoTraitProofStoreRecord field::get_ref store "records"
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            selfhost_memo_trait_proof_store_find_projected_stable_end saw_policy_mismatch saw_stable_missing saw_stable_mismatch
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    let store_key_arena %&SelfhostCanonicalTypeKeyArena field::get_ref store "key_arena"
+                    if:
+                        selfhost_memo_trait_proof_store_canonical_key_equal_cross store_key_arena record.key_id lookup_arena lookup_key
+                        then:
+                            if:
+                                selfhost_memo_trait_proof_store_policy_eq record.policy expected_policy
+                                then:
+                                    match record.stable_fingerprint:
+                                        Option::Some record_fingerprint:
+                                            if:
+                                                selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint lookup_fingerprint
+                                                then:
+                                                    selfhost_memo_trait_proof_store_lookup_record_kind types record type_id
+                                                else:
+                                                    selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 saw_policy_mismatch saw_stable_missing true
+                                        Option::None:
+                                            selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 saw_policy_mismatch true saw_stable_mismatch
+                                else:
+                                    selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 true saw_stable_missing saw_stable_mismatch
+                        else:
+                            selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint add idx 1 saw_policy_mismatch saw_stable_missing saw_stable_mismatch
+                Option::None:
+                    selfhost_memo_trait_proof_store_find_projected_stable_end saw_policy_mismatch saw_stable_missing saw_stable_mismatch
+
+//: selfhost_memo_trait_proof_store_find_projected_stable: stable lookup の loop を[開始/かいし]する
+fn selfhost_memo_trait_proof_store_find_projected_stable %fn &SelfhostTypeArena fn &SelfhostMemoTraitProofStore fn SelfhostMemoTraitProofStorePolicy fn SelfhostTypeId fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\store\expected_policy\type_id\lookup_arena\lookup_key\lookup_fingerprint:
+    selfhost_memo_trait_proof_store_find_projected_stable_loop types store expected_policy type_id lookup_arena lookup_key lookup_fingerprint 0 false false false
+
 //: selfhost_memo_trait_proof_store_lookup_record: store から現在 TypeId 用の evidence record を[引/ひ]く
 //:
 //: [目的/もくてき]:
@@ -561,6 +716,30 @@ pub fn selfhost_memo_trait_proof_store_lookup_record %impure fn &SelfhostTypeAre
         Result::Err _e:
             Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed
 
+//: selfhost_memo_trait_proof_store_lookup_record_stable_key: stable fingerprint 付き proof を store から[引/ひ]く
+//:
+//: [目的/もくてき]:
+//: - 現在 arena の `type_id` を canonical key と stable fingerprint へ投影し、stored proof record が同じ stable input を持つ場合だけ producer gate へ戻します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(record)`: canonical key、stable fingerprint、policy、proof kind、producer gate がすべて通りました。
+//: - `Err(kind)`: type projection、fingerprint projection、legacy missing fingerprint、stable fingerprint mismatch、policy、proof kind、producer gate のいずれかで fail-closed になりました。
+pub fn selfhost_memo_trait_proof_store_lookup_record_stable_key %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitProofStorePolicy impure fn SelfhostTypeId Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind \types\nominal_table\store\expected_policy\type_id:
+    match selfhost_canonical_type_key_project_from_arena types type_id:
+        Result::Ok lookup_alloc:
+            let lookup_key %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &lookup_alloc
+            let lookup_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena lookup_alloc
+            match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &lookup_arena lookup_key:
+                Result::Ok lookup_fingerprint:
+                    let result %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_find_projected_stable types store expected_policy type_id &lookup_arena lookup_key lookup_fingerprint
+                    selfhost_canonical_type_key_arena_free lookup_arena
+                    result
+                Result::Err fingerprint_error:
+                    selfhost_canonical_type_key_arena_free lookup_arena
+                    Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintProjectionRejected fingerprint_error
+        Result::Err _e:
+            Result::Err SelfhostMemoTraitProofStoreLookupErrorKind::TypeProjectionFailed
+
 //: selfhost_memo_trait_proof_store_stage0_summary_new: stage0 の lookup 結果を[集約/しゅうやく]する
 //:
 //: [目的/もくてき]:
@@ -568,8 +747,39 @@ pub fn selfhost_memo_trait_proof_store_lookup_record %impure fn &SelfhostTypeAre
 //:
 //: [契約/けいやく]:
 //: - この helper は検査結果を変換せず、各 `Result` をそのまま保持します。
-fn selfhost_memo_trait_proof_store_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind SelfhostMemoTraitProofStoreStage0Summary \found\stale_policy\missing_key\primitive_rejected\unsupported_kind:
-    SelfhostMemoTraitProofStoreStage0Summary found stale_policy missing_key primitive_rejected unsupported_kind
+fn selfhost_memo_trait_proof_store_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind SelfhostMemoTraitProofStoreStage0Summary \found\stale_policy\missing_key\primitive_rejected\unsupported_kind\stable_found\stable_legacy_missing\stable_mismatch:
+    SelfhostMemoTraitProofStoreStage0Summary found stale_policy missing_key primitive_rejected unsupported_kind stable_found stable_legacy_missing stable_mismatch
+
+//: selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition: stage0 用 stable nominal key table を definition fingerprint 指定で[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - proof store の stable lookup smoke が、checker 層の definition key producer や source text に依存せず、typed stable nominal key API だけで fingerprint boundary を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostNamedTypeId 10` は、この smoke で作る accepted named type にだけ対応します。
+//: - stage0 の named type は型引数を持たないため、stable key の `type_arity` は `0` です。
+fn selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition %impure fn i32 Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \definition_fingerprint:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some definition_fingerprint) (some 1) 0:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_proof_store_stage0_build_nominal_table: stage0 用 accepted stable nominal key table を[作/つく]る
+fn selfhost_memo_trait_proof_store_stage0_build_nominal_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition 41
+
+//: selfhost_memo_trait_proof_store_stage0_build_mismatched_nominal_table: stage0 用 mismatch stable nominal key table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - same canonical key / same policy の lookup で、stable fingerprint だけが違う場合に `StableFingerprintMismatch` を返すことを実行で固定します。
+fn selfhost_memo_trait_proof_store_stage0_build_mismatched_nominal_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition 42
 
 //: selfhost_memo_trait_proof_store_stage0_finish: stage0 owner を[解放/かいほう]して summary を[返/かえ]す
 //:
@@ -582,6 +792,17 @@ fn selfhost_memo_trait_proof_store_stage0_finish %impure fn SelfhostTypeArena im
     selfhost_memo_trait_proof_store_free store
     selfhost_type_arena_free arena
     Result::Ok summary
+
+//: selfhost_memo_trait_proof_store_stage0_finish_with_nominal_table: stable nominal table も[閉/と]じて stage0 を[終/お]える
+fn selfhost_memo_trait_proof_store_stage0_finish_with_nominal_table %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStoreStage0Summary Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\store\nominal_table\summary:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_memo_trait_proof_store_stage0_finish arena store summary
+
+//: selfhost_memo_trait_proof_store_stage0_finish_with_nominal_tables: stable nominal table 2 つを[閉/と]じて stage0 を[終/お]える
+fn selfhost_memo_trait_proof_store_stage0_finish_with_nominal_tables %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitProofStoreStage0Summary Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\store\nominal_table\mismatched_nominal_table\summary:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_memo_trait_stable_nominal_key_table_free mismatched_nominal_table
+    selfhost_memo_trait_proof_store_stage0_finish arena store summary
 
 //: selfhost_memo_trait_proof_store_stage0_abort: type arena だけを[閉/と]じて stage0 を[失敗/しっぱい]させる
 //:
@@ -606,6 +827,22 @@ fn selfhost_memo_trait_proof_store_stage0_abort_with_store %impure fn SelfhostTy
     selfhost_type_arena_free arena
     Result::Err StdErrorKind::InvalidOperation
 
+//: selfhost_memo_trait_proof_store_stage0_abort_with_nominal_table: stable nominal table と type arena を[閉/と]じる
+fn selfhost_memo_trait_proof_store_stage0_abort_with_nominal_table %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\nominal_table:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_memo_trait_proof_store_stage0_abort arena
+
+//: selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables: stable nominal table 2 つと type arena を[閉/と]じる
+fn selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\nominal_table\mismatched_nominal_table:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_memo_trait_stable_nominal_key_table_free mismatched_nominal_table
+    selfhost_memo_trait_proof_store_stage0_abort arena
+
+//: selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_table: proof store と stable nominal table を[閉/と]じる
+fn selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_table %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitProofStore impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\store\nominal_table:
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    selfhost_memo_trait_proof_store_stage0_abort_with_store arena store
+
 //: selfhost_memo_trait_proof_store_stage0_after_store: proof store を使う代表 lookup scenario を[構築/こうちく]する
 //:
 //: [目的/もくてき]:
@@ -618,32 +855,47 @@ fn selfhost_memo_trait_proof_store_stage0_abort_with_store %impure fn SelfhostTy
 fn selfhost_memo_trait_proof_store_stage0_after_store %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitProofStore Result SelfhostMemoTraitProofStoreStage0Summary StdErrorKind \arena\named_id\f32_id\missing_id\unsupported_id\store0:
     match selfhost_memo_trait_trusted_source_identity_set_current_result:
         Result::Ok sources:
-            let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
-            let stale_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 2 30 31 32
-            let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources rules
-            let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources stale_rules
-            let ok_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
-            match selfhost_memo_trait_proof_store_push &arena store0 policy named_id ok_proof:
-                Result::Ok store1:
-                    let primitive_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
-                    match selfhost_memo_trait_proof_store_push &arena store1 policy f32_id primitive_proof:
-                        Result::Ok store2:
-                            let unsupported_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
-                            match selfhost_memo_trait_proof_store_push_with_kind &arena store2 policy unsupported_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported unsupported_proof:
-                                Result::Ok store3:
-                                    let found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy named_id
-                                    let stale %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 stale_policy named_id
-                                    let missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy missing_id
-                                    let primitive %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy f32_id
-                                    let unsupported %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy unsupported_id
-                                    let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported
-                                    selfhost_memo_trait_proof_store_stage0_finish arena store3 summary
+            match selfhost_memo_trait_proof_store_stage0_build_nominal_table:
+                Result::Ok nominal_table:
+                    match selfhost_memo_trait_proof_store_stage0_build_mismatched_nominal_table:
+                        Result::Ok mismatched_nominal_table:
+                            let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 1 30 31 32
+                            let stale_rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new 1 2 30 31 32
+                            let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources rules
+                            let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_proof_store_policy_new sources stale_rules
+                            let ok_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+                            match selfhost_memo_trait_proof_store_push &arena store0 policy named_id ok_proof:
+                                Result::Ok store1:
+                                    let stable_legacy_missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &nominal_table &store1 policy named_id
+                                    match selfhost_memo_trait_proof_store_push_stable_key &arena &nominal_table store1 policy named_id ok_proof:
+                                        Result::Ok store1_stable:
+                                            let primitive_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+                                            match selfhost_memo_trait_proof_store_push &arena store1_stable policy f32_id primitive_proof:
+                                                Result::Ok store2:
+                                                    let unsupported_proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+                                                    match selfhost_memo_trait_proof_store_push_with_kind &arena store2 policy unsupported_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported unsupported_proof:
+                                                        Result::Ok store3:
+                                                            let found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy named_id
+                                                            let stale %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 stale_policy named_id
+                                                            let missing %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy missing_id
+                                                            let primitive %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy f32_id
+                                                            let unsupported %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record &arena &store3 policy unsupported_id
+                                                            let stable_found %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &nominal_table &store3 policy named_id
+                                                            let stable_mismatch %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitProofStoreLookupErrorKind selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &mismatched_nominal_table &store3 policy named_id
+                                                            let summary %SelfhostMemoTraitProofStoreStage0Summary selfhost_memo_trait_proof_store_stage0_summary_new found stale missing primitive unsupported stable_found stable_legacy_missing stable_mismatch
+                                                            selfhost_memo_trait_proof_store_stage0_finish_with_nominal_tables arena store3 nominal_table mismatched_nominal_table summary
+                                                        Result::Err _e:
+                                                            selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables arena nominal_table mismatched_nominal_table
+                                                Result::Err _e:
+                                                    selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables arena nominal_table mismatched_nominal_table
+                                        Result::Err _e:
+                                            selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables arena nominal_table mismatched_nominal_table
                                 Result::Err _e:
-                                    selfhost_memo_trait_proof_store_stage0_abort arena
+                                    selfhost_memo_trait_proof_store_stage0_abort_with_nominal_tables arena nominal_table mismatched_nominal_table
                         Result::Err _e:
-                            selfhost_memo_trait_proof_store_stage0_abort arena
+                            selfhost_memo_trait_proof_store_stage0_abort_with_store_and_nominal_table arena store0 nominal_table
                 Result::Err _e:
-                    selfhost_memo_trait_proof_store_stage0_abort arena
+                    selfhost_memo_trait_proof_store_stage0_abort_with_store arena store0
         Result::Err _source_error:
             selfhost_memo_trait_proof_store_stage0_abort_with_store arena store0
 

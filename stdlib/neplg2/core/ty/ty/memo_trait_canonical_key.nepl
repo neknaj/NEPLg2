@@ -212,6 +212,16 @@ pub fn selfhost_memo_trait_stable_nominal_key_schema_version %fn void i32 \void:
 pub fn selfhost_memo_trait_canonical_type_fingerprint_schema_version %fn void i32 \void:
     1
 
+//: selfhost_memo_trait_canonical_type_fingerprint_eq: canonical type fingerprint が同じ永続 key を表すか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `schema_version` と `root_hash` の両方が一致した場合だけ同一とみなします。
+//: - `root_hash` だけの比較は禁止です。fingerprint の作り方を変更して schema version を上げた artifact が、偶然同じ hash を持っても同じ proof key にはできません。
+pub fn selfhost_memo_trait_canonical_type_fingerprint_eq %fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalTypeFingerprint bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        eq a.root_hash b.root_hash
+
 //: selfhost_memo_trait_canonical_key_mix2: canonical key fingerprint 用に 2 値を[混/ま]ぜる
 fn selfhost_memo_trait_canonical_key_mix2 %fn i32 fn i32 i32 \a\b:
     mix xor mix a b

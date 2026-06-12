@@ -1,3 +1,50 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue proof store stable fingerprint checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、性能、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `selfhost/memo-proof-stable-fingerprint-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` proof store stable fingerprint sidecar and stable lookup
+- classification: selfhost implementation slice review
+- decision: proof store の existing canonical equality / policy / producer gate を維持したまま、stable nominal key table から作る canonical type fingerprint を record sidecar として保存し、serialized proof artifact 由来の lookup では legacy `none` record と stable mismatch を fail-closed に分ける。
+- implementation:
+  - `memo_trait_canonical_key.nepl` に `selfhost_memo_trait_canonical_type_fingerprint_eq` を追加し、schema version と root hash の両方を equality authority として比較する contract を固定した。
+  - `memo_trait_proof_store.nepl` の `SelfhostMemoTraitProofStoreRecord` に `stable_fingerprint %Option SelfhostMemoTraitCanonicalTypeFingerprint` を追加した。既存 push は `none` を保存し、stable push だけが `some(fingerprint)` を保存する。
+  - `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_push_with_kind_stable_key` を追加し、caller supplied fingerprint ではなく `SelfhostMemoTraitStableNominalKeyTable` と store 内 canonical key arena から fingerprint を計算するようにした。
+  - stable push の fingerprint projection failure は `StableFingerprintProjectionRejected` として payload 付きで返し、records owner と projection 済み key arena owner を閉じる。
+  - `selfhost_memo_trait_proof_store_lookup_record_stable_key` を追加し、lookup 側でも stable fingerprint を計算する。cross-arena canonical equality、policy equality、stable fingerprint equality、proof kind、producer gate のすべてを通した場合だけ accepted record を返す。
+  - legacy `none` record は `RecordStableFingerprintMissing`、stable fingerprint 不一致は `StableFingerprintMismatch` に分けた。stage0 smoke では stable accepted、legacy missing、mismatch の 3 経路を実行で確認する。
+  - source policy regression を更新し、stable path が source text / span / path suffix / display name / diagnostic text / lexeme / checker-layer definition key producer を proof authority にしないことを固定した。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Goodall は Blocker / Required なしで approve。owner cleanup、stable fingerprint が canonical equality / policy / producer gate を置換していないこと、source / span authority に戻っていないことを確認した。
+  - Fermat は初回 review で stable mismatch smoke の追加を Required とした。mismatched nominal table と `stable_mismatch` stage0 check を追加後、approve になった。
+- policy/spec:
+  - Blocker: なし。
+  - Required: stable mismatch smoke を反映した。
+  - Non-blocker: stable map / index、`.neplproof` reader、full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は後続に残す。
+  - Approve: subagent 2 件の review 指摘は反映済み。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: proof store が stable fingerprint sidecar を受け取った後も、fingerprint-only acceptance、source/span authority、legacy `none` record の永続再利用へ退行しないようにするため。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - stable push / lookup の fingerprint projection は対象 canonical key tree の node / argument edge に比例する。
+  - proof store lookup は現段階では Vec 線形探索を維持した。永続 key の正しさ境界を優先し、stable map / index は後続の性能 slice に残す。
+  - focused doctest では `resource_static_initialized_moves` と `resource_static_check` が秒単位で残るため、RPN cold base 高速化とは別に selfhost proof store stage0 の Resource proof コストも継続観測対象とする。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_canonical_key_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-stable-fingerprint-focused-final.json`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - 既存 warning: Node の WASI experimental warning と Git の CRLF 変換 warning が表示される。
+- residual:
+  - re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、proof store の stable map / index、generic instantiation 用 stable type argument identity を接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue canonical nominal key checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、性能、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。

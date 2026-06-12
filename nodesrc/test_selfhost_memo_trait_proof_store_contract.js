@@ -30,6 +30,11 @@ assert.match(
     /^#import "\.\/memo_trait_source" as \*$/m,
     "memo trait proof store must import the trusted memo trait source registry",
 );
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_canonical_key" as \*$/m,
+    "memo trait proof store must import stable canonical key projection through the core/ty split module",
+);
 assert.doesNotMatch(
     source,
     /#import "neplg2\/core\/(?:lower|hir|check|resource|backend)\//,
@@ -42,8 +47,8 @@ assert.match(
 );
 assert.match(
     source,
-    /store record は `SelfhostTypeId` を保持しません[\s\S]*現在の `SelfhostTypeArena` から対象 TypeId を canonical key へ再投影/,
-    "proof store must document that persistent records do not store session-local TypeId and lookup reprojects the current TypeId",
+    /store record は `SelfhostTypeId` を保持しません[\s\S]*stable API[\s\S]*stable_fingerprint = some[\s\S]*cross-arena canonical equality[\s\S]*producer gate/,
+    "proof store must document that records do not store session-local TypeId and stable lookup still reprojects through canonical equality and producer gate",
 );
 assert.match(
     policySource,
@@ -67,18 +72,48 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostMemoTraitProofStoreRecord:[\s\S]*key_id %SelfhostCanonicalTypeKeyId[\s\S]*policy %SelfhostMemoTraitProofStorePolicy[\s\S]*proof_kind %SelfhostMemoTraitStoredProofKind[\s\S]*proof %SelfhostMemoTraitStoredAggregateProof/,
-    "proof store record must be keyed by canonical type key and policy, not by TypeId",
+    /pub struct SelfhostMemoTraitProofStoreRecord:[\s\S]*key_id %SelfhostCanonicalTypeKeyId[\s\S]*stable_fingerprint %Option SelfhostMemoTraitCanonicalTypeFingerprint[\s\S]*policy %SelfhostMemoTraitProofStorePolicy[\s\S]*proof_kind %SelfhostMemoTraitStoredProofKind[\s\S]*proof %SelfhostMemoTraitStoredAggregateProof/,
+    "proof store record must be keyed by canonical type key, optional stable fingerprint, and policy, not by TypeId",
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitProofStoreLookupErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*MissingProof[\s\S]*PolicyMismatch[\s\S]*ProofKindMismatch[\s\S]*ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind/,
-    "proof store lookup must expose typed fail-closed errors for projection, key, policy, proof-kind, and producer rejection",
+    /pub enum SelfhostMemoTraitProofStoreLookupErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*MissingProof[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch[\s\S]*PolicyMismatch[\s\S]*ProofKindMismatch[\s\S]*ProducerRejected %SelfhostMemoTraitEvidenceProduceRejectKind/,
+    "proof store lookup must expose typed fail-closed errors for projection, stable fingerprint, key, policy, proof-kind, and producer rejection",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitProofStorePushErrorKind:[\s\S]*TypeProjectionFailed[\s\S]*StableFingerprintProjectionRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind[\s\S]*OutOfMemory[\s\S]*InternalInvariant/,
+    "stable proof store push must preserve canonical fingerprint projection rejection as a typed payload",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_record_new[\s\S]*Option SelfhostMemoTraitCanonicalTypeFingerprint[\s\S]*SelfhostMemoTraitProofStoreRecord key_id stable_fingerprint policy proof_kind proof/,
+    "proof store record constructor must require the stable fingerprint option explicitly",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_push_with_kind[\s\S]*selfhost_memo_trait_proof_store_record_new key_id none policy proof_kind proof/,
+    "existing session-only push must create legacy records with stable_fingerprint = none",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_push_with_kind_stable_key[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &next_key_arena key_id[\s\S]*selfhost_memo_trait_proof_store_record_new key_id \(some fingerprint\) policy proof_kind proof[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
+    "stable push must compute canonical type fingerprint from the stored key arena and store it as some(fingerprint)",
+);
+assert.match(
+    source,
+    /Result::Err fingerprint_error:[\s\S]*v::free records[\s\S]*selfhost_canonical_type_key_arena_free next_key_arena[\s\S]*StableFingerprintProjectionRejected fingerprint_error/,
+    "stable push must free records and the projected key arena if fingerprint projection fails",
 );
 assert.match(
     source,
     /selfhost_memo_trait_proof_store_lookup_record[\s\S]*selfhost_canonical_type_key_project_from_arena[\s\S]*selfhost_memo_trait_proof_store_find_projected[\s\S]*selfhost_canonical_type_key_arena_free lookup_arena/,
     "lookup must project the current TypeId into a temporary canonical key arena and free it after lookup",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_lookup_record_stable_key[\s\S]*selfhost_canonical_type_key_project_from_arena[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &lookup_arena lookup_key[\s\S]*selfhost_memo_trait_proof_store_find_projected_stable[\s\S]*selfhost_canonical_type_key_arena_free lookup_arena/,
+    "stable lookup must project the current TypeId, compute its stable fingerprint, run stable store lookup, and free the temporary arena",
 );
 assert.match(
     source,
@@ -107,6 +142,11 @@ assert.match(
 );
 assert.match(
     source,
+    /SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintProjectionRejected a_kind:[\s\S]*SelfhostMemoTraitProofStoreLookupErrorKind::StableFingerprintProjectionRejected b_kind:[\s\S]*selfhost_memo_trait_canonical_fingerprint_error_kind_eq a_kind b_kind/,
+    "lookup error equality must compare the stable fingerprint projection reject payload",
+);
+assert.match(
+    source,
     /別 arena の canonical key[\s\S]*fn selfhost_memo_trait_proof_store_canonical_key_equal_cross/,
     "proof store must define cross-arena canonical key equality for lookup without mutating the store key arena",
 );
@@ -117,8 +157,32 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch/,
-    "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, and unsupported proof kind rejection",
+    /fn selfhost_memo_trait_proof_store_find_projected_stable_loop[\s\S]*selfhost_memo_trait_proof_store_canonical_key_equal_cross[\s\S]*selfhost_memo_trait_proof_store_policy_eq record\.policy expected_policy[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint lookup_fingerprint[\s\S]*selfhost_memo_trait_proof_store_lookup_record_kind types record type_id/,
+    "stable lookup must require canonical equality, policy equality, stable fingerprint equality, and producer gate validation",
+);
+assert.match(
+    source,
+    /Option::None:[\s\S]*selfhost_memo_trait_proof_store_find_projected_stable_loop[\s\S]*true saw_stable_mismatch/,
+    "stable lookup must fail closed on legacy records that do not carry a stable fingerprint",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.found[\s\S]*PolicyMismatch[\s\S]*MissingProof[\s\S]*ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::PrimitiveNotAggregate[\s\S]*ProofKindMismatch[\s\S]*selfhost_memo_trait_proof_store_lookup_result_is_accept summary\.stable_found[\s\S]*RecordStableFingerprintMissing[\s\S]*StableFingerprintMismatch/,
+    "stage0 must prove accepted lookup, stale policy rejection, missing key rejection, primitive fake proof rejection, unsupported proof kind rejection, stable lookup acceptance, legacy stable-fingerprint rejection, and stable mismatch rejection",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_proof_store_stage0_build_mismatched_nominal_table[\s\S]*selfhost_memo_trait_proof_store_stage0_build_nominal_table_with_definition 42[\s\S]*selfhost_memo_trait_proof_store_lookup_record_stable_key &arena &mismatched_nominal_table &store3 policy named_id/,
+    "stage0 must exercise stable fingerprint mismatch with a typed mismatched nominal table",
+);
+const codeOnly = source
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("//:"))
+    .join("\n");
+assert.doesNotMatch(
+    codeOnly,
+    /source_text|source_span|span|path_suffix|display_name|diagnostic|lexeme|memo_trait_definition_key|core\/check\/module/,
+    "proof store stable fingerprint path must not use source text, spans, display names, diagnostics, lexemes, or checker-layer definition key producers as authority",
 );
 assert.doesNotMatch(
     source,

@@ -285,3 +285,17 @@ accepted path は source text、span、syntax range、file path、display name�
 source policy は `nodesrc/test_selfhost_memo_trait_canonical_key_contract.js` で固定した。検査内容は、目的 / 契約 / 現状 / 計算量 / doctest、stable nominal key payload、typed error enum、missing / duplicate nominal key、Named / Applied の table 経由解決、argument range / traversal fuel boundary、checker-layer producer 非依存、source / span / path / display / diagnostic / lexeme 非 authority、proof store doc の sidecar projection 記述、行数制限 / doc comment 長制限禁止を含む。
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。
+
+## 2026-06-12 selfhost memo trait proof store stable fingerprint checkpoint
+
+`memo_trait_proof_store.nepl` の record に `stable_fingerprint %Option SelfhostMemoTraitCanonicalTypeFingerprint` を追加し、永続 artifact 由来の proof 入力を stable nominal key table 経由の canonical type fingerprint で fail-closed に検査する経路を接続した。
+
+既存の `selfhost_memo_trait_proof_store_push` / `selfhost_memo_trait_proof_store_lookup_record` は session-local compatibility path として残し、record には `stable_fingerprint = none` を保存する。これにより、現在の selfhost stage0 や既存 session 内 lookup の互換性は維持しつつ、serialized proof artifact として再利用できる record と legacy record を型付きに区別できる。
+
+新しい `selfhost_memo_trait_proof_store_push_stable_key` / `selfhost_memo_trait_proof_store_push_with_kind_stable_key` は、caller が外から fingerprint を差し込む API ではない。`SelfhostMemoTraitStableNominalKeyTable` と store 内 canonical key arena から `SelfhostMemoTraitCanonicalTypeFingerprint` を計算し、成功した場合だけ `some(fingerprint)` を record に保存する。fingerprint projection が失敗した場合は、records owner と projection 済み key arena owner を閉じて、`StableFingerprintProjectionRejected` を typed payload 付きで返す。
+
+新しい `selfhost_memo_trait_proof_store_lookup_record_stable_key` は、lookup 側でも stable nominal key table から expected fingerprint を計算する。探索ではまず既存の cross-arena canonical equality を満たす record だけを候補にし、policy が一致した後に `stable_fingerprint` を検査する。legacy `none` record は `RecordStableFingerprintMissing` として fail-closed にし、`some` があっても fingerprint が違う record は `StableFingerprintMismatch` として拒否する。fingerprint が一致した場合でも、proof kind と existing producer gate を必ず通すため、fingerprint 単体を acceptance authority にはしない。
+
+stage0 smoke では、legacy record の stable lookup が `RecordStableFingerprintMissing` になること、stable push した record が stable lookup で成功すること、同じ session-local canonical key でも stable nominal key table の definition fingerprint が違う場合に `StableFingerprintMismatch` になることを実行で固定した。source policy は proof store が source text、span、path suffix、display name、diagnostic text、lexeme、checker-layer definition key producer を accepted proof authority にしないこと、stable fingerprint path でも canonical equality / policy / producer gate を維持することを確認する。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、proof store の stable map / index、generic instantiation 用 stable type argument identity を接続することである。
