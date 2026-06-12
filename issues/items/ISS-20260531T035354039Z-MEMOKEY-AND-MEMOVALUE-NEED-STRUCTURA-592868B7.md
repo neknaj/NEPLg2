@@ -327,6 +327,31 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait proof store stable identity checkpoint
+
+`memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStoreStableIdentity` を追加し、stable duplicate 判定と将来の stable map / serialized index preseed が共有する store-local identity boundary を名前付き struct にした。
+
+identity fields は `SelfhostCanonicalTypeKeyId`、`SelfhostMemoTraitProofStorePolicy`、`SelfhostMemoTraitCanonicalTypeFingerprint` に限定する。`SelfhostCanonicalTypeKeyId` は store の `SelfhostCanonicalTypeKeyArena` と対でだけ意味を持つため、この struct をそのまま `.neplproof` の serialized key へ書き出してはいけない。永続 artifact では canonical key の stable serialization と policy identity を別 payload として保存する。
+
+proof kind は stable identity に含めない。同じ canonical key / policy / stable fingerprint の record が proof kind だけ違って複数存在すると、lookup の first-wins により片方が隠れ、永続 artifact の意味が挿入順に依存するためである。proof kind は lookup / producer gate の互換性確認で扱い、same stable identity の duplicate を許す理由にはしない。
+
+`selfhost_memo_trait_proof_store_stable_identity_new`、`selfhost_memo_trait_proof_store_stable_identity_eq`、`selfhost_memo_trait_proof_store_record_stable_identity_matches` を追加し、duplicate scan は loose tuple ではなく typed identity helper を通る。identity equality は canonical equality、policy equality、stable fingerprint equality をすべて要求し、fingerprint-only acceptance を作らない。
+
+stage0 smoke は、1回目を `KeyAndValue` stable push、2回目を `KeyOnlyUnsupported` stable push にして、proof kind が異なっても same stable identity なら `StableDuplicate` になることを実行で固定した。source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` で、store-local identity struct、serialized `.neplproof` key との分離、proof kind 除外、typed identity equality、record matcher、typed duplicate scan、異なる proof kind の duplicate regression、line count / doc comment length cap 禁止を確認する。
+
+subagent review では Pasteur が Required として、store-local identity と serialized artifact semantics の分離、identity field の限定、proof kind 除外、same key / policy / fingerprint で proof kind が違っても `StableDuplicate` になる source-policy case、古い duplicate helper signature から typed identity helper shape への source policy 更新を求めた。Archimedes は実装 / test を approve し、Required として note / issue の durable checkpoint 追記を求め、Non-blocker として identity struct に `proof_kind` / `record_index` / TypeId 系 field が混入する退行を scoped negative regex で落とす案を挙げた。今回の実装と記録更新はすべて同じ slice 内で反映した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-stable-identity-focused.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store stable duplicate checkpoint
 
 `memo_trait_proof_store.nepl` の stable proof push に duplicate rejection を追加した。

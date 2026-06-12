@@ -144,10 +144,32 @@ pub struct SelfhostMemoTraitProofStoreStableIndexEntry:
 //: - `records` は session-local compatibility record と stable record の両方を挿入順に保持します。通常 lookup はこの順序で first-wins になります。
 //: - `stable_index` は stable push で追加された record だけを指します。legacy record の `stable_fingerprint = none` はここに入れず、stable lookup の失敗診断は full stable scan で分類します。
 //: - lookup 用の一時 canonical key arena はこの store に追加せず、cross-arena equality で比較してから解放します。
+//: - `SelfhostMemoTraitProofStoreStableIdentity` は store-local identity です。`SelfhostCanonicalTypeKeyId` を含むため、そのまま `.neplproof` の serialized key にはしません。永続 artifact では canonical key の stable serialization と policy identity を別途保存します。
 pub struct SelfhostMemoTraitProofStore:
     key_arena %SelfhostCanonicalTypeKeyArena
     records %Vec SelfhostMemoTraitProofStoreRecord
     stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry
+
+//: SelfhostMemoTraitProofStoreStableIdentity: stable proof の store-local identity
+//:
+//: [目的/もくてき]:
+//: - stable proof record の重複判定、将来の stable map、serialized index preseed が共有する identity 境界を、引数列ではなく型として表します。
+//:
+//: [契約/けいやく]:
+//: - `key_id` は store の `key_arena` 内だけで意味を持つ store-local id です。この struct をそのまま `.neplproof` へ書き出してはいけません。
+//: - `policy` は source identity と solver rule identity を含む再利用境界です。同じ canonical key でも policy が違えば別 identity です。
+//: - `stable_fingerprint` は stable nominal key table から作った canonical type fingerprint です。fingerprint 単独では authority にせず、canonical key equality と policy equality と合わせて使います。
+//: - proof kind は stable identity に含めません。同じ key / policy / fingerprint で key-only proof と key-and-value proof が共存すると、lookup の first-wins で片方が隠れるためです。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では Vec-backed store 内の duplicate rejection と source policy contract 用の identity 境界です。永続 map / serialized index の codec は後続 slice で、この contract に従って別の stable serialization 形式を持ちます。
+//:
+//: [計算量/けいさんりょう]:
+//: - constructor は O(1) です。equality は canonical key tree size k に対して O(k) です。
+struct SelfhostMemoTraitProofStoreStableIdentity:
+    key_id %SelfhostCanonicalTypeKeyId
+    policy %SelfhostMemoTraitProofStorePolicy
+    stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
 
 //: SelfhostMemoTraitProofStorePushErrorKind: store 追加失敗の分類
 pub enum SelfhostMemoTraitProofStorePushErrorKind:
@@ -216,6 +238,14 @@ impl Copy for SelfhostMemoTraitProofStoreStableIndexEntry:
     fn copy_mark %fn SelfhostMemoTraitProofStoreStableIndexEntry SelfhostMemoTraitProofStoreStableIndexEntry \self:
         self
 
+impl Clone for SelfhostMemoTraitProofStoreStableIdentity:
+    fn clone %fn &SelfhostMemoTraitProofStoreStableIdentity SelfhostMemoTraitProofStoreStableIdentity \self:
+        *self
+
+impl Copy for SelfhostMemoTraitProofStoreStableIdentity:
+    fn copy_mark %fn SelfhostMemoTraitProofStoreStableIdentity SelfhostMemoTraitProofStoreStableIdentity \self:
+        self
+
 impl Clone for SelfhostMemoTraitProofStorePushErrorKind:
     fn clone %fn &SelfhostMemoTraitProofStorePushErrorKind SelfhostMemoTraitProofStorePushErrorKind \self:
         *self
@@ -263,6 +293,43 @@ fn selfhost_memo_trait_proof_store_record_new %fn SelfhostCanonicalTypeKeyId fn 
 fn selfhost_memo_trait_proof_store_stable_index_entry_new %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 SelfhostMemoTraitProofStoreStableIndexEntry \stable_fingerprint\record_index:
     SelfhostMemoTraitProofStoreStableIndexEntry stable_fingerprint record_index
 
+//: selfhost_memo_trait_proof_store_stable_identity_new: store-local stable identity を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `key_id` は `key_arena` と対でだけ意味を持ちます。この helper は key_id の arena 所属を検査しません。
+//: - caller は `stable_fingerprint` を同じ key_id と stable nominal key table から計算済みであることを保証します。
+fn selfhost_memo_trait_proof_store_stable_identity_new %fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitProofStoreStableIdentity \key_id\policy\stable_fingerprint:
+    SelfhostMemoTraitProofStoreStableIdentity key_id policy stable_fingerprint
+
+//: selfhost_memo_trait_proof_store_stable_identity_eq: 同じ store arena 内の stable identity が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `key_arena` は `a.key_id` と `b.key_id` の両方を所有する store-local arena です。
+//: - stable fingerprint は canonical key equality の代替ではありません。必ず canonical key equality、policy equality、stable fingerprint equality をすべて確認します。
+//: - proof kind は比較しません。proof kind の違いは stored payload の互換性であり、same stable identity の複数 record を許す根拠にはしません。
+fn selfhost_memo_trait_proof_store_stable_identity_eq %fn &SelfhostCanonicalTypeKeyArena fn SelfhostMemoTraitProofStoreStableIdentity fn SelfhostMemoTraitProofStoreStableIdentity bool \key_arena\a\b:
+    and:
+        selfhost_memo_trait_proof_store_canonical_key_equal_cross key_arena a.key_id key_arena b.key_id
+        and:
+            selfhost_memo_trait_proof_store_policy_eq a.policy b.policy
+            selfhost_memo_trait_canonical_type_fingerprint_eq a.stable_fingerprint b.stable_fingerprint
+
+//: selfhost_memo_trait_proof_store_record_stable_identity_matches: record が stable identity と一致するか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - legacy `stable_fingerprint = none` record を、duplicate check や serialized proof preseed の stable identity 候補から除外します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `true`: record は同じ canonical key、policy、stable fingerprint を持つ stable proof record です。
+//: - `false`: legacy record、または別 identity の record です。
+fn selfhost_memo_trait_proof_store_record_stable_identity_matches %fn &SelfhostCanonicalTypeKeyArena fn SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity bool \key_arena\record\candidate:
+    match record.stable_fingerprint:
+        Option::Some record_fingerprint:
+            let record_identity %SelfhostMemoTraitProofStoreStableIdentity selfhost_memo_trait_proof_store_stable_identity_new record.key_id record.policy record_fingerprint
+            selfhost_memo_trait_proof_store_stable_identity_eq key_arena record_identity candidate
+        Option::None:
+            false
+
 //: selfhost_memo_trait_proof_store_stable_duplicate_exists_loop: stable proof の重複を[線形/せんけい][探索/たんさく]する
 //:
 //: [目的/もくてき]:
@@ -276,7 +343,7 @@ fn selfhost_memo_trait_proof_store_stable_index_entry_new %fn SelfhostMemoTraitC
 //:
 //: [計算量/けいさんりょう]:
 //: - record 数 n と canonical key tree size k に対して O(n * k) です。後続の stable map 永続化で、この探索は stable key index へ置き換えます。
-fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStorePolicy fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 bool \key_arena\records\expected_policy\candidate_key\candidate_fingerprint\idx:
+fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity fn i32 bool \key_arena\records\candidate\idx:
     let n %i32 v::len records
     if:
         ge idx n
@@ -286,25 +353,11 @@ fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop %fn &SelfhostCan
             match v::get records idx:
                 Option::Some record:
                     if:
-                        selfhost_memo_trait_proof_store_canonical_key_equal_cross key_arena record.key_id key_arena candidate_key
+                        selfhost_memo_trait_proof_store_record_stable_identity_matches key_arena record candidate
                         then:
-                            if:
-                                selfhost_memo_trait_proof_store_policy_eq record.policy expected_policy
-                                then:
-                                    match record.stable_fingerprint:
-                                        Option::Some record_fingerprint:
-                                            if:
-                                                selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint candidate_fingerprint
-                                                then:
-                                                    true
-                                                else:
-                                                    selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records expected_policy candidate_key candidate_fingerprint add idx 1
-                                        Option::None:
-                                            selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records expected_policy candidate_key candidate_fingerprint add idx 1
-                                else:
-                                    selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records expected_policy candidate_key candidate_fingerprint add idx 1
+                            true
                         else:
-                            selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records expected_policy candidate_key candidate_fingerprint add idx 1
+                            selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records candidate add idx 1
                 Option::None:
                     false
 
@@ -316,8 +369,8 @@ fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop %fn &SelfhostCan
 //: [戻/もど]り[値/ち]:
 //: - `true`: 同じ canonical key、policy、stable fingerprint を持つ stable record がすでにあります。
 //: - `false`: stable proof として同じ identity の record はありません。
-fn selfhost_memo_trait_proof_store_stable_duplicate_exists %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStorePolicy fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitCanonicalTypeFingerprint bool \key_arena\records\expected_policy\candidate_key\candidate_fingerprint:
-    selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records expected_policy candidate_key candidate_fingerprint 0
+fn selfhost_memo_trait_proof_store_stable_duplicate_exists %fn &SelfhostCanonicalTypeKeyArena fn &Vec SelfhostMemoTraitProofStoreRecord fn SelfhostMemoTraitProofStoreStableIdentity bool \key_arena\records\candidate:
+    selfhost_memo_trait_proof_store_stable_duplicate_exists_loop key_arena records candidate 0
 
 //: selfhost_memo_trait_proof_store_push_error_kind_eq: push error の分類と payload が同じか[返/かえ]す
 //:
@@ -464,8 +517,9 @@ pub fn selfhost_memo_trait_proof_store_push_with_kind_stable_key %impure fn &Sel
             let next_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated_key
             match selfhost_memo_trait_canonical_type_fingerprint_result nominal_table &next_key_arena key_id:
                 Result::Ok fingerprint:
+                    let stable_identity %SelfhostMemoTraitProofStoreStableIdentity selfhost_memo_trait_proof_store_stable_identity_new key_id policy fingerprint
                     if:
-                        selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records policy key_id fingerprint
+                        selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records stable_identity
                         then:
                             v::free records
                             v::free stable_index
@@ -1073,6 +1127,7 @@ fn selfhost_memo_trait_proof_store_stage0_build_mismatched_nominal_table %impure
 //:
 //: [目的/もくてき]:
 //: - stage0 smoke が、同じ canonical key、solver policy、stable fingerprint の stable proof を2回 push した場合に、2回目が `StableDuplicate` で拒否されることを確認できるようにします。
+//: - 2回目は異なる proof kind で push します。proof kind が違っても同じ stable identity の record を許すと lookup の first-wins が永続 artifact の意味を隠すため、duplicate として拒否する必要があります。
 //:
 //: [契約/けいやく]:
 //: - この helper は本体の proof store を汚さないように、検査専用の短命 store を別に作成します。
@@ -1083,7 +1138,7 @@ fn selfhost_memo_trait_proof_store_stage0_duplicate_rejection %impure fn &Selfho
         Result::Ok store0:
             match selfhost_memo_trait_proof_store_push_stable_key types nominal_table store0 policy type_id proof:
                 Result::Ok store1:
-                    match selfhost_memo_trait_proof_store_push_stable_key types nominal_table store1 policy type_id proof:
+                    match selfhost_memo_trait_proof_store_push_with_kind_stable_key types nominal_table store1 policy type_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported proof:
                         Result::Ok store2:
                             selfhost_memo_trait_proof_store_free store2
                             Result::Ok unit

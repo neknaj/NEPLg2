@@ -82,6 +82,28 @@ assert.match(
 );
 assert.match(
     source,
+    /struct SelfhostMemoTraitProofStoreStableIdentity:[\s\S]*key_id %SelfhostCanonicalTypeKeyId[\s\S]*policy %SelfhostMemoTraitProofStorePolicy[\s\S]*stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint/,
+    "stable proof store must represent the duplicate and future stable-map identity as a typed store-local identity",
+);
+const stableIdentityStruct = source.match(
+    /struct SelfhostMemoTraitProofStoreStableIdentity:\n(?:(?:    .+)\n)+/,
+);
+assert.ok(
+    stableIdentityStruct,
+    "stable proof store identity struct must be present for scoped authority checks",
+);
+assert.doesNotMatch(
+    stableIdentityStruct[0],
+    /proof_kind|proof %|record_index|SelfhostTypeId|SelfhostNamedTypeId|source_text|source_span|span|path_suffix|display_name|diagnostic|lexeme/,
+    "stable identity fields must stay limited to canonical key id, policy, and stable fingerprint authority",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitProofStoreStableIdentity: stable proof の store-local identity[\s\S]*そのまま `\.neplproof` へ書き出してはいけません[\s\S]*proof kind は stable identity に含めません/,
+    "stable proof identity documentation must distinguish store-local identity from serialized .neplproof identity and exclude proof kind deliberately",
+);
+assert.match(
+    source,
     /pub struct SelfhostMemoTraitProofStore:[\s\S]*key_arena %SelfhostCanonicalTypeKeyArena[\s\S]*records %Vec SelfhostMemoTraitProofStoreRecord[\s\S]*stable_index %Vec SelfhostMemoTraitProofStoreStableIndexEntry/,
     "proof store must own a stable sidecar index in addition to the canonical key arena and record vector",
 );
@@ -112,12 +134,22 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop[\s\S]*selfhost_memo_trait_proof_store_canonical_key_equal_cross key_arena record\.key_id key_arena candidate_key[\s\S]*selfhost_memo_trait_proof_store_policy_eq record\.policy expected_policy[\s\S]*match record\.stable_fingerprint:[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq record_fingerprint candidate_fingerprint/,
-    "stable duplicate detection must require canonical equality, policy equality, and stable fingerprint equality instead of trusting the fingerprint alone",
+    /fn selfhost_memo_trait_proof_store_stable_identity_eq[\s\S]*selfhost_memo_trait_proof_store_canonical_key_equal_cross key_arena a\.key_id key_arena b\.key_id[\s\S]*selfhost_memo_trait_proof_store_policy_eq a\.policy b\.policy[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq a\.stable_fingerprint b\.stable_fingerprint/,
+    "stable identity equality must require canonical equality, policy equality, and stable fingerprint equality instead of trusting the fingerprint alone",
 );
 assert.match(
     source,
-    /Result::Ok fingerprint:[\s\S]*selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records policy key_id fingerprint[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate[\s\S]*let record_index %i32 v::len &records/,
+    /fn selfhost_memo_trait_proof_store_record_stable_identity_matches[\s\S]*match record\.stable_fingerprint:[\s\S]*selfhost_memo_trait_proof_store_stable_identity_new record\.key_id record\.policy record_fingerprint[\s\S]*selfhost_memo_trait_proof_store_stable_identity_eq key_arena record_identity candidate[\s\S]*Option::None:[\s\S]*false/,
+    "stable duplicate detection must exclude legacy records by projecting records through the typed stable identity helper",
+);
+assert.match(
+    source,
+    /fn selfhost_memo_trait_proof_store_stable_duplicate_exists_loop[\s\S]*SelfhostMemoTraitProofStoreStableIdentity[\s\S]*selfhost_memo_trait_proof_store_record_stable_identity_matches key_arena record candidate/,
+    "stable duplicate scan must operate on the typed stable identity boundary instead of a loose argument tuple",
+);
+assert.match(
+    source,
+    /Result::Ok fingerprint:[\s\S]*let stable_identity %SelfhostMemoTraitProofStoreStableIdentity selfhost_memo_trait_proof_store_stable_identity_new key_id policy fingerprint[\s\S]*selfhost_memo_trait_proof_store_stable_duplicate_exists &next_key_arena &records stable_identity[\s\S]*SelfhostMemoTraitProofStorePushErrorKind::StableDuplicate[\s\S]*let record_index %i32 v::len &records/,
     "stable push must reject duplicate stable proof identity before appending the record and sidecar index",
 );
 assert.match(
@@ -237,8 +269,8 @@ assert.match(
 );
 assert.match(
     source,
-    /fn selfhost_memo_trait_proof_store_stage0_duplicate_rejection[\s\S]*selfhost_memo_trait_proof_store_new[\s\S]*selfhost_memo_trait_proof_store_push_stable_key types nominal_table store0 policy type_id proof[\s\S]*selfhost_memo_trait_proof_store_push_stable_key types nominal_table store1 policy type_id proof[\s\S]*Result::Err kind/,
-    "stage0 must exercise duplicate stable proof insertion through the public stable push API",
+    /selfhost_memo_trait_proof_store_stage0_duplicate_rejection: stable proof duplicate[\s\S]*異なる proof kind[\s\S]*fn selfhost_memo_trait_proof_store_stage0_duplicate_rejection[\s\S]*selfhost_memo_trait_proof_store_new[\s\S]*selfhost_memo_trait_proof_store_push_stable_key types nominal_table store0 policy type_id proof[\s\S]*selfhost_memo_trait_proof_store_push_with_kind_stable_key types nominal_table store1 policy type_id SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported proof[\s\S]*Result::Err kind/,
+    "stage0 must prove that the same stable identity rejects as StableDuplicate even when the second push uses a different proof kind",
 );
 const codeOnly = source
     .split("\n")

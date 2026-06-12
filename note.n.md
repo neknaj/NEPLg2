@@ -1,3 +1,57 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue proof store stable identity checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、探索範囲削減、cache / prechecked artifact、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。root cause 修正、checkpoint commit、note.n.md 更新、行数制限や doc comment 長制限で丁寧な説明を妨げない方針に従った。
+- 対象 branch: `selfhost/memo-proof-stable-identity-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost proof store store-local stable identity boundary
+- classification: selfhost implementation slice review
+- decision: stable duplicate 判定と将来の stable map / serialized index preseed の identity 境界を、引数列ではなく `SelfhostMemoTraitProofStoreStableIdentity` として名前付きの store-local struct にした。この identity は `SelfhostCanonicalTypeKeyId` を含むため `.neplproof` の serialized key ではない。永続 artifact では canonical key の stable serialization と policy identity を別 payload として保存する。
+- policy/spec:
+  - Blocker: なし。
+  - Required: Pasteur の Required だった store-local identity 明記、identity field の限定、proof kind 除外の source policy regression、古い duplicate helper signature から typed identity helper shape への source policy 更新を反映した。
+  - Non-blocker: cross-arena identity equality helper、`.neplproof` serializer / reader、永続 artifact 用 stable map / serialized index は後続 slice とする。
+  - Question: proof kind を identity へ含めるかは、first-wins ambiguity を隠さないため除外する判断を維持した。proof kind は producer gate / acceptance の互換性確認で扱い、same key / policy / fingerprint の複数 record を許す根拠にはしない。
+  - Approve: Pasteur は slice 自体に blocker はなく、guardrail を明示すれば正しい次境界だと評価した。Required は同じ slice 内で反映済み。
+- implementation/test:
+  - `SelfhostMemoTraitProofStoreStableIdentity` を追加し、`key_id %SelfhostCanonicalTypeKeyId`、`policy %SelfhostMemoTraitProofStorePolicy`、`stable_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint` だけを保持する store-local identity にした。
+  - `selfhost_memo_trait_proof_store_stable_identity_new`、`selfhost_memo_trait_proof_store_stable_identity_eq`、`selfhost_memo_trait_proof_store_record_stable_identity_matches` を追加し、duplicate scan が loose tuple ではなく typed identity boundary を通るようにした。
+  - identity equality は canonical equality、policy equality、stable fingerprint equality をすべて要求し、fingerprint-only acceptance を作らない。
+  - `proof_kind`、proof payload、`record_index`、`SelfhostTypeId`、`SelfhostNamedTypeId`、source text、span、path、display、diagnostic、lexeme は stable identity の authority に入れない。
+  - `selfhost_memo_trait_proof_store_stage0_duplicate_rejection` は、1回目を `KeyAndValue` stable push、2回目を `KeyOnlyUnsupported` stable push にし、proof kind が異なっても same stable identity なら `StableDuplicate` になることを実行で固定した。
+  - `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を更新し、store-local stable identity struct、`.neplproof` へ直列化しない説明、proof kind 除外、identity equality、record matcher、typed duplicate scan、異なる proof kind の stage0 duplicate regression、line count / doc comment length cap 禁止を固定した。
+- subagent review:
+  - subagent_review_ids: `019eba17-808a-7791-b828-7855f763bd46`, `019eba1d-c2d2-7993-a173-a52a0dd6744e`
+  - subagent_review_count: 2
+  - Pasteur: Required。Blocker はなし。store-local identity と serialized artifact semantics を分けること、identity fields を canonical key id / policy / stable fingerprint に限定すること、proof kind を除外すること、same key / policy / fingerprint で proof kind が違っても `StableDuplicate` になる source-policy case を追加すること、古い helper argument list に合わせた contract を更新することを求めた。
+  - Archimedes: Required。Blocker はなし。実装 / test は approve。note.n.md と issue に stable identity checkpoint が未記録だったため、store-local identity と `.neplproof` serialized key を分けた設計判断、identity fields、proof kind 除外、検証コマンドを durable record として追記することを求めた。Non-blocker として stable identity struct に `proof_kind` / `record_index` / TypeId 系 field が混入する退行を直接落とす scoped negative regex を提案した。
+  - response: `SelfhostMemoTraitProofStoreStableIdentity` を store-local として文書化し、`.neplproof` key へ直接書き出さない契約を追加した。duplicate scan は typed identity helper に移し、stage0 では 2回目の stable push を `KeyOnlyUnsupported` にして Required の regression を追加した。source policy も新しい identity helper shape と異なる proof kind duplicate case へ更新した。note.n.md と issue へ checkpoint を追記し、Archimedes の Non-blocker に従って scoped negative regex も追加した。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review response の形式と応答漏れを機械確認する script として gate に明記されている。`nodesrc/test_selfhost_zenn_review_gate_contract.js` は pass。今回の review は Blocker / Required / Non-blocker / Question / Approve の分類で読み取り、Required と Question への応答を同じ slice 内で実装した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: stable proof identity が serialized `.neplproof` key、fingerprint-only authority、proof kind first-wins ambiguity、source_text / source_span / span / path_suffix / display_name / diagnostic / lexeme authority、line count / doc comment length cap へ退行しないようにするため。
+  - 既存 warning: stdlib / selfhost documentation gap sample、Node WASI ExperimentalWarning、Git の CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: なし。`nodesrc/test_selfhost_memo_trait_proof_store_contract.js`、`nodesrc/test_selfhost_zenn_review_gate_contract.js`、`node nodesrc/run_source_policy_regressions.js --warn-only`、`node nodesrc/issues.js check --dir issues`、`git diff --check` は pass。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - stable identity equality は canonical key tree size k に対して O(k) と文書化した。duplicate scan は record 数 n と k に対して O(n * k) のままであり、Phase 1 では silent first-wins を残さないことを優先した。
+  - focused doctest の compile_stage_timings では `resource_static_initialized_moves` が約 19.1 秒、`resource_static_owner_obligations` が約 2.1 秒で、`resource_static_check` 約 21.9 秒が支配的だった。RPN cold base 高速化 issue 側では、cache 設計だけでなく Resource checker の探索範囲削減を継続する。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -n 1`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-store-stable-identity-focused.json`
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+- 次 slice:
+  - re-export / import graph / public non-trait declaration を含む full public surface hash。
+  - Copy / Drop / Eq / Hash pure evidence の実計算。
+  - recursive aggregate / cycle boundary。
+  - `.neplproof` reader / serializer と proof store preseed。
+  - 永続 artifact 用 stable map / serialized index。
+  - generic instantiation 用 stable type argument identity。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue proof store stable duplicate checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、探索範囲削減、cache / prechecked artifact、丁寧な doc comment、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
