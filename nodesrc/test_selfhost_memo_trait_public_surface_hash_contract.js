@@ -22,12 +22,14 @@ function sectionBetween(source, start, end) {
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
 const tokenGateRelPath = "stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl";
+const tokenSeedScanRelPath = "stdlib/neplg2/core/check/module/memo_trait_public_surface_token_seed_scan.nepl";
 const tySourceRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_source.nepl";
 const proofStoreRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl";
 
 const source = read(relPath);
 const facade = read(facadeRelPath);
 const tokenGateSource = read(tokenGateRelPath);
+const tokenSeedScanSource = read(tokenSeedScanRelPath);
 const tySource = read(tySourceRelPath);
 const proofStore = read(proofStoreRelPath);
 const sourceCode = source
@@ -117,8 +119,13 @@ assert.match(
 );
 assert.match(
     source,
+    /#import "\.\/memo_trait_public_surface_token_seed_scan" as \*/,
+    "hash materializer must directly import the shared token-aware scan core",
+);
+assert.doesNotMatch(
+    source,
     /#import "\.\/memo_trait_public_surface_token_gate" as \*/,
-    "hash materializer must use the facade-external token-aware item gate instead of exposing token-aware hash APIs through the module facade",
+    "hash materializer must not depend on the token gate wrapper after the shared core split",
 );
 assert.match(
     source,
@@ -127,23 +134,38 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_loop[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error/,
-    "hash-owned token-aware loop must reuse only the token gate item helper and map typed seed errors into hash errors",
+    /selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_loop[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error/,
+    "hash-owned token-aware loop must reuse the shared core item helper and map typed core errors into hash errors",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_seed_error_from_token_seed_scan_error[\s\S]*MemoKeyMethodSignatureRejected method_error:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected method_error[\s\S]*MemoValueMethodSignatureRejected method_error:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected method_error/,
+    "hash token-core mapping must preserve method normalizer payloads through the seed error wrapper",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error[\s\S]*selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error selfhost_memo_trait_public_surface_hash_seed_error_from_token_seed_scan_error error/,
+    "hash must convert shared core errors through the seed taxonomy before applying the existing hash error mapping",
 );
 assert.match(
     tokenGateSource,
-    /selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported/,
-    "token gate must keep unsupported non-declaration surface rejection in its non-declaration helper",
+    /pub fn selfhost_memo_trait_public_surface_token_gate_scan_item_result[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_item_result source tokens table item[\s\S]*selfhost_memo_trait_public_surface_token_gate_seed_error_from_token_seed_scan_error token_error/,
+    "token gate item API must be a thin wrapper over the shared core item scan",
 );
 assert.match(
     tokenGateSource,
-    /selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result[\s\S]*SelfhostModuleDeclarationKind::Trait:[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_trait_item_result[\s\S]*SelfhostModuleDeclarationKind::Function:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Struct:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Enum:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Impl:[\s\S]*PublicImplSurfaceUnsupported/,
-    "token gate must keep public non-trait declaration rejection in its declaration helper",
+    /pub fn selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_module_result source tokens ast[\s\S]*selfhost_memo_trait_public_surface_token_gate_seed_error_from_token_seed_scan_error token_error/,
+    "token gate module API must be a thin wrapper over the shared core module scan",
+);
+assert.doesNotMatch(
+    tokenGateSource,
+    /selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result|selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result|selfhost_memo_trait_public_surface_token_gate_scan_trait_item_result|selfhost_module_item_kind_declaration item\.kind/,
+    "token gate wrapper must not keep the token-aware scan implementation after the shared core split",
 );
 assert.match(
-    tokenGateSource,
-    /pub fn selfhost_memo_trait_public_surface_token_gate_scan_item_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*Option::Some declaration_kind:[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_declaration_item_result[\s\S]*Option::None:[\s\S]*selfhost_memo_trait_public_surface_token_gate_non_declaration_item_result/,
-    "token gate item scan must dispatch through the shared declaration classifier before token-aware trait normalization",
+    tokenSeedScanSource,
+    /pub fn selfhost_memo_trait_public_surface_token_seed_scan_item_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_declaration_item_result[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_non_declaration_item_result/,
+    "shared token seed scan core must own declaration dispatch and non-declaration policy",
 );
 assert.match(
     source,

@@ -399,6 +399,36 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost token-aware public surface seed scan core checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_surface_token_seed_scan.nepl` を追加し、method-bearing `MemoKey` / `MemoValue` trait definition を扱う token-aware public surface seed scan を seed / hash / token_gate から独立した shared core に分離した。
+
+shared core は `SelfhostModuleAst` と `SelfhostToken` stream を同じ parser input 由来の authority として受け取り、marker trait と method-bearing trait を同じ `SelfhostMemoTraitStableSourceSeedTable` へ投影する。accepted seed は memo trait kind、public visibility、固定 declaration ordinal、signature shape normalizer または method signature normalizer の `normalized_signature_hash` に閉じる。source text、span、syntax range、lexeme、path、display name、diagnostic text、source hash は seed / hash authority にしない。
+
+`SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind` を dedicated enum として追加した。候補欠落、重複、private visibility、signature placeholder、unsupported public surface、malformed item、method signature rejection を bool / string sentinel にせず variant で保持する。method signature rejection は `SelfhostMemoTraitMethodSignatureErrorKind` payload を持ち、seed / hash / token_gate 側の error mapping でも payload を落とさない。
+
+`memo_trait_public_surface_seed.nepl` は旧 token-aware private scan helper を削除し、shared core の module result を seed error surface へ写してから既存 seed scan wrapper に戻す構造へ変更した。`memo_trait_public_surface_token_gate.nepl` は既存 caller 向け互換 wrapper として残し、scan 本体ではなく core error から seed error への mapping だけを持つ。`memo_trait_public_surface_hash.nepl` は token_gate wrapper を経由せず、shared core の item helper を直接使うことで、hash materializer の single-pass loop と同じ policy を共有する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js` を追加し、shared core の lower-DAG 境界、seed/hash/token_gate 逆 import 禁止、facade re-export 禁止、dedicated error enum、method payload preservation、hash の direct core use、proof_store / HIR / Resource / backend / codegen 依存禁止、source identity / hash / span / path authority 禁止、line count / doc comment length cap 禁止を固定した。既存 seed/hash contracts も shared core delegation と token_gate thin wrapper を確認するよう更新した。
+
+subagent review では Euclid が、shared core が seed / hash / token_gate に依存しないこと、dedicated error enum を持つこと、hash が token_gate wrapper ではなく core item helper を直接使うこと、facade が token_gate / core を re-export しないこと、source policy が proof_store / HIR / Resource / backend 依存や source identity / hash / span authority を拒否することを Required として確認した。実装はこの指摘に従った。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -o target/selfhost_seed_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-12 selfhost decoded `.neplproof` batch preseed checkpoint
 
 `memo_trait_proof_preseed.nepl` に `SelfhostMemoTraitNeplProofDecodedBatchRecord`、`SelfhostMemoTraitNeplProofPreseedBatchErrorKind`、`SelfhostMemoTraitNeplProofPreseedBatchError` を追加し、複数 decoded record を working proof store へ順に投入する batch preseed boundary を追加した。

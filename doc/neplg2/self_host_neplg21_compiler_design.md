@@ -1106,6 +1106,22 @@ stage0 smoke は、意図的に unordered な record vector から first / secon
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait token-aware public surface seed scan core checkpoint
+
+method-bearing `MemoKey` / `MemoValue` trait definition を扱う token-aware public surface scan を、seed / hash / token_gate から独立した `memo_trait_public_surface_token_seed_scan.nepl` へ分離した。
+
+shared core は parser が作った `SelfhostModuleAst` と同じ source から得た `SelfhostToken` stream を受け取り、marker trait と method-bearing trait を同じ `SelfhostMemoTraitStableSourceSeedTable` へ正規化する。accepted authority は memo trait kind、public visibility、固定 declaration ordinal、signature shape normalizer または method signature normalizer が返す `normalized_signature_hash` に限定する。source text、span、syntax range、lexeme、path、display name、diagnostic text、source hash は seed / hash authority に混ぜない。
+
+この module は `memo_trait_public_surface_seed`、`memo_trait_public_surface_hash`、`memo_trait_public_surface_token_gate` を import しない。逆に seed / hash / token_gate が shared core を direct import し、core 専用の `SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind` を各 module の公開 error surface へ写像する。method normalizer の error payload は `MemoKeyMethodSignatureRejected` / `MemoValueMethodSignatureRejected` として core error に保持し、seed/hash/token_gate 側の mapping でも payload を落とさない。
+
+`memo_trait_public_surface_token_gate.nepl` は互換 wrapper に縮小した。既存の item / module API は維持するが、declaration dispatch、method-bearing trait normalization、unsupported public surface rejection は shared core に委譲し、token_gate 側は seed error mapping だけを持つ。`memo_trait_public_surface_hash.nepl` は token_gate wrapper を経由せず shared core の item helper を直接呼ぶため、hash materializer 内の scan loop が同じ policy を使いながら wrapper 由来の循環依存を作らない。
+
+この checkpoint により、前段 checkpoint で残っていた seed 側 private token scan と facade-external token gate の重複は解消された。`stdlib/neplg2/core/check/module.nepl` facade は shared core も token_gate も re-export しないため、安定公開面には AST-only public surface API を残し、token-aware path は内部 materializer / orchestrator の direct import に閉じる。
+
+source policy は dedicated error enum、DAG、facade 非公開、method error payload preservation、hash の direct shared-core use、seed/token_gate の wrapper mapping、proof_store / HIR / Resource / backend への逆依存禁止、source identity / hash / span / path authority 禁止、行数制限や doc comment 長制限を入れないことを固定する。
+
+この checkpoint 後も、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

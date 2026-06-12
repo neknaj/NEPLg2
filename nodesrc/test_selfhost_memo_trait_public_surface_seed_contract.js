@@ -55,8 +55,8 @@ assert.match(
 );
 assert.match(
     source,
-    /marker trait は `memo_trait_signature_shape` に委譲し、method-bearing trait は `memo_trait_method_signature` に委譲/,
-    "public surface seed must delegate marker and method-bearing signature normalization to dedicated boundaries",
+    /AST-only marker trait は `memo_trait_signature_shape` に委譲し、token-aware method-bearing trait は `memo_trait_public_surface_token_seed_scan` の shared core に委譲/,
+    "public surface seed must delegate token-aware method-bearing signature normalization to the shared core boundary",
 );
 assert.match(
     source,
@@ -131,7 +131,7 @@ assert.match(
 const signatureSection = sectionBetween(
     source,
     "selfhost_memo_trait_public_surface_seed_signature_from_normalization_result",
-    "selfhost_memo_trait_public_surface_seed_signature_from_method_result",
+    "selfhost_memo_trait_public_surface_seed_declaration_ordinal",
 );
 const signatureCode = signatureSection
     .split("\n")
@@ -147,44 +147,25 @@ assert.match(
     /normalization module が作った `normalized_signature_hash` だけ[\s\S]*evidence\.normalized_signature_hash/,
     "signature seed extraction must consume normalized signature evidence rather than local source ranges",
 );
-const methodSignatureSection = sectionBetween(
-    source,
-    "selfhost_memo_trait_public_surface_seed_signature_from_method_result",
-    "selfhost_memo_trait_public_surface_seed_shape_error_allows_method_fallback",
-);
-const methodSignatureCode = methodSignatureSection
-    .split("\n")
-    .filter((line) => !line.trimStart().startsWith("//:"))
-    .join("\n");
-assert.doesNotMatch(
-    methodSignatureCode,
-    /\bsource\b|source\.|\bspan\b|span\.|\brange\b|range\.|\bname\b|name\.|str_slice|\bpath\b|path\.|\bdisplay\b|\bdiagnostic\b/i,
-    "method signature seed extraction must not depend on source text, spans, ranges, names, paths, display names, or diagnostic text",
-);
 assert.match(
-    methodSignatureSection,
-    /`memo_trait_method_signature` が作った `normalized_signature_hash` だけ[\s\S]*evidence\.normalized_signature_hash/,
-    "method signature seed extraction must consume method normalizer evidence rather than local source ranges",
+    source,
+    /#import "\.\/memo_trait_method_signature" as \*[\s\S]*#import "\.\/memo_trait_public_surface_token_seed_scan" as \*[\s\S]*#import "\.\/memo_trait_signature_shape" as \*/,
+    "public surface seed must import marker normalization, method error payload type support, and the shared token-aware core",
 );
 assert.match(
     source,
-    /#import "\.\/memo_trait_method_signature" as \*[\s\S]*#import "\.\/memo_trait_signature_shape" as \*/,
-    "public surface seed must import both method and marker signature normalization boundaries",
+    /selfhost_memo_trait_public_surface_seed_error_from_token_seed_scan_error[\s\S]*MemoKeyMethodSignatureRejected method_error:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected method_error[\s\S]*MemoValueMethodSignatureRejected method_error:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected method_error/,
+    "public surface seed must preserve shared core method normalizer payloads when mapping into seed errors",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_seed_signature_with_tokens_result[\s\S]*selfhost_memo_trait_signature_shape_result[\s\S]*selfhost_memo_trait_public_surface_seed_method_signature_from_body_result/,
-    "token-aware public surface seed must try marker normalization and fall back through the method signature helper",
+    /selfhost_memo_trait_public_surface_seed_error_from_token_seed_scan_error[\s\S]*ImportSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported[\s\S]*PublicFunctionSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported[\s\S]*DeclarationHeaderMissing:[\s\S]*SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing/,
+    "public surface seed must map shared core unsupported surface reasons into the seed taxonomy",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_seed_method_signature_from_body_result[\s\S]*selfhost_memo_trait_method_signature_result[\s\S]*selfhost_memo_trait_public_surface_seed_signature_from_method_result/,
-    "token-aware public surface seed method fallback must call method signature normalization before extracting the signature seed",
-);
-assert.match(
-    source,
-    /selfhost_memo_trait_public_surface_seed_method_error_result[\s\S]*MemoKeyMethodSignatureRejected method_error[\s\S]*MemoValueMethodSignatureRejected method_error/,
-    "token-aware public surface seed method fallback must preserve method normalizer error payloads",
+    /selfhost_memo_trait_public_surface_seed_scan_module_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_token_seed_scan_module_result source tokens ast[\s\S]*Result::Ok complete_table:[\s\S]*selfhost_memo_trait_public_surface_seed_scan_new complete_table[\s\S]*Result::Err token_error:[\s\S]*selfhost_memo_trait_public_surface_seed_error_from_token_seed_scan_error token_error/,
+    "token-aware public surface seed scan must delegate module scanning to the shared core and map only the typed error",
 );
 assert.match(
     source,
@@ -201,10 +182,10 @@ assert.match(
     /selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_result[\s\S]*SelfhostModuleDeclarationKind::Function:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Struct:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Enum:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Impl:[\s\S]*PublicImplSurfaceUnsupported[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_item_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result/,
     "AST-only seed scan must dispatch through the shared declaration classifier and still reject public non-trait declarations",
 );
-assert.match(
+assert.doesNotMatch(
     source,
-    /selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_with_tokens_result[\s\S]*SelfhostModuleDeclarationKind::Trait:[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result[\s\S]*SelfhostModuleDeclarationKind::Function:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Struct:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Enum:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleDeclarationKind::Impl:[\s\S]*PublicImplSurfaceUnsupported[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result[\s\S]*selfhost_module_item_kind_declaration item\.kind[\s\S]*selfhost_memo_trait_public_surface_seed_table_scan_non_declaration_item_result/,
-    "token-aware seed scan must share the same declaration classifier and non-declaration rejection contract",
+    /selfhost_memo_trait_public_surface_seed_table_scan_declaration_item_with_tokens_result|selfhost_memo_trait_public_surface_seed_table_scan_trait_item_with_tokens_result|selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result|selfhost_memo_trait_public_surface_seed_method_signature_from_body_result|selfhost_memo_trait_public_surface_seed_signature_with_tokens_result/,
+    "token-aware seed scan implementation must live in the shared core, not in the seed wrapper",
 );
 assert.match(
     source,

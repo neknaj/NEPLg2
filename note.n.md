@@ -56675,3 +56675,52 @@ MERGE_APPROVED
 - `.neplproof` record reader / serializer、persistent stable map / serialized index の実体は未完了である。
 - generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
 - focused doctest の compile timing は `resource_static_initialized_moves` が支配的であり、RPN cold base 高速化と同じ Resource static check 系の根本改善課題が残る。
+
+## 2026-06-12 Agent selfhost token-aware public surface seed scan core checkpoint
+
+### scope
+
+- branch: `selfhost/token-seed-scan-core-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、enum error、Result API、純粋 core / facade 分離、DAG、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_seed_scan.nepl` を追加し、method-bearing `MemoKey` / `MemoValue` trait definition の token-aware seed scan を seed / hash / token_gate から独立した shared core に分離した。
+- shared core は `SelfhostModuleAst` と `SelfhostToken` stream を受け取り、marker trait と method-bearing trait を同じ `SelfhostMemoTraitStableSourceSeedTable` へ正規化する。
+- accepted authority は memo trait kind、public visibility、固定 declaration ordinal、signature shape normalizer または method signature normalizer の `normalized_signature_hash` に限定した。
+- source text、span、syntax range、lexeme、path、display name、diagnostic text、source hash は seed / hash authority にしない境界を module doc と source policy に固定した。
+- `SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind` を dedicated enum として追加し、候補欠落、重複、private visibility、signature placeholder、unsupported public surface、malformed item、method signature rejection を typed payload として保持した。
+- `memo_trait_public_surface_seed.nepl` は旧 token-aware private scan helper 群を削除し、shared core の module result を seed error surface へ写してから既存 seed wrapper に戻す構造へ変えた。
+- `memo_trait_public_surface_token_gate.nepl` は互換 wrapper に縮小し、scan 本体ではなく core error から seed error への mapping だけを保持する。
+- `memo_trait_public_surface_hash.nepl` は token_gate wrapper を経由せず shared core の item helper を直接使い、hash materializer の single-pass loop と同じ item policy を共有する。
+- `nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js` を追加し、既存 seed/hash source policy も shared core delegation と token_gate thin wrapper を固定するよう更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新し、shared core 化を完了済みとして残件から外した。
+
+### subagent_review
+
+- Euclid design review: Blocker なし。Required として、core が seed / hash / token_gate に依存しないこと、dedicated error enum を持つこと、method normalizer payload を落とさないこと、hash が token_gate wrapper ではなく core item helper を直接使うこと、facade が token_gate / core を re-export しないこと、source policy が proof_store / HIR / Resource / backend 依存や source identity / hash / span authority を拒否することを求めた。
+- Required 対応として、shared core の lower-DAG 境界と専用 error enumを実装し、seed/hash/token_gate 側は各自の error enum へ明示 mapping する構造にした。
+- Euclid implementation review: Blocker なし。Required は未追跡の新規ファイルをコミットに含めることのみであり、commit 時の staged file 確認で対応する。
+- Non-blocker として、core doc comment の `Token seed scan の seed scan` という表現が重いと指摘されたため、`token-aware seed scan` に整えた。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -o target/selfhost_seed_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- re-export / import graph / public non-trait declaration を含む full public surface hash は未完了である。
+- Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary は未完了である。
+- `.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity は未完了である。

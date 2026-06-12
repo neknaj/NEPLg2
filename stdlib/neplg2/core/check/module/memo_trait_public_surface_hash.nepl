@@ -72,7 +72,7 @@
 #import "neplg2/core/ty/ty/memo_trait_policy" as *
 #import "neplg2/core/ty/ty/memo_trait_source" as *
 #import "./memo_trait_public_surface_seed" as *
-#import "./memo_trait_public_surface_token_gate" as *
+#import "./memo_trait_public_surface_token_seed_scan" as *
 #import "./memo_trait_signature_shape" as *
 #import "./memo_trait_source_evidence_producer" as *
 #import "./memo_trait_source_scan" as *
@@ -626,7 +626,7 @@ fn selfhost_memo_trait_public_surface_hash_marker_unsupported_seed_error %fn Sel
 //: selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error: seed taxonomy の error を hash materializer の public error へ[写/うつ]す
 //:
 //: [目的/もくてき]:
-//: - hash-owned scan loop と token gate item helper が共有する seed taxonomy を、hash materializer の public error surface へ写します。
+//: - hash-owned AST-only scan loop と token-aware shared core が共有する seed taxonomy を、hash materializer の public error surface へ写します。
 //:
 //: [契約/けいやく]:
 //: - public surface 全体の未対応 item を見つけた場合は、hash error の同名分類へ写します。
@@ -699,6 +699,75 @@ fn selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error %fn Selfho
             SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected error
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
             SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected error
+
+//: selfhost_memo_trait_public_surface_hash_seed_error_from_token_seed_scan_error: shared core error を seed taxonomy へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - hash materializer が token gate wrapper を経由せず shared core を直接使っても、既存 hash error surface を変えずに済むようにします。
+//:
+//: [契約/けいやく]:
+//: - method signature error payload は seed error payload として保持します。
+//: - direct unsupported surface は seed taxonomy の同名 variant に写し、次段の hash error mapping が hash 固有の direct error へ戻します。
+fn selfhost_memo_trait_public_surface_hash_seed_error_from_token_seed_scan_error %fn SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind SelfhostMemoTraitPublicSurfaceSeedErrorKind \error:
+    match error:
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::ItemUnavailable:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::TraitHeaderMissing:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::TraitHeaderKindMismatch:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderKindMismatch
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::TraitHeadMissing:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadMissing
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::TraitHeadKindMismatch:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeadKindMismatch
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::TraitNameUnavailable:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitNameUnavailable
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoKeyCandidateMissing:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateMissing
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoValueCandidateMissing:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateMissing
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoKeyCandidateDuplicate:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyCandidateDuplicate
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoValueCandidateDuplicate:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueCandidateDuplicate
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoKeyPrivateVisibility:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyPrivateVisibility
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoValuePrivateVisibility:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValuePrivateVisibility
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoKeyTraitBodyNormalizationUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoValueTraitBodyNormalizationUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueTraitBodyNormalizationUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoKeyMethodSignatureRejected method_error:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyMethodSignatureRejected method_error
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoValueMethodSignatureRejected method_error:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected method_error
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoKeySignatureSeedPlaceholder:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeySignatureSeedPlaceholder
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::MemoValueSignatureSeedPlaceholder:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueSignatureSeedPlaceholder
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::ImportSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::UseSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::PreludeSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::NoPreludeSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::PublicFunctionSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::PublicStructSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::PublicEnumSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::PublicImplSurfaceUnsupported:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported
+        SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::DeclarationHeaderMissing:
+            SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing
+
+//: selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error: shared core error を hash error へ[写/うつ]す
+fn selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error %fn SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind SelfhostMemoTraitPublicSurfaceHashErrorKind \error:
+    selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error selfhost_memo_trait_public_surface_hash_seed_error_from_token_seed_scan_error error
 
 //: selfhost_memo_trait_public_surface_hash_normalization_error_result: marker signature normalization error を hash materializer error へ[写/うつ]す
 //:
@@ -982,13 +1051,13 @@ fn selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_loop %impure 
         else:
             match selfhost_module_ast_get ast idx:
                 Option::Some item:
-                    match selfhost_memo_trait_public_surface_token_gate_scan_item_result source tokens table item:
+                    match selfhost_memo_trait_public_surface_token_seed_scan_item_result source tokens table item:
                         Result::Ok next_table:
                             selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_loop source tokens ast next_table add idx 1 n
-                        Result::Err seed_error:
-                            Result::Err selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error seed_error
+                        Result::Err token_error:
+                            Result::Err selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error token_error
                 Option::None:
-                    Result::Err selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable
+                    Result::Err selfhost_memo_trait_public_surface_hash_error_from_token_seed_scan_error SelfhostMemoTraitPublicSurfaceTokenSeedScanErrorKind::ItemUnavailable
 
 //: selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result: token-aware materializer 用 seed table を 1 pass で[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashErrorKind \source\tokens\ast:
