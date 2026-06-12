@@ -56146,4 +56146,51 @@ MERGE_APPROVED
 
 ### residual
 
-- `.neplproof` reader / serializer、serialized canonical key tree payload codec、canonical payload hash producer、proof store append from decoded record、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。
+- `.neplproof` reader / serializer、serialized canonical key tree payload codec、proof store append from decoded record、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。
+
+## 2026-06-12 Agent selfhost memo trait canonical key payload hash checkpoint
+
+### scope
+
+- branch: `selfhost/canonical-key-payload-hash-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、純粋 core、責務分割、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload.nepl` を追加した。
+- materialized canonical key arena と stable nominal key table から `.neplproof` record key 用 `SelfhostMemoTraitCanonicalKeyPayloadHash` を作る producer を実装した。
+- payload hash の authority は payload schema、node kind、primitive stable code、stable nominal key、argument order に限定し、source text、span、path、display name、diagnostic text、lexeme、store-local id、session-local `SelfhostTypeId` を使わないようにした。
+- `SelfhostMemoTraitCanonicalKeyPayloadErrorKind` で missing node、missing argument、invalid argument range、placeholder hash、traversal fuel exhaustion、missing / duplicate nominal key、type parameter unsupported、function type unsupported を typed error として返す。
+- stage0 smoke は named / applied accepted path と、missing / duplicate nominal、parameter、function、missing node、missing argument、invalid range、cyclic fuel exhaustion を実行で確認する。
+- `memo_trait_proof_preseed.nepl` の stage0 から固定 payload hash `3003` を取り除き、producer 由来 hash で record key、hash mismatch、seeded store の `ExistingMatching` / `RejectedConflict` を確認するようにした。
+- 実装後 review の指摘を受け、public preseed API から `materialized_canonical_payload_hash %i32` を削除した。現在は `&SelfhostMemoTraitStableNominalKeyTable` と `&SelfhostCanonicalTypeKeyArena` から bridge 内部で payload hash を再計算する。
+- `SelfhostMemoTraitNeplProofPreseedErrorKind::CanonicalPayloadMaterializationInvalid` を追加し、payload producer が fail-closed に返した error を preseed 側でも typed error として保持する。
+- `Applied` canonical key node の payload hash にも payload schema version を混ぜ、module doc の contract と hash 入力を一致させた。
+- `memo_trait_proof_artifact.nepl` は payload schema boundary を import し、payload schema と canonical fingerprint schema の両方を検査するようにした。
+- `nodesrc/test_selfhost_memo_trait_canonical_key_payload_contract.js` を追加し、source policy regression runner に登録した。
+
+### subagent_review
+
+- Raman review: 次 slice は serialized canonical key tree payload codec / hash producer が最適と判断。reader / serializer へ進む前に caller-supplied hash を排除し、stable nominal key、payload schema、typed enum error、pure core boundary、line count cap 禁止を固定するよう求めた。
+- 実装では binary codec までは入れず、materialized canonical key tree から同じ authority の payload hash を作る producer と preseed bridge 接続までを今回の範囲にした。reader / serializer と bytes codec は次 slice に残す。
+- Kuhn review: public preseed API が raw `i32` payload hash を信用している点、contract test が public 境界を固定していない点、`Applied` node hash に payload schema が混ざっていない点を指摘。修正後は raw hash parameter を削除し、producer call を checked path に移し、contract test で旧 signature の復活を禁止した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload.nepl --no-tree -o tmp/selfhost-memo-trait-canonical-key-payload.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -o tmp/selfhost-memo-trait-proof-preseed-payload.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -o tmp/selfhost-memo-trait-proof-artifact-payload.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty.nepl --no-tree -o tmp/selfhost-ty-canonical-key-payload-facade.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` reader / serializer、serialized canonical key tree bytes codec、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary は未完了である。

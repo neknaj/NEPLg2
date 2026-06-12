@@ -16,7 +16,7 @@
 //:
 //: [現状/げんじょう]:
 //: - これは `.neplproof` の binary / text codec ではありません。file I/O、byte parser、serializer、canonical key tree の実際の payload encoding、persistent stable map は後続 slice で追加します。
-//: - Phase 1 の record key は canonical payload hash を caller supplied nonzero fingerprint として受けます。後続 serializer が canonical key tree encoding を実装した段階で、この hash の生成元を serializer output に接続します。
+//: - Phase 1 の record key は `memo_trait_canonical_key_payload.nepl` が materialized canonical key tree から作る nonzero hash を受けます。後続 serializer は同じ payload schema で bytes を読んだ後、この hash producer と同じ authority へ接続します。
 //: - record payload は既存 proof store の `SelfhostMemoTraitStoredProofKind` と `SelfhostMemoTraitStoredAggregateProof` をそのまま使います。proof kind は identity には入れませんが、record payload と index payload hash には含める前提です。
 //:
 //: [計算量/けいさんりょう]:
@@ -66,6 +66,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
 #import "./memo_trait_policy" as *
 #import "./memo_trait_proof_store" as *
 #import "./memo_trait_producer" as *
@@ -78,7 +79,7 @@
 //:
 //: [契約/けいやく]:
 //: - `artifact_schema_version` はこの module が定義する `.neplproof` record layout の version です。
-//: - `canonical_payload_schema_version` は canonical key tree serialization の version です。現段階では canonical fingerprint schema と一致することを要求します。
+//: - `canonical_payload_schema_version` は canonical key tree serialization / payload hash の version です。現段階では payload schema と canonical fingerprint schema の両方に一致することを要求します。
 //: - `policy_schema_version` は proof store policy の rule schema version と同じ namespace です。
 //: - `record_count` と `index_count` は負であってはいけません。後続 reader はこの件数を上限として allocation と range check を行います。
 pub struct SelfhostMemoTraitNeplProofHeader:
@@ -252,7 +253,9 @@ pub fn selfhost_memo_trait_neplproof_header_result %fn i32 fn i32 fn i32 fn i32 
             Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch
         else:
             if:
-                not eq canonical_payload_schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                or:
+                    not eq canonical_payload_schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                    not eq canonical_payload_schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
                 then:
                     Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
                 else:
@@ -282,8 +285,10 @@ pub fn selfhost_memo_trait_neplproof_header_result %fn i32 fn i32 fn i32 fn i32 
 pub fn selfhost_memo_trait_neplproof_record_key_result %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 fn SelfhostMemoTraitProofStorePolicy Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind \canonical_fingerprint\canonical_payload_schema_version\canonical_payload_hash\policy:
     if:
         or:
-            not eq canonical_payload_schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
-            not eq canonical_fingerprint.schema_version canonical_payload_schema_version
+            not eq canonical_payload_schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+            or:
+                not eq canonical_payload_schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                not eq canonical_fingerprint.schema_version canonical_payload_schema_version
         then:
             Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
         else:
@@ -687,7 +692,7 @@ fn selfhost_memo_trait_neplproof_artifact_stage0_summary_new %fn Result Selfhost
 //: [現状/げんじょう]:
 //: - この smoke は codec ではなく typed schema validation の確認です。file I/O や byte parser は実行しません。
 pub fn selfhost_memo_trait_neplproof_artifact_stage0 %fn void SelfhostMemoTraitNeplProofArtifactStage0Summary \void:
-    let canonical_schema %i32 selfhost_memo_trait_canonical_type_fingerprint_schema_version
+    let canonical_schema %i32 selfhost_memo_trait_canonical_key_payload_schema_version
     let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
     let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_artifact_stage0_policy policy_schema
     let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_artifact_stage0_policy add policy_schema 1

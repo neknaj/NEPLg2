@@ -327,6 +327,32 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait canonical key payload hash checkpoint
+
+`memo_trait_canonical_key_payload.nepl` を追加し、`.neplproof` record key 用の canonical payload hash を materialized canonical key arena から再計算する境界を作った。
+
+前回の decoded preseed bridge は、canonical payload hash と canonical fingerprint が decoded canonical key payload から作られていることを前提にしていた。この checkpoint では、stage0 の固定値 `3003` と public preseed API の caller supplied raw hash を廃止し、`SelfhostMemoTraitStableNominalKeyTable` と `SelfhostCanonicalTypeKeyArena` から `SelfhostMemoTraitCanonicalKeyPayloadHash` を作る producer を接続した。hash の入力は payload schema、node kind、primitive stable code、stable nominal key、argument order に限定し、source text、span、path、display name、diagnostic text、lexeme、store-local id、session-local `SelfhostTypeId` は artifact authority にしない。
+
+payload schema version は `selfhost_memo_trait_canonical_key_payload_schema_version` として canonical fingerprint schema から分けた。Phase 1 では値は同じ `1` だが、`.neplproof` artifact validation は payload schema と canonical fingerprint schema の両方を確認する。これにより、後続の serializer が canonical key tree bytes の encoding を変えた場合でも、fingerprint schema だけに依存しない invalidation 境界を持てる。
+
+`SelfhostMemoTraitCanonicalKeyPayloadErrorKind` は missing node、missing argument、invalid argument range、derived placeholder、traversal fuel exhaustion、missing / duplicate nominal key、type parameter unsupported、function type unsupported を typed enum として返す。stage0 smoke は named / applied accepted path と、missing / duplicate nominal、parameter、function、missing node、missing argument、invalid range、cyclic fuel exhaustion を実行で固定する。
+
+`memo_trait_proof_preseed.nepl` の public bridge API は `&SelfhostMemoTraitStableNominalKeyTable`、`&SelfhostCanonicalTypeKeyArena`、`SelfhostCanonicalTypeKeyId` を受け取り、内部で payload hash producer を呼んで record key の canonical payload hash と照合する。stage0 は producer の値を record key に入れ、hash mismatch は record key 側だけを壊して、再計算値との不一致として確認する。fingerprint mismatch、policy mismatch、invalid record、seeded store の `ExistingMatching` / `RejectedConflict` も同じ producer 境界を通る。`memo_trait_proof_artifact.nepl` は payload schema boundary を import し、record key validation で payload schema / fingerprint schema / fingerprint payload schema の三者を fail-closed に照合する。
+
+subagent review では Raman が、次 slice は serialized canonical key tree payload codec / hash producer が最適であり、reader / serializer へ進む前に caller-supplied hash を排除するべきだと指摘した。実装後 review では Kuhn が、初期実装で public preseed API がまだ `materialized_canonical_payload_hash %i32` を受け取っていることを High、contract test が public 境界を固定していないことを Medium、`Applied` node hash に payload schema が混ざっていないことを Low として指摘した。修正後は public preseed API から raw hash を削除し、`CanonicalPayloadMaterializationInvalid %SelfhostMemoTraitCanonicalKeyPayloadErrorKind` を追加して producer failure を typed error として持ち上げ、contract test で raw hash API の復活を禁止した。Required として、store-local id 非 authority、stable nominal key への正規化、source text / span / path / display / diagnostic / lexeme 非 authority、hash と fingerprint を同じ decoded payload から再計算すること、Parameter / Function の fail-closed、payload schema version の分離、pure core boundary、typed enum error、丁寧な doc comment、line count / doc comment length cap 禁止が挙げられたため、この slice 内で反映した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key_payload.nepl --no-tree -o tmp/selfhost-memo-trait-canonical-key-payload.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl --no-tree -o tmp/selfhost-memo-trait-proof-preseed-payload.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -o tmp/selfhost-memo-trait-proof-artifact-payload.json -j 1 --assert-io --dist web/dist`
+
+この checkpoint 後の残件は、`.neplproof` reader / serializer、serialized canonical key tree bytes codec、decoded record から proof store へ append する preseed loop、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を接続することである。
+
 ## 2026-06-12 selfhost memo trait `.neplproof` decoded preseed materialization checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_proof_preseed.nepl` を追加し、decoded `.neplproof` record を materialized canonical key と照合してから proof store preseed decision へ進める bridge boundary を作った。
@@ -354,7 +380,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js` �
 - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -o tmp/selfhost-memo-trait-proof-store-artifact.json -j 1 --assert-io --dist web/dist`
 - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
 
-この checkpoint 後の残件は、`.neplproof` reader / serializer、serialized canonical key tree payload codec、canonical payload hash producer、decoded record から proof store append への投入、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を接続することである。
+この checkpoint 後の残件は、`.neplproof` reader / serializer、serialized canonical key tree payload codec、decoded record から proof store append への投入、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を接続することである。
 
 ## 2026-06-12 selfhost memo trait `.neplproof` artifact schema checkpoint
 

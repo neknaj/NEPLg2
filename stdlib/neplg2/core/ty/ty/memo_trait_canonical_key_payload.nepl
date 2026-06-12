@@ -1,0 +1,788 @@
+#indent 4
+
+//: # ty/memo_trait_canonical_key_payload
+//: `MemoKey` / `MemoValue` proof artifact が保存する canonical key tree payload の schema と hash 境界です。
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` record は、store-local `SelfhostCanonicalTypeKeyId` や session-local `SelfhostTypeId` を保存せず、decoded canonical key tree payload を materialize してから proof store へ preseed します。
+//: - この module は、materialized canonical key arena から serialized payload と同じ authority の hash を再計算します。record key に入っている `canonical_payload_hash` を信用せず、decoded payload から得た hash と照合するための境界です。
+//: - hash の入力は payload schema、canonical node kind、primitive stable code、stable nominal key、argument order だけです。source text、span、path、display name、diagnostic text、lexeme は artifact identity に混ぜません。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitCanonicalKeyPayloadHash` は canonical key tree payload schema と root hash を必ず一緒に保持します。hash 値だけの比較は禁止です。
+//: - named type は `SelfhostMemoTraitStableNominalKeyTable` で stable nominal key へ解決します。missing / duplicate は typed error として拒否し、first wins にはしません。
+//: - `Parameter` と `Function` は Phase 1 の `.neplproof` payload では受理しません。generic type argument identity と高階関数 identity は、別 slice の stable identity 境界が入るまで fail-closed にします。
+//: - canonical key arena が壊れていて循環的な argument edge を持つ場合でも、arena node 数と argument 数から作った traversal fuel により無制限再帰を止めます。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では binary reader / writer を持たず、materialized canonical key arena から payload hash を作る pure core boundary だけを固定します。
+//: - 後続の reader は、bytes から decoded payload を作り、この module で hash を再計算してから `memo_trait_proof_preseed.nepl` へ渡します。
+//:
+//: [計算量/けいさんりょう]:
+//: - canonical key payload hash は key tree size k と named lookup table size n に対して最悪 O(k * n) です。
+//: - source-wide scan、path lookup、diagnostic formatting、file I/O は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_canonical_key_payload_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_canonical_key_payload_hash_result_is_ok summary.named_payload
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_canonical_key_payload_hash_result_is_ok summary.applied_payload
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.missing_nominal) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.duplicate_nominal) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.parameter_unsupported) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.function_unsupported) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.missing_node) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.missing_argument) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.invalid_argument_range) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_canonical_key_payload_error_kind_eq (unwrap_err summary.fuel_exhausted) SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted
+//:             let shown checks_print_report checks10
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait canonical key payload stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./key" as *
+#import "./kind/model" as *
+#import "./memo_trait_canonical_key" as *
+
+//: SelfhostMemoTraitCanonicalKeyPayloadErrorKind: canonical key payload hash 作成の拒否理由
+//:
+//: [目的/もくてき]:
+//: - artifact payload の破損、unsupported key variant、stable nominal key table の不整合を bool や文字列ではなく enum で返します。
+pub enum SelfhostMemoTraitCanonicalKeyPayloadErrorKind:
+    MissingCanonicalNode
+    MissingCanonicalArgument
+    InvalidCanonicalArgumentRange
+    CanonicalPayloadHashPlaceholder
+    TraversalFuelExhausted
+    MissingNominalKey
+    DuplicateNominalKey
+    TypeParameterUnsupported
+    FunctionTypeUnsupported
+
+//: SelfhostMemoTraitCanonicalKeyPayloadHash: canonical key tree payload の stable hash
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は payload hash の入力規則の version です。
+//: - `payload_hash` は nonzero でなければいけません。`0` は hash 未計算または placeholder として拒否します。
+pub struct SelfhostMemoTraitCanonicalKeyPayloadHash:
+    schema_version %i32
+    payload_hash %i32
+
+//: SelfhostMemoTraitCanonicalKeyPayloadStage0Summary: payload hash 境界の代表 smoke
+pub struct SelfhostMemoTraitCanonicalKeyPayloadStage0Summary:
+    named_payload %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    applied_payload %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    missing_nominal %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    duplicate_nominal %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    parameter_unsupported %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    function_unsupported %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    missing_node %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    missing_argument %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    invalid_argument_range %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+    fuel_exhausted %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+
+//: SelfhostMemoTraitCanonicalKeyPayloadStage0Projection: malformed arena smoke の一時 payload
+//:
+//: [目的/もくてき]:
+//: - fixture allocation failure と payload projection の typed failure を混ぜないため、projection result だけを小さく包みます。
+struct SelfhostMemoTraitCanonicalKeyPayloadStage0Projection:
+    result %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind
+
+impl Clone for SelfhostMemoTraitCanonicalKeyPayloadErrorKind:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyPayloadErrorKind SelfhostMemoTraitCanonicalKeyPayloadErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyPayloadErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyPayloadErrorKind SelfhostMemoTraitCanonicalKeyPayloadErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalKeyPayloadHash:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadHash \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyPayloadHash:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadHash \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalKeyPayloadStage0Summary:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyPayloadStage0Summary SelfhostMemoTraitCanonicalKeyPayloadStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyPayloadStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyPayloadStage0Summary SelfhostMemoTraitCanonicalKeyPayloadStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_canonical_key_payload_schema_version: canonical key payload hash schema version
+//:
+//: [契約/けいやく]:
+//: - serialized canonical key tree payload の node code、argument fold、stable nominal key fold、unsupported variant 境界を変える場合は、この version を上げます。
+//: - Phase 1 では canonical type fingerprint schema と同じ数値ですが、API authority は別にします。fingerprint の変更と payload bytes の変更は将来別々に version 管理できます。
+pub fn selfhost_memo_trait_canonical_key_payload_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_canonical_key_payload_hash_value: payload hash の nonzero 値を[返/かえ]す
+pub fn selfhost_memo_trait_canonical_key_payload_hash_value %fn SelfhostMemoTraitCanonicalKeyPayloadHash i32 \hash:
+    hash.payload_hash
+
+//: selfhost_memo_trait_canonical_key_payload_hash_eq: payload hash が同じ stable payload を表すか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - schema version と hash 値の両方が一致した場合だけ同一とみなします。
+pub fn selfhost_memo_trait_canonical_key_payload_hash_eq %fn SelfhostMemoTraitCanonicalKeyPayloadHash fn SelfhostMemoTraitCanonicalKeyPayloadHash bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        eq a.payload_hash b.payload_hash
+
+//: selfhost_memo_trait_canonical_key_payload_mix2: payload hash 用に 2 値を[混/ま]ぜる
+fn selfhost_memo_trait_canonical_key_payload_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_canonical_key_payload_mix3: payload hash 用に 3 値を[混/ま]ぜる
+fn selfhost_memo_trait_canonical_key_payload_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_canonical_key_payload_mix2 a b c
+
+//: selfhost_memo_trait_canonical_key_payload_mix4: payload hash 用に 4 値を[混/ま]ぜる
+fn selfhost_memo_trait_canonical_key_payload_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_canonical_key_payload_mix2 (selfhost_memo_trait_canonical_key_payload_mix2 a b) (selfhost_memo_trait_canonical_key_payload_mix2 c d)
+
+//: selfhost_memo_trait_canonical_key_payload_primitive_code: primitive kind を payload stable code へ[写/うつ]す
+fn selfhost_memo_trait_canonical_key_payload_primitive_code %fn SelfhostPrimitiveTypeKind i32 \kind:
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            101
+        SelfhostPrimitiveTypeKind::Unit:
+            102
+        SelfhostPrimitiveTypeKind::Bool:
+            103
+        SelfhostPrimitiveTypeKind::I32:
+            104
+        SelfhostPrimitiveTypeKind::I64:
+            105
+        SelfhostPrimitiveTypeKind::U8:
+            106
+        SelfhostPrimitiveTypeKind::Char:
+            107
+        SelfhostPrimitiveTypeKind::Str:
+            108
+        SelfhostPrimitiveTypeKind::F32:
+            109
+        SelfhostPrimitiveTypeKind::F64:
+            110
+        SelfhostPrimitiveTypeKind::Never:
+            111
+
+//: selfhost_memo_trait_canonical_key_payload_nonzero_result: derived payload hash placeholder を拒否する
+fn selfhost_memo_trait_canonical_key_payload_nonzero_result %fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadErrorKind \hash:
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_canonical_key_payload_error_from_fingerprint: shared nominal lookup error を payload error へ[写/うつ]す
+fn selfhost_memo_trait_canonical_key_payload_error_from_fingerprint %fn SelfhostMemoTraitCanonicalFingerprintErrorKind SelfhostMemoTraitCanonicalKeyPayloadErrorKind \kind:
+    match kind:
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalNode:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalArgument:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::InvalidCanonicalArgumentRange:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::DerivedFingerprintPlaceholder:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::TraversalFuelExhausted:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::DuplicateNominalKey:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::FunctionTypeUnsupported:
+            SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported
+
+//: selfhost_memo_trait_canonical_key_payload_nominal_hash: stable nominal key を payload material へ[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - stable nominal key の field 全体を入力にします。`nominal_key_hash` だけを使うと、同じ hash を持つ別 schema の nominal key を区別できなくなるためです。
+fn selfhost_memo_trait_canonical_key_payload_nominal_hash %fn SelfhostMemoTraitStableNominalKey i32 \key:
+    let identity_hash %i32 selfhost_memo_trait_canonical_key_payload_mix4 key.schema_version key.module_fingerprint key.definition_fingerprint key.constructor_ordinal
+    selfhost_memo_trait_canonical_key_payload_mix3 identity_hash key.type_arity key.nominal_key_hash
+
+//: selfhost_memo_trait_canonical_key_payload_node_hash_result: canonical key node を payload hash material へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `fuel` は壊れた arena が循環的な argument edge を持つ場合の停止境界です。
+//: - 正常な canonical key arena では、public wrapper が node 数と argument 数から作る fuel で traversal が完了します。
+fn selfhost_memo_trait_canonical_key_payload_node_hash_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadErrorKind \nominal_table\arena\key_id\fuel:
+    if:
+        le fuel 0
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted
+        else:
+            match selfhost_canonical_type_key_arena_get_node arena key_id:
+                Option::Some node:
+                    match node:
+                        SelfhostCanonicalTypeKeyNode::Primitive kind:
+                            selfhost_memo_trait_canonical_key_payload_nonzero_result selfhost_memo_trait_canonical_key_payload_mix3 791101 selfhost_memo_trait_canonical_key_payload_schema_version (selfhost_memo_trait_canonical_key_payload_primitive_code kind)
+                        SelfhostCanonicalTypeKeyNode::Named nominal_id:
+                            match selfhost_memo_trait_stable_nominal_key_table_find_result nominal_table nominal_id:
+                                Result::Ok nominal_key:
+                                    selfhost_memo_trait_canonical_key_payload_nonzero_result selfhost_memo_trait_canonical_key_payload_mix3 791102 selfhost_memo_trait_canonical_key_payload_schema_version (selfhost_memo_trait_canonical_key_payload_nominal_hash nominal_key)
+                                Result::Err e:
+                                    Result::Err selfhost_memo_trait_canonical_key_payload_error_from_fingerprint e
+                        SelfhostCanonicalTypeKeyNode::Parameter _binding:
+                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported
+                        SelfhostCanonicalTypeKeyNode::Applied applied:
+                            match selfhost_memo_trait_stable_nominal_key_table_find_result nominal_table applied.nominal_id:
+                                Result::Ok nominal_key:
+                                    match selfhost_memo_trait_canonical_key_payload_args_hash_result nominal_table arena applied.args 0 791103 sub fuel 1:
+                                        Result::Ok args_hash:
+                                            selfhost_memo_trait_canonical_key_payload_nonzero_result selfhost_memo_trait_canonical_key_payload_mix4 791104 selfhost_memo_trait_canonical_key_payload_schema_version (selfhost_memo_trait_canonical_key_payload_nominal_hash nominal_key) (selfhost_memo_trait_canonical_key_payload_mix2 applied.args.arg_count args_hash)
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err selfhost_memo_trait_canonical_key_payload_error_from_fingerprint e
+                        SelfhostCanonicalTypeKeyNode::Function _function:
+                            Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported
+                Option::None:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode
+
+//: selfhost_memo_trait_canonical_key_payload_args_hash_result: applied type argument list を payload hash material へ[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - argument range は走査前に検査し、不正な範囲は `InvalidCanonicalArgumentRange` として拒否します。
+//: - argument order は hash 入力です。`Vec A B` と `Vec B A` のような順序違いは別 payload hash になります。
+fn selfhost_memo_trait_canonical_key_payload_args_hash_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitCanonicalKeyPayloadErrorKind \nominal_table\arena\args\idx\acc\fuel:
+    if:
+        not selfhost_canonical_type_key_arg_range_is_valid args
+        then:
+            Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange
+        else:
+            if:
+                le fuel 0
+                then:
+                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted
+                else:
+                    if:
+                        ge idx args.arg_count
+                        then:
+                            selfhost_memo_trait_canonical_key_payload_nonzero_result acc
+                        else:
+                            match selfhost_canonical_type_key_arena_arg arena args idx:
+                                Option::Some arg_key:
+                                    match selfhost_memo_trait_canonical_key_payload_node_hash_result nominal_table arena arg_key sub fuel 1:
+                                        Result::Ok arg_hash:
+                                            selfhost_memo_trait_canonical_key_payload_args_hash_result nominal_table arena args add idx 1 (selfhost_memo_trait_canonical_key_payload_mix2 acc arg_hash) sub fuel 1
+                                        Result::Err e:
+                                            Result::Err e
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument
+
+//: selfhost_memo_trait_canonical_key_payload_hash_result: root canonical key を stable payload hash へ[写/うつ]す
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(hash)`: canonical key payload schema と nonzero root hash の組です。
+//: - `Err(kind)`: materialized canonical key、stable nominal key table、または Phase 1 unsupported variant が不正です。
+pub fn selfhost_memo_trait_canonical_key_payload_hash_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind \nominal_table\arena\root:
+    let fuel %i32 add add selfhost_canonical_type_key_arena_node_len arena selfhost_canonical_type_key_arena_arg_len arena 1
+    match selfhost_memo_trait_canonical_key_payload_node_hash_result nominal_table arena root fuel:
+        Result::Ok root_hash:
+            Result::Ok SelfhostMemoTraitCanonicalKeyPayloadHash selfhost_memo_trait_canonical_key_payload_schema_version root_hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_hash_result_is_ok: payload hash result が accepted か[返/かえ]す
+pub fn selfhost_memo_trait_canonical_key_payload_hash_result_is_ok %fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind bool \result:
+    match result:
+        Result::Ok _value:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_canonical_key_payload_error_kind_eq: payload hash error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_canonical_key_payload_error_kind_eq %fn SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn SelfhostMemoTraitCanonicalKeyPayloadErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    true
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    false
+        SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalNode:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingCanonicalArgument:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::InvalidCanonicalArgumentRange:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TraversalFuelExhausted:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::MissingNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::DuplicateNominalKey:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::TypeParameterUnsupported:
+                    false
+                SelfhostMemoTraitCanonicalKeyPayloadErrorKind::FunctionTypeUnsupported:
+                    true
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_summary_new %fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind fn Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind SelfhostMemoTraitCanonicalKeyPayloadStage0Summary \named_payload\applied_payload\missing_nominal\duplicate_nominal\parameter_unsupported\function_unsupported\missing_node\missing_argument\invalid_argument_range\fuel_exhausted:
+    SelfhostMemoTraitCanonicalKeyPayloadStage0Summary named_payload applied_payload missing_nominal duplicate_nominal parameter_unsupported function_unsupported missing_node missing_argument invalid_argument_range fuel_exhausted
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_build_table: stage0 用 stable nominal key table を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_build_table %impure fn bool Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \duplicate:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    match selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key:
+                        Result::Ok table1:
+                            if:
+                                duplicate
+                                then:
+                                    selfhost_memo_trait_stable_nominal_key_table_push table1 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                                else:
+                                    Result::Ok table1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_project_owned: fixture arena owner から payload projection を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - `nodes` と `args` はこの関数が `SelfhostCanonicalTypeKeyArena` owner として受け取り、projection 後に必ず解放します。
+fn selfhost_memo_trait_canonical_key_payload_stage0_project_owned %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn Vec SelfhostCanonicalTypeKeyNode impure fn Vec SelfhostCanonicalTypeKeyId impure fn SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table\nodes\args\root:
+    let arena %SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyArena nodes args
+    let result %Result SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadErrorKind selfhost_memo_trait_canonical_key_payload_hash_result table &arena root
+    selfhost_canonical_type_key_arena_free arena
+    Result::Ok SelfhostMemoTraitCanonicalKeyPayloadStage0Projection result
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_single_node: 1 node fixture を[作/つく]り projection する
+fn selfhost_memo_trait_canonical_key_payload_stage0_single_node %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostCanonicalTypeKeyNode Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table\node:
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes0:
+            match v::push nodes0 node:
+                Result::Ok nodes1:
+                    let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+                    match args_result:
+                        Result::Ok args:
+                            selfhost_memo_trait_canonical_key_payload_stage0_project_owned table nodes1 args (selfhost_canonical_type_key_id_new 0)
+                        Result::Err e:
+                            v::free nodes1
+                            Result::Err e
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_named_projection: named payload hash smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_named_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Named nominal_id
+    selfhost_memo_trait_canonical_key_payload_stage0_single_node table node
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_parameter_projection: type parameter unsupported smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_parameter_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Parameter binding
+    selfhost_memo_trait_canonical_key_payload_stage0_single_node table node
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_function_projection: function type unsupported smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_function_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    let result %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_id_new 0
+    let args %SelfhostCanonicalTypeKeyArgRange selfhost_canonical_type_key_arg_range_new_unchecked 0 0
+    let function %SelfhostCanonicalFunctionTypeKey SelfhostCanonicalFunctionTypeKey args result
+    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Function function
+    selfhost_memo_trait_canonical_key_payload_stage0_single_node table node
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_missing_node_projection: missing node smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_missing_node_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes:
+            let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+            match args_result:
+                Result::Ok args:
+                    selfhost_memo_trait_canonical_key_payload_stage0_project_owned table nodes args (selfhost_canonical_type_key_id_new 0)
+                Result::Err e:
+                    v::free nodes
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_applied_from_parts: applied fixture を[作/つく]り projection する
+fn selfhost_memo_trait_canonical_key_payload_stage0_applied_from_parts %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostCanonicalTypeKeyArgRange impure fn bool Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table\arg_range\push_arg:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    let primitive_node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Primitive SelfhostPrimitiveTypeKind::I32
+    let applied %SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey nominal_id arg_range
+    let applied_node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Applied applied
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes0:
+            match v::push nodes0 primitive_node:
+                Result::Ok nodes1:
+                    match v::push nodes1 applied_node:
+                        Result::Ok nodes2:
+                            let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+                            match args_result:
+                                Result::Ok args0:
+                                    if:
+                                        push_arg
+                                        then:
+                                            match v::push args0 (selfhost_canonical_type_key_id_new 0):
+                                                Result::Ok args1:
+                                                    selfhost_memo_trait_canonical_key_payload_stage0_project_owned table nodes2 args1 (selfhost_canonical_type_key_id_new 1)
+                                                Result::Err e:
+                                                    let error %StdErrorKind field::get e "error"
+                                                    v::free nodes2
+                                                    v::free v::vec_push_error_vec e
+                                                    Result::Err error
+                                        else:
+                                            selfhost_memo_trait_canonical_key_payload_stage0_project_owned table nodes2 args0 (selfhost_canonical_type_key_id_new 1)
+                                Result::Err e:
+                                    v::free nodes2
+                                    Result::Err e
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err error
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_applied_projection: applied payload hash smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_applied_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    selfhost_memo_trait_canonical_key_payload_stage0_applied_from_parts table (selfhost_canonical_type_key_arg_range_new_unchecked 0 1) true
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_missing_argument_projection: missing argument smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_missing_argument_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    selfhost_memo_trait_canonical_key_payload_stage0_applied_from_parts table (selfhost_canonical_type_key_arg_range_new_unchecked 0 1) false
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_invalid_range_projection: invalid argument range smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_invalid_range_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    selfhost_memo_trait_canonical_key_payload_stage0_applied_from_parts table (selfhost_canonical_type_key_arg_range_new_unchecked sub 0 1 1) false
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_fuel_projection_from_parts: cyclic arena から fuel exhaustion を[得/え]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_fuel_projection_from_parts %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn Vec SelfhostCanonicalTypeKeyNode impure fn Vec SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table\nodes\args:
+    selfhost_memo_trait_canonical_key_payload_stage0_project_owned table nodes args (selfhost_canonical_type_key_id_new 0)
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_fuel_projection: cyclic applied argument smoke を[作/つく]る
+fn selfhost_memo_trait_canonical_key_payload_stage0_fuel_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Projection StdErrorKind \table:
+    let root %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_id_new 0
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    let arg_range %SelfhostCanonicalTypeKeyArgRange selfhost_canonical_type_key_arg_range_new_unchecked 0 1
+    let applied %SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey nominal_id arg_range
+    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Applied applied
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes0:
+            match v::push nodes0 node:
+                Result::Ok nodes1:
+                    let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+                    match args_result:
+                        Result::Ok args0:
+                            match v::push args0 root:
+                                Result::Ok args1:
+                                    selfhost_memo_trait_canonical_key_payload_stage0_fuel_projection_from_parts table nodes1 args1
+                                Result::Err e:
+                                    let error %StdErrorKind field::get e "error"
+                                    v::free nodes1
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err error
+                        Result::Err e:
+                            v::free nodes1
+                            Result::Err e
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_finish: table owner を[閉/と]じて summary を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_stage0_finish %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Summary Result SelfhostMemoTraitCanonicalKeyPayloadStage0Summary StdErrorKind \table\duplicate_table\empty_table\summary:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    Result::Ok summary
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_abort_tables: table owner を[閉/と]じて setup 失敗を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_payload_stage0_abort_tables %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Summary StdErrorKind \table\duplicate_table\empty_table:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_collect: projection 結果を summary へ[集約/しゅうやく]する
+fn selfhost_memo_trait_canonical_key_payload_stage0_collect %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection impure fn SelfhostMemoTraitCanonicalKeyPayloadStage0Projection Result SelfhostMemoTraitCanonicalKeyPayloadStage0Summary StdErrorKind \table\duplicate_table\empty_table\named_projection\applied_projection\missing_nominal_projection\duplicate_nominal_projection\parameter_projection\function_projection\missing_node_projection\missing_arg_projection\invalid_range_projection\fuel_projection:
+    let summary %SelfhostMemoTraitCanonicalKeyPayloadStage0Summary selfhost_memo_trait_canonical_key_payload_stage0_summary_new (field::get named_projection "result") (field::get applied_projection "result") (field::get missing_nominal_projection "result") (field::get duplicate_nominal_projection "result") (field::get parameter_projection "result") (field::get function_projection "result") (field::get missing_node_projection "result") (field::get missing_arg_projection "result") (field::get invalid_range_projection "result") (field::get fuel_projection "result")
+    selfhost_memo_trait_canonical_key_payload_stage0_finish table duplicate_table empty_table summary
+
+//: selfhost_memo_trait_canonical_key_payload_stage0_after_tables: table setup 後に代表 projection を[実行/じっこう]する
+fn selfhost_memo_trait_canonical_key_payload_stage0_after_tables %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyPayloadStage0Summary StdErrorKind \table\duplicate_table\empty_table:
+    match selfhost_memo_trait_canonical_key_payload_stage0_named_projection &table:
+        Result::Ok named_projection:
+            match selfhost_memo_trait_canonical_key_payload_stage0_applied_projection &table:
+                Result::Ok applied_projection:
+                    match selfhost_memo_trait_canonical_key_payload_stage0_named_projection &empty_table:
+                        Result::Ok missing_nominal_projection:
+                            match selfhost_memo_trait_canonical_key_payload_stage0_named_projection &duplicate_table:
+                                Result::Ok duplicate_nominal_projection:
+                                    match selfhost_memo_trait_canonical_key_payload_stage0_parameter_projection &table:
+                                        Result::Ok parameter_projection:
+                                            match selfhost_memo_trait_canonical_key_payload_stage0_function_projection &table:
+                                                Result::Ok function_projection:
+                                                    match selfhost_memo_trait_canonical_key_payload_stage0_missing_node_projection &table:
+                                                        Result::Ok missing_node_projection:
+                                                            match selfhost_memo_trait_canonical_key_payload_stage0_missing_argument_projection &table:
+                                                                Result::Ok missing_arg_projection:
+                                                                    match selfhost_memo_trait_canonical_key_payload_stage0_invalid_range_projection &table:
+                                                                        Result::Ok invalid_range_projection:
+                                                                            match selfhost_memo_trait_canonical_key_payload_stage0_fuel_projection &table:
+                                                                                Result::Ok fuel_projection:
+                                                                                    selfhost_memo_trait_canonical_key_payload_stage0_collect table duplicate_table empty_table named_projection applied_projection missing_nominal_projection duplicate_nominal_projection parameter_projection function_projection missing_node_projection missing_arg_projection invalid_range_projection fuel_projection
+                                                                                Result::Err _e:
+                                                                                    selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                                                                        Result::Err _e:
+                                                                            selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                                                                Result::Err _e:
+                                                                    selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                                                        Result::Err _e:
+                                                            selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                                                Result::Err _e:
+                                                    selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                                        Result::Err _e:
+                                            selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                                Result::Err _e:
+                                    selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                        Result::Err _e:
+                            selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+                Result::Err _e:
+                    selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+        Result::Err _e:
+            selfhost_memo_trait_canonical_key_payload_stage0_abort_tables table duplicate_table empty_table
+
+//: selfhost_memo_trait_canonical_key_payload_stage0: canonical key payload hash の代表境界を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - source policy だけでなく実行 smoke として、named / applied の accepted path と、missing / duplicate / unsupported / malformed arena の fail-closed path を確認します。
+pub fn selfhost_memo_trait_canonical_key_payload_stage0 %impure fn void Result SelfhostMemoTraitCanonicalKeyPayloadStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_canonical_key_payload_stage0_build_table false:
+        Result::Ok table:
+            match selfhost_memo_trait_canonical_key_payload_stage0_build_table true:
+                Result::Ok duplicate_table:
+                    match selfhost_memo_trait_stable_nominal_key_table_new:
+                        Result::Ok empty_table:
+                            selfhost_memo_trait_canonical_key_payload_stage0_after_tables table duplicate_table empty_table
+                        Result::Err _e:
+                            selfhost_memo_trait_stable_nominal_key_table_free table
+                            selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _e:
+                    selfhost_memo_trait_stable_nominal_key_table_free table
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation

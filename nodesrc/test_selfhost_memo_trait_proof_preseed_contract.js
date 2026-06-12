@@ -43,18 +43,18 @@ assert.match(
 );
 assert.match(
     source,
-    /materialized_canonical_payload_hash[\s\S]*materialized_fingerprint[\s\S]*decoded canonical key payload[\s\S]*source text、path、span、display name、diagnostic text/,
-    "preseed bridge docs must require decoded canonical key payload evidence and reject source-text authority",
+    /materialized_fingerprint[\s\S]*decoded canonical key payload[\s\S]*payload hash[\s\S]*この module が再計算[\s\S]*caller から raw `i32` として受け取りません/,
+    "preseed bridge docs must require decoded canonical key payload evidence and reject caller-supplied raw payload hashes",
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitNeplProofPreseedErrorKind:[\s\S]*ArtifactRecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*MaterializedCanonicalKeyMissing[\s\S]*MaterializedFingerprintMismatch[\s\S]*MaterializedPolicyMismatch[\s\S]*CanonicalPayloadHashMismatch/,
-    "preseed bridge errors must be typed enum variants for artifact, key, fingerprint, policy, and payload-hash failures",
+    /pub enum SelfhostMemoTraitNeplProofPreseedErrorKind:[\s\S]*ArtifactRecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*MaterializedCanonicalKeyMissing[\s\S]*CanonicalPayloadMaterializationInvalid %SelfhostMemoTraitCanonicalKeyPayloadErrorKind[\s\S]*MaterializedFingerprintMismatch[\s\S]*MaterializedPolicyMismatch[\s\S]*CanonicalPayloadHashMismatch/,
+    "preseed bridge errors must be typed enum variants for artifact, key materialization, fingerprint, policy, and payload-hash failures",
 );
 assert.match(
     source,
-    /pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq[\s\S]*ArtifactRecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadHashMismatch/,
-    "preseed error equality must compare nested artifact error payloads and every outer variant explicitly",
+    /pub fn selfhost_memo_trait_neplproof_preseed_error_kind_eq[\s\S]*ArtifactRecordInvalid a_error[\s\S]*selfhost_memo_trait_neplproof_artifact_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadMaterializationInvalid a_error[\s\S]*selfhost_memo_trait_canonical_key_payload_error_kind_eq a_error b_error[\s\S]*CanonicalPayloadHashMismatch/,
+    "preseed error equality must compare nested artifact and payload materialization error payloads and every outer variant explicitly",
 );
 assert.match(
     source,
@@ -65,6 +65,16 @@ assert.match(
     source,
     /selfhost_canonical_type_key_arena_get_node materialized_key_arena materialized_key_id[\s\S]*MaterializedCanonicalKeyMissing/,
     "preseed bridge must reject missing materialized canonical keys before scanning the proof store",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_record_preseed_decision_materialized %fn &SelfhostMemoTraitProofStore fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn SelfhostMemoTraitProofStorePolicy fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitNeplProofRecord Result/,
+    "preseed public API must take the stable nominal table and materialized key arena, not a caller-supplied payload hash",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_canonical_key_payload_hash_result nominal_table materialized_key_arena materialized_key_id[\s\S]*Result::Err payload_error:[\s\S]*CanonicalPayloadMaterializationInvalid payload_error/,
+    "preseed bridge must recompute payload hash internally and report payload materialization failures as typed errors",
 );
 assert.match(
     source,
@@ -88,7 +98,7 @@ assert.match(
 );
 assert.match(
     source,
-    /let existing_matching[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store[\s\S]*valid_record[\s\S]*let conflict_record[\s\S]*SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported[\s\S]*let rejected_conflict[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store[\s\S]*conflict_record/,
+    /let existing_matching[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store &nominal_table[\s\S]*valid_record[\s\S]*let conflict_record[\s\S]*SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported[\s\S]*let rejected_conflict[\s\S]*selfhost_memo_trait_neplproof_record_preseed_decision_materialized &seeded_store &nominal_table[\s\S]*conflict_record/,
     "preseed stage0 must exercise ExistingMatching and RejectedConflict through the decoded bridge public API",
 );
 assert.match(

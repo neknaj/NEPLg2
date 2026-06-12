@@ -1008,13 +1008,27 @@ Header は artifact schema、canonical payload schema、policy schema、record c
 
 `.neplproof` artifact schema と proof store preseed decision の間に、decoded record を materialized canonical key と照合する bridge boundary を追加した。
 
-この bridge は reader / serializer 本体ではない。Phase 1 では、caller が decoded canonical key payload から一時 `SelfhostCanonicalTypeKeyArena`、`SelfhostCanonicalTypeKeyId`、canonical payload hash、canonical fingerprint を作った後の接続点だけを固定する。binary codec、serialized canonical key tree payload、persistent stable map、disk / bundled artifact I/O は後続 slice に残す。
+この bridge は reader / serializer 本体ではない。Phase 1 では、caller が decoded canonical key payload から一時 `SelfhostCanonicalTypeKeyArena`、`SelfhostCanonicalTypeKeyId`、canonical fingerprint を作った後の接続点だけを固定する。canonical payload hash は bridge 内で materialized canonical key tree から再計算し、caller supplied な整数は accepted authority にしない。binary codec、serialized canonical key tree payload、persistent stable map、disk / bundled artifact I/O は後続 slice に残す。
 
-bridge は decoded record key と record body を artifact schema boundary で再検査し、materialized key の存在、canonical payload hash、canonical fingerprint、solver policy をこの順で照合する。いずれかが壊れている場合は `SelfhostMemoTraitNeplProofPreseedErrorKind` の typed error として返し、proof store の decision へ進めない。
+bridge は decoded record key と record body を artifact schema boundary で再検査し、materialized key の存在、materialized canonical key tree から再計算した canonical payload hash、canonical fingerprint、solver policy をこの順で照合する。いずれかが壊れている場合は `SelfhostMemoTraitNeplProofPreseedErrorKind` の typed error として返し、proof store の decision へ進めない。
 
 照合を通過した record だけが `selfhost_memo_trait_proof_store_preseed_decision_materialized_key` へ渡される。store relation は `AcceptMissing`、`ExistingMatching`、`RejectedConflict` の typed enum で返し、同一 stable identity / 同一 payload の再投入は skip 可能、同一 stable identity / 差分 payload は fail-closed conflict として扱う。stage0 smoke は empty store の `AcceptMissing` だけでなく、stable proof を seed した store に対する bridge 経由の `ExistingMatching` と `RejectedConflict` も実行で固定する。
 
 永続 artifact の accepted authority は、serialized canonical key payload hash、canonical fingerprint、typed policy、proof kind、stored proof payload、record payload hash である。store-local `SelfhostCanonicalTypeKeyId`、`SelfhostMemoTraitProofStoreStableIdentity`、session-local `SelfhostTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme は bridge API の入力 authority にしない。
+
+### 2026-06-12 memo trait canonical key payload hash checkpoint
+
+decoded preseed bridge の前提だった canonical payload hash を、caller supplied な整数から selfhost 側の typed producer へ移した。
+
+`memo_trait_canonical_key_payload.nepl` は、materialized canonical key arena と stable nominal key table から `.neplproof` record key 用の `SelfhostMemoTraitCanonicalKeyPayloadHash` を作る。payload hash は payload schema、canonical node kind、primitive stable code、stable nominal key、argument order だけから決まる。source text、span、path、display name、diagnostic text、lexeme、store-local id、session-local `SelfhostTypeId` は authority にしない。
+
+`Parameter` と `Function` は Phase 1 では fail-closed にする。generic type argument identity と higher-order function identity は別 issue の stable identity boundary が入るまで `.neplproof` payload hash の受理対象にしない。壊れた canonical key arena に対しては node 数と argument 数から作る traversal fuel により無制限再帰を止め、missing node、missing argument、invalid argument range、fuel exhaustion を typed error として返す。
+
+`.neplproof` artifact schema は payload schema boundary と canonical fingerprint schema の両方を確認する。数値は Phase 1 で同じだが、payload schema function と fingerprint schema function は別 authority として扱う。decoded preseed bridge は `3003` のような固定 payload hash や public API caller から渡された raw hash を使わず、materialized canonical key から payload hash producer を呼ぶ。stage0 は producer の値で record key を作り、hash mismatch は record key 側だけを壊して、再計算値との不一致として確認する。
+
+subagent review では、初期実装で public preseed API が `materialized_canonical_payload_hash %i32` を受け取っていた点が High として指摘された。修正後は public API に `&SelfhostMemoTraitStableNominalKeyTable` を渡し、bridge 内部で `selfhost_memo_trait_canonical_key_payload_hash_result` を呼ぶ。payload producer の `Applied` node hash にも payload schema version を混ぜ、module doc の「schema は hash 入力である」という契約と実装を一致させた。
+
+この checkpoint 後も、binary reader / serializer、serialized canonical key tree bytes、decoded record から proof store へ append する永続 preseed loop、persistent stable map / serialized index は未実装である。
 
 ### Phase 11: Backend
 
