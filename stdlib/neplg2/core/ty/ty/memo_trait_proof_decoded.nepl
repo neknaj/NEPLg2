@@ -1,0 +1,524 @@
+#indent 4
+
+//: # ty/memo_trait_proof_decoded
+//: `.neplproof` reader が decoded record set を[返/かえ]すための owner boundary です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_proof_artifact.nepl` は header、record、index entry の schema と decoded table validation を担当します。
+//: - `memo_trait_proof_index.nepl` は record vector から sorted sidecar index を作り、canonical fingerprint から candidate range を返す narrowing contract を担当します。
+//: - この module は、その 2 つをつなぎ、decoded record owner と sorted index owner と header を 1 つの `SelfhostMemoTraitNeplProofDecodedArtifact` owner として束ねます。
+//: - reader / serializer / preseed の前段で、「この records と indexes は同じ header に属し、同じ validation を通過した」という不変条件を型と free boundary で明示します。
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitNeplProofDecodedArtifact` は `records` と `indexes` の `Vec` owner を持ちます。成功値を受け取った caller は、使い終わったら `selfhost_memo_trait_neplproof_decoded_artifact_free` で閉じます。
+//: - `selfhost_memo_trait_neplproof_decoded_artifact_from_records` は record vector owner を受け取り、sorted sidecar index を作り、header validation、decoded table validation、sorted order validation を通した場合だけ artifact owner を返します。
+//: - 失敗時には、入力 `records` owner と、構築済み `indexes` owner をこの module が閉じます。caller は error payload だけを受け取ります。
+//: - artifact lookup は candidate range だけを返します。index hit、fingerprint hit、record payload hash match だけで proof を受理する経路はありません。
+//: - `CandidateMissing` は有効な artifact に対象 fingerprint の候補がないことを表す正常な lookup miss です。header / table / sorted order の破損とは分けて扱います。
+//: - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId` は decoded artifact owner の authority ではありません。
+//:
+//: [現状/げんじょう]:
+//: - これは `.neplproof` binary / text reader や serializer ではありません。byte parser、canonical key payload bytes table、persistent stable map、proof store preseed は後続 slice の責務です。
+//: - Phase 1 の owner bundle は decoded `Vec` をそのまま所有します。後続の persistent artifact reader は、同じ public constructor / lookup / free contract を保ちながら serialized index や prechecked artifact cache へ接続します。
+//: - 現在の record / index entry は Copy payload だけを持つため、`Vec` owner を閉じれば deep free は不要です。後続で canonical payload bytes などの owner payload を埋め込む場合は、この free boundary も同じ時点で拡張します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `from_records` は sorted index producer の O(n^2) と decoded table validation の O(n * m + m * m) に従います。ここで n は record 数、m は index entry 数です。
+//: - `validate_result` は header validation、table validation、sorted order validation を再実行するため、現 stage では O(n * m + m * m) です。
+//: - `lookup_result` は現 stage では validation 後に sorted index を線形 scan するため O(n * m + m * m + m) です。sorted contract があるため、後続では同じ Result 型のまま lookup 部分を O(log m + c) へ移せます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_artifact" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_index" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_decoded" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_neplproof_decoded_artifact_stage0:
+//:         Result::Ok summary:
+//:             let expected_range SelfhostMemoTraitNeplProofIndexCandidateRange 0 1
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_index_candidate_range_eq (unwrap_ok summary.accepted_lookup) expected_range
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_decoded_artifact_record_result_is_ok summary.accepted_record
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_decoded_artifact_index_result_is_ok summary.accepted_index
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.missing_lookup) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq (unwrap_err summary.invalid_record) SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid SelfhostMemoTraitNeplProofIndexProducerErrorKind::RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "decoded neplproof artifact stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./memo_trait" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
+#import "./memo_trait_policy" as *
+#import "./memo_trait_proof_artifact" as *
+#import "./memo_trait_proof_index" as *
+
+//: SelfhostMemoTraitNeplProofDecodedArtifact: decoded `.neplproof` artifact の owner
+//:
+//: [目的/もくてき]:
+//: - reader が復元した record vector と、同じ record vector から作った sorted sidecar index vector を同じ所有境界に束ねます。
+//:
+//: [契約/けいやく]:
+//: - `header.record_count` は `records` の長さ、`header.index_count` は `indexes` の長さと一致します。
+//: - `indexes` は `memo_trait_proof_index.nepl` の sorted order と candidate range contract を満たします。
+//: - この struct は `Vec` owner を持つため `Copy` 実装を提供しません。
+pub struct SelfhostMemoTraitNeplProofDecodedArtifact:
+    header %SelfhostMemoTraitNeplProofHeader
+    records %Vec SelfhostMemoTraitNeplProofRecord
+    indexes %Vec SelfhostMemoTraitNeplProofIndexEntry
+
+//: SelfhostMemoTraitNeplProofDecodedArtifactErrorKind: decoded artifact owner boundary の拒否理由
+//:
+//: [目的/もくてき]:
+//: - header、index producer、table validation、sorted order、lookup、record/index access の失敗を typed enum として保持します。
+//:
+//: [分類/ぶんるい]:
+//: - `HeaderInvalid`: schema version または count boundary が artifact header validator に拒否されました。
+//: - `IndexBuildInvalid`: record vector から sorted sidecar index を作る producer が拒否しました。
+//: - `TableValidationInvalid`: header / records / indexes の aggregate validation が拒否しました。
+//: - `SortedIndexInvalid`: sorted order validation が拒否しました。
+//: - `LookupInvalid`: candidate lookup の前提となる header / table / sorted order validation が拒否しました。
+//: - `CandidateMissing`: artifact は有効ですが、対象 fingerprint の候補が存在しません。
+//: - `RecordEntryMissing` と `IndexEntryMissing`: artifact validation を通した後に vector slot を読めない defensive failure です。
+pub enum SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:
+    HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    IndexBuildInvalid %SelfhostMemoTraitNeplProofIndexProducerErrorKind
+    TableValidationInvalid %SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    SortedIndexInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind
+    LookupInvalid %SelfhostMemoTraitNeplProofSortedIndexErrorKind
+    CandidateMissing
+    RecordEntryMissing
+    IndexEntryMissing
+
+//: SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary: decoded artifact owner contract の代表 smoke
+pub struct SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary:
+    accepted_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    missing_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+    invalid_record %Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedArtifactErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_new: validation 済み decoded artifact owner を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_artifact_new %fn SelfhostMemoTraitNeplProofHeader fn Vec SelfhostMemoTraitNeplProofRecord fn Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifact \header\records\indexes:
+    SelfhostMemoTraitNeplProofDecodedArtifact header records indexes
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_free: decoded artifact owner を[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - `records` と `indexes` の両方の `Vec` owner を閉じます。
+//: - header は Copy payload なので追加の cleanup は不要です。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_free %impure fn SelfhostMemoTraitNeplProofDecodedArtifact unit \artifact:
+    v::free field::get artifact "records"
+    v::free field::get artifact "indexes"
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_validate_result: decoded artifact owner の invariant を[再検査/さいけんさ]する
+//:
+//: [目的/もくてき]:
+//: - public accessor が「構築時に検査済み」という前提だけに依存せず、借用した owner の header / table / sorted order を fail-closed に再確認できるようにします。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_validate_result %fn &SelfhostMemoTraitNeplProofDecodedArtifact Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \artifact:
+    let header %SelfhostMemoTraitNeplProofHeader *field::get_ref artifact "header"
+    let records %&Vec SelfhostMemoTraitNeplProofRecord field::get_ref artifact "records"
+    let indexes %&Vec SelfhostMemoTraitNeplProofIndexEntry field::get_ref artifact "indexes"
+    match selfhost_memo_trait_neplproof_header_result header.artifact_schema_version header.canonical_payload_schema_version header.policy_schema_version header.record_count header.index_count:
+        Result::Ok checked_header:
+            match selfhost_memo_trait_neplproof_index_table_result checked_header records indexes:
+                Result::Ok _table:
+                    match selfhost_memo_trait_neplproof_sorted_index_order_result indexes:
+                        Result::Ok _sorted:
+                            Result::Ok unit
+                        Result::Err kind:
+                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid kind
+                Result::Err kind:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid kind
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid kind
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_from_records: decoded records から artifact owner を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - reader が decoded record vector を得た直後に、同じ record vector から sorted sidecar index と header を作り、1 つの owner として返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(artifact)`: record owner と generated index owner は artifact に移動しています。caller は `selfhost_memo_trait_neplproof_decoded_artifact_free` で閉じます。
+//: - `Err(kind)`: 入力 record owner と生成済み index owner はこの関数が閉じています。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_from_records %impure fn Vec SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \records:
+    match selfhost_memo_trait_neplproof_sorted_index_build_result &records:
+        Result::Ok indexes:
+            let record_count %i32 v::len &records
+            let index_count %i32 v::len &indexes
+            match selfhost_memo_trait_neplproof_header_result selfhost_memo_trait_neplproof_artifact_schema_version selfhost_memo_trait_canonical_key_payload_schema_version selfhost_memo_trait_neplproof_policy_schema_version record_count index_count:
+                Result::Ok header:
+                    match selfhost_memo_trait_neplproof_index_table_result header &records &indexes:
+                        Result::Ok _table:
+                            match selfhost_memo_trait_neplproof_sorted_index_order_result &indexes:
+                                Result::Ok _sorted:
+                                    Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_new header records indexes
+                                Result::Err kind:
+                                    v::free records
+                                    v::free indexes
+                                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid kind
+                        Result::Err kind:
+                            v::free records
+                            v::free indexes
+                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid kind
+                Result::Err kind:
+                    v::free records
+                    v::free indexes
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid kind
+        Result::Err kind:
+            v::free records
+            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid kind
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_lookup_result: decoded artifact owner から candidate range を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - lookup 前に sorted index module の public lookup boundary を通します。これは header / table / sorted order を再検査します。
+//: - `Ok(range)` は proof acceptance ではありません。caller は range 内の record に対して canonical payload decode、payload hash、policy、proof kind、preseed decision、producer gate を続けて検査します。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_lookup_result %fn &SelfhostMemoTraitNeplProofDecodedArtifact fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \artifact\target:
+    let header %SelfhostMemoTraitNeplProofHeader *field::get_ref artifact "header"
+    let records %&Vec SelfhostMemoTraitNeplProofRecord field::get_ref artifact "records"
+    let indexes %&Vec SelfhostMemoTraitNeplProofIndexEntry field::get_ref artifact "indexes"
+    match selfhost_memo_trait_neplproof_sorted_index_lookup_result header records indexes target:
+        Result::Ok range:
+            Result::Ok range
+        Result::Err kind:
+            match kind:
+                SelfhostMemoTraitNeplProofSortedIndexErrorKind::HeaderInvalid inner:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid SelfhostMemoTraitNeplProofSortedIndexErrorKind::HeaderInvalid inner
+                SelfhostMemoTraitNeplProofSortedIndexErrorKind::TableValidationRejected inner:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid SelfhostMemoTraitNeplProofSortedIndexErrorKind::TableValidationRejected inner
+                SelfhostMemoTraitNeplProofSortedIndexErrorKind::IndexEntryMissing:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid SelfhostMemoTraitNeplProofSortedIndexErrorKind::IndexEntryMissing
+                SelfhostMemoTraitNeplProofSortedIndexErrorKind::FingerprintOrderInvalid:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid SelfhostMemoTraitNeplProofSortedIndexErrorKind::FingerprintOrderInvalid
+                SelfhostMemoTraitNeplProofSortedIndexErrorKind::RecordOrdinalOrderInvalid:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid SelfhostMemoTraitNeplProofSortedIndexErrorKind::RecordOrdinalOrderInvalid
+                SelfhostMemoTraitNeplProofSortedIndexErrorKind::CandidateMissing:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_record_at_result: decoded artifact から record を copy-out する
+//:
+//: [契約/けいやく]:
+//: - artifact invariant を再検査した後、指定 ordinal の record を返します。
+//: - `SelfhostMemoTraitNeplProofRecord` は Copy payload です。返した record は artifact owner の storage location ではありません。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_record_at_result %fn &SelfhostMemoTraitNeplProofDecodedArtifact fn i32 Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \artifact\record_ordinal:
+    match selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact:
+        Result::Ok _valid:
+            let records %&Vec SelfhostMemoTraitNeplProofRecord field::get_ref artifact "records"
+            match v::get records record_ordinal:
+                Option::Some record:
+                    Result::Ok record
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing
+        Result::Err kind:
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_index_at_result: decoded artifact から index entry を copy-out する
+//:
+//: [契約/けいやく]:
+//: - artifact invariant を再検査した後、指定 index slot の entry を返します。
+//: - `SelfhostMemoTraitNeplProofIndexEntry` は Copy payload です。返した entry は artifact owner の storage location ではありません。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_index_at_result %fn &SelfhostMemoTraitNeplProofDecodedArtifact fn i32 Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \artifact\index:
+    match selfhost_memo_trait_neplproof_decoded_artifact_validate_result artifact:
+        Result::Ok _valid:
+            let indexes %&Vec SelfhostMemoTraitNeplProofIndexEntry field::get_ref artifact "indexes"
+            match v::get indexes index:
+                Option::Some entry:
+                    Result::Ok entry
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing
+        Result::Err kind:
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq: decoded artifact error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ variant は payload も比較します。
+//: - wildcard arm は使いません。error variant を追加した場合、この equality も明示的に更新します。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_error_kind_eq %fn SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn SelfhostMemoTraitNeplProofDecodedArtifactErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid b_kind:
+                    selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid b_kind:
+                    selfhost_memo_trait_neplproof_index_producer_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid b_kind:
+                    selfhost_memo_trait_neplproof_index_validation_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid b_kind:
+                    selfhost_memo_trait_neplproof_sorted_index_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid a_kind:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid b_kind:
+                    selfhost_memo_trait_neplproof_sorted_index_error_kind_eq a_kind b_kind
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    true
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    false
+        SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::LookupInvalid _b_kind:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexEntryMissing:
+                    true
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_lookup_result_is_ok: lookup result が accepted range か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_lookup_result_is_ok %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _range:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_record_result_is_ok: record accessor result が accepted record か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_record_result_is_ok %fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _record:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_index_result_is_ok: index accessor result が accepted entry か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_index_result_is_ok %fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _entry:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_record_push: stage0 record vector へ record を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_decoded_artifact_record_push %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \records\record:
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one: 1 record の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one %impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \record:
+    let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records0:
+            selfhost_memo_trait_neplproof_decoded_artifact_record_push records0 record
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary \accepted_lookup\accepted_record\accepted_index\missing_lookup\invalid_record:
+    SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary accepted_lookup accepted_record accepted_index missing_lookup invalid_record
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0_run_artifact: Vec owner から artifact accessor 群を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - `records` owner は `from_records` へ渡します。成功時は artifact free、失敗時は constructor 内 cleanup により閉じられます。
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_run_artifact %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitCanonicalTypeFingerprint impure fn SelfhostMemoTraitCanonicalTypeFingerprint Result SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \records\accepted_fingerprint\missing_fingerprint:
+    match selfhost_memo_trait_neplproof_decoded_artifact_from_records records:
+        Result::Ok artifact:
+            let accepted_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_lookup_result &artifact accepted_fingerprint
+            let accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_record_at_result &artifact 0
+            let accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_index_at_result &artifact 0
+            let missing_lookup %Result SelfhostMemoTraitNeplProofIndexCandidateRange SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_lookup_result &artifact missing_fingerprint
+            selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new accepted_lookup accepted_record accepted_index missing_lookup (Result::Ok unit)
+        Result::Err kind:
+            Result::Err kind
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0_invalid_record: invalid record の constructor error を[返/かえ]す
+fn selfhost_memo_trait_neplproof_decoded_artifact_stage0_invalid_record %impure fn SelfhostMemoTraitNeplProofRecord Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \invalid_record:
+    match selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one invalid_record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_decoded_artifact_from_records records:
+                Result::Ok artifact:
+                    selfhost_memo_trait_neplproof_decoded_artifact_free artifact
+                    Result::Ok unit
+                Result::Err kind:
+                    Result::Err kind
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid SelfhostMemoTraitNeplProofIndexProducerErrorKind::AllocFailed e
+
+//: selfhost_memo_trait_neplproof_decoded_artifact_stage0: decoded artifact owner contract の代表結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - artifact schema の accepted record から decoded artifact owner を作り、lookup、record copy-out、index copy-out、missing candidate、invalid record rejection を同じ public boundary 経由で確認します。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_stage0 %impure fn void Result SelfhostMemoTraitNeplProofDecodedArtifactStage0Summary StdErrorKind \void:
+    let artifact_summary %SelfhostMemoTraitNeplProofArtifactStage0Summary selfhost_memo_trait_neplproof_artifact_stage0
+    match artifact_summary.accepted_record:
+        Result::Ok first_record:
+            let first_key %SelfhostMemoTraitNeplProofRecordKey *field::get_ref &first_record "key"
+            let accepted_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint *field::get_ref &first_key "canonical_fingerprint"
+            let missing_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint accepted_fingerprint.schema_version add accepted_fingerprint.root_hash 1
+            let first_proof_kind %SelfhostMemoTraitStoredProofKind *field::get_ref &first_record "proof_kind"
+            let first_proof %SelfhostMemoTraitStoredAggregateProof *field::get_ref &first_record "proof"
+            let invalid_record %SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord first_key first_proof_kind first_proof 0
+            match selfhost_memo_trait_neplproof_decoded_artifact_stage0_records_one first_record:
+                Result::Ok records:
+                    match selfhost_memo_trait_neplproof_decoded_artifact_stage0_run_artifact records accepted_fingerprint missing_fingerprint:
+                        Result::Ok partial_summary:
+                            let invalid_record_result %Result unit SelfhostMemoTraitNeplProofDecodedArtifactErrorKind selfhost_memo_trait_neplproof_decoded_artifact_stage0_invalid_record invalid_record
+                            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_stage0_summary_new partial_summary.accepted_lookup partial_summary.accepted_record partial_summary.accepted_index partial_summary.missing_lookup invalid_record_result
+                        Result::Err _kind:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err e:
+                    Result::Err e
+        Result::Err _kind:
+            Result::Err StdErrorKind::InvalidOperation

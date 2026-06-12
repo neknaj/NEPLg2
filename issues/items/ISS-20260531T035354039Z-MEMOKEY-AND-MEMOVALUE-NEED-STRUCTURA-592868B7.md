@@ -542,6 +542,37 @@ subagent review では Euclid が、Phase 1 では同 module へ producer を置
 
 この checkpoint 後の残件は、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` decoded artifact owner checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl` を追加し、decoded record vector と sorted sidecar index vector を 1 つの owner boundary に束ねた。
+
+`SelfhostMemoTraitNeplProofDecodedArtifact` は header、records `Vec` owner、indexes `Vec` owner を持つ。成功値を受け取った caller は `selfhost_memo_trait_neplproof_decoded_artifact_free` で両方の `Vec` owner を閉じる。現 stage の record / index entry は Copy payload だけを持つため deep free は不要だが、後続で canonical payload bytes などの owner payload を埋め込む場合は、この free boundary も同じ時点で拡張する。
+
+`selfhost_memo_trait_neplproof_decoded_artifact_from_records` は入力 record owner を受け取り、`selfhost_memo_trait_neplproof_sorted_index_build_result` で sorted sidecar index を作り、header validation、decoded table validation、sorted order validation を通した場合だけ artifact owner を返す。index build 失敗時は records を閉じ、post-build validation 失敗時は records と indexes の両方を閉じる。caller は error payload だけを受け取り、失敗時 owner を回収しない。
+
+lookup は proof acceptance ではなく candidate narrowing だけを返す。`SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::CandidateMissing` を追加し、有効な artifact に対象 fingerprint の candidate がない場合を `LookupInvalid` から分離した。`LookupInvalid` は header / table / sorted order の破損に由来する lookup 前提の拒否だけに使う。
+
+decoded artifact owner は `memo_trait_proof_store` / `memo_trait_source` を direct import しない。stage0 smoke は `selfhost_memo_trait_neplproof_artifact_stage0` の accepted record を再利用し、proof store policy や source identity の構築詳細を decoded artifact 層へ持ち込まない。source policy は proof-store / source / preseed API、checker / HIR / Resource / backend 逆依存、source text / span / path / display / diagnostic / lexeme / session-local id authority、line count / doc comment length cap を禁止する。
+
+Resource IR の initialized-state 検査により、stage0 の直接 field chain `first_record.key.canonical_fingerprint` は owner の部分移動として拒否された。そのため `field::get_ref` を使い、Copy payload を owner 非消費で読む形に修正した。これは検査の迂回ではなく、owner boundary を明示する根本修正である。
+
+subagent review では Euclid が初回 Required として、cleanup contract、`CandidateMissing` と corruption の分離、proof_store/source direct import 禁止、source text / span / path / diagnostic / lexeme / session-local id authority 禁止、Copy payload の free boundary doc を求めた。再レビューでは Blocker / Required なしとし、上記が反映済みであることを確認した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -o tmp/selfhost-memo-trait-proof-decoded-focused.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+focused doctest の timing では `compile_ms=13572`、`resource_static_check=12416.146ms`、`resource_static_initialized_moves=11173.328ms`、`resource_static_owner_obligations=818.486ms` だった。RPN cold base 高速化と同じく、cache だけでなく Resource checker の探索範囲削減は継続課題である。
+
+この checkpoint 後の残件は、`.neplproof` reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

@@ -1,3 +1,54 @@
+# 2026-06-12 Agent selfhost memo trait neplproof decoded artifact owner checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum / match による静的検査、owner cleanup、DAG に沿った責務分割、source text / span / path / diagnostic / lexeme を authority にしないこと、計算量と現状制約の doc comment 明記、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-artifact-record-set-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` decoded artifact owner boundary
+- classification: selfhost implementation slice review
+- decision: `memo_trait_proof_artifact.nepl` の typed record schema と `memo_trait_proof_index.nepl` の sorted sidecar index を束ね、reader / serializer / proof store preseed の前段で decoded records と generated indexes を 1 つの owner にする boundary を `memo_trait_proof_decoded.nepl` として追加した。
+- policy/spec:
+  - `SelfhostMemoTraitNeplProofDecodedArtifact` は header、records `Vec` owner、indexes `Vec` owner を同じ所有境界に束ねる。成功値を受け取った caller は `selfhost_memo_trait_neplproof_decoded_artifact_free` で閉じる。
+  - `from_records` は入力 record owner を受け取り、sorted sidecar index を作り、header / decoded table / sorted order validation を通した場合だけ artifact owner を返す。index build 失敗時は records、post-build validation 失敗時は records と indexes の両方を閉じる。
+  - lookup は candidate range だけを返す。`CandidateMissing` は有効な artifact に候補がない正常な miss として `LookupInvalid` から分離した。header / table / sorted order の破損だけを `LookupInvalid` に畳み込む。
+  - decoded artifact owner は proof acceptance authority ではない。canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate は後続に残す。
+  - `memo_trait_proof_store` / `memo_trait_source` への direct import を削除した。stage0 は `selfhost_memo_trait_neplproof_artifact_stage0` の accepted record を再利用し、proof store や source identity の構築詳細を decoded artifact 層へ持ち込まない。
+  - record / index entry は現 stage では Copy payload だけを持つ。`Vec` owner を閉じれば deep free は不要だが、後続で canonical payload bytes などの owner payload を埋め込む場合は free boundary も同じ時点で拡張する。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl` を追加した。
+  - `SelfhostMemoTraitNeplProofDecodedArtifactErrorKind` に header、index build、table validation、sorted order、lookup corruption、candidate missing、record/index defensive missing を typed enum として追加した。
+  - `selfhost_memo_trait_neplproof_decoded_artifact_validate_result` は borrowed owner から header / records / indexes を読み、header validation、decoded table validation、sorted order validation を再実行する。
+  - `selfhost_memo_trait_neplproof_decoded_artifact_lookup_result` は sorted index public lookup boundary に委譲し、`CandidateMissing` だけを専用 variant へ写す。
+  - `record_at_result` / `index_at_result` は artifact invariant を再検査してから copy-out し、storage location や cache 内部参照を返さない。
+  - stage0 smoke は accepted lookup、record copy-out、index copy-out、missing candidate、invalid record rejection を同じ public boundary 経由で確認する。`first_record` の Copy payload 読み取りは `field::get_ref` を使い、owner を消費しない形にした。
+  - `stdlib/neplg2/core/ty/ty.nepl` へ facade re-export を追加し、`nodesrc/selfhost_ty_sources.js` の source order では sorted index と proof preseed の間に配置した。
+  - `nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js` を追加し、source policy regression runner に登録した。
+- subagent review:
+  - subagent_review_ids: `019ebb25-2522-7990-b5f8-ece185dafe21`
+  - subagent_review_count: 1 implementation review, 1 implementation re-review
+  - Euclid implementation review: Blocker なし。Required として、from_records の cleanup contract、`CandidateMissing` と corruption の分離、proof_store / preseed / checker / HIR / Resource / backend direct dependency の禁止、source text / span / path / display / diagnostic / lexeme と session-local id / stable identity の authority 禁止、Copy payload の現状 free boundary doc を求めた。実装はこの指摘に従った。
+  - Euclid re-review: Blocker なし。Required なし。`CandidateMissing` 分離、proof_store/source direct import 削除、stage0 accepted record 再利用、`field::get_ref` による owner 非消費、source policy 固定はいずれも反映済みと評価した。
+- source_policy:
+  - source_policy: added
+  - source_policy_reason: decoded artifact owner が proof-store / source construction / proof acceptance / checker-HIR-resource-backend へ逆依存せず、typed error と owner cleanup contract を保つため。
+  - 既存 warning: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: なし。focused contract、focused doctest、focused runtime、ty split contract、Zenn review gate、source policy regression、issues check は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - focused doctest の compile では `compile_ms=13572`、`resource_static_check=12416.146ms`、`resource_static_initialized_moves=11173.328ms`、`resource_static_owner_obligations=818.486ms` だった。この selfhost proof file でも Resource checker の initialized move 探索が支配的であり、RPN cold base 高速化と同じく cache だけでなく checker algorithm の探索範囲削減を継続する。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+  - pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl -n 1`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -o tmp/selfhost-memo-trait-proof-decoded-focused.json -j 1 --assert-io --dist web/dist` total=1 passed=1 failed=0
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - warning_checked: doctest の初回失敗は `first_record.key.canonical_fingerprint` の直接 field chain が Resource IR initialized-state で未初期化読み取りとして検出されたためであり、`field::get_ref` で owner を消費せず読み取る形へ修正した。これは検査の迂回ではなく owner 読み取り境界の根本修正である。
+- 次 slice: `.neplproof` reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を継続する。
+
 # 2026-06-12 Agent selfhost memo trait neplproof sorted index producer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum / match による静的検査、fail-closed boundary、authority の分離、計算量の明記、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
