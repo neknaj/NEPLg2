@@ -9,19 +9,21 @@
 //: - 返り値は decoded artifact owner、materialized key arena owner、record ordinal と対応する materialized key id vector owner を 1 つに束ねます。これは `memo_trait_proof_preseed.nepl` の batch projector が期待する入力形と同じです。
 //:
 //: [契約/けいやく]:
-//: - `.neplproof` payload section は record-only prefix の直後にあり、各 record につき `payload_byte_len` word と、その byte 数ぶんの canonical payload codec bytes を持ちます。
-//: - record-only prefix は既存の `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result` に渡して検査します。この module は record tag や stored proof の別 authority を作りません。
+//: - `.neplproof` payload section は indexed prefix の直後にあり、各 record につき `payload_byte_len` word と、その byte 数ぶんの canonical payload codec bytes を持ちます。
+//: - indexed prefix の byte 数は、prefix owner を確保して複写する前に reader 側の `selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result` で検査します。過大な `record_count` / `index_count` は allocation 前に fail-closed にします。
+//: - indexed prefix は `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result` に渡して検査します。この module は record tag、stored proof、index entry の別 authority を作りません。
 //: - payload bytes decode は materialized key を作るだけです。payload hash、canonical fingerprint、policy、proof kind、store relation の受理判定は preseed / proof store 側が再検査します。
 //: - `SelfhostTypeId`、source text、span、path suffix、display name、diagnostic text、lexeme、record payload hash 単独、fingerprint hit 単独、index hit 単独は、この reader の authority ではありません。
 //: - 失敗時は、この module が作った decoded artifact owner、materialized key arena owner、materialized key id vector owner、payload slice owner を閉じます。caller は error payload だけを受け取ります。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 は record-only decoded artifact と payload section を読むだけです。serialized index table、persistent stable map、serializer、generic type argument identity、full public surface hash は後続 slice の責務です。
+//: - Phase 1 は decoded record table、serialized sidecar index table、canonical payload section を同じ bytes から読みます。persistent stable map、generic type argument identity、full public surface hash は後続 slice の責務です。
 //: - payload section の長さ word は 31-bit nonnegative word codec を使います。payload の中身そのものは canonical payload codec の schema と終端検査に委譲します。
 //: - この module は preseed module を import しません。依存方向を `reader -> payload reader -> preseed caller` に保ち、preseed の判定規則を reader へ逆流させないためです。
 //:
 //: [計算量/けいさんりょう]:
-//: - record-only prefix copy は byte 数 p に対して O(p) です。record table decode は既存 reader の O(n) 境界に従います。
+//: - indexed prefix copy は byte 数 p に対して O(p) です。record table と index table decode は既存 reader の O(n + m) 境界に従います。
+//: - 過大な record / index count は prefix copy 前の O(1) preflight で拒否します。
 //: - payload section decode は record 数 n、payload byte 総量 b、canonical key tree 総 node/edge 数 k に対して O(b + k) です。
 //: - materialized key id vector の構築は O(n) です。lookup、proof acceptance、proof store relation 判定、FileSystem、source scan は行いません。
 //:
@@ -154,6 +156,10 @@ fn selfhost_memo_trait_neplproof_payload_reader_header_words %fn void i32 \void:
 fn selfhost_memo_trait_neplproof_payload_reader_record_words %fn void i32 \void:
     31
 
+//: selfhost_memo_trait_neplproof_payload_reader_index_words: payload reader が前段 prefix として扱う index entry word 数
+fn selfhost_memo_trait_neplproof_payload_reader_index_words %fn void i32 \void:
+    4
+
 //: selfhost_memo_trait_neplproof_payload_reader_record_only_word_count: record-only prefix の word 数を[返/かえ]す
 fn selfhost_memo_trait_neplproof_payload_reader_record_only_word_count %fn SelfhostMemoTraitNeplProofHeader i32 \header:
     add selfhost_memo_trait_neplproof_payload_reader_header_words mul header.record_count selfhost_memo_trait_neplproof_payload_reader_record_words
@@ -161,6 +167,30 @@ fn selfhost_memo_trait_neplproof_payload_reader_record_only_word_count %fn Selfh
 //: selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count: record-only prefix の byte 数を[返/かえ]す
 fn selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count %fn SelfhostMemoTraitNeplProofHeader i32 \header:
     mul selfhost_memo_trait_neplproof_payload_reader_record_only_word_count header 4
+
+//: selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_word_count: indexed prefix の word 数を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_word_count %fn SelfhostMemoTraitNeplProofHeader i32 \header:
+    add selfhost_memo_trait_neplproof_payload_reader_record_only_word_count header mul header.index_count selfhost_memo_trait_neplproof_payload_reader_index_words
+
+//: selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count: indexed prefix の byte 数を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count %fn SelfhostMemoTraitNeplProofHeader i32 \header:
+    mul selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_word_count header 4
+
+//: selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result: indexed prefix の byte 数を allocation 前に[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - payload reader が prefix owner を作る前に、reader 本体と同じ `record_count` / `index_count` 上限を通します。
+//: - 成功時の byte count は、この module 内の unchecked arithmetic ではなく reader boundary が返した値を使います。
+//:
+//: [契約/けいやく]:
+//: - この関数が `Err` を返した場合、caller は prefix copy、decoded artifact construction、payload section scan へ進んではいけません。
+//: - 拒否理由は `RecordDecodeInvalid(reader_error)` に包み、reader 側の typed error payload を失いません。
+fn selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result %fn SelfhostMemoTraitNeplProofHeader Result i32 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \header:
+    match selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result header:
+        Result::Ok byte_count:
+            Result::Ok byte_count
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid e
 
 //: selfhost_memo_trait_neplproof_payload_reader_step_new: payload decode loop の owner state を[作/つく]る
 fn selfhost_memo_trait_neplproof_payload_reader_step_new %impure fn SelfhostCanonicalTypeKeyArena impure fn Vec SelfhostCanonicalTypeKeyId impure fn i32 SelfhostMemoTraitNeplProofPayloadReaderStep \arena\key_ids\next_byte_offset:
@@ -221,7 +251,7 @@ fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_push %impure fn Ve
             v::free v::vec_push_error_vec e
             Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixPushInvalid error
 
-//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop: record-only prefix bytes を[複写/ふくしゃ]する
+//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop: indexed prefix bytes を[複写/ふくしゃ]する
 fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop %impure fn &Vec u8 impure fn Vec u8 impure fn i32 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \source\out\idx\count:
     if:
         ge idx count
@@ -239,7 +269,7 @@ fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_loop %impure fn &V
                     v::free out
                     Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixUnexpectedEnd
 
-//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_result: record-only reader に渡す prefix bytes を[作/つく]る
+//: selfhost_memo_trait_neplproof_payload_reader_record_prefix_result: indexed reader に渡す prefix bytes を[作/つく]る
 fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_result %impure fn &Vec u8 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofPayloadReaderErrorKind \bytes\byte_count:
     let prefix_result %Result Vec u8 StdErrorKind v::new
     match prefix_result:
@@ -248,18 +278,21 @@ fn selfhost_memo_trait_neplproof_payload_reader_record_prefix_result %impure fn 
         Result::Err e:
             Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixAllocInvalid e
 
-//: selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result: prefix bytes を既存 reader へ[渡/わた]す
+//: selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result: indexed prefix bytes を既存 reader へ[渡/わた]す
 fn selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind \bytes\header:
-    let prefix_byte_count %i32 selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count header
-    match selfhost_memo_trait_neplproof_payload_reader_record_prefix_result bytes prefix_byte_count:
-        Result::Ok prefix:
-            let artifact_result %Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result &prefix
-            v::free prefix
-            match artifact_result:
-                Result::Ok artifact:
-                    Result::Ok artifact
+    match selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result header:
+        Result::Ok prefix_byte_count:
+            match selfhost_memo_trait_neplproof_payload_reader_record_prefix_result bytes prefix_byte_count:
+                Result::Ok prefix:
+                    let artifact_result %Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result &prefix
+                    v::free prefix
+                    match artifact_result:
+                        Result::Ok artifact:
+                            Result::Ok artifact
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid e
                 Result::Err e:
-                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordDecodeInvalid e
+                    Result::Err e
         Result::Err e:
             Result::Err e
 
@@ -383,7 +416,7 @@ fn selfhost_memo_trait_neplproof_payload_reader_loop %impure fn &SelfhostMemoTra
 //:
 //: [契約/けいやく]:
 //: - この関数は proof store へ投入しません。proof acceptance は caller が preseed module の batch path へ渡した後に行います。
-//: - record-only prefix は既存 reader へ渡し、payload section は `record_count` 件だけ順に decode します。
+//: - indexed prefix は既存 reader へ渡し、payload section は `record_count` 件だけ順に decode します。
 pub fn selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn &Vec u8 Result SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind \nominal_table\bytes:
     match selfhost_memo_trait_neplproof_reader_header_result bytes:
         Result::Ok header:
@@ -394,8 +427,11 @@ pub fn selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result
                             let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
                             match key_ids_result:
                                 Result::Ok key_ids:
-                                    let payload_offset %i32 selfhost_memo_trait_neplproof_payload_reader_record_only_byte_count header
-                                    selfhost_memo_trait_neplproof_payload_reader_loop nominal_table bytes artifact materialized_key_arena key_ids 0 header.record_count payload_offset
+                                    match selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result header:
+                                        Result::Ok payload_offset:
+                                            selfhost_memo_trait_neplproof_payload_reader_loop nominal_table bytes artifact materialized_key_arena key_ids 0 header.record_count payload_offset
+                                        Result::Err e:
+                                            selfhost_memo_trait_neplproof_payload_reader_abort artifact materialized_key_arena key_ids e
                                 Result::Err e:
                                     selfhost_memo_trait_neplproof_decoded_artifact_free artifact
                                     selfhost_canonical_type_key_arena_free materialized_key_arena
@@ -674,14 +710,45 @@ fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop %impure 
                 Result::Err e:
                     Result::Err e
 
-//: selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix: header と 1 record を[作/つく]る
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_index_word_value: stage0 index entry field 値を[返/かえ]す
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_index_word_value %fn i32 i32 \field_ordinal:
+    match field_ordinal:
+        0:
+            selfhost_memo_trait_canonical_key_payload_schema_version
+        1:
+            1001
+        2:
+            0
+        3:
+            3003
+        _:
+            0
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_push_index_loop: stage0 index entry を[線形/せんけい]に[追加/ついか]する
+fn selfhost_memo_trait_neplproof_payload_reader_stage0_push_index_loop %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\field_ordinal:
+    if:
+        ge field_ordinal selfhost_memo_trait_neplproof_payload_reader_index_words
+        then:
+            Result::Ok bytes
+        else:
+            match selfhost_memo_trait_neplproof_payload_reader_stage0_push_word bytes selfhost_memo_trait_neplproof_payload_reader_stage0_index_word_value field_ordinal:
+                Result::Ok next:
+                    selfhost_memo_trait_neplproof_payload_reader_stage0_push_index_loop next add field_ordinal 1
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix: header、1 record、1 serialized index entry を[作/つく]る
 fn selfhost_memo_trait_neplproof_payload_reader_stage0_record_prefix %impure fn void Result Vec u8 StdErrorKind \void:
     let bytes_result %Result Vec u8 StdErrorKind v::new
     match bytes_result:
         Result::Ok bytes0:
             match selfhost_memo_trait_neplproof_payload_reader_stage0_push_header bytes0:
                 Result::Ok bytes1:
-                    selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop bytes1 0
+                    match selfhost_memo_trait_neplproof_payload_reader_stage0_push_record_loop bytes1 0:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_neplproof_payload_reader_stage0_push_index_loop bytes2 0
+                        Result::Err e:
+                            Result::Err e
                 Result::Err e:
                     Result::Err e
         Result::Err e:

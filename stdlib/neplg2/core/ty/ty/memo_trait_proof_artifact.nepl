@@ -436,6 +436,23 @@ pub fn selfhost_memo_trait_neplproof_index_entry_result %fn SelfhostMemoTraitCan
                                 else:
                                     Result::Ok selfhost_memo_trait_neplproof_index_entry_new canonical_fingerprint record_ordinal record_payload_hash
 
+//: selfhost_memo_trait_neplproof_index_entry_from_parts_result: serialized index entry fields を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - binary reader は sidecar index entry を fingerprint schema、fingerprint root hash、record ordinal、record payload hash の word 列として読みます。
+//: - reader が canonical key module 全体へ直接依存しなくてよいように、この artifact schema 境界で typed fingerprint payload を組み立て、既存の index entry validator へ委譲します。
+//:
+//: [契約/けいやく]:
+//: - この関数は proof acceptance authority ではありません。
+//: - fingerprint schema、record ordinal range、record payload hash placeholder の検査は `selfhost_memo_trait_neplproof_index_entry_result` と同じです。
+//: - source text、span、path、diagnostic、lexeme、session-local id は入力に含めません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の scalar field だけを確認するため O(1) です。
+pub fn selfhost_memo_trait_neplproof_index_entry_from_parts_result %fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind \canonical_fingerprint_schema_version\canonical_fingerprint_root_hash\record_ordinal\record_payload_hash\record_count:
+    let canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_fingerprint_schema_version canonical_fingerprint_root_hash
+    selfhost_memo_trait_neplproof_index_entry_result canonical_fingerprint record_ordinal record_payload_hash record_count
+
 //: selfhost_memo_trait_neplproof_index_entry_matches_record_result: index entry が record payload を[指/さ]すか[検査/けんさ]する
 //:
 //: [契約/けいやく]:

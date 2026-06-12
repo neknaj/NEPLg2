@@ -72,7 +72,7 @@ assert.match(
 assert.match(
     source,
     /^#import "\.\/memo_trait_proof_reader" as \*$/m,
-    "payload reader must delegate header and fixed-width record decoding to the existing record reader",
+    "payload reader must delegate header, fixed-width record, and serialized index decoding to the existing reader",
 );
 assert.doesNotMatch(
     source,
@@ -97,8 +97,13 @@ assert.match(
 );
 assert.match(
     source,
-    /record-only prefix の直後[\s\S]*`payload_byte_len` word[\s\S]*canonical payload codec bytes/,
-    "payload reader docs must define the section layout after the fixed-width record table",
+    /indexed prefix の直後[\s\S]*`payload_byte_len` word[\s\S]*canonical payload codec bytes/,
+    "payload reader docs must define the payload section layout after the indexed prefix",
+);
+assert.match(
+    source,
+    /prefix owner を確保して複写する前[\s\S]*selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result[\s\S]*過大な `record_count` \/ `index_count` は allocation 前に fail-closed/,
+    "payload reader docs must require indexed prefix bounds validation before prefix owner allocation and copy",
 );
 assert.match(
     source,
@@ -144,8 +149,18 @@ assert.match(
 
 assert.match(
     source,
-    /selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result[\s\S]*selfhost_memo_trait_neplproof_payload_reader_record_prefix_result[\s\S]*selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result &prefix[\s\S]*v::free prefix/,
-    "payload reader must copy the record-only prefix, delegate record decoding to the existing reader, and free the prefix owner",
+    /selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_word_count[\s\S]*record_only_word_count header[\s\S]*header\.index_count[\s\S]*selfhost_memo_trait_neplproof_payload_reader_index_words/,
+    "payload reader must compute the indexed prefix from header, fixed records, and serialized index entries",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result[\s\S]*selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result header[\s\S]*RecordDecodeInvalid e/,
+    "payload reader must use the reader-owned indexed prefix byte-count preflight and preserve reader typed errors",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result[\s\S]*selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result header[\s\S]*Result::Ok prefix_byte_count[\s\S]*selfhost_memo_trait_neplproof_payload_reader_record_prefix_result bytes prefix_byte_count[\s\S]*selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result &prefix[\s\S]*v::free prefix/,
+    "payload reader must validate indexed prefix bounds before copying the prefix, delegate indexed record decoding to the existing reader, and free the prefix owner",
 );
 assert.match(
     source,
@@ -169,8 +184,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub fn selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result[\s\S]*selfhost_memo_trait_neplproof_reader_header_result bytes[\s\S]*selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result bytes header[\s\S]*selfhost_canonical_type_key_arena_new[\s\S]*let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new[\s\S]*selfhost_memo_trait_neplproof_payload_reader_loop/,
-    "public payload reader API must read the header, decode fixed records, allocate materialized key storage, then scan payloads linearly",
+    /pub fn selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result[\s\S]*selfhost_memo_trait_neplproof_reader_header_result bytes[\s\S]*selfhost_memo_trait_neplproof_payload_reader_decoded_artifact_result bytes header[\s\S]*selfhost_canonical_type_key_arena_new[\s\S]*let key_ids_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new[\s\S]*selfhost_memo_trait_neplproof_payload_reader_indexed_prefix_byte_count_result header[\s\S]*Result::Ok payload_offset[\s\S]*selfhost_memo_trait_neplproof_payload_reader_loop/,
+    "public payload reader API must read the header, decode indexed fixed tables, allocate materialized key storage, reuse the checked prefix offset, then scan payloads linearly",
 );
 assert.match(
     source,
@@ -192,6 +207,11 @@ assert.match(
     source,
     /selfhost_memo_trait_neplproof_payload_reader_stage0_record_word_value[\s\S]*selfhost_memo_trait_canonical_key_payload_schema_version[\s\S]*1001[\s\S]*2002[\s\S]*3003/,
     "payload reader stage0 must keep fixed record schema fields explicit for the reader contract",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_payload_reader_stage0_index_word_value[\s\S]*selfhost_memo_trait_canonical_key_payload_schema_version[\s\S]*1001[\s\S]*0[\s\S]*3003[\s\S]*selfhost_memo_trait_neplproof_payload_reader_stage0_push_index_loop/,
+    "payload reader stage0 must write a serialized sidecar index entry that points to the fixed record",
 );
 assert.match(
     source,

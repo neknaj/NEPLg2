@@ -282,6 +282,42 @@ pub fn selfhost_memo_trait_neplproof_decoded_artifact_from_records %impure fn Ve
             v::free records
             Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::IndexBuildInvalid kind
 
+//: selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables: decoded records と serialized indexes から artifact owner を[構築/こうちく]する
+//:
+//: [目的/もくてき]:
+//: - persistent `.neplproof` reader が、bytes から読んだ record table と serialized sorted index table を同じ owner boundary に束ねられるようにします。
+//: - `from_records` は record から sidecar index を再生成する互換 path です。この関数は artifact に保存された index table を lookup source として読み、永続 artifact の探索範囲を再構築 cost から切り離します。index hit は proof acceptance authority ではありません。
+//:
+//: [契約/けいやく]:
+//: - `header`、`records`、`indexes` は同じ byte stream から復元されたものとして扱いますが、caller の前提は信頼せず、header schema、decoded table validation、sorted order validation をこの境界で再検査します。
+//: - 成功時は `records` と `indexes` の owner が返り値 artifact へ移動します。
+//: - 失敗時は `records` と `indexes` の両方をこの関数が閉じ、caller へ typed error だけを返します。
+//: - index entry は proof acceptance authority ではありません。fingerprint hit、record payload hash match、index ordinal match の後も、canonical payload decode、policy equality、proof kind、producer gate、proof store preseed は後段で検査します。
+//:
+//: [計算量/けいさんりょう]:
+//: - この関数自体は index を生成しないため、生成 cost は O(0) です。
+//: - validation は現行 `memo_trait_proof_artifact.nepl` と `memo_trait_proof_index.nepl` の検査に従い、decoded table validation と sorted order validation の cost を持ちます。
+pub fn selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables %impure fn SelfhostMemoTraitNeplProofHeader impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn Vec SelfhostMemoTraitNeplProofIndexEntry Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofDecodedArtifactErrorKind \header\records\indexes:
+    match selfhost_memo_trait_neplproof_header_result header.artifact_schema_version header.canonical_payload_schema_version header.policy_schema_version header.record_count header.index_count:
+        Result::Ok checked_header:
+            match selfhost_memo_trait_neplproof_index_table_result checked_header &records &indexes:
+                Result::Ok _table:
+                    match selfhost_memo_trait_neplproof_sorted_index_order_result &indexes:
+                        Result::Ok _sorted:
+                            Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_new checked_header records indexes
+                        Result::Err kind:
+                            v::free records
+                            v::free indexes
+                            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid kind
+                Result::Err kind:
+                    v::free records
+                    v::free indexes
+                    Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid kind
+        Result::Err kind:
+            v::free records
+            v::free indexes
+            Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid kind
+
 //: selfhost_memo_trait_neplproof_decoded_artifact_lookup_result: decoded artifact owner から candidate range を[返/かえ]す
 //:
 //: [契約/けいやく]:

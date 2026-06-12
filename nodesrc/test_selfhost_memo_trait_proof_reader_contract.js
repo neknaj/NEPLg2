@@ -120,6 +120,16 @@ assert.match(
 );
 assert.match(
     source,
+    /index table も artifact の外部入力[\s\S]*selfhost_memo_trait_neplproof_reader_index_count_limit[\s\S]*16384/,
+    "reader must bound artifact-controlled index count before allocation",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result[\s\S]*gt header\.record_count selfhost_memo_trait_neplproof_reader_record_count_limit[\s\S]*RecordCountLimitExceeded[\s\S]*gt header\.index_count selfhost_memo_trait_neplproof_reader_index_count_limit[\s\S]*IndexCountLimitExceeded[\s\S]*Result::Ok mul selfhost_memo_trait_neplproof_reader_expected_indexed_words header 4/,
+    "reader must expose a checked indexed-prefix byte count boundary so payload readers can reject oversized prefixes before allocation",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_neplproof_reader_word_result[\s\S]*selfhost_memo_trait_artifact_word_codec_word_at_index_result bytes word_index[\s\S]*WordReadInvalid kind/,
     "reader must map shared word read failures into reader-local typed errors",
 );
@@ -151,7 +161,12 @@ assert.match(
 assert.match(
     source,
     /selfhost_memo_trait_neplproof_reader_record_key_from_words_result[\s\S]*selfhost_memo_trait_neplproof_record_key_from_parts_result canonical_schema fingerprint_schema fingerprint_root_hash canonical_payload_hash policy/,
-    "reader must delegate serialized fingerprint parts to the artifact schema boundary instead of constructing canonical fingerprints directly",
+    "reader must delegate serialized record fingerprint parts to the artifact schema boundary instead of importing the canonical-key producer",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_reader_index_from_words_result[\s\S]*selfhost_memo_trait_neplproof_index_entry_from_parts_result fingerprint_schema fingerprint_root_hash record_ordinal record_payload_hash record_count/,
+    "reader must delegate serialized index fingerprint parts to the artifact schema boundary instead of importing the canonical-key producer",
 );
 assert.match(
     source,

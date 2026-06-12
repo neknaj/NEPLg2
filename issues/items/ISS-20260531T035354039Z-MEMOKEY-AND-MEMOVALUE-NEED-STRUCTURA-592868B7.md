@@ -399,6 +399,39 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait `.neplproof` serialized index codec checkpoint
+
+`.neplproof` の serialized sidecar index table を reader / serializer / payload reader の artifact codec path へ接続した。
+
+この checkpoint では、record-only reader API は互換境界として残し、新しい indexed reader API を追加した。indexed API は header と fixed-width record table に続いて `index_count` 件の serialized sidecar index entry を読み、`selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables` へ渡す。decoded artifact constructor は header、record/index table relation、sorted order を再検査し、失敗時には record owner と index owner を閉じる。
+
+serialized index entry は 4 word 固定で、canonical fingerprint schema、canonical fingerprint root hash、record ordinal、record payload hash を持つ。reader は typed fingerprint を直接組み立てず、`memo_trait_proof_artifact.nepl` の `selfhost_memo_trait_neplproof_index_entry_from_parts_result` へ委譲する。これにより binary reader hot path が canonical key producer module へ直接依存せず、artifact schema boundary が serialized scalar fields の validator になる。
+
+serializer は header、record table、serialized index table、payload section の順に bytes を作る。`selfhost_memo_trait_neplproof_serializer_index_entry_result` は index entry を artifact validator へ通してから fixed-width word へ投影し、invalid ordinal / stale fingerprint schema / placeholder payload hash を typed error として返す。stage0 smoke は invalid index entry と payload reader round-trip を追加し、writer と reader の layout drift を実行で検出する。
+
+payload reader は payload section offset を indexed prefix byte count から計算するようにした。この byte count は payload reader 側の unchecked arithmetic ではなく、reader 側の `selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result` を通して取得する。これにより、過大な `record_count` / `index_count` は prefix owner の確保や copy に進む前に fail-closed になる。prefix は `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result` へ渡し、payload reader 自身は record tag decode、stored proof decode、index entry validation の別 authority を作らない。
+
+今回の index hit は proof acceptance authority ではない。canonical payload hash、canonical fingerprint、policy、proof kind、stored proof payload、record payload hash、proof store relation、producer gate は後続の payload reader / preseed / proof store が再検査する。source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId`、fingerprint hit 単独、record payload hash 単独、index hit 単独は authority にしない。
+
+subagent review では、最初の設計レビューが persistent stable map まで同時に進めることを避け、serialized index codec を独立境界にするよう求めた。実装後レビューでは、reader / serializer / payload reader が serialized index を proof acceptance authority にしていないことと、主要失敗経路の owner cleanup が成立していることを確認した。最終レビューの Required として、payload reader が prefix owner を copy してから reader 側の `IndexCountLimitExceeded` に到達する経路があり、巨大 `index_count` を allocation 前に拒否する reader doc comment 境界とずれると指摘された。同じ slice 内で reader 側の checked prefix byte count boundary を追加し、payload reader はこの Result を通ってから prefix copy と payload offset scan へ進む形へ修正した。Non-blocker として decoded artifact constructor の doc comment が index table を `authority` と表現しており、proof acceptance authority と誤読され得るため、`lookup source` として読み、index hit は proof acceptance authority ではないと明記する形へ修正した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-artifact-index-parts.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-decoded-index.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-reader-index.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-payload-index.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-serializer-index.json`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、永続 artifact 用 stable map、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-13 selfhost memo trait `.neplproof` serializer checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl` を追加し、`.neplproof` Phase 1 writer boundary を接続した。

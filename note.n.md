@@ -1,3 +1,62 @@
+# 2026-06-13 Agent selfhost memo trait `.neplproof` serialized index codec checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、DAG に沿った責務分割、artifact schema boundary による静的検査、proof acceptance authority の分離、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-serialized-index-20260613`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` serialized sidecar index table codec
+- classification: selfhost implementation slice review
+- decision: Phase 1 `.neplproof` layout を header、fixed-width record table、serialized sidecar index table、canonical payload section の順に固定した。record-only reader は互換 boundary として残し、indexed reader / payload reader / serializer は serialized index table 付き prefix を扱う。
+- policy/spec:
+  - serialized index entry は schema version 1 で 4 word 固定とし、canonical fingerprint schema、canonical fingerprint root hash、record ordinal、record payload hash を持つ。
+  - reader は index entry の typed fingerprint を直接組み立てず、`memo_trait_proof_artifact.nepl` の `selfhost_memo_trait_neplproof_index_entry_from_parts_result` へ委譲する。これにより reader hot path が canonical key producer module へ直接依存しない。
+  - decoded artifact は serialized index table を受け取る `selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables` を持ち、header、record/index table relation、sorted order を再検査する。
+  - payload reader は indexed prefix byte count を payload offset とし、prefix owner を確保して複写する前に reader 側の `selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result` で record / index count 上限を検査する。payload reader は proof store / preseed / producer へ依存しない。
+  - serializer は header、record、index entry、payload entry の順で bytes を書く。index entry writer は artifact validator を通してから word projection し、invalid ordinal / stale schema / placeholder payload hash を typed error にする。
+  - index hit は探索範囲を狭める metadata であり、proof acceptance authority ではない。canonical payload hash、canonical fingerprint、policy、proof kind、stored proof payload、record payload hash、store relation、producer gate は後続で再検査する。
+  - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId`、fingerprint hit 単独、record payload hash 単独、index hit 単独は authority にしない。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl` に `selfhost_memo_trait_neplproof_index_entry_from_parts_result` を追加した。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl` に serialized index table owner を受け取る constructor を追加した。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl` に indexed bounds、allocation 前 prefix byte count preflight、index entry reader、indexed decoded artifact readerを追加した。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl` は payload offset を reader の checked indexed prefix byte count から計算し、stage0 fixture に serialized index entry を追加した。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl` は serialized index entry writer と invalid index stage0 smoke を追加した。
+  - `nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`、`decoded_contract.js`、`reader_contract.js`、`payload_reader_contract.js`、`serializer_contract.js` を更新し、DAG、authority、owner cleanup、typed error、doc comment、stage0、line count / doc comment length cap 禁止を固定した。
+- subagent review:
+  - subagent_review_ids: `019ebca5-6940-7c00-ad7d-1625ba2be682`
+  - subagent_review_count: 1 design review before implementation, 2 implementation reviews after implementation
+  - design review result: persistent stable map まで同時に進めず、serialized index table codec を独立境界にするべきと確認した。proof store preseed、candidate range preseed、payload reader materialization、persistent file map を同じ slice へ混ぜない方針を採用した。
+  - Blocker: なし。
+  - Required: 最終レビューで、payload reader が `indexed_prefix_byte_count` を計算して prefix owner をコピーしてから reader 側の `IndexCountLimitExceeded` に到達するため、巨大 `index_count` を allocation 前に拒否する境界とずれると指摘された。同じ slice 内で reader 側へ `selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result` を追加し、payload reader はこの Result を通ってから prefix copy と payload offset scan へ進むよう修正した。
+  - Non-blocker: `memo_trait_proof_decoded.nepl` の doc comment で、serialized index table を `authority` と表現すると proof acceptance authority と誤読される可能性があった。`lookup source` として読み、index hit は proof acceptance authority ではないと明記するよう修正した。
+  - Question: `memo_trait_proof_serializer.nepl` と reader / artifact の `memo_trait_producer` import は現状 gate 呼び出しではなく proof payload 型・range validator 用であり、今回の「producer gate を呼ばない」境界には違反していない。将来 producer import 自体も禁止する場合は type-only module 分離を別 slice で行う。
+  - Approve: Required 修正後、DAG / authority / owner cleanup / source policy の根本問題は残っていない。`trunk build` と `nodesrc/cli.js` 系統合テストは今回 stdlib/selfhost source slice の検証対象からは外し、focused doctest と source policy で確認した。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` の運用方針に沿い、review response の Blocker / Required / Non-blocker / Question / Approve を同じ checkpoint に記録した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: reader が canonical key producer へ直接依存する退行、serialized index hit を proof acceptance にする退行、payload reader が prefix owner copy 前に record / index count 上限を見ない退行、payload reader が preseed/proof storeへ逆依存する退行、source-derived authority や session-local/store-local id を artifact authority にする退行、owner cleanup 抜け、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: 初回の source policy regression では、最新 checkpoint の review gate 記録に `Non-blocker`、`nodesrc/selfhost_zenn_review_response_check.js`、`今回差分由来 warning` の固定項目が不足していたため warning が出た。subagent review 結果とこの warning 経緯を同じ checkpoint に反映した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - indexed prefix read は record 数 n と index 数 m に対して O(n + m)、index entry write は O(1)、payload decode は payload byte 総量 b と canonical key tree 総 node/edge 数 k に対して O(b + k) である。
+  - この codec path は FileSystem、source scan、module graph、proof store lookup、preseed、diagnostic rendering を行わない。cache設計に頼らず、serialized section の線形 scan と typed validator へ探索範囲を閉じる。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-artifact-index-parts.json`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_decoded.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-decoded-index.json`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-reader-index.json`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_payload_reader.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-payload-index.json`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-serializer-index.json`
+- 次 slice: re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、永続 artifact 用 stable map、generic instantiation 用 stable type argument identity を継続する。
+
 # 2026-06-13 Agent selfhost memo trait `.neplproof` serializer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、DAG に沿った責務分割、reader と writer の逆写像 contract、source-derived authority の排除、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

@@ -1234,6 +1234,22 @@ stage0 smoke は serializer の public header / record / payload entry writer �
 
 この checkpoint 後も、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-13 memo trait `.neplproof` serialized index codec checkpoint
+
+`.neplproof` の fixed-width record table と canonical payload section の間に、serialized sidecar index table を接続した。layout は header、record table、serialized index table、payload section の順であり、index entry は schema version 1 で 4 word、`canonical fingerprint schema`、`canonical fingerprint root hash`、`record ordinal`、`record payload hash` を持つ。
+
+reader は既存の record-only API を互換境界として残し、新しい `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result` で serialized index table 付き prefix を読む。record-only API は引き続き `index_count == record_count` と trailing bytes を検査するが、indexed API は `index_count` 件の index entry を読み、`memo_trait_proof_decoded.nepl` の `selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables` へ渡す。
+
+serialized index entry の fingerprint scalar から typed fingerprint payload を作る責務は reader ではなく `memo_trait_proof_artifact.nepl` に置いた。`selfhost_memo_trait_neplproof_index_entry_from_parts_result` は record key の `*_from_parts_result` と同じ schema boundary であり、reader hot path が canonical key producer module へ直接依存しないようにする。これにより、DAG と authority が `artifact schema -> reader -> decoded artifact -> payload reader -> serializer/preseed` の方向に保たれる。
+
+payload reader は payload section の開始位置を indexed prefix の byte count から計算する。ただし、この byte count は payload reader 側の unchecked arithmetic ではなく、reader 側の `selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result` を通して取得する。これにより、過大な `record_count` / `index_count` は prefix owner の確保や copy に進む前に fail-closed になり、reader 本体の input-size boundary と payload reader の offset 計算が同じ規則を共有する。indexed prefix 自体の decode は reader の indexed API へ委譲する。serializer は header と record table の後に public `selfhost_memo_trait_neplproof_serializer_index_entry_result` で serialized index entry を書き、その後に canonical payload entry を書く。stage0 は serializer が作った indexed bytes を payload reader へ渡す round-trip を実行する。
+
+この index table は探索範囲を fingerprint group へ狭めるための artifact metadata であり、proof acceptance authority ではない。canonical payload hash、canonical fingerprint、policy、proof kind、stored proof payload、record payload hash、proof store relation、producer gate は後続の payload reader / preseed / proof store が再検査する。source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId`、fingerprint hit 単独、record payload hash 単独、index hit 単独は authority にしない。
+
+計算量は、indexed prefix read が record 数 n と index 数 m に対して O(n + m)、index entry write が O(1)、payload section decode が payload byte 総量 b と canonical key tree 総 node/edge 数 k に対して O(b + k) である。FileSystem、source scan、module graph、proof store lookup、preseed、diagnostic rendering はこの codec path では行わない。
+
+この checkpoint 後も、永続 artifact 用 stable map、generic type argument identity、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

@@ -1,32 +1,35 @@
 #indent 4
 
 //: # ty/memo_trait_proof_reader
-//: `.neplproof` artifact bytes から typed header と record table を[読/よ]む reader 前段です。
+//: `.neplproof` artifact bytes から typed header、record table、serialized sidecar index table を[読/よ]む reader 前段です。
 //:
 //: [目的/もくてき]:
 //: - `.neplproof` の永続 bytes を、proof store や decoded artifact owner へ渡す前に fail-closed に分類します。
 //: - この module は artifact bytes の magic word、header word、fixed-width record word を読み、既存の `memo_trait_proof_artifact.nepl` validator へ接続します。
 //: - little-endian word decode は `memo_trait_artifact_word_codec.nepl` の共有 contract を使い、canonical key payload codec と同じ 31-bit nonnegative word 規則を使います。
-//: - record table から復元した typed record は `memo_trait_proof_decoded.nepl` の decoded artifact owner へ渡し、generated sorted sidecar index を作ります。
+//: - record table から復元した typed record は、互換 path では `memo_trait_proof_decoded.nepl` の generated sorted sidecar index へ渡し、serialized-index path では bytes から読んだ sidecar index table と一緒に decoded artifact owner へ渡します。
 //:
 //: [契約/けいやく]:
 //: - `selfhost_memo_trait_neplproof_reader_header_result` は header prefix だけを読みます。record / index / canonical payload bytes は読みません。
 //: - magic word が違う場合は `MagicMismatch` として拒否し、artifact schema validator へ進めません。
 //: - word decode error は `WordReadInvalid(kind)` として保持します。short header と high-bit word を schema mismatch へ混ぜません。
 //: - header word が読めた後は、必ず `selfhost_memo_trait_neplproof_header_result` を通し、artifact schema、canonical payload schema、policy schema、record/index count を既存 authority で検査します。
-//: - `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result` は header の `record_count` 件だけを読みます。現 slice では serialized index table は読まず、decoded artifact 側が record table から sorted sidecar index を生成します。
+//: - `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_result` は header の `record_count` 件だけを読む互換 API です。serialized index table は読まず、decoded artifact 側が record table から sorted sidecar index を生成します。
+//: - `selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result` は record table の直後に続く `index_count` 件の serialized sidecar index table を読み、record / index の対応と sorted order を decoded artifact 境界で再検査します。
 //: - record body の enum tag は、数値のまま上位へ流さず、この module で typed enum へ戻します。未知 tag、`Ok` result に残った reject payload、field range 不整合、過大 record count は fail-closed にします。
 //: - decoded artifact reader は proof acceptance authority ではありません。index hit、record payload hash、fingerprint hit のいずれかだけで proof を受理してはいけません。canonical payload decode、payload hash 再計算、policy、proof kind、proof store preseed / producer gate は後続境界で検査します。
 //: - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId` は header reader の authority ではありません。
 //:
 //: [現状/げんじょう]:
-//: - この slice は header reader と record-only decoded artifact reader です。canonical payload bytes table reader、serialized index table reader、serializer、persistent stable map、proof store preseed は後続 slice で接続します。
+//: - この slice は header reader、record-only decoded artifact reader、serialized index table reader です。canonical payload bytes table は payload reader extension が扱い、persistent stable map、proof store preseed は後続 slice で接続します。
 //: - header prefix reader は trailing bytes を拒否しません。完全な `.neplproof` reader は、この header の `record_count` / `index_count` を使って record table と index table の終端を別途検査します。
 //: - record-only decoded artifact reader は、現 slice の fixed-width record table の終端を検査して trailing bytes を拒否します。将来 serialized index table を同じ byte stream に追加するときは、別 API と schema 境界で index section を読むようにします。
+//: - serialized-index decoded artifact reader は header、record table、index table の終端を検査し、payload section は読まないため trailing payload bytes を拒否します。payload section 付き artifact は `memo_trait_proof_payload_reader.nepl` が indexed prefix の後ろから読みます。
 //:
 //: [計算量/けいさんりょう]:
 //: - header decode は固定 6 word だけを読むため O(1) です。
 //: - record table decode は record 数 n と fixed word width w に対して O(n * w) です。w は現 schema では固定なので O(n) です。
+//: - serialized index table decode は index 数 m と fixed word width 4 に対して O(m) です。
 //: - decoded artifact construction は generated sorted sidecar index producer の現実装に従い O(n^2) です。これは proof acceptance ではなく、後続 lookup narrowing のための temporary sidecar です。
 //: - FileSystem、module graph、source scan、proof store lookup は行いません。
 //:
@@ -95,6 +98,7 @@ pub enum SelfhostMemoTraitNeplProofReaderErrorKind:
     WordReadInvalid %SelfhostMemoTraitArtifactWordReadErrorKind
     HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
     RecordCountLimitExceeded
+    IndexCountLimitExceeded
     IndexCountUnsupported
     TrailingBytes
     SourceKindTagInvalid
@@ -108,6 +112,8 @@ pub enum SelfhostMemoTraitNeplProofReaderErrorKind:
     RejectKindTagInvalid
     RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
     RecordPushInvalid %StdErrorKind
+    IndexEntryInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    IndexPushInvalid %StdErrorKind
     DecodedArtifactInvalid %SelfhostMemoTraitNeplProofDecodedArtifactErrorKind
 
 //: SelfhostMemoTraitNeplProofReaderStage0Summary: header reader の代表 smoke
@@ -170,6 +176,20 @@ fn selfhost_memo_trait_neplproof_reader_header_words %fn void i32 \void:
 fn selfhost_memo_trait_neplproof_reader_record_words %fn void i32 \void:
     31
 
+//: selfhost_memo_trait_neplproof_reader_index_words: serialized sidecar index entry の word 数
+//:
+//: [契約/けいやく]:
+//: - この幅は artifact schema version 1 の fixed sidecar index entry 幅です。
+//: - index entry は canonical fingerprint、record ordinal、record payload hash だけを持つ narrowing payload です。proof payload、policy、canonical payload hash は record table 側に残します。
+//:
+//: [word layout]:
+//: - `0`: canonical fingerprint schema version。
+//: - `1`: canonical fingerprint root hash。
+//: - `2`: record ordinal。
+//: - `3`: record payload hash。
+fn selfhost_memo_trait_neplproof_reader_index_words %fn void i32 \void:
+    4
+
 //: selfhost_memo_trait_neplproof_reader_record_count_limit: reader が一度に読む record 件数上限
 //:
 //: [目的/もくてき]:
@@ -178,17 +198,61 @@ fn selfhost_memo_trait_neplproof_reader_record_words %fn void i32 \void:
 fn selfhost_memo_trait_neplproof_reader_record_count_limit %fn void i32 \void:
     16384
 
+//: selfhost_memo_trait_neplproof_reader_index_count_limit: reader が一度に読む index entry 件数上限
+//:
+//: [目的/もくてき]:
+//: - index table も artifact の外部入力なので、record count と同じく allocation 前に上限を確認します。
+//: - この上限は artifact reader の入力サイズ境界であり、source file の行数や doc comment の長さを制限するものではありません。
+fn selfhost_memo_trait_neplproof_reader_index_count_limit %fn void i32 \void:
+    16384
+
 //: selfhost_memo_trait_neplproof_reader_expected_record_only_words: record-only reader が消費する word 数
 fn selfhost_memo_trait_neplproof_reader_expected_record_only_words %fn SelfhostMemoTraitNeplProofHeader i32 \header:
     add selfhost_memo_trait_neplproof_reader_header_words mul header.record_count selfhost_memo_trait_neplproof_reader_record_words
+
+//: selfhost_memo_trait_neplproof_reader_expected_indexed_words: header、record table、serialized index table の word 数を[返/かえ]す
+fn selfhost_memo_trait_neplproof_reader_expected_indexed_words %fn SelfhostMemoTraitNeplProofHeader i32 \header:
+    add selfhost_memo_trait_neplproof_reader_expected_record_only_words header mul header.index_count selfhost_memo_trait_neplproof_reader_index_words
+
+//: selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result: indexed prefix の byte 数を上限検査込みで[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - payload reader が serialized index table 付き prefix を複写する前に、record / index 件数の入力サイズ境界を reader と同じ規則で確認します。
+//: - この関数は bytes owner を作らず、record table や index table も読みません。外部入力 header から必要な prefix byte 数だけを、allocation 前の preflight として返します。
+//:
+//: [契約/けいやく]:
+//: - `record_count` が reader 上限を越えた場合は `RecordCountLimitExceeded` を返します。
+//: - `index_count` が reader 上限を越えた場合は `IndexCountLimitExceeded` を返します。
+//: - 成功時の byte count は header、fixed-width record table、serialized sidecar index table の合計だけを表します。canonical payload section は含めません。
+//: - この入力サイズ境界は artifact bytes の処理量を抑えるためのものであり、source file の行数や doc comment の長さを制限するものではありません。
+pub fn selfhost_memo_trait_neplproof_reader_indexed_prefix_byte_count_result %fn SelfhostMemoTraitNeplProofHeader Result i32 SelfhostMemoTraitNeplProofReaderErrorKind \header:
+    if:
+        gt header.record_count selfhost_memo_trait_neplproof_reader_record_count_limit
+        then:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RecordCountLimitExceeded
+        else:
+            if:
+                gt header.index_count selfhost_memo_trait_neplproof_reader_index_count_limit
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexCountLimitExceeded
+                else:
+                    Result::Ok mul selfhost_memo_trait_neplproof_reader_expected_indexed_words header 4
 
 //: selfhost_memo_trait_neplproof_reader_record_word_index: record ordinal と field ordinal から word index を[返/かえ]す
 fn selfhost_memo_trait_neplproof_reader_record_word_index %fn i32 fn i32 i32 \record_ordinal\field_ordinal:
     add selfhost_memo_trait_neplproof_reader_header_words add mul record_ordinal selfhost_memo_trait_neplproof_reader_record_words field_ordinal
 
+//: selfhost_memo_trait_neplproof_reader_index_word_index: index ordinal と field ordinal から word index を[返/かえ]す
+fn selfhost_memo_trait_neplproof_reader_index_word_index %fn SelfhostMemoTraitNeplProofHeader fn i32 fn i32 i32 \header\index_ordinal\field_ordinal:
+    add selfhost_memo_trait_neplproof_reader_expected_record_only_words header add mul index_ordinal selfhost_memo_trait_neplproof_reader_index_words field_ordinal
+
 //: selfhost_memo_trait_neplproof_reader_record_word_result: record table の word を[読/よ]む
 fn selfhost_memo_trait_neplproof_reader_record_word_result %fn &Vec u8 fn i32 fn i32 Result i32 SelfhostMemoTraitNeplProofReaderErrorKind \bytes\record_ordinal\field_ordinal:
     selfhost_memo_trait_neplproof_reader_word_result bytes selfhost_memo_trait_neplproof_reader_record_word_index record_ordinal field_ordinal
+
+//: selfhost_memo_trait_neplproof_reader_index_word_result: serialized index table の word を[読/よ]む
+fn selfhost_memo_trait_neplproof_reader_index_word_result %fn &Vec u8 fn SelfhostMemoTraitNeplProofHeader fn i32 fn i32 Result i32 SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header\index_ordinal\field_ordinal:
+    selfhost_memo_trait_neplproof_reader_word_result bytes selfhost_memo_trait_neplproof_reader_index_word_index header index_ordinal field_ordinal
 
 //: selfhost_memo_trait_neplproof_reader_source_kind_result: source kind tag を typed enum へ[戻/もど]す
 fn selfhost_memo_trait_neplproof_reader_source_kind_result %fn i32 Result SelfhostMemoTraitSourceKind SelfhostMemoTraitNeplProofReaderErrorKind \tag:
@@ -661,6 +725,24 @@ fn selfhost_memo_trait_neplproof_reader_records_loop %impure fn &Vec u8 impure f
                     v::free records
                     Result::Err e
 
+//: selfhost_memo_trait_neplproof_reader_records_unbounded_result: 終端検査済み bytes から record vector owner を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - caller は record-only bounds または indexed bounds を先に検査します。
+//: - この helper は record 件数上限と record table decode だけを担当し、後続 section の有無を判定しません。
+fn selfhost_memo_trait_neplproof_reader_records_unbounded_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result Vec SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header:
+    if:
+        gt header.record_count selfhost_memo_trait_neplproof_reader_record_count_limit
+        then:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RecordCountLimitExceeded
+        else:
+            let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
+            match records_result:
+                Result::Ok records:
+                    selfhost_memo_trait_neplproof_reader_records_loop bytes records 0 header.record_count
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RecordPushInvalid e
+
 //: selfhost_memo_trait_neplproof_reader_records_result: header 検査済み bytes から record vector owner を[読/よ]む
 //:
 //: [戻/もど]り[値/ち]:
@@ -669,12 +751,145 @@ fn selfhost_memo_trait_neplproof_reader_records_loop %impure fn &Vec u8 impure f
 fn selfhost_memo_trait_neplproof_reader_records_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result Vec SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header:
     match selfhost_memo_trait_neplproof_reader_record_only_bounds_result bytes header:
         Result::Ok _bounds:
-            let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
-            match records_result:
-                Result::Ok records:
-                    selfhost_memo_trait_neplproof_reader_records_loop bytes records 0 header.record_count
+            selfhost_memo_trait_neplproof_reader_records_unbounded_result bytes header
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_indexed_bounds_result: indexed byte stream の件数と終端を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - この API は serialized index table までを読むため、header の `index_count` をそのまま index table 件数として扱います。
+//: - byte 長は header prefix、fixed-width record table、fixed-width index table だけに一致する必要があります。payload section 付き artifact は payload reader extension が別途扱います。
+fn selfhost_memo_trait_neplproof_reader_indexed_bounds_result %fn &Vec u8 fn SelfhostMemoTraitNeplProofHeader Result unit SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header:
+    if:
+        gt header.record_count selfhost_memo_trait_neplproof_reader_record_count_limit
+        then:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RecordCountLimitExceeded
+        else:
+            if:
+                gt header.index_count selfhost_memo_trait_neplproof_reader_index_count_limit
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexCountLimitExceeded
+                else:
+                    let expected_bytes %i32 mul selfhost_memo_trait_neplproof_reader_expected_indexed_words header 4
+                    let actual_bytes %i32 v::len bytes
+                    if:
+                        lt actual_bytes expected_bytes
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::WordReadInvalid SelfhostMemoTraitArtifactWordReadErrorKind::UnexpectedEnd
+                        else:
+                            if:
+                                gt actual_bytes expected_bytes
+                                then:
+                                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::TrailingBytes
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_memo_trait_neplproof_reader_index_word_push: index word vector へ scalar word を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_reader_index_word_push %impure fn Vec i32 impure fn i32 Result Vec i32 SelfhostMemoTraitNeplProofReaderErrorKind \words\word:
+    match v::push words word:
+        Result::Ok out:
+            Result::Ok out
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid error
+
+//: selfhost_memo_trait_neplproof_reader_index_words_loop: 1 index entry の fixed-width word を[線形/せんけい]に[読/よ]む
+fn selfhost_memo_trait_neplproof_reader_index_words_loop %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader impure fn i32 impure fn i32 impure fn Vec i32 Result Vec i32 SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header\index_ordinal\idx\words:
+    if:
+        ge idx selfhost_memo_trait_neplproof_reader_index_words
+        then:
+            Result::Ok words
+        else:
+            match selfhost_memo_trait_neplproof_reader_index_word_result bytes header index_ordinal idx:
+                Result::Ok word:
+                    match selfhost_memo_trait_neplproof_reader_index_word_push words word:
+                        Result::Ok next_words:
+                            selfhost_memo_trait_neplproof_reader_index_words_loop bytes header index_ordinal add idx 1 next_words
+                        Result::Err e:
+                            Result::Err e
                 Result::Err e:
-                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RecordPushInvalid e
+                    v::free words
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_index_words_result: 1 index entry の fixed-width word vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_reader_index_words_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader impure fn i32 Result Vec i32 SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header\index_ordinal:
+    let words_result %Result Vec i32 StdErrorKind v::new
+    match words_result:
+        Result::Ok words:
+            selfhost_memo_trait_neplproof_reader_index_words_loop bytes header index_ordinal 0 words
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid e
+
+//: selfhost_memo_trait_neplproof_reader_index_word_or_zero: fixed-width index field を[読/よ]む
+fn selfhost_memo_trait_neplproof_reader_index_word_or_zero %fn &Vec i32 fn i32 i32 \words\idx:
+    match v::get words idx:
+        Option::Some word:
+            word
+        Option::None:
+            0
+
+//: selfhost_memo_trait_neplproof_reader_index_from_words_result: word vector から typed index entry を[戻/もど]す
+fn selfhost_memo_trait_neplproof_reader_index_from_words_result %fn &Vec i32 fn i32 Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofReaderErrorKind \words\record_count:
+    let fingerprint_schema %i32 selfhost_memo_trait_neplproof_reader_index_word_or_zero words 0
+    let fingerprint_root_hash %i32 selfhost_memo_trait_neplproof_reader_index_word_or_zero words 1
+    let record_ordinal %i32 selfhost_memo_trait_neplproof_reader_index_word_or_zero words 2
+    let record_payload_hash %i32 selfhost_memo_trait_neplproof_reader_index_word_or_zero words 3
+    match selfhost_memo_trait_neplproof_index_entry_from_parts_result fingerprint_schema fingerprint_root_hash record_ordinal record_payload_hash record_count:
+        Result::Ok entry:
+            Result::Ok entry
+        Result::Err kind:
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexEntryInvalid kind
+
+//: selfhost_memo_trait_neplproof_reader_index_result: index ordinal から typed artifact index entry を[読/よ]む
+fn selfhost_memo_trait_neplproof_reader_index_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader impure fn i32 Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header\index_ordinal:
+    match selfhost_memo_trait_neplproof_reader_index_words_result bytes header index_ordinal:
+        Result::Ok words:
+            let index_result %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofReaderErrorKind selfhost_memo_trait_neplproof_reader_index_from_words_result &words header.record_count
+            v::free words
+            index_result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_index_push: decoded index vector へ entry を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_reader_index_push %impure fn Vec SelfhostMemoTraitNeplProofIndexEntry impure fn SelfhostMemoTraitNeplProofIndexEntry Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofReaderErrorKind \indexes\entry:
+    match v::push indexes entry:
+        Result::Ok next_indexes:
+            Result::Ok next_indexes
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid error
+
+//: selfhost_memo_trait_neplproof_reader_indexes_loop: serialized index table を先頭から順に[読/よ]む
+fn selfhost_memo_trait_neplproof_reader_indexes_loop %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader impure fn Vec SelfhostMemoTraitNeplProofIndexEntry impure fn i32 Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header\indexes\idx:
+    if:
+        ge idx header.index_count
+        then:
+            Result::Ok indexes
+        else:
+            match selfhost_memo_trait_neplproof_reader_index_result bytes header idx:
+                Result::Ok entry:
+                    match selfhost_memo_trait_neplproof_reader_index_push indexes entry:
+                        Result::Ok next_indexes:
+                            selfhost_memo_trait_neplproof_reader_indexes_loop bytes header next_indexes add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    v::free indexes
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_indexes_result: header 検査済み bytes から serialized index vector owner を[読/よ]む
+fn selfhost_memo_trait_neplproof_reader_indexes_result %impure fn &Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result Vec SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofReaderErrorKind \bytes\header:
+    match selfhost_memo_trait_neplproof_reader_indexed_bounds_result bytes header:
+        Result::Ok _bounds:
+            let indexes_result %Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind v::new
+            match indexes_result:
+                Result::Ok indexes:
+                    selfhost_memo_trait_neplproof_reader_indexes_loop bytes header indexes 0
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid e
         Result::Err e:
             Result::Err e
 
@@ -697,6 +912,40 @@ pub fn selfhost_memo_trait_neplproof_reader_decoded_artifact_from_record_bytes_r
                             Result::Ok artifact
                         Result::Err e:
                             Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::DecodedArtifactInvalid e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result: serialized index table 付き bytes から decoded artifact owner を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` header、record table、serialized sidecar index table を typed owner へ戻します。
+//:
+//: [契約/けいやく]:
+//: - この関数は proof store へ投入せず、proof acceptance も行いません。
+//: - reader は index table を読みますが、index hit だけで proof を受理しません。decoded artifact accessor と preseed / proof store gate が後続で再検査します。
+//: - 成功時の owner は caller が `selfhost_memo_trait_neplproof_decoded_artifact_free` で閉じます。
+//: - decoded artifact constructor が拒否した場合、record vector owner と index vector owner は constructor 側で閉じられます。
+pub fn selfhost_memo_trait_neplproof_reader_decoded_artifact_from_indexed_record_bytes_result %impure fn &Vec u8 Result SelfhostMemoTraitNeplProofDecodedArtifact SelfhostMemoTraitNeplProofReaderErrorKind \bytes:
+    match selfhost_memo_trait_neplproof_reader_header_result bytes:
+        Result::Ok header:
+            match selfhost_memo_trait_neplproof_reader_indexed_bounds_result bytes header:
+                Result::Ok _bounds:
+                    match selfhost_memo_trait_neplproof_reader_records_unbounded_result bytes header:
+                        Result::Ok records:
+                            match selfhost_memo_trait_neplproof_reader_indexes_result bytes header:
+                                Result::Ok indexes:
+                                    match selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables header records indexes:
+                                        Result::Ok artifact:
+                                            Result::Ok artifact
+                                        Result::Err e:
+                                            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::DecodedArtifactInvalid e
+                                Result::Err e:
+                                    v::free records
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
                 Result::Err e:
                     Result::Err e
         Result::Err e:
@@ -873,34 +1122,40 @@ fn selfhost_memo_trait_neplproof_reader_error_kind_code %fn SelfhostMemoTraitNep
             3
         SelfhostMemoTraitNeplProofReaderErrorKind::RecordCountLimitExceeded:
             4
-        SelfhostMemoTraitNeplProofReaderErrorKind::IndexCountUnsupported:
+        SelfhostMemoTraitNeplProofReaderErrorKind::IndexCountLimitExceeded:
             5
-        SelfhostMemoTraitNeplProofReaderErrorKind::TrailingBytes:
+        SelfhostMemoTraitNeplProofReaderErrorKind::IndexCountUnsupported:
             6
-        SelfhostMemoTraitNeplProofReaderErrorKind::SourceKindTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::TrailingBytes:
             7
-        SelfhostMemoTraitNeplProofReaderErrorKind::ProofKindTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::SourceKindTagInvalid:
             8
-        SelfhostMemoTraitNeplProofReaderErrorKind::FieldEvidenceTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::ProofKindTagInvalid:
             9
-        SelfhostMemoTraitNeplProofReaderErrorKind::FieldEvidencePayloadInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::FieldEvidenceTagInvalid:
             10
-        SelfhostMemoTraitNeplProofReaderErrorKind::ProofStatusTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::FieldEvidencePayloadInvalid:
             11
-        SelfhostMemoTraitNeplProofReaderErrorKind::HazardTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::ProofStatusTagInvalid:
             12
-        SelfhostMemoTraitNeplProofReaderErrorKind::ResultTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::HazardTagInvalid:
             13
-        SelfhostMemoTraitNeplProofReaderErrorKind::ResultPayloadInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::ResultTagInvalid:
             14
-        SelfhostMemoTraitNeplProofReaderErrorKind::RejectKindTagInvalid:
+        SelfhostMemoTraitNeplProofReaderErrorKind::ResultPayloadInvalid:
             15
-        SelfhostMemoTraitNeplProofReaderErrorKind::RecordInvalid _inner:
+        SelfhostMemoTraitNeplProofReaderErrorKind::RejectKindTagInvalid:
             16
-        SelfhostMemoTraitNeplProofReaderErrorKind::RecordPushInvalid _inner:
+        SelfhostMemoTraitNeplProofReaderErrorKind::RecordInvalid _inner:
             17
-        SelfhostMemoTraitNeplProofReaderErrorKind::DecodedArtifactInvalid _inner:
+        SelfhostMemoTraitNeplProofReaderErrorKind::RecordPushInvalid _inner:
             18
+        SelfhostMemoTraitNeplProofReaderErrorKind::IndexEntryInvalid _inner:
+            19
+        SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid _inner:
+            20
+        SelfhostMemoTraitNeplProofReaderErrorKind::DecodedArtifactInvalid _inner:
+            21
 
 //: selfhost_memo_trait_neplproof_reader_error_kind_eq: reader error が同じ分類か[返/かえ]す
 //:
@@ -935,6 +1190,18 @@ pub fn selfhost_memo_trait_neplproof_reader_error_kind_eq %fn SelfhostMemoTraitN
                 SelfhostMemoTraitNeplProofReaderErrorKind::RecordPushInvalid a_kind:
                     match b:
                         SelfhostMemoTraitNeplProofReaderErrorKind::RecordPushInvalid b_kind:
+                            selfhost_memo_trait_neplproof_reader_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofReaderErrorKind::IndexEntryInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofReaderErrorKind::IndexEntryInvalid b_kind:
+                            selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofReaderErrorKind::IndexPushInvalid b_kind:
                             selfhost_memo_trait_neplproof_reader_std_error_kind_eq a_kind b_kind
                         _:
                             false

@@ -36,6 +36,10 @@ const constructorImplementation = codeSliceBetween(
     "pub fn selfhost_memo_trait_neplproof_decoded_artifact_from_records",
     "//: selfhost_memo_trait_neplproof_decoded_artifact_lookup_result",
 );
+const persistedConstructorImplementation = codeSliceBetween(
+    "pub fn selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables",
+    "//: selfhost_memo_trait_neplproof_decoded_artifact_lookup_result",
+);
 const lookupImplementation = codeSliceBetween(
     "pub fn selfhost_memo_trait_neplproof_decoded_artifact_lookup_result",
     "//: selfhost_memo_trait_neplproof_decoded_artifact_candidate_record_at_result",
@@ -167,6 +171,21 @@ assert.match(
     constructorImplementation,
     /Result::Err kind:[\s\S]*v::free records[\s\S]*v::free indexes[\s\S]*Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid kind[\s\S]*Result::Err kind:[\s\S]*v::free records[\s\S]*v::free indexes[\s\S]*Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid kind[\s\S]*Result::Err kind:[\s\S]*v::free records[\s\S]*v::free indexes[\s\S]*Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid kind/,
     "decoded artifact constructor must free both records and indexes on post-build validation failures",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables[\s\S]*from_records[\s\S]*index table を lookup source として読み[\s\S]*永続 artifact の探索範囲を再構築 cost から切り離します[\s\S]*index hit は proof acceptance authority ではありません[\s\S]*pub fn selfhost_memo_trait_neplproof_decoded_artifact_from_record_and_index_tables/,
+    "decoded artifact persisted constructor docs must state why serialized indexes are lookup sources but not proof acceptance authority",
+);
+assert.match(
+    persistedConstructorImplementation,
+    /selfhost_memo_trait_neplproof_header_result header\.artifact_schema_version header\.canonical_payload_schema_version header\.policy_schema_version header\.record_count header\.index_count[\s\S]*selfhost_memo_trait_neplproof_index_table_result checked_header &records &indexes[\s\S]*selfhost_memo_trait_neplproof_sorted_index_order_result &indexes[\s\S]*Result::Ok selfhost_memo_trait_neplproof_decoded_artifact_new checked_header records indexes/,
+    "decoded artifact persisted constructor must validate header, record/index table relation, and sorted order before returning the owner",
+);
+assert.match(
+    persistedConstructorImplementation,
+    /Result::Err kind:[\s\S]*v::free records[\s\S]*v::free indexes[\s\S]*Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::SortedIndexInvalid kind[\s\S]*Result::Err kind:[\s\S]*v::free records[\s\S]*v::free indexes[\s\S]*Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::TableValidationInvalid kind[\s\S]*Result::Err kind:[\s\S]*v::free records[\s\S]*v::free indexes[\s\S]*Result::Err SelfhostMemoTraitNeplProofDecodedArtifactErrorKind::HeaderInvalid kind/,
+    "decoded artifact persisted constructor must close record and index owners on every validation failure",
 );
 assert.match(
     lookupImplementation,

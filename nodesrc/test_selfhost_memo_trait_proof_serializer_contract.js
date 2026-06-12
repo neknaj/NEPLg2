@@ -82,8 +82,8 @@ assert.match(
 );
 assert.match(
     source,
-    /Phase 1 では serialized index table を持たないため `index_count == record_count` だけを受理/,
-    "serializer docs must fix the Phase 1 index_count == record_count boundary while serialized index table support is absent",
+    /serialized sidecar index table[\s\S]*record table の直後[\s\S]*fixed-width 4 word/,
+    "serializer docs must state that Phase 1 writes a fixed-width serialized sidecar index table after the record table",
 );
 assert.match(
     source,
@@ -113,8 +113,8 @@ assert.match(
 
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitNeplProofSerializerErrorKind:[\s\S]*HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*IndexCountUnsupported[\s\S]*RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*ProofPayloadInvalid[\s\S]*RecordWordOrdinalInvalid[\s\S]*WordPushInvalid %StdErrorKind[\s\S]*PayloadByteMissing[\s\S]*PayloadBytePushInvalid %StdErrorKind/,
-    "serializer errors must keep typed nested payloads and preserve Phase 1 index-count, stored-proof-payload, and payload-copy failures",
+    /pub enum SelfhostMemoTraitNeplProofSerializerErrorKind:[\s\S]*HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*IndexEntryInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind[\s\S]*ProofPayloadInvalid[\s\S]*RecordWordOrdinalInvalid[\s\S]*IndexWordOrdinalInvalid[\s\S]*WordPushInvalid %StdErrorKind[\s\S]*PayloadByteMissing[\s\S]*PayloadBytePushInvalid %StdErrorKind/,
+    "serializer errors must keep typed nested payloads and preserve record, index, stored-proof-payload, and payload-copy failures",
 );
 assert.match(
     source,
@@ -134,8 +134,8 @@ assert.doesNotMatch(
 
 assert.match(
     source,
-    /selfhost_memo_trait_neplproof_serializer_header_checked_result[\s\S]*selfhost_memo_trait_neplproof_header_result header\.artifact_schema_version header\.canonical_payload_schema_version header\.policy_schema_version header\.record_count header\.index_count[\s\S]*ne checked\.index_count checked\.record_count[\s\S]*IndexCountUnsupported/,
-    "header writer must delegate schema validation and reject unsupported serialized-index counts",
+    /selfhost_memo_trait_neplproof_serializer_header_checked_result[\s\S]*selfhost_memo_trait_neplproof_header_result header\.artifact_schema_version header\.canonical_payload_schema_version header\.policy_schema_version header\.record_count header\.index_count[\s\S]*Result::Ok checked[\s\S]*HeaderInvalid e/,
+    "header writer must delegate schema validation and leave serialized-index count validation to index/table boundaries",
 );
 assert.match(
     source,
@@ -162,6 +162,26 @@ assert.match(
     source,
     /pub fn selfhost_memo_trait_neplproof_serializer_record_result[\s\S]*selfhost_memo_trait_neplproof_serializer_validate_record_result record[\s\S]*selfhost_memo_trait_neplproof_serializer_record_loop bytes checked 0[\s\S]*v::free bytes[\s\S]*Result::Err e/,
     "public record writer must validate before writing and close the output owner when validation fails",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_serializer_index_words[\s\S]*4/,
+    "serializer must use the schema-version-1 fixed index-entry width of 4 words",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_serializer_validate_index_entry_result[\s\S]*selfhost_memo_trait_neplproof_index_entry_result entry\.canonical_fingerprint entry\.record_ordinal entry\.record_payload_hash record_count[\s\S]*IndexEntryInvalid e/,
+    "index writer must validate fingerprint schema, record ordinal range, and record payload hash through the artifact boundary",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_serializer_index_word_value_result[\s\S]*0:[\s\S]*canonical_fingerprint\.schema_version[\s\S]*1:[\s\S]*canonical_fingerprint\.root_hash[\s\S]*2:[\s\S]*record_ordinal[\s\S]*3:[\s\S]*record_payload_hash[\s\S]*IndexWordOrdinalInvalid/,
+    "index word projection must follow the reader's 4-word serialized index layout and fail closed on invalid field ordinal",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_serializer_index_entry_result[\s\S]*serializer_validate_index_entry_result entry record_count[\s\S]*serializer_index_loop bytes checked 0[\s\S]*v::free bytes[\s\S]*Result::Err e/,
+    "public index writer must validate before writing and close the output owner on validation failure",
 );
 assert.match(
     source,
@@ -233,18 +253,18 @@ assert.match(
 
 assert.match(
     source,
-    /SelfhostMemoTraitNeplProofSerializerStage0Summary:[\s\S]*accepted_writer[\s\S]*invalid_header[\s\S]*invalid_record[\s\S]*invalid_proof_payload[\s\S]*payload_reader_roundtrip/,
-    "serializer stage0 summary must cover accepted write, invalid header, invalid record, invalid stored-proof payload, and payload-reader roundtrip",
+    /SelfhostMemoTraitNeplProofSerializerStage0Summary:[\s\S]*accepted_writer[\s\S]*invalid_header[\s\S]*invalid_record[\s\S]*invalid_index[\s\S]*invalid_proof_payload[\s\S]*payload_reader_roundtrip/,
+    "serializer stage0 summary must cover accepted write, invalid header, invalid record, invalid index entry, invalid stored-proof payload, and payload-reader roundtrip",
 );
 assert.match(
     source,
-    /serializer_stage0_build_artifact_bytes[\s\S]*serializer_header_result bytes0 header[\s\S]*serializer_record_result bytes1 record[\s\S]*serializer_payload_entry_result bytes2 payload/,
-    "serializer stage0 must build bytes through the public header, record, and payload entry writers",
+    /serializer_stage0_build_artifact_bytes[\s\S]*serializer_header_result bytes0 header[\s\S]*serializer_record_result bytes1 record[\s\S]*serializer_index_entry_result bytes2 index_entry header\.record_count[\s\S]*serializer_payload_entry_result bytes3 payload/,
+    "serializer stage0 must build bytes through the public header, record, serialized index, and payload entry writers",
 );
 assert.match(
     source,
-    /serializer_stage0_roundtrip[\s\S]*serializer_stage0_build_nominal_table[\s\S]*serializer_stage0_build_artifact_bytes header record payload[\s\S]*serializer_stage0_roundtrip_owned nominal_table bytes/,
-    "serializer stage0 must round-trip produced bytes through the payload reader with a stable nominal table",
+    /serializer_stage0_roundtrip[\s\S]*serializer_stage0_build_nominal_table[\s\S]*serializer_stage0_build_artifact_bytes header record index_entry payload[\s\S]*serializer_stage0_roundtrip_owned nominal_table bytes/,
+    "serializer stage0 must round-trip produced indexed bytes through the payload reader with a stable nominal table",
 );
 assert.match(
     source,
@@ -255,6 +275,11 @@ assert.match(
     source,
     /serializer_stage0_invalid_record[\s\S]*SelfhostMemoTraitNeplProofRecord key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 0/,
     "serializer stage0 must exercise record validator rejection through a placeholder record payload hash",
+);
+assert.match(
+    source,
+    /invalid_index_source[\s\S]*SelfhostMemoTraitNeplProofIndexEntry index_entry\.canonical_fingerprint 1 index_entry\.record_payload_hash[\s\S]*invalid_index[\s\S]*stage0_write_unit_owned header record invalid_index_source/,
+    "serializer stage0 must exercise index-entry validator rejection through an out-of-range record ordinal",
 );
 assert.match(
     source,

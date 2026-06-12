@@ -124,6 +124,11 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_neplproof_index_entry_from_parts_result[\s\S]*SelfhostMemoTraitCanonicalTypeFingerprint canonical_fingerprint_schema_version canonical_fingerprint_root_hash[\s\S]*selfhost_memo_trait_neplproof_index_entry_result canonical_fingerprint record_ordinal record_payload_hash record_count/,
+    "artifact schema must expose a small serialized-parts index-entry boundary for binary readers without making the reader import the full canonical-key producer",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_trait_neplproof_index_entry_matches_record_result[\s\S]*selfhost_memo_trait_canonical_type_fingerprint_eq entry\.canonical_fingerprint record\.key\.canonical_fingerprint[\s\S]*eq entry\.record_payload_hash record\.record_payload_hash/,
     "index-to-record validation must require fingerprint and record payload hash equality",
 );
