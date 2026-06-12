@@ -487,6 +487,32 @@ stage0 smoke は accepted table、record count mismatch、index count mismatch�
 
 この checkpoint 後の残件は、`.neplproof` reader / serializer、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` sorted index lookup contract checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl` を追加し、decoded `.neplproof` sidecar index の sorted order と candidate range lookup contract を artifact schema から分離した。
+
+この checkpoint は `.neplproof` reader / serializer や persistent map の実装ではない。reader が header / record vector / index vector を構築した後、public lookup API が header validation、decoded table validation、sorted order check を順に通し、canonical fingerprint に一致する index entry 群の `SelfhostMemoTraitNeplProofIndexCandidateRange` だけを返す。
+
+candidate range は index vector 内の開始 index と件数だけを保持し、proof payload、policy、canonical payload hash を返さない。fingerprint hit は proof acceptance authority ではなく、後続の canonical payload decode、payload hash 再計算、policy、proof kind、decoded batch preseed、proof store lookup、producer gate に委譲する。
+
+sorted order は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, record_ordinal)` の昇順で固定した。同じ fingerprint の複数 entry は collision candidate group として許可し、canonical equality 側で絞る。fingerprint が戻る場合は `FingerprintOrderInvalid`、同じ fingerprint group 内の record ordinal が狭義に増加しない場合は `RecordOrdinalOrderInvalid` で fail-closed にする。
+
+subagent review では Euclid が Blocker なしと判断したうえで、同一 fingerprint の合法な collision group を runtime doctest / stage0 で確認することを Required とした。修正後は `accepted_collision_range` を追加し、同じ fingerprint の 2 entry が `candidate_count = 2` の accepted range になることを source policy と doctest の両方で固定した。
+
+`SelfhostMemoTraitNeplProofSortedIndexErrorKind` は header rejection と decoded table rejection を nested typed payload として保持する。source text、span、path suffix、display name、diagnostic text、lexeme は lookup key、sort key、tie-break authority にしない。artifact serialized index と proof store stable sidecar index の authority も混ぜない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` で固定した。検査内容は facade re-export、artifact schema reuse、checker / HIR / Resource / backend 逆依存禁止、目的 / 契約 / 戻り値 / 現状 / 計算量 / doctest、candidate range payload、same-fingerprint collision accepted range、typed nested error、header/table/order/lookup の順序、fingerprint-only / index-only acceptance 禁止、source/span/path/diagnostic authority 禁止、line count / doc comment length cap 禁止を含む。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl --no-tree -o tmp/selfhost-memo-trait-proof-index.json -j 1 --assert-io --dist web/dist`
+
+この checkpoint 後の残件は、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

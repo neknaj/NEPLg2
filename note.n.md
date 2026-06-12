@@ -56375,3 +56375,47 @@ MERGE_APPROVED
 - `.neplproof` reader / serializer、persistent stable map / serialized index は未完了である。
 - generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
 - focused doctest の compile timing では `resource_static_initialized_moves` が支配的であり、RPN cold base 高速化と同じ Resource static check 系の根本改善課題が残る。
+
+## 2026-06-12 Agent selfhost sorted neplproof index lookup contract checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-index-lookup-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、match、純粋 core、DAG、探索範囲削減、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl` を追加し、decoded `.neplproof` sidecar index の sorted order と candidate range lookup contract を artifact schema から分離した。
+- `SelfhostMemoTraitNeplProofIndexCandidateRange` は candidate group の開始 index と件数だけを持ち、proof payload、policy、canonical payload hash を返さない。
+- `selfhost_memo_trait_neplproof_sorted_index_lookup_result` は header validation、decoded index table validation、sorted order check を順に通した後、fingerprint group の candidate range を返す。
+- sorted order は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, record_ordinal)` の昇順で、同じ fingerprint の複数 entry は collision candidate group として扱う。
+- subagent review 後に `accepted_collision_range` を追加し、同じ fingerprint の 2 entry が `candidate_count = 2` の合法な candidate group として返ることを doctest / source policy で固定した。
+- `SelfhostMemoTraitNeplProofSortedIndexErrorKind` は header invalid、decoded table rejection、defensive index entry missing、fingerprint order invalid、record ordinal order invalid、candidate missing を typed enum として保持する。
+- `nodesrc/test_selfhost_memo_trait_proof_index_contract.js` を追加し、facade re-export、artifact schema reuse、後段 layer import 禁止、fingerprint-only / index-only proof acceptance 禁止、source text / span / path / diagnostic authority 禁止、line count / doc comment length cap 禁止を固定した。
+- `nodesrc/selfhost_ty_sources.js` と `ty.nepl` facade に新 module を登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、issue、`todo.md` を更新し、persistent map 本体や reader / serializer は未完了として残した。
+
+### subagent_review
+
+- Euclid review: 次 slice は妥当だが、persistent stable map 実装ではなく decoded / serialized index lookup contract に限定するべきと判断した。
+- Blocker として、fingerprint hit だけで proof を受理する設計、source text / span / path / display / diagnostic / lexeme を key や tie-break authority に使う設計、index corruption を miss として扱う設計、artifact index と proof store stable index の authority 混同を挙げた。
+- Required として、Result + enum error、candidate narrowing の明記、same fingerprint collision group の扱い、validation 前提の明確化、source policy 追加、丁寧な module / public type / public function doc comment を求めた。
+- 実装では `memo_trait_proof_index.nepl` を artifact ordinal candidate range の境界に限定し、proof acceptance は canonical payload / preseed / proof store / producer gate へ残した。
+- Euclid implementation review: Blocker なし。Required として、同一 fingerprint の合法な collision group を runtime doctest / stage0 で `candidate_count = 2` として確認するよう指摘したため、同じ slice 内で対応した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_index_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_index.nepl --no-tree -o tmp/selfhost-memo-trait-proof-index.json -j 1 --assert-io --dist web/dist`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+### residual
+
+- `.neplproof` record reader / serializer、persistent stable map / serialized index の実体は未完了である。
+- generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
+- focused doctest の compile timing は `resource_static_initialized_moves` が支配的であり、RPN cold base 高速化と同じ Resource static check 系の根本改善課題が残る。

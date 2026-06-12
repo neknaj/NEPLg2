@@ -1070,6 +1070,24 @@ stage0 smoke は accepted table、record count mismatch、index count mismatch�
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` sorted index lookup contract checkpoint
+
+decoded index table validation の次段として、`.neplproof` sidecar index の sorted order と candidate range lookup contract を `memo_trait_proof_index.nepl` に分離した。
+
+この checkpoint は persistent map や binary reader / serializer 本体ではない。reader が構築した header / record vector / index vector に対して、header validation、decoded index table validation、sorted order check を通し、canonical fingerprint が一致する index entry 群の `SelfhostMemoTraitNeplProofIndexCandidateRange` だけを返す。range は index vector 内の開始 index と件数であり、proof payload や policy payload は返さない。
+
+sorted order は `(canonical_fingerprint.schema_version, canonical_fingerprint.root_hash, record_ordinal)` の昇順である。同じ fingerprint の entry は連続する collision group として扱い、複数候補があること自体は合法である。canonical equality、policy equality、proof kind、producer gate は proof store / preseed 側の authority として残す。つまり fingerprint hit は候補 narrowing であり、proof acceptance ではない。
+
+実行 smoke では、通常の単一候補 lookup に加えて、同じ fingerprint を持つ 2 entry が `start_index = 0`、`candidate_count = 2` の合法な collision candidate range として返ることを確認する。これにより、collision group を破損や duplicate と誤分類せず、後段の canonical payload / policy / proof gate へ渡す境界を固定する。
+
+破損は `SelfhostMemoTraitNeplProofSortedIndexErrorKind` で表す。header schema / count boundary は `HeaderInvalid(SelfhostMemoTraitNeplProofArtifactErrorKind)`、decoded table validation の拒否は `TableValidationRejected(SelfhostMemoTraitNeplProofIndexValidationErrorKind)` として nested typed payload を保つ。sorted order の破損は `FingerprintOrderInvalid` / `RecordOrdinalOrderInvalid`、候補不在は `CandidateMissing` として分ける。
+
+source text、span、path suffix、display name、diagnostic text、lexeme は lookup key、sort key、tie-break authority にしない。proof store の stable sidecar index と artifact serialized index も混ぜず、artifact 側は record ordinal 候補、store 側は canonical equality / policy / producer gate という境界を保つ。
+
+現実装の lookup は decoded `Vec` の線形 scan である。ただし sorted order と candidate range の contract を先に固定したため、後続の `.neplproof` reader / serializer や persistent stable map は同じ `Result` / enum error を保ったまま binary search や serialized map へ置き換えられる。
+
+この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

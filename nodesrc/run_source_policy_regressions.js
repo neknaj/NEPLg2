@@ -226,6 +226,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_source_scan_contract.js",
     "nodesrc/test_selfhost_memo_trait_proof_store_contract.js",
     "nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js",
+    "nodesrc/test_selfhost_memo_trait_proof_index_contract.js",
     "nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js",
     "nodesrc/test_selfhost_type_arena_report_contract.js",
     "nodesrc/test_selfhost_hir_split_contract.js",
