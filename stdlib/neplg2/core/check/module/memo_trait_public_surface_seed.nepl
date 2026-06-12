@@ -21,7 +21,7 @@
 //: - 現在の `MemoKey` / `MemoValue` stdlib trait は method を持つため、実 stdlib definition へ接続する経路は token-aware API を使います。AST-only API は過去 slice の marker trait smoke と互換確認のために残します。
 //:
 //: [計算量/けいさんりょう]:
-//: - module item stream を 1 回走査するため、item 数 n に対して O(n) 時間です。
+//: - module item stream を 1 回走査するため、item 数 n に対して O(n) 時間です。この走査の中で unsupported public surface の fail-closed 判定も行うため、hash materializer が別の前置走査を持つ必要はありません。
 //: - seed table は `MemoKey` / `MemoValue` の固定 2 slot なので O(1) 追加空間です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
@@ -96,9 +96,10 @@ pub struct SelfhostMemoTraitPublicSurfaceSeedScan:
 //: - AST 不整合、候補欠落、重複、未対応 surface、module seed 欠落を bool や文字列に潰さず enum として保持します。
 //:
 //: [現状/げんじょう]:
+//: - import / use / prelude / public non-trait declaration は、full public surface materializer が入るまでこの scan の 1 pass 内で fail-closed にします。
 //: - `StableNominalKeyMissing` と `ReExportUnsupported` は、後続 slice で stable trait definition key と re-export public surface を接続するときの fail-closed variant です。
 //: - token-aware accepted path は local public marker trait と正規化済み method-bearing trait を扱います。AST-only accepted path は token authority がないため marker trait に限定します。
-//: - この 2 variant は local trait pair だけを扱う現段階ではまだ実装経路から返しません。未使用 variant として残す理由を enum 上に明示し、次 slice で削除ではなく実経路へ接続します。
+//: - stable nominal / re-export の 2 variant は local trait pair だけを扱う現段階ではまだ実装経路から返しません。未使用 variant として残す理由を enum 上に明示し、次 slice で削除ではなく実経路へ接続します。
 pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:
     ItemUnavailable
     TraitHeaderMissing
@@ -124,6 +125,15 @@ pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:
     MemoValueSignatureSeedPlaceholder
     StableNominalKeyMissing
     ReExportUnsupported
+    ImportSurfaceUnsupported
+    UseSurfaceUnsupported
+    PreludeSurfaceUnsupported
+    NoPreludeSurfaceUnsupported
+    PublicFunctionSurfaceUnsupported
+    PublicStructSurfaceUnsupported
+    PublicEnumSurfaceUnsupported
+    PublicImplSurfaceUnsupported
+    DeclarationHeaderMissing
 
 //: SelfhostMemoTraitPublicSurfaceSeedRegistryErrorKind: public surface seed から registry までの拒否理由
 //:
@@ -239,6 +249,24 @@ fn selfhost_memo_trait_public_surface_seed_error_kind_code %fn SelfhostMemoTrait
             23
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
             24
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported:
+            25
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported:
+            26
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported:
+            27
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported:
+            28
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
+            29
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
+            30
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
+            31
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
+            32
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing:
+            33
 
 //: selfhost_memo_trait_public_surface_seed_error_kind_eq: public surface seed error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_seed_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceSeedErrorKind fn SelfhostMemoTraitPublicSurfaceSeedErrorKind bool \a\b:
@@ -293,6 +321,24 @@ pub fn selfhost_memo_trait_public_surface_seed_error_kind_eq %fn SelfhostMemoTra
                     false
                 SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
                     false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing:
+                    false
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected method_error:
             match b:
                 SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoValueMethodSignatureRejected other_method_error:
@@ -343,6 +389,24 @@ pub fn selfhost_memo_trait_public_surface_seed_error_kind_eq %fn SelfhostMemoTra
                     false
                 SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
                     false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
+                    false
+                SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing:
+                    false
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::ItemUnavailable:
             eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing:
@@ -386,6 +450,24 @@ pub fn selfhost_memo_trait_public_surface_seed_error_kind_eq %fn SelfhostMemoTra
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::StableNominalKeyMissing:
             eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
         SelfhostMemoTraitPublicSurfaceSeedErrorKind::ReExportUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
+            eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing:
             eq selfhost_memo_trait_public_surface_seed_error_kind_code a selfhost_memo_trait_public_surface_seed_error_kind_code b
 
 //: selfhost_memo_trait_public_surface_seed_registry_error_kind_eq: registry path error kind が同じか[返/かえ]す
@@ -744,6 +826,25 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_trait_item_result %fn str 
         Option::None:
             Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::TraitHeaderMissing
 
+//: selfhost_memo_trait_public_surface_seed_public_decl_supported_result: non-trait declaration を seed scan 内で fail-closed に[判定/はんてい]する
+//:
+//: [目的/もくてき]:
+//: - hash materializer が unsupported surface 専用の前置走査を持たず、この seed scan の 1 pass だけで local memo trait pair surface の限界を検査できるようにします。
+//:
+//: [契約/けいやく]:
+//: - private non-trait declaration は public surface に出ないため無視します。
+//: - public function / struct / enum / impl は、full public surface materializer が入るまで kind 別の typed error として拒否します。
+fn selfhost_memo_trait_public_surface_seed_public_decl_supported_result %fn SelfhostModuleItem fn SelfhostMemoTraitPublicSurfaceSeedErrorKind Result unit SelfhostMemoTraitPublicSurfaceSeedErrorKind \item\public_error:
+    match item.declaration:
+        Option::Some header:
+            match header.visibility:
+                SelfhostModuleDeclarationVisibility::Public:
+                    Result::Err public_error
+                SelfhostModuleDeclarationVisibility::Private:
+                    Result::Ok unit
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::DeclarationHeaderMissing
+
 //: selfhost_memo_trait_public_surface_seed_table_scan_item_result: item 1 件を seed table へ[反映/はんえい]する
 fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn SelfhostMemoTraitStableSourceSeedTable fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\table\item:
     match item.kind:
@@ -758,9 +859,9 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn Sel
         SelfhostModuleItemKind::TargetDirective:
             Result::Ok table
         SelfhostModuleItemKind::ImportDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported
         SelfhostModuleItemKind::UseDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported
         SelfhostModuleItemKind::TestDirective:
             Result::Ok table
         SelfhostModuleItemKind::IfTargetDirective:
@@ -770,9 +871,9 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn Sel
         SelfhostModuleItemKind::CapabilityDirective:
             Result::Ok table
         SelfhostModuleItemKind::PreludeDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported
         SelfhostModuleItemKind::NoPreludeDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported
         SelfhostModuleItemKind::IntrinsicDirective:
             Result::Ok table
         SelfhostModuleItemKind::WasmBlock:
@@ -784,13 +885,29 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_result %fn str fn Sel
         SelfhostModuleItemKind::LlvmIrText:
             Result::Ok table
         SelfhostModuleItemKind::FunctionDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
         SelfhostModuleItemKind::StructDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
         SelfhostModuleItemKind::EnumDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
         SelfhostModuleItemKind::ImplDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
 
 //: selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result: token-aware seed table へ classified trait name を[反映/はんえい]する
 fn selfhost_memo_trait_public_surface_seed_table_add_name_with_tokens_result %impure fn str impure fn &Vec SelfhostToken impure fn SelfhostMemoTraitStableSourceSeedTable impure fn str impure fn SelfhostModuleDeclarationVisibility impure fn SelfhostModuleItem Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\tokens\table\name\visibility\item:
@@ -885,9 +1002,9 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result %i
         SelfhostModuleItemKind::TargetDirective:
             Result::Ok table
         SelfhostModuleItemKind::ImportDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::ImportSurfaceUnsupported
         SelfhostModuleItemKind::UseDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::UseSurfaceUnsupported
         SelfhostModuleItemKind::TestDirective:
             Result::Ok table
         SelfhostModuleItemKind::IfTargetDirective:
@@ -897,9 +1014,9 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result %i
         SelfhostModuleItemKind::CapabilityDirective:
             Result::Ok table
         SelfhostModuleItemKind::PreludeDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::PreludeSurfaceUnsupported
         SelfhostModuleItemKind::NoPreludeDirective:
-            Result::Ok table
+            Result::Err SelfhostMemoTraitPublicSurfaceSeedErrorKind::NoPreludeSurfaceUnsupported
         SelfhostModuleItemKind::IntrinsicDirective:
             Result::Ok table
         SelfhostModuleItemKind::WasmBlock:
@@ -911,13 +1028,29 @@ fn selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result %i
         SelfhostModuleItemKind::LlvmIrText:
             Result::Ok table
         SelfhostModuleItemKind::FunctionDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicFunctionSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
         SelfhostModuleItemKind::StructDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicStructSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
         SelfhostModuleItemKind::EnumDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicEnumSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
         SelfhostModuleItemKind::ImplDecl:
-            Result::Ok table
+            match selfhost_memo_trait_public_surface_seed_public_decl_supported_result item SelfhostMemoTraitPublicSurfaceSeedErrorKind::PublicImplSurfaceUnsupported:
+                Result::Ok _private:
+                    Result::Ok table
+                Result::Err error:
+                    Result::Err error
 
 //: selfhost_memo_trait_public_surface_seed_table_scan_module_loop: module item stream を[走査/そうさ]する
 fn selfhost_memo_trait_public_surface_seed_table_scan_module_loop %fn str fn &SelfhostModuleAst fn SelfhostMemoTraitStableSourceSeedTable fn i32 fn i32 Result SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceSeedErrorKind \source\ast\table\idx\n:

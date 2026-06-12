@@ -105,18 +105,28 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_materialize_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_supported_module_loop[\s\S]*selfhost_memo_trait_public_surface_seed_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_from_seed_table_result/,
-    "materializer must validate module identity, reject unsupported surfaces, scan marker seeds, and only then fold a public surface hash",
+    /selfhost_memo_trait_public_surface_hash_materialize_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_scan_module_result[\s\S]*selfhost_memo_trait_public_surface_hash_from_seed_table_result/,
+    "materializer must validate module identity, run the hash-owned single-pass marker seed scan that rejects unsupported surfaces, and only then fold a public surface hash",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_supported_module_loop[\s\S]*selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_from_seed_table_result/,
-    "token-aware materializer must validate module identity, reject unsupported surfaces, scan marker or method-bearing seeds, and only then fold a public surface hash",
+    /selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_validate_module_identity_result[\s\S]*selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result[\s\S]*selfhost_memo_trait_public_surface_hash_from_seed_table_result/,
+    "token-aware materializer must validate module identity, run the hash-owned single-pass token-aware seed scan that rejects unsupported surfaces, and only then fold a public surface hash",
 );
 assert.match(
     source,
     /#import "\.\/memo_trait_public_surface_token_gate" as \*/,
-    "hash materializer must use the facade-external token-aware seed gate instead of reaching into private seed helpers",
+    "hash materializer must use the facade-external token-aware item gate instead of exposing token-aware hash APIs through the module facade",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_scan_item_result[\s\S]*SelfhostModuleItemKind::TraitDecl:[\s\S]*selfhost_memo_trait_public_surface_hash_scan_trait_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::FunctionDecl:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::StructDecl:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::EnumDecl:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::ImplDecl:[\s\S]*PublicImplSurfaceUnsupported/,
+    "hash-owned AST item loop must combine unsupported public surface rejection with marker trait seed accumulation",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_loop[\s\S]*selfhost_memo_trait_public_surface_token_gate_scan_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error/,
+    "hash-owned token-aware loop must reuse only the token gate item helper and map typed seed errors into hash errors",
 );
 assert.match(
     source,
@@ -145,18 +155,18 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_supported_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported/,
-    "import, use, and prelude surfaces must fail closed until dependency surface normalization exists",
+    /selfhost_memo_trait_public_surface_hash_error_from_seed_scan_error[\s\S]*ImportSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported[\s\S]*UseSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::UseSurfaceUnsupported[\s\S]*PreludeSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::PreludeSurfaceUnsupported[\s\S]*NoPreludeSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::NoPreludeSurfaceUnsupported[\s\S]*PublicFunctionSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported[\s\S]*PublicStructSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicStructSurfaceUnsupported[\s\S]*PublicEnumSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicEnumSurfaceUnsupported[\s\S]*PublicImplSurfaceUnsupported:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicImplSurfaceUnsupported[\s\S]*DeclarationHeaderMissing:[\s\S]*SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing/,
+    "hash materializer must preserve direct unsupported-surface error kinds after moving the rejection into the seed scan",
 );
-assert.match(
+assert.doesNotMatch(
     source,
-    /SelfhostModuleItemKind::FunctionDecl:[\s\S]*selfhost_memo_trait_public_surface_hash_public_decl_supported_result[\s\S]*SelfhostModuleItemKind::StructDecl:[\s\S]*selfhost_memo_trait_public_surface_hash_public_decl_supported_result[\s\S]*SelfhostModuleItemKind::EnumDecl:[\s\S]*selfhost_memo_trait_public_surface_hash_public_decl_supported_result[\s\S]*SelfhostModuleItemKind::ImplDecl:[\s\S]*selfhost_memo_trait_public_surface_hash_public_decl_supported_result/,
-    "public non-trait declarations must not be ignored by the MemoKey/MemoValue-only hash materializer",
+    /selfhost_memo_trait_public_surface_hash_supported_module_loop|selfhost_memo_trait_public_surface_hash_supported_item_result|selfhost_memo_trait_public_surface_hash_public_decl_supported_result/,
+    "hash materializer must not keep a separate unsupported-surface traversal after seed scan owns that check",
 );
-assert.match(
+assert.doesNotMatch(
     source,
-    /selfhost_memo_trait_public_surface_hash_public_decl_supported_result[\s\S]*SelfhostModuleDeclarationVisibility::Public:[\s\S]*Result::Err public_error[\s\S]*SelfhostModuleDeclarationVisibility::Private:[\s\S]*Result::Ok unit/,
-    "only private non-trait declarations may be ignored in this local marker-trait slice",
+    /selfhost_memo_trait_public_surface_seed_scan_module_result|selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result/,
+    "hash materializer must not call whole-module seed scanners after owning the materialization loop",
 );
 assert.match(
     source,

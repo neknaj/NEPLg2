@@ -70,8 +70,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:[\s\S]*MemoKeyCandidateMissing[\s\S]*MemoValueCandidateMissing[\s\S]*MemoKeyCandidateDuplicate[\s\S]*MemoValueCandidateDuplicate[\s\S]*ModuleIdentitySeedMissing[\s\S]*PublicSurfaceSeedMissing[\s\S]*MemoKeyPrivateVisibility[\s\S]*MemoValuePrivateVisibility[\s\S]*MemoKeyTraitBodyNormalizationUnsupported[\s\S]*MemoValueTraitBodyNormalizationUnsupported[\s\S]*StableNominalKeyMissing[\s\S]*ReExportUnsupported/,
-    "public surface seed failures must be typed enum variants covering missing, duplicate, module seed, private visibility, and unsupported surface cases",
+    /pub enum SelfhostMemoTraitPublicSurfaceSeedErrorKind:[\s\S]*MemoKeyCandidateMissing[\s\S]*MemoValueCandidateMissing[\s\S]*MemoKeyCandidateDuplicate[\s\S]*MemoValueCandidateDuplicate[\s\S]*ModuleIdentitySeedMissing[\s\S]*PublicSurfaceSeedMissing[\s\S]*MemoKeyPrivateVisibility[\s\S]*MemoValuePrivateVisibility[\s\S]*MemoKeyTraitBodyNormalizationUnsupported[\s\S]*MemoValueTraitBodyNormalizationUnsupported[\s\S]*StableNominalKeyMissing[\s\S]*ReExportUnsupported[\s\S]*ImportSurfaceUnsupported[\s\S]*UseSurfaceUnsupported[\s\S]*PreludeSurfaceUnsupported[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*PublicStructSurfaceUnsupported[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*PublicImplSurfaceUnsupported[\s\S]*DeclarationHeaderMissing/,
+    "public surface seed failures must be typed enum variants covering missing, duplicate, module seed, private visibility, and unsupported public surface cases",
 );
 assert.match(
     source,
@@ -80,8 +80,8 @@ assert.match(
 );
 assert.match(
     source,
-    /StableNominalKeyMissing` と `ReExportUnsupported` は、後続 slice[\s\S]*token-aware accepted path は local public marker trait と正規化済み method-bearing trait[\s\S]*AST-only accepted path は token authority がないため marker trait に限定/,
-    "currently unreachable stable nominal key and re-export errors must be documented as next-slice fail-closed variants",
+    /import \/ use \/ prelude \/ public non-trait declaration は、full public surface materializer[\s\S]*この scan の 1 pass 内で fail-closed[\s\S]*StableNominalKeyMissing` と `ReExportUnsupported` は、後続 slice[\s\S]*token-aware accepted path は local public marker trait と正規化済み method-bearing trait[\s\S]*AST-only accepted path は token authority がないため marker trait に限定/,
+    "unsupported public surface checks and currently unreachable stable nominal/re-export errors must be documented",
 );
 assert.match(
     source,
@@ -185,6 +185,21 @@ assert.match(
     source,
     /selfhost_memo_trait_public_surface_seed_method_error_result[\s\S]*MemoKeyMethodSignatureRejected method_error[\s\S]*MemoValueMethodSignatureRejected method_error/,
     "token-aware public surface seed method fallback must preserve method normalizer error payloads",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_seed_public_decl_supported_result[\s\S]*SelfhostModuleDeclarationVisibility::Public:[\s\S]*Result::Err public_error[\s\S]*SelfhostModuleDeclarationVisibility::Private:[\s\S]*Result::Ok unit[\s\S]*DeclarationHeaderMissing/,
+    "public surface seed scan must reject public non-trait declarations in the same pass while allowing private non-trait declarations",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_seed_table_scan_item_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::FunctionDecl:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::StructDecl:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::EnumDecl:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::ImplDecl:[\s\S]*PublicImplSurfaceUnsupported/,
+    "AST-only seed scan must own unsupported public surface rejection so hash materialization does not need a separate pre-scan",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_seed_table_scan_item_with_tokens_result[\s\S]*SelfhostModuleItemKind::ImportDirective:[\s\S]*ImportSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::UseDirective:[\s\S]*UseSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::PreludeDirective:[\s\S]*PreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::NoPreludeDirective:[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::FunctionDecl:[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::StructDecl:[\s\S]*PublicStructSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::EnumDecl:[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*SelfhostModuleItemKind::ImplDecl:[\s\S]*PublicImplSurfaceUnsupported/,
+    "token-aware seed scan must share the same unsupported public surface rejection contract",
 );
 assert.match(
     source,

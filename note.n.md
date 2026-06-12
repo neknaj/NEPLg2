@@ -1,3 +1,58 @@
+# 2026-06-12 Agent selfhost public surface hash scan cost checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / Option、enum error、match、sentinel 値の排除、pure core と host / CLI boundary の分離、parser、checker、HIR、Resource IR、backend のDAG、authority boundary、探索範囲削減、cache key / 事前検査済み artifact による再利用、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/public-surface-scan-cost-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait public surface hash materializer scan cost reduction
+- classification: selfhost implementation slice review
+- decision: local `MemoKey` / `MemoValue` public surface hash materializer から unsupported surface 専用の whole-module pre-scan と seed scanner 全体の再呼び出しを外し、hash module 内部の 1 pass scan loop で unsupported public surface validation、marker trait seed accumulation、seed table complete check を同時に行う形へ変更した。
+- policy/spec:
+  - `selfhost_memo_trait_public_surface_hash_materialize_result` は module identity を検査した後、`selfhost_memo_trait_public_surface_hash_scan_module_result` で AST item stream を 1 回だけ走査し、seed table の typed field だけを hash folding authority にする。
+  - token-aware path は `selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result` が module item stream を 1 回走査し、facade-external `memo_trait_public_surface_token_gate.nepl` の item helper だけを再利用する。`module.nepl` facade は token gate を re-export しない。
+  - import / use / prelude / no-prelude / public non-trait declaration は hash module の同一 item loop で fail-closed に拒否する。private non-trait declaration は public surface に出ないため無視する。
+  - source text、span、path suffix、display name、diagnostic text、lexeme は hash folding authority にしない。source slicing は `MemoKey` / `MemoValue` の候補分類にだけ使い、accepted payload は kind、visibility、declaration ordinal、normalized signature seed、schema domain code に閉じる。
+  - proof store、core/ty の source registry、`signature_available=true` source record、checker / HIR / Resource IR / backend への逆依存は追加していない。
+  - registry convenience path は candidate scanner + materializer の 2 traversal が残る。これは今回 slice で materializer 単体の二重走査を削った後の残件として保持する。
+- implementation/test:
+  - `memo_trait_public_surface_hash.nepl` に hash-owned AST scan loop、token-aware scan loop、marker trait seed helper、public non-trait fail-closed helper、seed table complete check を追加した。
+  - `memo_trait_public_surface_hash_materialize_result` は `selfhost_memo_trait_public_surface_seed_scan_module_result` を呼ばない。
+  - `memo_trait_public_surface_hash_materialize_with_tokens_result` は `selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result` を呼ばない。
+  - `memo_trait_public_surface_token_gate_scan_item_result` は token gate module 内では `pub` にしたが、`module.nepl` facade は token gate module を公開していない。
+  - `memo_trait_public_surface_seed.nepl` と token gate は unsupported public surface の typed error taxonomy を共有し、hash module は seed固有の失敗だけ `PublicSurfaceSeedRejected` に包む。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` は hash-owned scan loop、whole-module seed scanner 呼び出し禁止、token gate item helper のみの再利用、authority 境界、line count / doc comment length cap 禁止を固定した。
+  - `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` は seed/token-aware scan 側の unsupported public surface typed error を固定した。
+- subagent review:
+  - subagent_review_ids: `019ebb25-2522-7990-b5f8-ece185dafe21`
+  - subagent_review_count: 1 design/implementation review, 1 implementation re-review
+  - Euclid initial review: Blocker なし。Required として、1 pass helper は public surface hash 側に置くこと、token-aware path も同じ shape にすること、`*_with_tokens_result` を facade に漏らさないこと、source policy を `supported_module_loop -> seed_scan` 期待から hash-owned item loop 期待へ更新すること、計算量を `O(n + method tokens)` として明記することを求めた。同じ slice 内で反映した。
+  - Euclid re-review: Blocker なし。Required なし。Non-blocker として registry convenience path の candidate scanner + materializer 2 traversal は残るが今回 scope では妥当、token gate item helper は `pub` だが facade exposure ではない、source/span/name は分類だけで hash authority は typed seed field に閉じる、line-count / comment-length 抑制チェックは見当たらないと評価した。Question なし。Approve。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review response の形式と応答漏れを確認する gate として既存運用されている。今回の checkpoint は `Blocker` / `Required` / `Non-blocker` / `Question` / `Approve`、classification、decision、source_policy、verify、既存 warning と今回差分由来 warning を明示した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: public surface hash materializer が whole-module seed scanner / unsupported-only pre-scan / source text authority / proof-store direct dependency / token gate facade exposure / line count cap / doc comment length cap へ退行しないようにするため。
+  - 既存 warning: Node WASI ExperimentalWarning、helper-only `memo_trait_public_surface_token_gate.nepl` の no-runnable-doctests、Git の LF/CRLF working-copy warning は既存の環境警告または helper module の性質として確認した。
+  - 今回差分由来 warning: なし。focused contract、focused doctest、split/proof contract、Zenn review gate、source policy regression、issues check、git diff check は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - hash materializer 単体では unsupported public surface pre-scan と seed scan 全体の再呼び出しをやめ、module item stream 1 pass にした。AST-only path は O(n)、token-aware path は method-bearing trait body token 数 k を含め O(n + k) である。
+  - registry convenience path は candidate scanner と materializer を順に呼ぶため O(2n + k) のまま残る。候補 table と seed table の同時生成は、candidate scanner / stable source producer の責務境界を崩さない形で後続 slice に残す。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -o target/selfhost_seed_doctest.json --no-tree -j 1 --dist web/dist --assert-io` total=1 passed=1 failed=0
+  - pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - warning_checked: `memo_trait_public_surface_token_gate.nepl` は helper-only module で runnable doctest を持たないため、`nodesrc/tests/no-runnable-doctests` になった。hash doctest と source policy で token-aware path を検査しており、今回差分由来の compile failure ではない。
+  - warning_checked: `git diff --check` は whitespace error なし。LF/CRLF warning は表示されたが、今回差分の trailing whitespace ではない。
+- 次 slice: registry convenience path の candidate scanner + materializer 二重走査削減、facade-external token gate と seed module private token scan の重複整理、`trait_body_segmenter` の next-index recomputation 削減、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を継続する。
+
 # 2026-06-12 Agent selfhost memo trait neplproof decoded artifact owner checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum / match による静的検査、owner cleanup、DAG に沿った責務分割、source text / span / path / diagnostic / lexeme を authority にしないこと、計算量と現状制約の doc comment 明記、試作段階でも雑設計を残さない方針に従った。

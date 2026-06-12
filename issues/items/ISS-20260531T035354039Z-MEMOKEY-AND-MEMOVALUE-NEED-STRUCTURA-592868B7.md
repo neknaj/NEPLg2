@@ -218,6 +218,33 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract
 
 この checkpoint 後も、実 stdlib の `MemoKey` / `MemoValue` trait body / method signature は normalized signature evidence へ未接続である。残件は、re-export / import graph を含む full public surface hash、stable trait definition key producer、trait body / method signature normalization evidence、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。
 
+## 2026-06-12 selfhost public surface hash scan cost checkpoint
+
+local public surface hash materializer の性能残件として残っていた unsupported public surface 専用 pre-scan と seed scanner 全体の再呼び出しを削除した。`selfhost_memo_trait_public_surface_hash_materialize_result` は module identity validation の後、hash module 内部の `selfhost_memo_trait_public_surface_hash_scan_module_result` で AST item stream を 1 回だけ走査し、unsupported public surface validation、marker trait seed accumulation、seed table complete check を同じ loop で行う。
+
+token-aware path も同じ形にし、`selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result` は `selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result` を呼ばず、hash module 内部の `selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result` で module item stream を 1 回走査する。token-aware trait normalization は facade-external `memo_trait_public_surface_token_gate.nepl` の item helper だけを再利用する。`memo_trait_public_surface_token_gate_scan_item_result` は token gate module 内では `pub` だが、`module.nepl` facade は token gate module を re-export しない。
+
+hash folding authority は引き続き seed table の typed field に限定する。source text、span、path suffix、display name、diagnostic text、lexeme は hash material に入れない。source slicing は `MemoKey` / `MemoValue` の trait name classification にだけ使う。proof store、`core/ty` source registry、`signature_available=true` source record、checker / HIR / Resource IR / backend への逆依存は追加していない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` と `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` を更新し、hash-owned single-pass scan、whole-module seed scanner 呼び出し禁止、token gate item helper だけの再利用、unsupported public surface の typed error、authority boundary、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Euclid が、初回 Required として 1 pass helper を public surface hash 側へ置くこと、token-aware path も同じ shape にすること、source policy を hash-owned item loop 期待へ更新すること、計算量を `O(n + method tokens)` として明記することを求めた。実装後の re-review では Blocker / Required なし、Question なし、Approve と判断した。Non-blocker として registry convenience path の candidate scanner + materializer 2 traversal は残ると確認した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl -o target/selfhost_hash_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl -o target/selfhost_seed_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後も、registry convenience path は candidate scanner と materializer を順に呼ぶため 2 traversal が残る。候補 table と seed table の同時生成、facade-external token gate と seed module private token scan の重複整理、`trait_body_segmenter` の next-index recomputation 削減は後続 slice に残す。
+
 ## 2026-06-12 selfhost memo trait marker signature shape checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_signature_shape.nepl` を追加し、`SelfhostModuleAst` から得られる trait declaration header/body evidence が Phase 1 の public marker trait signature として扱えるかを typed `Result` で判定する境界を作った。
