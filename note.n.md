@@ -1,3 +1,58 @@
+# 2026-06-12 Agent selfhost MemoKey MemoValue canonical nominal key checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、性能、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。`plan.md` には旧構文の記述も残るが、今回の selfhost 実装は現在の NEPLg2.1 方針と既存 issue の進行状況を優先した。
+- 対象 branch: `selfhost/memo-trait-nominal-key-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost `MemoKey` / `MemoValue` stable nominal key table and canonical type fingerprint sidecar projection
+- classification: selfhost implementation slice review
+- decision: proof store が `SelfhostNamedTypeId` を永続 proof artifact key として扱う前に、checker-layer に依存しない `core/ty` 側の stable nominal key table と canonical type fingerprint projection を固定する。`SelfhostNamedTypeId` は session-local constructor table index としてだけ使い、accepted fingerprint は caller supplied module fingerprint / definition fingerprint / constructor ordinal / type arity から作る stable nominal key を経由する。
+- implementation:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_canonical_key.nepl` を追加し、`SelfhostMemoTraitStableNominalKey`、`SelfhostMemoTraitStableNominalKeyTable`、`SelfhostMemoTraitCanonicalTypeFingerprint`、typed error enum、stage0 smoke を定義した。
+  - stable nominal key payload は `schema_version`、`module_fingerprint`、`definition_fingerprint`、`constructor_ordinal`、`type_arity`、`nominal_key_hash` を named field として保持する。欠落、`0` placeholder、負の arity、derived hash `0` は `SelfhostMemoTraitStableNominalKeyErrorKind` として fail-closed に返す。
+  - canonical type fingerprint は `Named` / `Applied` node を stable nominal key table 経由で解決し、missing / duplicate nominal key を区別する。generic parameter と function type はこの proof artifact fingerprint では unsupported として拒否する。
+  - canonical key arena の破損に備え、public wrapper が node 数と argument 数から traversal fuel を作る。壊れた arena が cyclic argument edge を持つ場合は `TraversalFuelExhausted` で停止し、無制限再帰にしない。
+  - stage0 smoke では正常 named / applied、missing nominal、duplicate nominal、parameter unsupported、cyclic malformed arena の fuel exhaustion を実行で確認する。失敗経路では type arena、stable nominal key table、projection 済み canonical key arena owner を閉じる補助関数を追加した。
+  - `stdlib/neplg2/core/ty/ty.nepl` は新 module を re-export し、`nodesrc/selfhost_ty_sources.js` は ty split inventory に追加した。
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl` の doc comment を更新し、stable canonical key projection が sidecar projection であり、stored proof lookup key 置換は次 slice に残ることを明記した。
+- implementation/test:
+  - `nodesrc/test_selfhost_memo_trait_canonical_key_contract.js` を追加し、目的 / 契約 / 現状 / 計算量 / doctest、stable nominal key payload、typed error enum、Named / Applied の table 経由解決、argument range / traversal fuel boundary、checker-layer producer 非依存、source / span / path / display / diagnostic / lexeme 非 authority、line count / doc comment length 制限禁止を固定した。
+  - `nodesrc/run_source_policy_regressions.js` に新しい source policy regression を追加した。
+- subagent review:
+  - subagent_review_ids: `019eb689-ea44-7972-8bf1-1f791cfecd18`, `019eb69c-dfbe-7ad1-a248-4f0d3437c5a7`
+  - subagent_review_count: 2
+  - Goodall は Blocker なし。Required として malformed arena の `TraversalFuelExhausted` を regex だけでなく stage0 smoke / focused doctest で実行固定すること、schema version public function の契約説明を厚くすることを指摘した。対応として cyclic canonical arena fixture、summary field、doctest check、schema version contract comment を追加した。
+  - Fermat は Blocker / Required なし。Non-blocker として traversal fuel が global visited-set ではなく path depth 防御であること、将来の stable map 化で共有 sub-tree の重複訪問を扱う余地があること、新規 file の add 漏れに注意することを指摘した。
+- policy/spec:
+  - Blocker: なし。
+  - Required: Goodall 指摘の fuel exhaustion 実行 smoke と schema version contract comment を反映した。
+  - Non-blocker: `SelfhostNamedTypeId` 単体を永続 authority にしないこと、proof store lookup key 置換を過大に完了扱いしないこと、checker-layer 非依存、source / span / path / diagnostic 非 authority は維持した。
+  - Question: 将来 `root_hash` 単体を外部 key として公開する場合は、schema version と root hash の組を比較 authority とする contract を維持する必要がある。現 slice では `SelfhostMemoTraitCanonicalTypeFingerprint` 全体を payload として扱う。
+  - Approve: review 指摘の Required を反映後、focused contract と focused doctest は pass。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: canonical type fingerprint が raw `SelfhostNamedTypeId`、source spelling、checker-layer stable definition key producer へ戻ると、`.neplproof` / `.neplmeta` の永続 proof key が不安定になるため、stable nominal key table と sidecar projection の境界を regression で固定した。
+  - `nodesrc/selfhost_zenn_review_response_check.js`: subagent review response は Blocker / Required / Non-blocker / Question / Approve の分類で確認する。今回の実装ではその分類を note に記録し、Required を同じ slice 内で反映した。
+  - source policy: updated and full warn-only rerun.
+  - 今回差分由来 warning: なし。`run_source_policy_regressions --warn-only` の既存 doc gap report と Node WASI experimental warning は今回差分由来の失敗ではない。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - accepted projection は canonical key arena の node / argument 数に比例し、source-wide scan や checker-layer再走査を行わない。
+  - stable nominal key lookup は Phase 1 では O(n) だが、永続 key の正しさ境界を優先した。後続で stable map 化する余地を残す。
+  - traversal fuel により malformed arena の探索空間を arena size 由来の上限で閉じた。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_canonical_key_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_type_key_contract.js`
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_canonical_key.nepl -i stdlib/neplg2/core/ty/ty.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_store.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-canonical-key-focused-after-review2.json`
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - 検証済み: `node nodesrc/issues.js check --dir issues`
+  - 検証済み: `git diff --check`
+  - 既存 warning: Node の WASI experimental warning が doctest / source policy 実行中に表示される。
+- residual:
+  - re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、serialized canonical key fingerprint を proof store の stored proof 入力へ接続する。
+
 # 2026-06-12 Agent selfhost MemoKey MemoValue stable definition key checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。静的検査、Option / Result、enum error、match 網羅性、pure core、DAG、丁寧な doc comment、探索範囲削減、性能、試作段階でも雑設計を残さない方針をこの slice の判断基準にした。

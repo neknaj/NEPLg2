@@ -1,0 +1,823 @@
+#indent 4
+
+//: # ty/memo_trait_canonical_key
+//: `MemoKey` / `MemoValue` proof artifact が使う stable nominal key と canonical type fingerprint の境界です。
+//:
+//: [目的/もくてき]:
+//: - `SelfhostCanonicalTypeKeyNode::Named` と `SelfhostCanonicalTypeKeyNode::Applied` は、現在の session 内の constructor table index である `SelfhostNamedTypeId` を保持します。この index は同じ型を同じ session 内で比較するには十分ですが、`.neplproof` や `.neplmeta` のような永続 artifact の key としては不十分です。
+//: - この module は、caller が用意した module fingerprint と stable definition fingerprint から `SelfhostNamedTypeId` に対応する stable nominal key を作り、その table を使って canonical type key tree を小さい fingerprint へ畳み込みます。
+//: - stable nominal key の生成と canonical key fingerprint の生成を typed `Result` で分けることで、source text、span、path、display name、diagnostic string を authority にしない境界を固定します。
+//:
+//: [契約/けいやく]:
+//: - stable nominal key は、schema version、module fingerprint、definition fingerprint、constructor ordinal、type arity、derived key hash を持ちます。
+//: - `module_fingerprint` と `definition_fingerprint` は、それぞれ module identity / public surface と definition identity が既に安定化された fingerprint でなければいけません。この module は source text や import graph を走査しません。
+//: - `SelfhostNamedTypeId` から stable nominal key への対応は `SelfhostMemoTraitStableNominalKeyTable` が持ちます。canonical key fingerprint は table に存在しない named type を `MissingNominalKey` として拒否します。
+//: - duplicate nominal key record がある場合は、first wins にせず `DuplicateNominalKey` として拒否します。永続 proof key で同じ session-local named id が 2 つの stable identity を持つことは許しません。
+//: - generic parameter と function type は、この memo trait proof artifact fingerprint では受理しません。generic instantiation と function value / memoized function value は別 issue の stable identity 境界で扱います。
+//: - canonical key arena が壊れていて循環的な argument edge を持つ場合でも、projection は arena node 数と argument 数から作った traversal fuel を消費し、燃料切れを typed error として返します。これは正常な arena では発火しない防御境界です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では stable nominal key table を caller が直接作ります。後続の `.neplmeta` producer が type constructor table からこの table を生成する段階でも、fingerprint consumer はこの module の API を使います。
+//: - canonical type key arena 自体は既存の `key.nepl` と proof store が所有します。この module は canonical key arena を変更せず、root key を読み取って fingerprint へ投影します。
+//:
+//: [計算量/けいさんりょう]:
+//: - nominal key 作成は O(1) です。
+//: - nominal key lookup は table record 数 n に対して O(n) です。Phase 1 では正しさ境界を優先し、後続で stable map 化します。
+//: - canonical type fingerprint は key tree size k と named lookup O(n) に比例し、最悪 O(k * n) です。source-wide scan は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_canonical_key_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_canonical_fingerprint_result_is_ok summary.named_fingerprint
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_canonical_fingerprint_result_is_ok summary.applied_fingerprint
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_canonical_fingerprint_error_kind_eq (unwrap_err summary.missing_nominal) SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_canonical_fingerprint_error_kind_eq (unwrap_err summary.duplicate_nominal) SelfhostMemoTraitCanonicalFingerprintErrorKind::DuplicateNominalKey
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_canonical_fingerprint_error_kind_eq (unwrap_err summary.parameter_unsupported) SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_canonical_fingerprint_error_kind_eq (unwrap_err summary.fuel_exhausted) SelfhostMemoTraitCanonicalFingerprintErrorKind::TraversalFuelExhausted
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait canonical key stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./key" as *
+#import "./kind/model" as *
+
+//: SelfhostMemoTraitStableNominalKey: stable nominal type identity の payload
+//:
+//: [目的/もくてき]:
+//: - session-local `SelfhostNamedTypeId` を永続 proof artifact へ直接出さず、module / definition / constructor ordinal / arity から作った stable identity と対応づけます。
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は key payload の format version です。
+//: - `module_fingerprint` は module identity と public surface が安定化された fingerprint です。
+//: - `definition_fingerprint` は type constructor definition の stable fingerprint です。source spelling や path suffix ではありません。
+//: - `constructor_ordinal` は同じ module public surface 内の constructor ordinal です。`0` は placeholder として扱うため accepted key には入りません。
+//: - `type_arity` は type constructor の type parameter 数です。負数は不正です。
+//: - `nominal_key_hash` は上記 field から deterministic に導いた小さい fingerprint です。
+pub struct SelfhostMemoTraitStableNominalKey:
+    schema_version %i32
+    module_fingerprint %i32
+    definition_fingerprint %i32
+    constructor_ordinal %i32
+    type_arity %i32
+    nominal_key_hash %i32
+
+//: SelfhostMemoTraitStableNominalKeyRecord: session-local named id と stable nominal key の対応
+pub struct SelfhostMemoTraitStableNominalKeyRecord:
+    nominal_id %SelfhostNamedTypeId
+    key %SelfhostMemoTraitStableNominalKey
+
+//: SelfhostMemoTraitStableNominalKeyTable: stable nominal key lookup table
+//:
+//: [目的/もくてき]:
+//: - canonical key fingerprint producer が `SelfhostNamedTypeId` を stable nominal key へ写すための table です。
+pub struct SelfhostMemoTraitStableNominalKeyTable:
+    records %Vec SelfhostMemoTraitStableNominalKeyRecord
+
+//: SelfhostMemoTraitStableNominalKeyErrorKind: stable nominal key 作成の拒否理由
+pub enum SelfhostMemoTraitStableNominalKeyErrorKind:
+    ModuleFingerprintMissing
+    ModuleFingerprintPlaceholder
+    DefinitionFingerprintMissing
+    DefinitionFingerprintPlaceholder
+    ConstructorOrdinalMissing
+    ConstructorOrdinalPlaceholder
+    TypeArityNegative
+    DerivedNominalKeyPlaceholder
+
+//: SelfhostMemoTraitCanonicalFingerprintErrorKind: canonical type fingerprint 作成の拒否理由
+pub enum SelfhostMemoTraitCanonicalFingerprintErrorKind:
+    MissingCanonicalNode
+    MissingCanonicalArgument
+    InvalidCanonicalArgumentRange
+    DerivedFingerprintPlaceholder
+    TraversalFuelExhausted
+    MissingNominalKey
+    DuplicateNominalKey
+    TypeParameterUnsupported
+    FunctionTypeUnsupported
+
+//: SelfhostMemoTraitCanonicalTypeFingerprint: canonical type key root の stable fingerprint
+pub struct SelfhostMemoTraitCanonicalTypeFingerprint:
+    schema_version %i32
+    root_hash %i32
+
+//: SelfhostMemoTraitCanonicalKeyStage0Summary: stable nominal key と canonical fingerprint の代表 smoke
+pub struct SelfhostMemoTraitCanonicalKeyStage0Summary:
+    named_fingerprint %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+    applied_fingerprint %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+    missing_nominal %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+    duplicate_nominal %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+    parameter_unsupported %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+    fuel_exhausted %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+
+//: SelfhostMemoTraitCanonicalKeyStage0FuelProjection: malformed arena fuel smoke の一時 payload
+//:
+//: [目的/もくてき]:
+//: - stage0 が壊れた canonical key arena の setup 失敗と、projection 自体の typed failure を混同しないための小さな wrapper です。
+//: - `Result::Err StdErrorKind` は smoke fixture の構築失敗、`result` の `Result::Err` は canonical fingerprint projection が返した仕様上の拒否理由を表します。
+struct SelfhostMemoTraitCanonicalKeyStage0FuelProjection:
+    result %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind
+
+impl Clone for SelfhostMemoTraitStableNominalKey:
+    fn clone %fn &SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKey \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalKey:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKey \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableNominalKeyRecord:
+    fn clone %fn &SelfhostMemoTraitStableNominalKeyRecord SelfhostMemoTraitStableNominalKeyRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalKeyRecord:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalKeyRecord SelfhostMemoTraitStableNominalKeyRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableNominalKeyErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableNominalKeyErrorKind SelfhostMemoTraitStableNominalKeyErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalKeyErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalKeyErrorKind SelfhostMemoTraitStableNominalKeyErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalFingerprintErrorKind:
+    fn clone %fn &SelfhostMemoTraitCanonicalFingerprintErrorKind SelfhostMemoTraitCanonicalFingerprintErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalFingerprintErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalFingerprintErrorKind SelfhostMemoTraitCanonicalFingerprintErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalTypeFingerprint:
+    fn clone %fn &SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalTypeFingerprint:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint \self:
+        self
+
+impl Clone for SelfhostMemoTraitCanonicalKeyStage0Summary:
+    fn clone %fn &SelfhostMemoTraitCanonicalKeyStage0Summary SelfhostMemoTraitCanonicalKeyStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitCanonicalKeyStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitCanonicalKeyStage0Summary SelfhostMemoTraitCanonicalKeyStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_stable_nominal_key_schema_version: stable nominal key payload version
+//:
+//: [契約/けいやく]:
+//: - stable nominal key の field 意味、fold material、placeholder 判定を変える場合は、この version を上げます。
+//: - 永続 proof artifact は schema version が一致する payload だけを同じ nominal identity として比較できます。
+pub fn selfhost_memo_trait_stable_nominal_key_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_canonical_type_fingerprint_schema_version: canonical type fingerprint payload version
+//:
+//: [契約/けいやく]:
+//: - canonical type fingerprint の node code、argument fold、unsupported variant 境界を変える場合は、この version を上げます。
+//: - serialized canonical key を proof store の stored proof 入力へ接続する後続 slice では、この version と root hash の組を比較 authority とします。
+pub fn selfhost_memo_trait_canonical_type_fingerprint_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_canonical_key_mix2: canonical key fingerprint 用に 2 値を[混/ま]ぜる
+fn selfhost_memo_trait_canonical_key_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_canonical_key_mix3: canonical key fingerprint 用に 3 値を[混/ま]ぜる
+fn selfhost_memo_trait_canonical_key_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_canonical_key_mix2 a b c
+
+//: selfhost_memo_trait_canonical_key_mix4: canonical key fingerprint 用に 4 値を[混/ま]ぜる
+fn selfhost_memo_trait_canonical_key_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_canonical_key_mix2 (selfhost_memo_trait_canonical_key_mix2 a b) (selfhost_memo_trait_canonical_key_mix2 c d)
+
+//: selfhost_memo_trait_stable_nominal_key_result: stable nominal key を検査して[作/つく]る
+pub fn selfhost_memo_trait_stable_nominal_key_result %fn Option i32 fn Option i32 fn Option i32 fn i32 Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyErrorKind \module_fingerprint\definition_fingerprint\constructor_ordinal\type_arity:
+    match module_fingerprint:
+        Option::Some module_hash:
+            if:
+                eq module_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::ModuleFingerprintPlaceholder
+                else:
+                    match definition_fingerprint:
+                        Option::Some definition_hash:
+                            if:
+                                eq definition_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::DefinitionFingerprintPlaceholder
+                                else:
+                                    match constructor_ordinal:
+                                        Option::Some ordinal:
+                                            if:
+                                                eq ordinal 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::ConstructorOrdinalPlaceholder
+                                                else:
+                                                    if:
+                                                        lt type_arity 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::TypeArityNegative
+                                                        else:
+                                                            let schema_version %i32 selfhost_memo_trait_stable_nominal_key_schema_version
+                                                            let definition_part %i32 selfhost_memo_trait_canonical_key_mix3 definition_hash ordinal type_arity
+                                                            let hash %i32 selfhost_memo_trait_canonical_key_mix4 771001 schema_version module_hash definition_part
+                                                            if:
+                                                                eq hash 0
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::DerivedNominalKeyPlaceholder
+                                                                else:
+                                                                    Result::Ok SelfhostMemoTraitStableNominalKey schema_version module_hash definition_hash ordinal type_arity hash
+                                        Option::None:
+                                            Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::ConstructorOrdinalMissing
+                        Option::None:
+                            Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::DefinitionFingerprintMissing
+        Option::None:
+            Result::Err SelfhostMemoTraitStableNominalKeyErrorKind::ModuleFingerprintMissing
+
+//: selfhost_memo_trait_stable_nominal_key_eq: stable nominal key が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_nominal_key_eq %fn SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitStableNominalKey bool \a\b:
+    and:
+        eq a.schema_version b.schema_version
+        and:
+            eq a.module_fingerprint b.module_fingerprint
+            and:
+                eq a.definition_fingerprint b.definition_fingerprint
+                and:
+                    eq a.constructor_ordinal b.constructor_ordinal
+                    and:
+                        eq a.type_arity b.type_arity
+                        eq a.nominal_key_hash b.nominal_key_hash
+
+//: selfhost_memo_trait_stable_nominal_key_error_kind_eq: stable nominal key error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_nominal_key_error_kind_eq %fn SelfhostMemoTraitStableNominalKeyErrorKind fn SelfhostMemoTraitStableNominalKeyErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableNominalKeyErrorKind::ModuleFingerprintMissing:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::ModuleFingerprintMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::ModuleFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::ModuleFingerprintPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::DefinitionFingerprintMissing:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::DefinitionFingerprintMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::DefinitionFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::DefinitionFingerprintPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::ConstructorOrdinalMissing:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::ConstructorOrdinalMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::ConstructorOrdinalPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::ConstructorOrdinalPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::TypeArityNegative:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::TypeArityNegative:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitStableNominalKeyErrorKind::DerivedNominalKeyPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyErrorKind::DerivedNominalKeyPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_stable_nominal_key_table_new: stable nominal key table を[作/つく]る
+pub fn selfhost_memo_trait_stable_nominal_key_table_new %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitStableNominalKeyRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitStableNominalKeyTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_stable_nominal_key_table_free: stable nominal key table を[解放/かいほう]する
+pub fn selfhost_memo_trait_stable_nominal_key_table_free %impure fn SelfhostMemoTraitStableNominalKeyTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_stable_nominal_key_record_new: stable nominal key table record を[作/つく]る
+pub fn selfhost_memo_trait_stable_nominal_key_record_new %fn SelfhostNamedTypeId fn SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyRecord \nominal_id\key:
+    SelfhostMemoTraitStableNominalKeyRecord nominal_id key
+
+//: selfhost_memo_trait_stable_nominal_key_table_push: stable nominal key record を[追加/ついか]する
+pub fn selfhost_memo_trait_stable_nominal_key_table_push %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyRecord Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitStableNominalKeyRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitStableNominalKeyTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_stable_nominal_key_table_find_loop: stable nominal key を線形探索する
+fn selfhost_memo_trait_stable_nominal_key_table_find_loop %fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostNamedTypeId fn i32 fn Option SelfhostMemoTraitStableNominalKey Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitCanonicalFingerprintErrorKind \table\nominal_id\idx\found:
+    let records %&Vec SelfhostMemoTraitStableNominalKeyRecord field::get_ref table "records"
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            match found:
+                Option::Some key:
+                    Result::Ok key
+                Option::None:
+                    Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_named_type_id_eq record.nominal_id nominal_id
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::DuplicateNominalKey
+                                Option::None:
+                                    selfhost_memo_trait_stable_nominal_key_table_find_loop table nominal_id add idx 1 (some record.key)
+                        else:
+                            selfhost_memo_trait_stable_nominal_key_table_find_loop table nominal_id add idx 1 found
+                Option::None:
+                    match found:
+                        Option::Some key:
+                            Result::Ok key
+                        Option::None:
+                            Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey
+
+//: selfhost_memo_trait_stable_nominal_key_table_find_result: named id から stable nominal key を[得/え]る
+pub fn selfhost_memo_trait_stable_nominal_key_table_find_result %fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostNamedTypeId Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitCanonicalFingerprintErrorKind \table\nominal_id:
+    selfhost_memo_trait_stable_nominal_key_table_find_loop table nominal_id 0 none
+
+//: selfhost_memo_trait_canonical_fingerprint_primitive_code: primitive kind を stable code へ[写/うつ]す
+fn selfhost_memo_trait_canonical_fingerprint_primitive_code %fn SelfhostPrimitiveTypeKind i32 \kind:
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            101
+        SelfhostPrimitiveTypeKind::Unit:
+            102
+        SelfhostPrimitiveTypeKind::Bool:
+            103
+        SelfhostPrimitiveTypeKind::I32:
+            104
+        SelfhostPrimitiveTypeKind::I64:
+            105
+        SelfhostPrimitiveTypeKind::U8:
+            106
+        SelfhostPrimitiveTypeKind::Char:
+            107
+        SelfhostPrimitiveTypeKind::Str:
+            108
+        SelfhostPrimitiveTypeKind::F32:
+            109
+        SelfhostPrimitiveTypeKind::F64:
+            110
+        SelfhostPrimitiveTypeKind::Never:
+            111
+
+//: selfhost_memo_trait_canonical_fingerprint_nonzero_result: derived hash placeholder を拒否する
+fn selfhost_memo_trait_canonical_fingerprint_nonzero_result %fn i32 Result i32 SelfhostMemoTraitCanonicalFingerprintErrorKind \hash:
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::DerivedFingerprintPlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_canonical_type_fingerprint_node_result: canonical key node を fingerprint へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `fuel` は壊れた arena が循環的な argument edge を持つ場合の停止境界です。
+//: - 正常な canonical key arena では、public wrapper が node 数と argument 数から作る fuel で traversal が完了します。
+fn selfhost_memo_trait_canonical_type_fingerprint_node_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId fn i32 Result i32 SelfhostMemoTraitCanonicalFingerprintErrorKind \nominal_table\arena\key_id\fuel:
+    if:
+        le fuel 0
+        then:
+            Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::TraversalFuelExhausted
+        else:
+            match selfhost_canonical_type_key_arena_get_node arena key_id:
+                Option::Some node:
+                    match node:
+                        SelfhostCanonicalTypeKeyNode::Primitive kind:
+                            selfhost_memo_trait_canonical_fingerprint_nonzero_result selfhost_memo_trait_canonical_key_mix3 781101 selfhost_memo_trait_canonical_type_fingerprint_schema_version (selfhost_memo_trait_canonical_fingerprint_primitive_code kind)
+                        SelfhostCanonicalTypeKeyNode::Named nominal_id:
+                            match selfhost_memo_trait_stable_nominal_key_table_find_result nominal_table nominal_id:
+                                Result::Ok nominal_key:
+                                    selfhost_memo_trait_canonical_fingerprint_nonzero_result selfhost_memo_trait_canonical_key_mix3 781102 nominal_key.schema_version nominal_key.nominal_key_hash
+                                Result::Err e:
+                                    Result::Err e
+                        SelfhostCanonicalTypeKeyNode::Parameter _binding:
+                            Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported
+                        SelfhostCanonicalTypeKeyNode::Applied applied:
+                            match selfhost_memo_trait_stable_nominal_key_table_find_result nominal_table applied.nominal_id:
+                                Result::Ok nominal_key:
+                                    match selfhost_memo_trait_canonical_type_fingerprint_args_result nominal_table arena applied.args 0 781103 sub fuel 1:
+                                        Result::Ok args_hash:
+                                            selfhost_memo_trait_canonical_fingerprint_nonzero_result selfhost_memo_trait_canonical_key_mix4 781104 nominal_key.nominal_key_hash applied.args.arg_count args_hash
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        SelfhostCanonicalTypeKeyNode::Function _function:
+                            Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::FunctionTypeUnsupported
+                Option::None:
+                    Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalNode
+
+//: selfhost_memo_trait_canonical_type_fingerprint_args_result: applied type argument list を fingerprint へ[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - argument range は走査の前に検査し、不正な範囲は `InvalidCanonicalArgumentRange` として拒否します。
+//: - `fuel` は argument list 内の各 node projection でも消費し、壊れた arena による無制限再帰を防ぎます。
+fn selfhost_memo_trait_canonical_type_fingerprint_args_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyArgRange fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitCanonicalFingerprintErrorKind \nominal_table\arena\args\idx\acc\fuel:
+    if:
+        not selfhost_canonical_type_key_arg_range_is_valid args
+        then:
+            Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::InvalidCanonicalArgumentRange
+        else:
+            if:
+                le fuel 0
+                then:
+                    Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::TraversalFuelExhausted
+                else:
+                    if:
+                        ge idx args.arg_count
+                        then:
+                            selfhost_memo_trait_canonical_fingerprint_nonzero_result acc
+                        else:
+                            match selfhost_canonical_type_key_arena_arg arena args idx:
+                                Option::Some arg_key:
+                                    match selfhost_memo_trait_canonical_type_fingerprint_node_result nominal_table arena arg_key sub fuel 1:
+                                        Result::Ok arg_hash:
+                                            selfhost_memo_trait_canonical_type_fingerprint_args_result nominal_table arena args add idx 1 (selfhost_memo_trait_canonical_key_mix2 acc arg_hash) sub fuel 1
+                                        Result::Err e:
+                                            Result::Err e
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalArgument
+
+//: selfhost_memo_trait_canonical_type_fingerprint_result: root canonical key を stable fingerprint へ[写/うつ]す
+pub fn selfhost_memo_trait_canonical_type_fingerprint_result %fn &SelfhostMemoTraitStableNominalKeyTable fn &SelfhostCanonicalTypeKeyArena fn SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind \nominal_table\arena\root:
+    let fuel %i32 add add selfhost_canonical_type_key_arena_node_len arena selfhost_canonical_type_key_arena_arg_len arena 1
+    match selfhost_memo_trait_canonical_type_fingerprint_node_result nominal_table arena root fuel:
+        Result::Ok root_hash:
+            Result::Ok SelfhostMemoTraitCanonicalTypeFingerprint (selfhost_memo_trait_canonical_type_fingerprint_schema_version) root_hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_fingerprint_result_is_ok: fingerprint result が accepted か[返/かえ]す
+pub fn selfhost_memo_trait_canonical_fingerprint_result_is_ok %fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind bool \result:
+    match result:
+        Result::Ok _value:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_canonical_fingerprint_error_kind_eq: canonical fingerprint error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_canonical_fingerprint_error_kind_eq %fn SelfhostMemoTraitCanonicalFingerprintErrorKind fn SelfhostMemoTraitCanonicalFingerprintErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalNode:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalNode:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalArgument:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingCanonicalArgument:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::InvalidCanonicalArgumentRange:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::InvalidCanonicalArgumentRange:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::DerivedFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::DerivedFingerprintPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::TraversalFuelExhausted:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::TraversalFuelExhausted:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::MissingNominalKey:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::DuplicateNominalKey:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::DuplicateNominalKey:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::TypeParameterUnsupported:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitCanonicalFingerprintErrorKind::FunctionTypeUnsupported:
+            match b:
+                SelfhostMemoTraitCanonicalFingerprintErrorKind::FunctionTypeUnsupported:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_canonical_key_stage0_summary_new: canonical key stage0 summary を[作/つく]る
+fn selfhost_memo_trait_canonical_key_stage0_summary_new %fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind fn Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind SelfhostMemoTraitCanonicalKeyStage0Summary \named_fingerprint\applied_fingerprint\missing_nominal\duplicate_nominal\parameter_unsupported\fuel_exhausted:
+    SelfhostMemoTraitCanonicalKeyStage0Summary named_fingerprint applied_fingerprint missing_nominal duplicate_nominal parameter_unsupported fuel_exhausted
+
+//: selfhost_memo_trait_canonical_key_stage0_build_table: stage0 用 stable nominal key table を[作/つく]る
+fn selfhost_memo_trait_canonical_key_stage0_build_table %impure fn bool Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \duplicate:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    match selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key:
+                        Result::Ok table1:
+                            if:
+                                duplicate
+                                then:
+                                    selfhost_memo_trait_stable_nominal_key_table_push table1 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                                else:
+                                    Result::Ok table1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_canonical_key_stage0_add_applied: stage0 用 applied type を[追加/ついか]する
+fn selfhost_memo_trait_canonical_key_stage0_add_applied %impure fn SelfhostTypeArena impure fn SelfhostNamedTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\nominal_id\arg:
+    let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match args_result:
+        Result::Ok args0:
+            match v::push args0 arg:
+                Result::Ok args1:
+                    selfhost_type_arena_add_applied_named arena nominal_id args1
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_stage0_finish: stage0 owner を[解放/かいほう]して summary を[返/かえ]す
+fn selfhost_memo_trait_canonical_key_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitCanonicalKeyStage0Summary Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\table\duplicate_table\empty_table\summary:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    selfhost_type_arena_free arena
+    Result::Ok summary
+
+//: selfhost_memo_trait_canonical_key_stage0_abort_with_arena: arena を[閉/と]じて stage0 を[失敗/しっぱい]させる
+fn selfhost_memo_trait_canonical_key_stage0_abort_with_arena %impure fn SelfhostTypeArena Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena:
+    selfhost_type_arena_free arena
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_canonical_key_stage0_free_projected_alloc: projected canonical key arena owner を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - projection に成功した後、後続の projection が失敗した場合でも、すでに得た canonical key arena owner を漏らさないようにします。
+//:
+//: [契約/けいやく]:
+//: - caller はこの関数へ渡した `allocated` を以後使ってはいけません。
+fn selfhost_memo_trait_canonical_key_stage0_free_projected_alloc %impure fn SelfhostCanonicalTypeKeyArenaAlloc unit \allocated:
+    let key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena allocated
+    selfhost_canonical_type_key_arena_free key_arena
+
+//: selfhost_memo_trait_canonical_key_stage0_abort_with_tables: stage0 table 群と type arena を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - stable nominal key table を作った後の失敗経路で、table owner と type arena owner をまとめて解放します。
+fn selfhost_memo_trait_canonical_key_stage0_abort_with_tables %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\table\duplicate_table\empty_table:
+    selfhost_memo_trait_stable_nominal_key_table_free table
+    selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+    selfhost_memo_trait_stable_nominal_key_table_free empty_table
+    selfhost_memo_trait_canonical_key_stage0_abort_with_arena arena
+
+//: selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_one_alloc: table 群と projected arena 1 個を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - 1 個目の canonical key projection に成功し、2 個目以降で失敗した場合の owner leak を防ぎます。
+fn selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_one_alloc %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostCanonicalTypeKeyArenaAlloc Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\table\duplicate_table\empty_table\first_alloc:
+    selfhost_memo_trait_canonical_key_stage0_free_projected_alloc first_alloc
+    selfhost_memo_trait_canonical_key_stage0_abort_with_tables arena table duplicate_table empty_table
+
+//: selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_two_allocs: table 群と projected arena 2 個を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - 2 個の canonical key projection に成功し、最後の projection で失敗した場合の owner leak を防ぎます。
+fn selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_two_allocs %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostCanonicalTypeKeyArenaAlloc impure fn SelfhostCanonicalTypeKeyArenaAlloc Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\table\duplicate_table\empty_table\first_alloc\second_alloc:
+    selfhost_memo_trait_canonical_key_stage0_free_projected_alloc first_alloc
+    selfhost_memo_trait_canonical_key_stage0_free_projected_alloc second_alloc
+    selfhost_memo_trait_canonical_key_stage0_abort_with_tables arena table duplicate_table empty_table
+
+//: selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_three_allocs: table 群と projected arena 3 個を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - 代表 projection 用の 3 個の arena alloc を得た後、malformed arena smoke の fixture setup が失敗した場合でも owner leak を防ぎます。
+fn selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_three_allocs %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostCanonicalTypeKeyArenaAlloc impure fn SelfhostCanonicalTypeKeyArenaAlloc impure fn SelfhostCanonicalTypeKeyArenaAlloc Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\table\duplicate_table\empty_table\first_alloc\second_alloc\third_alloc:
+    selfhost_memo_trait_canonical_key_stage0_free_projected_alloc first_alloc
+    selfhost_memo_trait_canonical_key_stage0_free_projected_alloc second_alloc
+    selfhost_memo_trait_canonical_key_stage0_free_projected_alloc third_alloc
+    selfhost_memo_trait_canonical_key_stage0_abort_with_tables arena table duplicate_table empty_table
+
+//: selfhost_memo_trait_canonical_key_stage0_cyclic_fuel_projection_from_parts: cyclic canonical arena から fuel exhaustion を[得/え]る
+//:
+//: [目的/もくてき]:
+//: - `Applied` node の argument が root 自身を指す壊れた arena を作り、public wrapper の traversal fuel が無制限再帰を止めることを実行で確認します。
+//:
+//: [契約/けいやく]:
+//: - `nodes` と `args` はこの関数が `SelfhostCanonicalTypeKeyArena` owner として受け取り、必ず解放します。
+fn selfhost_memo_trait_canonical_key_stage0_cyclic_fuel_projection_from_parts %impure fn &SelfhostMemoTraitStableNominalKeyTable impure fn Vec SelfhostCanonicalTypeKeyNode impure fn Vec SelfhostCanonicalTypeKeyId Result SelfhostMemoTraitCanonicalKeyStage0FuelProjection StdErrorKind \table\nodes\args:
+    let root %SelfhostCanonicalTypeKeyId SelfhostCanonicalTypeKeyId 0
+    let arena %SelfhostCanonicalTypeKeyArena SelfhostCanonicalTypeKeyArena nodes args
+    let result %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind selfhost_memo_trait_canonical_type_fingerprint_result table &arena root
+    selfhost_canonical_type_key_arena_free arena
+    Result::Ok SelfhostMemoTraitCanonicalKeyStage0FuelProjection result
+
+//: selfhost_memo_trait_canonical_key_stage0_cyclic_fuel_projection: malformed arena の traversal fuel smoke を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 正常な canonical key ではなく、argument edge が root に戻る最小の壊れた arena を作ります。
+//: - setup の allocation failure は `StdErrorKind` として返し、projection の仕様上の失敗理由とは混ぜません。
+fn selfhost_memo_trait_canonical_key_stage0_cyclic_fuel_projection %impure fn &SelfhostMemoTraitStableNominalKeyTable Result SelfhostMemoTraitCanonicalKeyStage0FuelProjection StdErrorKind \table:
+    let root %SelfhostCanonicalTypeKeyId SelfhostCanonicalTypeKeyId 0
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    let arg_range %SelfhostCanonicalTypeKeyArgRange selfhost_canonical_type_key_arg_range_new_unchecked 0 1
+    let applied %SelfhostCanonicalAppliedTypeKey SelfhostCanonicalAppliedTypeKey nominal_id arg_range
+    let node %SelfhostCanonicalTypeKeyNode SelfhostCanonicalTypeKeyNode::Applied applied
+    let nodes_result %Result Vec SelfhostCanonicalTypeKeyNode StdErrorKind v::new
+    match nodes_result:
+        Result::Ok nodes0:
+            match v::push nodes0 node:
+                Result::Ok nodes1:
+                    let args_result %Result Vec SelfhostCanonicalTypeKeyId StdErrorKind v::new
+                    match args_result:
+                        Result::Ok args0:
+                            match v::push args0 root:
+                                Result::Ok args1:
+                                    selfhost_memo_trait_canonical_key_stage0_cyclic_fuel_projection_from_parts table nodes1 args1
+                                Result::Err e:
+                                    let error %StdErrorKind field::get e "error"
+                                    v::free nodes1
+                                    v::free v::vec_push_error_vec e
+                                    Result::Err error
+                        Result::Err e:
+                            v::free nodes1
+                            Result::Err e
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_canonical_key_stage0_after_projection: projected canonical key で代表結果を[作/つく]る
+fn selfhost_memo_trait_canonical_key_stage0_after_projection %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostCanonicalTypeKeyArenaAlloc impure fn SelfhostCanonicalTypeKeyArenaAlloc impure fn SelfhostCanonicalTypeKeyArenaAlloc Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\table\duplicate_table\empty_table\named_alloc\applied_alloc\parameter_alloc:
+    match selfhost_memo_trait_canonical_key_stage0_cyclic_fuel_projection &table:
+        Result::Ok fuel_projection:
+            let named_root %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &named_alloc
+            let named_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena named_alloc
+            let applied_root %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &applied_alloc
+            let applied_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena applied_alloc
+            let parameter_root %SelfhostCanonicalTypeKeyId selfhost_canonical_type_key_arena_alloc_key_id &parameter_alloc
+            let parameter_key_arena %SelfhostCanonicalTypeKeyArena selfhost_canonical_type_key_arena_alloc_into_arena parameter_alloc
+            let named_fingerprint %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind selfhost_memo_trait_canonical_type_fingerprint_result &table &named_key_arena named_root
+            let applied_fingerprint %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind selfhost_memo_trait_canonical_type_fingerprint_result &table &applied_key_arena applied_root
+            let missing_nominal %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind selfhost_memo_trait_canonical_type_fingerprint_result &empty_table &named_key_arena named_root
+            let duplicate_nominal %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind selfhost_memo_trait_canonical_type_fingerprint_result &duplicate_table &named_key_arena named_root
+            let parameter_unsupported %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind selfhost_memo_trait_canonical_type_fingerprint_result &table &parameter_key_arena parameter_root
+            let fuel_exhausted %Result SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalFingerprintErrorKind field::get fuel_projection "result"
+            selfhost_canonical_type_key_arena_free named_key_arena
+            selfhost_canonical_type_key_arena_free applied_key_arena
+            selfhost_canonical_type_key_arena_free parameter_key_arena
+            let summary %SelfhostMemoTraitCanonicalKeyStage0Summary selfhost_memo_trait_canonical_key_stage0_summary_new named_fingerprint applied_fingerprint missing_nominal duplicate_nominal parameter_unsupported fuel_exhausted
+            selfhost_memo_trait_canonical_key_stage0_finish arena table duplicate_table empty_table summary
+        Result::Err _e:
+            selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_three_allocs arena table duplicate_table empty_table named_alloc applied_alloc parameter_alloc
+
+//: selfhost_memo_trait_canonical_key_stage0_after_types: type setup 後に canonical key projection を[実行/じっこう]する
+fn selfhost_memo_trait_canonical_key_stage0_after_types %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \arena\named_id\applied_id\parameter_id:
+    match selfhost_memo_trait_canonical_key_stage0_build_table false:
+        Result::Ok table:
+            match selfhost_memo_trait_canonical_key_stage0_build_table true:
+                Result::Ok duplicate_table:
+                    match selfhost_memo_trait_stable_nominal_key_table_new:
+                        Result::Ok empty_table:
+                            match selfhost_canonical_type_key_project_from_arena &arena named_id:
+                                Result::Ok named_alloc:
+                                    match selfhost_canonical_type_key_project_from_arena &arena applied_id:
+                                        Result::Ok applied_alloc:
+                                            match selfhost_canonical_type_key_project_from_arena &arena parameter_id:
+                                                Result::Ok parameter_alloc:
+                                                    selfhost_memo_trait_canonical_key_stage0_after_projection arena table duplicate_table empty_table named_alloc applied_alloc parameter_alloc
+                                                Result::Err _e:
+                                                    selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_two_allocs arena table duplicate_table empty_table named_alloc applied_alloc
+                                        Result::Err _e:
+                                            selfhost_memo_trait_canonical_key_stage0_abort_with_tables_and_one_alloc arena table duplicate_table empty_table named_alloc
+                                Result::Err _e:
+                                    selfhost_memo_trait_canonical_key_stage0_abort_with_tables arena table duplicate_table empty_table
+                        Result::Err _e:
+                            selfhost_memo_trait_stable_nominal_key_table_free table
+                            selfhost_memo_trait_stable_nominal_key_table_free duplicate_table
+                            selfhost_memo_trait_canonical_key_stage0_abort_with_arena arena
+                Result::Err _e:
+                    selfhost_memo_trait_stable_nominal_key_table_free table
+                    selfhost_memo_trait_canonical_key_stage0_abort_with_arena arena
+        Result::Err _e:
+            selfhost_memo_trait_canonical_key_stage0_abort_with_arena arena
+
+//: selfhost_memo_trait_canonical_key_stage0: stable nominal key と canonical fingerprint の代表 smoke
+pub fn selfhost_memo_trait_canonical_key_stage0 %impure fn void Result SelfhostMemoTraitCanonicalKeyStage0Summary StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 nominal_id:
+                Result::Ok named_alloc:
+                    let named_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &named_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena named_alloc
+                    match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I32:
+                        Result::Ok primitive_alloc:
+                            let primitive_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &primitive_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena primitive_alloc
+                            match selfhost_memo_trait_canonical_key_stage0_add_applied arena2 nominal_id primitive_id:
+                                Result::Ok applied_alloc:
+                                    let applied_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+                                    let parameter_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+                                    match selfhost_type_arena_add_type_parameter arena3 parameter_binding:
+                                        Result::Ok parameter_alloc:
+                                            let parameter_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &parameter_alloc
+                                            let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena parameter_alloc
+                                            selfhost_memo_trait_canonical_key_stage0_after_types arena4 named_id applied_id parameter_id
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

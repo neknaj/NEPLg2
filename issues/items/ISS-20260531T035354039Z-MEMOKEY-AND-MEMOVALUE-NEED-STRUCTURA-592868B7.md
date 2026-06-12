@@ -269,3 +269,19 @@ source policy は `nodesrc/test_selfhost_memo_trait_method_signature_contract.js
 source policy は `nodesrc/test_selfhost_memo_trait_definition_key_contract.js` と `nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js` で固定した。検査内容は、目的 / 契約 / 現状 / 計算量 / doctest、schema version、source kind code、placeholder rejection、facade 非公開、source spelling 非 authority、registry / source identity / `signature_available=true` record の直生成禁止、proof store 直結禁止、行数制限 / doc comment 長制限禁止を含む。
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、stable nominal key / serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。性能面では、module fingerprint 計算が `.neplmeta` public interface artifact と checker-layer seed producer の間で重複しないように、次 slice で shared boundary を決める必要がある。
+
+## 2026-06-12 selfhost memo trait canonical key checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_canonical_key.nepl` を追加し、`MemoKey` / `MemoValue` proof artifact 用の stable nominal key table と canonical type fingerprint sidecar projection を実装した。
+
+この module は checker-layer の `memo_trait_definition_key.nepl` を import しない。`SelfhostNamedTypeId` は同じ session 内の constructor table index としてのみ扱い、永続 proof artifact の authority にはしない。caller が用意した module fingerprint、definition fingerprint、constructor ordinal、type arity から `SelfhostMemoTraitStableNominalKey` を作り、schema version と derived nominal key hash を含む named field payload として保持する。欠落、`0` placeholder、負の arity、derived hash `0` は `SelfhostMemoTraitStableNominalKeyErrorKind` で fail-closed に返す。
+
+canonical type fingerprint は `SelfhostMemoTraitStableNominalKeyTable` を通して `Named` / `Applied` node を stable nominal key へ写す。table に record がない場合は `MissingNominalKey`、同じ `SelfhostNamedTypeId` に複数の stable key がある場合は `DuplicateNominalKey` として拒否し、first-wins にはしない。primitive は stable code へ畳み、generic parameter と function type はこの proof artifact fingerprint では `TypeParameterUnsupported` / `FunctionTypeUnsupported` として拒否する。argument range の破損、missing node、missing argument、derived fingerprint placeholder、壊れた arena による traversal fuel exhaustion も typed enum error に分ける。
+
+accepted path は source text、span、syntax range、file path、display name、diagnostic text、lexeme を authority にしない。public wrapper は canonical key arena の node 数と argument 数から traversal fuel を作るため、正常な arena では key tree size に比例して終わり、破損した arena では無制限再帰ではなく `TraversalFuelExhausted` へ閉じる。stage0 smoke の失敗経路では type arena、stable nominal key table、projection 後の canonical key arena owner を明示的に解放する補助関数を持ち、テスト用コードでも owner boundary を曖昧にしない。
+
+`memo_trait_proof_store.nepl` の doc comment は、この canonical key projection が proof store の sidecar stable projection であることを記載した。ただし proof store の stored proof lookup key 自体はまだ既存 canonical key arena を使っており、serialized canonical type fingerprint を stored proof input に混ぜる接続は次 slice に残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_canonical_key_contract.js` で固定した。検査内容は、目的 / 契約 / 現状 / 計算量 / doctest、stable nominal key payload、typed error enum、missing / duplicate nominal key、Named / Applied の table 経由解決、argument range / traversal fuel boundary、checker-layer producer 非依存、source / span / path / display / diagnostic / lexeme 非 authority、proof store doc の sidecar projection 記述、行数制限 / doc comment 長制限禁止を含む。
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、serialized canonical key fingerprint を proof store の stored proof 入力へ接続することである。

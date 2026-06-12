@@ -10,13 +10,14 @@
 //: [契約/けいやく]:
 //: - store の key は canonical type key と `memo_trait_policy.nepl` が定義する typed solver policy identity の組です。policy が違う proof は、型構造が同じでも使いません。
 //: - canonical key が一致しても、stored proof は直接 consumer table へ流しません。現在 arena の `SelfhostTypeId` を使って `SelfhostMemoTraitAggregateProof` を再構成し、既存 producer gate が `Named` / `Applied` record と proof summary を再検査します。
-//: - `SelfhostNamedTypeId` は現段階では stable nominal key ではありません。module path、public surface hash、stable constructor identity が接続されるまでは、この store は selfhost compiler の session / prepared artifact 境界を固定するための Phase 1 API です。
+//: - `SelfhostNamedTypeId` は現段階では stable nominal key ではありません。`memo_trait_canonical_key.nepl` が stable nominal key table と canonical type fingerprint の sidecar projection を提供していますが、この store record はまだ既存 canonical key arena を保持します。store 本体の serialized key を置き換える段階では、その sidecar projection を stored proof key に接続します。
 //: - stale policy、missing proof、unsupported proof kind、projection failure、producer rejection はすべて typed error として返し、bool や表示文字列には潰しません。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では `Vec` 線形探索です。後続で stable map / serialized `.neplproof` reader を追加する場合も、同じ policy identity と canonical equality を authority にします。
 //: - stored proof は field layout、Copy / Drop / Eq / Hash proof status、hazard、key/value result payload だけを持ち、TypeId や diagnostic span は持ちません。
 //: - solver policy identity は source identity と rule identity の typed payload であり、raw `trait_source_hash` や raw `rule_hash` を proof store record の authority にしません。
+//: - serialized proof artifact 用の canonical type fingerprint は `memo_trait_canonical_key.nepl` の責務です。この store は現在の session lookup を維持し、永続 fingerprint の計算を lookup loop へ混ぜません。
 //:
 //: [計算量/けいさんりょう]:
 //: - proof 追加は canonical key projection が O(k)、record push が償却 O(1) です。k は対象型から到達する型 node / argument edge 数です。
