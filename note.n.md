@@ -1,3 +1,55 @@
+# 2026-06-12 Agent selfhost memo trait neplproof artifact schema checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、試作段階でも静的検査、Result / Option、enum error、match、pure core、authority boundary、探索範囲削減、事前検査済み artifact、丁寧な doc comment、fail-closed boundary を優先する方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-artifact-schema-20260612`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` artifact schema boundary
+- classification: selfhost implementation slice review
+- decision: `memo_trait_proof_store.nepl` の store-local stable identity をそのまま永続 artifact へ書き出さず、`.neplproof` reader / serializer が最初に構築すべき header、serialized record key、record payload、sidecar index entry、typed validation error を `memo_trait_proof_artifact.nepl` として分離した。
+- policy/spec:
+  - Blocker: なし。
+  - Required: なし。Dewey の Required だった store-local id 非公開、fingerprint-only acceptance 禁止、HIR / Resource IR / backend 非依存、source text / span / path / diagnostic / lexeme 非 authority、schema / policy / payload mismatch の fail-closed、source policy 追加はこの slice で反映した。
+  - Non-blocker: `canonical_payload_schema_version` は Phase 1 では canonical fingerprint schema と同一扱いである。後続 codec slice で canonical key tree serialization が fingerprint schema と独立に進化する場合は別 constant に分ける。
+  - Question: `KeyOnlyUnsupported` / `ValueOnlyUnsupported` などの proof kind 受理可否は artifact schema 層だけで決めない。schema 層は proof kind と stored proof payload と record payload hash を一体で保持し、proof store preseed / lookup gate と producer gate が expected proof kind と semantic proof を fail-closed に検査する。
+  - Approve: Curie は Blocker / Required なしと判断した。typed `Result` と enum error による validation、fingerprint-only 受理の回避、core/ty 周辺への依存限定、source policy runner 登録を確認した。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl` を追加した。
+  - `SelfhostMemoTraitNeplProofHeader` は artifact schema、canonical payload schema、policy schema、record / index count を持つ。
+  - `SelfhostMemoTraitNeplProofRecordKey` は serialized canonical key payload schema、canonical fingerprint、canonical payload hash、typed solver policy を持ち、`SelfhostCanonicalTypeKeyId` や `SelfhostTypeId` を持たない。
+  - `SelfhostMemoTraitNeplProofRecord` は record key、proof kind、stored aggregate proof、record payload hash を持つ。record payload hash は proof kind と proof payload を含む body hash の境界であり、proof acceptance authority ではない。
+  - `SelfhostMemoTraitNeplProofIndexEntry` は fingerprint、record ordinal、record payload hash だけを持つ候補 narrowing payload であり、index hit だけで proof を受理しない。
+  - `SelfhostMemoTraitNeplProofArtifactErrorKind` は schema mismatch、placeholder hash、record index、index fingerprint/hash mismatch を enum として返す。
+  - stage0 smoke は accepted header/key/record/index、artifact schema mismatch、canonical key schema mismatch、canonical payload hash placeholder、policy schema mismatch、record index out of range、index fingerprint mismatch、index record payload hash mismatch を実行で固定する。
+  - `stdlib/neplg2/core/ty/ty.nepl` へ facade re-export を追加した。
+  - `nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js` を追加し、source policy regression runner に登録した。
+- subagent review:
+  - subagent_review_ids: `019eba3e-02a2-76f0-b0dd-6c95760bc58a`, `019eba47-48bb-7790-bc83-b9a66801cdb2`
+  - subagent_review_count: 2
+  - Dewey: Required。serialized entry に `SelfhostMemoTraitProofStoreStableIdentity` や `SelfhostCanonicalTypeKeyId` を出さず、stable serialized canonical type key、canonical fingerprint、policy、proof kind、proof payload を分けること、fingerprint-only acceptance を禁止すること、checker / HIR / Resource / backend import を避けること、source text / span / path / display / diagnostic / lexeme を authority にしないこと、schema / policy / fingerprint は同じでも proof kind / payload mismatch は fail-closed にすること、source policy を追加することを求めた。すべて同じ slice 内で反映した。
+  - Curie: Blocker なし、Required なし。Non-blocker として source policy は正規表現なので構文意味までは見ないこと、canonical payload schema と fingerprint schema が現段階では同一扱いであることを挙げた。Question として proof kind semantic rejection を artifact schema 層に入れるかを確認したため、proof kind rejection は proof store / producer gate へ委譲する設計としてコメントへ追記した。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` は review response 形式と durable record の gate として既存運用されている。今回の checkpoint は `Blocker` / `Required` / `Non-blocker` / `Question` / `Approve`、Required と Question への response、source_policy、verify、warning 分類を明示した。
+- source_policy:
+  - source_policy: added
+  - source_policy_reason: `.neplproof` artifact schema が store-local id、session-local id、source text / span / path / diagnostic / lexeme、fingerprint-only authority、HIR / Resource IR / backend 依存、line count / doc comment length cap へ退行しないようにするため。
+  - 既存 warning: stdlib / selfhost documentation gap sample、Node WASI ExperimentalWarning、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: none。focused source policy、Zenn review gate、doctest、focused runtime、source policy regression runner は今回差分由来 warning なしで pass した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - header / key / record / index validation は O(1) である。decoded record set 全体の検査は record 数 n に比例する。
+  - focused doctest の compile では `resource_static_initialized_moves` が支配的であり、これは RPN cold base と同じく cache だけでなく Resource checker の探索範囲削減が必要な継続課題である。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+  - pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl -n 1`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-artifact-focused.json`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - warning_checked: `git diff --check` は whitespace error なし。working-copy の LF/CRLF warning は表示されたが、今回差分の trailing whitespace ではない。
+- 次 slice: `.neplproof` reader / serializer、artifact から proof store preseed への投入、serialized canonical key tree payload codec、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を継続する。
+
 # 2026-06-12 Agent selfhost memo trait proof store preseed decision checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査が効く enum / struct / Result / match を authority とし、文字列、bool だけの判定、first-wins、上書きで proof conflict を隠さないことを判断基準にした。試作段階であっても雑な公開 API や曖昧な cache semantics は残さない。

@@ -992,6 +992,18 @@ Performance acceptance:
 - literal または式枝差し替えは、親 chain と影響先 summary だけを再計算する。
 - tiny edit benchmark で 0.1 秒未満を目標値として記録する。
 
+### 2026-06-12 memo trait `.neplproof` artifact schema checkpoint
+
+`MemoKey` / `MemoValue` stored proof を `.neplproof` artifact へ載せる前段として、selfhost compiler 側に typed schema boundary を追加した。
+
+この schema は codec 本体ではない。binary / text reader、serializer、canonical key tree payload encoding、disk / bundled artifact への保存は後続 slice に残す。今回固定したのは、reader が payload merge 前に検査すべき header、serialized proof record key、record payload、sidecar index entry、typed artifact error である。
+
+Header は artifact schema、canonical payload schema、policy schema、record count、index count を持つ。Record key は store-local `SelfhostCanonicalTypeKeyId` ではなく、serialized canonical payload schema、canonical fingerprint、canonical payload hash、solver policy identity を持つ。Record payload は proof kind、stored aggregate proof、record payload hash をまとめる。Index entry は fingerprint、record ordinal、record payload hash だけを持つ候補 narrowing payload であり、proof acceptance authority ではない。
+
+受理の authority は fingerprint 単独ではない。reader / preseed 側は、canonical payload schema、canonical fingerprint、canonical payload hash、policy、proof kind、stored proof payload、record payload hash をそれぞれ fail-closed に扱い、最終的には proof store preseed / lookup gate と producer gate を通す。source text、source span、path suffix、display name、diagnostic text、lexeme、store-local id、session-local TypeId は `.neplproof` schema の accepted authority にしない。
+
+この checkpoint により、後続の `.neplproof` reader / serializer は proof store の store-local stable identity struct を直接永続化せず、serialized canonical key payload と typed policy / proof payload を分離して実装する。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

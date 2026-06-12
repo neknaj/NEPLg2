@@ -327,6 +327,36 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` artifact schema checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl` を追加し、`MemoKey` / `MemoValue` stored proof を `.neplproof` artifact へ載せる前段の typed schema boundary を固定した。
+
+この checkpoint は `.neplproof` の binary / text codec ではない。file I/O、byte parser、serializer、canonical key tree payload encoding、persistent stable map は後続 slice とする。今回の責務は、reader / serializer が最初に構築すべき header、serialized record key、record payload、sidecar index entry と、それらの fail-closed validation を selfhost compiler core の型で表すことである。
+
+`SelfhostMemoTraitNeplProofHeader` は artifact schema、canonical payload schema、policy schema、record count、index count を持つ。schema mismatch や負の件数は `SelfhostMemoTraitNeplProofArtifactErrorKind` の enum variant として返し、record payload を読まず fail-closed にできる。
+
+`SelfhostMemoTraitNeplProofRecordKey` は canonical payload schema、canonical fingerprint、canonical payload hash、typed solver policy を持つ。store-local `SelfhostCanonicalTypeKeyId`、`SelfhostTypeId`、`SelfhostNamedTypeId`、record index、source text、span、path、display、diagnostic、lexeme は serialized key authority にしない。canonical payload hash は placeholder `0` を拒否し、将来の canonical key tree serialization と fingerprint が同じ入力から来たことを確認するための boundary とする。
+
+`SelfhostMemoTraitNeplProofRecord` は record key、`SelfhostMemoTraitStoredProofKind`、`SelfhostMemoTraitStoredAggregateProof`、record payload hash をまとめる。proof kind は stable identity には入れないが、record payload hash の対象であり、proof store preseed / lookup gate と producer gate が expected proof kind と stored proof payload を検査する。artifact schema 層だけで `KeyOnlyUnsupported` などを受理しない。
+
+`SelfhostMemoTraitNeplProofIndexEntry` は canonical fingerprint、record ordinal、record payload hash だけを持つ候補 narrowing payload である。index entry は proof acceptance authority ではなく、index hit 後も record 側の fingerprint と payload hash に一致しなければ `IndexFingerprintMismatch` / `IndexRecordHashMismatch` で fail-closed にする。
+
+stage0 smoke は accepted header / key / record / index に加えて、artifact schema mismatch、canonical key schema mismatch、canonical payload hash placeholder、policy schema mismatch、record index out of range、index fingerprint mismatch、index record payload hash mismatch を確認する。source policy は `nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js` で、store-local id や source text authority、fingerprint-only acceptance、後段 layer import、line count / doc comment length cap の退行を禁止する。
+
+subagent review では Dewey が Required として、store-local identity と serialized artifact semantics の分離、fingerprint-only 受理禁止、checker / HIR / Resource / backend 非依存、source text / span / path / display / diagnostic / lexeme 非 authority、schema / policy / payload mismatch の fail-closed、source policy 追加を求めた。Curie は実装後に Blocker / Required なしと判断し、Non-blocker として regex source policy の限界と canonical payload schema / fingerprint schema の Phase 1 同一扱いを挙げた。Question だった proof kind semantic rejection は proof store / producer gate の責務として doc comment に明記した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-artifact-focused.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、`.neplproof` reader / serializer、artifact から proof store preseed への投入、serialized canonical key tree payload codec、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

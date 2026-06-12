@@ -1,0 +1,728 @@
+#indent 4
+
+//: # ty/memo_trait_proof_artifact
+//: `MemoKey` / `MemoValue` proof を `.neplproof` artifact へ[載/の]せるための typed schema boundary です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_proof_store.nepl` は store-local `SelfhostCanonicalTypeKeyId` と canonical key arena を持ちます。この module は、その store-local id を永続 artifact へ出さず、serialized proof record が保持してよい小さい stable payload だけを型として定義します。
+//: - `.neplproof` reader / serializer は後続 slice で実装します。この checkpoint では、reader が構築すべき header、record key、record payload、sidecar index entry の shape と fail-closed validation を固定します。
+//: - proof artifact の検査を bool や表示文字列へ潰さず、schema mismatch、placeholder hash、index invariant の破損を enum error として返します。
+//:
+//: [契約/けいやく]:
+//: - artifact record key は canonical key の serialized payload schema、canonical type fingerprint、canonical payload hash、solver policy identity を持ちます。`SelfhostCanonicalTypeKeyId`、`SelfhostTypeId`、`SelfhostNamedTypeId`、record index は record key の authority にしません。
+//: - canonical payload hash は、後続 serializer が canonical key tree payload を書き出した後に、その payload と fingerprint が同じ入力から来たことを確認するための sidecar です。hash が一致しても reader は store materialization 後に canonical equality、policy equality、proof kind、producer gate を通す必要があります。
+//: - sidecar index entry は fingerprint と record ordinal と record payload hash だけを持つ候補 narrowing 用 payload です。index hit は proof acceptance authority ではありません。
+//: - source text、source span、path suffix、display name、diagnostic text、lexeme は artifact schema の accepted authority に入りません。必要な source 情報は、すでに stable public surface / policy / canonical fingerprint へ正規化された後の typed payload だけを通します。
+//:
+//: [現状/げんじょう]:
+//: - これは `.neplproof` の binary / text codec ではありません。file I/O、byte parser、serializer、canonical key tree の実際の payload encoding、persistent stable map は後続 slice で追加します。
+//: - Phase 1 の record key は canonical payload hash を caller supplied nonzero fingerprint として受けます。後続 serializer が canonical key tree encoding を実装した段階で、この hash の生成元を serializer output に接続します。
+//: - record payload は既存 proof store の `SelfhostMemoTraitStoredProofKind` と `SelfhostMemoTraitStoredAggregateProof` をそのまま使います。proof kind は identity には入れませんが、record payload と index payload hash には含める前提です。
+//:
+//: [計算量/けいさんりょう]:
+//: - header / key / record / index の validation は Copy field の比較だけなので O(1) です。
+//: - index entry と record の照合も fingerprint と record payload hash の比較だけなので O(1) です。reader が decoded record set 全体を検査する場合は record 数 n に比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_artifact" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_neplproof_artifact_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_header_result_is_ok summary.accepted_header
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.header_schema_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_record_key_result_is_ok summary.accepted_key
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.key_schema_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.key_payload_placeholder) SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.policy_schema_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_neplproof_record_result_is_ok summary.accepted_record
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_neplproof_index_entry_result_is_ok summary.accepted_index
+//:     let checks9 checks_push checks8 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.index_out_of_range) SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange
+//:     let checks10 checks_push checks9 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.index_fingerprint_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch
+//:     let checks11 checks_push checks10 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.index_record_hash_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch
+//:     let shown checks_print_report checks11
+//:     checks_exit_code shown
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_policy" as *
+#import "./memo_trait_proof_store" as *
+#import "./memo_trait_producer" as *
+#import "./memo_trait" as *
+
+//: SelfhostMemoTraitNeplProofHeader: `.neplproof` artifact 全体の schema header
+//:
+//: [目的/もくてき]:
+//: - reader が record payload を読む前に、artifact schema、canonical key payload schema、policy schema、record / index の件数境界を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `artifact_schema_version` はこの module が定義する `.neplproof` record layout の version です。
+//: - `canonical_payload_schema_version` は canonical key tree serialization の version です。現段階では canonical fingerprint schema と一致することを要求します。
+//: - `policy_schema_version` は proof store policy の rule schema version と同じ namespace です。
+//: - `record_count` と `index_count` は負であってはいけません。後続 reader はこの件数を上限として allocation と range check を行います。
+pub struct SelfhostMemoTraitNeplProofHeader:
+    artifact_schema_version %i32
+    canonical_payload_schema_version %i32
+    policy_schema_version %i32
+    record_count %i32
+    index_count %i32
+
+//: SelfhostMemoTraitNeplProofRecordKey: serialized proof record の stable key payload
+//:
+//: [目的/もくてき]:
+//: - store-local `SelfhostCanonicalTypeKeyId` を artifact に出さず、canonical payload schema、canonical type fingerprint、canonical payload hash、solver policy を record key として保持します。
+//:
+//: [契約/けいやく]:
+//: - `canonical_fingerprint` は stable nominal key table から作った canonical type fingerprint です。
+//: - `canonical_payload_hash` は serialized canonical key tree payload の hash です。`0` は placeholder として拒否します。
+//: - `policy` は source identity と solver rule identity を含む reuse boundary です。
+pub struct SelfhostMemoTraitNeplProofRecordKey:
+    canonical_payload_schema_version %i32
+    canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    canonical_payload_hash %i32
+    policy %SelfhostMemoTraitProofStorePolicy
+
+//: SelfhostMemoTraitNeplProofRecord: serialized proof record の typed payload
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` の 1 record が持つ key、proof kind、stored proof、record payload hash を 1 つにまとめます。
+//:
+//: [契約/けいやく]:
+//: - `record_payload_hash` は proof kind と stored proof payload を含む serialized record body の hash です。`0` は placeholder として拒否します。
+//: - この hash は duplicate / conflict の hint であり、proof acceptance authority ではありません。reader は materialized store record に対して preseed decision と proof store lookup gate を通します。
+pub struct SelfhostMemoTraitNeplProofRecord:
+    key %SelfhostMemoTraitNeplProofRecordKey
+    proof_kind %SelfhostMemoTraitStoredProofKind
+    proof %SelfhostMemoTraitStoredAggregateProof
+    record_payload_hash %i32
+
+//: SelfhostMemoTraitNeplProofIndexEntry: serialized artifact 内の stable sidecar index entry
+//:
+//: [目的/もくてき]:
+//: - reader が record 全体を毎回走査せず、canonical fingerprint から候補 record ordinal へ narrowing できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `record_ordinal` は artifact record 配列内の ordinal です。負数、または header の `record_count` 以上の値は拒否します。
+//: - `record_payload_hash` は index entry が指す record の payload hash と一致しなければいけません。index が古い record や別 record を指す場合は fail-closed にします。
+//: - index entry は proof payload、policy、canonical payload hash を複製しません。
+pub struct SelfhostMemoTraitNeplProofIndexEntry:
+    canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    record_ordinal %i32
+    record_payload_hash %i32
+
+//: SelfhostMemoTraitNeplProofArtifactErrorKind: `.neplproof` schema validation の拒否理由
+//:
+//: [目的/もくてき]:
+//: - schema mismatch、placeholder hash、index invariant 破損を表示文字列ではなく enum として扱います。
+pub enum SelfhostMemoTraitNeplProofArtifactErrorKind:
+    ArtifactSchemaMismatch
+    CanonicalKeySchemaMismatch
+    PolicySchemaMismatch
+    RecordCountNegative
+    IndexCountNegative
+    CanonicalPayloadHashPlaceholder
+    RecordPayloadHashPlaceholder
+    RecordIndexNegative
+    RecordIndexOutOfRange
+    IndexFingerprintMismatch
+    IndexRecordHashMismatch
+
+//: SelfhostMemoTraitNeplProofArtifactStage0Summary: artifact schema focused smoke summary
+pub struct SelfhostMemoTraitNeplProofArtifactStage0Summary:
+    accepted_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind
+    header_schema_mismatch %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind
+    accepted_key %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind
+    key_schema_mismatch %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind
+    key_payload_placeholder %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind
+    policy_schema_mismatch %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind
+    accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind
+    accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind
+    index_out_of_range %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind
+    index_fingerprint_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind
+    index_record_hash_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofHeader:
+    fn clone %fn &SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofHeader \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofHeader:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofHeader \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofRecordKey:
+    fn clone %fn &SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofRecordKey:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofRecord:
+    fn clone %fn &SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofRecord:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofIndexEntry:
+    fn clone %fn &SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexEntry \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofIndexEntry:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofIndexEntry \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofArtifactErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofArtifactErrorKind SelfhostMemoTraitNeplProofArtifactErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofArtifactErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofArtifactErrorKind SelfhostMemoTraitNeplProofArtifactErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofArtifactStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofArtifactStage0Summary SelfhostMemoTraitNeplProofArtifactStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofArtifactStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofArtifactStage0Summary SelfhostMemoTraitNeplProofArtifactStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_neplproof_artifact_schema_version: `.neplproof` record layout version
+//:
+//: [契約/けいやく]:
+//: - header / record key / record / index entry の field 意味や validation rule を変える場合は、この version を上げます。
+pub fn selfhost_memo_trait_neplproof_artifact_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_neplproof_policy_schema_version: `.neplproof` が受理する policy schema version
+//:
+//: [契約/けいやく]:
+//: - 現 stage では `SelfhostMemoTraitProofStorePolicy.rules.schema_version` と一致させます。policy payload layout が変わる場合、古い artifact は別 schema として扱います。
+pub fn selfhost_memo_trait_neplproof_policy_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_neplproof_header_new: validation 済み header を[作/つく]る
+fn selfhost_memo_trait_neplproof_header_new %fn i32 fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitNeplProofHeader \artifact_schema_version\canonical_payload_schema_version\policy_schema_version\record_count\index_count:
+    SelfhostMemoTraitNeplProofHeader artifact_schema_version canonical_payload_schema_version policy_schema_version record_count index_count
+
+//: selfhost_memo_trait_neplproof_record_key_new: validation 済み record key を[作/つく]る
+fn selfhost_memo_trait_neplproof_record_key_new %fn i32 fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn SelfhostMemoTraitProofStorePolicy SelfhostMemoTraitNeplProofRecordKey \canonical_payload_schema_version\canonical_fingerprint\canonical_payload_hash\policy:
+    SelfhostMemoTraitNeplProofRecordKey canonical_payload_schema_version canonical_fingerprint canonical_payload_hash policy
+
+//: selfhost_memo_trait_neplproof_record_new: validation 済み artifact record を[作/つく]る
+fn selfhost_memo_trait_neplproof_record_new %fn SelfhostMemoTraitNeplProofRecordKey fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof fn i32 SelfhostMemoTraitNeplProofRecord \key\proof_kind\proof\record_payload_hash:
+    SelfhostMemoTraitNeplProofRecord key proof_kind proof record_payload_hash
+
+//: selfhost_memo_trait_neplproof_index_entry_new: validation 済み index entry を[作/つく]る
+fn selfhost_memo_trait_neplproof_index_entry_new %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 SelfhostMemoTraitNeplProofIndexEntry \canonical_fingerprint\record_ordinal\record_payload_hash:
+    SelfhostMemoTraitNeplProofIndexEntry canonical_fingerprint record_ordinal record_payload_hash
+
+//: selfhost_memo_trait_neplproof_header_result: artifact header を[検査/けんさ]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(header)`: schema version と件数境界が現 compiler で受理できる形です。
+//: - `Err(kind)`: schema mismatch または負の件数です。caller は record payload を読まず fail-closed にできます。
+pub fn selfhost_memo_trait_neplproof_header_result %fn i32 fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind \artifact_schema_version\canonical_payload_schema_version\policy_schema_version\record_count\index_count:
+    if:
+        not eq artifact_schema_version selfhost_memo_trait_neplproof_artifact_schema_version
+        then:
+            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch
+        else:
+            if:
+                not eq canonical_payload_schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
+                else:
+                    if:
+                        not eq policy_schema_version selfhost_memo_trait_neplproof_policy_schema_version
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch
+                        else:
+                            if:
+                                lt record_count 0
+                                then:
+                                    Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative
+                                else:
+                                    if:
+                                        lt index_count 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative
+                                        else:
+                                            Result::Ok selfhost_memo_trait_neplproof_header_new artifact_schema_version canonical_payload_schema_version policy_schema_version record_count index_count
+
+//: selfhost_memo_trait_neplproof_record_key_result: serialized record key を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - canonical fingerprint と canonical payload schema の version が一致しない場合は拒否します。
+//: - canonical payload hash は nonzero でなければいけません。
+//: - policy rules schema version が artifact schema と一致しない proof は stale policy として扱います。
+pub fn selfhost_memo_trait_neplproof_record_key_result %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 fn SelfhostMemoTraitProofStorePolicy Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind \canonical_fingerprint\canonical_payload_schema_version\canonical_payload_hash\policy:
+    if:
+        or:
+            not eq canonical_payload_schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+            not eq canonical_fingerprint.schema_version canonical_payload_schema_version
+        then:
+            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
+        else:
+            if:
+                eq canonical_payload_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder
+                else:
+                    if:
+                        not eq policy.rules.schema_version selfhost_memo_trait_neplproof_policy_schema_version
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch
+                        else:
+                            Result::Ok selfhost_memo_trait_neplproof_record_key_new canonical_payload_schema_version canonical_fingerprint canonical_payload_hash policy
+
+//: selfhost_memo_trait_neplproof_record_result: serialized proof record を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - record payload hash が `0` の record は、body payload の同一性を検査できないため拒否します。
+//: - proof kind と stored proof payload の semantic validation は proof store / producer gate が行います。この関数は artifact record body の placeholder を拒否する境界です。
+//: - `KeyOnlyUnsupported` などの proof kind を artifact schema 層だけで受理しません。reader はこの record を proof store preseed / lookup gate へ渡し、expected proof kind と producer gate の両方で fail-closed に検査します。
+pub fn selfhost_memo_trait_neplproof_record_result %fn SelfhostMemoTraitNeplProofRecordKey fn SelfhostMemoTraitStoredProofKind fn SelfhostMemoTraitStoredAggregateProof fn i32 Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind \key\proof_kind\proof\record_payload_hash:
+    if:
+        eq record_payload_hash 0
+        then:
+            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+        else:
+            Result::Ok selfhost_memo_trait_neplproof_record_new key proof_kind proof record_payload_hash
+
+//: selfhost_memo_trait_neplproof_index_entry_result: artifact index entry を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - canonical fingerprint schema が現行 schema と一致しない場合は拒否します。
+//: - record ordinal は `0 <= record_ordinal < record_count` でなければいけません。
+//: - record payload hash は nonzero でなければいけません。
+pub fn selfhost_memo_trait_neplproof_index_entry_result %fn SelfhostMemoTraitCanonicalTypeFingerprint fn i32 fn i32 fn i32 Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind \canonical_fingerprint\record_ordinal\record_payload_hash\record_count:
+    if:
+        not eq canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+        then:
+            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
+        else:
+            if:
+                lt record_ordinal 0
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative
+                else:
+                    if:
+                        ge record_ordinal record_count
+                        then:
+                            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange
+                        else:
+                            if:
+                                eq record_payload_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+                                else:
+                                    Result::Ok selfhost_memo_trait_neplproof_index_entry_new canonical_fingerprint record_ordinal record_payload_hash
+
+//: selfhost_memo_trait_neplproof_index_entry_matches_record_result: index entry が record payload を[指/さ]すか[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - fingerprint と record payload hash の両方が一致した場合だけ `Ok unit` を返します。
+//: - これは index invariant の検査であり、proof acceptance ではありません。reader はこの後、proof store preseed と lookup gate を実行します。
+pub fn selfhost_memo_trait_neplproof_index_entry_matches_record_result %fn SelfhostMemoTraitNeplProofIndexEntry fn SelfhostMemoTraitNeplProofRecord Result unit SelfhostMemoTraitNeplProofArtifactErrorKind \entry\record:
+    if:
+        not selfhost_memo_trait_canonical_type_fingerprint_eq entry.canonical_fingerprint record.key.canonical_fingerprint
+        then:
+            Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch
+        else:
+            if:
+                not eq entry.record_payload_hash record.record_payload_hash
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch
+                else:
+                    Result::Ok unit
+
+//: selfhost_memo_trait_neplproof_artifact_error_kind_eq: artifact error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error variant を追加した場合、この比較関数も明示的に更新します。
+pub fn selfhost_memo_trait_neplproof_artifact_error_kind_eq %fn SelfhostMemoTraitNeplProofArtifactErrorKind fn SelfhostMemoTraitNeplProofArtifactErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    true
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    false
+        SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofArtifactErrorKind::ArtifactSchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::PolicySchemaMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexCountNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexNegative:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch:
+                    false
+                SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch:
+                    true
+
+//: selfhost_memo_trait_neplproof_header_result_is_ok: header validation が成功したか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_header_result_is_ok %fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _header:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_record_key_result_is_ok: record key validation が成功したか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_record_key_result_is_ok %fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _key:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_record_result_is_ok: record validation が成功したか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_record_result_is_ok %fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _record:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_index_entry_result_is_ok: index validation が成功したか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_index_entry_result_is_ok %fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind bool \result:
+    match result:
+        Result::Ok _entry:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_artifact_stage0_policy: focused smoke 用の policy を[作/つく]る
+fn selfhost_memo_trait_neplproof_artifact_stage0_policy %fn i32 SelfhostMemoTraitProofStorePolicy \policy_schema:
+    let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+    let value_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 20 21 22
+    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_source_identity_set_new key_source value_source
+    let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new policy_schema 1 30 31 32
+    selfhost_memo_trait_proof_store_policy_new sources rules
+
+//: selfhost_memo_trait_neplproof_artifact_stage0_proof: focused smoke 用の stored proof を[作/つく]る
+fn selfhost_memo_trait_neplproof_artifact_stage0_proof %fn void SelfhostMemoTraitStoredAggregateProof \void:
+    selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+
+//: selfhost_memo_trait_neplproof_artifact_stage0_summary_new: focused summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_artifact_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofArtifactErrorKind SelfhostMemoTraitNeplProofArtifactStage0Summary \accepted_header\header_schema_mismatch\accepted_key\key_schema_mismatch\key_payload_placeholder\policy_schema_mismatch\accepted_record\accepted_index\index_out_of_range\index_fingerprint_mismatch\index_record_hash_mismatch:
+    SelfhostMemoTraitNeplProofArtifactStage0Summary accepted_header header_schema_mismatch accepted_key key_schema_mismatch key_payload_placeholder policy_schema_mismatch accepted_record accepted_index index_out_of_range index_fingerprint_mismatch index_record_hash_mismatch
+
+//: selfhost_memo_trait_neplproof_artifact_stage0: `.neplproof` artifact schema の代表 validation を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が accepted schema と fail-closed error を同じ API で確認できるようにします。
+//:
+//: [現状/げんじょう]:
+//: - この smoke は codec ではなく typed schema validation の確認です。file I/O や byte parser は実行しません。
+pub fn selfhost_memo_trait_neplproof_artifact_stage0 %fn void SelfhostMemoTraitNeplProofArtifactStage0Summary \void:
+    let canonical_schema %i32 selfhost_memo_trait_canonical_type_fingerprint_schema_version
+    let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_artifact_stage0_policy policy_schema
+    let stale_policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_artifact_stage0_policy add policy_schema 1
+    let fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 1001
+    let mismatched_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 2002
+    let bad_schema_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint add canonical_schema 1 1001
+    let accepted_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_header_result (selfhost_memo_trait_neplproof_artifact_schema_version) canonical_schema policy_schema 1 1
+    let header_schema_mismatch %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_header_result add selfhost_memo_trait_neplproof_artifact_schema_version 1 canonical_schema policy_schema 1 1
+    let accepted_key %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_record_key_result fingerprint canonical_schema 3003 policy
+    let key_schema_mismatch %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_record_key_result bad_schema_fingerprint canonical_schema 3003 policy
+    let key_payload_placeholder %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_record_key_result fingerprint canonical_schema 0 policy
+    let policy_schema_mismatch %Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_record_key_result fingerprint canonical_schema 3003 stale_policy
+    let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_neplproof_artifact_stage0_proof
+    match accepted_key:
+        Result::Ok key:
+            let accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_record_result key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 4004
+            match accepted_record:
+                Result::Ok record:
+                    let accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_result fingerprint 0 4004 1
+                    let index_out_of_range %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_result fingerprint 1 4004 1
+                    let mismatched_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new mismatched_fingerprint 0 4004
+                    let index_fingerprint_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_matches_record_result mismatched_index record
+                    let stale_payload_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new fingerprint 0 5005
+                    let index_record_hash_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_matches_record_result stale_payload_index record
+                    selfhost_memo_trait_neplproof_artifact_stage0_summary_new accepted_header header_schema_mismatch accepted_key key_schema_mismatch key_payload_placeholder policy_schema_mismatch accepted_record accepted_index index_out_of_range index_fingerprint_mismatch index_record_hash_mismatch
+                Result::Err _record_error:
+                    let accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_result fingerprint 0 4004 1
+                    let index_out_of_range %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_result fingerprint 1 4004 1
+                    let index_fingerprint_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch
+                    let index_record_hash_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch
+                    selfhost_memo_trait_neplproof_artifact_stage0_summary_new accepted_header header_schema_mismatch accepted_key key_schema_mismatch key_payload_placeholder policy_schema_mismatch accepted_record accepted_index index_out_of_range index_fingerprint_mismatch index_record_hash_mismatch
+        Result::Err _key_error:
+            let accepted_record %Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::CanonicalKeySchemaMismatch
+            let accepted_index %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_result fingerprint 0 4004 1
+            let index_out_of_range %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind selfhost_memo_trait_neplproof_index_entry_result fingerprint 1 4004 1
+            let index_fingerprint_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch
+            let index_record_hash_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch
+            selfhost_memo_trait_neplproof_artifact_stage0_summary_new accepted_header header_schema_mismatch accepted_key key_schema_mismatch key_payload_placeholder policy_schema_mismatch accepted_record accepted_index index_out_of_range index_fingerprint_mismatch index_record_hash_mismatch
