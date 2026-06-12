@@ -473,6 +473,20 @@ subagent review では Dewey が Required として、store-local identity と s
 
 この checkpoint 後の残件は、`.neplproof` reader / serializer、artifact から proof store preseed への投入、serialized canonical key tree payload codec、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary を接続することである。
 
+## 2026-06-12 selfhost memo trait `.neplproof` decoded index table validation checkpoint
+
+`memo_trait_proof_artifact.nepl` に decoded artifact 全体の index table validation boundary を追加した。
+
+この checkpoint は `.neplproof` reader / serializer 本体ではない。reader が header、record vector、sidecar index vector を decoded した直後、proof store preseed へ進む前に通す fail-closed gate である。
+
+`selfhost_memo_trait_neplproof_index_table_result` は header の `record_count` / `index_count` と decoded vector length を照合し、各 record と各 index entry を既存の単体 validator へ再投入する。その後、index entry が指す record の canonical fingerprint と record payload hash が一致すること、さらに sidecar index table が record ordinal を一対一に覆っていることを検査する。
+
+同じ record ordinal へ複数 index entry が向く場合は `SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate`、どの index entry からも覆われない record ordinal がある場合は `IndexRecordOrdinalMissing` として拒否する。index table は候補 narrowing 用の sidecar であり、fingerprint hit や stable index hit を proof acceptance authority にしない。
+
+stage0 smoke は accepted table、record count mismatch、index count mismatch、invalid record、invalid index entry、index-record mismatch、duplicate ordinal、missing coverage を public aggregate validator 経由で確認する。safe `Vec` からは通常作れない defensive missing entry は、duplicate scan と coverage scan の `v::get None` を `IndexEntryMissing` に分類する形で contract に固定した。source policy は `nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js` で、typed enum error、header count check、record / index revalidation、coverage loop、duplicate rejection、missing coverage rejection、defensive entry missing、fingerprint-only / stable-index-only authority 禁止、line count / doc comment length cap 禁止を固定した。
+
+この checkpoint 後の残件は、`.neplproof` reader / serializer、persistent stable map / serialized index、generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash を接続することである。
+
 ## 2026-06-12 selfhost memo trait proof store preseed decision checkpoint
 
 `memo_trait_proof_store.nepl` に `SelfhostMemoTraitProofStorePreseedDecision` を追加し、`.neplproof` reader / serializer が store へ proof record を投入する前の store-local preseed 判定を typed enum として固定した。

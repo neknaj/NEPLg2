@@ -6,26 +6,30 @@
 //: [目的/もくてき]:
 //: - `memo_trait_proof_store.nepl` は store-local `SelfhostCanonicalTypeKeyId` と canonical key arena を持ちます。この module は、その store-local id を永続 artifact へ出さず、serialized proof record が保持してよい小さい stable payload だけを型として定義します。
 //: - `.neplproof` reader / serializer は後続 slice で実装します。この checkpoint では、reader が構築すべき header、record key、record payload、sidecar index entry の shape と fail-closed validation を固定します。
+//: - decoded artifact 全体に対して、header の record / index 件数、record payload、index entry、record ordinal coverage を検査する境界を提供します。
 //: - proof artifact の検査を bool や表示文字列へ潰さず、schema mismatch、placeholder hash、index invariant の破損を enum error として返します。
 //:
 //: [契約/けいやく]:
 //: - artifact record key は canonical key の serialized payload schema、canonical type fingerprint、canonical payload hash、solver policy identity を持ちます。`SelfhostCanonicalTypeKeyId`、`SelfhostTypeId`、`SelfhostNamedTypeId`、record index は record key の authority にしません。
 //: - canonical payload hash は、後続 serializer が canonical key tree payload を書き出した後に、その payload と fingerprint が同じ入力から来たことを確認するための sidecar です。hash が一致しても reader は store materialization 後に canonical equality、policy equality、proof kind、producer gate を通す必要があります。
 //: - sidecar index entry は fingerprint と record ordinal と record payload hash だけを持つ候補 narrowing 用 payload です。index hit は proof acceptance authority ではありません。
+//: - artifact index table は record ごとに 1 つの sidecar entry を持ちます。同じ record ordinal へ複数 entry が向く場合、またはどの entry からも覆われない record ordinal がある場合は、reader は proof store へ投入せず fail-closed にします。
 //: - source text、source span、path suffix、display name、diagnostic text、lexeme は artifact schema の accepted authority に入りません。必要な source 情報は、すでに stable public surface / policy / canonical fingerprint へ正規化された後の typed payload だけを通します。
 //:
 //: [現状/げんじょう]:
 //: - これは `.neplproof` の binary / text codec ではありません。file I/O、byte parser、serializer、canonical key tree の実際の payload encoding、persistent stable map は後続 slice で追加します。
 //: - Phase 1 の record key は `memo_trait_canonical_key_payload.nepl` が materialized canonical key tree から作る nonzero hash を受けます。後続 serializer は同じ payload schema で bytes を読んだ後、この hash producer と同じ authority へ接続します。
 //: - record payload は既存 proof store の `SelfhostMemoTraitStoredProofKind` と `SelfhostMemoTraitStoredAggregateProof` をそのまま使います。proof kind は identity には入れませんが、record payload と index payload hash には含める前提です。
+//: - index table validation は現在 decoded `Vec` を借用し、coverage 検査は線形 scan を組み合わせます。後続の persistent stable map / serialized index では、同じ error enum を保ったまま探索範囲を縮めます。
 //:
 //: [計算量/けいさんりょう]:
 //: - header / key / record / index の validation は Copy field の比較だけなので O(1) です。
 //: - index entry と record の照合も fingerprint と record payload hash の比較だけなので O(1) です。reader が decoded record set 全体を検査する場合は record 数 n に比例します。
+//: - 現 stage の index table coverage validation は record 数 n と index entry 数 m に対して O(n * m + m * m) です。これは codec 前段の fail-closed contract を先に固定するための実装であり、後続の serialized stable map では同じ不変条件を O(n + m) へ移します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -37,6 +41,14 @@
 //: ##: [8] ok
 //: ##: [9] ok
 //: ##: [10] ok
+//: ##: [11] ok
+//: ##: [12] ok
+//: ##: [13] ok
+//: ##: [14] ok
+//: ##: [15] ok
+//: ##: [16] ok
+//: ##: [17] ok
+//: ##: [18] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -58,10 +70,21 @@
 //:     let checks9 checks_push checks8 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.index_out_of_range) SelfhostMemoTraitNeplProofArtifactErrorKind::RecordIndexOutOfRange
 //:     let checks10 checks_push checks9 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.index_fingerprint_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::IndexFingerprintMismatch
 //:     let checks11 checks_push checks10 check selfhost_memo_trait_neplproof_artifact_error_kind_eq (unwrap_err summary.index_record_hash_mismatch) SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch
-//:     let shown checks_print_report checks11
+//:     let index_summary unwrap_ok selfhost_memo_trait_neplproof_index_validation_stage0
+//:     let checks12 checks_push checks11 check selfhost_memo_trait_neplproof_index_validation_result_is_ok index_summary.accepted
+//:     let checks13 checks_push checks12 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.record_count_mismatch) SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch
+//:     let checks14 checks_push checks13 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.index_count_mismatch) SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch
+//:     let checks15 checks_push checks14 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.record_invalid) SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid
+//:     let checks16 checks_push checks15 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.index_entry_invalid) SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid
+//:     let checks17 checks_push checks16 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.index_record_mismatch) SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch
+//:     let checks18 checks_push checks17 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.index_record_ordinal_duplicate) SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate
+//:     let checks19 checks_push checks18 check selfhost_memo_trait_neplproof_index_validation_error_kind_eq (unwrap_err index_summary.index_record_ordinal_missing) SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing
+//:     let shown checks_print_report checks19
 //:     checks_exit_code shown
 //: ```
 
+#import "alloc/collections/vec" as v
+#import "core/field" as field
 #import "core/math" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
@@ -149,6 +172,28 @@ pub enum SelfhostMemoTraitNeplProofArtifactErrorKind:
     IndexFingerprintMismatch
     IndexRecordHashMismatch
 
+//: SelfhostMemoTraitNeplProofIndexValidationErrorKind: decoded artifact index table validation の拒否理由
+//:
+//: [目的/もくてき]:
+//: - header / record vector / index vector を同時に見たときの破損理由を、単一 entry validation の error と分けて表します。
+//:
+//: [契約/けいやく]:
+//: - `RecordCountMismatch` と `IndexCountMismatch` は、header の件数と decoded vector の件数が一致しない場合に使います。
+//: - `RecordEntryMissing` と `IndexEntryMissing` は、vector length で範囲内と判断した位置から `get` できない場合の defensive error です。
+//: - `RecordInvalid` と `IndexEntryInvalid` は、既存の record / index entry validator が拒否したことを表します。
+//: - `IndexRecordMismatch` は、index entry が指す record と fingerprint または record payload hash が一致しないことを表します。
+//: - `IndexRecordOrdinalDuplicate` と `IndexRecordOrdinalMissing` は、serialized sidecar index が record ordinal を一対一に覆っていないことを表します。
+pub enum SelfhostMemoTraitNeplProofIndexValidationErrorKind:
+    RecordCountMismatch
+    IndexCountMismatch
+    RecordEntryMissing
+    IndexEntryMissing
+    RecordInvalid
+    IndexEntryInvalid
+    IndexRecordMismatch
+    IndexRecordOrdinalDuplicate
+    IndexRecordOrdinalMissing
+
 //: SelfhostMemoTraitNeplProofArtifactStage0Summary: artifact schema focused smoke summary
 pub struct SelfhostMemoTraitNeplProofArtifactStage0Summary:
     accepted_header %Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind
@@ -162,6 +207,17 @@ pub struct SelfhostMemoTraitNeplProofArtifactStage0Summary:
     index_out_of_range %Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind
     index_fingerprint_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind
     index_record_hash_mismatch %Result unit SelfhostMemoTraitNeplProofArtifactErrorKind
+
+//: SelfhostMemoTraitNeplProofIndexValidationStage0Summary: index table validation focused smoke summary
+pub struct SelfhostMemoTraitNeplProofIndexValidationStage0Summary:
+    accepted %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    record_count_mismatch %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    index_count_mismatch %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    record_invalid %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    index_entry_invalid %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    index_record_mismatch %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    index_record_ordinal_duplicate %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
+    index_record_ordinal_missing %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind
 
 impl Clone for SelfhostMemoTraitNeplProofHeader:
     fn clone %fn &SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofHeader \self:
@@ -203,12 +259,28 @@ impl Copy for SelfhostMemoTraitNeplProofArtifactErrorKind:
     fn copy_mark %fn SelfhostMemoTraitNeplProofArtifactErrorKind SelfhostMemoTraitNeplProofArtifactErrorKind \self:
         self
 
+impl Clone for SelfhostMemoTraitNeplProofIndexValidationErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofIndexValidationErrorKind SelfhostMemoTraitNeplProofIndexValidationErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofIndexValidationErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofIndexValidationErrorKind SelfhostMemoTraitNeplProofIndexValidationErrorKind \self:
+        self
+
 impl Clone for SelfhostMemoTraitNeplProofArtifactStage0Summary:
     fn clone %fn &SelfhostMemoTraitNeplProofArtifactStage0Summary SelfhostMemoTraitNeplProofArtifactStage0Summary \self:
         *self
 
 impl Copy for SelfhostMemoTraitNeplProofArtifactStage0Summary:
     fn copy_mark %fn SelfhostMemoTraitNeplProofArtifactStage0Summary SelfhostMemoTraitNeplProofArtifactStage0Summary \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofIndexValidationStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofIndexValidationStage0Summary SelfhostMemoTraitNeplProofIndexValidationStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofIndexValidationStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofIndexValidationStage0Summary SelfhostMemoTraitNeplProofIndexValidationStage0Summary \self:
         self
 
 //: selfhost_memo_trait_neplproof_artifact_schema_version: `.neplproof` record layout version
@@ -364,6 +436,204 @@ pub fn selfhost_memo_trait_neplproof_index_entry_matches_record_result %fn Selfh
                     Result::Err SelfhostMemoTraitNeplProofArtifactErrorKind::IndexRecordHashMismatch
                 else:
                     Result::Ok unit
+
+//: selfhost_memo_trait_neplproof_record_revalidate_for_index_table: decoded record を index table 検査の前提として[再検査/さいけんさ]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が既に `SelfhostMemoTraitNeplProofRecord` を構築していても、index table 全体を信頼する前に record key と record payload hash を同じ validator で再確認します。
+//:
+//: [契約/けいやく]:
+//: - validation 失敗の詳細は単一 record validator が保持します。この aggregate boundary では、reader が index table 全体を拒否すべきことを `RecordInvalid` として返します。
+fn selfhost_memo_trait_neplproof_record_revalidate_for_index_table %fn SelfhostMemoTraitNeplProofRecord Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind \record:
+    match selfhost_memo_trait_neplproof_record_key_result record.key.canonical_fingerprint record.key.canonical_payload_schema_version record.key.canonical_payload_hash record.key.policy:
+        Result::Ok key:
+            match selfhost_memo_trait_neplproof_record_result key record.proof_kind record.proof record.record_payload_hash:
+                Result::Ok _record:
+                    Result::Ok unit
+                Result::Err _kind:
+                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid
+        Result::Err _kind:
+            Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid
+
+//: selfhost_memo_trait_neplproof_index_revalidate_for_index_table: decoded index entry を index table 検査の前提として[再検査/さいけんさ]する
+//:
+//: [契約/けいやく]:
+//: - index entry 自体の schema、ordinal range、payload hash placeholder は単一 entry validator に委譲します。
+fn selfhost_memo_trait_neplproof_index_revalidate_for_index_table %fn SelfhostMemoTraitNeplProofIndexEntry fn i32 Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind \entry\record_count:
+    match selfhost_memo_trait_neplproof_index_entry_result entry.canonical_fingerprint entry.record_ordinal entry.record_payload_hash record_count:
+        Result::Ok _entry:
+            Result::Ok unit
+        Result::Err _kind:
+            Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid
+
+//: selfhost_memo_trait_neplproof_index_validation_record_loop: record vector 全体を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - `idx` は caller が `0` から渡します。vector length 内で `get` が失敗した場合は、破損した decoded vector として fail-closed にします。
+fn selfhost_memo_trait_neplproof_index_validation_record_loop %fn &Vec SelfhostMemoTraitNeplProofRecord fn i32 Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind \records\idx:
+    let n %i32 v::len records
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_neplproof_record_revalidate_for_index_table record:
+                        Result::Ok _unit:
+                            selfhost_memo_trait_neplproof_index_validation_record_loop records add idx 1
+                        Result::Err kind:
+                            Result::Err kind
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing
+
+//: selfhost_memo_trait_neplproof_index_validation_duplicate_before_loop: record ordinal の[重複/じゅうふく]を[前方/ぜんぽう]だけで[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - index entry を左から検査しながら、現在 entry より前に同じ record ordinal が出ていないかを確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok true`: 前方に同じ record ordinal が存在します。
+//: - `Ok false`: 前方に同じ record ordinal は存在しません。
+//: - `Err(IndexEntryMissing)`: vector length から有効と判断した位置を読み出せないため、decoded index table の内部破損として扱います。
+fn selfhost_memo_trait_neplproof_index_validation_duplicate_before_loop %fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn i32 fn i32 fn i32 Result bool SelfhostMemoTraitNeplProofIndexValidationErrorKind \indexes\record_ordinal\idx\scan:
+    if:
+        ge scan idx
+        then:
+            Result::Ok false
+        else:
+            match v::get indexes scan:
+                Option::Some previous:
+                    if:
+                        eq previous.record_ordinal record_ordinal
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_trait_neplproof_index_validation_duplicate_before_loop indexes record_ordinal idx add scan 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing
+
+//: selfhost_memo_trait_neplproof_index_validation_entry_loop: index vector 全体を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - index entry は hint なので、entry が指す record を取得した後も fingerprint と record payload hash を照合します。
+//: - record ordinal の重複は missing coverage を隠すため、重複を見つけた時点で `IndexRecordOrdinalDuplicate` を返します。
+fn selfhost_memo_trait_neplproof_index_validation_entry_loop %fn &Vec SelfhostMemoTraitNeplProofRecord fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn i32 Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind \records\indexes\idx:
+    let n %i32 v::len indexes
+    let record_count %i32 v::len records
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match v::get indexes idx:
+                Option::Some entry:
+                    match selfhost_memo_trait_neplproof_index_revalidate_for_index_table entry record_count:
+                        Result::Ok _unit:
+                            match selfhost_memo_trait_neplproof_index_validation_duplicate_before_loop indexes entry.record_ordinal idx 0:
+                                Result::Ok has_duplicate:
+                                    if:
+                                        has_duplicate
+                                        then:
+                                            Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate
+                                        else:
+                                            match v::get records entry.record_ordinal:
+                                                Option::Some record:
+                                                    match selfhost_memo_trait_neplproof_index_entry_matches_record_result entry record:
+                                                        Result::Ok _matched:
+                                                            selfhost_memo_trait_neplproof_index_validation_entry_loop records indexes add idx 1
+                                                        Result::Err _kind:
+                                                            Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch
+                                                Option::None:
+                                                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid
+                                Result::Err kind:
+                                    Result::Err kind
+                        Result::Err kind:
+                            Result::Err kind
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing
+
+//: selfhost_memo_trait_neplproof_index_validation_record_covered_loop: 1 つの record ordinal が index から[到達/とうたつ]できるか[調/しら]べる
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok true`: 指定 record ordinal を指す index entry が存在します。
+//: - `Ok false`: index entry は読めたが、指定 record ordinal を指す entry は存在しません。
+//: - `Err(IndexEntryMissing)`: vector length から有効と判断した位置を読み出せないため、coverage 不足ではなく decoded index vector の破損として扱います。
+fn selfhost_memo_trait_neplproof_index_validation_record_covered_loop %fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn i32 fn i32 Result bool SelfhostMemoTraitNeplProofIndexValidationErrorKind \indexes\record_ordinal\idx:
+    let n %i32 v::len indexes
+    if:
+        ge idx n
+        then:
+            Result::Ok false
+        else:
+            match v::get indexes idx:
+                Option::Some entry:
+                    if:
+                        eq entry.record_ordinal record_ordinal
+                        then:
+                            Result::Ok true
+                        else:
+                            selfhost_memo_trait_neplproof_index_validation_record_covered_loop indexes record_ordinal add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing
+
+//: selfhost_memo_trait_neplproof_index_validation_coverage_loop: record ordinal 全体が index に[覆/おお]われているか[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - index vector の entry 自体は `selfhost_memo_trait_neplproof_index_validation_entry_loop` で検査済みであることを前提にします。
+//: - coverage が欠けている場合は、record が store へ投入されても stable index lookup から到達できないため fail-closed にします。
+fn selfhost_memo_trait_neplproof_index_validation_coverage_loop %fn &Vec SelfhostMemoTraitNeplProofIndexEntry fn i32 fn i32 Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind \indexes\record_count\record_ordinal:
+    if:
+        ge record_ordinal record_count
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_trait_neplproof_index_validation_record_covered_loop indexes record_ordinal 0:
+                Result::Ok covered:
+                    if:
+                        covered
+                        then:
+                            selfhost_memo_trait_neplproof_index_validation_coverage_loop indexes record_count add record_ordinal 1
+                        else:
+                            Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing
+                Result::Err kind:
+                    Result::Err kind
+
+//: selfhost_memo_trait_neplproof_index_table_result: decoded artifact の index table 全体を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `.neplproof` reader が header、record vector、index vector を decoded した直後に、proof store preseed へ進めてよい artifact かを判定します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok unit`: header 件数、record payload、index entry、record ordinal coverage がすべて整合しています。
+//: - `Err(kind)`: decoded artifact が fail-closed に拒否される理由です。
+//:
+//: [契約/けいやく]:
+//: - この関数は file I/O、byte decode、serializer、proof store への投入を行いません。
+//: - index entry は候補 narrowing のための sidecar であり、ここで `Ok` になっても proof を受理したことにはなりません。caller は materialized canonical key、policy、proof kind、producer gate を続けて検査します。
+//: - store-local id、source text、span、path、diagnostic、lexeme はここでも authority にしません。
+pub fn selfhost_memo_trait_neplproof_index_table_result %fn SelfhostMemoTraitNeplProofHeader fn &Vec SelfhostMemoTraitNeplProofRecord fn &Vec SelfhostMemoTraitNeplProofIndexEntry Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind \header\records\indexes:
+    let record_len %i32 v::len records
+    let index_len %i32 v::len indexes
+    if:
+        not eq record_len header.record_count
+        then:
+            Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch
+        else:
+            if:
+                not eq index_len header.index_count
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch
+                else:
+                    match selfhost_memo_trait_neplproof_index_validation_record_loop records 0:
+                        Result::Ok _records_valid:
+                            match selfhost_memo_trait_neplproof_index_validation_entry_loop records indexes 0:
+                                Result::Ok _indexes_valid:
+                                    selfhost_memo_trait_neplproof_index_validation_coverage_loop indexes record_len 0
+                                Result::Err kind:
+                                    Result::Err kind
+                        Result::Err kind:
+                            Result::Err kind
 
 //: selfhost_memo_trait_neplproof_artifact_error_kind_eq: artifact error が同じ分類か[返/かえ]す
 //:
@@ -668,6 +938,201 @@ pub fn selfhost_memo_trait_neplproof_index_entry_result_is_ok %fn Result Selfhos
         Result::Err _kind:
             false
 
+//: selfhost_memo_trait_neplproof_index_validation_result_is_ok: index table validation が成功したか[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_index_validation_result_is_ok %fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind bool \result:
+    match result:
+        Result::Ok _unit:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_index_validation_error_kind_eq: index table validation error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error variant を追加した場合、この比較関数も明示的に更新します。
+pub fn selfhost_memo_trait_neplproof_index_validation_error_kind_eq %fn SelfhostMemoTraitNeplProofIndexValidationErrorKind fn SelfhostMemoTraitNeplProofIndexValidationErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    true
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    false
+        SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+            match b:
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexCountMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryMissing:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::RecordInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexEntryInvalid:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordMismatch:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalDuplicate:
+                    false
+                SelfhostMemoTraitNeplProofIndexValidationErrorKind::IndexRecordOrdinalMissing:
+                    true
+
 //: selfhost_memo_trait_neplproof_artifact_stage0_policy: focused smoke 用の policy を[作/つく]る
 fn selfhost_memo_trait_neplproof_artifact_stage0_policy %fn i32 SelfhostMemoTraitProofStorePolicy \policy_schema:
     let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
@@ -679,6 +1144,166 @@ fn selfhost_memo_trait_neplproof_artifact_stage0_policy %fn i32 SelfhostMemoTrai
 //: selfhost_memo_trait_neplproof_artifact_stage0_proof: focused smoke 用の stored proof を[作/つく]る
 fn selfhost_memo_trait_neplproof_artifact_stage0_proof %fn void SelfhostMemoTraitStoredAggregateProof \void:
     selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_summary_new: index table validation summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_index_validation_stage0_summary_new %fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind fn Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind SelfhostMemoTraitNeplProofIndexValidationStage0Summary \accepted\record_count_mismatch\index_count_mismatch\record_invalid\index_entry_invalid\index_record_mismatch\index_record_ordinal_duplicate\index_record_ordinal_missing:
+    SelfhostMemoTraitNeplProofIndexValidationStage0Summary accepted record_count_mismatch index_count_mismatch record_invalid index_entry_invalid index_record_mismatch index_record_ordinal_duplicate index_record_ordinal_missing
+
+//: selfhost_memo_trait_neplproof_index_validation_record_push: stage0 record vector へ record を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitNeplProofRecord` は Copy payload なので、push failure では error payload 内の vector owner だけを閉じます。
+fn selfhost_memo_trait_neplproof_index_validation_record_push %impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \records\record:
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_index_validation_index_push: stage0 index vector へ entry を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `SelfhostMemoTraitNeplProofIndexEntry` は Copy payload なので、push failure では error payload 内の vector owner だけを閉じます。
+fn selfhost_memo_trait_neplproof_index_validation_index_push %impure fn Vec SelfhostMemoTraitNeplProofIndexEntry impure fn SelfhostMemoTraitNeplProofIndexEntry Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind \indexes\entry:
+    match v::push indexes entry:
+        Result::Ok next_indexes:
+            Result::Ok next_indexes
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_records_two: 2 record の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_index_validation_stage0_records_two %impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind \first\second:
+    let records_result %Result Vec SelfhostMemoTraitNeplProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records0:
+            match selfhost_memo_trait_neplproof_index_validation_record_push records0 first:
+                Result::Ok records1:
+                    selfhost_memo_trait_neplproof_index_validation_record_push records1 second
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_indexes_one: 1 index entry の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_index_validation_stage0_indexes_one %impure fn SelfhostMemoTraitNeplProofIndexEntry Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind \first:
+    let indexes_result %Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind v::new
+    match indexes_result:
+        Result::Ok indexes0:
+            selfhost_memo_trait_neplproof_index_validation_index_push indexes0 first
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_indexes_two: 2 index entry の stage0 vector を[作/つく]る
+fn selfhost_memo_trait_neplproof_index_validation_stage0_indexes_two %impure fn SelfhostMemoTraitNeplProofIndexEntry impure fn SelfhostMemoTraitNeplProofIndexEntry Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind \first\second:
+    let indexes_result %Result Vec SelfhostMemoTraitNeplProofIndexEntry StdErrorKind v::new
+    match indexes_result:
+        Result::Ok indexes0:
+            match selfhost_memo_trait_neplproof_index_validation_index_push indexes0 first:
+                Result::Ok indexes1:
+                    selfhost_memo_trait_neplproof_index_validation_index_push indexes1 second
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_run_vectors: Vec owner を[閉/と]じながら aggregate validation を[実行/じっこう]する
+fn selfhost_memo_trait_neplproof_index_validation_stage0_run_vectors %impure fn SelfhostMemoTraitNeplProofHeader impure fn Vec SelfhostMemoTraitNeplProofRecord impure fn Vec SelfhostMemoTraitNeplProofIndexEntry Result Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind StdErrorKind \header\records\indexes:
+    let validation %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind selfhost_memo_trait_neplproof_index_table_result header &records &indexes
+    v::free records
+    v::free indexes
+    Result::Ok validation
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes: 2 record / 2 index の aggregate validation を[実行/じっこう]する
+fn selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes %impure fn SelfhostMemoTraitNeplProofHeader impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofIndexEntry impure fn SelfhostMemoTraitNeplProofIndexEntry Result Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind StdErrorKind \header\first_record\second_record\first_index\second_index:
+    match selfhost_memo_trait_neplproof_index_validation_stage0_records_two first_record second_record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_index_validation_stage0_indexes_two first_index second_index:
+                Result::Ok indexes:
+                    selfhost_memo_trait_neplproof_index_validation_stage0_run_vectors header records indexes
+                Result::Err e:
+                    v::free records
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0_run_one_index: 2 record / 1 index の aggregate validation を[実行/じっこう]する
+fn selfhost_memo_trait_neplproof_index_validation_stage0_run_one_index %impure fn SelfhostMemoTraitNeplProofHeader impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofRecord impure fn SelfhostMemoTraitNeplProofIndexEntry Result Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind StdErrorKind \header\first_record\second_record\first_index:
+    match selfhost_memo_trait_neplproof_index_validation_stage0_records_two first_record second_record:
+        Result::Ok records:
+            match selfhost_memo_trait_neplproof_index_validation_stage0_indexes_one first_index:
+                Result::Ok indexes:
+                    selfhost_memo_trait_neplproof_index_validation_stage0_run_vectors header records indexes
+                Result::Err e:
+                    v::free records
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_index_validation_stage0: decoded artifact index table validation の代表結果を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が aggregate validator を実際に通し、count mismatch、invalid record、invalid index entry、record/index mismatch、duplicate ordinal、missing coverage を typed error として確認できるようにします。
+//:
+//: [現状/げんじょう]:
+//: - この smoke は decoded vector 上の validation だけを実行します。binary reader、serializer、body hash bytes の再計算は後続 slice の責務です。
+pub fn selfhost_memo_trait_neplproof_index_validation_stage0 %impure fn void Result SelfhostMemoTraitNeplProofIndexValidationStage0Summary StdErrorKind \void:
+    let canonical_schema %i32 selfhost_memo_trait_canonical_key_payload_schema_version
+    let policy_schema %i32 selfhost_memo_trait_neplproof_policy_schema_version
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_artifact_stage0_policy policy_schema
+    let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_neplproof_artifact_stage0_proof
+    let first_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 1001
+    let second_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint canonical_schema 2002
+    let first_key %SelfhostMemoTraitNeplProofRecordKey selfhost_memo_trait_neplproof_record_key_new canonical_schema first_fingerprint 3003 policy
+    let second_key %SelfhostMemoTraitNeplProofRecordKey selfhost_memo_trait_neplproof_record_key_new canonical_schema second_fingerprint 3004 policy
+    let first_record %SelfhostMemoTraitNeplProofRecord selfhost_memo_trait_neplproof_record_new first_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 4004
+    let second_record %SelfhostMemoTraitNeplProofRecord selfhost_memo_trait_neplproof_record_new second_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 5005
+    let invalid_record %SelfhostMemoTraitNeplProofRecord selfhost_memo_trait_neplproof_record_new first_key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 0
+    let first_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new first_fingerprint 0 4004
+    let second_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new second_fingerprint 1 5005
+    let invalid_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new first_fingerprint 2 4004
+    let mismatched_first_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new second_fingerprint 0 4004
+    let duplicate_first_index %SelfhostMemoTraitNeplProofIndexEntry selfhost_memo_trait_neplproof_index_entry_new first_fingerprint 0 4004
+    let accepted_header %SelfhostMemoTraitNeplProofHeader selfhost_memo_trait_neplproof_header_new selfhost_memo_trait_neplproof_artifact_schema_version canonical_schema policy_schema 2 2
+    let record_count_mismatch_header %SelfhostMemoTraitNeplProofHeader selfhost_memo_trait_neplproof_header_new selfhost_memo_trait_neplproof_artifact_schema_version canonical_schema policy_schema 1 2
+    let index_count_mismatch_header %SelfhostMemoTraitNeplProofHeader selfhost_memo_trait_neplproof_header_new selfhost_memo_trait_neplproof_artifact_schema_version canonical_schema policy_schema 2 1
+    let missing_index_header %SelfhostMemoTraitNeplProofHeader selfhost_memo_trait_neplproof_header_new selfhost_memo_trait_neplproof_artifact_schema_version canonical_schema policy_schema 2 1
+    match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes accepted_header first_record second_record first_index second_index:
+        Result::Ok accepted:
+            match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes record_count_mismatch_header first_record second_record first_index second_index:
+                Result::Ok record_count_mismatch:
+                    match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes index_count_mismatch_header first_record second_record first_index second_index:
+                        Result::Ok index_count_mismatch:
+                            match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes accepted_header invalid_record second_record first_index second_index:
+                                Result::Ok record_invalid:
+                                    match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes accepted_header first_record second_record invalid_index second_index:
+                                        Result::Ok index_entry_invalid:
+                                            match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes accepted_header first_record second_record mismatched_first_index second_index:
+                                                Result::Ok index_record_mismatch:
+                                                    match selfhost_memo_trait_neplproof_index_validation_stage0_run_two_indexes accepted_header first_record second_record first_index duplicate_first_index:
+                                                        Result::Ok index_record_ordinal_duplicate:
+                                                            match selfhost_memo_trait_neplproof_index_validation_stage0_run_one_index missing_index_header first_record second_record first_index:
+                                                                Result::Ok index_record_ordinal_missing:
+                                                                    Result::Ok selfhost_memo_trait_neplproof_index_validation_stage0_summary_new accepted record_count_mismatch index_count_mismatch record_invalid index_entry_invalid index_record_mismatch index_record_ordinal_duplicate index_record_ordinal_missing
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_trait_neplproof_artifact_stage0_summary_new: focused summary を[作/つく]る
 fn selfhost_memo_trait_neplproof_artifact_stage0_summary_new %fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind fn Result SelfhostMemoTraitNeplProofIndexEntry SelfhostMemoTraitNeplProofArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofArtifactErrorKind fn Result unit SelfhostMemoTraitNeplProofArtifactErrorKind SelfhostMemoTraitNeplProofArtifactStage0Summary \accepted_header\header_schema_mismatch\accepted_key\key_schema_mismatch\key_payload_placeholder\policy_schema_mismatch\accepted_record\accepted_index\index_out_of_range\index_fingerprint_mismatch\index_record_hash_mismatch:

@@ -1056,6 +1056,20 @@ stage0 smoke は empty batch、同一 record 2 件による `ExistingMatching` s
 
 この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
+### 2026-06-12 memo trait `.neplproof` decoded index table validation checkpoint
+
+decoded batch preseed の前段として、`.neplproof` reader が header / record vector / sidecar index vector を構築した直後に通す index table validation boundary を `memo_trait_proof_artifact.nepl` に追加した。
+
+`selfhost_memo_trait_neplproof_index_table_result` は header の `record_count` / `index_count` と decoded vector length を照合し、record payload、index entry payload、index entry が指す record の fingerprint / record payload hash を再検査する。そのうえで、sidecar index table が record ordinal を一対一に覆っていることを確認する。同じ record ordinal へ複数 index entry が向く場合は `IndexRecordOrdinalDuplicate`、どの index entry からも覆われない record ordinal がある場合は `IndexRecordOrdinalMissing` として fail-closed にする。
+
+この validation は proof acceptance authority ではない。index entry は候補 narrowing のための sidecar であり、ここで `Ok unit` になっても proof store へ投入してよい構造になっただけである。実際の受理は、後続の canonical payload decode、materialized canonical key hash 再計算、policy 照合、decoded batch preseed、proof store lookup、producer gate を通して決まる。source text、span、path、display name、diagnostic text、lexeme、store-local id、session-local `TypeId` は引き続き authority にしない。
+
+現 stage の coverage 検査は decoded `Vec` の線形 scan を組み合わせるため O(n * m + m * m) である。これは reader / serializer 実装前に fail-closed contract と typed error を固定するための段階であり、persistent stable map / serialized index を追加するときは同じ error enum と不変条件を保ったまま O(n + m) へ移す。
+
+stage0 smoke は accepted table、record count mismatch、index count mismatch、invalid record、invalid index entry、index-record mismatch、duplicate ordinal、missing coverage を public aggregate validator 経由で確認する。safe `Vec` から通常発生しない defensive missing entry は、duplicate scan と coverage scan の broken vector read を `IndexEntryMissing` に分類することで、duplicate や coverage missing と混ぜない。
+
+この checkpoint 後も、`.neplproof` record reader / serializer、persistent stable map / serialized index、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

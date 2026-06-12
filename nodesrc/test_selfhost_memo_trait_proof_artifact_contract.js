@@ -59,6 +59,11 @@ assert.match(
 );
 assert.match(
     source,
+    /artifact index table は record ごとに 1 つの sidecar entry[\s\S]*proof store へ投入せず fail-closed/,
+    "proof artifact documentation must require decoded index table coverage before proof store preseed",
+);
+assert.match(
+    source,
     /pub struct SelfhostMemoTraitNeplProofHeader:[\s\S]*artifact_schema_version %i32[\s\S]*canonical_payload_schema_version %i32[\s\S]*policy_schema_version %i32[\s\S]*record_count %i32[\s\S]*index_count %i32/,
     "proof artifact header must carry typed schema versions and bounded record/index counts",
 );
@@ -81,6 +86,16 @@ assert.match(
     source,
     /pub enum SelfhostMemoTraitNeplProofArtifactErrorKind:[\s\S]*ArtifactSchemaMismatch[\s\S]*CanonicalKeySchemaMismatch[\s\S]*PolicySchemaMismatch[\s\S]*RecordCountNegative[\s\S]*IndexCountNegative[\s\S]*CanonicalPayloadHashPlaceholder[\s\S]*RecordPayloadHashPlaceholder[\s\S]*RecordIndexNegative[\s\S]*RecordIndexOutOfRange[\s\S]*IndexFingerprintMismatch[\s\S]*IndexRecordHashMismatch/,
     "proof artifact schema errors must be typed enum variants for schema, placeholder, and index invariant failures",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitNeplProofIndexValidationErrorKind:[\s\S]*RecordCountMismatch[\s\S]*IndexCountMismatch[\s\S]*RecordEntryMissing[\s\S]*IndexEntryMissing[\s\S]*RecordInvalid[\s\S]*IndexEntryInvalid[\s\S]*IndexRecordMismatch[\s\S]*IndexRecordOrdinalDuplicate[\s\S]*IndexRecordOrdinalMissing/,
+    "decoded proof index table validation must use typed enum variants for count, entry, mismatch, duplicate, and missing coverage failures",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitNeplProofIndexValidationStage0Summary:[\s\S]*accepted %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*record_count_mismatch %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*index_count_mismatch %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*record_invalid %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*index_entry_invalid %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*index_record_mismatch %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*index_record_ordinal_duplicate %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*index_record_ordinal_missing %Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind/,
+    "decoded proof index table stage0 must carry representative aggregate failure paths as typed Result values",
 );
 assert.match(
     source,
@@ -109,13 +124,33 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_neplproof_index_table_result[\s\S]*SelfhostMemoTraitNeplProofHeader[\s\S]*&Vec SelfhostMemoTraitNeplProofRecord[\s\S]*&Vec SelfhostMemoTraitNeplProofIndexEntry[\s\S]*Result unit SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*not eq record_len header\.record_count[\s\S]*RecordCountMismatch[\s\S]*not eq index_len header\.index_count[\s\S]*IndexCountMismatch[\s\S]*selfhost_memo_trait_neplproof_index_validation_record_loop[\s\S]*selfhost_memo_trait_neplproof_index_validation_entry_loop[\s\S]*selfhost_memo_trait_neplproof_index_validation_coverage_loop/,
+    "decoded index table validation must compare header counts, revalidate records and entries, and require coverage",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_index_validation_duplicate_before_loop[\s\S]*Result bool SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*eq previous\.record_ordinal record_ordinal[\s\S]*IndexEntryMissing[\s\S]*IndexRecordOrdinalDuplicate/,
+    "decoded index table validation must reject duplicate record ordinals while preserving typed defensive index-entry failures",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_neplproof_index_validation_record_covered_loop[\s\S]*Result bool SelfhostMemoTraitNeplProofIndexValidationErrorKind[\s\S]*IndexEntryMissing[\s\S]*selfhost_memo_trait_neplproof_index_validation_coverage_loop[\s\S]*selfhost_memo_trait_neplproof_index_validation_record_covered_loop[\s\S]*IndexRecordOrdinalMissing/,
+    "decoded index table validation must reject missing record ordinal coverage and classify broken index vector reads separately",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_neplproof_index_validation_error_kind_eq[\s\S]*RecordCountMismatch[\s\S]*IndexRecordOrdinalMissing/,
+    "decoded index validation error equality must compare typed variants without string output",
+);
+assert.match(
+    source,
     /pub fn selfhost_memo_trait_neplproof_artifact_error_kind_eq[\s\S]*ArtifactSchemaMismatch[\s\S]*IndexRecordHashMismatch/,
     "artifact error equality must compare typed variants without string output",
 );
 assert.match(
     source,
-    /stage0[\s\S]*key_schema_mismatch[\s\S]*key_payload_placeholder[\s\S]*policy_schema_mismatch[\s\S]*index_out_of_range[\s\S]*index_fingerprint_mismatch[\s\S]*index_record_hash_mismatch/,
-    "stage0 must exercise accepted schema, key schema mismatch, placeholder payload, stale policy, fingerprint mismatch, and payload-hash mismatch paths",
+    /stage0[\s\S]*key_schema_mismatch[\s\S]*key_payload_placeholder[\s\S]*policy_schema_mismatch[\s\S]*index_out_of_range[\s\S]*index_fingerprint_mismatch[\s\S]*index_record_hash_mismatch[\s\S]*record_count_mismatch[\s\S]*index_count_mismatch[\s\S]*record_invalid[\s\S]*index_entry_invalid[\s\S]*index_record_mismatch[\s\S]*index_record_ordinal_duplicate[\s\S]*index_record_ordinal_missing/,
+    "stage0 must exercise accepted schema, key schema mismatch, placeholder payload, stale policy, fingerprint mismatch, payload-hash mismatch, count mismatch, invalid record/index, mismatch, duplicate ordinal, and missing coverage paths",
 );
 assert.doesNotMatch(
     codeOnly,
@@ -129,12 +164,12 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     source,
-    /fingerprint-only|fingerprint only|return Ok immediately after fingerprint|canonical_fingerprint[\s\S]{0,120}Result::Ok unit/,
+    /fingerprint-only|fingerprint only|return Ok immediately after fingerprint|stable_index-only|stable index only|index entry alone|index hit is authority/,
     "proof artifact schema must not document or implement fingerprint-only acceptance",
 );
 assert.doesNotMatch(
     source,
-    /line count|comment length|file size|500 行/,
+    /line count|comment length|file size|500 行|行数制限|行数上限|コメント長制限|コメント長上限/,
     "proof artifact policy must not introduce line-count or doc-comment-length restrictions",
 );
 

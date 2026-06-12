@@ -56328,3 +56328,50 @@ MERGE_APPROVED
 - `.neplproof` reader / serializer、persistent stable map / serialized index は未完了である。
 - generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
 - preseed doctest の compile timing では `resource_static_initialized_moves` と `resource_static_owner_obligations` が支配的で、RPN cold base 高速化と同じ Resource static check 系の根本改善課題が残る。
+
+## 2026-06-12 Agent selfhost decoded neplproof index table validation checkpoint
+
+### scope
+
+- branch: `selfhost/neplproof-index-validation-20260612`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: 2026-06-12 に再確認。静的検査、Result / enum、match の網羅性、丁寧な doc comment、試作段階でも品質を落とさない方針に従う。
+
+### implementation
+
+- `memo_trait_proof_artifact.nepl` に decoded `.neplproof` index table validation boundary を追加した。
+- `selfhost_memo_trait_neplproof_index_table_result` は header の record / index 件数、record payload validation、index entry validation、index entry と record の fingerprint / payload hash 照合、record ordinal の一対一 coverage を検査する。
+- sidecar index entry は候補 narrowing 用の hint として扱い、index hit / fingerprint hit / stable index hit を proof acceptance authority にしない。
+- `SelfhostMemoTraitNeplProofIndexValidationErrorKind` を追加し、count mismatch、defensive vector entry missing、record invalid、index entry invalid、record/index mismatch、duplicate ordinal、missing coverage を typed enum error として返す。
+- duplicate scan と coverage scan の defensive `v::get None` は `IndexEntryMissing` に分類し、duplicate や missing coverage と混ぜないようにした。
+- stage0 smoke は accepted table、record count mismatch、index count mismatch、invalid record、invalid index entry、index-record mismatch、duplicate ordinal、missing coverage を public aggregate validator 経由で確認する。
+- `nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js` は typed summary、header count check、record / index revalidation、coverage loop、duplicate rejection、defensive `IndexEntryMissing`、stage0 representative failures、fingerprint-only / stable-index-only authority 禁止、line count / doc comment length cap 禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と issue に checkpoint を追記し、`todo.md` の接続済み一覧へ decoded index table validation boundary を追加した。
+
+### subagent_review
+
+- Tesla review: decoded `.neplproof` artifact は single entry validation だけでなく、header 件数、index 件数、ordinal bounds、fingerprint / record payload hash、duplicate ordinal、missing coverage を aggregate validator で fail-closed にするべきと判断した。
+- Lorentz review: Blocker なし。Required として、stage0 が accepted / index count / duplicate / missing coverage だけでなく、代表的な aggregate failure を実行テストで確認すべきと指摘した。
+- Required 対応として、record count mismatch、record invalid、index entry invalid、index-record mismatch を stage0 summary と doctest へ追加した。
+- Non-blocker 対応として、duplicate scan 中の defensive `v::get None` を duplicate ではなく `IndexEntryMissing` に分類し、coverage scan でも broken index vector read を coverage missing と混ぜないようにした。
+- Non-blocker 対応として、line count / doc comment length cap 禁止の source policy に `行数制限` / `行数上限` / `コメント長制限` / `コメント長上限` を追加した。
+- Lorentz re-review: Blocker / Required なし。`RecordEntryMissing` / `IndexEntryMissing` は通常の safe `Vec` では実行経路を作りにくいため契約テスト中心だが、現状ブロックではないと判断された。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_preseed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_store_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl -n 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_artifact.nepl --no-tree -j 1 --assert-io -o tmp/selfhost-memo-trait-proof-artifact-tests.json` total=1 passed=1 failed=0
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- `.neplproof` reader / serializer、persistent stable map / serialized index は未完了である。
+- generic instantiation 用 stable type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、full public surface hash は未完了である。
+- focused doctest の compile timing では `resource_static_initialized_moves` が支配的であり、RPN cold base 高速化と同じ Resource static check 系の根本改善課題が残る。
