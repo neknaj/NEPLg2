@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-12
+updated: 2026-06-13
 target: "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty"
 ---
 
@@ -398,6 +398,40 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 - warning_checked: 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` は実装前の `note.n.md` checkpoint 未記録を warning として検出した。`note.n.md` の selfhost checkpoint 追加後に再実行し、今回差分由来 warning が解消したことを確認した。
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
+## 2026-06-13 selfhost memo trait `.neplproof` serializer checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl` を追加し、`.neplproof` Phase 1 writer boundary を接続した。
+
+この serializer は header word、fixed-width 31 word record entry、canonical payload bytes section entry を書く。byte/word 処理は `memo_trait_artifact_word_codec.nepl` の共有 31-bit word writer に委譲し、serializer 内では private endian writer や bit operation を持たない。header は `selfhost_memo_trait_neplproof_header_result`、record key/body は `selfhost_memo_trait_neplproof_record_key_result` と `selfhost_memo_trait_neplproof_record_result` に必ず戻すため、writer path でも既存 artifact schema validator が authority になる。さらに `Known(range)` field evidence は reader と同じ range validator を通し、reader が拒否する proof payload を writer が bytes 化しないようにする。
+
+Phase 1 では serialized index table をまだ持たないため、header validation 後に `index_count == record_count` だけを受理し、それ以外は `IndexCountUnsupported` で fail-closed にする。payload hash、record payload hash、fingerprint、index hit は serializer の proof acceptance authority ではない。reader / payload reader / preseed / proof store / producer gate が、canonical payload decode、payload hash 再計算、policy、proof kind、store relation を後続で再検査する。
+
+source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId`、proof store stable identity は serialized authority にしない。proof store boundary は stored proof payload enum/type definitions のためだけに import し、lookup / push / preseed / materialized acceptance API は呼ばない。producer boundary も aggregate proof evidence enum/type definitions のためだけに import し、producer gate は呼ばない。
+
+owner contract は output `Vec u8` の消費に閉じる。validation 失敗や internal ordinal failure では serializer が partial output owner を閉じる。borrowed payload bytes は caller 所有であり、serializer は payload owner を閉じない。payload byte copy は `v::get` の impossible short read を `PayloadByteMissing` として扱い、`v::push` failure は `PayloadBytePushInvalid(StdErrorKind)` として `VecPushError` owner を閉じたうえで返す。
+
+stage0 smoke は public header / record / payload entry writer を経由して bytes を作り、payload reader に渡して round-trip する。`accepted_writer`、`invalid_header`、`invalid_record`、`invalid_proof_payload`、`payload_reader_roundtrip` を `SelfhostMemoTraitNeplProofSerializerStage0Summary` として返し、doctest で成功 writer、index-count unsupported、record payload hash placeholder rejection、reader-inverse proof payload rejection、payload reader round-trip を確認する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js` を追加し、facade re-export、`nodesrc/selfhost_ty_sources.js` の reader -> payload_reader -> serializer -> preseed 順序、shared word codec、artifact validator、Phase 1 `index_count == record_count`、fixed 31 word layout、artifact word projection、payload length prefix、reader-inverse field range validation、owner cleanup、payload reader round-trip、proof-store lookup / push / preseed / producer gate 禁止、source-derived authority 禁止、line count / doc comment length cap 禁止を固定した。既存 reader / payload reader / decoded source-order contract と `nodesrc/run_source_policy_regressions.js` にも serializer policy を登録した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+- pass: `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-serializer.json`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl -o tmp/selfhost_serializer_doctest_review.json --max-cases 1`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
 ## 2026-06-12 selfhost memo trait `.neplproof` fixed-width record-only reader checkpoint
 

@@ -1,3 +1,66 @@
+# 2026-06-13 Agent selfhost memo trait `.neplproof` serializer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、match による静的検査、DAG に沿った責務分割、reader と writer の逆写像 contract、source-derived authority の排除、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/neplproof-serializer-20260613`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost memo trait `.neplproof` Phase 1 serializer boundary
+- classification: selfhost implementation slice review
+- decision: canonical payload bytes section reader の後段として、typed header、typed fixed-width record、borrowed canonical payload bytes を Phase 1 `.neplproof` bytes へ書き戻す serializer 境界を追加した。serializer は proof acceptance authority ではなく、reader が読む artifact layout を作る codec boundary に閉じる。
+- policy/spec:
+  - header writer は magic word と 5 header word だけを書き、artifact header validator を通した後、Phase 1 では serialized index table をまだ持たないため `index_count == record_count` だけを受理する。
+  - record writer は fixed-width 31 word の schema v1 record table entry を書く。record key、record body、stored proof payload は、書き込み前に validator へ再投入する。
+  - `Known(range)` field evidence は reader と同じ range validator を通し、writer が reader で読めない bytes を生成しないようにする。
+  - enum payload の artifact word は typed enum から `match` で作る。caller に数値 word を直接渡させず、future variant 追加時に writer 側も明示的に更新されるようにする。
+  - payload bytes は caller が所有する canonical payload codec bytes を borrow して copy する。serializer は payload owner を閉じず、output bytes owner だけを消費する。
+  - word write / byte push / validation failure では partial output owner を閉じ、typed error enum だけを返す。
+  - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId`、payload hash 単独、record payload hash 単独、fingerprint hit 単独、index hit 単独は serializer の proof acceptance authority にしない。
+  - proof store lookup / preseed / producer gate は呼ばない。serializer は正規化済み typed payload を persistent bytes へ写すだけに留める。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl` を追加し、typed serializer error enum、header writer、record writer、payload entry writer、reader inverse validation、stage0 smoke を実装した。
+  - `ProofPayloadInvalid` を追加し、reader が拒否する `Known(range)` payload を writer も拒否するようにした。
+  - serializer doctest は旧 NEPLg2.0 / 2.1 由来の括弧を使わず、`unwrap_err` の結果を名前に束縛してから `check` へ渡す現行 NEPLg2.1 構文にした。
+  - enum-to-word helper は equality 用の numeric kind tag ではなく artifact codec 用であることを明確にするため、`*_artifact_word` という名前へ寄せた。これにより numeric kind tag 禁止 policy と衝突しない。
+  - `stdlib/neplg2/core/ty/ty.nepl` と `nodesrc/selfhost_ty_sources.js` に serializer を `payload_reader -> serializer -> preseed` の順で登録した。
+  - `nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js` を追加し、DAG、authority、reader inverse validation、owner cleanup、typed error、source order、doc comment、stage0、line count / doc comment length cap 禁止を固定した。
+  - 既存 reader / payload_reader / decoded contract の source order 契約を serializer 挿入後の順序へ更新した。
+- subagent review:
+  - subagent_review_ids: `019ebca5-6940-7c00-ad7d-1625ba2be682`, `019ebca5-8b7e-7433-acff-a097308ca850`, submissions `019ebcc0-013b-7601-8430-00800100d27d`, `019ebcc0-0155-7143-88d4-f5969dc72803`
+  - subagent_review_count: 2 implementation reviews, 2 re-reviews
+  - Blocker: 初回 review では `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl -o tmp/selfhost_serializer_doctest_review.json --max-cases 1` が `parser.syntax.legacy_token` で落ちた。原因は doctest の `(unwrap_err ...)` であり、現行 NEPLg2.1 では括弧を使わないため、unwrap 結果を `let` で名前に束縛する形へ修正した。修正後は pass 済みである。
+  - Required: 初回 review では serializer-side `Known(range)` validation が不足していた。reader は invalid range を拒否するのに writer が bytes を作れてしまうため、`selfhost_memo_trait_neplproof_serializer_field_evidence_result` と `selfhost_memo_trait_neplproof_serializer_stored_proof_result` を追加し、invalid proof payload fixture を stage0 と source policy に入れた。
+  - Non-blocker: serializer は型定義参照のために producer / proof_store 系を import しているが、proof store lookup、preseed、producer gate は呼ばない。より厳密な DAG にしたい場合は後続で shared type-only module の分離を検討する。
+  - Non-blocker: Git は touched files の LF/CRLF warning を表示するが、`git diff --check` は whitespace error なしである。
+  - Question: なし。
+  - Approve: 再レビューでは Blocker / Required なし。reader-inverse validation、doctest acceptance、typed Result / enum error、match-based artifact word projection、Japanese doc comment、行数 / コメント長制限を追加していないことが確認された。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` の運用方針に沿い、review response の Blocker / Required / Non-blocker / Question / Approve を同じ checkpoint に記録した。
+- source_policy:
+  - source_policy: updated
+  - source policy: `nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js` を追加し、reader / payload_reader / decoded contract と `nodesrc/run_source_policy_regressions.js` を更新した。
+  - source_policy_reason: serializer が reader と違う schema を書く退行、invalid `Known(range)` を bytes 化する退行、proof acceptance authority を持つ退行、source-derived authority や session-local id を artifact authority にする退行、numeric kind tag helper 名で equality policy と混同する退行、owner cleanup 抜け、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning、stdlib / selfhost documentation gap sample、Git の LF/CRLF working-copy warning は既存の環境警告として確認した。
+  - 今回差分由来 warning: 初回の source policy regression では、serializer の `*_kind_tag` 名が numeric kind tag 禁止 policy に当たり、decoded contract の source order regex が serializer 挿入を許していなかった。`*_artifact_word` への改名と source order 契約更新後、`node nodesrc/run_source_policy_regressions.js --warn-only` で今回差分由来 warning / failure はない。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - header write は固定 6 word の O(1)、record write は fixed-width 31 word の O(1)、payload entry write は payload byte 長 b に対して O(b) である。
+  - serializer は source scan、module graph、proof store lookup、preseed、diagnostic rendering を行わない。cache設計に頼らず、writer 自体の探索範囲を typed record と borrowed payload bytes の線形 write に閉じる。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_serializer_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_payload_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_artifact_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_proof_decoded_contract.js`
+  - pass: `node nodesrc/test_selfhost_model_no_numeric_kind_tags.js`
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-proof-serializer.json`
+  - pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl -o tmp/selfhost_serializer_doctest_review.json --max-cases 1`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+- 次 slice: re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を継続する。
+
 # 2026-06-13 Agent selfhost memo trait `.neplproof` payload section reader checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、DAG に沿った責務分割、外部観測可能な authority と内部 materialization の分離、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

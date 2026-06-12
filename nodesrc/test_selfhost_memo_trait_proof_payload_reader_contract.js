@@ -35,8 +35,8 @@ assert.ok(
 );
 assert.match(
     tySources,
-    /memo_trait_proof_decoded\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_payload_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_preseed\.nepl"/,
-    "payload section reader must sit after the record reader and before preseed in the TY source order",
+    /memo_trait_proof_decoded\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_payload_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_serializer\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_preseed\.nepl"/,
+    "payload section reader must sit after the record reader and before serializer/preseed in the TY source order",
 );
 
 assert.match(

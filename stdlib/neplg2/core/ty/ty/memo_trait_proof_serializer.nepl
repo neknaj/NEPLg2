@@ -1,0 +1,862 @@
+#indent 4
+
+//: # ty/memo_trait_proof_serializer
+//: typed `.neplproof` artifact payload を永続 bytes へ[書/か]き[出/だ]す serializer 境界です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_proof_reader.nepl` と `memo_trait_proof_payload_reader.nepl` が読む Phase 1 `.neplproof` layout を、typed header、typed record、canonical payload bytes から逆向きに構成します。
+//: - serializer は schema validator を通した `SelfhostMemoTraitNeplProofHeader` / `SelfhostMemoTraitNeplProofRecord` だけを bytes に写します。
+//: - little-endian word write は `memo_trait_artifact_word_codec.nepl` の共有 writer に委譲し、reader と同じ 31-bit nonnegative word contract を使います。
+//: - payload section は record table の直後に、各 record ごとに `payload_byte_len` word と canonical payload codec bytes を並べます。
+//:
+//: [契約/けいやく]:
+//: - `selfhost_memo_trait_neplproof_serializer_header_result` は magic word と 5 header word だけを書きます。header は既存 artifact header validator を通し、Phase 1 では serialized index table を持たないため `index_count == record_count` だけを受理します。
+//: - `selfhost_memo_trait_neplproof_serializer_record_result` は fixed-width 31 word の record table entry を書きます。record key と record body は、書き込み前に artifact schema validator へ再投入します。
+//: - `Known(range)` field evidence は reader と同じ range validator を通します。writer が reader で読めない record bytes を作らないための逆写像 contract です。
+//: - enum の artifact word は typed enum から `match` で作ります。数値 word を caller に渡させず、future variant が増えた場合は writer 側も明示的に更新します。
+//: - payload bytes は caller が所有する canonical payload codec の bytes を borrow して copy します。serializer は payload bytes owner を閉じません。
+//: - output bytes は serializer が owner として消費します。途中で word write や byte push が失敗した場合、partial output owner はこの module または共有 word codec が閉じ、caller へ error enum だけを返します。
+//: - serializer は proof acceptance authority ではありません。payload hash、record payload hash、fingerprint、index hit のいずれかだけで proof を受理しません。
+//: - source text、span、path suffix、display name、diagnostic text、lexeme、session-local `SelfhostTypeId`、store-local `SelfhostCanonicalTypeKeyId` は serialized bytes の authority にしません。
+//: - proof store lookup / preseed / producer gate は呼びません。serializer は正規化済み typed payload を bytes に変換する codec 境界です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 は header、fixed-width record table entry、payload section entry の writer です。multi-record payload bundle owner、serialized sorted index table、persistent stable map、record payload hash 再計算は後続 slice で接続します。
+//: - Phase 1 API は caller が header.record_count 件の record writer と payload entry writer を同じ順序で呼ぶ前提です。stage0 は 1 record artifact を round-trip して reader との layout 一致を確認します。
+//: - `record_payload_hash` と `canonical_payload_hash` は placeholder でないことだけを artifact validator で確認します。hash 再計算と proof store relation 検査は payload reader / preseed / proof store 側の責務として残します。
+//:
+//: [計算量/けいさんりょう]:
+//: - header write は固定 6 word のため O(1) です。
+//: - record write は fixed-width 31 word のため O(1) です。
+//: - payload entry write は payload byte 長 b に対して O(b) です。
+//: - source scan、module graph、proof store lookup、preseed、diagnostic rendering は行いません。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_artifact" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_payload_reader" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_proof_serializer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_neplproof_serializer_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_neplproof_serializer_unit_result_is_ok summary.accepted_writer
+//:             let invalid_header_error unwrap_err summary.invalid_header
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_neplproof_serializer_error_kind_eq invalid_header_error SelfhostMemoTraitNeplProofSerializerErrorKind::IndexCountUnsupported
+//:             let invalid_record_error unwrap_err summary.invalid_record
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_neplproof_serializer_error_kind_eq invalid_record_error SelfhostMemoTraitNeplProofSerializerErrorKind::RecordInvalid SelfhostMemoTraitNeplProofArtifactErrorKind::RecordPayloadHashPlaceholder
+//:             let invalid_proof_payload_error unwrap_err summary.invalid_proof_payload
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_neplproof_serializer_error_kind_eq invalid_proof_payload_error SelfhostMemoTraitNeplProofSerializerErrorKind::ProofPayloadInvalid
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_neplproof_payload_reader_unit_result_is_ok summary.payload_reader_roundtrip
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "neplproof serializer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./id" as *
+#import "./key" as *
+#import "./memo_trait" as *
+#import "./memo_trait_artifact_word_codec" as *
+#import "./memo_trait_canonical_key" as *
+#import "./memo_trait_canonical_key_payload" as *
+#import "./memo_trait_canonical_key_payload_codec" as *
+#import "./memo_trait_policy" as *
+#import "./memo_trait_producer" as *
+#import "./memo_trait_proof_artifact" as *
+#import "./memo_trait_proof_payload_reader" as *
+#import "./memo_trait_proof_reader" as *
+#import "./memo_trait_proof_store" as *
+
+//: SelfhostMemoTraitNeplProofSerializerErrorKind: `.neplproof` serializer の拒否理由
+//:
+//: [分類/ぶんるい]:
+//: - `HeaderInvalid(kind)`: artifact header validator が schema / count を拒否しました。
+//: - `IndexCountUnsupported`: Phase 1 serializer は serialized index table をまだ書かないため、`index_count != record_count` の header を拒否します。
+//: - `RecordInvalid(kind)`: record key または record body validator が拒否しました。
+//: - `ProofPayloadInvalid`: stored proof payload は artifact schema 上は表せるが、reader が復元時に拒否する field range などを含んでいます。
+//: - `RecordWordOrdinalInvalid`: fixed-width record writer が schema v1 の範囲外 ordinal を要求しました。
+//: - `WordPushInvalid(kind)`: shared word codec が word write を拒否しました。
+//: - `PayloadByteMissing`: borrowed payload bytes の length と `get` が一致しない defensive failure です。
+//: - `PayloadBytePushInvalid(kind)`: payload byte copy 中の `Vec` push に失敗しました。
+pub enum SelfhostMemoTraitNeplProofSerializerErrorKind:
+    HeaderInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    IndexCountUnsupported
+    RecordInvalid %SelfhostMemoTraitNeplProofArtifactErrorKind
+    ProofPayloadInvalid
+    RecordWordOrdinalInvalid
+    WordPushInvalid %StdErrorKind
+    PayloadByteMissing
+    PayloadBytePushInvalid %StdErrorKind
+
+//: SelfhostMemoTraitNeplProofSerializerStage0Summary: serializer の代表 smoke
+pub struct SelfhostMemoTraitNeplProofSerializerStage0Summary:
+    accepted_writer %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind
+    invalid_header %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind
+    invalid_record %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind
+    invalid_proof_payload %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind
+    payload_reader_roundtrip %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind
+
+impl Clone for SelfhostMemoTraitNeplProofSerializerErrorKind:
+    fn clone %fn &SelfhostMemoTraitNeplProofSerializerErrorKind SelfhostMemoTraitNeplProofSerializerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofSerializerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofSerializerErrorKind SelfhostMemoTraitNeplProofSerializerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitNeplProofSerializerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitNeplProofSerializerStage0Summary SelfhostMemoTraitNeplProofSerializerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitNeplProofSerializerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitNeplProofSerializerStage0Summary SelfhostMemoTraitNeplProofSerializerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_neplproof_serializer_record_words: Phase 1 record body の word 数
+fn selfhost_memo_trait_neplproof_serializer_record_words %fn void i32 \void:
+    31
+
+//: selfhost_memo_trait_neplproof_serializer_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_neplproof_serializer_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    match a:
+        StdErrorKind::Failure:
+            match b:
+                StdErrorKind::Failure:
+                    true
+                _:
+                    false
+        StdErrorKind::OutOfMemory:
+            match b:
+                StdErrorKind::OutOfMemory:
+                    true
+                _:
+                    false
+        StdErrorKind::EmptyCollection:
+            match b:
+                StdErrorKind::EmptyCollection:
+                    true
+                _:
+                    false
+        StdErrorKind::IndexOutOfBounds:
+            match b:
+                StdErrorKind::IndexOutOfBounds:
+                    true
+                _:
+                    false
+        StdErrorKind::KeyNotFound:
+            match b:
+                StdErrorKind::KeyNotFound:
+                    true
+                _:
+                    false
+        StdErrorKind::CapacityExceeded:
+            match b:
+                StdErrorKind::CapacityExceeded:
+                    true
+                _:
+                    false
+        StdErrorKind::InvalidOperation:
+            match b:
+                StdErrorKind::InvalidOperation:
+                    true
+                _:
+                    false
+        StdErrorKind::InvalidUtf8:
+            match b:
+                StdErrorKind::InvalidUtf8:
+                    true
+                _:
+                    false
+        StdErrorKind::ParseError:
+            match b:
+                StdErrorKind::ParseError:
+                    true
+                _:
+                    false
+        StdErrorKind::IoError:
+            match b:
+                StdErrorKind::IoError:
+                    true
+                _:
+                    false
+        StdErrorKind::Other:
+            match b:
+                StdErrorKind::Other:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_neplproof_serializer_error_kind_code: serializer error の variant code を[返/かえ]す
+fn selfhost_memo_trait_neplproof_serializer_error_kind_code %fn SelfhostMemoTraitNeplProofSerializerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitNeplProofSerializerErrorKind::HeaderInvalid _inner:
+            1
+        SelfhostMemoTraitNeplProofSerializerErrorKind::IndexCountUnsupported:
+            2
+        SelfhostMemoTraitNeplProofSerializerErrorKind::RecordInvalid _inner:
+            3
+        SelfhostMemoTraitNeplProofSerializerErrorKind::ProofPayloadInvalid:
+            4
+        SelfhostMemoTraitNeplProofSerializerErrorKind::RecordWordOrdinalInvalid:
+            5
+        SelfhostMemoTraitNeplProofSerializerErrorKind::WordPushInvalid _inner:
+            6
+        SelfhostMemoTraitNeplProofSerializerErrorKind::PayloadByteMissing:
+            7
+        SelfhostMemoTraitNeplProofSerializerErrorKind::PayloadBytePushInvalid _inner:
+            8
+
+//: selfhost_memo_trait_neplproof_serializer_error_kind_eq: serializer error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested payload を持つ variant は payload も比較します。
+//: - non-payload variant は variant code が一致した場合だけ true を返します。
+pub fn selfhost_memo_trait_neplproof_serializer_error_kind_eq %fn SelfhostMemoTraitNeplProofSerializerErrorKind fn SelfhostMemoTraitNeplProofSerializerErrorKind bool \a\b:
+    if:
+        ne selfhost_memo_trait_neplproof_serializer_error_kind_code a selfhost_memo_trait_neplproof_serializer_error_kind_code b
+        then:
+            false
+        else:
+            match a:
+                SelfhostMemoTraitNeplProofSerializerErrorKind::HeaderInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofSerializerErrorKind::HeaderInvalid b_kind:
+                            selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofSerializerErrorKind::RecordInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofSerializerErrorKind::RecordInvalid b_kind:
+                            selfhost_memo_trait_neplproof_artifact_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofSerializerErrorKind::WordPushInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofSerializerErrorKind::WordPushInvalid b_kind:
+                            selfhost_memo_trait_neplproof_serializer_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                SelfhostMemoTraitNeplProofSerializerErrorKind::PayloadBytePushInvalid a_kind:
+                    match b:
+                        SelfhostMemoTraitNeplProofSerializerErrorKind::PayloadBytePushInvalid b_kind:
+                            selfhost_memo_trait_neplproof_serializer_std_error_kind_eq a_kind b_kind
+                        _:
+                            false
+                _:
+                    true
+
+//: selfhost_memo_trait_neplproof_serializer_unit_result_is_ok: serializer unit result が成功か[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_serializer_unit_result_is_ok %fn Result unit SelfhostMemoTraitNeplProofSerializerErrorKind bool \result:
+    match result:
+        Result::Ok _unit:
+            true
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_neplproof_serializer_push_word_result: shared word codec で word を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - 成功時は追加済み bytes owner を返します。
+//: - 失敗時の output owner cleanup は shared word codec の契約に従います。
+fn selfhost_memo_trait_neplproof_serializer_push_word_result %impure fn Vec u8 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\word:
+    match selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes word:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::WordPushInvalid e
+
+//: selfhost_memo_trait_neplproof_serializer_header_checked_result: header を serializer phase に[検査/けんさ]する
+fn selfhost_memo_trait_neplproof_serializer_header_checked_result %fn SelfhostMemoTraitNeplProofHeader Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofSerializerErrorKind \header:
+    match selfhost_memo_trait_neplproof_header_result header.artifact_schema_version header.canonical_payload_schema_version header.policy_schema_version header.record_count header.index_count:
+        Result::Ok checked:
+            if:
+                ne checked.index_count checked.record_count
+                then:
+                    Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::IndexCountUnsupported
+                else:
+                    Result::Ok checked
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::HeaderInvalid e
+
+//: selfhost_memo_trait_neplproof_serializer_push_header_words: checked header を bytes へ[書/か]く
+fn selfhost_memo_trait_neplproof_serializer_push_header_words %impure fn Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\header:
+    match selfhost_memo_trait_neplproof_serializer_push_word_result bytes selfhost_memo_trait_neplproof_reader_magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_serializer_push_word_result bytes1 header.artifact_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_serializer_push_word_result bytes2 header.canonical_payload_schema_version:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_serializer_push_word_result bytes3 header.policy_schema_version:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_neplproof_serializer_push_word_result bytes4 header.record_count:
+                                        Result::Ok bytes5:
+                                            selfhost_memo_trait_neplproof_serializer_push_word_result bytes5 header.index_count
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_header_result: `.neplproof` header bytes を[追加/ついか]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(bytes)`: magic と header words が追加された output owner です。
+//: - `Err(kind)`: header schema / Phase 1 index count / shared word codec のいずれかが拒否したことを表します。
+pub fn selfhost_memo_trait_neplproof_serializer_header_result %impure fn Vec u8 impure fn SelfhostMemoTraitNeplProofHeader Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\header:
+    match selfhost_memo_trait_neplproof_serializer_header_checked_result header:
+        Result::Ok checked:
+            selfhost_memo_trait_neplproof_serializer_push_header_words bytes checked
+        Result::Err e:
+            v::free bytes
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_source_kind_artifact_word: source kind enum を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_source_kind_artifact_word %fn SelfhostMemoTraitSourceKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitSourceKind::MemoKeyTrait:
+            1
+        SelfhostMemoTraitSourceKind::MemoValueTrait:
+            2
+
+//: selfhost_memo_trait_neplproof_serializer_proof_kind_artifact_word: stored proof kind enum を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_proof_kind_artifact_word %fn SelfhostMemoTraitStoredProofKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitStoredProofKind::KeyAndValue:
+            1
+        SelfhostMemoTraitStoredProofKind::KeyOnlyUnsupported:
+            2
+        SelfhostMemoTraitStoredProofKind::ValueOnlyUnsupported:
+            3
+
+//: selfhost_memo_trait_neplproof_serializer_field_evidence_artifact_word: field evidence enum を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_field_evidence_artifact_word %fn SelfhostMemoTraitAggregateFieldEvidence i32 \fields:
+    match fields:
+        SelfhostMemoTraitAggregateFieldEvidence::Known _range:
+            1
+        SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+            2
+        SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+            3
+        SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+            4
+
+//: selfhost_memo_trait_neplproof_serializer_field_evidence_first_field: field evidence の first field payload を[返/かえ]す
+fn selfhost_memo_trait_neplproof_serializer_field_evidence_first_field %fn SelfhostMemoTraitAggregateFieldEvidence i32 \fields:
+    match fields:
+        SelfhostMemoTraitAggregateFieldEvidence::Known range:
+            range.first_field
+        SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+            0
+        SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+            0
+        SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+            0
+
+//: selfhost_memo_trait_neplproof_serializer_field_evidence_count: field evidence の field count payload を[返/かえ]す
+fn selfhost_memo_trait_neplproof_serializer_field_evidence_count %fn SelfhostMemoTraitAggregateFieldEvidence i32 \fields:
+    match fields:
+        SelfhostMemoTraitAggregateFieldEvidence::Known range:
+            range.field_count
+        SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+            0
+        SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+            0
+        SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+            0
+
+//: selfhost_memo_trait_neplproof_serializer_proof_status_artifact_word: operation proof status を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_proof_status_artifact_word %fn SelfhostMemoTraitAggregateProofStatus i32 \status:
+    match status:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            1
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            2
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            3
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            4
+
+//: selfhost_memo_trait_neplproof_serializer_hazard_artifact_word: hazard evidence を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_hazard_artifact_word %fn SelfhostMemoTraitAggregateHazardEvidence i32 \hazard:
+    match hazard:
+        SelfhostMemoTraitAggregateHazardEvidence::NoHazard:
+            1
+        SelfhostMemoTraitAggregateHazardEvidence::CacheReferenceEscape:
+            2
+        SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle:
+            3
+        SelfhostMemoTraitAggregateHazardEvidence::OwnerToken:
+            4
+        SelfhostMemoTraitAggregateHazardEvidence::PublicMutableState:
+            5
+        SelfhostMemoTraitAggregateHazardEvidence::Unknown:
+            6
+
+//: selfhost_memo_trait_neplproof_serializer_reject_kind_artifact_word: MemoKey / MemoValue reject kind を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_reject_kind_artifact_word %fn SelfhostMemoTraitRejectKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitRejectKind::MissingTypeRecord:
+            1
+        SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+            2
+        SelfhostMemoTraitRejectKind::I64Unsupported:
+            3
+        SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+            4
+        SelfhostMemoTraitRejectKind::F64Unsupported:
+            5
+        SelfhostMemoTraitRejectKind::StrUnsupported:
+            6
+        SelfhostMemoTraitRejectKind::NeverUnsupported:
+            7
+        SelfhostMemoTraitRejectKind::FunctionUnsupported:
+            8
+        SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+            9
+        SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+            10
+        SelfhostMemoTraitRejectKind::ParameterUnresolved:
+            11
+
+//: selfhost_memo_trait_neplproof_serializer_memo_result_artifact_word: memo trait result を artifact word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_memo_result_artifact_word %fn Result unit SelfhostMemoTraitRejectKind i32 \result:
+    match result:
+        Result::Ok _unit:
+            1
+        Result::Err _kind:
+            2
+
+//: selfhost_memo_trait_neplproof_serializer_memo_result_payload: memo trait result の payload word を[返/かえ]す
+fn selfhost_memo_trait_neplproof_serializer_memo_result_payload %fn Result unit SelfhostMemoTraitRejectKind i32 \result:
+    match result:
+        Result::Ok _unit:
+            0
+        Result::Err kind:
+            selfhost_memo_trait_neplproof_serializer_reject_kind_artifact_word kind
+
+//: selfhost_memo_trait_neplproof_serializer_field_evidence_result: writer が reader で復元できる field evidence だけを[受/う]け[入/い]れる
+//:
+//: [契約/けいやく]:
+//: - `Known(range)` は producer / reader と同じ range validator を通します。
+//: - non-Known variant は payload word を 0 にして書くため、そのまま受理します。
+//: - この検査は proof acceptance ではありません。writer と reader の schema 逆写像を保つための payload validation です。
+fn selfhost_memo_trait_neplproof_serializer_field_evidence_result %fn SelfhostMemoTraitAggregateFieldEvidence Result SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitNeplProofSerializerErrorKind \fields:
+    match fields:
+        SelfhostMemoTraitAggregateFieldEvidence::Known range:
+            if:
+                selfhost_memo_trait_aggregate_field_range_is_valid range
+                then:
+                    Result::Ok fields
+                else:
+                    Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::ProofPayloadInvalid
+        _:
+            Result::Ok fields
+
+//: selfhost_memo_trait_neplproof_serializer_stored_proof_result: stored proof payload を writer schema に[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - 現時点では reader が追加検査する `fields` payload を同じ validator に通します。
+//: - proof kind、policy、hash relation、producer gate の意味論的受理は後続境界で扱います。
+fn selfhost_memo_trait_neplproof_serializer_stored_proof_result %fn SelfhostMemoTraitStoredAggregateProof Result SelfhostMemoTraitStoredAggregateProof SelfhostMemoTraitNeplProofSerializerErrorKind \proof:
+    match selfhost_memo_trait_neplproof_serializer_field_evidence_result proof.fields:
+        Result::Ok _fields:
+            Result::Ok proof
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_validate_record_result: record を schema validator へ再投入する
+fn selfhost_memo_trait_neplproof_serializer_validate_record_result %fn SelfhostMemoTraitNeplProofRecord Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofSerializerErrorKind \record:
+    match selfhost_memo_trait_neplproof_record_key_result record.key.canonical_fingerprint record.key.canonical_payload_schema_version record.key.canonical_payload_hash record.key.policy:
+        Result::Ok key:
+            match selfhost_memo_trait_neplproof_serializer_stored_proof_result record.proof:
+                Result::Ok proof:
+                    match selfhost_memo_trait_neplproof_record_result key record.proof_kind proof record.record_payload_hash:
+                        Result::Ok checked:
+                            Result::Ok checked
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::RecordInvalid e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::RecordInvalid e
+
+//: selfhost_memo_trait_neplproof_serializer_record_word_value_result: record field ordinal を serialized word へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_record_word_value_result %fn SelfhostMemoTraitNeplProofRecord fn i32 Result i32 SelfhostMemoTraitNeplProofSerializerErrorKind \record\field_ordinal:
+    match field_ordinal:
+        0:
+            Result::Ok record.key.canonical_payload_schema_version
+        1:
+            Result::Ok record.key.canonical_fingerprint.schema_version
+        2:
+            Result::Ok record.key.canonical_fingerprint.root_hash
+        3:
+            Result::Ok record.key.canonical_payload_hash
+        4:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_source_kind_artifact_word record.key.policy.sources.memo_key.kind
+        5:
+            Result::Ok record.key.policy.sources.memo_key.module_hash
+        6:
+            Result::Ok record.key.policy.sources.memo_key.symbol_hash
+        7:
+            Result::Ok record.key.policy.sources.memo_key.signature_hash
+        8:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_source_kind_artifact_word record.key.policy.sources.memo_value.kind
+        9:
+            Result::Ok record.key.policy.sources.memo_value.module_hash
+        10:
+            Result::Ok record.key.policy.sources.memo_value.symbol_hash
+        11:
+            Result::Ok record.key.policy.sources.memo_value.signature_hash
+        12:
+            Result::Ok record.key.policy.rules.schema_version
+        13:
+            Result::Ok record.key.policy.rules.solver_version
+        14:
+            Result::Ok record.key.policy.rules.primitive_rule_hash
+        15:
+            Result::Ok record.key.policy.rules.aggregate_rule_hash
+        16:
+            Result::Ok record.key.policy.rules.hazard_rule_hash
+        17:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_proof_kind_artifact_word record.proof_kind
+        18:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_field_evidence_artifact_word record.proof.fields
+        19:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_field_evidence_first_field record.proof.fields
+        20:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_field_evidence_count record.proof.fields
+        21:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_proof_status_artifact_word record.proof.copy_proof
+        22:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_proof_status_artifact_word record.proof.drop_proof
+        23:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_proof_status_artifact_word record.proof.eq_proof
+        24:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_proof_status_artifact_word record.proof.hash_proof
+        25:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_hazard_artifact_word record.proof.hazard
+        26:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_memo_result_artifact_word record.proof.key_result
+        27:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_memo_result_payload record.proof.key_result
+        28:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_memo_result_artifact_word record.proof.value_result
+        29:
+            Result::Ok selfhost_memo_trait_neplproof_serializer_memo_result_payload record.proof.value_result
+        30:
+            Result::Ok record.record_payload_hash
+        _:
+            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::RecordWordOrdinalInvalid
+
+//: selfhost_memo_trait_neplproof_serializer_record_loop: checked record を fixed-width words として[書/か]く
+fn selfhost_memo_trait_neplproof_serializer_record_loop %impure fn Vec u8 impure fn SelfhostMemoTraitNeplProofRecord impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\record\field_ordinal:
+    if:
+        ge field_ordinal selfhost_memo_trait_neplproof_serializer_record_words
+        then:
+            Result::Ok bytes
+        else:
+            match selfhost_memo_trait_neplproof_serializer_record_word_value_result record field_ordinal:
+                Result::Ok word:
+                    match selfhost_memo_trait_neplproof_serializer_push_word_result bytes word:
+                        Result::Ok next:
+                            selfhost_memo_trait_neplproof_serializer_record_loop next record add field_ordinal 1
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    v::free bytes
+                    Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_record_result: `.neplproof` record entry を[追加/ついか]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(bytes)`: 31 word record entry が追加された output owner です。
+//: - `Err(kind)`: record key/body validation、word ordinal invariant、または shared word codec が拒否したことを表します。
+pub fn selfhost_memo_trait_neplproof_serializer_record_result %impure fn Vec u8 impure fn SelfhostMemoTraitNeplProofRecord Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\record:
+    match selfhost_memo_trait_neplproof_serializer_validate_record_result record:
+        Result::Ok checked:
+            selfhost_memo_trait_neplproof_serializer_record_loop bytes checked 0
+        Result::Err e:
+            v::free bytes
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_payload_byte_push: payload byte を output bytes へ[複写/ふくしゃ]する
+fn selfhost_memo_trait_neplproof_serializer_payload_byte_push %impure fn Vec u8 impure fn u8 Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\byte:
+    match v::push bytes byte:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::PayloadBytePushInvalid error
+
+//: selfhost_memo_trait_neplproof_serializer_payload_bytes_loop: borrowed payload bytes を[線形/せんけい]に copy する
+fn selfhost_memo_trait_neplproof_serializer_payload_bytes_loop %impure fn Vec u8 impure fn &Vec u8 impure fn i32 impure fn i32 Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\payload\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok bytes
+        else:
+            match v::get payload idx:
+                Option::Some byte:
+                    match selfhost_memo_trait_neplproof_serializer_payload_byte_push bytes byte:
+                        Result::Ok next:
+                            selfhost_memo_trait_neplproof_serializer_payload_bytes_loop next payload add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    v::free bytes
+                    Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::PayloadByteMissing
+
+//: selfhost_memo_trait_neplproof_serializer_payload_entry_result: 1 record 分の payload section entry を[追加/ついか]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(bytes)`: payload length word と payload bytes copy が追加された output owner です。
+//: - `Err(kind)`: length word write、borrowed payload read、または byte push に失敗しました。
+pub fn selfhost_memo_trait_neplproof_serializer_payload_entry_result %impure fn Vec u8 impure fn &Vec u8 Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \bytes\payload:
+    let payload_len %i32 v::len payload
+    match selfhost_memo_trait_neplproof_serializer_push_word_result bytes payload_len:
+        Result::Ok with_len:
+            selfhost_memo_trait_neplproof_serializer_payload_bytes_loop with_len payload 0 payload_len
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_policy: stage0 用 proof store policy を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_policy %fn void SelfhostMemoTraitProofStorePolicy \void:
+    let key_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoKeyTrait 10 11 12
+    let value_source %SelfhostMemoTraitSourceIdentity selfhost_memo_trait_source_identity_new SelfhostMemoTraitSourceKind::MemoValueTrait 20 21 22
+    let sources %SelfhostMemoTraitSourceIdentitySet selfhost_memo_trait_source_identity_set_new key_source value_source
+    let rules %SelfhostMemoTraitRuleIdentity selfhost_memo_trait_rule_identity_new selfhost_memo_trait_neplproof_policy_schema_version 1 30 31 32
+    selfhost_memo_trait_proof_store_policy_new sources rules
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_header_result: stage0 用 header を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_header_result %fn i32 fn i32 Result SelfhostMemoTraitNeplProofHeader SelfhostMemoTraitNeplProofArtifactErrorKind \record_count\index_count:
+    selfhost_memo_trait_neplproof_header_result selfhost_memo_trait_neplproof_artifact_schema_version selfhost_memo_trait_canonical_key_payload_schema_version selfhost_memo_trait_neplproof_policy_schema_version record_count index_count
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_record_result: stage0 用 record を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_record_result %fn i32 Result SelfhostMemoTraitNeplProofRecord SelfhostMemoTraitNeplProofArtifactErrorKind \record_payload_hash:
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_serializer_stage0_policy
+    match selfhost_memo_trait_neplproof_record_key_from_parts_result selfhost_memo_trait_canonical_key_payload_schema_version selfhost_memo_trait_canonical_key_payload_schema_version 1001 3003 policy:
+        Result::Ok key:
+            let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+            selfhost_memo_trait_neplproof_record_result key SelfhostMemoTraitStoredProofKind::KeyAndValue proof record_payload_hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_invalid_record: validator 前の invalid record fixture を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_invalid_record %fn void SelfhostMemoTraitNeplProofRecord \void:
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_serializer_stage0_policy
+    let fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_canonical_key_payload_schema_version 1001
+    let key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey selfhost_memo_trait_canonical_key_payload_schema_version fingerprint 3003 policy
+    let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_known_new 0 0 (Result::Ok unit) (Result::Ok unit)
+    SelfhostMemoTraitNeplProofRecord key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 0
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_invalid_proof_payload_record: reader が[復元/ふくげん][拒否/きょひ]する proof payload fixture を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - `Known(range)` の range が i32 正範囲を越える場合、artifact record body 自体は表せても reader は拒否します。
+//: - serializer も同じ payload validation を行い、reader で読めない bytes を書かないことを stage0 で固定します。
+fn selfhost_memo_trait_neplproof_serializer_stage0_invalid_proof_payload_record %fn void SelfhostMemoTraitNeplProofRecord \void:
+    let policy %SelfhostMemoTraitProofStorePolicy selfhost_memo_trait_neplproof_serializer_stage0_policy
+    let fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_canonical_key_payload_schema_version 1001
+    let key %SelfhostMemoTraitNeplProofRecordKey SelfhostMemoTraitNeplProofRecordKey selfhost_memo_trait_canonical_key_payload_schema_version fingerprint 3003 policy
+    let range %SelfhostMemoTraitAggregateFieldRange selfhost_memo_trait_aggregate_field_range_new 2147483647 1
+    let fields %SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitAggregateFieldEvidence::Known range
+    let proof %SelfhostMemoTraitStoredAggregateProof selfhost_memo_trait_stored_aggregate_proof_new fields SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
+    SelfhostMemoTraitNeplProofRecord key SelfhostMemoTraitStoredProofKind::KeyAndValue proof 3003
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word: payload fixture に word を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word %impure fn Vec u8 impure fn i32 Result Vec u8 StdErrorKind \bytes\word:
+    selfhost_memo_trait_artifact_word_codec_push_word_std_result bytes word
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_push_payload_header: canonical payload header fixture を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_serializer_stage0_push_payload_header %impure fn Vec u8 Result Vec u8 StdErrorKind \bytes:
+    match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes selfhost_memo_trait_canonical_key_payload_codec_magic:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes1 selfhost_memo_trait_canonical_key_payload_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes2 1:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes3 0:
+                                Result::Ok bytes4:
+                                    selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes4 0
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_push_payload_node: canonical named node fixture を[追加/ついか]する
+fn selfhost_memo_trait_neplproof_serializer_stage0_push_payload_node %impure fn Vec u8 Result Vec u8 StdErrorKind \bytes:
+    match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes 2:
+        Result::Ok bytes1:
+            match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes1 selfhost_memo_trait_stable_nominal_key_schema_version:
+                Result::Ok bytes2:
+                    match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes2 31:
+                        Result::Ok bytes3:
+                            match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes3 41:
+                                Result::Ok bytes4:
+                                    match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes4 1:
+                                        Result::Ok bytes5:
+                                            match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes5 1:
+                                                Result::Ok bytes6:
+                                                    match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes6 0:
+                                                        Result::Ok bytes7:
+                                                            selfhost_memo_trait_neplproof_serializer_stage0_push_payload_word bytes7 0
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_payload_bytes: canonical payload bytes fixture を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_payload_bytes %impure fn void Result Vec u8 StdErrorKind \void:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_neplproof_serializer_stage0_push_payload_header bytes0:
+                Result::Ok bytes1:
+                    selfhost_memo_trait_neplproof_serializer_stage0_push_payload_node bytes1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_build_artifact_bytes: 1 record artifact bytes を serializer 経由で[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_build_artifact_bytes %impure fn SelfhostMemoTraitNeplProofHeader impure fn SelfhostMemoTraitNeplProofRecord impure fn &Vec u8 Result Vec u8 SelfhostMemoTraitNeplProofSerializerErrorKind \header\record\payload:
+    let bytes_result %Result Vec u8 StdErrorKind v::new
+    match bytes_result:
+        Result::Ok bytes0:
+            match selfhost_memo_trait_neplproof_serializer_header_result bytes0 header:
+                Result::Ok bytes1:
+                    match selfhost_memo_trait_neplproof_serializer_record_result bytes1 record:
+                        Result::Ok bytes2:
+                            selfhost_memo_trait_neplproof_serializer_payload_entry_result bytes2 payload
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitNeplProofSerializerErrorKind::WordPushInvalid e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_write_unit_owned: serializer output を[閉/と]じて unit result へ[写/うつ]す
+fn selfhost_memo_trait_neplproof_serializer_stage0_write_unit_owned %impure fn SelfhostMemoTraitNeplProofHeader impure fn SelfhostMemoTraitNeplProofRecord impure fn &Vec u8 Result unit SelfhostMemoTraitNeplProofSerializerErrorKind \header\record\payload:
+    match selfhost_memo_trait_neplproof_serializer_stage0_build_artifact_bytes header record payload:
+        Result::Ok bytes:
+            v::free bytes
+            Result::Ok unit
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_build_nominal_table: round-trip 用 stable nominal table を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_build_nominal_table %impure fn void Result SelfhostMemoTraitStableNominalKeyTable StdErrorKind \void:
+    let nominal_id %SelfhostNamedTypeId selfhost_named_type_id_new 10
+    match selfhost_memo_trait_stable_nominal_key_result (some 31) (some 41) (some 1) 1:
+        Result::Ok key:
+            match selfhost_memo_trait_stable_nominal_key_table_new:
+                Result::Ok table0:
+                    selfhost_memo_trait_stable_nominal_key_table_push table0 selfhost_memo_trait_stable_nominal_key_record_new nominal_id key
+                Result::Err e:
+                    Result::Err e
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_roundtrip_owned: serializer output を payload reader へ[読/よ]ませて[閉/と]じる
+fn selfhost_memo_trait_neplproof_serializer_stage0_roundtrip_owned %impure fn SelfhostMemoTraitStableNominalKeyTable impure fn Vec u8 Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind \nominal_table\bytes:
+    let result %Result SelfhostMemoTraitNeplProofPayloadReaderMaterializedArtifact SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_result &nominal_table &bytes
+    v::free bytes
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    match result:
+        Result::Ok artifact:
+            selfhost_memo_trait_neplproof_payload_reader_materialized_artifact_free artifact
+            Result::Ok unit
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_roundtrip: serializer bytes と payload reader の round-trip を[実行/じっこう]する
+fn selfhost_memo_trait_neplproof_serializer_stage0_roundtrip %impure fn SelfhostMemoTraitNeplProofHeader impure fn SelfhostMemoTraitNeplProofRecord impure fn &Vec u8 Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind \header\record\payload:
+    match selfhost_memo_trait_neplproof_serializer_stage0_build_nominal_table:
+        Result::Ok nominal_table:
+            match selfhost_memo_trait_neplproof_serializer_stage0_build_artifact_bytes header record payload:
+                Result::Ok bytes:
+                    selfhost_memo_trait_neplproof_serializer_stage0_roundtrip_owned nominal_table bytes
+                Result::Err _e:
+                    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+                    Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::RecordPrefixUnexpectedEnd
+        Result::Err _e:
+            Result::Err SelfhostMemoTraitNeplProofPayloadReaderErrorKind::MaterializedArenaAllocInvalid StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_neplproof_serializer_stage0_summary_new %fn Result unit SelfhostMemoTraitNeplProofSerializerErrorKind fn Result unit SelfhostMemoTraitNeplProofSerializerErrorKind fn Result unit SelfhostMemoTraitNeplProofSerializerErrorKind fn Result unit SelfhostMemoTraitNeplProofSerializerErrorKind fn Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind SelfhostMemoTraitNeplProofSerializerStage0Summary \accepted_writer\invalid_header\invalid_record\invalid_proof_payload\payload_reader_roundtrip:
+    SelfhostMemoTraitNeplProofSerializerStage0Summary accepted_writer invalid_header invalid_record invalid_proof_payload payload_reader_roundtrip
+
+//: selfhost_memo_trait_neplproof_serializer_stage0_after_payload: payload fixture 準備後に代表 smoke を[集約/しゅうやく]する
+fn selfhost_memo_trait_neplproof_serializer_stage0_after_payload %impure fn Vec u8 Result SelfhostMemoTraitNeplProofSerializerStage0Summary StdErrorKind \payload:
+    match selfhost_memo_trait_neplproof_serializer_stage0_header_result 1 1:
+        Result::Ok header:
+            match selfhost_memo_trait_neplproof_serializer_stage0_header_result 1 0:
+                Result::Ok invalid_header_source:
+                    match selfhost_memo_trait_neplproof_serializer_stage0_record_result 3003:
+                        Result::Ok record:
+                            let accepted_writer %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind selfhost_memo_trait_neplproof_serializer_stage0_write_unit_owned header record &payload
+                            let invalid_record %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind selfhost_memo_trait_neplproof_serializer_stage0_write_unit_owned header selfhost_memo_trait_neplproof_serializer_stage0_invalid_record &payload
+                            let invalid_proof_payload %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind selfhost_memo_trait_neplproof_serializer_stage0_write_unit_owned header selfhost_memo_trait_neplproof_serializer_stage0_invalid_proof_payload_record &payload
+                            let invalid_header %Result unit SelfhostMemoTraitNeplProofSerializerErrorKind selfhost_memo_trait_neplproof_serializer_stage0_write_unit_owned invalid_header_source record &payload
+                            let payload_reader_roundtrip %Result unit SelfhostMemoTraitNeplProofPayloadReaderErrorKind selfhost_memo_trait_neplproof_serializer_stage0_roundtrip header record &payload
+                            let summary %SelfhostMemoTraitNeplProofSerializerStage0Summary selfhost_memo_trait_neplproof_serializer_stage0_summary_new accepted_writer invalid_header invalid_record invalid_proof_payload payload_reader_roundtrip
+                            v::free payload
+                            Result::Ok summary
+                        Result::Err _e:
+                            v::free payload
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _e:
+                    v::free payload
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _e:
+            v::free payload
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_neplproof_serializer_stage0: serializer と payload reader の代表 round-trip smoke を[返/かえ]す
+pub fn selfhost_memo_trait_neplproof_serializer_stage0 %impure fn void Result SelfhostMemoTraitNeplProofSerializerStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_neplproof_serializer_stage0_payload_bytes:
+        Result::Ok payload:
+            selfhost_memo_trait_neplproof_serializer_stage0_after_payload payload
+        Result::Err e:
+            Result::Err e

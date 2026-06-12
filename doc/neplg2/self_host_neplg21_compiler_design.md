@@ -1214,7 +1214,25 @@ binary reader は full canonical key producer を直接 import しない。seria
 
 性能面では、当初の深い nested match chain を record word vector loop と stage0 field-value projection loop へ置き換えた。record decode は record 数 n、固定 word 幅 w=31 に対して O(n * w)、つまり schema version 1 では O(n) である。stage0 fixture writer も field ordinal から値を返す関数と線形 push loop に分け、selfhost compiler の prefix/typecheck 探索空間を広げる大きな分岐式を避ける。
 
-この checkpoint 後も、`.neplproof` serializer、canonical payload bytes section reader、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+この checkpoint 後も、canonical payload bytes section reader、`.neplproof` serializer、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
+
+### 2026-06-13 memo trait `.neplproof` serializer checkpoint
+
+`.neplproof` Phase 1 writer boundary として、header word、fixed-width record table entry、canonical payload bytes section entry を書く serializer を追加した。
+
+serializer は writer であるが、proof acceptance authority ではない。header は `selfhost_memo_trait_neplproof_header_result`、record key/body は `selfhost_memo_trait_neplproof_record_key_result` と `selfhost_memo_trait_neplproof_record_result` に必ず戻し、既存 artifact schema validator を通過した typed payload だけを bytes へ投影する。payload hash、record payload hash、fingerprint、index hit は serializer の受理 authority ではなく、reader / payload reader / preseed / proof store / producer gate が後続で再検査する。
+
+byte/word の低水準処理は `memo_trait_artifact_word_codec.nepl` の共有 31-bit word writer へ委譲する。serializer は独自の endian writer や bit operation を持たない。Phase 1 では serialized index table をまだ持たないため、header validation 後に `index_count == record_count` だけを受理し、それ以外は `IndexCountUnsupported` として fail-closed にする。これは将来の serialized index table を隠す暫定設計ではなく、index section 未実装時の明示的な schema boundary である。
+
+record writer は reader が読む schema version 1 の 31 word layout と同じ順序で typed enum を artifact word / payload word へ戻す。source kind、stored proof kind、aggregate field evidence、Copy / Drop / Eq / Hash proof status、hazard、`Result unit SelfhostMemoTraitRejectKind` は各 helper で明示的に投影し、未知 ordinal は `RecordWordOrdinalInvalid` として閉じる。writer は `SelfhostTypeId`、`SelfhostCanonicalTypeKeyId`、proof store stable identity、source text、span、path suffix、display name、diagnostic text、lexeme を永続 authority にしない。
+
+owner contract は、output `Vec u8` を serializer が消費し、validation 失敗や内部 ordinal failure では partial output owner を閉じる形にした。borrowed payload bytes は caller が所有し、serializer は payload bytes owner を閉じない。payload byte copy では `v::get` が `None` を返す impossible short read も typed `PayloadByteMissing` として扱い、output owner だけを閉じる。
+
+stage0 smoke は serializer の public header / record / payload entry writer を経由して bytes を作り、同じ bytes を payload reader に渡して round-trip する。これにより writer と reader の layout drift、shared word codec drift、payload length prefix drift を実行例で固定する。source policy は reader / payload reader / serializer / preseed の順序、proof-store lookup / push / preseed へ進まないこと、line count / doc comment length cap を入れないことを固定する。
+
+計算量は header write が固定 word 数の O(1)、record write が fixed width 31 word の O(1)、payload entry write が payload byte 長 b に対して O(b) である。FileSystem、source scan、module graph、proof store lookup、preseed、diagnostic rendering は行わない。cache に頼る前に serializer 自体の探索範囲を typed payload の線形投影へ閉じている。
+
+この checkpoint 後も、persistent stable map / serialized index の実体、generic type argument identity、Copy / Drop / Eq / Hash pure evidence、recursive aggregate / cycle boundary、re-export / import graph / public non-trait declaration を含む full public surface hash は未実装である。
 
 ### Phase 11: Backend
 

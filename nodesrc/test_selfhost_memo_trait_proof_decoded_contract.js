@@ -60,8 +60,8 @@ assert.ok(
 );
 assert.match(
     tySources,
-    /memo_trait_proof_index\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_decoded\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_payload_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_preseed\.nepl"/,
-    "decoded artifact owner must sit after the sidecar index producer and before record reader / payload reader / proof preseed in the TY source order",
+    /memo_trait_proof_index\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_decoded\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_payload_reader\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_serializer\.nepl",\s*"stdlib\/neplg2\/core\/ty\/ty\/memo_trait_proof_preseed\.nepl"/,
+    "decoded artifact owner must sit after the sidecar index producer and before record reader / payload reader / serializer / proof preseed in the TY source order",
 );
 assert.match(
     source,
