@@ -336,6 +336,23 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4q path sink event kind contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path sink event indexed selection",
+    "GuiSfntSimpleGlyphPathSinkEventSlot:",
+    "First",
+    "Second",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_event_at:",
+    "gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at:",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_kind_at:",
+    "存在しない third event や負の index は型として表現できない",
+    "`event_pair_kind_at` は `event_pair_event_at` と `gui_sfnt_simple_glyph_path_sink_event_kind` の合成",
+    "numeric `i32` index",
+    "contour traversal",
+    "render2d",
+    "platform API",
+]) {
+    assert(spec.includes(fragment), `font spec F4r path sink event indexed selection contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -503,6 +520,22 @@ for (const fragment of [
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4q path sink event kind contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path sink event indexed selection",
+    "F4r adds typed slot selection",
+    "not a contour iterator",
+    "GuiSfntSimpleGlyphPathSinkEventSlot:",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_event_at pair slot",
+    "match slot:",
+    "First -> gui_sfnt_simple_glyph_path_sink_event_pair_first_event pair",
+    "Second -> gui_sfnt_simple_glyph_path_sink_event_pair_second_event pair",
+    "must not accept an `i32` event index",
+    "helpers therefore must not return `Option` or `Result`",
+    "event_at` and the F4q kind helper",
+    "must not allocate `Vec GuiSfntSimpleGlyphPathSinkEvent`",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4r path sink event indexed selection contract must mention ${fragment}`);
+}
 assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
@@ -659,6 +692,21 @@ for (const fragment of [
     "no duplicate payload enum",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4p path sink event adapter contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4r:",
+    "sfnt simple glyph path sink event indexed selection",
+    "GuiSfntSimpleGlyphPathSinkEventSlot",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_event_at",
+    "gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_kind_at",
+    "`First` と `Second` だけを持ち",
+    "slot を明示 `match`",
+    "catch-all arm は使わない",
+    "`i32` event index",
+    "no allocation/stream state",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4r path sink event indexed selection contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -1116,6 +1164,36 @@ assertMatch(
     "alloc/gui/font/sfnt/glyf F4q must expose pure event-pair to kind-pair adapter",
 );
 assertMatch(
+    implementationPlan,
+    /Phase F4r:[\s\S]*GuiSfntSimpleGlyphPathSinkEventSlot[\s\S]*gui_sfnt_simple_glyph_path_sink_event_pair_event_at[\s\S]*gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at[\s\S]*gui_sfnt_simple_glyph_path_sink_event_pair_kind_at[\s\S]*First[\s\S]*Second[\s\S]*`i32` event index[\s\S]*Option[\s\S]*Result[\s\S]*Vec[\s\S]*push/,
+    "font implementation plan must define F4r path sink event slot selection without numeric index, allocation, or fallible selection",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkEventSlot:\s+First\s+Second/,
+    "alloc/gui/font/sfnt/glyf F4r must expose a two-state slot enum",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkEventSlot:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkEventSlot:/,
+    "alloc/gui/font/sfnt/glyf F4r slot enum must implement Clone and Copy",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_path_sink_event_pair_event_at\s+%fn\s+&GuiSfntSimpleGlyphPathSinkEventPair\s+fn\s+GuiSfntSimpleGlyphPathSinkEventSlot\s+GuiSfntSimpleGlyphPathSinkEvent/,
+    "alloc/gui/font/sfnt/glyf F4r must expose event pair slot selection",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at\s+%fn\s+&GuiSfntSimpleGlyphPathSinkEventKindPair\s+fn\s+GuiSfntSimpleGlyphPathSinkEventSlot\s+GuiSfntSimpleGlyphPathSinkEventKind/,
+    "alloc/gui/font/sfnt/glyf F4r must expose kind pair slot selection",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_path_sink_event_pair_kind_at\s+%fn\s+&GuiSfntSimpleGlyphPathSinkEventPair\s+fn\s+GuiSfntSimpleGlyphPathSinkEventSlot\s+GuiSfntSimpleGlyphPathSinkEventKind/,
+    "alloc/gui/font/sfnt/glyf F4r must expose event pair slot-to-kind selection",
+);
+assertMatch(
     allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
@@ -1490,6 +1568,48 @@ assertNoMatch(
     pathSinkEventPairKindPair,
     /\b(?:Option|Result|command_index|count|next|current_point|Vec|push|closure|winding|fill|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|gui_sfnt_simple_glyph_path_command_pair_|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
     "alloc/gui/font/sfnt/glyf F4q sink event kind pair adapter must use only event pair accessors and kind helper",
+);
+const pathSinkEventPairEventAt = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_event_pair_event_at");
+for (const fragment of [
+    "match slot:",
+    "GuiSfntSimpleGlyphPathSinkEventSlot::First:",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_first_event pair",
+    "GuiSfntSimpleGlyphPathSinkEventSlot::Second:",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_second_event pair",
+]) {
+    assert(pathSinkEventPairEventAt.includes(fragment), `alloc/gui/font/sfnt/glyf F4r event slot selection must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkEventPairEventAt,
+    /\b(?:i32|Option|Result|command_index|count|next|current_point|Vec|push|closure|winding|fill|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4r event slot selection must stay total, typed, allocation-free, and renderer/platform independent",
+);
+const pathSinkEventKindPairKindAt = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at");
+for (const fragment of [
+    "match slot:",
+    "GuiSfntSimpleGlyphPathSinkEventSlot::First:",
+    "gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind pair",
+    "GuiSfntSimpleGlyphPathSinkEventSlot::Second:",
+    "gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind pair",
+]) {
+    assert(pathSinkEventKindPairKindAt.includes(fragment), `alloc/gui/font/sfnt/glyf F4r kind pair slot selection must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkEventKindPairKindAt,
+    /\b(?:i32|Option|Result|command_index|count|next|current_point|Vec|push|closure|winding|fill|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|gui_sfnt_simple_glyph_path_sink_event_kind\b|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4r kind pair slot selection must use only kind pair accessors",
+);
+const pathSinkEventPairKindAt = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_event_pair_kind_at");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_path_sink_event_pair_event_at pair slot",
+    "gui_sfnt_simple_glyph_path_sink_event_kind &event",
+]) {
+    assert(pathSinkEventPairKindAt.includes(fragment), `alloc/gui/font/sfnt/glyf F4r event pair slot kind selection must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkEventPairKindAt,
+    /\b(?:i32|Option|Result|command_index|count|next|current_point|Vec|push|closure|winding|fill|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair|gui_sfnt_simple_glyph_path_sink_event_kind_pair_|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4r event pair slot kind selection must compose event_at and event kind helper only",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

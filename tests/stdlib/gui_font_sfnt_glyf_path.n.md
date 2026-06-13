@@ -340,5 +340,69 @@ fn main %impure fn void i32 \void:
             false
         GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
             false
-    test_assertion_exit_code assert "sink event pair wraps path commands" and event_ok and skip_kind_ok and first_ok and second_ok and first_kind_ok second_kind_ok
+    let slot_first_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair GuiSfntSimpleGlyphPathSinkEventSlot::First
+    let slot_second_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair GuiSfntSimpleGlyphPathSinkEventSlot::Second
+    let slot_first_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_sink_event_command &slot_first_event
+    let slot_second_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_sink_event_command &slot_second_event
+    let slot_first_event_ok %bool match slot_first_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            true
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    let slot_second_event_ok %bool match slot_second_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            true
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    let slot_first_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_pair_kind_at &event_pair GuiSfntSimpleGlyphPathSinkEventSlot::First
+    let slot_second_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_pair_kind_at &event_pair GuiSfntSimpleGlyphPathSinkEventSlot::Second
+    let slot_first_kind_from_pair %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at &kind_pair GuiSfntSimpleGlyphPathSinkEventSlot::First
+    let slot_second_kind_from_pair %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at &kind_pair GuiSfntSimpleGlyphPathSinkEventSlot::Second
+    let slot_first_kind_ok %bool match slot_first_kind:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            true
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            false
+    let slot_second_kind_ok %bool match slot_second_kind:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            true
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            false
+    let slot_first_kind_pair_ok %bool match slot_first_kind_from_pair:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            true
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            false
+    let slot_second_kind_pair_ok %bool match slot_second_kind_from_pair:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            true
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            false
+    let slot_event_ok %bool and slot_first_event_ok slot_second_event_ok
+    let slot_kind_ok %bool and slot_first_kind_ok and slot_second_kind_ok and slot_first_kind_pair_ok slot_second_kind_pair_ok
+    test_assertion_exit_code assert "sink event pair wraps path commands" and event_ok and skip_kind_ok and first_ok and second_ok and first_kind_ok and second_kind_ok and slot_event_ok slot_kind_ok
 ```

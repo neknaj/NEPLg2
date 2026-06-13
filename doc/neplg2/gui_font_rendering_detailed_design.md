@@ -966,6 +966,36 @@ gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair pair
 
 F4q must not add `contour_index`, `edge_index`, coordinate fields, control/end fields, a real sink trait, allocation ownership, contour stream traversal, contour closure, off-curve contour-start synthesis, winding, fill rules, rasterization, render2d commands, host text measurement, or platform presentation. The pure helpers must not return `Option` or `Result`, allocate `Vec GuiSfntSimpleGlyphPathSinkEventKind`, expose `command_index`, `count`, `next`, or call byte-backed lookup helpers, metadata parsers, `*_with_tables` helpers, lower point / contour helpers, or the curve classifier.
 
+### SFNT simple glyph path sink event indexed selection
+
+F4r adds typed slot selection over the F4p/F4q two-slot values. It is not a contour iterator, not a command sequence, and not a stream cursor. The goal is to keep the next sink layer from introducing numeric indexes while still letting it choose the first or second event of one already-decoded edge pair.
+
+```text
+GuiSfntSimpleGlyphPathSinkEventSlot:
+    First
+    Second
+
+gui_sfnt_simple_glyph_path_sink_event_pair_event_at pair slot:
+    match slot:
+        First -> gui_sfnt_simple_glyph_path_sink_event_pair_first_event pair
+        Second -> gui_sfnt_simple_glyph_path_sink_event_pair_second_event pair
+
+gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at pair slot:
+    match slot:
+        First -> gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind pair
+        Second -> gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind pair
+
+gui_sfnt_simple_glyph_path_sink_event_pair_kind_at pair slot:
+    event = gui_sfnt_simple_glyph_path_sink_event_pair_event_at pair slot
+    gui_sfnt_simple_glyph_path_sink_event_kind event
+```
+
+The slot enum is the only selector. F4r must not accept an `i32` event index, because a numeric index would reintroduce impossible states that have to be reported at runtime. `First` and `Second` are exhaustive; helpers therefore must not return `Option` or `Result`.
+
+`event_pair_kind_at` deliberately composes `event_at` and the F4q kind helper. It must not duplicate kind classification logic, build a `GuiSfntSimpleGlyphPathSinkEventKindPair`, read path coordinates, or call byte-backed glyph lookup. `kind_pair_kind_at` deliberately uses only the kind pair first / second accessors.
+
+F4r must not allocate `Vec GuiSfntSimpleGlyphPathSinkEvent`, allocate `Vec GuiSfntSimpleGlyphPathSinkEventKind`, use `push`, expose `command_index`, `count`, `next`, mutable current point state, contour traversal, contour closure, off-curve contour-start synthesis, winding, fill rules, rasterization, render2d commands, host text measurement, or platform presentation.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

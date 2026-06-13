@@ -1199,6 +1199,65 @@ pub fn gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair %fn &GuiSfntSimpleGl
     let second_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &second_event
     gui_sfnt_simple_glyph_path_sink_event_kind_pair first_kind second_kind
 
+//: GuiSfntSimpleGlyphPathSinkEventSlot: event pair のどちらを[読/よ]むかを[表/あらわ]す
+//:
+//: [目的/もくてき]:
+//: - numeric index を[使/つか]わず、first / second の 2 [状態/じょうたい]だけを enum で[表/あらわ]します。
+//: - 不正 index は[型/かた]として[作/つく]れないため、selection helper は `Option` / `Result` を[返/かえ]しません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkEventSlot:
+    First
+    Second
+
+impl Clone for GuiSfntSimpleGlyphPathSinkEventSlot:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEventSlot \slot:
+        *slot
+
+impl Copy for GuiSfntSimpleGlyphPathSinkEventSlot:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEventSlot \slot:
+        slot
+
+//: gui_sfnt_simple_glyph_path_sink_event_pair_event_at: slot に[対応/たいおう]する event を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `First` は first event、`Second` は second event を[返/かえ]します。
+//: - slot は enum なので不正 index は[表現/ひょうげん]できず、`Option` / `Result` は[使/つか]いません。
+//: - contour stream、current point state、renderer、platform API には[依存/いぞん]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_pair_event_at %fn &GuiSfntSimpleGlyphPathSinkEventPair fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEvent \pair\slot:
+    match slot:
+        GuiSfntSimpleGlyphPathSinkEventSlot::First:
+            gui_sfnt_simple_glyph_path_sink_event_pair_first_event pair
+        GuiSfntSimpleGlyphPathSinkEventSlot::Second:
+            gui_sfnt_simple_glyph_path_sink_event_pair_second_event pair
+
+//: gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at: slot に[対応/たいおう]する kind を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - F4q の kind pair accessor だけを[使/つか]い、event payload や座標は[読/よ]みません。
+//: - numeric index、`Option`、`Result`、`Vec`、`push` は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at %fn &GuiSfntSimpleGlyphPathSinkEventKindPair fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEventKind \pair\slot:
+    match slot:
+        GuiSfntSimpleGlyphPathSinkEventSlot::First:
+            gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind pair
+        GuiSfntSimpleGlyphPathSinkEventSlot::Second:
+            gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind pair
+
+//: gui_sfnt_simple_glyph_path_sink_event_pair_kind_at: event pair の slot に[対応/たいおう]する kind を[得/え]る
+//:
+//: [契約/けいやく]:
+//: - event selection と kind classification を[合成/ごうせい]するだけの thin helper です。
+//: - kind pair を[作/つく]らずに 1 slot だけ dispatch したい caller のための total boundary です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_pair_kind_at %fn &GuiSfntSimpleGlyphPathSinkEventPair fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathSinkEventKind \pair\slot:
+    let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at pair slot
+    gui_sfnt_simple_glyph_path_sink_event_kind &event
+
 //: gui_sfnt_simple_glyph_contour_edge_source_contour_index: edge が[属/ぞく]する contour index を[読/よ]む
 //:
 //: neplg2:test[skip]
