@@ -353,3 +353,111 @@ fn main %impure fn void i32 \void:
     let shown test::test_report_print_stdout report
     test::test_report_exit_code shown
 ```
+
+## font metrics and glyph paint contract
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_core_font_metrics_and_glyph_paint_contract\" count=10 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"face id\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"glyph id\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"font size denominator\" expected=\"10\" actual=\"10\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"invalid size rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"glyph advance\" expected=\"8\" actual=\"8\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"ink x\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"baseline\" expected=\"12\" actual=\"12\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"shadow run\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"invalid shadow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"empty glyph paint rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as test
+
+fn invalid_size_rejected %fn void bool \void:
+    match gui_font_size_result 16 0:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _size:
+            false
+
+fn invalid_shadow_rejected %fn GuiPaint bool \paint:
+    let offset %GuiPoint gui_point_new 1 2
+    let negative %i32 sub 0 1
+    match gui_shadow_result offset negative 0 paint:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _shadow:
+            false
+
+fn empty_glyph_paint_rejected %fn void bool \void:
+    let no_fill %Option GuiPaint none
+    let no_stroke %Option GuiStroke none
+    match gui_glyph_paint_result no_fill no_stroke gui_shadow_ref_none GuiBlendMode::SourceOver:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _paint:
+            false
+
+fn main %impure fn void i32 \void:
+    let zero %u8 cast 0
+    let full %u8 cast 255
+    let color %Rgba8888 rgba8888_new full zero zero full
+    let fill %GuiPaint gui_paint_solid color
+    let face %GuiFontFaceId unwrap_ok gui_font_face_id_result 1
+    let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 2
+    let size %GuiFontSize unwrap_ok gui_font_size_result 160 10
+    let neg_one %i32 sub 0 1
+    let neg_two %i32 sub 0 2
+    let ink %GuiRect gui_rect_new neg_one neg_two 9 12
+    let allocation %GuiRect gui_rect_new 0 0 10 16
+    let glyph_metrics %GuiGlyphMetrics gui_glyph_metrics glyph 8 0 ink allocation
+    let rendered %GuiRenderedTextMetrics gui_rendered_text_metrics allocation ink allocation 12
+    let shadow_run %GuiShadowRunId unwrap_ok gui_shadow_run_id_result 3
+    let stroke_none %Option GuiStroke none
+    let fill_some %Option GuiPaint some fill
+    let glyph_paint %GuiGlyphPaint unwrap_ok gui_glyph_paint_result fill_some stroke_none gui_shadow_ref_run shadow_run GuiBlendMode::SourceOver
+    let shadow_ref %GuiShadowRef gui_glyph_paint_shadows &glyph_paint
+    let shadow_run_raw %i32 match shadow_ref:
+        GuiShadowRef::ShadowRun id:
+            gui_shadow_run_id_raw &id
+        _:
+            0
+    let glyph_ink %GuiRect gui_glyph_metrics_ink_bounds &glyph_metrics
+    let invalid_size_ok %bool invalid_size_rejected
+    let invalid_shadow_ok %bool invalid_shadow_rejected fill
+    let empty_paint_ok %bool empty_glyph_paint_rejected
+    let check0 test::assert_eq_i32 "face id" 1 gui_font_face_id_raw &face
+    let check1 test::assert_eq_i32 "glyph id" 2 gui_glyph_id_raw &glyph
+    let check2 test::assert_eq_i32 "font size denominator" 10 gui_font_size_px_den &size
+    let check3 test::assert "invalid size rejected" invalid_size_ok
+    let check4 test::assert_eq_i32 "glyph advance" 8 gui_glyph_metrics_advance_x &glyph_metrics
+    let check5 test::assert_eq_i32 "ink x" neg_one gui_rect_x &glyph_ink
+    let check6 test::assert_eq_i32 "baseline" 12 gui_rendered_text_metrics_baseline &rendered
+    let check7 test::assert_eq_i32 "shadow run" 3 shadow_run_raw
+    let check8 test::assert "invalid shadow rejected" invalid_shadow_ok
+    let check9 test::assert "empty glyph paint rejected" empty_paint_ok
+    let checks:
+        test::test_report_new "gui_core_font_metrics_and_glyph_paint_contract"
+        |> test::test_report_push check0
+        |> test::test_report_push check1
+        |> test::test_report_push check2
+        |> test::test_report_push check3
+        |> test::test_report_push check4
+        |> test::test_report_push check5
+        |> test::test_report_push check6
+        |> test::test_report_push check7
+        |> test::test_report_push check8
+        |> test::test_report_push check9
+    let shown test::test_report_print_stdout checks
+    test::test_report_exit_code shown
+```

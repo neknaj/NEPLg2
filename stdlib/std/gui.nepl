@@ -23,6 +23,7 @@ pub #import "./gui/surface" as *
 pub #import "./gui/offscreen" as *
 pub #import "./gui/timer" as *
 pub #import "./gui/text_measure" as *
+pub #import "./gui/font_resource" as *
 pub #import "./gui/ime" as *
 pub #import "./gui/accessibility_host" as *
 pub #import "./gui/host" as *
