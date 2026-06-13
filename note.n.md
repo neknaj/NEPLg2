@@ -58491,3 +58491,52 @@ MERGE_APPROVED
 - impl header producer、trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
 - re-export duplicate ordinal scan の sorted index 化は public evidence / error boundary を変えず後からできる最適化として扱い、次は impl header と trait evidence solver の境界を進める。
+
+## 2026-06-13 selfhost public impl header producer checkpoint
+
+### scope
+
+- branch: `work/selfhost-impl-header-producer`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core / boundary 分離、DAG、計算量と探索範囲の明示、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_public_impl_header.nepl` を追加し、public trait impl header を normalizer の `SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl` / `SelfhostMemoTraitPublicSurfaceHashInputKind::PublicImpl` 境界へ接続した。
+- accepted input は visibility、module fingerprint、public declaration ordinal、impl kind、typed target type shape hash、typed trait application shape hash、generic binder count、bound count に限定した。
+- stable impl key と normalized impl header shape を分けた。stable key は module fingerprint、schema version、impl kind、declaration ordinal だけを authority にし、target type / trait application は shape hash 側へ入れる。
+- source text、span、lexeme、path、display name、diagnostic text、HIR、Resource IR、backend artifact、proof store record は hash material に入れない。
+- `InherentImpl` は現行 Rust materializer と同じく unsupported とし、`InherentImplUnsupported` で fail-closed に拒否する。
+- public helper である `selfhost_memo_trait_public_impl_header_stable_key_hash_result` も caller 側の検査済み前提に依存せず、unsupported impl kind と invalid ordinal を自身で拒否する。
+- generic impl と type parameter bound は count だけでは binder / bound identity にならないため、詳細 evidence が入るまで `GenericImplUnsupported` / `TypeParameterBoundUnsupported` として rejected path にした。
+- stage0 smoke は accepted trait impl、別 trait application hash の accepted impl、payload 差分、inherent rejection、private rejection、trait application hash missing、target hash placeholder、generic rejection を実行で固定した。
+- `nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js` を追加し、runner に登録した。producer は full public surface orchestration まで facade 非公開のままとし、`nodesrc/selfhost_ty_sources.js` にも登録しない。
+
+### subagent_review
+
+- Tesla review: Blocker なし。ただし source text / span / display / path 由来の stable key / shape hash は blocker、typed target / trait identity が無いものは fail-closed にする必要があると確認した。
+- Required として、trait impl / inherent impl の区別、stable trait key / target type shape、generic impl / where clause / method body の未接続部分を unsupported error にすること、source policy の登録が指摘された。
+- 実装はこの指摘を反映し、trait application shape hash は stable trait key と trait type argument identity を含む typed normalized hash であることを contract にした。
+- 初期実装では generic count を shape hash に入れて accepted にしていたが、レビューに従い count-only accepted を撤回した。generic binder / bound detailed evidence が接続されるまでは generic impl / bound は rejected path で扱う。
+- Darwin review: Blocker として、public helper 単体の `stable_key_hash_result` が ordinal と `InherentImpl` を拒否しない点が指摘された。
+- 修正として、`stable_key_hash_result` 自身に `kind_supported_result` と ordinal 負値 / 0 拒否を入れ、stage0 smoke と source policy で helper 単体の rejected path を固定した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-impl-header-focused.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_type_layout_header_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_reexport_export_table_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した `test_selfhost_memo_trait_public_impl_header_contract.js` は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- generic impl binder / bound detailed evidence、recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
+- graph lookup index 化、re-export duplicate ordinal scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えず後から置換できる最適化として扱う。

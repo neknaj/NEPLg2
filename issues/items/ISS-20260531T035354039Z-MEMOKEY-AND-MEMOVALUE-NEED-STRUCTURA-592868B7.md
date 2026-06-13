@@ -399,6 +399,35 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost public impl header producer checkpoint
+
+`memo_trait_public_impl_header.nepl` を追加し、public trait impl header を `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` と `SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` の `Impl` domain へ接続した。
+
+この producer は `visibility`、`module_fingerprint`、`declaration_ordinal`、impl kind、typed `target_type_shape_hash`、typed `trait_application_shape_hash`、generic count / bound count を input にする。accepted hash material は typed input field だけであり、source text、span、lexeme、display name、diagnostic text、path suffix、HIR、Resource IR、backend artifact、proof store record は読まない。
+
+stable impl key と normalized impl header shape は分離した。stable key は module fingerprint、schema version、impl kind、public declaration ordinal から作る。normalized shape は trait impl kind、target type shape、trait application shape、generic binder count、bound count から作る。ただし、この slice では generic binder / bound の詳細 evidence が未接続であるため、`type_parameter_count > 0` は `GenericImplUnsupported`、`type_parameter_bound_count > 0` は `TypeParameterBoundUnsupported` として fail-closed に拒否する。count だけを accepted identity にすると、同じ個数で異なる binder / bound environment を同一視するためである。
+
+`InherentImpl` は現行 Rust 実装の public surface materializer でも unsupported であり、今回の selfhost producer でも `InherentImplUnsupported` として accepted public surface payload へ流さない。trait application shape hash は stable trait key と trait type argument identity を含む typed normalized hash であることを contract にし、trait 名文字列や source spelling をこの module で直接 hash しない。公開 helper である `selfhost_memo_trait_public_impl_header_stable_key_hash_result` も caller 側の検査済み前提に依存せず、unsupported impl kind と invalid ordinal を自身で拒否する。
+
+stage0 smoke は accepted trait impl、別 trait application shape の accepted impl、payload 差分、inherent rejection、private rejection、trait application hash missing、target hash placeholder、generic rejection を実行で固定した。source policy は facade re-export 禁止、`nodesrc/selfhost_ty_sources.js` への登録禁止、source/span/path/display/diagnostic/HIR/Resource/backend/proof-store authority 禁止、line count / doc comment length cap 禁止を確認する。
+
+subagent review では Tesla が、source text / span / display / path 由来の stable key / shape hash は blocker、typed target / trait identity が無いものは fail-closed にすべきと指摘した。Required として、trait impl / inherent impl の区別、stable trait key / target type shape、generic impl / where clause / method body の未接続部分を unsupported error にすること、source policy の登録を求めた。この review を受けて、generic impl と type parameter bound は count-only accepted にせず unsupported error へ変更した。Darwin review では public helper 単体の `stable_key_hash_result` が ordinal と `InherentImpl` を拒否しない点が blocker として指摘されたため、helper 自身に `kind_supported_result` と ordinal 負値 / 0 拒否を追加し、stage0 smoke と source policy に rejected path を追加した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-impl-header-focused.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_type_layout_header_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_reexport_export_table_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した `test_selfhost_memo_trait_public_impl_header_contract.js` は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続である。graph lookup index 化、re-export duplicate ordinal scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えずに後から置換できる最適化として扱う。
+
 ## 2026-06-13 selfhost public re-export export table producer checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_reexport_export_table.nepl` を追加し、loader / module graph が解決した re-export export table projection を `SelfhostMemoTraitPublicSurfaceReExportEvidence` へ変換する checker-layer producer を実装した。
