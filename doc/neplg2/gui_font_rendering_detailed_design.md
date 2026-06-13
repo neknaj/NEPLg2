@@ -507,6 +507,56 @@ endpoint_array_offset = point_data_offset - instruction_length - 2 - endpoint_ar
 
 F4h ignores `trailing_data_length` except that F4g already proved it is non-negative. It must not consume trailing bytes, require zero padding, call host font APIs, or use fixed-cell fallback.
 
+### SFNT simple glyph contour span lookup
+
+F4i returns one contour's inclusive logical point index span from checked simple glyph topology. It is a no-allocation boundary before the future outline builder, curve segment builder, and mask rasterizer.
+
+```text
+GuiSfntSimpleGlyphContourSpan:
+    glyph GuiGlyphId
+    contour_index i32
+    start_point_index i32
+    end_point_index i32
+    point_count i32
+```
+
+Public lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_span:
+    &ByteBuf -> Option i32 -> GuiGlyphId -> i32
+    -> Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError
+```
+
+The lookup flow is:
+
+```text
+parse metadata
+    -> unwrap head / loca / glyf
+    -> gui_sfnt_glyf_simple_topology_with_tables
+    -> validate contour_index against topology.contour_count
+    -> read current endpoint from topology-derived endpoint array
+    -> read previous endpoint when contour_index > 0
+    -> return GuiSfntSimpleGlyphContourSpan
+```
+
+F4i deliberately depends on F4f topology validation only. It must not call `gui_sfnt_glyf_simple_point_stream_with_tables`, `gui_sfnt_lookup_simple_glyph_point_stream`, or `gui_sfnt_lookup_simple_glyph_point`.
+
+Endpoint semantics:
+
+```text
+endpoint_array_length = contour_count * 2
+endpoint_array_offset = point_data_offset - instruction_length - 2 - endpoint_array_length
+
+previous_endpoint = -1 when contour_index == 0
+previous_endpoint = endPtsOfContours[contour_index - 1] otherwise
+end_point_index = endPtsOfContours[contour_index]
+start_point_index = previous_endpoint + 1
+point_count = end_point_index - start_point_index + 1
+```
+
+`end_point_index` is inclusive. `contour_index < 0` and `contour_index >= contour_count` return `MissingGlyphOutline`; malformed endpoint data observed through topology validation or endpoint reads returns `MalformedGlyfRecord`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -321,6 +321,32 @@ yShort == 0 and ySame == 0: y_delta = i16be
 
 `on_curve` は flag bit 0 から得る。`end_of_contour` は topology の endpoint array と `point_index` の一致で判定する。F4h は trailing bytes を読まず、zero padding も要求しない。
 
+### SFNT simple glyph contour span lookup
+
+F4i は checked simple glyph topology から 1 つの contour が参照する logical point index range を返す段階である。full outline `Vec` や curve segment builder は allocation failure と owner recovery の contract を別に設計してから実装する。F4i は allocation なしで動作し、point stream decode や coordinate decode には依存しない。
+
+```text
+GuiSfntSimpleGlyphContourSpan:
+    glyph GuiGlyphId
+    contour_index i32
+    start_point_index i32
+    end_point_index i32
+    point_count i32
+
+gui_sfnt_lookup_simple_glyph_contour_span:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    -> Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError
+```
+
+`end_point_index` は inclusive endpoint である。`point_count` は `end_point_index - start_point_index + 1` として定義する。
+
+F4i は F4f の `gui_sfnt_glyf_simple_topology_with_tables` validation path にだけ依存する。F4g の point stream range や F4h の single point decode を呼ばない。contour 0 の `start_point_index` は 0 であり、contour n の start は contour n-1 の endpoint + 1 である。endpoint array read failure や topology validation で検出される endpoint 不整合は `MalformedGlyfRecord` とする。
+
+`contour_index < 0` または `contour_index >= topology.contour_count` は、valid glyph に要求された contour が存在しないことを表すため `MissingGlyphOutline` とする。font byte 構造の破損ではない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

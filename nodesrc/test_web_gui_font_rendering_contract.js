@@ -17,6 +17,18 @@ function withoutComments(text) {
         .join("\n");
 }
 
+function functionSlice(source, name) {
+    const start = source.indexOf(`fn ${name} `);
+    if (start < 0) {
+        return "";
+    }
+    const nextFn = source.indexOf("\nfn ", start + 1);
+    const nextPubFn = source.indexOf("\npub fn ", start + 1);
+    const candidates = [nextFn, nextPubFn].filter((index) => index >= 0);
+    const next = candidates.length === 0 ? -1 : Math.min(...candidates);
+    return next < 0 ? source.slice(start) : source.slice(start, next);
+}
+
 function assert(condition, message) {
     if (!condition) {
         throw new Error(message);
@@ -171,6 +183,11 @@ assertMatch(
     "font spec must define F4h single point decode contract, typed errors, F4g dependency, and endpoint state",
 );
 assertMatch(
+    spec,
+    /SFNT simple glyph contour span lookup[\s\S]*GuiSfntSimpleGlyphContourSpan:[\s\S]*glyph GuiGlyphId[\s\S]*contour_index i32[\s\S]*start_point_index i32[\s\S]*end_point_index i32[\s\S]*point_count i32[\s\S]*gui_sfnt_lookup_simple_glyph_contour_span:[\s\S]*Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError[\s\S]*end_point_index[\s\S]*inclusive endpoint[\s\S]*point_count[\s\S]*end_point_index - start_point_index \+ 1[\s\S]*F4f[\s\S]*F4g[\s\S]*F4h[\s\S]*contour_index < 0[\s\S]*MissingGlyphOutline/,
+    "font spec must define F4i contour span contract, inclusive endpoint semantics, F4f-only dependency, and typed errors",
+);
+assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
     "font detailed design must define F4c cmap format-4 lookup and bounds validation",
@@ -201,6 +218,11 @@ assertMatch(
     "font detailed design must define F4h point decode flow, cursor semantics, delta formulas, and endpoint offset",
 );
 assertMatch(
+    detailedDesign,
+    /SFNT simple glyph contour span lookup[\s\S]*GuiSfntSimpleGlyphContourSpan:[\s\S]*start_point_index i32[\s\S]*end_point_index i32[\s\S]*point_count i32[\s\S]*gui_sfnt_lookup_simple_glyph_contour_span:[\s\S]*Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError[\s\S]*gui_sfnt_glyf_simple_topology_with_tables[\s\S]*must not call `gui_sfnt_glyf_simple_point_stream_with_tables`[\s\S]*endpoint_array_offset = point_data_offset - instruction_length - 2 - endpoint_array_length[\s\S]*point_count = end_point_index - start_point_index \+ 1[\s\S]*MissingGlyphOutline[\s\S]*MalformedGlyfRecord/,
+    "font detailed design must define F4i contour span flow, F4f-only dependency, endpoint offset, inclusive range, and typed errors",
+);
+assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
     "font implementation plan must define F4c cmap parser data types and error kinds",
@@ -229,6 +251,11 @@ assertMatch(
     implementationPlan,
     /Phase F4h:[\s\S]*GuiSfntSimpleGlyphPoint[\s\S]*gui_sfnt_lookup_simple_glyph_point[\s\S]*point_index < 0[\s\S]*MissingGlyphOutline[\s\S]*gui_sfnt_glyf_simple_point_stream_with_tables[\s\S]*F4g-derived[\s\S]*coordinate は point 0 から `point_index` まで累積[\s\S]*trailing_data_length[\s\S]*Source policy[\s\S]*no Vec allocation[\s\S]*coordinate overrun 系 fixture/,
     "font implementation plan must define F4h point decode implementation, source policy gates, and doctest coverage",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4i:[\s\S]*GuiSfntSimpleGlyphContourSpan[\s\S]*gui_sfnt_lookup_simple_glyph_contour_span[\s\S]*end_point_index[\s\S]*inclusive endpoint[\s\S]*point_count = end_point_index - start_point_index \+ 1[\s\S]*contour_index < 0[\s\S]*MissingGlyphOutline[\s\S]*MalformedGlyfRecord[\s\S]*gui_sfnt_glyf_simple_topology_with_tables[\s\S]*gui_sfnt_glyf_simple_point_stream_with_tables[\s\S]*Source policy[\s\S]*F4g\/F4h 非依存[\s\S]*two-contour fixture/,
+    "font implementation plan must define F4i contour span implementation, source policy gates, and doctest coverage",
 );
 
 assertMatch(
@@ -513,6 +540,16 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphContourSpan:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*contour_index\s+%i32[\s\S]*start_point_index\s+%i32[\s\S]*end_point_index\s+%i32[\s\S]*point_count\s+%i32/,
+    "alloc/gui/font/sfnt/glyf must expose simple glyph contour spans as typed data",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_contour_span\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphContourSpan\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf contour span lookup must take borrowed ByteBuf, checked GuiGlyphId, and logical contour index",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
 );
@@ -601,10 +638,31 @@ assertMatch(
     /or\s+lt\s+point_index\s+0\s+ge\s+point_index\s+point_count[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline[\s\S]*gui_sfnt_glyf_point_is_contour_end[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+1/,
     "alloc/gui/font/sfnt/glyf point decode must split out-of-range point requests and derive contour/on-curve state",
 );
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_contour_span_from_topology[\s\S]*or\s+lt\s+contour_index\s+0\s+ge\s+contour_index\s+contour_count[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline[\s\S]*gui_sfnt_glyf_read_contour_endpoint[\s\S]*previous_endpoint[\s\S]*start_point_index\s+%i32\s+add\s+previous_endpoint\s+1[\s\S]*point_count\s+%i32\s+add\s+sub\s+end_point_index\s+start_point_index\s+1/,
+    "alloc/gui/font/sfnt/glyf contour span lookup must split out-of-range contour requests and derive inclusive point ranges",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_simple_contour_span_with_tables[\s\S]*gui_sfnt_glyf_simple_topology_with_tables[\s\S]*gui_sfnt_glyf_contour_span_from_topology/,
+    "alloc/gui/font/sfnt/glyf contour span lookup must reuse F4f topology validation",
+);
 assertNoMatch(
     allocFontSfntGlyfImpl,
     /\bVec\s+GuiSfntSimpleGlyphPoint\b|\bpush\s+.*GuiSfntSimpleGlyphPoint\b/,
     "alloc/gui/font/sfnt/glyf F4h must not allocate or build a full point Vec",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /\bVec\s+GuiSfntSimpleGlyphContourSpan\b|\bpush\s+.*GuiSfntSimpleGlyphContourSpan\b/,
+    "alloc/gui/font/sfnt/glyf F4i must not allocate or build a full contour span Vec",
+);
+const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
+assertNoMatch(
+    contourSpanWithTables,
+    /\bgui_sfnt_glyf_simple_point_stream_with_tables\b|\bgui_sfnt_lookup_simple_glyph_point_stream\b|\bgui_sfnt_lookup_simple_glyph_point\b/,
+    "alloc/gui/font/sfnt/glyf F4i table helper must not depend on F4g/F4h point decoding",
 );
 assertNoMatch(
     allocFontSfntMetadataImpl,
@@ -640,6 +698,11 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_simple_glyph_point\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf point lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_contour_span\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf contour span lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,
@@ -776,6 +839,15 @@ for (const glyfCase of [
     "point decode signed x",
     "point decode signed y",
     "point decode signed on curve",
+    "contour span first start",
+    "contour span first end",
+    "contour span first count",
+    "contour span second start",
+    "contour span second end",
+    "contour span second count",
+    "contour span single start",
+    "contour span single end",
+    "contour span single count",
     "missing loca table",
     "missing glyf table",
     "short head for glyf",
@@ -801,6 +873,9 @@ for (const glyfCase of [
     "point decode index count missing",
     "point decode x coordinate overrun",
     "point decode y coordinate overrun",
+    "contour span negative index missing",
+    "contour span index count missing",
+    "contour span malformed endpoint observed",
 ]) {
     assertMatch(
         guiFontSfntTests,

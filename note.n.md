@@ -58674,3 +58674,48 @@ MERGE_APPROVED
 - F4h は 1 point decode であり、full outline `Vec`、contour builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
 - 次 slice では F4i として ownership / allocation failure / owner recovery contract を先に固めたうえで simple glyph outline builder または streaming contour sink を設計する。
 - `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。
+
+## 2026-06-13 GUI font SFNT simple glyph contour span checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-simple-outline-contract-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に沿って、Result / enum error、platform boundary 分離、doc contract と current implementation の分離、静的検査に掛かる typed value、hidden fallback なしを優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F4i `GuiSfntSimpleGlyphContourSpan` の仕様、詳細設計、実装計画を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphContourSpan` と `gui_sfnt_lookup_simple_glyph_contour_span` を追加した。
+- `end_point_index` は inclusive endpoint とし、`point_count = end_point_index - start_point_index + 1` として固定した。
+- F4i は F4f の `gui_sfnt_glyf_simple_topology_with_tables` validation path だけを通り、F4g point stream / F4h point decode / full outline allocation には依存しない。
+- `contour_index < 0` または `contour_index >= contour_count` は public request に存在しない contour を要求しているため `MissingGlyphOutline` として返す。
+- endpoint byte read failure や F4f topology validation で観測される endpoint 不整合は `MalformedGlyfRecord` として返す。
+- source policy で contour span API、F4f validation reuse、F4g/F4h 非依存、metadata 非依存、no contour span Vec allocation を固定した。
+
+### tests
+
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に two-contour の contour 0 / 1、one-contour signed fixture、negative contour index、contour_count index、malformed endpoint observed の explicit byte fixture を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4i doc / implementation / doctest label / metadata independence / no full contour span Vec の source policy を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt --no-tree -o tmp_gui_font_sfnt_dir.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した `nodesrc/test_web_gui_font_rendering_contract.js` を含めて GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+
+### subagent_review
+
+- Boole pre-review: Required として、inclusive endpoint と `point_count = end - start + 1` の明文化、F4f topology validation だけへの依存、F4g/F4h 非依存の source policy、metadata independence、malformed endpoint observed の表現が指摘された。
+- Boole implementation review: Required / Suggested とも無し。F4f-only 依存、F4g/F4h 非依存、typed error、no Vec allocation、doctest label は仕様に合っているため commit / merge 可能と確認された。
+- 未追跡の `NUL` / `tmp_gui_*` は stage しない。
+
+### residual
+
+- F4i は contour span lookup であり、full outline `Vec`、streaming contour sink、quadratic curve segment builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
+- 次 slice では allocation failure / owner recovery と streaming sink の contract を固めたうえで、simple glyph outline builder へ進む。
+- `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。
