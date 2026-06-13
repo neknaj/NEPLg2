@@ -1,6 +1,7 @@
 import {
     createGuiPreviewBitmapBuffer,
     fillGuiPreviewBitmapRect,
+    type GuiPreviewBitmapBuffer,
 } from './bitmap-buffer.js';
 import { presentGuiPreviewBitmapToCanvas } from './bitmap-presenter.js';
 import {
@@ -30,6 +31,8 @@ export type GuiPreviewCanvasRenderResult = {
     error: GuiPreviewRasterizeError;
 };
 
+const guiPreviewCanvasBitmapBuffers = new WeakMap<HTMLCanvasElement, GuiPreviewBitmapBuffer>();
+
 export function renderGuiPreviewFrameToCanvas(
     ctx: CanvasRenderingContext2D,
     frame: GuiPreviewCommandFrame,
@@ -37,14 +40,10 @@ export function renderGuiPreviewFrameToCanvas(
     height: number,
     options: GuiPreviewCanvasRenderOptions,
 ): GuiPreviewCanvasRenderResult {
-    const viewport = calculateGuiPreviewCanvasViewport(frame, width, height);
+    const viewport = calculateGuiPreviewCanvasViewport();
     const pixelRatio = calculateGuiPreviewCanvasPixelRatio(ctx, width, height);
     const pixelViewport = scaleGuiPreviewCanvasViewport(viewport, pixelRatio);
-    const buffer = createGuiPreviewBitmapBuffer(
-        Math.max(1, ctx.canvas.width),
-        Math.max(1, ctx.canvas.height),
-        guiPreviewRgb(13, 17, 23),
-    );
+    const buffer = acquireGuiPreviewCanvasBitmapBuffer(ctx, guiPreviewRgb(13, 17, 23));
     fillGuiPreviewBitmapRect(
         buffer,
         pixelViewport.left - pixelRatio,
@@ -63,23 +62,27 @@ export function renderGuiPreviewFrameToCanvas(
     return { kind: 'ok', viewport };
 }
 
-function calculateGuiPreviewCanvasViewport(
-    frame: GuiPreviewCommandFrame,
-    width: number,
-    height: number,
-): GuiPreviewCanvasViewport {
-    const padding = 18;
-    const cssWidth = Math.max(1, width);
-    const cssHeight = Math.max(1, height);
-    const availableWidth = Math.max(1, cssWidth - padding * 2);
-    const availableHeight = Math.max(1, cssHeight - padding * 2);
-    const scale = Math.min(availableWidth / frame.width, availableHeight / frame.height);
-    const sceneWidth = frame.width * scale;
-    const sceneHeight = frame.height * scale;
+function acquireGuiPreviewCanvasBitmapBuffer(
+    ctx: CanvasRenderingContext2D,
+    background: ReturnType<typeof guiPreviewRgb>,
+): GuiPreviewBitmapBuffer {
+    const width = Math.max(1, ctx.canvas.width);
+    const height = Math.max(1, ctx.canvas.height);
+    const cached = guiPreviewCanvasBitmapBuffers.get(ctx.canvas);
+    if (cached && cached.width === width && cached.height === height) {
+        fillGuiPreviewBitmapRect(cached, 0, 0, width, height, background);
+        return cached;
+    }
+    const buffer = createGuiPreviewBitmapBuffer(width, height, background);
+    guiPreviewCanvasBitmapBuffers.set(ctx.canvas, buffer);
+    return buffer;
+}
+
+function calculateGuiPreviewCanvasViewport(): GuiPreviewCanvasViewport {
     return {
-        left: Math.floor((cssWidth - sceneWidth) / 2),
-        top: Math.floor((cssHeight - sceneHeight) / 2),
-        scale,
+        left: 0,
+        top: 0,
+        scale: 1,
     };
 }
 

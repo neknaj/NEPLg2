@@ -56,6 +56,8 @@ pixels.length >= stride_bytes * height
 
 Out-of-bounds drawing は backend contract で決める。Web software rasterizer は clipping により範囲外 pixel を破棄する。Invalid geometry は clipping ではなく `GuiError::InvalidGeometry` として拒否する。
 
+最低性能目標は 1920 x 1080 の `Rgba8888` pixel buffer を 60 fps で present することである。したがって、hot path は same-size frame ごとの巨大配列再確保を避け、resize generation が変わった時だけ surface slot / bitmap storage を作り直す。Web の legacy command frame renderer も、正式 video memory surface へ移行するまでの checkpoint として canvas ごとの bitmap buffer と `ImageData` を再利用する。これは fallback ではなく、同一 presentation contract 内の allocation policy である。
+
 ## Effect and runtime command bridge
 
 `GuiSurfacePresentCommand` は `std/gui` の host surface ABI data contract であり、application はこれを直接 platform へ送らない。`alloc/gui/app` は std 型を import せず、core 型と検査前の request data だけを effect として保持する。`std/gui/runtime` が host capability と checked id constructor を使って `GuiSurfacePresentCommand` を作り、runtime command へ変換する。
@@ -278,6 +280,8 @@ Atomics ordering:
 
 途中で surface が resize / close された場合、writer は old generation への publish を `GuiVideoMemoryError::StaleResizeGeneration` として失敗させる。Old surface へ silently publish しない。
 
+Visible window presenter は published pixel buffer を 1:1 で表示する。Window が広がった場合も、presenter は古い pixel buffer を拡大縮小しない。Backend は drawable surface の logical pixel size を `WindowEvent::Resized` として発行し、application / layout engine が新しい size の pixel buffer を生成する。新しい frame が来るまでの余白は surface background であり、CSS transform、Canvas scale、fit-to-window viewport による content stretch は禁止する。
+
 ## Dirty region
 
 Dirty region は初期実装では次を扱う。
@@ -309,6 +313,8 @@ canvas-renderer.ts
 ```
 
 `canvas-renderer.ts` は compatibility facade として残す場合でも、visible canvas direct primitive を呼ばない。責務は frame を bitmap buffer に rasterize し、presenter に渡すことだけである。
+
+`canvas-renderer.ts` が legacy command frame を visible canvas に表示する場合でも、viewport は `left = 0`、`top = 0`、`scale = 1` の logical pixel mapping に固定する。Device pixel ratio は backing bitmap への rasterize scale としてだけ扱う。`padding`、centering、`availableWidth / frame.width` による fit scale を再導入してはいけない。
 
 禁止:
 

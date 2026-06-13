@@ -281,6 +281,55 @@ async function runWebGuiInputBridgeRegression() {
     assert.equal(takenWindow.value[0].size.width, 640);
     assert.equal(takenWindow.value[0].size.height, 480);
 
+    inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 641, height: 481 },
+    });
+    inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 642, height: 482 },
+    });
+    const takenCoalescedWindow = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenCoalescedWindow.kind, "ok");
+    assert.equal(takenCoalescedWindow.value.length, 1);
+    assert.equal(takenCoalescedWindow.value[0].kind, "window");
+    assert.equal(takenCoalescedWindow.value[0].windowKind, "resized");
+    assert.equal(takenCoalescedWindow.value[0].size.width, 642);
+    assert.equal(takenCoalescedWindow.value[0].size.height, 482);
+
+    inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 650, height: 490 },
+    });
+    inputBridge.queueGuiWebInputEvent({
+        kind: "action",
+        windowId: 3,
+        actionId: 77,
+        point: { x: 2, y: 3 },
+    });
+    inputBridge.queueGuiWebInputEvent({
+        kind: "window",
+        windowId: 3,
+        windowKind: "resized",
+        size: { width: 660, height: 500 },
+    });
+    const takenWindowBarrier = inputBridge.takeGuiWebInputEvents();
+    assert.equal(takenWindowBarrier.kind, "ok");
+    assert.equal(takenWindowBarrier.value.length, 3);
+    assert.equal(takenWindowBarrier.value[0].kind, "window");
+    assert.equal(takenWindowBarrier.value[0].size.width, 650);
+    assert.equal(takenWindowBarrier.value[1].kind, "action");
+    assert.equal(takenWindowBarrier.value[1].actionId, 77);
+    assert.equal(takenWindowBarrier.value[2].kind, "window");
+    assert.equal(takenWindowBarrier.value[2].size.width, 660);
+
+    const observedBeforeTimer = observed.length;
     const queuedTimer = inputBridge.queueGuiWebInputEvent({
         kind: "timer",
         windowId: 3,
@@ -288,9 +337,9 @@ async function runWebGuiInputBridgeRegression() {
         tick: 15,
     });
     assert.equal(queuedTimer.kind, "ok");
-    assert.equal(observed.length, observedBeforeKeyboard + 5);
-    assert.equal(observed[observedBeforeKeyboard + 4].kind, "timer");
-    assert.equal(observed[observedBeforeKeyboard + 4].timerId, 2);
+    assert.equal(observed.length, observedBeforeTimer + 1);
+    assert.equal(observed[observedBeforeTimer].kind, "timer");
+    assert.equal(observed[observedBeforeTimer].timerId, 2);
     const takenTimer = inputBridge.takeGuiWebInputEvents();
     assert.equal(takenTimer.kind, "ok");
     assert.equal(takenTimer.value.length, 1);
@@ -442,6 +491,7 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(inputBridgeSource, /invalid-timer-event/);
     assert.match(inputBridgeSource, /guiWebInputEventsWithPointerMove/);
     assert.match(inputBridgeSource, /guiWebInputEventsWithTimer/);
+    assert.match(inputBridgeSource, /guiWebInputEventsWithWindowState/);
     assert.match(inputBridgeSource, /isUnicodeScalarValue/);
     assert.match(inputBridgeSource, /registerGuiWebInputEventListener/);
     assert.match(inputBridgeSource, /unregisterGuiWebInputEventListener/);
@@ -454,6 +504,9 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(panelSource, /flushHostPointerMoveEvent/);
     assert.match(panelSource, /queueHostPointerEvent[\s\S]*this\.flushHostPointerMoveEvent\(\);[\s\S]*queueGuiWebInputEvent/);
     assert.match(panelSource, /dispose\(\)[\s\S]*this\.hostPointerMove = \{ kind: 'idle' \};/);
+    assert.match(panelSource, /drawableSurfaceCssSize\(\)[\s\S]*getBoundingClientRect\(\)/);
+    assert.doesNotMatch(panelSource, /this\.canvas\.width\s*\/\s*pixelRatio/);
+    assert.doesNotMatch(panelSource, /this\.canvas\.height\s*\/\s*pixelRatio/);
     assert.match(panelSource, /guiWebPointerButtonFromDomButton/);
     assert.match(panelSource, /guiWebPointerButtonFromDomButtons/);
     assert.match(panelSource, /button: guiWebPointerButtonFromDomButtons\(event\.buttons\)/);
@@ -467,8 +520,10 @@ async function runWebGuiInputBridgeRegression() {
     assert.match(windowManagerSource, /queueHostWindowEvent/);
     assert.doesNotMatch(windowManagerSource, /source-path|preview-kind/);
     assert.match(windowManagerSource, /'close-requested'/);
-    assert.match(windowManagerSource, /previousWidth !== next\.width \|\| previousHeight !== next\.height/);
-    assert.match(windowManagerSource, /this\.queueHostWindowEvent\(windowState, 'resized'\)/);
+    assert.match(windowManagerSource, /previousSurfaceSize = windowState\.preview\.drawableSurfaceCssSize\(\)/);
+    assert.match(windowManagerSource, /nextSurfaceSize = windowState\.preview\.drawableSurfaceCssSize\(\)/);
+    assert.match(windowManagerSource, /this\.queueHostWindowEvent\(windowState, 'resized', nextSurfaceSize\)/);
+    assert.doesNotMatch(windowManagerSource, /requestAnimationFrame\(\(\) => windowState\.preview\.resizeEditor\(\)\)/);
     assert.match(commandsSource, /GuiPreviewInputTarget/);
     assert.doesNotMatch(inputBridgeSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
     assert.doesNotMatch(inputBridgeSource, /\|\s*null|\|\s*undefined/);
@@ -487,9 +542,10 @@ async function runWebGuiInputBridgeRegression() {
             "Web GUI input bridge queues keyboard events as typed values",
             "Web GUI input bridge queues Unicode scalar text input events as typed values",
             "Web GUI input bridge queues window events as typed values",
+            "Web GUI input bridge stores only the latest consecutive window state event",
             "Web GUI input bridge queues timer events and preserves event ordering barriers",
             "Web GUI input bridge unregisters listeners for disposed runtimes",
-            "Web GUI floating windows publish host-frame resize and close requests through the input queue",
+            "Web GUI floating windows publish drawable-surface resize and close requests through the input queue",
             "Web GUI input bridge notifies typed listeners without app-state simulation",
             "Web GUI input bridge exposes take/reset event boundaries",
             "Web GUI input bridge keeps DOM and Canvas types out of the input queue",

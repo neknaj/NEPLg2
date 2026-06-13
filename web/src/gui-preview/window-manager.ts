@@ -1,4 +1,4 @@
-import { GuiPreviewPanel } from './panel.js';
+import { GuiPreviewPanel, type GuiPreviewDrawableSurfaceSize } from './panel.js';
 import { decodeGuiWebHostPresentedFrame } from './host-bridge.js';
 import type { GuiWebHostResult } from './host-bridge.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
@@ -67,6 +67,10 @@ type WindowLookup =
 type DebugPanelMode =
     | { kind: 'collapsed' }
     | { kind: 'expanded' };
+
+type ApplyRectOptions = {
+    emitResize: boolean;
+};
 
 type GuiWindowDebugRecord =
     | GuiPreviewDebugRecord
@@ -219,9 +223,8 @@ export class GuiFloatingWindowManager {
         this.layerEl.appendChild(frameEl);
         this.windows.set(id, windowState);
         this.updateTitle(windowState);
-        this.applyRect(windowState, rect);
+        this.applyRect(windowState, rect, { emitResize: false });
         this.focusWindow(id);
-        window.requestAnimationFrame(() => windowState.preview.resizeEditor());
         return id;
     }
 
@@ -475,6 +478,7 @@ export class GuiFloatingWindowManager {
         if (this.activeMove.kind !== 'idle' && this.activeMove.id === windowState.id) {
             this.stopMove();
         }
+        const surfaceSize = windowState.preview.drawableSurfaceCssSize();
         windowState.preview.dispose();
         if (windowState.dockButton.kind === 'mounted') {
             windowState.dockButton.button.remove();
@@ -482,7 +486,7 @@ export class GuiFloatingWindowManager {
         windowState.frameEl.remove();
         this.windows.delete(windowState.id);
         if (options.emitCloseRequest) {
-            this.queueHostWindowEvent(windowState, 'close-requested');
+            this.queueHostWindowEvent(windowState, 'close-requested', surfaceSize);
         }
     }
 
@@ -531,32 +535,34 @@ export class GuiFloatingWindowManager {
         return windowState.source.title;
     }
 
-    private applyRect(windowState: FloatingGuiWindow, rect: GuiWindowRect) {
-        const previousWidth = windowState.rect.width;
-        const previousHeight = windowState.rect.height;
+    private applyRect(windowState: FloatingGuiWindow, rect: GuiWindowRect, options: ApplyRectOptions = { emitResize: true }) {
+        const previousSurfaceSize = windowState.preview.drawableSurfaceCssSize();
         const next = this.clampRect(rect);
         windowState.rect = next;
         windowState.frameEl.style.left = `${next.left}px`;
         windowState.frameEl.style.top = `${next.top}px`;
         windowState.frameEl.style.width = `${next.width}px`;
         windowState.frameEl.style.height = `${next.height}px`;
-        if (previousWidth !== next.width || previousHeight !== next.height) {
-            this.queueHostWindowEvent(windowState, 'resized');
+        windowState.preview.resizeEditor();
+        const nextSurfaceSize = windowState.preview.drawableSurfaceCssSize();
+        if (options.emitResize && (previousSurfaceSize.width !== nextSurfaceSize.width || previousSurfaceSize.height !== nextSurfaceSize.height)) {
+            this.queueHostWindowEvent(windowState, 'resized', nextSurfaceSize);
         }
-        window.requestAnimationFrame(() => windowState.preview.resizeEditor());
     }
 
-    private queueHostWindowEvent(windowState: FloatingGuiWindow, windowKind: GuiWebWindowEventKind) {
+    private queueHostWindowEvent(windowState: FloatingGuiWindow, windowKind: GuiWebWindowEventKind, surfaceSize: GuiPreviewDrawableSurfaceSize) {
         if (windowState.source.kind !== 'host-frame') {
             return;
         }
+        const width = Math.max(1, Math.floor(surfaceSize.width));
+        const height = Math.max(1, Math.floor(surfaceSize.height));
         const result = queueGuiWebInputEvent({
             kind: 'window',
             windowId: windowState.source.windowId,
             windowKind,
             size: {
-                width: Math.max(1, Math.floor(windowState.rect.width)),
-                height: Math.max(1, Math.floor(windowState.rect.height)),
+                width,
+                height,
             },
         });
         if (result.kind === 'err') {
@@ -573,8 +579,8 @@ export class GuiFloatingWindowManager {
             kind: 'window-event-queued',
             windowId: windowState.source.windowId,
             windowKind,
-            width: Math.max(1, Math.floor(windowState.rect.width)),
-            height: Math.max(1, Math.floor(windowState.rect.height)),
+            width,
+            height,
         });
     }
 
