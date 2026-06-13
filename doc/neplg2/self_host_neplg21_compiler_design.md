@@ -1553,6 +1553,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_t
 
 この checkpoint 後の残件は、complete public surface impl candidate 群を走査してこの builder へ入力する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した builder contract を保って後から行える最適化として扱う。
 
+### 2026-06-13 MemoKey / MemoValue method body fact table inputs checkpoint
+
+`memo_trait_operation_method_body_fact_table_inputs.nepl` を追加し、complete public surface scanner が後続 stage で作る typed method body root input 列を、既存 `memo_trait_operation_method_body_fact_table_builder` へ順番に渡す checker-layer batch boundary を作った。
+
+`SelfhostMemoTraitOperationMethodBodyFactBuildInput` は `SelfhostTypeId`、`SelfhostMemoTraitOperationEvidenceKind`、`SelfhostHirExprId`、fuel だけを保持する。これは上流 scanner / classifier がすでに決定した typed input であり、この module は source text、span、lexeme、display name、diagnostic text、module path から operation や root を推測しない。input table は `Vec` owner table として別に持ち、batch build は input table を borrow で読むだけなので、caller が success / failure のあとで input table owner を閉じる。
+
+output の `SelfhostMemoTraitOperationMethodBodyTable` は `selfhost_memo_trait_operation_method_body_fact_table_build_from_inputs_result` が消費する。全 input が成功した場合だけ完成後の table owner を返す。input read failure では、まだ builder に渡していない output table owner をこの module が閉じて `InputReadFailed(index)` を返す。builder rejection では builder が output table owner cleanup を完結させるため、この module は二重解放せず、`BuilderRejected(payload)` として失敗 index と nested builder error を保持する。NEPLg2.1 の enum variant payload は単一なので、`SelfhostMemoTraitOperationMethodBodyFactTableInputsBuilderRejected` struct に `index` と `error` を入れる。
+
+この module は fact constructor、direct table push、duplicate lookup、surface completeness decision、method body evidence 作成、Drop evidence 作成、operation evidence record 作成、Resource IR proof、backend artifact、proof store、public surface scanning を行わない。full orchestration は、public impl candidate 群から typed input table を作る責務と、この input batch boundary を呼んで complete method body fact table を作る責務を後続 stage で接続する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_inputs_contract.js` で固定した。facade 非公開、`selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、direct producer / fact constructor / table push bypass 禁止、resolver lookup 禁止、body check / evidence / proof 作成禁止、input read failure branch の output table free、builder rejection branch の二重解放禁止、input table owner を caller が保持する stage0 cleanup、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+この checkpoint 後の残件は、complete public surface impl candidate 群から method body fact build input table を作る scanner / full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed input batch contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

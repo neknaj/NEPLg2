@@ -112,6 +112,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_t
 
 この checkpoint 後の残件は、complete public surface impl candidate 群を走査して builder へ入力する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した builder contract を保って後から行える最適化として扱う。
 
+## 2026-06-13 selfhost method body fact table inputs checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_table_inputs.nepl` を追加し、上流 public surface scanner が後続で作る typed method body root input 列を、既存 builder へ順番に渡す checker-layer batch boundary を作った。
+
+`SelfhostMemoTraitOperationMethodBodyFactBuildInput` は `SelfhostTypeId`、operation kind、HIR root、fuel だけを保持する。input table は borrow で読み、batch build は output の `SelfhostMemoTraitOperationMethodBodyTable` owner だけを消費する。input read failure では未消費 output table owner をこの module が閉じ、builder rejection では既存 builder が output table owner cleanup を完結させる。builder rejection は `SelfhostMemoTraitOperationMethodBodyFactTableInputsBuilderRejected` に index と nested builder error を保存し、bool や表示文字列へ潰さない。
+
+この module は source text、span、lexeme、display name、diagnostic text、module path から operation や root を推測しない。fact constructor、direct table push、duplicate lookup、surface completeness decision、method body evidence 作成、Drop evidence 作成、operation evidence record 作成、Resource IR proof、backend artifact、proof store、public surface scanning も行わない。complete public surface impl candidate 群から typed input table を作る scanner / full orchestration は後続 stage の責務として残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_inputs_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、direct producer / fact constructor / table push bypass 禁止、resolver lookup 禁止、body check / evidence / proof 作成禁止、input read failure branch の output table free、builder rejection branch の二重解放禁止、input table owner を caller が保持する stage0 cleanup、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+この checkpoint 後の残件は、complete public surface impl candidate 群から method body fact build input table を作る scanner / full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed input batch contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

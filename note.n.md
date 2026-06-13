@@ -59531,3 +59531,44 @@ MERGE_APPROVED
 
 - F4p は single-edge pair の sink-event adapter までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
 - 後続では F4p の event pair boundary を使い、allocation / owner recovery と no fallback contract を保ったまま contour/path sink の実消費境界へ進む。
+
+## 2026-06-13 selfhost method body fact table inputs checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、責務分割、丁寧な doc comment、line count / doc comment length cap 禁止、hidden fallback 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_table_inputs.nepl` を追加した。
+- `SelfhostMemoTraitOperationMethodBodyFactBuildInput` は `SelfhostTypeId`、operation enum、HIR root、fuel だけを保持する typed input とした。
+- `SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` は input owner table とし、batch build API は `&SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` を borrow で読む。input table owner は caller が success / failure 後に閉じる契約で固定した。
+- output の `SelfhostMemoTraitOperationMethodBodyTable` は batch build API が消費する。全 input 成功時だけ completed table owner を返し、`InputReadFailed` では未消費 output table owner をこの module が閉じる。
+- `BuilderRejected` では既存 builder が output table owner cleanup を完結させるため、この module は二重解放しない。NEPLg2.1 の enum payload は単一なので、index と nested builder error は `SelfhostMemoTraitOperationMethodBodyFactTableInputsBuilderRejected` struct に保存した。
+- direct producer、fact constructor、direct table push、resolver lookup、surface completeness、method body evidence、Drop evidence、operation evidence record、Resource IR proof、backend artifact、proof store、public surface scanning はこの module に入れていない。
+- `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_inputs_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、typed input batch boundary を接続済みとして残件を再整理した。
+
+### subagent_review
+
+- Anscombe pre-review: Blocker として、input table owner 契約が曖昧なままでは owner leak / double-free 境界になると指摘された。
+- Required として、input table を消費するか borrow にするかを doc / API / source policy で固定すること、output table Err 後再利用禁止、`InputReadFailed` の output table free、`BuilderRejected` の二重解放禁止、typed payload と forbidden dependency を固定することが挙げられた。
+- 実装では borrow 方式を採用した。`build_from_inputs_result` は input table を閉じず、stage0 helper と doc comment は caller が input table owner を閉じる契約を明記した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_inputs_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_table_inputs.nepl -o tmp/selfhost-method-body-fact-table-inputs.json --no-tree -j 1 --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_builder_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した method body fact table inputs contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+### residual
+
+- complete public surface impl candidate 群から method body fact build input table を作る scanner / full orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed input batch contract を変えずに後からできる最適化として扱う。
