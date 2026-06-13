@@ -399,6 +399,28 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost public surface seed and partial stream composer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` に `selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result` を追加し、local `MemoKey` / `MemoValue` seed table と normalizer が返す partial input stream を同じ full public surface input stream へ合成する境界を作った。
+
+この境界は `SelfhostMemoTraitStableSourceSeedTable` と borrowed `&Vec SelfhostMemoTraitPublicSurfaceHashInputItem` だけを受け取り、normalizer、loader、VFS、module graph、path map、diagnostic rendering を hash module へ import しない。accepted hash authority は既存 input item schema の kind、ordinal、visibility、payload hash、dependency public surface hash に限定し、source text、span、path、alias、display name、diagnostic text を hash material へ戻さない。
+
+composer は partial stream を再採番せず、LocalMemoTrait seed item の ordinal 1 / 2 と partial stream の ordinal 3 以降を同じ ordinal 空間で選ぶ。欠番、重複、順序の取り違えは `PublicSurfaceInputOrdinalMismatch` として fail-closed にする。dependency hash missing / placeholder / unexpected dependency hash は既存 input item validation の typed error をそのまま返す。
+
+stage0 smoke では、seed table + dependency partial item の accepted composition、partial item が ordinal 2 で seed item と重複する rejected path、partial item が ordinal 4 で ordinal 3 を欠く rejected path を確認した。source policy は public composer signature、固定個数 partial item API 禁止、seed と partial stream の同一 ordinal 空間、duplicate / missing ordinal rejection、stage0 summary と doctest assertion、module checker / proof entry facade allowlist を固定した。
+
+subagent design review では、hash module が normalizer を import しないこと、partial stream を再採番しないこと、public API を任意長 borrowed vector にすること、source / path / diagnostic を public signature や hash authority に入れないことが Required として確認された。実装後 review では Blocker / Required なしで approve され、DAG、typed enum / Result error boundary、doc comment の計算量説明に追加修正要求はなかった。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-composer.json`
+
+この checkpoint 後も、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 stable payload producer、trait impl table、method body purity、Drop なし proof は未実装である。composer の O(n^2) partial stream scan は公開 schema / error contract を変えずに sorted index / merge cursor へ後から置換できる最適化として扱う。
+
 ## 2026-06-13 selfhost public surface input accumulator checkpoint
 
 `memo_trait_public_surface_hash.nepl` の ordered typed input boundary を full public surface normalizer 用 accumulator へ拡張した。

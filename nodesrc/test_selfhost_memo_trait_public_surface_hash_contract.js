@@ -99,6 +99,36 @@ assert.match(
 );
 assert.match(
     source,
+    /pub fn selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result %fn SelfhostMemoTraitStableSourceSeedTable fn &Vec SelfhostMemoTraitPublicSurfaceHashInputItem Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind/,
+    "public surface hash must expose a full composer that combines local MemoKey/MemoValue seed items with arbitrary-length normalizer partial input items",
+);
+assert.doesNotMatch(
+    source,
+    /pub fn selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result[^\n]*SelfhostMemoTraitPublicSurfaceHashInputItem fn SelfhostMemoTraitPublicSurfaceHashInputItem/,
+    "full composer public API must not use a fixed tuple of partial input items",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_item_for_ordinal_result[\s\S]*LocalMemoTrait seed と normalizer partial stream[\s\S]*key_item[\s\S]*value_item[\s\S]*selfhost_memo_trait_public_surface_hash_select_partial_item_loop/,
+    "full composer must select LocalMemoTrait seed items and normalizer partial stream items in the same ordinal space",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_select_item_candidate_result[\s\S]*Option::Some _existing:[\s\S]*PublicSurfaceInputOrdinalMismatch/,
+    "full composer must reject duplicate ordinals instead of using source or category order to choose a winner",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_item_for_ordinal_result[\s\S]*Option::None:[\s\S]*PublicSurfaceInputOrdinalMismatch/,
+    "full composer must reject missing ordinals before finishing the public surface hash",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result seed_table[\s\S]*v::len partial_items[\s\S]*selfhost_memo_trait_public_surface_hash_composed_input_loop[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result state/,
+    "full composer must reuse the existing seed conversion and accumulator finish boundary",
+);
+assert.match(
+    source,
     /pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:[\s\S]*ModuleIdentityFingerprintMissing[\s\S]*ModuleIdentityFingerprintPlaceholder[\s\S]*ImportSurfaceUnsupported[\s\S]*UseSurfaceUnsupported[\s\S]*PreludeSurfaceUnsupported[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*PublicStructSurfaceUnsupported[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*PublicImplSurfaceUnsupported[\s\S]*PublicSurfaceSeedRejected %SelfhostMemoTraitPublicSurfaceSeedErrorKind[\s\S]*MemoKeySeedMissing[\s\S]*MemoValueSeedMissing[\s\S]*MemoKeyPrivateVisibility[\s\S]*MemoValuePrivateVisibility[\s\S]*PublicSurfaceHashPlaceholder[\s\S]*PublicSurfaceInputEmpty[\s\S]*PublicSurfaceInputOrdinalMismatch[\s\S]*DependencyPublicSurfaceHashMissing[\s\S]*DependencyPublicSurfaceHashPlaceholder[\s\S]*UnexpectedDependencyPublicSurfaceHash/,
     "hash failures must be typed enum variants covering identity, unsupported surface, seed scan, field, visibility, input stream, dependency hash, and derived hash errors",
 );
@@ -366,6 +396,16 @@ assert.match(
     source,
     /summary\.full_surface_input_hash[\s\S]*summary\.dependency_hash_missing_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing[\s\S]*summary\.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder[\s\S]*summary\.unexpected_dependency_hash_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash[\s\S]*summary\.ordinal_mismatch_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch/,
     "stage0 doctest must assert full typed input acceptance and dependency or ordinal rejection variants",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitPublicSurfaceHashStage0Summary:[\s\S]*composed_full_surface_input_hash %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind[\s\S]*composed_duplicate_ordinal_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind[\s\S]*composed_missing_ordinal_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind/,
+    "stage0 summary must cover seed plus partial-stream composition success and duplicate/missing ordinal rejection paths",
+);
+assert.match(
+    source,
+    /summary\.composed_full_surface_input_hash[\s\S]*summary\.composed_duplicate_ordinal_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch[\s\S]*summary\.composed_missing_ordinal_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch/,
+    "module doctest must assert composed stream success and fail-closed duplicate/missing ordinal paths",
 );
 assert.match(
     source,

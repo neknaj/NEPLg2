@@ -58058,3 +58058,42 @@ MERGE_APPROVED
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - graph lookup の index 化、stream owner の内部表現、stage0 fixture の整理は public normalizer evidence / error / partial stream contract を変えずに後からできる最適化として扱う。
 - stage0 用 VFS 構築失敗時の owner cleanup helper は fixture 整理として未完了である。
+
+## 2026-06-13 selfhost public surface seed and partial stream composer checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-public-surface-composer-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、typed enum / Result error、pure core / boundary 分離、DAG、探索範囲と計算量の明示、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API 境界を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_public_surface_hash.nepl` に `selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result` を追加し、local `MemoKey` / `MemoValue` seed table と normalizer partial input stream を同じ full public surface input stream へ合成する public boundary を作った。
+- composer は `SelfhostMemoTraitStableSourceSeedTable` と borrowed `&Vec SelfhostMemoTraitPublicSurfaceHashInputItem` だけを受け取り、normalizer / loader / VFS / module graph / path / diagnostic を hash module へ import しない。
+- seed table は既存 seed adapter で ordinal 1 / 2 の LocalMemoTrait item に変換し、partial stream は再採番せず ordinal 3 以降の item として扱う。欠番、重複、順序取り違えは `PublicSurfaceInputOrdinalMismatch` で fail-closed にした。
+- stage0 smoke は seed + dependency partial item の accepted composition、partial ordinal 2 による duplicate rejection、partial ordinal 4 による missing ordinal rejection を確認するようにした。
+- focused doctest で `stage0_seed_table_result` の fixture source/span が既存 accepted path とずれていたため、既存 smoke と同じ `MemoKeyMemoValue` source / module identity に揃えた。これは合成器の hash authority ではなく、stage0 用 seed fixture の根拠を既存 accepted path と一致させる修正である。
+- `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`、module checker / proof entry の public allowlist、`todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue を更新した。
+
+### subagent_review
+
+- Lorentz review: Blocker なし。
+- Required として、hash module が normalizer を import して DAG を壊さないこと、partial stream を再採番しないこと、public API を任意長 borrowed vector にすること、source/path/diagnostic を public signature や hash authority にしないことを確認した。
+- 実装後 review では Blocker / Required なしで approve された。composer が hash module 内に閉じ、normalizer import を追加せず、public API が seed table と borrowed partial item vector だけを受け、source text / span / path / display / diagnostic を accepted hash authority にしていないことを確認した。
+- Recommended として、次 slice では partial stream 側に複数 item があり、`Vec` 格納順が ordinal と異なるケースを smoke に足すとよいと指摘された。これは public API / error contract を変えずに追加できるため、次の full public declaration payload producer と合わせて検討する。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-composer.json`
+
+### residual
+
+- public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 stable payload producer は未完了である。
+- trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- composer の O(n^2) partial stream scan、graph lookup index 化、stream owner の内部表現、stage0 fixture の整理は public item schema / normalizer evidence / accumulator API / typed error contract を変えずに後から置換できる最適化として扱う。

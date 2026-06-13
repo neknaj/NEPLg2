@@ -175,6 +175,7 @@ const expectedPublicSurface = [
     "selfhost_module_check_summary_raw_text_count",
     "selfhost_memo_trait_public_surface_hash_error_kind_eq",
     "selfhost_memo_trait_public_surface_hash_registry_error_kind_eq",
+    "selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result",
     "selfhost_memo_trait_public_surface_hash_materialize_result",
     "selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result",
     "selfhost_memo_trait_public_surface_hash_stage0",
