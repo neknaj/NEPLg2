@@ -266,6 +266,61 @@ trailing_data_length = glyph_end - trailing_data_offset
 
 `trailing_data_length < 0` は coordinate byte overrun なので `MalformedGlyfRecord`。`trailing_data_length >= 0` は success とし、padding / unused bytes として明示値で返す。後続 phase はこの trailing bytes を zero padding として要求するか、font sanitizer policy として扱うかを別途決める。F4g は trailing bytes を暗黙に fallback 消費しない。
 
+### SFNT simple glyph single point decode
+
+F4h は checked point stream range から 1 点の coordinate と flag state を復元する段階である。全点 `Vec` や outline builder は allocation failure と owner recovery の contract を別に設計してから実装する。F4h は allocation なしで 1 点を decode し、renderer や platform API には依存しない。
+
+```text
+GuiSfntSimpleGlyphPoint:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+    on_curve bool
+    end_of_contour bool
+
+gui_sfnt_lookup_simple_glyph_point:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    point_index i32
+    -> Result GuiSfntSimpleGlyphPoint GuiSfntParseError
+```
+
+`point_index < 0` または `point_index >= topology.point_count` は、valid glyph に要求された point が存在しないことを表すため `MissingGlyphOutline` とする。font byte 構造の破損ではない。
+
+一方、flag repeat byte 欠落、F4g で検証された `flag_data` / `x_data` / `y_data` range 外への read、endpoint array read failure、internal range inconsistency は `MalformedGlyfRecord` とする。
+
+F4h は必ず F4g の point stream validation path を通り、そこから得た range 内だけを読む。public wrapper か内部共有 helper かは実装詳細だが、F4h が独自に unchecked flags / coordinate path を持ってはならない。
+
+coordinate cursor は次のように定義する。
+
+```text
+flag_cursor = stream.flag_data_offset
+x_cursor = stream.x_data_offset
+y_cursor = stream.y_data_offset
+current_x = 0
+current_y = 0
+```
+
+logical point `0..point_index` を順番に処理し、それぞれの flag に応じて x/y cursor を進め、delta を `current_x` / `current_y` に累積する。repeat run の途中が target であっても、同じ run の target より前の repeated point の delta はすべて累積する。
+
+delta decode:
+
+```text
+xShort == 1 and xPositive == 1: x_delta = u8
+xShort == 1 and xPositive == 0: x_delta = -u8
+xShort == 0 and xSame == 1: x_delta = 0
+xShort == 0 and xSame == 0: x_delta = i16be
+
+yShort == 1 and yPositive == 1: y_delta = u8
+yShort == 1 and yPositive == 0: y_delta = -u8
+yShort == 0 and ySame == 1: y_delta = 0
+yShort == 0 and ySame == 0: y_delta = i16be
+```
+
+`on_curve` は flag bit 0 から得る。`end_of_contour` は topology の endpoint array と `point_index` の一致で判定する。F4h は trailing bytes を読まず、zero padding も要求しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

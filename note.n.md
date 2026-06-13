@@ -58627,3 +58627,50 @@ MERGE_APPROVED
 
 - F4g は coordinate value を復元しない。次 slice は F4h として x/y delta sign、cumulative coordinate、on-curve flag、contour point range を typed point stream として復元する。
 - compound glyph、phantom points、hint instruction semantics、outline winding、rasterization、font fallback policy は未実装である。
+
+## 2026-06-13 GUI font SFNT simple glyph single point decode checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-simple-point-decode-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に沿って、fallback なし、Result / enum error、platform boundary 分離、doc contract と current implementation の分離、静的検査に掛かる typed value を優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F4h `GuiSfntSimpleGlyphPoint` の仕様、詳細設計、実装計画を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPoint` と `gui_sfnt_lookup_simple_glyph_point` を追加した。
+- F4h は F4g の point stream validation path を必ず通り、F4g-derived `flag_data` / `x_data` / `y_data` range 内だけを読む。
+- `point_index < 0` または `point_index >= topology.point_count` は public request に存在しない point を要求しているため `MissingGlyphOutline` として返す。
+- flag / coordinate / endpoint の byte 構造不整合は `MalformedGlyfRecord` として返す。
+- x/y coordinate は point 0 から target point まで delta を累積し、target が repeated flag run の途中にある場合も前の repeated point の delta をすべて消費・累積する。
+- x/y short positive、short negative、same zero、long i16be を分け、`on_curve` は flag bit 0、`end_of_contour` は endpoint array との照合結果として復元する。
+- full point `Vec`、outline builder、rasterization、platform font substitution には接続しない。
+
+### tests
+
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に no-repeat point decode、endpoint decode、repeat run cumulative coordinate、`repeat_count = 0`、signed long coordinate、negative short coordinate、negative / count out-of-range point index、x/y coordinate overrun point lookup を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4h doc / implementation / doctest label / metadata independence / no full point Vec の source policy を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt --no-tree -o tmp_gui_font_sfnt_dir.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した `nodesrc/test_web_gui_font_rendering_contract.js` を含めて GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、今回追加した `glyf.nepl` declaration の doc gap は 0 であり、この slice では baseline を緩めない。
+
+### subagent_review
+
+- Boole pre-review: Required として `MissingGlyphOutline` と `MalformedGlyfRecord` の使い分け、F4g validation path の再利用、repeat run 内 cumulative coordinate、cursor semantics、signed long / negative short delta tests、no Vec / no fallback source policy が指摘された。
+- Boole implementation review: Required として、仕様書が public `gui_sfnt_lookup_simple_glyph_point_stream` wrapper を要求しているように読める点が指摘された。実装と詳細設計に合わせ、F4g point stream validation path を通るという表現へ修正した。
+- Suggested として、point lookup 経由の y coordinate overrun も追加することが挙げられたため、x overrun と対称の doctest を追加した。
+- Boole follow-up review: Required / Suggested とも無し。untracked `NUL` / `tmp_gui_*` を stage しない条件で commit / merge 可能と確認された。
+
+### residual
+
+- F4h は 1 point decode であり、full outline `Vec`、contour builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
+- 次 slice では F4i として ownership / allocation failure / owner recovery contract を先に固めたうえで simple glyph outline builder または streaming contour sink を設計する。
+- `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。

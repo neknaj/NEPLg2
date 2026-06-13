@@ -245,6 +245,165 @@ pub fn gui_sfnt_simple_glyph_point_stream_trailing_data_offset %fn &GuiSfntSimpl
 pub fn gui_sfnt_simple_glyph_point_stream_trailing_data_length %fn &GuiSfntSimpleGlyphPointStream i32 \stream:
     *field::get_ref stream "trailing_data_length"
 
+//: GuiSfntSimpleGlyphPoint: simple glyph の 1 logical point
+//:
+//: [目的/もくてき]:
+//: - full outline allocation 前に、checked stream から 1 点だけを復元した typed value を[運/はこ]びます。
+//: - `end_of_contour` は endpoint array との照合結果であり、flag byte 由来ではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPoint:
+    glyph %GuiGlyphId
+    point_index %i32
+    x %i32
+    y %i32
+    on_curve %bool
+    end_of_contour %bool
+
+impl Clone for GuiSfntSimpleGlyphPoint:
+    fn clone %fn &GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphPoint \point:
+        *point
+
+impl Copy for GuiSfntSimpleGlyphPoint:
+    fn copy_mark %fn GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphPoint \point:
+        point
+
+//: gui_sfnt_simple_glyph_point: simple glyph point value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point %fn GuiGlyphId fn i32 fn i32 fn i32 fn bool fn bool GuiSfntSimpleGlyphPoint \glyph\point_index\x\y\on_curve\end_of_contour:
+    GuiSfntSimpleGlyphPoint glyph point_index x y on_curve end_of_contour
+
+//: gui_sfnt_simple_glyph_point_glyph: point の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_glyph %fn &GuiSfntSimpleGlyphPoint GuiGlyphId \point:
+    *field::get_ref point "glyph"
+
+//: gui_sfnt_simple_glyph_point_index: logical point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_index %fn &GuiSfntSimpleGlyphPoint i32 \point:
+    *field::get_ref point "point_index"
+
+//: gui_sfnt_simple_glyph_point_x: x coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x %fn &GuiSfntSimpleGlyphPoint i32 \point:
+    *field::get_ref point "x"
+
+//: gui_sfnt_simple_glyph_point_y: y coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_y %fn &GuiSfntSimpleGlyphPoint i32 \point:
+    *field::get_ref point "y"
+
+//: gui_sfnt_simple_glyph_point_on_curve: on-curve flag を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_on_curve %fn &GuiSfntSimpleGlyphPoint bool \point:
+    *field::get_ref point "on_curve"
+
+//: gui_sfnt_simple_glyph_point_end_of_contour: contour endpoint 判定を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_end_of_contour %fn &GuiSfntSimpleGlyphPoint bool \point:
+    *field::get_ref point "end_of_contour"
+
+//: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphCoordinateDelta:
+    value %i32
+    byte_length %i32
+
+impl Clone for GuiSfntSimpleGlyphCoordinateDelta:
+    fn clone %fn &GuiSfntSimpleGlyphCoordinateDelta GuiSfntSimpleGlyphCoordinateDelta \delta:
+        *delta
+
+impl Copy for GuiSfntSimpleGlyphCoordinateDelta:
+    fn copy_mark %fn GuiSfntSimpleGlyphCoordinateDelta GuiSfntSimpleGlyphCoordinateDelta \delta:
+        delta
+
+//: gui_sfnt_simple_glyph_coordinate_delta: coordinate delta value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_coordinate_delta %fn i32 fn i32 GuiSfntSimpleGlyphCoordinateDelta \value\byte_length:
+    GuiSfntSimpleGlyphCoordinateDelta value byte_length
+
+//: gui_sfnt_simple_glyph_coordinate_delta_value: delta value を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_coordinate_delta_value %fn &GuiSfntSimpleGlyphCoordinateDelta i32 \delta:
+    *field::get_ref delta "value"
+
+//: gui_sfnt_simple_glyph_coordinate_delta_byte_length: 消費 byte 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_coordinate_delta_byte_length %fn &GuiSfntSimpleGlyphCoordinateDelta i32 \delta:
+    *field::get_ref delta "byte_length"
+
+//: GuiSfntSimpleGlyphPointDecodeState: target 前までの stream cursor と累積座標
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphPointDecodeState:
+    logical_index %i32
+    flag %i32
+    x_cursor %i32
+    y_cursor %i32
+    x %i32
+    y %i32
+
+impl Clone for GuiSfntSimpleGlyphPointDecodeState:
+    fn clone %fn &GuiSfntSimpleGlyphPointDecodeState GuiSfntSimpleGlyphPointDecodeState \state:
+        *state
+
+impl Copy for GuiSfntSimpleGlyphPointDecodeState:
+    fn copy_mark %fn GuiSfntSimpleGlyphPointDecodeState GuiSfntSimpleGlyphPointDecodeState \state:
+        state
+
+//: gui_sfnt_simple_glyph_point_decode_state: point decode state を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphPointDecodeState \logical_index\flag\x_cursor\y_cursor\x\y:
+    GuiSfntSimpleGlyphPointDecodeState logical_index flag x_cursor y_cursor x y
+
+//: gui_sfnt_simple_glyph_point_decode_state_logical_index: 次に処理する logical index を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state_logical_index %fn &GuiSfntSimpleGlyphPointDecodeState i32 \state:
+    *field::get_ref state "logical_index"
+
+//: gui_sfnt_simple_glyph_point_decode_state_flag: 最後に処理した flag を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state_flag %fn &GuiSfntSimpleGlyphPointDecodeState i32 \state:
+    *field::get_ref state "flag"
+
+//: gui_sfnt_simple_glyph_point_decode_state_x_cursor: x cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state_x_cursor %fn &GuiSfntSimpleGlyphPointDecodeState i32 \state:
+    *field::get_ref state "x_cursor"
+
+//: gui_sfnt_simple_glyph_point_decode_state_y_cursor: y cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state_y_cursor %fn &GuiSfntSimpleGlyphPointDecodeState i32 \state:
+    *field::get_ref state "y_cursor"
+
+//: gui_sfnt_simple_glyph_point_decode_state_x: 累積 x coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state_x %fn &GuiSfntSimpleGlyphPointDecodeState i32 \state:
+    *field::get_ref state "x"
+
+//: gui_sfnt_simple_glyph_point_decode_state_y: 累積 y coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_point_decode_state_y %fn &GuiSfntSimpleGlyphPointDecodeState i32 \state:
+    *field::get_ref state "y"
+
 //: GuiSfntSimpleGlyphFlagScan: raw flag stream scan summary
 //:
 //: neplg2:test[skip]
@@ -444,6 +603,28 @@ fn gui_sfnt_glyf_glyph_relative_range_is_valid %fn i32 fn i32 fn i32 fn i32 bool
                     false
                 else:
                     le size sub end offset
+
+//: gui_sfnt_glyf_stream_relative_range_is_valid: F4g stream 内の range か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_stream_relative_range_is_valid %fn i32 fn i32 fn i32 fn i32 bool \start\length\offset\size:
+    if:
+        or lt length 0 lt size 0
+        then:
+            false
+        else:
+            if:
+                lt offset start
+                then:
+                    false
+                else:
+                    let end %i32 add start length
+                    if:
+                        gt offset end
+                        then:
+                            false
+                        else:
+                            le size sub end offset
 
 //: gui_sfnt_glyf_read_index_to_loc_format: `head.indexToLocFormat` を[読/よ]む
 //:
@@ -851,6 +1032,244 @@ fn gui_sfnt_glyf_point_stream_from_topology %fn &ByteBuf fn GuiSfntTableRecord f
                         else:
                             Result::Ok gui_sfnt_simple_glyph_point_stream topology flag_data_offset flag_data_length x_data_offset x_data_length y_data_offset y_data_length trailing_data_offset trailing_data_length
 
+//: gui_sfnt_glyf_read_u8_in_stream_range: F4g-derived stream 内の 1 byte を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_read_u8_in_stream_range %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn i32 fn i32 Result i32 GuiSfntParseError \bytes\glyf\start\length\offset:
+    if:
+        not gui_sfnt_glyf_stream_relative_range_is_valid start length offset 1
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf offset
+        else:
+            gui_sfnt_glyf_read_u8 bytes add gui_sfnt_table_record_offset &glyf offset GuiSfntParseErrorKind::MalformedGlyfRecord
+
+//: gui_sfnt_glyf_read_i16_in_stream_range: F4g-derived stream 内の i16be を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_read_i16_in_stream_range %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn i32 fn i32 Result i32 GuiSfntParseError \bytes\glyf\start\length\offset:
+    if:
+        not gui_sfnt_glyf_stream_relative_range_is_valid start length offset 2
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf offset
+        else:
+            gui_sfnt_glyf_read_i16_be bytes add gui_sfnt_table_record_offset &glyf offset GuiSfntParseErrorKind::MalformedGlyfRecord
+
+//: gui_sfnt_glyf_decode_x_delta: flag と x cursor から x delta を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_decode_x_delta %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 Result GuiSfntSimpleGlyphCoordinateDelta GuiSfntParseError \bytes\glyf\stream\flag\x_cursor:
+    let x_start %i32 gui_sfnt_simple_glyph_point_stream_x_data_offset &stream
+    let x_length %i32 gui_sfnt_simple_glyph_point_stream_x_data_length &stream
+    if:
+        gui_sfnt_glyf_flag_has_bit flag 2
+        then:
+            match gui_sfnt_glyf_read_u8_in_stream_range bytes glyf x_start x_length x_cursor:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok byte:
+                    if:
+                        gui_sfnt_glyf_flag_has_bit flag 16
+                        then:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta byte 1
+                        else:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta sub 0 byte 1
+        else:
+            if:
+                gui_sfnt_glyf_flag_has_bit flag 16
+                then:
+                    Result::Ok gui_sfnt_simple_glyph_coordinate_delta 0 0
+                else:
+                    match gui_sfnt_glyf_read_i16_in_stream_range bytes glyf x_start x_length x_cursor:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok value:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta value 2
+
+//: gui_sfnt_glyf_decode_y_delta: flag と y cursor から y delta を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_decode_y_delta %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 Result GuiSfntSimpleGlyphCoordinateDelta GuiSfntParseError \bytes\glyf\stream\flag\y_cursor:
+    let y_start %i32 gui_sfnt_simple_glyph_point_stream_y_data_offset &stream
+    let y_length %i32 gui_sfnt_simple_glyph_point_stream_y_data_length &stream
+    if:
+        gui_sfnt_glyf_flag_has_bit flag 4
+        then:
+            match gui_sfnt_glyf_read_u8_in_stream_range bytes glyf y_start y_length y_cursor:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok byte:
+                    if:
+                        gui_sfnt_glyf_flag_has_bit flag 32
+                        then:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta byte 1
+                        else:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta sub 0 byte 1
+        else:
+            if:
+                gui_sfnt_glyf_flag_has_bit flag 32
+                then:
+                    Result::Ok gui_sfnt_simple_glyph_coordinate_delta 0 0
+                else:
+                    match gui_sfnt_glyf_read_i16_in_stream_range bytes glyf y_start y_length y_cursor:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok value:
+                            Result::Ok gui_sfnt_simple_glyph_coordinate_delta value 2
+
+//: gui_sfnt_glyf_decode_flag_run_state: 同じ flag の repeated logical points を累積する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_decode_flag_run_state %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 fn GuiSfntSimpleGlyphPointDecodeState Result GuiSfntSimpleGlyphPointDecodeState GuiSfntParseError \bytes\glyf\stream\flag\remaining\state:
+    if:
+        le remaining 0
+        then:
+            Result::Ok state
+        else:
+            let x_cursor %i32 gui_sfnt_simple_glyph_point_decode_state_x_cursor &state
+            let y_cursor %i32 gui_sfnt_simple_glyph_point_decode_state_y_cursor &state
+            let current_x %i32 gui_sfnt_simple_glyph_point_decode_state_x &state
+            let current_y %i32 gui_sfnt_simple_glyph_point_decode_state_y &state
+            match gui_sfnt_glyf_decode_x_delta bytes glyf stream flag x_cursor:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok x_delta:
+                    match gui_sfnt_glyf_decode_y_delta bytes glyf stream flag y_cursor:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok y_delta:
+                            let next_x_cursor %i32 add x_cursor gui_sfnt_simple_glyph_coordinate_delta_byte_length &x_delta
+                            let next_y_cursor %i32 add y_cursor gui_sfnt_simple_glyph_coordinate_delta_byte_length &y_delta
+                            let next_x %i32 add current_x gui_sfnt_simple_glyph_coordinate_delta_value &x_delta
+                            let next_y %i32 add current_y gui_sfnt_simple_glyph_coordinate_delta_value &y_delta
+                            let next_logical_index %i32 add gui_sfnt_simple_glyph_point_decode_state_logical_index &state 1
+                            let next_state %GuiSfntSimpleGlyphPointDecodeState gui_sfnt_simple_glyph_point_decode_state next_logical_index flag next_x_cursor next_y_cursor next_x next_y
+                            gui_sfnt_glyf_decode_flag_run_state bytes glyf stream flag sub remaining 1 next_state
+
+//: gui_sfnt_glyf_decode_point_state_from_flag_run: target と flag run の位置関係を[分/わ]ける
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_decode_point_state_from_flag_run %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphPointDecodeState Result GuiSfntSimpleGlyphPointDecodeState GuiSfntParseError \bytes\glyf\stream\target_index\flag\run_count\next_flag_cursor\state:
+    if:
+        le run_count 0
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf next_flag_cursor
+        else:
+            let logical_index %i32 gui_sfnt_simple_glyph_point_decode_state_logical_index &state
+            let run_end_next %i32 add logical_index run_count
+            if:
+                lt target_index run_end_next
+                then:
+                    let target_count %i32 add sub target_index logical_index 1
+                    gui_sfnt_glyf_decode_flag_run_state bytes glyf stream flag target_count state
+                else:
+                    match gui_sfnt_glyf_decode_flag_run_state bytes glyf stream flag run_count state:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_state:
+                            gui_sfnt_glyf_decode_point_state_from_stream bytes glyf stream target_index next_flag_cursor next_state
+
+//: gui_sfnt_glyf_decode_point_state_from_stream: target point まで flag stream を[進/すす]める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_decode_point_state_from_stream %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 fn GuiSfntSimpleGlyphPointDecodeState Result GuiSfntSimpleGlyphPointDecodeState GuiSfntParseError \bytes\glyf\stream\target_index\flag_cursor\state:
+    let flag_start %i32 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream
+    let flag_length %i32 gui_sfnt_simple_glyph_point_stream_flag_data_length &stream
+    match gui_sfnt_glyf_read_u8_in_stream_range bytes glyf flag_start flag_length flag_cursor:
+        Result::Err error:
+            Result::Err error
+        Result::Ok flag:
+            if:
+                gui_sfnt_glyf_flag_has_bit flag 8
+                then:
+                    let repeat_count_offset %i32 add flag_cursor 1
+                    match gui_sfnt_glyf_read_u8_in_stream_range bytes glyf flag_start flag_length repeat_count_offset:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok repeat_count:
+                            let run_count %i32 add repeat_count 1
+                            gui_sfnt_glyf_decode_point_state_from_flag_run bytes glyf stream target_index flag run_count add flag_cursor 2 state
+                else:
+                    gui_sfnt_glyf_decode_point_state_from_flag_run bytes glyf stream target_index flag 1 add flag_cursor 1 state
+
+//: gui_sfnt_glyf_topology_endpoint_array_offset: topology から endpoint array offset を[復元/ふくげん]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_topology_endpoint_array_offset %fn &GuiSfntSimpleGlyphTopology i32 \topology:
+    let point_data_offset %i32 gui_sfnt_simple_glyph_topology_point_data_offset topology
+    let instruction_length %i32 gui_sfnt_simple_glyph_topology_instruction_length topology
+    let contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count topology
+    let endpoint_array_length %i32 mul contour_count 2
+    let after_endpoint_array %i32 sub point_data_offset instruction_length
+    let endpoint_array_end %i32 sub after_endpoint_array 2
+    sub endpoint_array_end endpoint_array_length
+
+//: gui_sfnt_glyf_point_is_contour_end_loop: endpoint array と point index を[照合/しょうごう]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_point_is_contour_end_loop %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn i32 fn i32 fn i32 Result bool GuiSfntParseError \bytes\glyf\endpoint_array_offset\contour_count\index\point_index:
+    if:
+        ge index contour_count
+        then:
+            Result::Ok false
+        else:
+            let endpoint_offset %i32 add endpoint_array_offset mul index 2
+            if:
+                not gui_sfnt_glyf_table_relative_range_is_valid glyf endpoint_offset 2
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_offset
+                else:
+                    match gui_sfnt_glyf_read_u16_be bytes add gui_sfnt_table_record_offset &glyf endpoint_offset GuiSfntParseErrorKind::MalformedGlyfRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok endpoint:
+                            if:
+                                eq endpoint point_index
+                                then:
+                                    Result::Ok true
+                                else:
+                                    if:
+                                        gt endpoint point_index
+                                        then:
+                                            Result::Ok false
+                                        else:
+                                            gui_sfnt_glyf_point_is_contour_end_loop bytes glyf endpoint_array_offset contour_count add index 1 point_index
+
+//: gui_sfnt_glyf_point_is_contour_end: point index が contour endpoint か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_point_is_contour_end %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphTopology fn i32 Result bool GuiSfntParseError \bytes\glyf\topology\point_index:
+    let endpoint_array_offset %i32 gui_sfnt_glyf_topology_endpoint_array_offset &topology
+    let contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count &topology
+    gui_sfnt_glyf_point_is_contour_end_loop bytes glyf endpoint_array_offset contour_count 0 point_index
+
+//: gui_sfnt_glyf_decode_point_from_stream: checked stream から 1 logical point を[復元/ふくげん]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_decode_point_from_stream %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 Result GuiSfntSimpleGlyphPoint GuiSfntParseError \bytes\glyf\stream\point_index:
+    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+    let point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology
+    let flag_data_offset %i32 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream
+    if:
+        or lt point_index 0 ge point_index point_count
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline add gui_sfnt_table_record_offset &glyf flag_data_offset
+        else:
+            let initial_state %GuiSfntSimpleGlyphPointDecodeState gui_sfnt_simple_glyph_point_decode_state 0 0 gui_sfnt_simple_glyph_point_stream_x_data_offset &stream gui_sfnt_simple_glyph_point_stream_y_data_offset &stream 0 0
+            match gui_sfnt_glyf_decode_point_state_from_stream bytes glyf stream point_index flag_data_offset initial_state:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok state:
+                    match gui_sfnt_glyf_point_is_contour_end bytes glyf topology point_index:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok end_of_contour:
+                            let glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+                            let x %i32 gui_sfnt_simple_glyph_point_decode_state_x &state
+                            let y %i32 gui_sfnt_simple_glyph_point_decode_state_y &state
+                            let flag %i32 gui_sfnt_simple_glyph_point_decode_state_flag &state
+                            let on_curve %bool gui_sfnt_glyf_flag_has_bit flag 1
+                            Result::Ok gui_sfnt_simple_glyph_point glyph point_index x y on_curve end_of_contour
+
 //: gui_sfnt_glyf_simple_point_stream_with_tables: metadata 済み table から simple point stream を[引/ひ]く
 //:
 //: neplg2:test[skip]
@@ -860,6 +1279,16 @@ fn gui_sfnt_glyf_simple_point_stream_with_tables %fn &ByteBuf fn GuiSfntTableRec
             Result::Err error
         Result::Ok topology:
             gui_sfnt_glyf_point_stream_from_topology bytes glyf topology
+
+//: gui_sfnt_glyf_simple_point_with_tables: metadata 済み table から simple point を[引/ひ]く
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_simple_point_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId fn i32 Result GuiSfntSimpleGlyphPoint GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph\point_index:
+    match gui_sfnt_glyf_simple_point_stream_with_tables bytes head loca glyf metrics glyph:
+        Result::Err error:
+            Result::Err error
+        Result::Ok stream:
+            gui_sfnt_glyf_decode_point_from_stream bytes glyf stream point_index
 
 //: gui_sfnt_lookup_glyph_bounds: SFNT glyf から glyph header bounds を[読/よ]む
 //:
@@ -953,3 +1382,35 @@ pub fn gui_sfnt_lookup_simple_glyph_point_stream %fn &ByteBuf fn Option i32 fn G
                                     Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
                                 Option::Some glyf:
                                     gui_sfnt_glyf_simple_point_stream_with_tables bytes head loca glyf metrics glyph
+
+//: gui_sfnt_lookup_simple_glyph_point: SFNT glyf から simple glyph の 1 点を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - F4g の checked point stream range を通して、指定 logical point の累積 coordinate と flag state を[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - `point_index` が glyph の point 数外なら `MissingGlyphOutline` です。
+//: - flag / coordinate / endpoint byte の破損は `MalformedGlyfRecord` です。
+//: - full outline allocation、rasterization、platform font substitution はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_point %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 Result GuiSfntSimpleGlyphPoint GuiSfntParseError \bytes\face_index\glyph\point_index:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+            match gui_sfnt_directory_head &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some head:
+                    match gui_sfnt_directory_loca &directory:
+                        Option::None:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                        Option::Some loca:
+                            match gui_sfnt_directory_glyf &directory:
+                                Option::None:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                                Option::Some glyf:
+                                    gui_sfnt_glyf_simple_point_with_tables bytes head loca glyf metrics glyph point_index

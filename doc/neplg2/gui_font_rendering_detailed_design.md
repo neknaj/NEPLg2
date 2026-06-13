@@ -428,6 +428,85 @@ trailing_data_length = glyph_end - trailing_data_offset
 
 `trailing_data_length < 0` is `MalformedGlyfRecord`. Non-negative trailing data is returned explicitly, not treated as hidden fallback. Later sanitizer or outline decode phases can decide whether non-zero padding is accepted.
 
+### SFNT simple glyph single point decode
+
+F4h decodes one logical point from an already checked `GuiSfntSimpleGlyphPointStream`. It intentionally does not allocate a point `Vec`; the full outline builder is deferred until allocation failure and owner recovery are specified.
+
+```text
+GuiSfntSimpleGlyphPoint:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+    on_curve bool
+    end_of_contour bool
+```
+
+Public lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_point:
+    &ByteBuf -> Option i32 -> GuiGlyphId -> i32
+    -> Result GuiSfntSimpleGlyphPoint GuiSfntParseError
+```
+
+The lookup flow is:
+
+```text
+parse metadata
+    -> unwrap head / loca / glyf
+    -> gui_sfnt_glyf_simple_point_stream_with_tables
+    -> validate point_index against topology.point_count
+    -> decode flags and coordinate deltas only inside stream ranges
+    -> read endpoint array through topology-derived endpoint offset
+    -> return GuiSfntSimpleGlyphPoint
+```
+
+`point_index < 0` and `point_index >= point_count` return `MissingGlyphOutline`. These conditions are invalid public point requests, not malformed bytes.
+
+Malformed byte structure remains `MalformedGlyfRecord`:
+
+- repeat byte required by a flag is outside `flag_data`
+- x/y coordinate read is outside F4g-derived x/y range
+- endpoint array read fails despite topology validation
+- internal offset arithmetic is inconsistent
+
+Cursor semantics:
+
+```text
+flag_cursor = flag_data_offset
+x_cursor = x_data_offset
+y_cursor = y_data_offset
+logical_index = 0
+current_x = 0
+current_y = 0
+```
+
+Each logical point consumes its flag first, then consumes x/y coordinate bytes according to that flag, applies deltas cumulatively, and only then compares `logical_index` with target. When target lies inside a repeated flag run, all earlier repeated points in that same run still consume coordinate bytes and update cumulative coordinates.
+
+Delta formula:
+
+```text
+xShort and xPositive: +u8
+xShort and not xPositive: -u8
+not xShort and xSame: 0
+not xShort and not xSame: i16be
+
+yShort and yPositive: +u8
+yShort and not yPositive: -u8
+not yShort and ySame: 0
+not yShort and not ySame: i16be
+```
+
+`on_curve` is flag bit 0. `end_of_contour` is true if `point_index` equals any endpoint value. The endpoint array offset is derived from topology:
+
+```text
+endpoint_array_length = contour_count * 2
+endpoint_array_offset = point_data_offset - instruction_length - 2 - endpoint_array_length
+```
+
+F4h ignores `trailing_data_length` except that F4g already proved it is non-negative. It must not consume trailing bytes, require zero padding, call host font APIs, or use fixed-cell fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
