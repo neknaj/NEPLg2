@@ -425,7 +425,24 @@ Phase 1 current registry は compiler-known prepared fingerprint を使う。こ
 
 source policy は `nodesrc/test_selfhost_memo_trait_operation_classifier_contract.js` を追加し、classifier evidence の所有 module、current registry の4 source validation、shape hash 再導出、missing / placeholder / mismatch rejection、untrusted source rejection、facade re-export 禁止、`nodesrc/selfhost_ty_sources.js` 登録禁止、line count / doc comment length cap 禁止を固定した。既存 `nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js` も、producer が classifier evidence type を所有しないDAGへ更新した。
 
-残件は、trait impl table の探索、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact との接続である。
+## 2026-06-13 selfhost operation impl table checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl` を追加し、public surface normalizer が作る trait impl 候補列から `SelfhostTypeId` + Copy / Drop / Eq / Hash operation kind に対応する候補を一意に探す checker-layer table を接続した。
+
+`SelfhostMemoTraitOperationImplCandidate` は session-local `type_id`、operation kind、`SelfhostMemoTraitPublicImplHeaderInput`、`SelfhostMemoTraitOperationTraitApplicationInput`、resolved target type shape evidence、method body evidence、Drop evidence を持つ。table lookup は source text、span、lexeme、display name、diagnostic、module path、flattened public declaration payload hash を authority にしない。候補が 0 件なら `CandidateMissing`、同じ key が 2 件以上なら `CandidateDuplicate` として fail-closed に拒否し、first-wins は使わない。さらに `idx < len` で `Vec::get` が `None` を返す table 不整合は `CandidateReadFailed(idx)` として扱い、既に見つけた candidate を成功へ畳まない。
+
+候補は `selfhost_memo_trait_operation_classifier_evidence_result` で shape-bound classifier evidence に変換し、さらに `selfhost_memo_trait_operation_evidence_producer_status_result` と `selfhost_memo_trait_operation_evidence_producer_record_result` を通す。table は operation evidence record を直接組み立てず、producer の public impl header validation、target shape match、classifier shape match、operation kind match、method / Drop evidence applicability を迂回しない。generic header rejection、target shape mismatch、untrusted classifier source、missing、duplicate を stage0 doctest と source policy で固定した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js` を追加し、source policy runner に登録した。facade re-export と `nodesrc/selfhost_ty_sources.js` 登録は禁止したままにし、HIR / Resource IR / backend / proof store / artifact reader / serializer / canonical key codec への逆依存、source-derived authority、line count / doc comment length cap の導入を禁止した。`table_push` の失敗経路では `v::vec_push_error_vec` を `v::free` する owner recovery も退行検出対象にした。
+
+subagent review では Anscombe が Blocker なしとしつつ、first-wins 禁止、typed candidate fields、nested classifier / producer rejection、target mismatch smoke、method body purity / Drop proof / generic binder を混ぜないこと、O(n) lookup は後から index 化できる実装詳細として扱うことを Required とした。実装では `Vec` owner table、duplicate fail-closed、classifier / producer 経由、target mismatch regression、facade 非公開、source policy 固定を同じ slice 内で反映した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-impl-table.json`
+
+残件は、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact との接続である。
 
 ## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
 
