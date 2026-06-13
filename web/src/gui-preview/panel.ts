@@ -576,6 +576,10 @@ function guiVideoMemoryErrorActual(error: GuiVideoMemoryError): string {
             return `${error.kind}:slots=${error.slotCount}:header=${error.headerWords}:offset=${error.pixelPlaneByteOffset}:length=${error.pixelPlaneByteLength}`;
         case 'invalid-slot-state':
             return `${error.kind}:slot=${error.slotIndex}:actual=${error.actual}`;
+        case 'invalid-write-region':
+            return `${error.kind}:${error.x},${error.y},${error.width}:surface=${error.surfaceWidth}x${error.surfaceHeight}`;
+        case 'invalid-source-length':
+            return `${error.kind}:actual=${error.actual}:expected=${error.expected}`;
         case 'stale-resize-generation':
             return `${error.kind}:expected=${error.expected}:actual=${error.actual}`;
         case 'invalid-dirty-region':

@@ -347,6 +347,7 @@ Web worker runtime は Web-only import module `nepl_gui_web` に video memory ho
 video_memory_create_surface width height slot_count -> surface_id_or_negative_status
 video_memory_acquire_write_slot surface_id -> frame_id_or_negative_status
 video_memory_write_slot_bytes surface_id frame_id dst_offset src_ptr byte_len -> status
+video_memory_write_rgba8888_row surface_id frame_id x y width src_ptr -> status
 video_memory_fill_rect_rgba8888 surface_id frame_id x y width height r g b a -> status
 video_memory_discard_write_slot surface_id frame_id -> status
 video_memory_publish_slot surface_id frame_id dirty_kind x y width height -> status
@@ -355,6 +356,8 @@ video_memory_close_surface surface_id -> status
 ```
 
 `surface_id` と `frame_id` は worker-local opaque positive integer である。NEPL/Wasm code は `SharedArrayBuffer`、DOM handle、Canvas handle、JS object handle、ArrayBuffer transfer object、string handle を受け取らない。`SharedArrayBuffer remains a Web backend detail` であり、Worker は `video-memory-surface.ts` の ownership API だけで surface / slot を扱う。
+
+`write_slot_bytes` は low-level byte copy escape hatch である。application code が row payload を扱う場合は `write_rgba8888_row` を使い、app 側で `y * stride + x * 4` の byte offset を計算しない。`write_rgba8888_row` は `width > 0`、`x + width <= surface.width`、`0 <= y < surface.height`、source byte length が `width * 4` であることを Worker と surface helper の両方で検査する。成功時は pixel plane だけを更新し、dirty metadata、slot epoch、published epoch、presented epoch は更新しない。dirty region と epoch の authority は `publish_slot` である。
 
 Negative status は Web platform module 内で `Result` と `GuiError` へ写す。Raw sentinel は public wrapper から漏らさない。
 
@@ -400,7 +403,7 @@ Unavailable
 Protocol:
 
 1. writer は slot header を走査し、`Atomics.compareExchange(slot_state, Free, Writing)` に成功した slot だけを取得する。
-2. writer は取得した slot の pixel plane だけを更新する。`Published`、`Reading`、`Closed` の slot へ書いてはいけない。
+2. writer は取得した slot の pixel plane だけを更新する。`Published`、`Reading`、`Closed` の slot へ書いてはいけない。row payload は `write_rgba8888_row` で `GuiPoint + width + src` として渡し、byte offset arithmetic は Web platform module と host helper に閉じ込める。
 3. writer が frame を破棄する場合は、dirty metadata を 0 に戻し、`Atomics.compareExchange(slot_state, Writing, Free)` に成功した時だけ frame id の ownership record を消す。published epoch と presented epoch は進めない。
 4. writer が frame を公開する場合は slot dirty region を書く。
 5. writer は slot epoch を新しい値へ `Atomics.store` する。

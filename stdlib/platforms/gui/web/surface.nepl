@@ -39,6 +39,7 @@
 #extern "nepl_gui_web" "video_memory_create_surface" fn gui_web_video_memory_create_surface_raw %impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_acquire_write_slot" fn gui_web_video_memory_acquire_write_slot_raw %impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_write_slot_bytes" fn gui_web_video_memory_write_slot_bytes_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_write_rgba8888_row" fn gui_web_video_memory_write_rgba8888_row_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_fill_rect_rgba8888" fn gui_web_video_memory_fill_rect_rgba8888_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_discard_write_slot" fn gui_web_video_memory_discard_write_slot_raw %impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_publish_slot" fn gui_web_video_memory_publish_slot_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
@@ -193,6 +194,30 @@ pub fn gui_web_video_memory_write_frame_bytes %impure fn &GuiWebVideoMemorySurfa
     let raw_frame %i32 frame_id_raw &frame
     let src_raw %i32 mem_internal::mem_ptr_addr src
     gui_web_video_memory_status_unit gui_web_video_memory_write_slot_bytes_raw raw_surface raw_frame dst_offset src_raw byte_len
+
+//: gui_web_video_memory_write_rgba8888_row: RGBA8888 row payload を write frame へ[書/か]き[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - Mandelbrot などの raster row payload を、stdout protocol ではなく Web video memory slot へ[直接/ちょくせつ][渡/わた]すための row writer です。
+//: - app は byte offset を[計算/けいさん]せず、origin と pixel width だけを[渡/わた]します。
+//:
+//: [契約/けいやく]:
+//: - `width <= 0` は `GuiError::InvalidGeometry` です。
+//: - host は `width * 4` byte を `src` から読み、surface 内の 1 行 region だけを[更新/こうしん]します。
+//: - dirty region、frame epoch、publish / present はこの関数では[更新/こうしん]しません。公開範囲は publish 関数で明示します。
+//: - stdout transport や command frame への fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_write_rgba8888_row %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiPoint impure fn i32 impure fn MemPtr u8 Result unit GuiError \surface\frame\origin\width\src:
+    if le width 0:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            let raw_surface %i32 gui_web_video_memory_surface_raw surface
+            let raw_frame %i32 frame_id_raw &frame
+            let x %i32 gui_point_x &origin
+            let y %i32 gui_point_y &origin
+            let src_raw %i32 mem_internal::mem_ptr_addr src
+            gui_web_video_memory_status_unit gui_web_video_memory_write_rgba8888_row_raw raw_surface raw_frame x y width src_raw
 
 //: gui_web_video_memory_fill_rect_rgba8888: write frame の rect を RGBA で[塗/ぬ]る
 //:
