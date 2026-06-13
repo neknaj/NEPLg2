@@ -21,6 +21,27 @@ import {
     type GuiWebSharedInputEventRecord,
     type GuiWebSharedInputEventTakeResult,
 } from '../gui-preview/shared-event-queue.js';
+import {
+    acquireGuiVideoMemoryWriteSlot,
+    closeGuiVideoMemorySurface,
+    createGuiVideoMemorySurface,
+    publishGuiVideoMemoryWriteSlot,
+    type GuiVideoMemoryDirtyRegion,
+    type GuiVideoMemoryError,
+    type GuiVideoMemorySurface,
+    type GuiVideoMemoryWriteSlot,
+} from '../gui-preview/video-memory-surface.js';
+import {
+    createGuiVideoMemoryHostAckBuffer,
+    GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE,
+    GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT,
+    GUI_VIDEO_MEMORY_HOST_STATUS_NO_WRITABLE_SLOT,
+    GUI_VIDEO_MEMORY_HOST_STATUS_OK,
+    GUI_VIDEO_MEMORY_HOST_STATUS_RESOURCE_EXHAUSTED,
+    GUI_VIDEO_MEMORY_HOST_STATUS_STALE_FRAME,
+    GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED,
+    waitGuiVideoMemoryHostAck,
+} from '../gui-preview/video-memory-host-abi.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -45,11 +66,21 @@ type WorkerErrorMessage = {
     recoverable: boolean;
 };
 
+type WorkerGuiVideoMemoryPresentMessage = {
+    type: 'gui_video_memory_present';
+    requestId: number;
+    ack: SharedArrayBuffer;
+    windowId: number;
+    title: string;
+    buffer: SharedArrayBuffer;
+};
+
 type WorkerMessage =
     | WorkerStdoutMessage
     | WorkerCompileResultMessage
     | WorkerExitMessage
     | WorkerErrorMessage
+    | WorkerGuiVideoMemoryPresentMessage
     | { type: 'stdin_request' };
 
 type RunWasmRequest = {
@@ -86,6 +117,18 @@ type LastGuiWebInputEvent =
     | { kind: 'empty' }
     | { kind: 'event'; event: GuiWebSharedInputEventRecord };
 
+type GuiWebVideoMemoryHostFrameRecord = {
+    frameId: number;
+    slot: GuiVideoMemoryWriteSlot;
+};
+
+type GuiWebVideoMemoryHostSurfaceRecord = {
+    handle: number;
+    surface: GuiVideoMemorySurface;
+    nextFrameId: number;
+    frames: GuiWebVideoMemoryHostFrameRecord[];
+};
+
 let compilerInitPromise: Promise<any> | null = null;
 let compilerSession: any | null = null;
 let compilerSessionChecked = false;
@@ -108,6 +151,9 @@ class WorkerWASI extends WASI {
     stdinData: Uint8Array | null = null;
     guiEventBuffer: SharedArrayBuffer | null = null;
     private lastGuiWebInputEvent: LastGuiWebInputEvent = { kind: 'empty' };
+    private nextGuiVideoMemorySurfaceHandle = 1;
+    private nextGuiVideoMemoryPresentRequestId = 1;
+    private guiVideoMemorySurfaces: GuiWebVideoMemoryHostSurfaceRecord[] = [];
     private stdinOffset = 0;
     private stdinTotal = 0;
 
@@ -139,6 +185,13 @@ class WorkerWASI extends WASI {
             last_event_window_height: this.nepl_gui_web_last_event_window_height.bind(this),
             last_event_timer_id: this.nepl_gui_web_last_event_timer_id.bind(this),
             last_event_timer_tick: this.nepl_gui_web_last_event_timer_tick.bind(this),
+            video_memory_create_surface: this.nepl_gui_web_video_memory_create_surface.bind(this),
+            video_memory_acquire_write_slot: this.nepl_gui_web_video_memory_acquire_write_slot.bind(this),
+            video_memory_write_slot_bytes: this.nepl_gui_web_video_memory_write_slot_bytes.bind(this),
+            video_memory_fill_rect_rgba8888: this.nepl_gui_web_video_memory_fill_rect_rgba8888.bind(this),
+            video_memory_publish_slot: this.nepl_gui_web_video_memory_publish_slot.bind(this),
+            video_memory_present_surface: this.nepl_gui_web_video_memory_present_surface.bind(this),
+            video_memory_close_surface: this.nepl_gui_web_video_memory_close_surface.bind(this),
         };
     }
 
@@ -407,6 +460,158 @@ class WorkerWASI extends WASI {
         return this.lastGuiWebInputEvent.event.tick;
     }
 
+    nepl_gui_web_video_memory_create_surface(width: number, height: number, slotCount: number): number {
+        const created = createGuiVideoMemorySurface(width, height, slotCount);
+        if (created.kind === 'err') {
+            return guiVideoMemoryHostStatusFromError(created.error);
+        }
+        const handle = this.nextGuiVideoMemorySurfaceHandle;
+        this.nextGuiVideoMemorySurfaceHandle += 1;
+        this.guiVideoMemorySurfaces = [
+            ...this.guiVideoMemorySurfaces,
+            {
+                handle,
+                surface: created.value,
+                nextFrameId: 1,
+                frames: [],
+            },
+        ];
+        return handle;
+    }
+
+    nepl_gui_web_video_memory_acquire_write_slot(surfaceHandle: number): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceHandle);
+        if (!surface) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const acquired = acquireGuiVideoMemoryWriteSlot(surface.surface);
+        if (acquired.kind === 'err') {
+            return guiVideoMemoryHostStatusFromError(acquired.error);
+        }
+        const frameId = surface.nextFrameId;
+        surface.nextFrameId += 1;
+        surface.frames = [
+            ...surface.frames,
+            {
+                frameId,
+                slot: acquired.value,
+            },
+        ];
+        return frameId;
+    }
+
+    nepl_gui_web_video_memory_write_slot_bytes(
+        surfaceHandle: number,
+        frameId: number,
+        dstOffset: number,
+        srcPtr: number,
+        byteLen: number,
+    ): number {
+        const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
+        if (
+            !frame
+            || !isNonNegativeInteger(dstOffset)
+            || !isNonNegativeInteger(byteLen)
+            || dstOffset + byteLen > frame.slot.surface.pixelByteLength
+        ) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const source = this.memoryBytes(srcPtr, byteLen);
+        if (typeof source === 'number') {
+            return source;
+        }
+        frame.slot.pixels.set(source, dstOffset);
+        return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    }
+
+    nepl_gui_web_video_memory_fill_rect_rgba8888(
+        surfaceHandle: number,
+        frameId: number,
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        r: number,
+        g: number,
+        b: number,
+        a: number,
+    ): number {
+        const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
+        if (!frame || !isValidRect(frame.slot.surface, x, y, width, height) || !areValidColorChannels(r, g, b, a)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        for (let row = y; row < y + height; row += 1) {
+            let offset = row * frame.slot.surface.strideBytes + x * 4;
+            for (let column = 0; column < width; column += 1) {
+                frame.slot.pixels[offset] = r;
+                frame.slot.pixels[offset + 1] = g;
+                frame.slot.pixels[offset + 2] = b;
+                frame.slot.pixels[offset + 3] = a;
+                offset += 4;
+            }
+        }
+        return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    }
+
+    nepl_gui_web_video_memory_publish_slot(
+        surfaceHandle: number,
+        frameId: number,
+        dirtyKind: number,
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+    ): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceHandle);
+        const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
+        if (!surface || !frame) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const dirty = this.decodeGuiVideoMemoryDirtyRegion(frame.slot.surface, dirtyKind, x, y, width, height);
+        if (typeof dirty === 'number') {
+            return dirty;
+        }
+        const published = publishGuiVideoMemoryWriteSlot(frame.slot, dirty);
+        if (published.kind === 'err') {
+            return guiVideoMemoryHostStatusFromError(published.error);
+        }
+        surface.frames = surface.frames.filter((candidate) => candidate.frameId !== frameId);
+        return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    }
+
+    nepl_gui_web_video_memory_present_surface(
+        windowId: number,
+        titlePtr: number,
+        titleLen: number,
+        surfaceHandle: number,
+    ): number {
+        if (!isPositiveInteger(windowId)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const surface = this.findGuiVideoMemorySurface(surfaceHandle);
+        if (!surface) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const title = this.decodeGuiVideoMemoryTitle(titlePtr, titleLen);
+        if (typeof title === 'number') {
+            return title;
+        }
+        return this.presentGuiVideoMemorySurface(windowId, title, surface);
+    }
+
+    nepl_gui_web_video_memory_close_surface(surfaceHandle: number): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceHandle);
+        if (!surface) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const closed = closeGuiVideoMemorySurface(surface.surface);
+        if (closed.kind === 'err') {
+            return guiVideoMemoryHostStatusFromError(closed.error);
+        }
+        this.guiVideoMemorySurfaces = this.guiVideoMemorySurfaces.filter((candidate) => candidate.handle !== surfaceHandle);
+        return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -441,6 +646,141 @@ class WorkerWASI extends WASI {
         this.lastGuiWebInputEvent = { kind: 'empty' };
         return GUI_WEB_EVENT_POLL_INVALID;
     }
+
+    private presentGuiVideoMemorySurface(windowId: number, title: string, surface: GuiWebVideoMemoryHostSurfaceRecord): number {
+        const ack = createGuiVideoMemoryHostAckBuffer();
+        if (ack.kind === 'err') {
+            return ack.status;
+        }
+        const requestId = this.nextGuiVideoMemoryPresentRequestId;
+        this.nextGuiVideoMemoryPresentRequestId += 1;
+        postWorkerMessage({
+            type: 'gui_video_memory_present',
+            requestId,
+            ack: ack.value,
+            windowId,
+            title,
+            buffer: surface.surface.buffer,
+        });
+        return waitGuiVideoMemoryHostAck(ack.value);
+    }
+
+    private findGuiVideoMemorySurface(surfaceHandle: number): GuiWebVideoMemoryHostSurfaceRecord | null {
+        if (!isPositiveInteger(surfaceHandle)) {
+            return null;
+        }
+        for (const surface of this.guiVideoMemorySurfaces) {
+            if (surface.handle === surfaceHandle) {
+                return surface;
+            }
+        }
+        return null;
+    }
+
+    private findGuiVideoMemoryFrame(surfaceHandle: number, frameId: number): GuiWebVideoMemoryHostFrameRecord | null {
+        const surface = this.findGuiVideoMemorySurface(surfaceHandle);
+        if (!surface || !isPositiveInteger(frameId)) {
+            return null;
+        }
+        for (const frame of surface.frames) {
+            if (frame.frameId === frameId) {
+                return frame;
+            }
+        }
+        return null;
+    }
+
+    private decodeGuiVideoMemoryDirtyRegion(
+        surface: GuiVideoMemorySurface,
+        dirtyKind: number,
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+    ): GuiVideoMemoryDirtyRegion | number {
+        if (dirtyKind === 1) {
+            return { kind: 'full' };
+        }
+        if (dirtyKind !== 2 || !isValidRect(surface, x, y, width, height)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        return {
+            kind: 'rect',
+            x,
+            y,
+            width,
+            height,
+        };
+    }
+
+    private memoryBytes(ptr: number, len: number): Uint8Array | number {
+        if (!this.memory || !isNonNegativeInteger(ptr) || !isNonNegativeInteger(len)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        if (ptr + len > this.memory.buffer.byteLength) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        return new Uint8Array(this.memory.buffer, ptr, len);
+    }
+
+    private decodeGuiVideoMemoryTitle(ptr: number, len: number): string | number {
+        const bytes = this.memoryBytes(ptr, len);
+        if (typeof bytes === 'number') {
+            return bytes;
+        }
+        try {
+            return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+        } catch {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+    }
+}
+
+function isNonNegativeInteger(value: number): boolean {
+    return Number.isInteger(value) && value >= 0;
+}
+
+function isPositiveInteger(value: number): boolean {
+    return Number.isInteger(value) && value > 0;
+}
+
+function areValidColorChannels(r: number, g: number, b: number, a: number): boolean {
+    return isByte(r) && isByte(g) && isByte(b) && isByte(a);
+}
+
+function isByte(value: number): boolean {
+    return Number.isInteger(value) && value >= 0 && value <= 255;
+}
+
+function isValidRect(surface: GuiVideoMemorySurface, x: number, y: number, width: number, height: number): boolean {
+    return isNonNegativeInteger(x)
+        && isNonNegativeInteger(y)
+        && isNonNegativeInteger(width)
+        && isNonNegativeInteger(height)
+        && x + width <= surface.width
+        && y + height <= surface.height;
+}
+
+function guiVideoMemoryHostStatusFromError(error: GuiVideoMemoryError): number {
+    if (error.kind === 'shared-buffer-unavailable' || error.kind === 'wait-unavailable' || error.kind === 'unsupported-pixel-format' || error.kind === 'unsupported-stride' || error.kind === 'unsupported-command') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    }
+    if (error.kind === 'no-writable-slot') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_NO_WRITABLE_SLOT;
+    }
+    if (error.kind === 'no-published-slot') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_RESOURCE_EXHAUSTED;
+    }
+    if (error.kind === 'resource-exhausted') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_RESOURCE_EXHAUSTED;
+    }
+    if (error.kind === 'stale-resize-generation' || error.kind === 'writer-closed') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_STALE_FRAME;
+    }
+    if (error.kind === 'presenter-unavailable' || error.kind === 'present-failed') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE;
+    }
+    return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
 }
 
 function postWorkerMessage(message: WorkerMessage) {

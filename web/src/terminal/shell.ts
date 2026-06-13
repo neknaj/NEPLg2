@@ -1,13 +1,20 @@
 import { resolveCompilerAssets, type CompilerAssetUrls } from '../runtime/compiler-assets.js';
 import { VFS } from '../runtime/vfs.js';
 import { GuiWebStdoutProtocolParser, type GuiWebStdoutProtocolEvent } from '../gui-preview/stdout-protocol.js';
-import { closeGuiWebRuntimeHostFrameWindow, presentGuiWebRuntimeFrame } from '../gui-preview/runtime-bridge.js';
+import { closeGuiWebRuntimeHostFrameWindow, presentGuiWebRuntimeFrame, presentGuiWebRuntimeVideoMemory } from '../gui-preview/runtime-bridge.js';
 import { registerGuiWebInputEventListener, unregisterGuiWebInputEventListener, type GuiWebInputEvent, type GuiWebInputEventListener } from '../gui-preview/input-bridge.js';
 import {
     createGuiWebSharedEventBuffer,
     resetGuiWebSharedEventBuffer,
     writeGuiWebSharedInputEvent,
 } from '../gui-preview/shared-event-queue.js';
+import {
+    GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE,
+    GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT,
+    GUI_VIDEO_MEMORY_HOST_STATUS_OK,
+    GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED,
+    resolveGuiVideoMemoryHostAck,
+} from '../gui-preview/video-memory-host-abi.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -32,11 +39,21 @@ type WorkerErrorMessage = {
     recoverable?: boolean;
 };
 
+type WorkerGuiVideoMemoryPresentMessage = {
+    type: 'gui_video_memory_present';
+    requestId: number;
+    ack: SharedArrayBuffer;
+    windowId: number;
+    title: string;
+    buffer: SharedArrayBuffer;
+};
+
 type WorkerMessage =
     | WorkerStdoutMessage
     | WorkerCompileResultMessage
     | WorkerExitMessage
     | WorkerErrorMessage
+    | WorkerGuiVideoMemoryPresentMessage
     | { type: 'stdin_request' };
 
 type RunWasmWorkerRequest = {
@@ -658,6 +675,9 @@ export class Shell {
                         break;
                     case 'stdin_request':
                         break;
+                    case 'gui_video_memory_present':
+                        this.handleGuiVideoMemoryPresentMessage(message);
+                        break;
                 }
             };
 
@@ -693,6 +713,25 @@ export class Shell {
                 this.printGuiProtocolError(`GUI stdout protocol error: ${event.error.kind} ${event.error.path}`);
             }
         }
+    }
+
+    private handleGuiVideoMemoryPresentMessage(message: WorkerGuiVideoMemoryPresentMessage) {
+        if (!this.guiRuntimeInputActive) {
+            resolveGuiVideoMemoryHostAck(message.ack, GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED);
+            return;
+        }
+        const presented = presentGuiWebRuntimeVideoMemory({
+            windowId: message.windowId,
+            title: message.title,
+            buffer: message.buffer,
+        });
+        if (presented.kind === 'ok') {
+            this.guiRuntimeInputWindowIds.add(message.windowId);
+            resolveGuiVideoMemoryHostAck(message.ack, GUI_VIDEO_MEMORY_HOST_STATUS_OK);
+            return;
+        }
+        this.printGuiProtocolError(`GUI video memory rejected: ${presented.error.kind} ${presented.error.path}`);
+        resolveGuiVideoMemoryHostAck(message.ack, guiVideoMemoryHostStatusFromRuntimeError(presented.error.kind));
     }
 
     private configureGuiRuntimeTimer(event: Extract<GuiWebStdoutProtocolEvent, { kind: 'animation-timer' }>) {
@@ -996,4 +1035,17 @@ export class Shell {
         build(normalizedRoot, '');
         return results.join('\n');
     }
+}
+
+function guiVideoMemoryHostStatusFromRuntimeError(kind: string): number {
+    if (kind === 'presenter-missing') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED;
+    }
+    if (kind === 'invalid-video-memory-frame' || kind === 'invalid-frame-state' || kind === 'invalid-install-target') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+    }
+    if (kind === 'video-memory-open-failed' || kind === 'video-memory-present-failed') {
+        return GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE;
+    }
+    return GUI_VIDEO_MEMORY_HOST_STATUS_BACKEND_FAILURE;
 }
