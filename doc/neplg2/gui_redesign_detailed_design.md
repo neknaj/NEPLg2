@@ -56,6 +56,65 @@ pixels.length >= stride_bytes * height
 
 Out-of-bounds drawing は backend contract で決める。Web software rasterizer は clipping により範囲外 pixel を破棄する。Invalid geometry は clipping ではなく `GuiError::InvalidGeometry` として拒否する。
 
+## Effect and runtime command bridge
+
+`GuiSurfacePresentCommand` は `std/gui` の host surface ABI data contract であり、application はこれを直接 platform へ送らない。`alloc/gui/app` は std 型を import せず、core 型と検査前の request data だけを effect として保持する。`std/gui/runtime` が host capability と checked id constructor を使って `GuiSurfacePresentCommand` を作り、runtime command へ変換する。
+
+```text
+alloc/gui/app:
+    PresentSurfaceEffect:
+        surface i32
+        frame i32
+        width i32
+        height i32
+        stride_bytes i32
+        format ColorFormat
+        dirty DirtyRegion
+
+    GuiEffect:
+        None
+        RequestRedraw
+        SetTitle
+        PresentSurface PresentSurfaceEffect
+
+std/gui/runtime:
+    GuiRuntimeCommand:
+        Noop
+        RequestRedraw
+        SetTitle
+        PresentSurface GuiSurfacePresentCommand
+```
+
+Runtime gate:
+
+```text
+SurfaceKind::WindowPixel      allow PresentSurface
+SurfaceKind::OffscreenPixel   allow PresentSurface
+SurfaceKind::DevicePixel      allow PresentSurface
+SurfaceKind::TextGrid         reject GuiError::Unsupported
+SurfaceKind::Headless         reject GuiError::Unsupported
+```
+
+`TextGrid` を reject する理由は、pixel frame と cell frame は同じ surface presentation ではないためである。TUI backend は `TextCellRun` / terminal frame contract を使い、pixel buffer を暗黙に text grid へ変換しない。
+
+`Headless` を reject する理由は、headless が surface なし backend であり、presentation を伴わない app state transition と effect interpretation を検査する target だからである。`PresentSurface` が出る app を headless で実行した場合は `GuiError::Unsupported` を返し、test はその unsupported を `match` で検査する。
+
+`OffscreenPixel` は visible window を持たないが pixel buffer surface を持つため allow する。Screenshot / snapshot test は runtime command を offscreen host が受け、owned pixel buffer へ反映する。
+
+Command validation:
+
+- `PresentSurfaceEffect` は `alloc/gui` に置くため、`SurfaceId`、`FrameId`、`GuiPixelBufferDescriptor`、`GuiSurfacePresentCommand` を持たない。
+- `PresentSurfaceEffect` の `surface` と `frame` は platform handle ではなく、runtime が checked constructor に渡す request id である。0 以下や不正値は `GuiError::InvalidCommand` になる。
+- `PresentSurfaceEffect` の `width`、`height`、`stride_bytes`、`format` は runtime が `gui_pixel_buffer_descriptor` で検査する。不正 geometry は `GuiError::InvalidGeometry`、未対応 format は `GuiError::Unsupported` になる。
+- runtime は payload の中身を platform handle に戻さない。
+- unsupported surface kind は `GuiError::Unsupported`、malformed effect payload を作れる経路が後で増えた場合は `GuiError::InvalidCommand` とする。
+- batch capacity overflow は既存 `GuiEffectBatch` / `GuiRuntimeCommandBatch` と同じ `GuiError::ResourceExhausted` を返す。
+
+Implementation note:
+
+- Phase 4.1 の NEPL stdlib 実装では `GuiEffectBatch` の capacity 2 を維持する。これは現在の bounded data contract の継続であり、hidden fallback ではない。
+- 将来 `Vec GuiEffect` へ置換するときも、`PresentSurfaceEffect` は `alloc/gui` の request data として維持し、checked `GuiSurfacePresentCommand` の生成責務は `std/gui/runtime` に残す。
+
 ## Video memory header
 
 Web backend の video memory surface は `SharedArrayBuffer` を 1 つ使い、header と 2 個以上の pixel plane を同じ buffer 内に置く。単一 pixel plane は writer と presenter が同じ memory を同時に触る危険があるため、正式 contract では禁止する。

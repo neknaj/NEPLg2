@@ -21,6 +21,8 @@ function withoutComments(text) {
 const stdSurfaceSource = read("stdlib/std/gui/surface.nepl");
 const stdSurface = withoutComments(stdSurfaceSource);
 const stdGuiFacade = withoutComments(read("stdlib/std/gui.nepl"));
+const allocApp = withoutComments(read("stdlib/alloc/gui/app/types.nepl"));
+const stdRuntime = withoutComments(read("stdlib/std/gui/runtime.nepl"));
 const webSurfaceSource = read("stdlib/platforms/gui/web/surface.nepl");
 const webSurface = withoutComments(webSurfaceSource);
 const webFacade = withoutComments(read("stdlib/platforms/gui/web.nepl"));
@@ -66,6 +68,41 @@ assert.match(
     stdSurface,
     /_\s*:[\s\S]*Result::Err\s+GuiError::Unsupported/,
     "std/gui/surface must reject unsupported pixel formats with a typed error",
+);
+assert.doesNotMatch(
+    allocApp,
+    /^\s*#import\s+"std\/gui|GuiSurfacePresentCommand|GuiPixelBufferDescriptor|GuiSurfaceFrame/m,
+    "alloc/gui/app must not depend on std/gui surface command types",
+);
+assert.match(
+    allocApp,
+    /pub\s+struct\s+PresentSurfaceEffect:[\s\S]*surface\s+%i32[\s\S]*frame\s+%i32[\s\S]*width\s+%i32[\s\S]*height\s+%i32[\s\S]*stride_bytes\s+%i32[\s\S]*format\s+%ColorFormat[\s\S]*dirty\s+%DirtyRegion/,
+    "alloc/gui/app must keep present surface as app-facing request data",
+);
+assert.match(
+    allocApp,
+    /pub\s+enum\s+GuiEffect:[\s\S]*PresentSurface\s+%PresentSurfaceEffect/,
+    "GuiEffect must expose a present surface request without platform calls",
+);
+assert.match(
+    stdRuntime,
+    /^\s*#import\s+"std\/gui\/surface"\s+as\s+\*/m,
+    "std/gui/runtime must own conversion from request data to checked surface command",
+);
+assert.match(
+    stdRuntime,
+    /pub\s+enum\s+GuiRuntimeCommand:[\s\S]*PresentSurface\s+%GuiSurfacePresentCommand/,
+    "runtime command must carry the checked surface present command",
+);
+assert.match(
+    stdRuntime,
+    /GuiEffect::PresentSurface\s+payload:[\s\S]*gui_runtime_can_present_surface\s+host[\s\S]*gui_runtime_present_command_from_effect\s+payload[\s\S]*GuiError::Unsupported/,
+    "runtime must capability-gate PresentSurface and return typed unsupported errors",
+);
+assert.match(
+    stdRuntime,
+    /surface_id_result\s+surface_raw[\s\S]*frame_id_result\s+frame_raw[\s\S]*gui_pixel_buffer_descriptor\s+surface\s+width\s+height\s+stride_bytes\s+format[\s\S]*GuiRuntimeCommand::PresentSurface/,
+    "runtime must validate request ids and pixel descriptor before producing PresentSurface",
 );
 
 assert.match(
@@ -114,6 +151,7 @@ process.stdout.write(JSON.stringify({
     ok: true,
     checks: [
         "std/gui exposes platform-neutral pixel surface present commands",
+        "alloc/gui keeps present surface as request data and runtime builds checked commands",
         "web surface wraps the standard descriptor instead of stdout transport",
         "legacy stdout transport remains quarantined from the formal app-facing contract",
     ],

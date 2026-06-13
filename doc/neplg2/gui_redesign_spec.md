@@ -40,6 +40,41 @@ SurfaceFrame -> SurfacePresenter
 
 `SurfacePresenter` は visible window、offscreen image、bare display などの presentation を担当する。`SurfacePresenter` は application state を知らない。
 
+## Application-facing present effect
+
+Application が pixel frame を[表示/ひょうじ]したい場合、platform host を直接呼ばない。`update` は `GuiEffect::PresentSurface` 相当の request data を返し、`std/gui/runtime` が checked `GuiSurfacePresentCommand` を[作/つく]って `GuiRuntimeCommand::PresentSurface` へ[解釈/かいしゃく]し、platform backend だけが実際の host call を行う。
+
+```text
+Update Model
+    effects:
+        PresentSurface PresentSurfaceEffect
+
+std/gui/runtime
+    GuiEffect::PresentSurface
+        -> validate SurfaceId / FrameId / PixelBufferDescriptor
+        -> GuiSurfacePresentCommand
+        -> GuiRuntimeCommand::PresentSurface
+
+platform backend
+    GuiRuntimeCommand::PresentSurface
+        -> Web video memory surface
+        -> native framebuffer presenter
+        -> bare framebuffer / flush target
+        -> offscreen pixel buffer
+```
+
+Contract:
+
+- `alloc/gui` は `std/gui/surface` を import しない。`PresentSurfaceEffect` は core 型と検査前の request data だけを保持する。
+- `std/gui/runtime` は host capability を確認し、pixel buffer を持たない backend では `GuiError::Unsupported` を返す。
+- `std/gui/runtime` は surface id、frame id、pixel buffer descriptor を検査し、不正な id は `GuiError::InvalidCommand`、不正な geometry / stride は `GuiError::InvalidGeometry`、未対応 format は `GuiError::Unsupported` として返す。
+- `Headless` backend は present を成功させない。test が present 不要な app logic だけを検査する場合は、そもそも `PresentSurface` effect を発行しない。
+- `OffscreenPixel` backend は visible window を作らず、同じ `PresentSurface` command を owned pixel buffer へ反映する。
+- `TextGrid` backend は pixel frame present を自動的に text grid present へ変換しない。必要なら application / renderer が `TextCellRun` command stream を生成する。
+- Web stdout protocol は `PresentSurface` の代替ではない。互換 smoke transport として隔離し、正式 effect / runtime command へ暗黙に置き換えない。
+
+この境界により、同じ NEPL app code は `GuiEffect` と `GuiRuntimeCommand` だけを見ればよく、platform 差は `GuiHost` と backend implementation に閉じる。
+
 Web backend の presentation は次である。
 
 ```text
