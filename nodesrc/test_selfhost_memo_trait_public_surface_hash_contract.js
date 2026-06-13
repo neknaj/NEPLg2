@@ -49,7 +49,7 @@ assert.match(
 );
 assert.match(
     source,
-    /source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず[\s\S]*kind、visibility、declaration ordinal、normalized signature seed を使います/,
+    /source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず[\s\S]*kind、visibility、declaration ordinal、normalized signature seed、caller supplied dependency public surface hash だけを input field として使います/,
     "public surface hash docs must exclude source spelling and spans from accepted fingerprint authority",
 );
 assert.match(
@@ -76,6 +76,21 @@ assert.match(
     source,
     /struct SelfhostMemoTraitPublicSurfaceHashRegistryScanState:[\s\S]*candidates %SelfhostMemoTraitDefinitionSourceTable[\s\S]*seed_table %SelfhostMemoTraitStableSourceSeedTable/,
     "single-pass registry scan state must keep candidate table and seed table together",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitPublicSurfaceHashInputKind:[\s\S]*LocalMemoTrait %SelfhostMemoTraitSourceKind[\s\S]*DependencyModule[\s\S]*ReExport[\s\S]*PublicFunction[\s\S]*PublicStruct[\s\S]*PublicEnum[\s\S]*PublicImpl/,
+    "public surface hash must define typed input item kinds for local traits, dependencies, re-exports, and public declarations",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitPublicSurfaceHashInputItem:[\s\S]*kind %SelfhostMemoTraitPublicSurfaceHashInputKind[\s\S]*ordinal %i32[\s\S]*visibility %SelfhostModuleDeclarationVisibility[\s\S]*payload_hash %i32[\s\S]*dependency_public_surface_hash %Option i32/,
+    "public surface hash input item must carry only typed authority fields",
+);
+assert.match(
+    source,
+    /pub struct SelfhostMemoTraitPublicSurfaceHashInputTable:[\s\S]*first %SelfhostMemoTraitPublicSurfaceHashInputItem[\s\S]*second %SelfhostMemoTraitPublicSurfaceHashInputItem/,
+    "phase 1 public surface hash must use an ordered input table before folding the hash",
 );
 assert.match(
     source,
@@ -214,8 +229,33 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_schema_code[\s\S]*hash 材料の構造を変える場合は、この schema code も更新/,
-    "public surface hash must carry an explicit schema/domain code",
+    /selfhost_memo_trait_public_surface_hash_input_schema_code[\s\S]*ordered input item table を fold する schema[\s\S]*hash material の構造が変わる場合はこの schema code を更新/,
+    "public surface hash must carry a dedicated full-input schema/domain code",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_input_kind_code[\s\S]*LocalMemoTrait source_kind:[\s\S]*DependencyModule:[\s\S]*ReExport:[\s\S]*PublicFunction:[\s\S]*PublicStruct:[\s\S]*PublicEnum:[\s\S]*PublicImpl:/,
+    "input kind code must be exhaustive over current and reserved full public surface item kinds",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_key_input_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_value_input_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_new key_item value_item/,
+    "seed table must be adapted into an ordered full-surface input table before hash folding",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_input_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_schema_code[\s\S]*first_hash[\s\S]*second_hash/,
+    "ordered input table folding must use the new full-input schema and preserve item order",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_from_seed_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result seed_table[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_result input_table/,
+    "seed table folding API must route through the typed input table boundary",
+);
+assert.doesNotMatch(
+    source,
+    /selfhost_memo_trait_public_surface_hash_schema_code|selfhost_memo_trait_public_surface_hash_key_seed_result|selfhost_memo_trait_public_surface_hash_value_seed_result|211001|211002|212103/,
+    "old direct seed-hash helpers and marker schema domain codes must not remain after the full-input boundary is introduced",
 );
 
 const hashSection = sectionBetween(
@@ -234,7 +274,7 @@ assert.doesNotMatch(
 );
 assert.match(
     hashSection,
-    /source text と span は引数に取りません[\s\S]*seed table の typed field だけ/,
+    /source text と span は引数に取りません[\s\S]*ordered full-surface input table[\s\S]*typed field だけ/,
     "hash folding contract must explicitly state that source text and span are not hash authority",
 );
 assert.match(
@@ -279,13 +319,13 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_key_seed_result[\s\S]*selfhost_memo_trait_source_kind_eq seed\.kind SelfhostMemoTraitSourceKind::MemoKeyTrait[\s\S]*seed\.declaration_ordinal[\s\S]*seed\.normalized_signature_hash[\s\S]*selfhost_memo_trait_public_surface_hash_nonzero_result/,
-    "MemoKey hash part must check source kind, ordinal, signature, visibility, and derived nonzero hash",
+    /selfhost_memo_trait_public_surface_hash_key_input_item_result[\s\S]*selfhost_memo_trait_source_kind_eq seed\.kind SelfhostMemoTraitSourceKind::MemoKeyTrait[\s\S]*seed\.declaration_ordinal[\s\S]*seed\.normalized_signature_hash[\s\S]*SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait seed\.kind/,
+    "MemoKey seed adapter must check source kind, ordinal, signature, visibility, and create a typed input item",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_value_seed_result[\s\S]*selfhost_memo_trait_source_kind_eq seed\.kind SelfhostMemoTraitSourceKind::MemoValueTrait[\s\S]*seed\.declaration_ordinal[\s\S]*seed\.normalized_signature_hash[\s\S]*selfhost_memo_trait_public_surface_hash_nonzero_result/,
-    "MemoValue hash part must check source kind, ordinal, signature, visibility, and derived nonzero hash",
+    /selfhost_memo_trait_public_surface_hash_value_input_item_result[\s\S]*selfhost_memo_trait_source_kind_eq seed\.kind SelfhostMemoTraitSourceKind::MemoValueTrait[\s\S]*seed\.declaration_ordinal[\s\S]*seed\.normalized_signature_hash[\s\S]*SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait seed\.kind/,
+    "MemoValue seed adapter must check source kind, ordinal, signature, visibility, and create a typed input item",
 );
 assert.doesNotMatch(
     sourceCode,
@@ -301,6 +341,11 @@ assert.doesNotMatch(
     sourceCode,
     /hash32\s+source|mix\s+source|hash32\s+span|mix\s+span|hash32\s+name|mix\s+name|hash32\s+path|mix\s+path/,
     "source text, spans, names, and paths must not be folded into accepted public surface hash material",
+);
+assert.doesNotMatch(
+    sourceCode,
+    /#import ".*(?:hir|resource|backend|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded)/,
+    "public surface hash module must not import HIR, Resource IR, backend, or proof artifact/store layers",
 );
 assert.doesNotMatch(
     tySource,

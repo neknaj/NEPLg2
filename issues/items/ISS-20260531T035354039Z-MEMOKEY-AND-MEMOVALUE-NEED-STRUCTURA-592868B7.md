@@ -216,7 +216,7 @@ Phase 1 accepted path は public marker trait だけに限定した。private tr
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` を追加し、local `MemoKey` / `MemoValue` marker trait pair 用の Phase 1 public surface hash materializer を実装した。
 
-この materializer は caller supplied module identity hash、`SelfhostModuleAst`、public surface seed materializer の seed table を受け、seed table の typed field だけを deterministic に fold して `SelfhostMemoTraitStableSourceModuleSeed.public_surface_hash` を作る。fold material は `MemoKey` / `MemoValue` の kind、visibility、declaration ordinal、normalized marker signature seed、schema domain code に限定し、source text、span、syntax range、lexeme、display name、path suffix、diagnostic text は accepted hash authority にしない。module identity hash の欠落、`0` placeholder、derived public surface hash `0` は enum error で fail-closed にする。
+この materializer は caller supplied module identity hash、`SelfhostModuleAst`、public surface seed materializer の seed table を受け、seed table を ordered typed input item table へ変換してから `SelfhostMemoTraitStableSourceModuleSeed.public_surface_hash` を作る。fold material は input item の kind、visibility、declaration ordinal、normalized marker signature seed、caller supplied dependency public surface hash、schema domain code に限定し、source text、span、syntax range、lexeme、display name、path suffix、diagnostic text は accepted hash authority にしない。module identity hash の欠落、`0` placeholder、derived public surface hash `0` は enum error で fail-closed にする。
 
 この checkpoint は full public surface materializer ではない。import / use / prelude / no-prelude は dependency public surface が未正規化なので `ImportSurfaceUnsupported` / `UseSurfaceUnsupported` / `PreludeSurfaceUnsupported` / `NoPreludeSurfaceUnsupported` として拒否する。public function / struct / enum / impl declaration も、この local marker trait pair hash では完全な module public surface に含められないため、それぞれ `PublicFunctionSurfaceUnsupported` / `PublicStructSurfaceUnsupported` / `PublicEnumSurfaceUnsupported` / `PublicImplSurfaceUnsupported` として拒否する。一方で、private non-trait declaration は public surface に出ないためこの slice では無視する。private `MemoKey` / `MemoValue` trait は前段 seed materializer で typed error として拒否する。
 
@@ -234,7 +234,7 @@ local public surface hash materializer の性能残件として残っていた u
 
 token-aware path も同じ形にし、`selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result` は `selfhost_memo_trait_public_surface_token_gate_seed_table_with_tokens_result` を呼ばず、hash module 内部の `selfhost_memo_trait_public_surface_hash_scan_module_with_tokens_result` で module item stream を 1 回走査する。token-aware trait normalization は facade-external `memo_trait_public_surface_token_gate.nepl` の item helper だけを再利用する。`memo_trait_public_surface_token_gate_scan_item_result` は token gate module 内では `pub` だが、`module.nepl` facade は token gate module を re-export しない。
 
-hash folding authority は引き続き seed table の typed field に限定する。source text、span、path suffix、display name、diagnostic text、lexeme は hash material に入れない。source slicing は `MemoKey` / `MemoValue` の trait name classification にだけ使う。proof store、`core/ty` source registry、`signature_available=true` source record、checker / HIR / Resource IR / backend への逆依存は追加していない。
+hash folding authority は typed input item に限定する。現 checkpoint の local `MemoKey` / `MemoValue` path では seed table から input item を作るが、hash function 自体は seed table を直接 authority にしない。source text、span、path suffix、display name、diagnostic text、lexeme は hash material に入れない。source slicing は `MemoKey` / `MemoValue` の trait name classification にだけ使う。proof store、`core/ty` source registry、`signature_available=true` source record、checker / HIR / Resource IR / backend への逆依存は追加していない。
 
 source policy は `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` と `nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js` を更新し、hash-owned single-pass scan、whole-module seed scanner 呼び出し禁止、token gate item helper だけの再利用、unsupported public surface の typed error、authority boundary、line count / doc comment length cap 禁止を固定した。
 
@@ -398,6 +398,36 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 - warning_checked: 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` は実装前の `note.n.md` checkpoint 未記録を warning として検出した。`note.n.md` の selfhost checkpoint 追加後に再実行し、今回差分由来 warning が解消したことを確認した。
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
+## 2026-06-13 selfhost memo trait public surface hash typed input checkpoint
+
+`memo_trait_public_surface_hash.nepl` に、full public surface hash 用の ordered typed input item boundary を追加した。
+
+`SelfhostMemoTraitPublicSurfaceHashInputKind` は、現在受理できる local `MemoKey` / `MemoValue` trait declaration を `LocalMemoTrait(kind)` として保持する。さらに後続 normalizer が使う `DependencyModule`、`ReExport`、`PublicFunction`、`PublicStruct`、`PublicEnum`、`PublicImpl` を同じ typed enum に予約した。ただし、この checkpoint では import graph / re-export / public non-trait declaration の実正規化や解決は行わない。loader / module graph が作った typed input を後続 slice で渡すための受け口だけを固定した。
+
+`SelfhostMemoTraitPublicSurfaceHashInputItem` は `kind`、ordered `ordinal`、`visibility`、stable `payload_hash`、caller supplied `dependency_public_surface_hash` だけを持つ。source text、span、syntax range、lexeme、path suffix、display name、diagnostic text は accepted public surface hash material に入れない。`SelfhostMemoTraitPublicSurfaceHashInputTable` は Phase 1 では local memo trait pair 用の fixed 2 slot table であり、将来の可変長 full public surface table へ置換しても item schema と folding contract が変わらないようにした。
+
+既存の `selfhost_memo_trait_public_surface_hash_from_seed_table_result` は、seed table を直接 hash せず、`selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result` で ordered input table へ変換してから `selfhost_memo_trait_public_surface_hash_input_table_result` を呼ぶようにした。hash schema は full input schema `212203` に集約し、旧 seed 直結 helper と旧 seed 直結 domain code は削除した。これにより、local marker trait pair の phase 1 hash と、後続の import / re-export / public declaration input が同じ ordered input item boundary を共有する。
+
+この checkpoint は full public surface normalizer の完成ではない。import graph と re-export の解決 authority は loader / module graph に残し、checker module が path string や source lexeme から dependency identity を作る経路は追加していない。public function / struct / enum / impl は、stable signature normalizer が typed payload hash を供給するまで引き続き fail-closed である。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` を更新し、input kind enum、input item/table、full input schema、seed table adapter、ordered input folding、legacy schema との分離、source text / span / path / display / diagnostic authority 禁止、proof store / HIR / Resource IR / backend への逆依存禁止、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Bohr が初回 Required として、旧 direct seed hash helper と旧 seed 直結 domain code を残さないこと、module doc が seed table field authority と読める箇所を input table authority へ直すこと、proof store / HIR / Resource IR / backend 逆依存禁止と旧 helper 禁止の source policy を強めることを求めた。対応として、`selfhost_memo_trait_public_surface_hash_schema_code`、`selfhost_memo_trait_public_surface_hash_key_seed_result`、`selfhost_memo_trait_public_surface_hash_value_seed_result`、旧 domain code、旧 derived placeholder error variant を削除し、seed table から ordered input table へ変換してから fold する経路だけを残した。再レビューでは Blocker / Required なしで Approve となった。Non-blocker の旧 schema literal 退行検出も契約テストへ追加した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-hash-input.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行ではない。
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+この checkpoint 後も、re-export / import graph / public non-trait declaration の stable normalizer、Copy / Drop / Eq / Hash pure evidence の実計算、full public surface input table の可変長化、persistent stable map / serialized index、generic instantiation artifact 接続は未完了である。
 
 ## 2026-06-13 selfhost memo trait recursive producer input checkpoint
 
@@ -613,7 +643,7 @@ source policy は shared codec re-export、dependency order、reader error taxon
 
 過去 checkpoint に記録されている「registry convenience path は 2 traversal が残る」という残件は、この checkpoint で解消済みとして扱う。履歴上の古い記述は当時の scope と残件を示すものであり、最新の実装境界では registry convenience path も single-pass path である。
 
-`SelfhostMemoTraitPublicSurfaceHashRegistryScanState` は candidate source table と public surface seed table を同じ item pass で更新する。ただし、candidate table は source spelling から `MemoKey` / `MemoValue` trait 候補を分類するためだけに使い、public surface hash の authority は seed table の typed field に限定する。成功 payload も `SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization` の `candidates` と `materialization` に分け、candidate classification と accepted hash materialization を混同しない。
+`SelfhostMemoTraitPublicSurfaceHashRegistryScanState` は candidate source table と public surface seed table を同じ item pass で更新する。ただし、candidate table は source spelling から `MemoKey` / `MemoValue` trait 候補を分類するためだけに使い、public surface hash の authority は seed table から作られる ordered typed input item に限定する。成功 payload も `SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization` の `candidates` と `materialization` に分け、candidate classification と accepted hash materialization を混同しない。
 
 AST-only registry API は `selfhost_memo_trait_public_surface_hash_registry_materialize_result` を使い、token-aware registry API は `selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_result` を使う。どちらも module identity validation の後、module item stream を 1 回だけ走査する。standalone `selfhost_memo_trait_definition_source_table_scan_module_result`、`selfhost_memo_trait_public_surface_hash_materialize_result`、`selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result` は、互換境界と単体検査用 API として残した。
 
