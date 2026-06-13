@@ -308,6 +308,44 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4g: sfnt simple glyph point stream range lookup
+
+目的:
+
+- simple glyph の flags repeat 展開と x/y coordinate byte range を検査する。
+- coordinate value や point `Vec` をまだ作らず、後続 decoder が読む raw byte range を typed value として返す。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPointStream` と `gui_sfnt_lookup_simple_glyph_point_stream` を追加する。
+- `GuiSfntSimpleGlyphPointStream` は topology、flag_data_offset、flag_data_length、x_data_offset、x_data_length、y_data_offset、y_data_length、trailing_data_offset、trailing_data_length を持つ。
+- すべての offset は `glyf` table-relative とする。
+- `flag_data_offset = topology.point_data_offset` とする。
+- `flag_data_length` は expanded logical flag count ではなく、repeat count byte を含む raw consumed flag stream length とする。
+- repeat flag byte 自身は 1 point 分であり、repeat count byte は追加 point 数である。`repeat_count = 0` は current flag 1 個だけを意味する。
+- flags scan はちょうど `point_count` 個の logical flags を満たす。point count に届かない、repeat byte 欠落、repeat run overrun は `MalformedGlyfRecord` とする。
+- x/y coordinate byte length は short bit と same bit だけから計算する。short bit が立つ場合、same / positive bit は sign であり byte length には影響しない。
+- `x_data_offset = flag_data_offset + flag_data_length`、`y_data_offset = x_data_offset + x_data_length`、`trailing_data_offset = y_data_offset + y_data_length`、`trailing_data_length = glyph_end - trailing_data_offset` とする。
+- `trailing_data_length < 0` は `MalformedGlyfRecord`。`trailing_data_length >= 0` は success として明示値で返す。
+- Source policy で raw flag length、repeat semantics、x/y length formula、trailing data policy、metadata / name / cmap / hmtx / platform API 非依存を固定する。
+
+完了条件:
+
+- explicit fixture bytes から no-repeat point stream の flag/x/y/trailing ranges を取得できる。
+- repeat run を含む fixture で raw flag length と coordinate ranges を取得できる。
+- `repeat_count = 0` を current flag 1 個として扱う fixture が成功する。
+- short=1、short=0 same=1、short=0 same=0 の x/y byte length 分岐を doctest で固定する。
+- repeat overrun、missing repeat byte、x coordinate overrun、y coordinate overrun は typed `MalformedGlyfRecord` になる。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

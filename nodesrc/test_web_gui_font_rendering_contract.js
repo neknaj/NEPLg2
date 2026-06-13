@@ -161,6 +161,11 @@ assertMatch(
     "font spec must define F4f simple glyph topology with table-relative point data ranges and typed errors",
 );
 assertMatch(
+    spec,
+    /SFNT simple glyph point stream[\s\S]*GuiSfntSimpleGlyphPointStream:[\s\S]*flag_data_offset i32[\s\S]*flag_data_length i32[\s\S]*x_data_offset i32[\s\S]*x_data_length i32[\s\S]*y_data_offset i32[\s\S]*y_data_length i32[\s\S]*trailing_data_offset i32[\s\S]*trailing_data_length i32[\s\S]*gui_sfnt_lookup_simple_glyph_point_stream:[\s\S]*Result GuiSfntSimpleGlyphPointStream GuiSfntParseError[\s\S]*flag_data_length[\s\S]*raw flag stream[\s\S]*repeat_count = 0[\s\S]*x_data_offset = flag_data_offset \+ flag_data_length[\s\S]*trailing_data_length < 0[\s\S]*MalformedGlyfRecord/,
+    "font spec must define F4g simple glyph point stream ranges, raw repeat semantics, and trailing data policy",
+);
+assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
     "font detailed design must define F4c cmap format-4 lookup and bounds validation",
@@ -181,6 +186,11 @@ assertMatch(
     "font detailed design must define F4f simple glyph topology layout and range policy",
 );
 assertMatch(
+    detailedDesign,
+    /SFNT simple glyph point stream[\s\S]*GuiSfntSimpleGlyphPointStream[\s\S]*flag_data_length[\s\S]*raw consumed flag stream length[\s\S]*Flag scan state[\s\S]*Repeat semantics[\s\S]*A flag byte always contributes one logical point[\s\S]*repeat_count = 0[\s\S]*Coordinate byte length[\s\S]*xShort == 1[\s\S]*x bytes = 1[\s\S]*xShort == 0 and xSame == 1[\s\S]*x bytes = 0[\s\S]*xShort == 0 and xSame == 0[\s\S]*x bytes = 2[\s\S]*trailing_data_length < 0[\s\S]*MalformedGlyfRecord/,
+    "font detailed design must define F4g flag scan, repeat handling, coordinate byte formula, and trailing data contract",
+);
+assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
     "font implementation plan must define F4c cmap parser data types and error kinds",
@@ -199,6 +209,11 @@ assertMatch(
     implementationPlan,
     /Phase F4f:[\s\S]*UnsupportedGlyphOutlineFormat[\s\S]*GuiSfntSimpleGlyphTopology[\s\S]*gui_sfnt_lookup_simple_glyph_topology[\s\S]*point_data_offset[\s\S]*`glyf` table-relative[\s\S]*endpoint[\s\S]*instructionLength/,
     "font implementation plan must define F4f simple topology parser data types and exact range policy",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4g:[\s\S]*GuiSfntSimpleGlyphPointStream[\s\S]*gui_sfnt_lookup_simple_glyph_point_stream[\s\S]*flag_data_offset = topology\.point_data_offset[\s\S]*flag_data_length[\s\S]*raw consumed flag stream length[\s\S]*repeat_count = 0[\s\S]*x_data_offset = flag_data_offset \+ flag_data_length[\s\S]*trailing_data_length < 0[\s\S]*MalformedGlyfRecord[\s\S]*repeat overrun[\s\S]*missing repeat byte[\s\S]*x coordinate overrun[\s\S]*y coordinate overrun/,
+    "font implementation plan must define F4g point stream parser data types, offsets, typed errors, and doctest coverage",
 );
 
 assertMatch(
@@ -463,6 +478,16 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPointStream:[\s\S]*topology\s+%GuiSfntSimpleGlyphTopology[\s\S]*flag_data_offset\s+%i32[\s\S]*flag_data_length\s+%i32[\s\S]*x_data_offset\s+%i32[\s\S]*x_data_length\s+%i32[\s\S]*y_data_offset\s+%i32[\s\S]*y_data_length\s+%i32[\s\S]*trailing_data_offset\s+%i32[\s\S]*trailing_data_length\s+%i32/,
+    "alloc/gui/font/sfnt/glyf must expose simple glyph point stream ranges as typed data",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_point_stream\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+Result\s+GuiSfntSimpleGlyphPointStream\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf point stream lookup must take borrowed ByteBuf and checked GuiGlyphId",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
 );
@@ -511,6 +536,21 @@ assertMatch(
     /instruction_length_offset\s+%i32\s+add\s+endpoint_array_offset\s+endpoint_array_length[\s\S]*gui_sfnt_glyf_read_u16_be[\s\S]*instruction_start\s+%i32\s+add\s+instruction_length_offset\s+2[\s\S]*point_data_offset\s+%i32\s+add\s+instruction_start\s+instruction_length[\s\S]*point_data_length\s+%i32\s+sub\s+end\s+point_data_offset[\s\S]*le\s+point_data_length\s+0/,
     "alloc/gui/font/sfnt/glyf must validate instruction range and non-empty point data range",
 );
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_scan_flag_stream[\s\S]*eq\s+logical_count\s+point_count[\s\S]*sub\s+cursor\s+flag_start[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+8[\s\S]*repeat_count_offset\s+%i32\s+add\s+cursor\s+1[\s\S]*run_count\s+%i32\s+add\s+repeat_count\s+1[\s\S]*gt\s+next_logical_count\s+point_count[\s\S]*GuiSfntParseErrorKind::MalformedGlyfRecord/,
+    "alloc/gui/font/sfnt/glyf must scan raw flag bytes with repeat count semantics and reject repeat overrun",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_flag_x_byte_length[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+2[\s\S]*then:[\s\S]*1[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+16[\s\S]*then:[\s\S]*0[\s\S]*else:[\s\S]*2[\s\S]*gui_sfnt_glyf_flag_y_byte_length[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+4[\s\S]*then:[\s\S]*1[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+32[\s\S]*then:[\s\S]*0[\s\S]*else:[\s\S]*2/,
+    "alloc/gui/font/sfnt/glyf must derive x/y coordinate byte lengths from short and same bits",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /flag_data_offset\s+%i32\s+gui_sfnt_simple_glyph_topology_point_data_offset\s+&topology[\s\S]*flag_data_length\s+%i32\s+gui_sfnt_simple_glyph_flag_scan_raw_length\s+&scan[\s\S]*x_data_offset\s+%i32\s+add\s+flag_data_offset\s+flag_data_length[\s\S]*y_data_offset\s+%i32\s+add\s+x_data_offset\s+x_data_length[\s\S]*trailing_data_offset\s+%i32\s+add\s+y_data_offset\s+y_data_length[\s\S]*trailing_data_length\s+%i32\s+sub\s+point_data_end\s+trailing_data_offset[\s\S]*lt\s+trailing_data_length\s+0/,
+    "alloc/gui/font/sfnt/glyf must derive point stream offsets and reject coordinate byte overrun",
+);
 assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_parse_names\b/,
@@ -535,6 +575,11 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_simple_glyph_topology\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf topology lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_point_stream\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf point stream lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,
@@ -637,6 +682,24 @@ for (const glyfCase of [
     "topology instruction length",
     "topology point data offset",
     "topology point data length",
+    "point stream no-repeat flag offset",
+    "point stream no-repeat raw flag length",
+    "point stream no-repeat x offset",
+    "point stream no-repeat x length",
+    "point stream no-repeat y offset",
+    "point stream no-repeat y length",
+    "point stream no-repeat trailing offset",
+    "point stream no-repeat trailing length",
+    "point stream repeat raw flag length",
+    "point stream repeat x offset",
+    "point stream repeat x length",
+    "point stream repeat y length",
+    "point stream repeat trailing length",
+    "point stream repeat zero raw flag length",
+    "point stream repeat zero x offset",
+    "point stream repeat zero x length",
+    "point stream repeat zero y length",
+    "point stream repeat zero trailing length",
     "missing loca table",
     "missing glyf table",
     "short head for glyf",
@@ -654,6 +717,10 @@ for (const glyfCase of [
     "short instruction length",
     "instruction overrun",
     "missing point data",
+    "point stream repeat overrun",
+    "point stream missing repeat byte",
+    "point stream x coordinate overrun",
+    "point stream y coordinate overrun",
 ]) {
     assertMatch(
         guiFontSfntTests,

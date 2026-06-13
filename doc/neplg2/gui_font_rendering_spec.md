@@ -214,6 +214,58 @@ Validation rules:
 
 F4f は flags / coordinate stream が「十分な長さを持つか」までは判定しない。flag repeat、x/y coordinate delta、contour point decode は後続 phase の責務である。ただし point stream が空の glyph を success にしてはならない。
 
+### SFNT simple glyph point stream
+
+SFNT simple glyph point stream は、flags の repeat 展開と x/y coordinate byte range を検査する段階である。ここでは coordinate value を復元せず、後続 decoder が読むべき raw byte range だけを typed value として返す。
+
+```text
+GuiSfntSimpleGlyphPointStream:
+    topology GuiSfntSimpleGlyphTopology
+    flag_data_offset i32
+    flag_data_length i32
+    x_data_offset i32
+    x_data_length i32
+    y_data_offset i32
+    y_data_length i32
+    trailing_data_offset i32
+    trailing_data_length i32
+
+gui_sfnt_lookup_simple_glyph_point_stream:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    -> Result GuiSfntSimpleGlyphPointStream GuiSfntParseError
+```
+
+すべての offset は file absolute offset ではなく `glyf` table-relative offset である。`flag_data_offset = topology.point_data_offset` であり、`flag_data_length` は expanded logical flag count ではなく、repeat count byte を含む raw flag stream の consumed byte length である。
+
+Repeat semantics:
+
+- repeat flag bit が立っている flag byte 自身は 1 point 分の flag である。
+- 次 byte の repeat count は「追加で同じ flag を繰り返す point 数」である。
+- `repeat_count = 0` は current flag 1 個だけを意味する。
+- `logical_count + 1 + repeat_count > point_count` は `MalformedGlyfRecord`。
+- `point_count` に達する前に glyph range が尽きる、または repeat count byte が glyph range 外なら `MalformedGlyfRecord`。
+- `point_count` に達した直後の byte は flags ではなく x coordinate data の先頭として扱う。
+
+Coordinate byte length:
+
+- xShort bit が 1 の場合、x coordinate delta は 1 byte である。xSame / positive bit は sign として扱い、F4g では byte length には影響しない。
+- xShort bit が 0 かつ xSame bit が 1 の場合、x coordinate delta は 0 byte である。
+- xShort bit が 0 かつ xSame bit が 0 の場合、x coordinate delta は signed 16-bit なので 2 byte である。
+- yShort / ySame も同じ規則を y coordinate に適用する。
+
+Offset derivation:
+
+```text
+x_data_offset = flag_data_offset + flag_data_length
+y_data_offset = x_data_offset + x_data_length
+trailing_data_offset = y_data_offset + y_data_length
+trailing_data_length = glyph_end - trailing_data_offset
+```
+
+`trailing_data_length < 0` は coordinate byte overrun なので `MalformedGlyfRecord`。`trailing_data_length >= 0` は success とし、padding / unused bytes として明示値で返す。後続 phase はこの trailing bytes を zero padding として要求するか、font sanitizer policy として扱うかを別途決める。F4g は trailing bytes を暗黙に fallback 消費しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
