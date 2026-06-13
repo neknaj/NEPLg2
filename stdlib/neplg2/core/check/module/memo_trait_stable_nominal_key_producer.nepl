@@ -1,0 +1,494 @@
+#indent 4
+
+//: # check/module/memo_trait_stable_nominal_key_producer
+//: public nominal type declaration から `MemoKey` / `MemoValue` proof 用の stable nominal key を[作/つく]る checker-layer producer です。
+//:
+//: [目的/もくてき]:
+//: - public struct / enum declaration を、session-local `SelfhostNamedTypeId` ではなく `.neplmeta` / `.neplproof` へ再利用できる stable nominal identity へ変換します。
+//: - `core/ty` の stable nominal key constructor は module fingerprint、definition fingerprint、constructor ordinal、type arity を受け取る低層 API です。この module は public declaration visibility、declaration ordinal、nominal declaration kind から definition fingerprint を作り、低層 API へ渡す checker-layer の入口になります。
+//: - source spelling、span、display name、diagnostic text、path suffix を fingerprint authority にせず、typed public surface seed だけを key material にします。
+//:
+//: [契約/けいやく]:
+//: - `visibility` は `Public` だけを受理します。private nominal declaration は public surface identity を作りません。
+//: - `module_fingerprint`、`declaration_ordinal`、`constructor_ordinal` は nonzero でなければなりません。欠落と placeholder は別の enum error にします。
+//: - `kind` は `Struct` と `Enum` の key space を分けます。同じ module / ordinal / arity でも宣言種別が違えば definition fingerprint は一致しません。
+//: - `type_arity` は負数を拒否します。arity は stable nominal key payload にも入るため、generic constructor の proof key と monomorphic constructor の proof key を混同しません。
+//: - この module は stable nominal key table を作らず、1 declaration から 1 key payload を作るだけです。duplicate detection、table insertion、serialized artifact projection は別 boundary の責務です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 の definition fingerprint は schema version、module fingerprint、declaration kind、declaration ordinal、type arity の deterministic fold です。
+//: - full public surface hash、re-export 由来の constructor identity、layout header hash、impl header、trait method purity、Drop なし proof はここでは扱いません。
+//: - facade にはまだ re-export しません。full public surface orchestration が stable nominal key producer と layout / impl producer を束ねる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力は fixed-size typed payload だけなので O(1) 時間・O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_stable_nominal_key_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_stable_nominal_key_producer_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.struct_key
+//:     let checks2 checks_push checks1 check is_ok summary.enum_key
+//:     let checks3 checks_push checks2 check summary.struct_and_enum_differ
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_stable_nominal_key_producer_error_kind_eq unwrap_err summary.private_rejected SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_stable_nominal_key_producer_error_kind_eq unwrap_err summary.module_placeholder_rejected SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder
+//:     let shown checks_print_report checks5
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty" as *
+
+//: SelfhostMemoTraitStableNominalDeclarationKind: stable nominal key を作る public nominal declaration の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - struct と enum の definition fingerprint domain を分けます。
+pub enum SelfhostMemoTraitStableNominalDeclarationKind:
+    Struct
+    Enum
+
+//: SelfhostMemoTraitStableNominalKeyProducerInput: stable nominal key producer の typed input
+//:
+//: [目的/もくてき]:
+//: - public nominal declaration の visibility、module fingerprint、declaration ordinal、constructor ordinal、kind、type arity を 1 record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `declaration_ordinal` は public surface 内の declaration identity seed です。
+//: - `constructor_ordinal` は type constructor key payload に入る ordinal です。Phase 1 では declaration ordinal と同じ値を渡してよいですが、別 field として保持し、後続の constructor table ordinal へ置換できるようにします。
+pub struct SelfhostMemoTraitStableNominalKeyProducerInput:
+    visibility %SelfhostModuleDeclarationVisibility
+    module_fingerprint %i32
+    declaration_ordinal %Option i32
+    constructor_ordinal %Option i32
+    kind %SelfhostMemoTraitStableNominalDeclarationKind
+    type_arity %i32
+
+//: SelfhostMemoTraitStableNominalKeyProducerErrorKind: stable nominal key producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - public declaration seed の検査と低層 stable nominal key constructor の拒否を bool に潰さず保持します。
+pub enum SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+    PrivateVisibilityRejected
+    ModuleFingerprintPlaceholder
+    DeclarationOrdinalMissing
+    DeclarationOrdinalPlaceholder
+    ConstructorOrdinalMissing
+    ConstructorOrdinalPlaceholder
+    TypeArityNegative
+    DefinitionFingerprintPlaceholder
+    StableNominalKeyRejected %SelfhostMemoTraitStableNominalKeyErrorKind
+
+//: SelfhostMemoTraitStableNominalKeyProducerStage0Summary: stable nominal key producer の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - accepted struct / enum key、種別差分、private / module placeholder rejection をまとめます。
+pub struct SelfhostMemoTraitStableNominalKeyProducerStage0Summary:
+    struct_key %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind
+    enum_key %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind
+    struct_and_enum_differ %bool
+    private_rejected %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind
+    module_placeholder_rejected %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind
+
+impl Clone for SelfhostMemoTraitStableNominalDeclarationKind:
+    fn clone %fn &SelfhostMemoTraitStableNominalDeclarationKind SelfhostMemoTraitStableNominalDeclarationKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalDeclarationKind:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalDeclarationKind SelfhostMemoTraitStableNominalDeclarationKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableNominalKeyProducerInput:
+    fn clone %fn &SelfhostMemoTraitStableNominalKeyProducerInput SelfhostMemoTraitStableNominalKeyProducerInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalKeyProducerInput:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalKeyProducerInput SelfhostMemoTraitStableNominalKeyProducerInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitStableNominalKeyProducerErrorKind SelfhostMemoTraitStableNominalKeyProducerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalKeyProducerErrorKind SelfhostMemoTraitStableNominalKeyProducerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitStableNominalKeyProducerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitStableNominalKeyProducerStage0Summary SelfhostMemoTraitStableNominalKeyProducerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitStableNominalKeyProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitStableNominalKeyProducerStage0Summary SelfhostMemoTraitStableNominalKeyProducerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_stable_nominal_key_producer_input_new: typed input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は field をまとめるだけです。各 field の検査は producer 本体で行います。
+pub fn selfhost_memo_trait_stable_nominal_key_producer_input_new %fn SelfhostModuleDeclarationVisibility fn i32 fn Option i32 fn Option i32 fn SelfhostMemoTraitStableNominalDeclarationKind fn i32 SelfhostMemoTraitStableNominalKeyProducerInput \visibility\module_fingerprint\declaration_ordinal\constructor_ordinal\kind\type_arity:
+    SelfhostMemoTraitStableNominalKeyProducerInput visibility module_fingerprint declaration_ordinal constructor_ordinal kind type_arity
+
+//: selfhost_memo_trait_stable_nominal_key_producer_schema_version: definition fingerprint schema version
+//:
+//: [契約/けいやく]:
+//: - declaration kind、ordinal、arity の fold rule を変える場合はこの version を更新します。
+fn selfhost_memo_trait_stable_nominal_key_producer_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_stable_nominal_key_producer_mix2: stable nominal key producer 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_stable_nominal_key_producer_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_stable_nominal_key_producer_mix3: stable nominal key producer 用の 3 field [混合/こんごう]
+fn selfhost_memo_trait_stable_nominal_key_producer_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_stable_nominal_key_producer_mix2 a b c
+
+//: selfhost_memo_trait_stable_nominal_key_producer_mix4: stable nominal key producer 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_stable_nominal_key_producer_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_stable_nominal_key_producer_mix2 selfhost_memo_trait_stable_nominal_key_producer_mix2 a b selfhost_memo_trait_stable_nominal_key_producer_mix2 c d
+
+//: selfhost_memo_trait_stable_nominal_declaration_kind_code: declaration kind を definition fingerprint domain code へ[写/うつ]す
+fn selfhost_memo_trait_stable_nominal_declaration_kind_code %fn SelfhostMemoTraitStableNominalDeclarationKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitStableNominalDeclarationKind::Struct:
+            252701
+        SelfhostMemoTraitStableNominalDeclarationKind::Enum:
+            252702
+
+//: selfhost_memo_trait_stable_nominal_key_producer_visibility_result: public visibility を[検査/けんさ]する
+fn selfhost_memo_trait_stable_nominal_key_producer_visibility_result %fn SelfhostModuleDeclarationVisibility Result unit SelfhostMemoTraitStableNominalKeyProducerErrorKind \visibility:
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Public:
+            Result::Ok unit
+        SelfhostModuleDeclarationVisibility::Private:
+            Result::Err SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected
+
+//: selfhost_memo_trait_stable_nominal_key_producer_ordinal_result: ordinal seed を[検査/けんさ]する
+fn selfhost_memo_trait_stable_nominal_key_producer_ordinal_result %fn Option i32 fn SelfhostMemoTraitStableNominalKeyProducerErrorKind fn SelfhostMemoTraitStableNominalKeyProducerErrorKind Result i32 SelfhostMemoTraitStableNominalKeyProducerErrorKind \ordinal\missing_error\placeholder_error:
+    match ordinal:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err placeholder_error
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err missing_error
+
+//: selfhost_memo_trait_stable_nominal_key_producer_definition_fingerprint_result: typed seed から definition fingerprint を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source spelling、span、display name、diagnostic text は使いません。
+//: - module fingerprint、schema version、declaration kind、declaration ordinal、type arity だけを fold します。
+pub fn selfhost_memo_trait_stable_nominal_key_producer_definition_fingerprint_result %fn i32 fn SelfhostMemoTraitStableNominalDeclarationKind fn i32 fn i32 Result i32 SelfhostMemoTraitStableNominalKeyProducerErrorKind \module_fingerprint\kind\declaration_ordinal\type_arity:
+    if:
+        eq module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder
+        else:
+            if:
+                lt type_arity 0
+                then:
+                    Result::Err SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative
+                else:
+                    let schema %i32 selfhost_memo_trait_stable_nominal_key_producer_schema_version
+                    let kind_code %i32 selfhost_memo_trait_stable_nominal_declaration_kind_code kind
+                    let left %i32 selfhost_memo_trait_stable_nominal_key_producer_mix4 schema module_fingerprint kind_code declaration_ordinal
+                    let fingerprint %i32 selfhost_memo_trait_stable_nominal_key_producer_mix2 left type_arity
+                    if:
+                        eq fingerprint 0
+                        then:
+                            Result::Err SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder
+                        else:
+                            Result::Ok fingerprint
+
+//: selfhost_memo_trait_stable_nominal_key_producer_result: public nominal declaration から stable nominal key を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker-layer の typed public declaration seed から low-level stable nominal key payload を生成します。
+//:
+//: [契約/けいやく]:
+//: - `declaration_ordinal` は definition fingerprint の材料になり、`constructor_ordinal` は low-level stable nominal key payload の材料になります。
+//: - 低層 constructor の error は `StableNominalKeyRejected` に包み、どの拒否理由だったかを失わないようにします。
+pub fn selfhost_memo_trait_stable_nominal_key_producer_result %fn SelfhostMemoTraitStableNominalKeyProducerInput Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind \input:
+    match selfhost_memo_trait_stable_nominal_key_producer_visibility_result input.visibility:
+        Result::Ok _unit:
+            match selfhost_memo_trait_stable_nominal_key_producer_ordinal_result input.declaration_ordinal SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                Result::Ok declaration_ordinal:
+                    match selfhost_memo_trait_stable_nominal_key_producer_ordinal_result input.constructor_ordinal SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                        Result::Ok constructor_ordinal:
+                            match selfhost_memo_trait_stable_nominal_key_producer_definition_fingerprint_result input.module_fingerprint input.kind declaration_ordinal input.type_arity:
+                                Result::Ok definition_fingerprint:
+                                    match selfhost_memo_trait_stable_nominal_key_result some input.module_fingerprint some definition_fingerprint some constructor_ordinal input.type_arity:
+                                        Result::Ok key:
+                                            Result::Ok key
+                                        Result::Err key_error:
+                                            Result::Err SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected key_error
+                                Result::Err fingerprint_error:
+                                    Result::Err fingerprint_error
+                        Result::Err constructor_error:
+                            Result::Err constructor_error
+                Result::Err declaration_error:
+                    Result::Err declaration_error
+        Result::Err visibility_error:
+            Result::Err visibility_error
+
+//: selfhost_memo_trait_stable_nominal_declaration_kind_eq: declaration kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_stable_nominal_declaration_kind_eq %fn SelfhostMemoTraitStableNominalDeclarationKind fn SelfhostMemoTraitStableNominalDeclarationKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableNominalDeclarationKind::Struct:
+            match b:
+                SelfhostMemoTraitStableNominalDeclarationKind::Struct:
+                    true
+                SelfhostMemoTraitStableNominalDeclarationKind::Enum:
+                    false
+        SelfhostMemoTraitStableNominalDeclarationKind::Enum:
+            match b:
+                SelfhostMemoTraitStableNominalDeclarationKind::Struct:
+                    false
+                SelfhostMemoTraitStableNominalDeclarationKind::Enum:
+                    true
+
+//: selfhost_memo_trait_stable_nominal_key_producer_error_kind_eq: producer error が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error variant を追加した場合、比較関数も必ず更新します。
+pub fn selfhost_memo_trait_stable_nominal_key_producer_error_kind_eq %fn SelfhostMemoTraitStableNominalKeyProducerErrorKind fn SelfhostMemoTraitStableNominalKeyProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    true
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected _key_error:
+                    false
+        SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected key_error:
+            match b:
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalMissing:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::ConstructorOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::DefinitionFingerprintPlaceholder:
+                    false
+                SelfhostMemoTraitStableNominalKeyProducerErrorKind::StableNominalKeyRejected other_key_error:
+                    selfhost_memo_trait_stable_nominal_key_error_kind_eq key_error other_key_error
+
+//: selfhost_memo_trait_stable_nominal_key_producer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_stable_nominal_key_producer_stage0_summary_new %fn Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind fn Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind fn bool fn Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind fn Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind SelfhostMemoTraitStableNominalKeyProducerStage0Summary \struct_key\enum_key\struct_and_enum_differ\private_rejected\module_placeholder_rejected:
+    SelfhostMemoTraitStableNominalKeyProducerStage0Summary struct_key enum_key struct_and_enum_differ private_rejected module_placeholder_rejected
+
+//: selfhost_memo_trait_stable_nominal_key_producer_stage0_compare: 2 key hash が異なるか[返/かえ]す
+fn selfhost_memo_trait_stable_nominal_key_producer_stage0_compare %fn Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind fn Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind bool \struct_result\enum_result:
+    match struct_result:
+        Result::Ok struct_key:
+            match enum_result:
+                Result::Ok enum_key:
+                    not eq struct_key.nominal_key_hash enum_key.nominal_key_hash
+                Result::Err _enum_error:
+                    false
+        Result::Err _struct_error:
+            false
+
+//: selfhost_memo_trait_stable_nominal_key_producer_stage0: stable nominal key producer の smoke API
+pub fn selfhost_memo_trait_stable_nominal_key_producer_stage0 %fn void SelfhostMemoTraitStableNominalKeyProducerStage0Summary \void:
+    let struct_input %SelfhostMemoTraitStableNominalKeyProducerInput:
+        selfhost_memo_trait_stable_nominal_key_producer_input_new SelfhostModuleDeclarationVisibility::Public 3101 some 1 some 1 SelfhostMemoTraitStableNominalDeclarationKind::Struct 0
+    let enum_input %SelfhostMemoTraitStableNominalKeyProducerInput:
+        selfhost_memo_trait_stable_nominal_key_producer_input_new SelfhostModuleDeclarationVisibility::Public 3101 some 2 some 2 SelfhostMemoTraitStableNominalDeclarationKind::Enum 0
+    let private_input %SelfhostMemoTraitStableNominalKeyProducerInput:
+        selfhost_memo_trait_stable_nominal_key_producer_input_new SelfhostModuleDeclarationVisibility::Private 3101 some 3 some 3 SelfhostMemoTraitStableNominalDeclarationKind::Struct 0
+    let module_placeholder_input %SelfhostMemoTraitStableNominalKeyProducerInput:
+        selfhost_memo_trait_stable_nominal_key_producer_input_new SelfhostModuleDeclarationVisibility::Public 0 some 4 some 4 SelfhostMemoTraitStableNominalDeclarationKind::Struct 0
+    let struct_result %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+        selfhost_memo_trait_stable_nominal_key_producer_result struct_input
+    let enum_result %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+        selfhost_memo_trait_stable_nominal_key_producer_result enum_input
+    let private_result %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+        selfhost_memo_trait_stable_nominal_key_producer_result private_input
+    let module_placeholder_result %Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind:
+        selfhost_memo_trait_stable_nominal_key_producer_result module_placeholder_input
+    let differ %bool selfhost_memo_trait_stable_nominal_key_producer_stage0_compare struct_result enum_result
+    selfhost_memo_trait_stable_nominal_key_producer_stage0_summary_new struct_result enum_result differ private_result module_placeholder_result

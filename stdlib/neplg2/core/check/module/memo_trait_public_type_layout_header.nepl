@@ -1,0 +1,808 @@
+#indent 4
+
+//: # check/module/memo_trait_public_type_layout_header
+//: public struct / enum declaration の typed layout header evidence を public surface normalizer の payload input へ[変換/へんかん]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - full public surface hash が public struct / enum を source header の文字列ではなく、stable nominal key、type parameter arity、field / variant count から受け取れるようにします。
+//: - `SelfhostMemoTraitStableNominalKey` を public declaration key として使い、session-local `SelfhostNamedTypeId`、source span、display name を accepted hash material にしない境界を固定します。
+//: - struct と enum は同じ type constructor 形状を持っていても public surface 上の宣言種別が違うため、layout header kind と normalizer declaration kind の両方を hash material に反映します。
+//: - normalizer が受け取る public declaration payload input と同じ schema で payload hash を作り、function signature producer と同じ public declaration evidence stream へ合流できるようにします。
+//:
+//: [契約/けいやく]:
+//: - accepted layout header evidence は `SelfhostMemoTraitPublicTypeLayoutHeaderInput` の typed field と `SelfhostMemoTraitStableNominalKey` だけから作ります。
+//: - source text、span、lexeme、display name、diagnostic text、path suffix、HIR、Resource IR、backend artifact、proof store record は accepted hash material に入りません。
+//: - `visibility` は `Public` だけを受理します。private struct / enum は public surface input ではないため typed error にします。
+//: - `declaration_ordinal` と `stable_nominal_key` は `some` でなければなりません。欠落と placeholder は別の enum error として返します。
+//: - `type_arity` は stable nominal key の `type_arity` と一致しなければなりません。public surface の型引数 arity と canonical key 側の arity がずれると、後続の generic instantiation proof が別 constructor を同一視するためです。
+//: - struct は `variant_count = 0` の product header として扱います。enum は `variant_count >= 0` の sum header として扱い、variant layout の詳細 proof は後続 stage が別 evidence として接続します。
+//:
+//: [現状/げんじょう]:
+//: - この module は struct / enum layout header producer の最初の接続点です。field type closure、enum variant payload layout、trait impl table、method body purity、Drop なし proof はまだ計算しません。
+//: - stable nominal key 自体は caller が作ります。後続の `.neplmeta` producer が type constructor table から stable nominal key table を作る段階でも、この module は同じ typed key payload を受け取ります。
+//: - facade にはまだ re-export しません。full public surface orchestration が function / layout / impl producer をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - layout header shape hash は fixed-size payload だけを fold するため O(1) 時間・O(1) 追加空間です。
+//: - field / variant の詳細 table を走査しないため、構造体や列挙型の内部要素数に比例する処理はこの module では行いません。詳細 layout proof は後続 solver の責務です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_type_layout_header" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_type_layout_header_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.struct_header
+//:     let checks2 checks_push checks1 check is_ok summary.enum_header
+//:     let checks3 checks_push checks2 check summary.struct_and_enum_differ
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_type_layout_header_error_kind_eq unwrap_err summary.private_rejected SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_type_layout_header_error_kind_eq unwrap_err summary.key_missing_rejected SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_type_layout_header_error_kind_eq unwrap_err summary.arity_mismatch_rejected SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch
+//:     let shown checks_print_report checks6
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty" as *
+#import "./memo_trait_public_surface_normalizer" as *
+#import "./memo_trait_stable_nominal_key_producer" as *
+
+//: SelfhostMemoTraitPublicTypeLayoutHeaderKind: public type constructor layout header の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - struct と enum の shape hash domain を分け、同じ stable nominal key と count payload を持つ場合でも public surface 上の宣言種別を混同しないようにします。
+pub enum SelfhostMemoTraitPublicTypeLayoutHeaderKind:
+    Struct
+    Enum
+
+//: SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash: public type layout header の normalized fingerprint
+//:
+//: [目的/もくてき]:
+//: - stable nominal key と public layout header count から作った shape hash を schema version と一緒に保持します。
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は hash material の構造を表します。
+//: - `root_hash` は nonzero でなければ accepted shape ではありません。
+pub struct SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash:
+    schema_version %i32
+    root_hash %i32
+
+//: SelfhostMemoTraitPublicTypeLayoutHeaderInput: public struct / enum layout header producer の typed input
+//:
+//: [目的/もくてき]:
+//: - visibility、public declaration ordinal、stable nominal key、layout header kind、arity / field / variant count を 1 record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `stable_nominal_key` は stable nominal key producer が作った nonzero key です。`none` は欠落として拒否します。
+//: - `type_arity` は public type constructor の type parameter 数です。stable nominal key の `type_arity` と一致しなければなりません。
+//: - `field_count` は struct なら product field count、enum なら variant payload field の合計や後続 solver が共有する header count seed です。詳細 field type proof はここでは持ちません。
+//: - `variant_count` は struct では 0 でなければなりません。enum では 0 以上を許可し、empty enum を言語仕様がどう扱うかは後続の enum semantic checker が決めます。
+pub struct SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+    visibility %SelfhostModuleDeclarationVisibility
+    declaration_ordinal %Option i32
+    stable_nominal_key %Option SelfhostMemoTraitStableNominalKey
+    kind %SelfhostMemoTraitPublicTypeLayoutHeaderKind
+    type_arity %i32
+    field_count %i32
+    variant_count %i32
+
+//: SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind: public type layout header producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - visibility、ordinal、stable nominal key、shape header、normalizer payload hash の失敗を同じ enum に潰さず保持します。
+pub enum SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+    PrivateVisibilityRejected
+    DeclarationOrdinalMissing
+    DeclarationOrdinalPlaceholder
+    StableNominalKeyMissing
+    StableNominalKeyPlaceholder
+    StableNominalKeyArityMismatch
+    TypeArityNegative
+    FieldCountNegative
+    VariantCountNegative
+    StructVariantCountNonzero
+    DerivedLayoutHeaderShapeHashPlaceholder
+    PublicDeclarationPayloadRejected %SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
+
+//: SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary: layout header producer の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - struct / enum accepted path、種別差分、private / missing key / arity mismatch rejection をまとめます。
+pub struct SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary:
+    struct_header %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind
+    enum_header %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind
+    struct_and_enum_differ %bool
+    private_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind
+    key_missing_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind
+    arity_mismatch_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind
+
+impl Clone for SelfhostMemoTraitPublicTypeLayoutHeaderKind:
+    fn clone %fn &SelfhostMemoTraitPublicTypeLayoutHeaderKind SelfhostMemoTraitPublicTypeLayoutHeaderKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicTypeLayoutHeaderKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicTypeLayoutHeaderKind SelfhostMemoTraitPublicTypeLayoutHeaderKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash:
+    fn clone %fn &SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash:
+    fn copy_mark %fn SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+    fn clone %fn &SelfhostMemoTraitPublicTypeLayoutHeaderInput SelfhostMemoTraitPublicTypeLayoutHeaderInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicTypeLayoutHeaderInput SelfhostMemoTraitPublicTypeLayoutHeaderInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_type_layout_header_input_new: typed input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は field をまとめるだけです。visibility、ordinal、stable nominal key、count の検査は producer 本体で行います。
+pub fn selfhost_memo_trait_public_type_layout_header_input_new %fn SelfhostModuleDeclarationVisibility fn Option i32 fn Option SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitPublicTypeLayoutHeaderKind fn i32 fn i32 fn i32 SelfhostMemoTraitPublicTypeLayoutHeaderInput \visibility\declaration_ordinal\stable_nominal_key\kind\type_arity\field_count\variant_count:
+    SelfhostMemoTraitPublicTypeLayoutHeaderInput visibility declaration_ordinal stable_nominal_key kind type_arity field_count variant_count
+
+//: selfhost_memo_trait_public_type_layout_header_schema_version: layout header shape hash schema version
+//:
+//: [契約/けいやく]:
+//: - layout kind、arity、field count、variant count、stable nominal key fold のどれかを変える場合はこの version を更新します。
+fn selfhost_memo_trait_public_type_layout_header_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_type_layout_header_mix2: layout header hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_type_layout_header_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_type_layout_header_mix3: layout header hash 用の 3 field [混合/こんごう]
+fn selfhost_memo_trait_public_type_layout_header_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_public_type_layout_header_mix2 a b c
+
+//: selfhost_memo_trait_public_type_layout_header_mix4: layout header hash 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_public_type_layout_header_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_type_layout_header_mix2 selfhost_memo_trait_public_type_layout_header_mix2 a b selfhost_memo_trait_public_type_layout_header_mix2 c d
+
+//: selfhost_memo_trait_public_type_layout_header_payload_schema_code: public declaration payload schema の domain code
+//:
+//: [契約/けいやく]:
+//: - normalizer の `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` と同じ field 構成を hash へ畳みます。
+//: - この helper は facade 公開されません。normalizer の内部 adapter を公開 API に漏らさず、layout producer が同じ typed payload contract に従うための局所境界です。
+fn selfhost_memo_trait_public_type_layout_header_payload_schema_code %fn void i32 \void:
+    252301
+
+//: selfhost_memo_trait_public_type_layout_header_payload_kind_code: public declaration kind を payload domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_type_layout_header_payload_kind_code %fn SelfhostMemoTraitPublicSurfacePublicDeclarationKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function:
+            252311
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Struct:
+            252312
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Enum:
+            252313
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl:
+            252314
+
+//: selfhost_memo_trait_public_type_layout_header_kind_code: layout header kind を shape domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_type_layout_header_kind_code %fn SelfhostMemoTraitPublicTypeLayoutHeaderKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct:
+            252501
+        SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum:
+            252502
+
+//: selfhost_memo_trait_public_type_layout_header_public_kind: layout header kind を normalizer declaration kind へ[写/うつ]す
+fn selfhost_memo_trait_public_type_layout_header_public_kind %fn SelfhostMemoTraitPublicTypeLayoutHeaderKind SelfhostMemoTraitPublicSurfacePublicDeclarationKind \kind:
+    match kind:
+        SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct:
+            SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Struct
+        SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum:
+            SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Enum
+
+//: selfhost_memo_trait_public_type_layout_header_payload_hash_result: payload input から stable hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - stable declaration key と normalized declaration shape は nonzero でなければなりません。
+//: - source text、span、display name、diagnostic text は読まず、payload input の typed field だけを authority にします。
+//: - normalizer の内部 adapter と同じ placeholder error kind を返し、呼び出し側が layout producer の error enum へ包めるようにします。
+fn selfhost_memo_trait_public_type_layout_header_payload_hash_result %fn SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \input:
+    if:
+        eq input.stable_declaration_key_hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder
+        else:
+            if:
+                eq input.normalized_declaration_shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder
+                else:
+                    let kind_hash %i32 selfhost_memo_trait_public_type_layout_header_payload_kind_code input.kind
+                    let header_hash %i32 selfhost_memo_trait_public_type_layout_header_mix3 selfhost_memo_trait_public_type_layout_header_payload_schema_code kind_hash input.stable_declaration_key_hash
+                    let payload_hash %i32 selfhost_memo_trait_public_type_layout_header_mix2 header_hash input.normalized_declaration_shape_hash
+                    if:
+                        eq payload_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder
+                        else:
+                            Result::Ok payload_hash
+
+//: selfhost_memo_trait_public_type_layout_header_visibility_result: public visibility を[検査/けんさ]する
+fn selfhost_memo_trait_public_type_layout_header_visibility_result %fn SelfhostModuleDeclarationVisibility Result unit SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \visibility:
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Public:
+            Result::Ok unit
+        SelfhostModuleDeclarationVisibility::Private:
+            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected
+
+//: selfhost_memo_trait_public_type_layout_header_ordinal_result: declaration ordinal を[検査/けんさ]する
+fn selfhost_memo_trait_public_type_layout_header_ordinal_result %fn Option i32 Result i32 SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \declaration_ordinal:
+    match declaration_ordinal:
+        Option::Some ordinal:
+            if:
+                eq ordinal 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder
+                else:
+                    Result::Ok ordinal
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing
+
+//: selfhost_memo_trait_public_type_layout_header_stable_key_result: stable nominal key を[検査/けんさ]する
+fn selfhost_memo_trait_public_type_layout_header_stable_key_result %fn Option SelfhostMemoTraitStableNominalKey fn i32 Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \stable_nominal_key\type_arity:
+    match stable_nominal_key:
+        Option::Some key:
+            if:
+                eq key.nominal_key_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder
+                else:
+                    if:
+                        eq key.type_arity type_arity
+                        then:
+                            Result::Ok key
+                        else:
+                            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing
+
+//: selfhost_memo_trait_public_type_layout_header_counts_result: layout header count を[検査/けんさ]する
+fn selfhost_memo_trait_public_type_layout_header_counts_result %fn SelfhostMemoTraitPublicTypeLayoutHeaderKind fn i32 fn i32 fn i32 Result unit SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \kind\type_arity\field_count\variant_count:
+    if:
+        lt type_arity 0
+        then:
+            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative
+        else:
+            if:
+                lt field_count 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative
+                else:
+                    if:
+                        lt variant_count 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative
+                        else:
+                            match kind:
+                                SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct:
+                                    if:
+                                        eq variant_count 0
+                                        then:
+                                            Result::Ok unit
+                                        else:
+                                            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero
+                                SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum:
+                                    Result::Ok unit
+
+//: selfhost_memo_trait_public_type_layout_header_shape_hash_result: type layout header shape hash を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public type constructor の依存側に見える layout header を stable hash へ畳みます。
+//:
+//: [契約/けいやく]:
+//: - stable nominal key hash、layout kind、arity、field count、variant count だけを accepted hash material にします。
+//: - field type closure と variant payload の詳細は別 solver の evidence であり、この header hash に直接入れません。
+pub fn selfhost_memo_trait_public_type_layout_header_shape_hash_result %fn SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitPublicTypeLayoutHeaderKind fn i32 fn i32 fn i32 Result SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \stable_key\kind\type_arity\field_count\variant_count:
+    match selfhost_memo_trait_public_type_layout_header_counts_result kind type_arity field_count variant_count:
+        Result::Ok _unit:
+            let schema %i32 selfhost_memo_trait_public_type_layout_header_schema_version
+            let kind_hash %i32 selfhost_memo_trait_public_type_layout_header_kind_code kind
+            let left %i32 selfhost_memo_trait_public_type_layout_header_mix4 schema kind_hash stable_key.nominal_key_hash type_arity
+            let right %i32 selfhost_memo_trait_public_type_layout_header_mix2 field_count variant_count
+            let root_hash %i32 selfhost_memo_trait_public_type_layout_header_mix2 left right
+            if:
+                eq root_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder
+                else:
+                    Result::Ok SelfhostMemoTraitPublicTypeLayoutHeaderShapeHash schema root_hash
+        Result::Err counts_error:
+            Result::Err counts_error
+
+//: selfhost_memo_trait_public_type_layout_header_payload_input_result: public declaration payload input を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - layout header producer の typed input を、normalizer 共通の public declaration payload input へ変換します。
+//:
+//: [契約/けいやく]:
+//: - visibility、stable nominal key、count を先に検査します。
+//: - `stable_declaration_key_hash` には stable nominal key の `nominal_key_hash` を使います。
+//: - `normalized_declaration_shape_hash` には schema version 付き layout header shape hash の root hash を使います。
+pub fn selfhost_memo_trait_public_type_layout_header_payload_input_result %fn SelfhostMemoTraitPublicTypeLayoutHeaderInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \input:
+    match selfhost_memo_trait_public_type_layout_header_visibility_result input.visibility:
+        Result::Ok _unit:
+            match selfhost_memo_trait_public_type_layout_header_stable_key_result input.stable_nominal_key input.type_arity:
+                Result::Ok stable_key:
+                    match selfhost_memo_trait_public_type_layout_header_shape_hash_result stable_key input.kind input.type_arity input.field_count input.variant_count:
+                        Result::Ok shape:
+                            Result::Ok SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput selfhost_memo_trait_public_type_layout_header_public_kind input.kind stable_key.nominal_key_hash shape.root_hash
+                        Result::Err shape_error:
+                            Result::Err shape_error
+                Result::Err key_error:
+                    Result::Err key_error
+        Result::Err visibility_error:
+            Result::Err visibility_error
+
+//: selfhost_memo_trait_public_type_layout_header_evidence_result: public struct / enum declaration evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stable public type layout header producer の主 API です。
+//:
+//: [契約/けいやく]:
+//: - ordinal を検査してから payload input を作り、module-local private payload hash helper で normalizer-compatible evidence を作ります。
+//: - source text、span、display name、diagnostic text は accepted path で参照しません。
+pub fn selfhost_memo_trait_public_type_layout_header_evidence_result %fn SelfhostMemoTraitPublicTypeLayoutHeaderInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind \input:
+    match selfhost_memo_trait_public_type_layout_header_ordinal_result input.declaration_ordinal:
+        Result::Ok ordinal:
+            match selfhost_memo_trait_public_type_layout_header_payload_input_result input:
+                Result::Ok payload_input:
+                    match selfhost_memo_trait_public_type_layout_header_payload_hash_result payload_input:
+                        Result::Ok payload_hash:
+                            Result::Ok SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence payload_input.kind ordinal payload_hash
+                        Result::Err payload_error:
+                            Result::Err SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected payload_error
+                Result::Err input_error:
+                    Result::Err input_error
+        Result::Err ordinal_error:
+            Result::Err ordinal_error
+
+//: selfhost_memo_trait_public_type_layout_header_kind_eq: layout header kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_type_layout_header_kind_eq %fn SelfhostMemoTraitPublicTypeLayoutHeaderKind fn SelfhostMemoTraitPublicTypeLayoutHeaderKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum:
+                    true
+
+//: selfhost_memo_trait_public_type_layout_header_error_kind_eq: layout header producer error が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error variant を追加した場合、比較関数も必ず更新します。
+pub fn selfhost_memo_trait_public_type_layout_header_error_kind_eq %fn SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind fn SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    true
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+                    false
+        SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected payload_error:
+            match b:
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PrivateVisibilityRejected:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DeclarationOrdinalPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyArityMismatch:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::TypeArityNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::FieldCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::VariantCountNegative:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StructVariantCountNonzero:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::DerivedLayoutHeaderShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::PublicDeclarationPayloadRejected other_payload_error:
+                    selfhost_memo_trait_public_surface_normalizer_error_kind_eq payload_error other_payload_error
+
+//: selfhost_memo_trait_public_type_layout_header_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_type_layout_header_stage0_summary_new %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind fn bool fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary \struct_header\enum_header\struct_and_enum_differ\private_rejected\key_missing_rejected\arity_mismatch_rejected:
+    SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary struct_header enum_header struct_and_enum_differ private_rejected key_missing_rejected arity_mismatch_rejected
+
+//: selfhost_memo_trait_public_type_layout_header_stage0_key_result: stage0 用 stable nominal key を producer 経由で[作/つく]る
+fn selfhost_memo_trait_public_type_layout_header_stage0_key_result %fn SelfhostMemoTraitStableNominalDeclarationKind fn i32 Result SelfhostMemoTraitStableNominalKey SelfhostMemoTraitStableNominalKeyProducerErrorKind \kind\type_arity:
+    let ordinal %i32 add 5101 type_arity
+    let input %SelfhostMemoTraitStableNominalKeyProducerInput:
+        selfhost_memo_trait_stable_nominal_key_producer_input_new SelfhostModuleDeclarationVisibility::Public 3101 some ordinal some ordinal kind type_arity
+    selfhost_memo_trait_stable_nominal_key_producer_result input
+
+//: selfhost_memo_trait_public_type_layout_header_stage0_compare_payload: 2 evidence の payload hash が異なるか[返/かえ]す
+fn selfhost_memo_trait_public_type_layout_header_stage0_compare_payload %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind bool \struct_result\enum_result:
+    match struct_result:
+        Result::Ok struct_evidence:
+            match enum_result:
+                Result::Ok enum_evidence:
+                    not eq struct_evidence.payload_hash enum_evidence.payload_hash
+                Result::Err _enum_error:
+                    false
+        Result::Err _struct_error:
+            false
+
+//: selfhost_memo_trait_public_type_layout_header_stage0_from_key: stage0 evidence を stable key から[作/つく]る
+fn selfhost_memo_trait_public_type_layout_header_stage0_from_key %fn SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitStableNominalKey fn SelfhostMemoTraitStableNominalKey SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary \struct_key\enum_key\generic_key:
+    let struct_input %SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+        selfhost_memo_trait_public_type_layout_header_input_new SelfhostModuleDeclarationVisibility::Public some 1 some struct_key SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct 0 2 0
+    let enum_input %SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+        selfhost_memo_trait_public_type_layout_header_input_new SelfhostModuleDeclarationVisibility::Public some 2 some enum_key SelfhostMemoTraitPublicTypeLayoutHeaderKind::Enum 0 2 2
+    let private_input %SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+        selfhost_memo_trait_public_type_layout_header_input_new SelfhostModuleDeclarationVisibility::Private some 3 some struct_key SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct 0 2 0
+    let missing_key_input %SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+        selfhost_memo_trait_public_type_layout_header_input_new SelfhostModuleDeclarationVisibility::Public some 4 none SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct 0 2 0
+    let arity_mismatch_input %SelfhostMemoTraitPublicTypeLayoutHeaderInput:
+        selfhost_memo_trait_public_type_layout_header_input_new SelfhostModuleDeclarationVisibility::Public some 5 some generic_key SelfhostMemoTraitPublicTypeLayoutHeaderKind::Struct 0 2 0
+    let struct_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+        selfhost_memo_trait_public_type_layout_header_evidence_result struct_input
+    let enum_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+        selfhost_memo_trait_public_type_layout_header_evidence_result enum_input
+    let private_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+        selfhost_memo_trait_public_type_layout_header_evidence_result private_input
+    let missing_key_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+        selfhost_memo_trait_public_type_layout_header_evidence_result missing_key_input
+    let arity_mismatch_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind:
+        selfhost_memo_trait_public_type_layout_header_evidence_result arity_mismatch_input
+    let differ %bool selfhost_memo_trait_public_type_layout_header_stage0_compare_payload struct_result enum_result
+    selfhost_memo_trait_public_type_layout_header_stage0_summary_new struct_result enum_result differ private_result missing_key_result arity_mismatch_result
+
+//: selfhost_memo_trait_public_type_layout_header_stage0: public type layout header producer の smoke API
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy regression が、accepted struct / enum と代表 fail-closed path を小さい入力で確認できるようにします。
+pub fn selfhost_memo_trait_public_type_layout_header_stage0 %fn void SelfhostMemoTraitPublicTypeLayoutHeaderStage0Summary \void:
+    match selfhost_memo_trait_public_type_layout_header_stage0_key_result SelfhostMemoTraitStableNominalDeclarationKind::Struct 0:
+        Result::Ok struct_key:
+            match selfhost_memo_trait_public_type_layout_header_stage0_key_result SelfhostMemoTraitStableNominalDeclarationKind::Enum 0:
+                Result::Ok enum_key:
+                    match selfhost_memo_trait_public_type_layout_header_stage0_key_result SelfhostMemoTraitStableNominalDeclarationKind::Struct 1:
+                        Result::Ok generic_key:
+                            selfhost_memo_trait_public_type_layout_header_stage0_from_key struct_key enum_key generic_key
+                        Result::Err _generic_key_error:
+                            let err %SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing
+                            selfhost_memo_trait_public_type_layout_header_stage0_summary_new Result::Err err Result::Err err false Result::Err err Result::Err err Result::Err err
+                Result::Err _enum_key_error:
+                    let err %SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing
+                    selfhost_memo_trait_public_type_layout_header_stage0_summary_new Result::Err err Result::Err err false Result::Err err Result::Err err Result::Err err
+        Result::Err _struct_key_error:
+            let err %SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind SelfhostMemoTraitPublicTypeLayoutHeaderErrorKind::StableNominalKeyMissing
+            selfhost_memo_trait_public_type_layout_header_stage0_summary_new Result::Err err Result::Err err false Result::Err err Result::Err err Result::Err err
