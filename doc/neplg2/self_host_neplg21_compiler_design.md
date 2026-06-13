@@ -1284,7 +1284,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_type_argument_identity_contr
 
 2026-06-13 MemoKey / MemoValue operation proof table checkpoint では、`stdlib/neplg2/core/ty/ty/memo_trait_operation_proof.nepl` を追加し、Copy / Drop / Eq / Hash の operation proof status を session-local `SelfhostTypeId` table から `SelfhostMemoTraitAggregateProof` へ渡す境界を作った。この module は `SelfhostMemoTraitAggregateProofStatus` を bool や文字列に潰さず、`Proven`、`Missing`、`Impure`、`Unknown` のまま producer gate へ運ぶ。
 
-`SelfhostMemoTraitOperationProofTable` は永続 artifact authority ではない。`.neplmeta`、`.neplproof`、cross-arena cache、serialized canonical key の代わりにはならず、現在の type arena session の中だけで使う。record 欠落は accepted proof にせず、Copy / Drop / Eq / Hash がすべて `Missing` の record として aggregate proof に渡す。producer gate はこの status を `CopyProofMissing`、`EqProofImpure`、`HashProofUnknown` などの typed rejection へ変換する。同じ TypeId の record が複数ある場合は first-wins で続行せず、`DuplicateRecord` として aggregate proof construction の前で拒否する。
+`SelfhostMemoTraitOperationProofTable` は永続 artifact authority ではない。`.neplmeta`、`.neplproof`、cross-arena cache、serialized canonical key の代わりにはならず、現在の type arena session の中だけで使う。record 欠落は `Proven` に補完せず、Copy / Drop / Eq / Hash がすべて `Missing` の record として aggregate proof に渡す。producer gate は evidence record を作ったうえで、この status を `key_result` / `value_result` の `CopyProofMissing`、`EqProofImpure`、`HashProofUnknown` などの typed side rejection へ変換する。同じ TypeId の record が複数ある場合は first-wins で続行せず、`DuplicateRecord` として aggregate proof construction の前で拒否する。
 
 この checkpoint は proof status の運搬と producer 接続であり、trait impl table、method body purity、Drop なし proof、Eq / Hash の純粋性検査、recursive field traversal、cycle boundary はまだ実装しない。型が `SelfhostTypeArena` に存在しない場合は `MissingTypeRecord` で拒否し、fake TypeId の operation proof record だけで accepted aggregate proof を作らない。source policy と doctest は duplicate record rejection、fake TypeId rejection、missing record fail-closed を実行経路として固定する。source policy はさらに facade re-export、source list 登録、checker / HIR / Resource IR / backend への逆依存禁止、proof store / artifact / codec への依存禁止、wildcard arm 禁止、line count / doc comment length cap 禁止を固定する。
 
@@ -1302,9 +1302,9 @@ stage0 smoke は accepted root->primitive、nested accepted root->child->primiti
 
 重要な境界は、traversal summary を accepted proof として扱わないことである。`SelfhostMemoTraitRecursiveAggregateSummary` の `field_count` は closure 全体の edge 数であり、producer gate が読む root aggregate の direct field range とは一致しない場合がある。そのため `selfhost_memo_trait_recursive_producer_aggregate_proof_result` は、recursive traversal が `Ok` になった後で root の field evidence を `selfhost_memo_trait_layout_evidence_for_type_result` から再取得し、その field evidence と operation proof table の Copy / Drop / Eq / Hash status を `SelfhostMemoTraitAggregateProof` へ合流する。
 
-`selfhost_memo_trait_recursive_producer_record_result` は最終的に既存 `selfhost_memo_trait_aggregate_proof_to_record` を呼ぶ。accepted `SelfhostMemoTraitEvidenceRecord` を独自生成したり、consumer evidence table へ直接 push したりしない。失敗は `SelfhostMemoTraitRecursiveProducerErrorKind` に閉じ、`RecursiveRejected(SelfhostMemoTraitRecursiveAggregateErrorKind)`、`LayoutRejected(SelfhostMemoTraitLayoutEvidenceErrorKind)`、`OperationRejected(SelfhostMemoTraitOperationProofErrorKind)`、`ProducerRejected(SelfhostMemoTraitEvidenceProduceRejectKind)` を区別する。
+`selfhost_memo_trait_recursive_producer_record_result` は最終的に既存 `selfhost_memo_trait_aggregate_proof_to_record` を呼ぶ。`SelfhostMemoTraitEvidenceRecord` を独自生成したり、consumer evidence table へ直接 push したりしない。失敗は `SelfhostMemoTraitRecursiveProducerErrorKind` に閉じ、`RecursiveRejected(SelfhostMemoTraitRecursiveAggregateErrorKind)`、`LayoutRejected(SelfhostMemoTraitLayoutEvidenceErrorKind)`、`OperationRejected(SelfhostMemoTraitOperationProofErrorKind)`、`ProducerRejected(SelfhostMemoTraitEvidenceProduceRejectKind)` を区別する。operation proof missing や hazard は producer-level error ではなく、record の key/value side payload に typed rejection として残る。
 
-stage0 smoke は accepted root、self-cycle、operation proof missing、hazard rejection を public boundary 経由で確認する。source policy は、summary counter を producer field range に流用しないこと、producer gate を迂回しないこと、source text / span / path / display name / diagnostic / lexeme を authority にしないこと、行数 / doc comment 長制限を追加しないことを固定した。この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は後続 slice として残る。
+stage0 smoke は root の record 化、self-cycle、operation proof missing side payload、hazard side payload を public boundary 経由で確認する。source policy は、summary counter を producer field range に流用しないこと、producer gate を迂回しないこと、source text / span / path / display name / diagnostic / lexeme を authority にしないこと、行数 / doc comment 長制限を追加しないことを固定した。この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は後続 slice として残る。
 
 2026-06-13 MemoKey / MemoValue operation solver checkpoint では、`stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl` を追加し、type arena と layout evidence から session-local operation proof table 1 件を作る境界を実装した。`memo_trait_operation_proof.nepl` は引き続き table transport と producer 合流だけを担当し、solver 本体は新 module に分離する。
 
@@ -1365,6 +1365,16 @@ Performance acceptance:
 - RPN cold base compile を標準 benchmark とする。
 - stage timing JSON を Discord report と CI artifact に含める。
 - compile-time regression threshold を設け、cache hit だけで regression を隠さない。
+
+### 2026-06-13 MemoKey / MemoValue key-value operation requirement checkpoint
+
+`memo_trait_producer.nepl` の producer boundary を、record 全体の生成可否と `MemoKey` / `MemoValue` side の受理可否を分ける形へ更新した。`SelfhostMemoTraitEvidenceProduceRejectKind` は missing type、non-aggregate type、field layout 欠落、invalid range、generic argument unsubstituted、cycle limit のように evidence record を作れない構造的な失敗だけを表す。Copy / Drop / Eq / Hash proof と hazard は `SelfhostMemoTraitRejectKind` に追加した typed variant へ移し、`SelfhostMemoTraitEvidenceRecord.key_result` / `value_result` に保存する。
+
+key side は Copy、Drop、Eq、Hash、hazard-free を要求する。value side は cache から owned / copied value として返せることを確認するため Copy、Drop、hazard-free を要求し、Eq / Hash は要求しない。これにより、Hash proof が unknown の aggregate でも `MemoValue` としては受理し、`MemoKey` としてだけ `HashProofUnknown` で拒否できる。hazard は key と value の両方に適用し、external handle、owner token、public mutable state、cache reference escape、unknown hazard を key にする経路も value と同じく拒否する。
+
+producer stage0、operation proof stage0、recursive producer stage0 は、operation proof missing や hazard を producer-level `Err` としてではなく、生成された evidence record の side payload として検査するように更新した。これにより recursive producer は traversal / layout / operation table / recordization のどこで外側エラーになったかを保ちつつ、operation proof status の未証明は consumer predicate が読む `Result unit SelfhostMemoTraitRejectKind` として保持する。
+
+この checkpoint では trait impl table、method body purity、Drop なし proof の実計算はまだ行わない。今回固定したのは、後続 solver が計算した operation status を key/value 別の受理条件へ畳み込む record boundary である。nested aggregate traversal の memoization、operation fold の重複削減、layout lookup index 化は、この side payload contract を変えずに後から最適化できる。
 
 ## 既存 issue との対応
 

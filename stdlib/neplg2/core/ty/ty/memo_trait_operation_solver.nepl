@@ -6,7 +6,7 @@
 //: [目的/もくてき]:
 //: - `memo_trait_operation_proof.nepl` は operation proof status table の運搬と producer gate への合流だけを担当します。この module は、その table に入れる record を型構造から作ります。
 //: - Phase 1 では、recursive aggregate gate で cycle / depth / unsupported field を先に拒否したうえで、layout validator が受理した product field closure を読み、primitive field と nested aggregate field の operation proof status を root aggregate の status へ fold します。
-//: - function、parameter、または未対応 primitive である場合は、推測で `Proven` にせず `Unknown` status を fold し、producer gate の typed rejection へ進めます。
+//: - function、parameter、または未対応 primitive である場合は、推測で `Proven` にせず `Unknown` status を fold し、producer が作る record の key/value side payload へ typed rejection として進めます。
 //:
 //: [契約/けいやく]:
 //: - source text、span、path、display name、diagnostic text、lexeme は proof authority にしません。入力は `SelfhostTypeArena`、`SelfhostMemoTraitLayoutEvidenceTable`、`SelfhostTypeId` だけです。

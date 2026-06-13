@@ -6,11 +6,11 @@
 //: [目的/もくてき]:
 //: - `memo_trait_recursive_aggregate.nepl` は、aggregate field closure が有限であり、cycle、depth limit、unsupported field type を含まないことだけを確認します。この module は、その traversal 成功を producer gate へ渡す field evidence の前提として使います。
 //: - `memo_trait_operation_proof.nepl` は Copy / Drop / Eq / Hash proof status を `SelfhostMemoTraitAggregateProof` へ合流します。この module は、recursive traversal が成功した root にだけ operation proof を合流させます。
-//: - `memo_trait_producer.nepl` の `selfhost_memo_trait_aggregate_proof_to_record` を最終受理 gate として呼び、accepted consumer evidence record をこの module 内で独自に作りません。
+//: - `memo_trait_producer.nepl` の `selfhost_memo_trait_aggregate_proof_to_record` を最終 record 化 boundary として呼び、consumer evidence record をこの module 内で独自に作りません。
 //:
 //: [契約/けいやく]:
 //: - traversal 成功 summary は accepted proof ではありません。`selfhost_memo_trait_recursive_aggregate_result` が `Ok` を返した後でも、root の field evidence は `memo_trait_layout.nepl` の public validator から再取得し、producer gate が読む `SelfhostMemoTraitAggregateFieldEvidence` として渡します。
-//: - Copy / Drop / Eq / Hash proof が missing / impure / unknown の場合、この module はその status を補完せず、producer gate の typed rejection へ進めます。
+//: - Copy / Drop / Eq / Hash proof が missing / impure / unknown の場合、この module はその status を補完せず、producer が作る record の key/value payload へ typed rejection として進めます。
 //: - `SelfhostMemoTraitRecursiveProducerErrorKind` は recursive traversal、layout再取得、operation proof table、producer rejection を分けます。どの stage で拒否されたかを bool や diagnostic string に潰しません。
 //: - proof store、`.neplproof` artifact、serializer、preseed、canonical key、HIR、Resource IR、backend、source text、span、display name、diagnostic string へ依存しません。
 //:
@@ -26,16 +26,19 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_recursive_aggregate" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_recursive_producer" as *
@@ -48,13 +51,13 @@
 //:             let cycle_error SelfhostMemoTraitRecursiveProducerErrorKind::RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected
 //:             let cycle_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary.recursive_cycle_rejected
 //:             let checks2 checks_push checks1 check selfhost_memo_trait_recursive_producer_error_kind_eq cycle_actual cycle_error
-//:             let operation_error SelfhostMemoTraitRecursiveProducerErrorKind::ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofMissing
-//:             let operation_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary.operation_missing_rejected
-//:             let checks3 checks_push checks2 check selfhost_memo_trait_recursive_producer_error_kind_eq operation_actual operation_error
-//:             let hazard_error SelfhostMemoTraitRecursiveProducerErrorKind::ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::ExternalHandle
-//:             let hazard_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary.producer_hazard_rejected
-//:             let checks4 checks_push checks3 check selfhost_memo_trait_recursive_producer_error_kind_eq hazard_actual hazard_error
-//:             let shown checks_print_report checks4
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_recursive_producer_record_result_is_accept summary.operation_missing_produced
+//:             let operation_record %SelfhostMemoTraitEvidenceRecord unwrap_ok summary.operation_missing_produced
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_reject_kind_eq unwrap_err operation_record.key_result SelfhostMemoTraitRejectKind::CopyProofMissing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_recursive_producer_record_result_is_accept summary.hazard_produced
+//:             let hazard_record %SelfhostMemoTraitEvidenceRecord unwrap_ok summary.hazard_produced
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_reject_kind_eq unwrap_err hazard_record.value_result SelfhostMemoTraitRejectKind::ExternalHandle
+//:             let shown checks_print_report checks6
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "memo trait recursive producer stage0 setup failed"
@@ -95,12 +98,12 @@ pub enum SelfhostMemoTraitRecursiveProducerErrorKind:
 //: SelfhostMemoTraitRecursiveProducerStage0Summary: recursive producer 接続の代表 smoke
 //:
 //: [目的/もくてき]:
-//: - traversal 成功から producer accepted record までの path と、recursive / operation / producer rejection の代表値を同時に確認します。
+//: - traversal 成功から producer evidence record までの path と、recursive rejection、operation proof missing payload、hazard payload の代表値を同時に確認します。
 pub struct SelfhostMemoTraitRecursiveProducerStage0Summary:
     produced_record %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind
     recursive_cycle_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind
-    operation_missing_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind
-    producer_hazard_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind
+    operation_missing_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind
+    hazard_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind
 
 impl Clone for SelfhostMemoTraitRecursiveProducerErrorKind:
     fn clone %fn &SelfhostMemoTraitRecursiveProducerErrorKind SelfhostMemoTraitRecursiveProducerErrorKind \self:
@@ -206,7 +209,7 @@ pub fn selfhost_memo_trait_recursive_producer_aggregate_proof_result %impure fn 
 //: - aggregate proof input construction と producer record conversion を 1 つの public boundary として束ねます。
 //:
 //: [戻/もど]り[値/ち]:
-//: - `Ok(record)`: recursive traversal、layout evidence、operation proof status、producer gate のすべてを通過した consumer evidence record です。
+//: - `Ok(record)`: recursive traversal、layout evidence、operation proof status の合流、producer record 化が成功した consumer evidence record です。key/value payload はそれぞれ `Ok` または typed `Err` を持ちます。
 //: - `Err(kind)`: どの stage で fail-closed になったかを nested enum payload として保持します。
 pub fn selfhost_memo_trait_recursive_producer_record_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn &SelfhostMemoTraitOperationProofTable impure fn SelfhostTypeId impure fn i32 impure fn SelfhostMemoTraitAggregateHazardEvidence impure fn Result unit SelfhostMemoTraitRejectKind impure fn Result unit SelfhostMemoTraitRejectKind Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind \types\layout_table\operation_table\type_id\max_depth\hazard\key_result\value_result:
     match selfhost_memo_trait_recursive_producer_aggregate_proof_result types layout_table operation_table type_id max_depth hazard key_result value_result:
@@ -220,8 +223,8 @@ pub fn selfhost_memo_trait_recursive_producer_record_result %impure fn &Selfhost
             Result::Err error
 
 //: selfhost_memo_trait_recursive_producer_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_recursive_producer_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind SelfhostMemoTraitRecursiveProducerStage0Summary \produced_record\recursive_cycle_rejected\operation_missing_rejected\producer_hazard_rejected:
-    SelfhostMemoTraitRecursiveProducerStage0Summary produced_record recursive_cycle_rejected operation_missing_rejected producer_hazard_rejected
+fn selfhost_memo_trait_recursive_producer_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind SelfhostMemoTraitRecursiveProducerStage0Summary \produced_record\recursive_cycle_rejected\operation_missing_produced\hazard_produced:
+    SelfhostMemoTraitRecursiveProducerStage0Summary produced_record recursive_cycle_rejected operation_missing_produced hazard_produced
 
 //: selfhost_memo_trait_recursive_producer_stage0_finish: stage0 owner を[閉/と]じて summary を[返/かえ]す
 fn selfhost_memo_trait_recursive_producer_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostMemoTraitOperationProofTable impure fn SelfhostMemoTraitOperationProofTable impure fn SelfhostMemoTraitRecursiveProducerStage0Summary Result SelfhostMemoTraitRecursiveProducerStage0Summary StdErrorKind \arena\layout_table\proven_table\empty_table\summary:
@@ -243,9 +246,9 @@ fn selfhost_memo_trait_recursive_producer_stage0_abort_tables %impure fn Selfhos
 fn selfhost_memo_trait_recursive_producer_stage0_after_tables %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostMemoTraitOperationProofTable impure fn SelfhostMemoTraitOperationProofTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitRecursiveProducerStage0Summary StdErrorKind \arena\layout_table\proven_table\empty_table\root_id\cycle_id:
     let produced_record %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind selfhost_memo_trait_recursive_producer_record_result &arena &layout_table &proven_table root_id 4 SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
     let recursive_cycle_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind selfhost_memo_trait_recursive_producer_record_result &arena &layout_table &proven_table cycle_id 4 SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
-    let operation_missing_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind selfhost_memo_trait_recursive_producer_record_result &arena &layout_table &empty_table root_id 4 SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
-    let producer_hazard_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind selfhost_memo_trait_recursive_producer_record_result &arena &layout_table &proven_table root_id 4 SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle (Result::Ok unit) (Result::Ok unit)
-    let summary %SelfhostMemoTraitRecursiveProducerStage0Summary selfhost_memo_trait_recursive_producer_stage0_summary_new produced_record recursive_cycle_rejected operation_missing_rejected producer_hazard_rejected
+    let operation_missing_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind selfhost_memo_trait_recursive_producer_record_result &arena &layout_table &empty_table root_id 4 SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
+    let hazard_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitRecursiveProducerErrorKind selfhost_memo_trait_recursive_producer_record_result &arena &layout_table &proven_table root_id 4 SelfhostMemoTraitAggregateHazardEvidence::ExternalHandle (Result::Ok unit) (Result::Ok unit)
+    let summary %SelfhostMemoTraitRecursiveProducerStage0Summary selfhost_memo_trait_recursive_producer_stage0_summary_new produced_record recursive_cycle_rejected operation_missing_produced hazard_produced
     selfhost_memo_trait_recursive_producer_stage0_finish arena layout_table proven_table empty_table summary
 
 //: selfhost_memo_trait_recursive_producer_stage0_push_operation: accepted root 用 operation proof を table に[追加/ついか]する
@@ -361,7 +364,7 @@ fn selfhost_memo_trait_recursive_producer_stage0_after_unit %impure fn SelfhostT
 //: selfhost_memo_trait_recursive_producer_stage0: recursive traversal から producer gate までの代表境界を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
-//: - root accepted、cycle rejection、operation proof missing rejection、producer hazard rejection を public boundary 経由で確認します。
+//: - root record 化、cycle rejection、operation proof missing payload、hazard payload を public boundary 経由で確認します。
 pub fn selfhost_memo_trait_recursive_producer_stage0 %impure fn void Result SelfhostMemoTraitRecursiveProducerStage0Summary StdErrorKind \void:
     match selfhost_type_arena_new:
         Result::Ok arena0:

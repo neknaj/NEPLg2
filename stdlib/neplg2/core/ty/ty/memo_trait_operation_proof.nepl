@@ -5,7 +5,7 @@
 //:
 //: [目的/もくてき]:
 //: - `memo_trait_producer.nepl` は `SelfhostMemoTraitAggregateProofStatus` を受け取って aggregate evidence record を作ります。この module は、その status を caller が裸の引数列として手書きし続けないよう、type id ごとの operation proof table にまとめます。
-//: - Copy、Drop、Eq、Hash の各 proof はすべて `Proven` でなければ producer gate で accepted record になりません。missing、impure、unknown は typed status として保持し、どの operation が未証明かを後続診断へ渡します。
+//: - Copy、Drop、Eq、Hash の各 proof は typed status として保持し、producer gate へ渡します。producer は record 化そのものと key/value side の受理を分け、未証明の operation は `SelfhostMemoTraitRejectKind` として side payload へ保存します。
 //: - table lookup で proof status を集めた後、既存 `selfhost_memo_trait_aggregate_proof_new` へ渡します。producer gate の rejection taxonomy、hazard 判定、field layout 判定は再実装しません。
 //:
 //: [契約/けいやく]:
@@ -26,7 +26,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -34,11 +34,16 @@
 //: ##: [4] ok
 //: ##: [5] ok
 //: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
 //:| #target std
 //:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_operation_proof" as *
 //:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
 //:| #import "std/test" as *
@@ -47,13 +52,21 @@
 //:     match selfhost_memo_trait_operation_proof_stage0:
 //:         Result::Ok summary:
 //:             let checks1 checks_push checks0 check selfhost_memo_trait_evidence_produce_result_is_accept summary.produced_record
-//:             let checks2 checks_push checks1 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.missing_record_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofMissing
-//:             let checks3 checks_push checks2 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.copy_missing_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofMissing
-//:             let checks4 checks_push checks3 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.eq_impure_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::EqProofImpure
-//:             let checks5 checks_push checks4 check selfhost_memo_trait_evidence_produce_reject_kind_eq (unwrap_err summary.hash_unknown_rejected) SelfhostMemoTraitEvidenceProduceRejectKind::HashProofUnknown
-//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_proof_error_kind_eq (unwrap_err summary.duplicate_rejected) SelfhostMemoTraitOperationProofErrorKind::DuplicateRecord
-//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_proof_error_kind_eq (unwrap_err summary.fake_type_rejected) SelfhostMemoTraitOperationProofErrorKind::MissingTypeRecord
-//:             let shown checks_print_report checks7
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_evidence_produce_result_is_accept summary.missing_record_produced
+//:             let missing_record %SelfhostMemoTraitEvidenceRecord unwrap_ok summary.missing_record_produced
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_reject_kind_eq unwrap_err missing_record.key_result SelfhostMemoTraitRejectKind::CopyProofMissing
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_evidence_produce_result_is_accept summary.copy_missing_produced
+//:             let copy_missing_record %SelfhostMemoTraitEvidenceRecord unwrap_ok summary.copy_missing_produced
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_reject_kind_eq unwrap_err copy_missing_record.value_result SelfhostMemoTraitRejectKind::CopyProofMissing
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_evidence_produce_result_is_accept summary.eq_impure_produced
+//:             let eq_impure_record %SelfhostMemoTraitEvidenceRecord unwrap_ok summary.eq_impure_produced
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_reject_kind_eq unwrap_err eq_impure_record.key_result SelfhostMemoTraitRejectKind::EqProofImpure
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_result_is_accept eq_impure_record.value_result
+//:             let hash_unknown_record %SelfhostMemoTraitEvidenceRecord unwrap_ok summary.hash_unknown_produced
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_reject_kind_eq unwrap_err hash_unknown_record.key_result SelfhostMemoTraitRejectKind::HashProofUnknown
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_proof_error_kind_eq unwrap_err summary.duplicate_rejected SelfhostMemoTraitOperationProofErrorKind::DuplicateRecord
+//:             let checks11 checks_push checks10 check selfhost_memo_trait_operation_proof_error_kind_eq unwrap_err summary.fake_type_rejected SelfhostMemoTraitOperationProofErrorKind::MissingTypeRecord
+//:             let shown checks_print_report checks11
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "memo trait operation proof stage0 setup failed"
@@ -107,10 +120,10 @@ pub enum SelfhostMemoTraitOperationProofErrorKind:
 //: SelfhostMemoTraitOperationProofStage0Summary: operation proof table と producer 接続の代表 smoke
 pub struct SelfhostMemoTraitOperationProofStage0Summary:
     produced_record %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
-    missing_record_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
-    copy_missing_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
-    eq_impure_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
-    hash_unknown_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    missing_record_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    copy_missing_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    eq_impure_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
+    hash_unknown_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind
     duplicate_rejected %Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind
     fake_type_rejected %Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind
     direct_missing %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind
@@ -156,7 +169,7 @@ pub fn selfhost_memo_trait_operation_proof_record_all_proven %fn SelfhostTypeId 
 //: selfhost_memo_trait_operation_proof_record_all_missing: table に証拠が無い型用の Missing record を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - missing table entry は accepted ではありません。producer gate は最初に必要な Copy proof missing として fail-closed にします。
+//: - missing table entry は proven evidence ではありません。producer gate は record を作ったうえで、key/value side payload に最初に必要な Copy proof missing を残します。
 pub fn selfhost_memo_trait_operation_proof_record_all_missing %fn SelfhostTypeId SelfhostMemoTraitOperationProofRecord \type_id:
     selfhost_memo_trait_operation_proof_record_new type_id SelfhostMemoTraitAggregateProofStatus::Missing SelfhostMemoTraitAggregateProofStatus::Missing SelfhostMemoTraitAggregateProofStatus::Missing SelfhostMemoTraitAggregateProofStatus::Missing
 
@@ -238,7 +251,7 @@ pub fn selfhost_memo_trait_operation_proof_record_for_type_result %fn &SelfhostM
 //: selfhost_memo_trait_operation_proof_record_for_type_or_missing_result: table 欠落だけを Missing status record へ[畳/たた]む
 //:
 //: [目的/もくてき]:
-//: - aggregate proof construction path では、table record 欠落を accepted にせず、producer gate が読める Missing status に変換します。
+//: - aggregate proof construction path では、table record 欠落を `Proven` に補完せず、producer gate が読める Missing status に変換します。
 //: - `DuplicateRecord` などの構造不整合は Missing に潰さず、typed error のまま caller へ返します。
 pub fn selfhost_memo_trait_operation_proof_record_for_type_or_missing_result %fn &SelfhostMemoTraitOperationProofTable fn SelfhostTypeId Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind \table\type_id:
     match selfhost_memo_trait_operation_proof_record_for_type_result table type_id:
@@ -352,7 +365,7 @@ pub fn selfhost_memo_trait_operation_proof_result_is_accept %fn Result SelfhostM
 //:
 //: [契約/けいやく]:
 //: - `type_id` が arena に存在しなければ `MissingTypeRecord` で拒否し、fake proof record を accepted proof へ進めません。
-//: - table record が無ければ 4 operation すべてを `Missing` として proof を作ります。producer gate はそれを `CopyProofMissing` などの typed reject に変換します。
+//: - table record が無ければ 4 operation すべてを `Missing` として proof を作ります。producer gate は record を作ったうえで、key/value side payload に `CopyProofMissing` などの typed reject を保存します。
 pub fn selfhost_memo_trait_aggregate_proof_from_operation_table_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitOperationProofTable fn SelfhostTypeId fn SelfhostMemoTraitAggregateFieldEvidence fn SelfhostMemoTraitAggregateHazardEvidence fn Result unit SelfhostMemoTraitRejectKind fn Result unit SelfhostMemoTraitRejectKind Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind \types\table\type_id\fields\hazard\key_result\value_result:
     match selfhost_type_arena_get_record types type_id:
         Option::Some _record:
@@ -365,8 +378,8 @@ pub fn selfhost_memo_trait_aggregate_proof_from_operation_table_result %fn &Self
             Result::Err SelfhostMemoTraitOperationProofErrorKind::MissingTypeRecord
 
 //: selfhost_memo_trait_operation_proof_stage0_summary_new: stage0 smoke の結果を summary にまとめる
-fn selfhost_memo_trait_operation_proof_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind fn Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind SelfhostMemoTraitOperationProofStage0Summary \produced_record\missing_record_rejected\copy_missing_rejected\eq_impure_rejected\hash_unknown_rejected\duplicate_rejected\fake_type_rejected\direct_missing:
-    SelfhostMemoTraitOperationProofStage0Summary produced_record missing_record_rejected copy_missing_rejected eq_impure_rejected hash_unknown_rejected duplicate_rejected fake_type_rejected direct_missing
+fn selfhost_memo_trait_operation_proof_stage0_summary_new %fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind fn Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind fn Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind SelfhostMemoTraitOperationProofStage0Summary \produced_record\missing_record_produced\copy_missing_produced\eq_impure_produced\hash_unknown_produced\duplicate_rejected\fake_type_rejected\direct_missing:
+    SelfhostMemoTraitOperationProofStage0Summary produced_record missing_record_produced copy_missing_produced eq_impure_produced hash_unknown_produced duplicate_rejected fake_type_rejected direct_missing
 
 //: selfhost_memo_trait_operation_proof_stage0_record_to_producer_result: operation table から producer gate までを 1 回実行する
 //:
@@ -399,16 +412,16 @@ fn selfhost_memo_trait_operation_proof_stage0_abort_all %impure fn SelfhostTypeA
 //: selfhost_memo_trait_operation_proof_stage0_after_table: operation table 構築後に代表結果を計算する
 fn selfhost_memo_trait_operation_proof_stage0_after_table %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitOperationProofTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationProofStage0Summary StdErrorKind \arena\table\proven_id\missing_id\copy_missing_id\eq_impure_id\hash_unknown_id\duplicate_id:
     let produced_record %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table proven_id
-    let missing_record_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table missing_id
-    let copy_missing_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table copy_missing_id
-    let eq_impure_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table eq_impure_id
-    let hash_unknown_rejected %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table hash_unknown_id
+    let missing_record_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table missing_id
+    let copy_missing_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table copy_missing_id
+    let eq_impure_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table eq_impure_id
+    let hash_unknown_produced %Result SelfhostMemoTraitEvidenceRecord SelfhostMemoTraitEvidenceProduceRejectKind selfhost_memo_trait_operation_proof_stage0_record_to_producer_result &arena &table hash_unknown_id
     let fields %SelfhostMemoTraitAggregateFieldEvidence SelfhostMemoTraitAggregateFieldEvidence::Known selfhost_memo_trait_aggregate_field_range_new 0 0
     let duplicate_rejected %Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind selfhost_memo_trait_aggregate_proof_from_operation_table_result &arena &table duplicate_id fields SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
     let fake_type_id %SelfhostTypeId selfhost_type_id_new 9999
     let fake_type_rejected %Result SelfhostMemoTraitAggregateProof SelfhostMemoTraitOperationProofErrorKind selfhost_memo_trait_aggregate_proof_from_operation_table_result &arena &table fake_type_id fields SelfhostMemoTraitAggregateHazardEvidence::NoHazard (Result::Ok unit) (Result::Ok unit)
     let direct_missing %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind selfhost_memo_trait_operation_proof_record_for_type_result &table missing_id
-    let summary %SelfhostMemoTraitOperationProofStage0Summary selfhost_memo_trait_operation_proof_stage0_summary_new produced_record missing_record_rejected copy_missing_rejected eq_impure_rejected hash_unknown_rejected duplicate_rejected fake_type_rejected direct_missing
+    let summary %SelfhostMemoTraitOperationProofStage0Summary selfhost_memo_trait_operation_proof_stage0_summary_new produced_record missing_record_produced copy_missing_produced eq_impure_produced hash_unknown_produced duplicate_rejected fake_type_rejected direct_missing
     selfhost_memo_trait_operation_proof_stage0_finish arena table summary
 
 //: selfhost_memo_trait_operation_proof_stage0_push_duplicate_second: duplicate 用の2件目 record を table に追加する
@@ -552,7 +565,7 @@ fn selfhost_memo_trait_operation_proof_stage0_after_proven %impure fn SelfhostTy
 //: selfhost_memo_trait_operation_proof_stage0: operation proof table と producer 接続の代表境界を[実行/じっこう]する
 //:
 //: [目的/もくてき]:
-//: - all-proven の accepted path、record missing、Copy missing、Eq impure、Hash unknown が producer gate の typed rejection へ届くことを確認します。
+//: - all-proven の record path、record missing、Copy missing、Eq impure、Hash unknown が producer gate の side payload へ届くことを確認します。
 pub fn selfhost_memo_trait_operation_proof_stage0 %impure fn void Result SelfhostMemoTraitOperationProofStage0Summary StdErrorKind \void:
     match selfhost_type_arena_new:
         Result::Ok arena0:
