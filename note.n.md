@@ -58306,3 +58306,53 @@ MERGE_APPROVED
 
 - F4d は horizontal advance width と left side bearing だけであり、full `GuiGlyphMetrics` に必要な outline / bitmap ink bounds、CFF/CFF2 / glyf outline、format 12 cmap、GSUB/GPOS shaping、ruby / vertical / math bridge は後続 phase で接続する。
 - `metadata` / `name` / `cmap` / `hmtx` の byte reader と table-relative range helper は重複しているため、public contract を変えずに後続で shared internal helper へ整理できる。
+
+## 2026-06-13 selfhost stable nominal key and public type layout header checkpoint
+
+### scope
+
+- branch: `work/selfhost-layout-payload-input`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core / boundary 分離、DAG、計算量と探索範囲の明示、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_stable_nominal_key_producer.nepl` を追加し、public nominal type declaration から `SelfhostMemoTraitStableNominalKey` を作る checker-layer producer を実装した。
+- stable nominal key producer は visibility、module fingerprint、declaration ordinal、constructor ordinal、nominal declaration kind、type arity だけを authority とし、source text / span / display / diagnostic / path suffix / session-local id を accepted hash material にしない。
+- `Struct` と `Enum` は definition fingerprint の key space を分ける。missing / placeholder / private / negative arity / derived placeholder / low-level stable nominal key rejection は typed enum error として保持する。
+- `memo_trait_public_type_layout_header.nepl` を追加し、public struct / enum declaration の layout header を `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` へ接続した。
+- layout header producer は stable nominal key、layout kind、type arity、field count、variant count から normalized shape hash を作る。field type closure、enum variant payload detail、trait impl table、method purity、Drop なし proof は後続 solver の責務に残した。
+- layout header stage0 は low-level stable nominal key constructor を直接呼ばず、同じ checker-layer stable nominal key producer を経由する。struct と enum の smoke key はそれぞれ `Struct` / `Enum` の nominal declaration kind から作り、enum header に struct key を流用しない。
+- 追加した selfhost 実装本文と doctest は、NEPLg2.1 の括弧なし prefix 構文に合わせ、`unwrap_err` / `some` / `Result::Err` helper の grouping parentheses を使わない形へ修正した。
+- 両 module は full public surface orchestration まで facade 非公開のままにし、direct module doctest と source policy regression で契約を固定した。
+
+### subagent_review
+
+- Anscombe first review: Blocker なし。
+- Required として、stable nominal key の実 producer を先に置くこと、`core/ty` の session-local layout evidence を public surface hash authority に昇格しないこと、facade re-export を急がないこと、source policy を追加することが指摘された。
+- 実装はこの指摘に合わせ、stable nominal key producer と public type layout header producer を分け、layout header producer は stable nominal key producer 経由の stage0 を持つ形にした。
+- Anscombe second review: selfhost 専用 doctest check の失敗と、layout header stage0 の enum case が struct key を流用している点を blocker として指摘した。
+- 修正後、括弧なし doctest に変換し、layout header stage0 は `SelfhostMemoTraitStableNominalDeclarationKind::Enum` から enum key を作るようにした。`node nodesrc/run_selfhost_doctest_check.js` の対象2本はどちらも pass へ戻した。
+- Anscombe final review: Blocker なし。doctest と enum key の修正、source policy regression 登録、normalizer helper / source text / span / display / diagnostic / HIR / Resource / backend / proof-store authority の非混入、line count / doc comment length cap の非追加を確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_stable_nominal_key_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_type_layout_header_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_stable_nominal_key_producer.nepl -o tmp/selfhost_stable_nominal_key_producer_doctest_review.json --max-cases 1`
+- pass: `node nodesrc/run_selfhost_doctest_check.js -i stdlib/neplg2/core/check/module/memo_trait_public_type_layout_header.nepl -o tmp/selfhost_public_type_layout_header_doctest_review.json --max-cases 1`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_stable_nominal_key_producer.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_type_layout_header.nepl --no-tree -o tmp/selfhost-nominal-and-layout-header-doctest.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+`nodesrc/run_source_policy_regressions.js --warn-only` では `nodesrc/test_stdlib_documentation_contract.js` が `stdlib module doctest gaps increased: 287 > 286` を報告した。`git diff --name-status origin/main..HEAD -- stdlib/core stdlib/alloc stdlib/std nodesrc/test_stdlib_documentation_contract.js` は空であり、今回の `stdlib/neplg2` selfhost producer 差分とは別の既存 stdlib baseline warning と判断した。この checkpoint では baseline を緩めず、selfhost 側の documentation contract と追加 contract test を対象検証として扱う。
+
+### residual
+
+- re-export export table producer、impl header producer は未完了である。次は re-export table を先に進め、public surface orchestration の dependency / re-export 境界を固めてから impl header へ進む。
+- trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- enum variant payload detail、recursive aggregate traversal、nested operation fold の重複計算、proof lookup index 化、composer sorted merge cursor 化は public evidence / payload input / typed error contract を変えずに後から置換できる最適化または後続 solver 接続として扱う。
