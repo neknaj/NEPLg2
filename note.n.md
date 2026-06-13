@@ -1,3 +1,42 @@
+# 2026-06-13 Agent2 Web GUI pixel-resize checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs を再確認した。今回の slice では、Web の CSS / Canvas viewport scaling を GUI content authority にせず、pixel buffer presentation、typed resize event、`Result` / enum error、hidden fallback 禁止、platform detail の Web frontend 閉じ込めを守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-resize-pixel-buffer-20260613`
+- classification: Web GUI floating window resize / one-to-one pixel buffer presentation / FHD 60fps minimum target
+- design:
+  - Window resize は app content を伸縮しない。Visible canvas は渡された frame / pixel buffer を logical pixel 1:1 で表示する。
+  - resize は drawable surface CSS size を `WindowEventKind::Resized` として app に返し、layout engine / app が新しい frame width / height と pixel buffer を生成する。
+  - GUI の最低性能目標は FHD 60fps とする。現 checkpoint の legacy command frame renderer でも same-size frame の巨大 `Uint8ClampedArray` / `ImageData` 再生成を避ける。
+- implementation:
+  - `web/src/gui-preview/canvas-renderer.ts` の fit-to-window viewport、padding、centering、`availableWidth / frame.width` scale を削除し、logical viewport を `left 0 / top 0 / scale 1` に固定した。
+  - Device pixel ratio は rasterizer 用 pixel viewport にだけ反映する。
+  - canvas ごとの bitmap buffer cache と presenter 側 `ImageData` cache を追加し、same-size frame で大きな allocation を繰り返さないようにした。
+  - `GuiPreviewPanel.drawableSurfaceCssSize` を追加し、`getBoundingClientRect` / `clientWidth` / `clientHeight` だけを drawable surface size authority にした。旧 backing buffer size は resize event authority に使わない。
+  - `window-manager.ts` は outer frame rect ではなく drawable surface size を window resized / close-requested event に渡す。`applyRect` 後に `preview.resizeEditor` を同期実行し、event size と backing buffer resize の順序ズレを避けた。
+  - `input-bridge.ts` は連続する同一 window id / window kind の window state event を latest-only coalesce する。`close-requested` は lifecycle barrier として coalesce しない。
+  - `doc/neplg2/gui_redesign_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_tui_implementation_plan.md` に 1:1 presentation、resize event boundary、FHD 60fps minimum target を追記した。
+- subagent review:
+  - Godel: pre-review で implementation may start。Required として viewport 1:1、drawable surface size event、source/runtime tests を要求。反映済み。
+  - Godel: implementation review で Blocker なし。Required として `drawableSurfaceCssSize` が旧 backing buffer size を authority にし得る fallback の削除、`note.n.md` 更新、temp file 除外確認を要求。fallback は削除し、この checkpoint に記録した。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_web_gui_input_bridge.js`
+  - pass: `node nodesrc/test_web_gui_floating_window_source.js`
+  - pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+  - pass: `node nodesrc/test_web_gui_runtime_bridge.js`
+  - pass: `node nodesrc/test_web_gui_host_bridge.js`
+  - pass: `node nodesrc/test_web_gui_stdout_protocol.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_surface.js`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - pass: `trunk build`
+- residual:
+  - 正式 SharedArrayBuffer video memory surface と host import ABI への接続、formal tiled / dirty-region HD transport、native formal `GuiHost.present`、font renderer integration、browser smoke visual timing measurement は後続 slice。
+
 # 2026-06-13 Agent1 selfhost operation classifier checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Copy / Drop / Eq / Hash の trait application 分類を source text や表示名ではなく typed source identity / shape hash / enum error で扱い、DAG、fail-closed、丁寧な doc comment、探索範囲を固定個数に閉じる方針を守る。
