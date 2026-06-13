@@ -238,6 +238,68 @@ Pixel plane は slot header 群の後ろに slot 順で置き、各 slot を `Ui
 
 `magic` と `version` は incompatible buffer を fail-closed に拒否するために使う。Unknown magic / version は `GuiError::InvalidCommand` 相当の Web typed error にする。
 
+## Web Canvas video memory presenter
+
+Web の正式 presenter は video memory surface の published slot を `ImageData` として `putImageData` へ渡す。Visible Canvas は presentation device であり、GUI content の drawing authority ではない。
+
+Presenter が使ってよい Canvas API は次に限定する。
+
+```text
+new ImageData
+putImageData
+```
+
+`fillRect`、`stroke`、`drawImage`、CSS transform、DOM element による widget 表現は正式 video memory presenter の hot path に入れない。図形、文字、UI chrome は pixel buffer へ rasterize 済みの byte 列として渡される。
+
+Initial Web presenter は tightly packed `Rgba8888` だけを受ける。
+
+```text
+stride_bytes == width * 4
+pixel_byte_length == width * height * 4
+```
+
+Padded stride は暗黙に row copy しない。`ImageData` と互換でない stride は typed `UnsupportedStride` 相当の error として拒否する。Acquired slot の stride が拒否された場合は、slot を discard して writer を詰まらせず、presented epoch は進めない。後続で tiled presenter や row-copy presenter を追加する場合も、allocation / copy policy を明示した別 path とする。
+
+Dirty region は fail-closed に検査する。
+
+```text
+x >= 0
+y >= 0
+width >= 0
+height >= 0
+x + width <= surface.width
+y + height <= surface.height
+```
+
+範囲外 dirty region は clamp しない。`InvalidDirtyRegion` として返し、slot は `Reading` から解放するが、presented epoch は進めない。
+
+Zero-size dirty region は valid な no-op presentation とする。
+
+```text
+width == 0 または height == 0:
+    putImageData は呼ばない
+    slot は release する
+    presented epoch は進める
+```
+
+Canvas presentation が失敗した場合は typed `PresentFailed` として返す。JavaScript exception の message は branch authority にしない。失敗した frame は表示済みではないため、slot は discard して writer を詰まらせないが、presented epoch は進めない。
+
+成功時:
+
+```text
+Published -> Reading -> putImageData -> Free
+presented_epoch = slot.epoch
+```
+
+reject / failure 時:
+
+```text
+Published -> Reading -> discard -> Free
+presented_epoch は変更しない
+```
+
+FHD 60 fps の最低性能目標を満たすため、presenter は `SharedArrayBuffer` と slot index ごとに `ImageData` を cache する。同じ slot を再利用する frame では `ImageData` を再生成せず、同じ underlying byte view の内容更新だけを presentation に反映する。
+
 ## Frame publish protocol
 
 Slot state:
