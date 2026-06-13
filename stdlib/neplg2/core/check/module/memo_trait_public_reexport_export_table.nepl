@@ -1,0 +1,644 @@
+#indent 4
+
+//: # check/module/memo_trait_public_reexport_export_table
+//: public re-export export table projection を `MemoKey` / `MemoValue` 用 public surface normalizer の re-export evidence へ[変換/へんかん]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - full public surface hash が re-export を source directive の文字列ではなく、loader / module graph が解決した export table projection と target module public surface hash から受け取れるようにします。
+//: - re-export の accepted payload hash は、projection kind、export count、typed export table hash から作ります。import path、alias、source span、display name、diagnostic text は hash material にしません。
+//: - `SelfhostMemoTraitPublicSurfaceReExportEvidence` を作り、既存 `selfhost_memo_trait_public_surface_normalizer_partial_input_items_result` の re-export vector へ合流できる境界にします。
+//: - final hash、LocalMemoTrait seed との合成、ordinal 空間全体の missing check は、この module ではなく full public surface composer の責務として残します。
+//:
+//: [契約/けいやく]:
+//: - public API は typed export table projection だけを受け取ります。VFS、loader source text、AST、diagnostic payload、HIR、Resource IR、backend artifact、proof store は accepted input に入りません。
+//: - `ordinal` は caller が解決済み public surface ordinal として渡す必要があります。Vec index や source order から暗黙に採用しません。
+//: - `module_index` は target module が graph 上に存在することを検査するためだけに使います。payload hash へ混ぜません。
+//: - `export_table_hash` は re-export export table projection の stable hash です。source path や alias ではなく、解決済み export entry set から別 stage が作った typed hash でなければなりません。
+//: - `dependency_public_surface_hash` は target module の typed public surface hash です。欠落と placeholder は別の enum error として拒否します。
+//: - duplicate ordinal はこの producer でも fail-closed にします。full composer も後段で ordinal mismatch / missing を再検査します。
+//: - facade にはまだ re-export しません。function signature、type layout header、impl header、re-export をまとめる orchestration boundary ができた時点で公開 API を再評価します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では caller supplied の typed export table hash を検査して evidence を作ります。export name resolution、selective export set の具体展開、target module public surface materialization は別 stage の責務です。
+//: - duplicate ordinal check は入力件数 k に対して現在 O(k * k) です。これは契約を変えず、後続で sorted ordinal index や merge cursor に置き換えられます。
+//:
+//: [計算量/けいさんりょう]:
+//: - single evidence 生成は graph node lookup を除いて O1 時間・O1 追加空間です。
+//: - vector producer は duplicate ordinal scan のため O(k * k) 時間です。出力 evidence vector は O(k) 空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_reexport_export_table" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_reexport_export_table_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted_count
+//:     let checks2 checks_push checks1 check is_ok summary.wildcard_reexport
+//:     let checks3 checks_push checks2 check is_ok summary.selective_reexport
+//:     let checks4 checks_push checks3 check summary.wildcard_and_selective_differ
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_reexport_export_table_error_kind_eq unwrap_err summary.payload_hash_missing_rejected SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportPayloadHashMissing
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_reexport_export_table_error_kind_eq unwrap_err summary.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicReExportExportTableErrorKind::DependencyPublicSurfaceHashPlaceholder
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_public_reexport_export_table_error_kind_eq unwrap_err summary.graph_node_missing_rejected SelfhostMemoTraitPublicReExportExportTableErrorKind::GraphNodeUnavailable
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_public_reexport_export_table_error_kind_eq unwrap_err summary.duplicate_ordinal_rejected SelfhostMemoTraitPublicReExportExportTableErrorKind::DuplicateReExportOrdinal
+//:     let shown checks_print_report checks8
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/module/vfs" as *
+#import "./memo_trait_public_surface_normalizer" as *
+
+//: SelfhostMemoTraitPublicReExportProjectionKind: re-export export table projection の[種類/しゅるい]
+//:
+//: [目的/もくてき]:
+//: - wildcard re-export と selective re-export の payload domain を分け、同じ export table hash と count でも public surface 上の意味を混同しないようにします。
+pub enum SelfhostMemoTraitPublicReExportProjectionKind:
+    Wildcard
+    Selective
+
+//: SelfhostMemoTraitPublicReExportExportTableInput: re-export producer の typed input
+//:
+//: [目的/もくてき]:
+//: - graph target、public surface ordinal、projection kind、export table hash、target public surface hash を 1 record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `module_index` は target module が graph に存在するかを確認するための index です。payload hash へは入れません。
+//: - `ordinal` は public surface input stream 上の 1-origin ordinal です。`none` は欠落、0 は placeholder、負値は不正な ordinal として拒否します。
+//: - `export_count` は projection に含まれる export entry 数です。負値は拒否します。
+//: - `export_table_hash` は projection kind と export count だけでは区別できない export entry set の stable hash です。欠落と placeholder は別 variant で拒否します。
+//: - `dependency_public_surface_hash` は target module の typed public surface hash です。target hash が無い re-export は final public surface hash を安定させられないため拒否します。
+pub struct SelfhostMemoTraitPublicReExportExportTableInput:
+    module_index %i32
+    ordinal %Option i32
+    projection_kind %SelfhostMemoTraitPublicReExportProjectionKind
+    export_count %i32
+    export_table_hash %Option i32
+    dependency_public_surface_hash %Option i32
+
+//: SelfhostMemoTraitPublicReExportExportTablePayloadHash: re-export payload の normalized fingerprint
+//:
+//: [目的/もくてき]:
+//: - projection kind、export count、export table hash から作った payload hash を schema version と一緒に保持します。
+//:
+//: [契約/けいやく]:
+//: - `root_hash` は nonzero でなければ accepted payload ではありません。
+pub struct SelfhostMemoTraitPublicReExportExportTablePayloadHash:
+    schema_version %i32
+    root_hash %i32
+
+//: SelfhostMemoTraitPublicReExportExportTableErrorKind: re-export export table producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - graph existence、ordinal、payload hash seed、dependency public surface hash、vector allocation を bool や diagnostic string に潰さず保持します。
+pub enum SelfhostMemoTraitPublicReExportExportTableErrorKind:
+    InputVectorAllocationFailed
+    InputVectorReadFailed
+    GraphNodeUnavailable
+    ReExportOrdinalMissing
+    ReExportOrdinalPlaceholder
+    ReExportOrdinalNegative
+    ReExportPayloadHashMissing
+    ReExportPayloadHashPlaceholder
+    DependencyPublicSurfaceHashMissing
+    DependencyPublicSurfaceHashPlaceholder
+    ExportCountNegative
+    DerivedReExportPayloadHashPlaceholder
+    DuplicateReExportOrdinal
+
+//: SelfhostMemoTraitPublicReExportExportTableStage0Summary: producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted wildcard / selective path と、payload hash、dependency hash、graph node、duplicate ordinal の fail-closed path をまとめます。
+pub struct SelfhostMemoTraitPublicReExportExportTableStage0Summary:
+    accepted_count %Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind
+    wildcard_reexport %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind
+    selective_reexport %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind
+    wildcard_and_selective_differ %bool
+    payload_hash_missing_rejected %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind
+    dependency_hash_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind
+    graph_node_missing_rejected %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind
+    duplicate_ordinal_rejected %Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind
+
+impl Clone for SelfhostMemoTraitPublicReExportProjectionKind:
+    fn clone %fn &SelfhostMemoTraitPublicReExportProjectionKind SelfhostMemoTraitPublicReExportProjectionKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicReExportProjectionKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicReExportProjectionKind SelfhostMemoTraitPublicReExportProjectionKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicReExportExportTableInput:
+    fn clone %fn &SelfhostMemoTraitPublicReExportExportTableInput SelfhostMemoTraitPublicReExportExportTableInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicReExportExportTableInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicReExportExportTableInput SelfhostMemoTraitPublicReExportExportTableInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicReExportExportTablePayloadHash:
+    fn clone %fn &SelfhostMemoTraitPublicReExportExportTablePayloadHash SelfhostMemoTraitPublicReExportExportTablePayloadHash \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicReExportExportTablePayloadHash:
+    fn copy_mark %fn SelfhostMemoTraitPublicReExportExportTablePayloadHash SelfhostMemoTraitPublicReExportExportTablePayloadHash \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicReExportExportTableErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicReExportExportTableErrorKind SelfhostMemoTraitPublicReExportExportTableErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicReExportExportTableErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicReExportExportTableErrorKind SelfhostMemoTraitPublicReExportExportTableErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicReExportExportTableStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicReExportExportTableStage0Summary SelfhostMemoTraitPublicReExportExportTableStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicReExportExportTableStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicReExportExportTableStage0Summary SelfhostMemoTraitPublicReExportExportTableStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_reexport_export_table_input_new: typed input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は field をまとめるだけです。graph、ordinal、hash、count の検査は producer 本体で行います。
+pub fn selfhost_memo_trait_public_reexport_export_table_input_new %fn i32 fn Option i32 fn SelfhostMemoTraitPublicReExportProjectionKind fn i32 fn Option i32 fn Option i32 SelfhostMemoTraitPublicReExportExportTableInput \module_index\ordinal\projection_kind\export_count\export_table_hash\dependency_public_surface_hash:
+    SelfhostMemoTraitPublicReExportExportTableInput module_index ordinal projection_kind export_count export_table_hash dependency_public_surface_hash
+
+//: selfhost_memo_trait_public_reexport_export_table_schema_version: re-export payload schema version
+//:
+//: [契約/けいやく]:
+//: - projection kind、export count、export table hash の fold 形を変える場合はこの version を更新します。
+fn selfhost_memo_trait_public_reexport_export_table_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_reexport_export_table_projection_kind_code: projection kind を stable code へ[写/うつ]す
+fn selfhost_memo_trait_public_reexport_export_table_projection_kind_code %fn SelfhostMemoTraitPublicReExportProjectionKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicReExportProjectionKind::Wildcard:
+            252701
+        SelfhostMemoTraitPublicReExportProjectionKind::Selective:
+            252702
+
+//: selfhost_memo_trait_public_reexport_export_table_mix2: re-export payload hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_reexport_export_table_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_reexport_export_table_mix3: re-export payload hash 用の 3 field [混合/こんごう]
+fn selfhost_memo_trait_public_reexport_export_table_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_public_reexport_export_table_mix2 a b c
+
+//: selfhost_memo_trait_public_reexport_export_table_mix4: re-export payload hash 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_public_reexport_export_table_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_reexport_export_table_mix2 selfhost_memo_trait_public_reexport_export_table_mix2 a b selfhost_memo_trait_public_reexport_export_table_mix2 c d
+
+//: selfhost_memo_trait_public_reexport_export_table_ordinal_result: ordinal を[検査/けんさ]する
+fn selfhost_memo_trait_public_reexport_export_table_ordinal_result %fn Option i32 Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind \ordinal:
+    match ordinal:
+        Option::Some value:
+            if:
+                lt value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportOrdinalNegative
+                else:
+                    if:
+                        eq value 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportOrdinalPlaceholder
+                        else:
+                            Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportOrdinalMissing
+
+//: selfhost_memo_trait_public_reexport_export_table_payload_seed_result: export table hash seed を[検査/けんさ]する
+fn selfhost_memo_trait_public_reexport_export_table_payload_seed_result %fn Option i32 Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind \export_table_hash:
+    match export_table_hash:
+        Option::Some hash:
+            if:
+                eq hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportPayloadHashPlaceholder
+                else:
+                    Result::Ok hash
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportPayloadHashMissing
+
+//: selfhost_memo_trait_public_reexport_export_table_dependency_hash_result: target public surface hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_reexport_export_table_dependency_hash_result %fn Option i32 Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind \dependency_public_surface_hash:
+    match dependency_public_surface_hash:
+        Option::Some hash:
+            if:
+                eq hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::DependencyPublicSurfaceHashPlaceholder
+                else:
+                    Result::Ok hash
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::DependencyPublicSurfaceHashMissing
+
+//: selfhost_memo_trait_public_reexport_export_table_count_result: export count を[検査/けんさ]する
+fn selfhost_memo_trait_public_reexport_export_table_count_result %fn i32 Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind \export_count:
+    if:
+        lt export_count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::ExportCountNegative
+        else:
+            Result::Ok export_count
+
+//: selfhost_memo_trait_public_reexport_export_table_payload_hash_result: re-export payload hash を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - re-export export table projection を normalizer の `payload_hash` field に入れる stable payload hash へ変換します。
+//:
+//: [契約/けいやく]:
+//: - accepted hash material は schema version、projection kind、export count、export table hash だけです。
+//: - graph node index、dependency public surface hash、source text、span、path、alias、display name、diagnostic text は payload hash に入りません。
+//: - `export_table_hash` が 0 の場合は placeholder として拒否します。public helper 単体でも accepted payload hash boundary を弱めません。
+//: - 戻り値が `Ok` の場合、payload hash は nonzero です。
+pub fn selfhost_memo_trait_public_reexport_export_table_payload_hash_result %fn SelfhostMemoTraitPublicReExportProjectionKind fn i32 fn i32 Result SelfhostMemoTraitPublicReExportExportTablePayloadHash SelfhostMemoTraitPublicReExportExportTableErrorKind \projection_kind\export_count\export_table_hash:
+    match selfhost_memo_trait_public_reexport_export_table_payload_seed_result some export_table_hash:
+        Result::Ok checked_export_table_hash:
+            match selfhost_memo_trait_public_reexport_export_table_count_result export_count:
+                Result::Ok checked_count:
+                    let schema %i32 selfhost_memo_trait_public_reexport_export_table_schema_version
+                    let kind_hash %i32 selfhost_memo_trait_public_reexport_export_table_projection_kind_code projection_kind
+                    let payload_hash %i32 selfhost_memo_trait_public_reexport_export_table_mix4 252700 schema kind_hash selfhost_memo_trait_public_reexport_export_table_mix2 checked_count checked_export_table_hash
+                    if:
+                        eq payload_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::DerivedReExportPayloadHashPlaceholder
+                        else:
+                            Result::Ok SelfhostMemoTraitPublicReExportExportTablePayloadHash schema payload_hash
+                Result::Err count_error:
+                    Result::Err count_error
+        Result::Err payload_error:
+            Result::Err payload_error
+
+//: selfhost_memo_trait_public_reexport_export_table_graph_node_result: graph node existence を[検査/けんさ]する
+fn selfhost_memo_trait_public_reexport_export_table_graph_node_result %fn &SelfhostModuleGraph fn i32 Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind \graph\module_index:
+    match selfhost_module_graph_node_at graph module_index:
+        Option::Some _node:
+            Result::Ok unit
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::GraphNodeUnavailable
+
+//: selfhost_memo_trait_public_reexport_export_table_evidence_result: re-export evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - typed export table projection を既存 normalizer と互換な `SelfhostMemoTraitPublicSurfaceReExportEvidence` へ変換します。
+//:
+//: [契約/けいやく]:
+//: - graph node、ordinal、export table hash、dependency public surface hash、export count をすべて検査してから evidence を作ります。
+//: - `module_index` は evidence に残しますが、payload hash には混ぜません。normalizer 側でも graph existence を再検査します。
+//: - 成功時の evidence は source text / span / path / alias / display name / diagnostic text を含みません。
+pub fn selfhost_memo_trait_public_reexport_export_table_evidence_result %fn &SelfhostModuleGraph fn SelfhostMemoTraitPublicReExportExportTableInput Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind \graph\input:
+    match selfhost_memo_trait_public_reexport_export_table_graph_node_result graph input.module_index:
+        Result::Ok _node_ok:
+            match selfhost_memo_trait_public_reexport_export_table_ordinal_result input.ordinal:
+                Result::Ok ordinal:
+                    match selfhost_memo_trait_public_reexport_export_table_payload_seed_result input.export_table_hash:
+                        Result::Ok export_hash:
+                            match selfhost_memo_trait_public_reexport_export_table_dependency_hash_result input.dependency_public_surface_hash:
+                                Result::Ok dependency_hash:
+                                    match selfhost_memo_trait_public_reexport_export_table_payload_hash_result input.projection_kind input.export_count export_hash:
+                                        Result::Ok payload:
+                                            Result::Ok SelfhostMemoTraitPublicSurfaceReExportEvidence input.module_index ordinal payload.root_hash some dependency_hash
+                                        Result::Err payload_error:
+                                            Result::Err payload_error
+                                Result::Err dependency_error:
+                                    Result::Err dependency_error
+                        Result::Err payload_seed_error:
+                            Result::Err payload_seed_error
+                Result::Err ordinal_error:
+                    Result::Err ordinal_error
+        Result::Err graph_error:
+            Result::Err graph_error
+
+//: selfhost_memo_trait_public_reexport_export_table_seen_ordinal_loop: 既存入力に ordinal があるか[調/しら]べる
+fn selfhost_memo_trait_public_reexport_export_table_seen_ordinal_loop %fn &Vec SelfhostMemoTraitPublicReExportExportTableInput fn i32 fn i32 fn i32 Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind \inputs\idx\end\ordinal:
+    if:
+        ge idx end
+        then:
+            Result::Ok unit
+        else:
+            match v::get inputs idx:
+                Option::Some previous:
+                    match selfhost_memo_trait_public_reexport_export_table_ordinal_result previous.ordinal:
+                        Result::Ok previous_ordinal:
+                            if:
+                                eq previous_ordinal ordinal
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::DuplicateReExportOrdinal
+                                else:
+                                    selfhost_memo_trait_public_reexport_export_table_seen_ordinal_loop inputs add idx 1 end ordinal
+                        Result::Err previous_error:
+                            Result::Err previous_error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorReadFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_unique_ordinal_result: 現在位置より前の duplicate ordinal を[拒否/きょひ]する
+//:
+//: [契約/けいやく]:
+//: - `current_index` は入力 vector の現在位置です。ordinal 自体は input record の field から読み、index から作りません。
+fn selfhost_memo_trait_public_reexport_export_table_unique_ordinal_result %fn &Vec SelfhostMemoTraitPublicReExportExportTableInput fn i32 fn i32 Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind \inputs\current_index\ordinal:
+    selfhost_memo_trait_public_reexport_export_table_seen_ordinal_loop inputs 0 current_index ordinal
+
+//: selfhost_memo_trait_public_reexport_export_table_push_evidence_result: evidence を output vector へ[追加/ついか]する
+fn selfhost_memo_trait_public_reexport_export_table_push_evidence_result %impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitPublicSurfaceReExportEvidence Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind \items\evidence:
+    match v::push items evidence:
+        Result::Ok next_items:
+            Result::Ok next_items
+        Result::Err push_error:
+            v::free v::vec_push_error_vec push_error
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_push_input_result: input 1 件を evidence vector へ[追加/ついか]する
+fn selfhost_memo_trait_public_reexport_export_table_push_input_result %impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicReExportExportTableInput impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitPublicReExportExportTableInput impure fn i32 Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind \graph\inputs\items\input\current_index:
+    match selfhost_memo_trait_public_reexport_export_table_ordinal_result input.ordinal:
+        Result::Ok ordinal:
+            match selfhost_memo_trait_public_reexport_export_table_unique_ordinal_result inputs current_index ordinal:
+                Result::Ok _unique:
+                    match selfhost_memo_trait_public_reexport_export_table_evidence_result graph input:
+                        Result::Ok evidence:
+                            selfhost_memo_trait_public_reexport_export_table_push_evidence_result items evidence
+                        Result::Err evidence_error:
+                            v::free items
+                            Result::Err evidence_error
+                Result::Err duplicate_error:
+                    v::free items
+                    Result::Err duplicate_error
+        Result::Err ordinal_error:
+            v::free items
+            Result::Err ordinal_error
+
+//: selfhost_memo_trait_public_reexport_export_table_evidence_vec_loop_result: input vector を evidence vector へ[変換/へんかん]する
+fn selfhost_memo_trait_public_reexport_export_table_evidence_vec_loop_result %impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicReExportExportTableInput impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn i32 impure fn i32 Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind \graph\inputs\items\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok items
+        else:
+            match v::get inputs idx:
+                Option::Some input:
+                    match selfhost_memo_trait_public_reexport_export_table_push_input_result graph inputs items input idx:
+                        Result::Ok next_items:
+                            selfhost_memo_trait_public_reexport_export_table_evidence_vec_loop_result graph inputs next_items add idx 1 n
+                        Result::Err push_error:
+                            Result::Err push_error
+                Option::None:
+                    v::free items
+                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorReadFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_evidence_vec_result: re-export export table inputs から evidence vector を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 任意長の resolved re-export table projection を、normalizer に渡せる arbitrary-length evidence vector へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `inputs` は caller owned の borrowed vector です。この関数は読みにだけ使い、解放しません。
+//: - 成功時に返る `Vec SelfhostMemoTraitPublicSurfaceReExportEvidence` は caller owned です。normalizer へ渡した後、caller が解放してください。
+//: - 途中失敗時は、この関数が作った partial output vector を閉じます。
+pub fn selfhost_memo_trait_public_reexport_export_table_evidence_vec_result %impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicReExportExportTableInput Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind \graph\inputs:
+    let items_result %Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence StdErrorKind v::new
+    match items_result:
+        Result::Ok items0:
+            let input_count %i32 v::len inputs
+            selfhost_memo_trait_public_reexport_export_table_evidence_vec_loop_result graph inputs items0 0 input_count
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_kind_eq: projection kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_reexport_export_table_kind_eq %fn SelfhostMemoTraitPublicReExportProjectionKind fn SelfhostMemoTraitPublicReExportProjectionKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicReExportProjectionKind::Wildcard:
+            match b:
+                SelfhostMemoTraitPublicReExportProjectionKind::Wildcard:
+                    true
+                SelfhostMemoTraitPublicReExportProjectionKind::Selective:
+                    false
+        SelfhostMemoTraitPublicReExportProjectionKind::Selective:
+            match b:
+                SelfhostMemoTraitPublicReExportProjectionKind::Wildcard:
+                    false
+                SelfhostMemoTraitPublicReExportProjectionKind::Selective:
+                    true
+
+//: selfhost_memo_trait_public_reexport_export_table_error_kind_code: error kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_reexport_export_table_error_kind_code %fn SelfhostMemoTraitPublicReExportExportTableErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed:
+            1
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorReadFailed:
+            2
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::GraphNodeUnavailable:
+            3
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportOrdinalMissing:
+            4
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportOrdinalPlaceholder:
+            5
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportOrdinalNegative:
+            6
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportPayloadHashMissing:
+            7
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::ReExportPayloadHashPlaceholder:
+            8
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::DependencyPublicSurfaceHashMissing:
+            9
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::DependencyPublicSurfaceHashPlaceholder:
+            10
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::ExportCountNegative:
+            11
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::DerivedReExportPayloadHashPlaceholder:
+            12
+        SelfhostMemoTraitPublicReExportExportTableErrorKind::DuplicateReExportOrdinal:
+            13
+
+//: selfhost_memo_trait_public_reexport_export_table_error_kind_eq: producer error が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error variant を追加した場合、比較関数も必ず更新します。
+pub fn selfhost_memo_trait_public_reexport_export_table_error_kind_eq %fn SelfhostMemoTraitPublicReExportExportTableErrorKind fn SelfhostMemoTraitPublicReExportExportTableErrorKind bool \a\b:
+    eq selfhost_memo_trait_public_reexport_export_table_error_kind_code a selfhost_memo_trait_public_reexport_export_table_error_kind_code b
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_summary_new %fn Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind fn bool fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind fn Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind SelfhostMemoTraitPublicReExportExportTableStage0Summary \accepted_count\wildcard_reexport\selective_reexport\wildcard_and_selective_differ\payload_hash_missing_rejected\dependency_hash_placeholder_rejected\graph_node_missing_rejected\duplicate_ordinal_rejected:
+    SelfhostMemoTraitPublicReExportExportTableStage0Summary accepted_count wildcard_reexport selective_reexport wildcard_and_selective_differ payload_hash_missing_rejected dependency_hash_placeholder_rejected graph_node_missing_rejected duplicate_ordinal_rejected
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_graph_result: stage0 用 import graph を[構築/こうちく]する
+//:
+//: [契約/けいやく]:
+//: - `selfhost_vfs_add` は入力 VFS owner を消費します。失敗時の VFS 内部 buffer cleanup は `selfhost_vfs_add` 側の責務なので、この関数は moved owner を再読しません。
+fn selfhost_memo_trait_public_reexport_export_table_stage0_graph_result %impure fn void Result SelfhostModuleGraph SelfhostMemoTraitPublicReExportExportTableErrorKind \void:
+    match selfhost_vfs_new:
+        Result::Ok vfs0:
+            match selfhost_vfs_add vfs0 "main.nepl" "#import \"dep.nepl\" as dep\nfn main %fn void i32 \\void:\n    0\n":
+                Result::Ok vfs1:
+                    match selfhost_vfs_add vfs1 "dep.nepl" "fn dep %fn void i32 \\void:\n    1\n":
+                        Result::Ok vfs2:
+                            let graph_result %Result SelfhostModuleGraph SelfhostMemoTraitPublicReExportExportTableErrorKind:
+                                match selfhost_build_module_graph &vfs2 "main.nepl":
+                                    Result::Ok graph:
+                                        Result::Ok graph
+                                    Result::Err _diag:
+                                        Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::GraphNodeUnavailable
+                            selfhost_vfs_free vfs2
+                            graph_result
+                        Result::Err _add_error:
+                            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+                Result::Err _add_error:
+                    Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input: wildcard re-export input を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input %fn Option i32 fn Option i32 SelfhostMemoTraitPublicReExportExportTableInput \export_hash\dependency_hash:
+    selfhost_memo_trait_public_reexport_export_table_input_new 1 some 1 SelfhostMemoTraitPublicReExportProjectionKind::Wildcard 3 export_hash dependency_hash
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_selective_input: selective re-export input を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_selective_input %fn void SelfhostMemoTraitPublicReExportExportTableInput \void:
+    selfhost_memo_trait_public_reexport_export_table_input_new 1 some 2 SelfhostMemoTraitPublicReExportProjectionKind::Selective 1 some 9102 some 8102
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_missing_graph_input: graph node missing input を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_missing_graph_input %fn void SelfhostMemoTraitPublicReExportExportTableInput \void:
+    selfhost_memo_trait_public_reexport_export_table_input_new 99 some 3 SelfhostMemoTraitPublicReExportProjectionKind::Wildcard 3 some 9103 some 8103
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_push_input: stage0 input vector へ input を[追加/ついか]する
+fn selfhost_memo_trait_public_reexport_export_table_stage0_push_input %impure fn Vec SelfhostMemoTraitPublicReExportExportTableInput impure fn SelfhostMemoTraitPublicReExportExportTableInput Result Vec SelfhostMemoTraitPublicReExportExportTableInput SelfhostMemoTraitPublicReExportExportTableErrorKind \items\input:
+    match v::push items input:
+        Result::Ok next_items:
+            Result::Ok next_items
+        Result::Err push_error:
+            v::free v::vec_push_error_vec push_error
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_input_vec_result: accepted path 用 input vector を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_input_vec_result %impure fn void Result Vec SelfhostMemoTraitPublicReExportExportTableInput SelfhostMemoTraitPublicReExportExportTableErrorKind \void:
+    let items_result %Result Vec SelfhostMemoTraitPublicReExportExportTableInput StdErrorKind v::new
+    match items_result:
+        Result::Ok items0:
+            match selfhost_memo_trait_public_reexport_export_table_stage0_push_input items0 selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input some 9101 some 8101:
+                Result::Ok items1:
+                    selfhost_memo_trait_public_reexport_export_table_stage0_push_input items1 selfhost_memo_trait_public_reexport_export_table_stage0_selective_input
+                Result::Err push_error:
+                    Result::Err push_error
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_input_vec_result: duplicate ordinal path 用 input vector を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_input_vec_result %impure fn void Result Vec SelfhostMemoTraitPublicReExportExportTableInput SelfhostMemoTraitPublicReExportExportTableErrorKind \void:
+    let first %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input some 9101 some 8101
+    let duplicate %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_input_new 1 some 1 SelfhostMemoTraitPublicReExportProjectionKind::Selective 1 some 9102 some 8102
+    let items_result %Result Vec SelfhostMemoTraitPublicReExportExportTableInput StdErrorKind v::new
+    match items_result:
+        Result::Ok items0:
+            match selfhost_memo_trait_public_reexport_export_table_stage0_push_input items0 first:
+                Result::Ok items1:
+                    selfhost_memo_trait_public_reexport_export_table_stage0_push_input items1 duplicate
+                Result::Err push_error:
+                    Result::Err push_error
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicReExportExportTableErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_accepted_count_result: accepted vector 件数を[返/かえ]す
+fn selfhost_memo_trait_public_reexport_export_table_stage0_accepted_count_result %impure fn &SelfhostModuleGraph Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind \graph:
+    match selfhost_memo_trait_public_reexport_export_table_stage0_input_vec_result:
+        Result::Ok inputs:
+            let result %Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind:
+                match selfhost_memo_trait_public_reexport_export_table_evidence_vec_result graph &inputs:
+                    Result::Ok evidences:
+                        let n %i32 v::len &evidences
+                        v::free evidences
+                        Result::Ok n
+                    Result::Err evidence_error:
+                        Result::Err evidence_error
+            v::free inputs
+            result
+        Result::Err input_error:
+            Result::Err input_error
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_result: duplicate ordinal path を[実行/じっこう]する
+fn selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_result %impure fn &SelfhostModuleGraph Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind \graph:
+    match selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_input_vec_result:
+        Result::Ok inputs:
+            let result %Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind:
+                selfhost_memo_trait_public_reexport_export_table_evidence_vec_result graph &inputs
+            v::free inputs
+            result
+        Result::Err input_error:
+            Result::Err input_error
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_check_result: duplicate ordinal path の error kind だけを[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - stage0 summary には owned `Vec` を入れません。万一 duplicate path が成功した場合でも、ここで owner を閉じて `unit` に畳みます。
+fn selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_check_result %impure fn &SelfhostModuleGraph Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind \graph:
+    match selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_result graph:
+        Result::Ok evidences:
+            v::free evidences
+            Result::Ok unit
+        Result::Err duplicate_error:
+            Result::Err duplicate_error
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_compare_payload: 2 evidence の payload hash が異なるか[返/かえ]す
+fn selfhost_memo_trait_public_reexport_export_table_stage0_compare_payload %fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind fn Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind bool \wildcard_result\selective_result:
+    match wildcard_result:
+        Result::Ok wildcard_evidence:
+            match selective_result:
+                Result::Ok selective_evidence:
+                    not eq wildcard_evidence.payload_hash selective_evidence.payload_hash
+                Result::Err _selective_error:
+                    false
+        Result::Err _wildcard_error:
+            false
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0_with_graph: graph owner を借りて代表結果を[作/つく]る
+fn selfhost_memo_trait_public_reexport_export_table_stage0_with_graph %impure fn &SelfhostModuleGraph SelfhostMemoTraitPublicReExportExportTableStage0Summary \graph:
+    let wildcard_input %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input some 9101 some 8101
+    let selective_input %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_stage0_selective_input
+    let payload_missing_input %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input none some 8101
+    let dependency_placeholder_input %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_stage0_wildcard_input some 9101 some 0
+    let missing_graph_input %SelfhostMemoTraitPublicReExportExportTableInput selfhost_memo_trait_public_reexport_export_table_stage0_missing_graph_input
+    let accepted_count %Result i32 SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_stage0_accepted_count_result graph
+    let wildcard_result %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_evidence_result graph wildcard_input
+    let selective_result %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_evidence_result graph selective_input
+    let differ %bool selfhost_memo_trait_public_reexport_export_table_stage0_compare_payload wildcard_result selective_result
+    let payload_missing_result %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_evidence_result graph payload_missing_input
+    let dependency_placeholder_result %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_evidence_result graph dependency_placeholder_input
+    let missing_graph_result %Result SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_evidence_result graph missing_graph_input
+    let duplicate_result %Result unit SelfhostMemoTraitPublicReExportExportTableErrorKind selfhost_memo_trait_public_reexport_export_table_stage0_duplicate_check_result graph
+    selfhost_memo_trait_public_reexport_export_table_stage0_summary_new accepted_count wildcard_result selective_result differ payload_missing_result dependency_placeholder_result missing_graph_result duplicate_result
+
+//: selfhost_memo_trait_public_reexport_export_table_stage0: re-export export table producer の smoke API
+//:
+//: [目的/もくてき]:
+//: - doctest と source policy regression が accepted path と代表 fail-closed path を小さい入力で確認できるようにします。
+pub fn selfhost_memo_trait_public_reexport_export_table_stage0 %impure fn void SelfhostMemoTraitPublicReExportExportTableStage0Summary \void:
+    match selfhost_memo_trait_public_reexport_export_table_stage0_graph_result:
+        Result::Ok graph:
+            let summary %SelfhostMemoTraitPublicReExportExportTableStage0Summary selfhost_memo_trait_public_reexport_export_table_stage0_with_graph &graph
+            selfhost_module_graph_free graph
+            summary
+        Result::Err graph_error:
+            selfhost_memo_trait_public_reexport_export_table_stage0_summary_new Result::Err graph_error Result::Err graph_error Result::Err graph_error false Result::Err graph_error Result::Err graph_error Result::Err graph_error Result::Err graph_error

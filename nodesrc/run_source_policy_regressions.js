@@ -230,6 +230,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_source_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js",
+    "nodesrc/test_selfhost_memo_trait_public_reexport_export_table_contract.js",
     "nodesrc/test_selfhost_memo_trait_stable_nominal_key_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_type_layout_header_contract.js",

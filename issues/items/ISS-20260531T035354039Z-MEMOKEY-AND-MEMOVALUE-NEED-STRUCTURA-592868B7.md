@@ -399,6 +399,35 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost public re-export export table producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_reexport_export_table.nepl` を追加し、loader / module graph が解決した re-export export table projection を `SelfhostMemoTraitPublicSurfaceReExportEvidence` へ変換する checker-layer producer を実装した。
+
+producer input は `module_index`、明示 `ordinal`、wildcard / selective の projection kind、`export_count`、typed `export_table_hash`、target module の `dependency_public_surface_hash` に限定した。accepted payload hash は schema version、projection kind、export count、export table hash だけから作り、source text、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact、proof store を hash authority にしない。
+
+`ordinal` は caller supplied の public surface ordinal として検査し、`none`、0 placeholder、負値、duplicate ordinal をそれぞれ typed enum error として拒否する。duplicate check は現状 O(k * k) の scan だが、Vec index や source order を ordinal として暗黙採用しない契約を優先した。後続で sorted ordinal index / merge cursor に置き換えても public evidence / error boundary は変えない。
+
+`SelfhostMemoTraitPublicReExportExportTableErrorKind` は vector allocation/read、graph node absence、ordinal、payload hash、dependency public surface hash、export count、derived placeholder、duplicate ordinal を分離した。実際にはこの producer が normalizer を呼ばないため、当初置いていた normalizer rejection variant は削除した。normalizer partial input へ接続する段階で必要になった場合は、その接続 helper 側の error として改めて設計する。
+
+stage0 smoke は wildcard / selective accepted path、payload hash missing、dependency hash placeholder、graph node missing、duplicate ordinal rejection を確認する。duplicate path は unexpected success の owned `Vec` を stage0 summary に入れず、helper 内で解放して `Result unit` に畳む。VFS fixture では `selfhost_vfs_add` が入力 VFS owner を消費し、失敗時の内部 Vec cleanup も `selfhost_vfs_add` 側で行うため、stage0 graph helper は moved `vfs0` / `vfs1` を再読しない契約を doc comment と source policy に固定した。
+
+source policy と focused doctest を追加し、producer が facade-private のまま、`nodesrc/selfhost_ty_sources.js` に登録されないこと、line count / doc comment length cap を導入しないこと、normalizer evidence boundary と互換なことを確認した。
+
+subagent review では Anscombe が Blocker なし、Required として stage0 VFS cleanup 境界と未使用 normalizer error variant を指摘した。VFS cleanup は既存 `selfhost_vfs_add` の owner-consuming API に合わせ、caller 側で moved owner を free しない形に整理した。未使用 normalizer error variant は削除した。
+
+追加 review では Bohr が Blocker なし、Required として public `payload_hash_result` helper 単体でも raw `export_table_hash = 0` を拒否する必要がある点を指摘した。`payload_hash_result` は `payload_seed_result some export_table_hash` を先に通し、placeholder seed を `ReExportPayloadHashPlaceholder` として fail-closed にする形へ修正した。contract もこの公開 helper 単体の境界を固定する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_reexport_export_table_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_reexport_export_table.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-reexport-export-table-focused.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した `test_selfhost_memo_trait_public_reexport_export_table_contract.js` は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、impl header producer、trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続である。re-export duplicate scan の sorted index 化は後から可能な最適化として扱い、今は public surface 境界の型と error 契約を優先して進める。
+
 ## 2026-06-13 selfhost stable nominal key and public type layout header checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_stable_nominal_key_producer.nepl` を追加し、public nominal type declaration から `.neplmeta` / `.neplproof` で再利用できる `SelfhostMemoTraitStableNominalKey` を作る checker-layer producer を実装した。

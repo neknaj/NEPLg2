@@ -58401,3 +58401,48 @@ MERGE_APPROVED
 - re-export export table producer、impl header producer は未完了である。次は re-export table を先に進め、public surface orchestration の dependency / re-export 境界を固めてから impl header へ進む。
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - enum variant payload detail、recursive aggregate traversal、nested operation fold の重複計算、proof lookup index 化、composer sorted merge cursor 化は public evidence / payload input / typed error contract を変えずに後から置換できる最適化または後続 solver 接続として扱う。
+
+## 2026-06-13 selfhost public re-export export table producer checkpoint
+
+### scope
+
+- branch: `work/selfhost-reexport-surface-producer`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core / boundary 分離、DAG、計算量と探索範囲の明示、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_public_reexport_export_table.nepl` を追加し、loader / module graph が解決した re-export export table projection から `SelfhostMemoTraitPublicSurfaceReExportEvidence` を作る checker-layer producer を実装した。
+- input は `module_index`、明示 `ordinal`、projection kind、`export_count`、typed `export_table_hash`、target module の `dependency_public_surface_hash` に限定した。
+- accepted payload hash は schema version、projection kind、export count、export table hash だけから作り、source text / span / path / alias / display name / diagnostic text / HIR / Resource IR / backend / proof store は hash authority にしない。
+- `ordinal` は Vec index や source order から推測せず、missing / placeholder / negative / duplicate を typed enum error として拒否する。
+- duplicate ordinal check は現状 O(k * k) だが、これは API 契約を変えず sorted ordinal index / merge cursor に後から置換できる最適化として扱う。
+- stage0 smoke は accepted wildcard / selective、payload hash missing、dependency hash placeholder、graph node missing、duplicate ordinal rejection を確認する。
+- duplicate path の unexpected success は owned `Vec` を stage0 summary に入れず、helper 内で解放して `Result unit` に畳む。
+- `selfhost_vfs_add` は入力 VFS owner を消費し、失敗時の内部 Vec cleanup も自身で行うため、stage0 graph helper は moved `vfs0` / `vfs1` を再読しない契約を doc comment と source policy に固定した。
+- full public surface orchestration まで facade 非公開のままとし、`nodesrc/selfhost_ty_sources.js` にも登録しない。
+
+### subagent_review
+
+- Anscombe review: Blocker なし。
+- Required として、stage0 VFS add 失敗時の cleanup 境界と、実際には返さない `HashInputRejected` variant が契約を過大に見せる点が指摘された。
+- VFS cleanup については既存 `selfhost_vfs_add` の owner-consuming API を確認し、caller 側で moved owner を free しない形に整理した。指摘をそのまま適用すると `resource.cell.moved` になるため、根本契約に合わせて doc / source policy を更新した。
+- `HashInputRejected` は削除した。normalizer partial input へ接続する段階で必要になった場合は、その helper の error として改めて設計する。
+- Bohr review: Blocker なし。Required として public `payload_hash_result` helper 単体でも raw `export_table_hash = 0` を拒否する必要がある点が指摘された。
+- `payload_hash_result` は `payload_seed_result some export_table_hash` を先に通し、placeholder seed を `ReExportPayloadHashPlaceholder` として fail-closed にする形へ修正した。contract もこの公開 helper 単体の境界を固定する。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_reexport_export_table_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_reexport_export_table.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-reexport-export-table-focused.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した `test_selfhost_memo_trait_public_reexport_export_table_contract.js` は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- impl header producer、trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
+- re-export duplicate ordinal scan の sorted index 化は public evidence / error boundary を変えず後からできる最適化として扱い、次は impl header と trait evidence solver の境界を進める。
