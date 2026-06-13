@@ -82,6 +82,7 @@ type PanelManagerOptions = {
     vfs: any;
     createNeplProvider: () => any;
     getCompilerMode?: () => string;
+    beforeWasmExecution?: () => Promise<string | null>;
     cursorSpan: HTMLElement;
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
@@ -119,6 +120,7 @@ export class PlaygroundPanelManager {
     vfs: any;
     createNeplProvider: () => any;
     getCompilerMode: () => string;
+    beforeWasmExecution: () => Promise<string | null>;
     cursorSpan: HTMLElement;
     analysisSpan: HTMLElement;
     terminalStatusSpan: HTMLElement;
@@ -145,6 +147,7 @@ export class PlaygroundPanelManager {
         this.vfs = options.vfs;
         this.createNeplProvider = options.createNeplProvider;
         this.getCompilerMode = options.getCompilerMode || (() => 'rust');
+        this.beforeWasmExecution = options.beforeWasmExecution || (async () => null);
         this.cursorSpan = options.cursorSpan;
         this.analysisSpan = options.analysisSpan;
         this.terminalStatusSpan = options.terminalStatusSpan;
@@ -664,6 +667,7 @@ export class PlaygroundPanelManager {
         const terminal = new CanvasTerminal(canvas, textarea, null, {
             vfs: this.vfs,
             getCompilerMode: this.getCompilerMode,
+            beforeWasmExecution: this.beforeWasmExecution,
         });
         terminal.setFontSize(this.currentFontSize);
 

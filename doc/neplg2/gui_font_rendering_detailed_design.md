@@ -74,7 +74,11 @@ resource root
     -> render2d pixel buffer
 ```
 
-Web では build/VFS が `fonts/HackGenConsoleNF-Regular.ttf` として提供する。Native では packaged resource directory または configured resource root から同じ path を読む。Bare では embedded blob table を使い、存在しない場合は unsupported または resource missing として返す。
+Web では bundled resource manifest が canonical resource path `fonts/HackGenConsoleNF-Regular.ttf` と license text を登録し、VFS 内部では `/fonts/HackGenConsoleNF-Regular.ttf` と `/fonts/HackGen-LICENSE.txt` に mount する。`/fonts/...` は VFS transport の表現であり、font identity や lookup authority にはしない。Web Playground は startup で mount promise を開始し、`neplg2 run` / Wasm execution の直前に完了を待つ。Mount に失敗した場合は `GuiFontResourceMountError` の typed variant を terminal に表示し、execution は開始しない。Compile-only path は runtime font bytes を必要としないため mount 完了を待たない。
+
+Native では packaged resource directory または configured resource root から同じ canonical path を読む。Native provider は `fonts/...` を root-relative path として扱い、OS font family lookup や current working directory の suffix scan へ逃がさない。Resource root が未設定、または path が存在しない場合は missing resource error を返す。
+
+Bare では embedded blob table を provider とする。Blob table が未設定の環境では filesystem probing を行わず unsupported を返す。Blob table に canonical path が存在しない場合は missing resource error を返す。Headless / offscreen tests は explicit fixture resource provider を渡し、host font API には依存しない。
 
 ## Decode policy
 

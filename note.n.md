@@ -1,3 +1,32 @@
+# 2026-06-13 Agent2 GUI bundled font resource routing checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Web の fetch / VFS 書き込みを playground 表層に閉じ、`core/gui` / `alloc/gui` / `std/gui` の formal font contract へ DOM / Canvas / FontFace / OS handle を混ぜない。失敗は exception や `null` / `undefined` ではなく typed result と enum-like kind で扱う。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `gui-font-resource-routing-20260613`
+- classification: GUI font rendering Phase F3 / bundled font resource routing
+- design:
+  - `GuiFontResourcePath` の canonical path は leading slash なしの `fonts/...` とし、Web VFS 内部だけ `/fonts/...` へ変換する契約を `doc/neplg2/gui_font_rendering_spec.md` に追記した。
+  - `doc/neplg2/gui_font_rendering_detailed_design.md` に、Web startup mount promise、`neplg2 run` 直前 wait、compile-only は wait しないこと、Native resource root、Bare embedded blob provider、Headless explicit fixture provider を追記した。
+  - `doc/neplg2/gui_font_rendering_implementation_plan.md` の Phase F3 に Web VFS manifest、typed mount error、source policy、binary/read-only compile overlay 除外を追記した。
+- implementation:
+  - `web/src/gui-font/font-resource-vfs.ts` を追加し、`web/src/fonts/HackGenConsoleNF-Regular.ttf` と license を bundled resource manifest から VFS read-only file として mount する経路を作った。
+  - Mount error は `FetchUnavailable`、`InvalidResourcePath`、`NetworkError`、`HttpError`、`InvalidBytes`、`InvalidText`、`VfsWriteFailed` に分けた。
+  - `web/src/main.ts` で startup 時に mount promise を開始し、`neplg2 run` 直前に await する。失敗時は terminal に typed error を表示し、実行を開始しない。compile-only は runtime font bytes を要求しないため wait しない。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F3 の doc / source policy を追加した。
+- subagent review:
+  - Boole: F3 plan review で blocker なし。Required として canonical path の明文化、typed error 分割、Native / Bare contract、run 前 wait、compile overlay 除外の source policy を指摘した。今回差分で反映した。
+  - 実装後 review で、toolbar Run だけでなく terminal からの `neplg2 run` / `wasmi` も mount guard を通すこと、regex だけでなく挙動テストを追加すること、rollback が現在処理中の payload を消すことを Required として指摘された。
+  - Required 対応として `Shell.runWorkerProcess` の `run-wasm` request 境界に `beforeWasmExecution` hook を追加し、`main.ts -> PlaygroundPanelManager -> CanvasTerminal -> Shell` に配線した。`nodesrc/test_web_gui_font_resource_vfs_behavior.js` で compiled JS の実 mount、typed error、rollback、Shell preflight block を検査する。
+  - 再レビューで CanvasTerminal から Shell への hook forwarding 漏れが blocker として出たため修正し、source policy に terminal forwarding 検査を追加した。
+  - 最終 re-review で Blockers / Required なし。implementation may proceed to commit/merge: yes。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+  - pass: `node nodesrc/test_web_gui_font_resource_vfs_behavior.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+  - 既存 warning: Git の LF / CRLF working-copy warning、Node WASI ExperimentalWarning、既存 documentation sample gap は確認済み。今回差分由来の failure はない。
+
 # 2026-06-13 Agent GUI formal font / render style stdlib checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、platform detail の表層化、hidden fallback 禁止、`Option` / `Result` と enum error、`match` による静的検査、contract と現状実装の分離、doc test と source policy を守る。
