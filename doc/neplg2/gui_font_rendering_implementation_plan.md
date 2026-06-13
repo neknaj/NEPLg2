@@ -685,6 +685,50 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4p: sfnt simple glyph path sink event adapter
+
+目的:
+
+- F4o の `GuiSfntSimpleGlyphPathCommandPair` を、後続の contour/path sink が読む single-edge event pair へ写す。
+- full contour stream、command sequence、sink trait、ownership / allocation boundary、winding、fill rule、rasterizer、render2d command はまだ作らない。
+- `SkipNoSegment` を empty event にせず、既存の typed path command を event として保持する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkEvent`
+  - `GuiSfntSimpleGlyphPathSinkEventPair`
+  - `gui_sfnt_simple_glyph_path_command_sink_event`
+  - `gui_sfnt_simple_glyph_path_sink_event_command`
+  - `gui_sfnt_simple_glyph_path_sink_event_pair`
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_first_event`
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_second_event`
+  - `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair`
+- `GuiSfntSimpleGlyphPathSinkEvent` は `Command GuiSfntSimpleGlyphPathCommand` の thin wrapper とし、`MoveTo` / `LineTo` / `QuadraticTo` / `SkipNoSegment` payload を再定義しない。
+- `GuiSfntSimpleGlyphPathSinkEventPair` は `first_event` と `second_event` だけを持つ O(1) value とする。
+- pure helper は `gui_sfnt_simple_glyph_path_command_pair_move_command` と `gui_sfnt_simple_glyph_path_command_pair_draw_command` だけを読み、first / second event を作る。
+- F4p では `Option` / `Result`、command index、count、next、current point state、contour closure、off-curve contour-start synthesis、`Vec GuiSfntSimpleGlyphPathSinkEvent`、`push` を導入しない。
+- F4p の pure helper では byte-backed lookup、metadata parser、`*_with_tables` helper、lower point / contour helper、curve classifier、render2d/backend/platform、rasterizer、host text API を使わない。
+- Source policy で pair-to-sink-event adapter、thin wrapper、event pair accessors、no duplicate payload enum、no lookup/parser/helper bypass、no allocation/stream state を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に direct path command から sink event / event pair を作る cheap typed doctest assertion を追加する。line / quadratic / NoSegment の payload behavior は既存 F4m/F4o doctest と F4p source policy で固定し、既存の重い executable case へ nested event match は足さない。
+
+完了条件:
+
+- direct `MoveTo` / `LineTo` command pair が first event `MoveTo`、second event `LineTo` として読める。
+- direct `SkipNoSegment` command が `GuiSfntSimpleGlyphPathSinkEvent::Command` の内側で `SkipNoSegment` として読める。
+- implied quadratic pair と NoSegment pair の payload preservation は F4m/F4o の executable doctest と F4p source policy で固定される。
+- pure adapter が lookup / parser / table helper / renderer / platform API に依存しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

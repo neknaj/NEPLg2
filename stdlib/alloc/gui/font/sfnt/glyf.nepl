@@ -1021,6 +1021,92 @@ pub fn gui_sfnt_simple_glyph_path_command_pair_move_command %fn &GuiSfntSimpleGl
 pub fn gui_sfnt_simple_glyph_path_command_pair_draw_command %fn &GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphPathCommand \pair:
     *field::get_ref pair "draw_command"
 
+//: GuiSfntSimpleGlyphPathSinkEvent: path sink が[受/う]ける 1 event
+//:
+//: [目的/もくてき]:
+//: - F4m/F4o の compact path command を、後続 sink 用 event boundary として[包/つつ]みます。
+//: - ここでは contour traversal や実際の sink trait は定義せず、single-edge pair の first / second event だけを[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkEvent:
+    Command %GuiSfntSimpleGlyphPathCommand
+
+impl Clone for GuiSfntSimpleGlyphPathSinkEvent:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphPathSinkEvent \event:
+        *event
+
+impl Copy for GuiSfntSimpleGlyphPathSinkEvent:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphPathSinkEvent \event:
+        event
+
+//: GuiSfntSimpleGlyphPathSinkEventPair: single-edge pair から得る first / second sink event
+//:
+//: [目的/もくてき]:
+//: - 1 pair 内の deterministic な 2 event だけを O(1) value として[運/はこ]びます。
+//: - full contour stream、command index、current point state は持ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkEventPair:
+    first_event %GuiSfntSimpleGlyphPathSinkEvent
+    second_event %GuiSfntSimpleGlyphPathSinkEvent
+
+impl Clone for GuiSfntSimpleGlyphPathSinkEventPair:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphPathSinkEventPair \pair:
+        *pair
+
+impl Copy for GuiSfntSimpleGlyphPathSinkEventPair:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphPathSinkEventPair \pair:
+        pair
+
+//: gui_sfnt_simple_glyph_path_command_sink_event: path command を sink event boundary に[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - valid command は必ず event になるため、`Option` / `Result` は返しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_command_sink_event %fn GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathSinkEvent \command:
+    GuiSfntSimpleGlyphPathSinkEvent::Command command
+
+//: gui_sfnt_simple_glyph_path_sink_event_command: sink event から path command を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_command %fn &GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphPathCommand \event:
+    match *event:
+        GuiSfntSimpleGlyphPathSinkEvent::Command command:
+            command
+
+//: gui_sfnt_simple_glyph_path_sink_event_pair: sink event pair value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_pair %fn GuiSfntSimpleGlyphPathSinkEvent fn GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphPathSinkEventPair \first_event\second_event:
+    GuiSfntSimpleGlyphPathSinkEventPair first_event second_event
+
+//: gui_sfnt_simple_glyph_path_sink_event_pair_first_event: pair の first event を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_pair_first_event %fn &GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphPathSinkEvent \pair:
+    *field::get_ref pair "first_event"
+
+//: gui_sfnt_simple_glyph_path_sink_event_pair_second_event: pair の second event を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_pair_second_event %fn &GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphPathSinkEvent \pair:
+    *field::get_ref pair "second_event"
+
+//: gui_sfnt_simple_glyph_path_command_pair_sink_event_pair: command pair を sink event pair に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - move command を first event、draw command を second event として[包/つつ]みます。
+//: - この関数は byte lookup、metadata parser、table helper、curve classifier を呼びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_command_pair_sink_event_pair %fn &GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphPathSinkEventPair \pair:
+    let move_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_move_command pair
+    let draw_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_draw_command pair
+    let first_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_command_sink_event move_command
+    let second_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_command_sink_event draw_command
+    gui_sfnt_simple_glyph_path_sink_event_pair first_event second_event
+
 //: gui_sfnt_simple_glyph_contour_edge_source_contour_index: edge が[属/ぞく]する contour index を[読/よ]む
 //:
 //: neplg2:test[skip]

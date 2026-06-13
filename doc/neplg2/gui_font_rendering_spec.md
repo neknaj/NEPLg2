@@ -635,6 +635,35 @@ F4o の public lookup は `gui_sfnt_lookup_simple_glyph_curve_segment` を 1 回
 
 F4o は `Vec GuiSfntSimpleGlyphPathCommand` を作らない。`gui_sfnt_parse_metadata`、`*_with_tables` helper、lower public lookup、curve classifier、renderer、rasterizer、platform API を F4o の public helper に混ぜてはならない。
 
+### SFNT simple glyph path sink event adapter
+
+F4p は `GuiSfntSimpleGlyphPathCommandPair` を、後続の contour/path sink が読む event pair へ写す single-edge adapter である。これは F5 の contour stream ではなく、glyph outline 全体の command sequence でもない。F4p が定義する順序は 1 pair 内の `first_event` と `second_event` だけであり、contour closure、off-curve contour-start synthesis、winding、fill rule、rasterizer、render2d command、platform API は扱わない。
+
+```text
+GuiSfntSimpleGlyphPathSinkEvent:
+    Command GuiSfntSimpleGlyphPathCommand
+
+GuiSfntSimpleGlyphPathSinkEventPair:
+    first_event GuiSfntSimpleGlyphPathSinkEvent
+    second_event GuiSfntSimpleGlyphPathSinkEvent
+```
+
+`GuiSfntSimpleGlyphPathSinkEvent` は新しい path command 表現ではない。F4m/F4o の compact `GuiSfntSimpleGlyphPathCommand` を sink-facing event boundary として包むだけである。したがって `MoveTo`、`LineTo`、`QuadraticTo`、`SkipNoSegment` の payload を再定義しない。
+
+```text
+gui_sfnt_simple_glyph_path_command_sink_event command
+    -> GuiSfntSimpleGlyphPathSinkEvent::Command command
+
+gui_sfnt_simple_glyph_path_command_pair_sink_event_pair pair
+    -> first = gui_sfnt_simple_glyph_path_command_sink_event pair.move_command
+    -> second = gui_sfnt_simple_glyph_path_command_sink_event pair.draw_command
+    -> GuiSfntSimpleGlyphPathSinkEventPair first second
+```
+
+pure projection は total であり、`Option` や `Result` を返さない。valid pair value に対して first / second event は必ず存在する。`SkipNoSegment` も `Command (SkipNoSegment ...)` として保持し、empty event や silent skip にはしない。
+
+F4p は `Vec GuiSfntSimpleGlyphPathSinkEvent` を作らない。`command_index`、`count`、`next`、mutable current point state、`push`、`gui_sfnt_lookup_simple_glyph_path_command_pair`、`gui_sfnt_lookup_simple_glyph_curve_segment`、metadata parser、`*_with_tables` helper、lower point / contour helper、curve classifier、renderer、rasterizer、platform API を F4p の pure helper に混ぜてはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
