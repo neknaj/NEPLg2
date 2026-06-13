@@ -399,6 +399,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost operation evidence producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl` を追加し、public impl header typed input、現在の `SelfhostTypeId` から別 stage が作った resolved target type shape evidence、trusted trait identity classifier が作った shape-bound trait operation evidence、method / drop の typed evidence から `SelfhostMemoTraitOperationEvidenceRecord` を作る checker-layer producer を接続した。
+
+この producer は `SelfhostMemoTraitOperationMethodBodyEvidence` と `SelfhostMemoTraitOperationDropEvidence` を受け、operation 別 evidence matrix を検査してから status を畳む。`Eq` / `Hash` では method body evidence を必須にし、`Drop` では Drop evidence を必須にする。`Copy` は marker operation として method / Drop evidence をどちらも `NotRequired` に限定する。`Missing` / `Unknown` / `Impure` / `ImpureDrop` はそれぞれ `Missing` / `Unknown` / `Impure` status として operation evidence table へ残し、method body purity や Drop なし proof の欠落を producer error に潰さない。ただし `NotRequired` の構造的誤用は producer error で fail-closed に拒否する。
+
+public impl header は `SelfhostMemoTraitPublicImplHeaderInput` として受け取り、`selfhost_memo_trait_public_impl_header_evidence_result` で visibility、trait impl kind、target type shape、trait application shape、generic unsupported 境界を再検査する。generic impl、inherent impl、private impl、target type shape missing / placeholder、trait application shape missing / placeholder は nested header error として fail-closed に拒否する。
+
+accepted record は、`resolved_type_shape_hash` と impl header の target type shape が一致し、classifier evidence の `classified_trait_application_shape_hash` と impl header の trait application shape が一致し、requested operation と `trait_operation.operation` が一致する場合だけ作る。flattened public declaration payload hash 単独、または caller supplied operation kind 単独を authority にしない。
+
+この checkpoint は trait impl scanner や method body purity checker の実体ではない。`core/ty` の operation evidence table は引き続き session-local transport に留め、checker-layer source/HIR/Resource/backend/proof-store authority を逆流させない。source policy は `nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js` で固定し、facade re-export と `nodesrc/selfhost_ty_sources.js` 登録もまだ禁止している。
+
+残件は、trait impl table の探索、trait application shape から shape-bound trusted operation classifier evidence を作る実体、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact との接続である。
+
 ## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
 
 `memo_trait_operation_evidence.nepl` を追加し、Copy / Drop / Eq / Hash の trait operation evidence を `SelfhostTypeId`、operation kind、`SelfhostMemoTraitAggregateProofStatus` の typed table として運ぶ境界を固定した。

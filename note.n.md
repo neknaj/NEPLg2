@@ -58719,3 +58719,30 @@ MERGE_APPROVED
 - F4i は contour span lookup であり、full outline `Vec`、streaming contour sink、quadratic curve segment builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
 - 次 slice では allocation failure / owner recovery と streaming sink の contract を固めたうえで、simple glyph outline builder へ進む。
 - `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。
+
+## 2026-06-13 selfhost memo trait operation evidence producer checkpoint
+
+### scope
+
+- branch: `work/selfhost-trait-operation-evidence-producer`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core / boundary 分離、DAG、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑な設計を残さない方針を優先した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl` を追加した。
+- producer は public impl header typed input、現在の `SelfhostTypeId` から別 stage が作った `resolved_type_shape_hash`、trusted trait identity classifier が作った shape-bound `trait_operation`、method body purity evidence、Drop evidence を `SelfhostMemoTraitOperationEvidenceRecord` へ変換する。
+- `method_body` は `Pure` / `Missing` / `Impure` / `Unknown` / `NotRequired` の enum、`drop_evidence` は `NoDropRequired` / `PureDrop` / `Missing` / `ImpureDrop` / `Unknown` / `NotRequired` の enum として保持する。
+- `trait_operation` は classifier が読んだ `classified_trait_application_shape_hash` を持ち、impl header の `trait_application_shape_hash` と一致しなければ record を作らない。
+- `Missing` / `Impure` / `Unknown` は producer error に潰さず、operation evidence record の `SelfhostMemoTraitAggregateProofStatus` として solver へ渡す。ただし `NotRequired` は operation 別 gate を通してから `Proven` に畳み、`Eq` / `Hash` の method evidence 欠落や `Drop` の drop evidence 欠落は producer error で拒否する。
+- public impl header は `selfhost_memo_trait_public_impl_header_evidence_result` で再検査する。generic impl、inherent impl、private impl、target type shape missing / placeholder、trait application shape missing / placeholder は nested header error として fail-closed に拒否する。
+- accepted record は `resolved_type_shape_hash` と impl header の target type shape が一致し、classifier shape と impl header の trait application shape が一致し、さらに requested operation と `trait_operation.operation` が一致する場合だけ作る。flattened public declaration payload hash や operation kind だけを authority にしない。
+- ty 層の operation evidence table は transport のまま維持し、checker-layer の source/HIR/Resource/backend/proof-store authority を逆流させない。
+- `nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js` を追加し、source policy runner に登録した。facade re-export と `nodesrc/selfhost_ty_sources.js` 登録は禁止したままにした。
+
+### residual
+
+- trait impl table の探索、trait application shape から shape-bound trusted operation classifier evidence を作る実体、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- generic impl binder / bound detailed evidence、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
+- recursive aggregate traversal、nested operation fold、graph lookup index、re-export ordinal duplicate scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えず後から置換できる最適化として扱う。

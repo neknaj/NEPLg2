@@ -1,0 +1,864 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_evidence_producer
+//: public trait impl header input と method / drop の typed evidence から、`MemoKey` / `MemoValue` aggregate solver が読める operation evidence record を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `Copy` / `Drop` / `Eq` / `Hash` の実装証拠を、`SelfhostTypeId` と operation kind と proof status の table record へ変換します。
+//: - ty 層の `memo_trait_operation_evidence` は session-local table transport だけを担当し、この module が public impl header、method body purity、Drop なし proof の checker-layer evidence を畳みます。
+//: - method body purity と Drop なし proof は bool ではなく typed enum として受け取り、`Missing` / `Unknown` / `Impure` / `Proven` の違いを solver へ残します。
+//: - public impl header は flattened public declaration payload hash ではなく `SelfhostMemoTraitPublicImplHeaderInput` として受け、target type shape と trait application shape を producer 自身でも再検査します。
+//: - `resolved_type_shape_hash` は現在の `SelfhostTypeId` から別 stage が作った typed shape evidence です。impl header の target type shape と一致しない場合、operation evidence record を作りません。
+//: - `trait_operation` は trait application shape を trusted trait identity classifier が Copy / Drop / Eq / Hash のどれかへ正規化した typed evidence です。classifier が見た trait application shape と impl header の trait application shape が一致しない場合、record を作りません。
+//:
+//: [契約/けいやく]:
+//: - accepted operation evidence record は、`type_id`、operation kind、shape-bound trait-operation classifier、public impl header input、resolved type shape evidence、method body purity evidence、drop evidence だけから作ります。
+//: - `impl_header` は `selfhost_memo_trait_public_impl_header_evidence_result` を通して検査します。generic impl、inherent impl、private impl、placeholder target / trait shape は header producer 側の typed error を保持して拒否します。
+//: - `resolved_type_shape_hash` は `some nonzero` でなければなりません。さらに `impl_header.target_type_shape_hash` と一致しなければなりません。
+//: - `trait_operation.classified_trait_application_shape_hash` は `some nonzero` であり、`impl_header.trait_application_shape_hash` と一致しなければなりません。そのうえで `trait_operation.operation` と requested `operation` が同じ `SelfhostMemoTraitOperationEvidenceKind` でなければなりません。
+//: - `Copy` は marker operation なので method body と Drop evidence のどちらも `NotRequired` だけを受理します。`Eq` / `Hash` は method body evidence を必須にし、Drop evidence は `NotRequired` だけを受理します。`Drop` は Drop evidence を必須にし、method body は `NotRequired` だけを受理します。
+//: - `method_body` が `Impure` の場合は `Impure` status、`Missing` の場合は `Missing` status、`Unknown` の場合は `Unknown` status を作ります。これらを producer error に潰さず、後続 solver が key/value requirement として拒否理由へ変換できるようにします。
+//: - `drop_evidence` の `NoDropRequired` と `PureDrop` はどちらも `Proven` status です。Drop なし proof をこの module が推測するのではなく、上流 checker が作った typed evidence を受け取ります。
+//: - source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record は accepted operation proof authority に入りません。
+//:
+//: [現状/げんじょう]:
+//: - この slice では public impl header typed input、shape-bound trait operation classifier、method / drop evidence を operation table record へ接続します。
+//: - trait impl table の探索、trait application shape から operation classifier を作る実体、method body purity checker の実体、Drop なし proof の導出、generic impl binder / bound 詳細 evidence は後続 stage の責務です。
+//: - facade にはまだ re-export しません。full public surface orchestration が public function / layout / impl / operation evidence producer をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - single record 生成は固定個数の typed evidence を検査するため O(1) 時間・O(1) 追加空間です。
+//: - stage0 の table projection は固定 4 operation record を push するだけなので O(1) 時間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_header" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_operation_evidence_producer_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_evidence_producer_record_result_status_eq summary.accepted_record SelfhostMemoTraitAggregateProofStatus::Proven
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_evidence_producer_record_result_status_eq summary.missing_status_record SelfhostMemoTraitAggregateProofStatus::Missing
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_evidence_producer_record_result_status_eq summary.impure_status_record SelfhostMemoTraitAggregateProofStatus::Impure
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_evidence_producer_record_result_status_eq summary.unknown_drop_status_record SelfhostMemoTraitAggregateProofStatus::Unknown
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.target_mismatch_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.classifier_shape_mismatch_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMismatch
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.trait_operation_mismatch_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.eq_method_not_required_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.drop_evidence_not_required_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_evidence_producer_record_result_header_rejected_eq summary.generic_header_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericImplUnsupported
+//:             let checks11 checks_push checks10 check selfhost_memo_trait_operation_evidence_producer_proof_record_has_missing_eq_and_impure_hash summary.proof_record
+//:             let shown checks_print_report checks11
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait operation evidence producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_producer" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitOperationMethodBodyEvidence: trait operation method body の purity evidence
+//:
+//: [目的/もくてき]:
+//: - method body が pure と検査済みか、証拠欠落か、impure と判定済みか、まだ判定不能か、operation 上 body 検査を必要としないかを enum として保持します。
+//:
+//: [契約/けいやく]:
+//: - `Pure` と `NotRequired` だけが `Proven` status に寄与します。
+//: - `Missing` / `Unknown` / `Impure` は accepted record の status として残し、producer error ではなく solver 入力にします。
+pub enum SelfhostMemoTraitOperationMethodBodyEvidence:
+    Pure
+    Missing
+    Impure
+    Unknown
+    NotRequired
+
+//: SelfhostMemoTraitOperationDropEvidence: Drop なしまたは pure Drop の evidence
+//:
+//: [目的/もくてき]:
+//: - Drop operation の安全性を、Drop が不要である場合と pure Drop 実装が確認された場合に分けて表現します。
+//:
+//: [契約/けいやく]:
+//: - `NoDropRequired` は「Drop 実装がないことを上流が検査した」証拠です。
+//: - `PureDrop` は「Drop 実装はあるが pure と検査した」証拠です。
+//: - `NotRequired` は Copy / Eq / Hash など、この operation record では Drop proof を合成しない場合に使います。
+pub enum SelfhostMemoTraitOperationDropEvidence:
+    NoDropRequired
+    PureDrop
+    Missing
+    ImpureDrop
+    Unknown
+    NotRequired
+
+//: SelfhostMemoTraitOperationClassifierEvidence: trait application shape に[結/むす]び[付/つ]いた operation classifier evidence
+//:
+//: [目的/もくてき]:
+//: - stable trait identity classifier が、どの trait application shape を Copy / Drop / Eq / Hash と判定したのかを typed evidence として保持します。
+//:
+//: [契約/けいやく]:
+//: - `classified_trait_application_shape_hash` は classifier が実際に読んだ trait application shape です。
+//: - producer はこの shape と public impl header の `trait_application_shape_hash` を照合します。caller supplied operation kind だけで trait identity を認可してはいけません。
+pub struct SelfhostMemoTraitOperationClassifierEvidence:
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    classified_trait_application_shape_hash %Option i32
+
+//: SelfhostMemoTraitOperationEvidenceProducerInput: operation evidence record producer の typed input
+//:
+//: [目的/もくてき]:
+//: - public impl header typed input、target type shape evidence、trait operation classifier、operation ごとの body / drop evidence を 1 record にまとめ、producer が source に戻らず status を計算できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `type_id` は現在の selfhost type arena session の型です。永続 artifact identity ではありません。
+//: - `impl_header` は public impl header producer が再検査できる typed input です。
+//: - `resolved_type_shape_hash` は `type_id` の target type shape evidence であり、impl header target shape と一致する必要があります。
+//: - `trait_operation` は stable trait identity classifier の結果です。operation kind は enum として渡し、method name string や trait name string から推測しません。classifier が見た trait application shape も同時に保持します。
+pub struct SelfhostMemoTraitOperationEvidenceProducerInput:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    trait_operation %SelfhostMemoTraitOperationClassifierEvidence
+    impl_header %SelfhostMemoTraitPublicImplHeaderInput
+    resolved_type_shape_hash %Option i32
+    method_body %SelfhostMemoTraitOperationMethodBodyEvidence
+    drop_evidence %SelfhostMemoTraitOperationDropEvidence
+
+//: SelfhostMemoTraitOperationEvidenceProducerErrorKind: operation evidence producer の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - public impl header input、target type shape、trait operation classifier の構造的失敗を typed enum として保持します。
+//:
+//: [契約/けいやく]:
+//: - method body や Drop proof の missing / unknown / impure は error ではなく status record です。
+pub enum SelfhostMemoTraitOperationEvidenceProducerErrorKind:
+    HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind
+    TargetTypeShapeMissing
+    TargetTypeShapePlaceholder
+    TargetTypeShapeMismatch
+    TraitOperationClassifierShapeMissing
+    TraitOperationClassifierShapePlaceholder
+    TraitOperationClassifierShapeMismatch
+    TraitOperationMismatch
+    MethodBodyEvidenceRequired
+    UnexpectedMethodBodyEvidence
+    DropEvidenceRequired
+    UnexpectedDropEvidence
+
+//: SelfhostMemoTraitOperationEvidenceProducerStage0Summary: operation evidence producer の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - accepted status、missing / impure / unknown status、impl header rejection、operation table projection をまとめます。
+pub struct SelfhostMemoTraitOperationEvidenceProducerStage0Summary:
+    accepted_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    missing_status_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    impure_status_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    unknown_drop_status_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    target_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    classifier_shape_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    trait_operation_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    eq_method_not_required_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    drop_evidence_not_required_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    generic_header_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind
+    proof_record %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyEvidence:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationMethodBodyEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyEvidence:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationMethodBodyEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationDropEvidence:
+    fn clone %fn &SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationDropEvidence:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationClassifierEvidence:
+    fn clone %fn &SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationClassifierEvidence:
+    fn copy_mark %fn SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationEvidenceProducerInput:
+    fn clone %fn &SelfhostMemoTraitOperationEvidenceProducerInput SelfhostMemoTraitOperationEvidenceProducerInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationEvidenceProducerInput:
+    fn copy_mark %fn SelfhostMemoTraitOperationEvidenceProducerInput SelfhostMemoTraitOperationEvidenceProducerInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationEvidenceProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationEvidenceProducerErrorKind SelfhostMemoTraitOperationEvidenceProducerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationEvidenceProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationEvidenceProducerErrorKind SelfhostMemoTraitOperationEvidenceProducerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationEvidenceProducerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationEvidenceProducerStage0Summary SelfhostMemoTraitOperationEvidenceProducerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationEvidenceProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationEvidenceProducerStage0Summary SelfhostMemoTraitOperationEvidenceProducerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_classifier_evidence_new: shape-bound classifier evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は typed field をまとめるだけです。shape missing / placeholder / impl header shape との一致は producer 本体で検査します。
+pub fn selfhost_memo_trait_operation_classifier_evidence_new %fn SelfhostMemoTraitOperationEvidenceKind fn Option i32 SelfhostMemoTraitOperationClassifierEvidence \operation\classified_trait_application_shape_hash:
+    SelfhostMemoTraitOperationClassifierEvidence operation classified_trait_application_shape_hash
+
+//: selfhost_memo_trait_operation_evidence_producer_input_new: producer input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は typed field をまとめるだけです。impl header、target shape、trait operation、status fold の検査は producer 本体で行います。
+pub fn selfhost_memo_trait_operation_evidence_producer_input_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationClassifierEvidence fn SelfhostMemoTraitPublicImplHeaderInput fn Option i32 fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationEvidenceProducerInput \type_id\operation\trait_operation\impl_header\resolved_type_shape_hash\method_body\drop_evidence:
+    SelfhostMemoTraitOperationEvidenceProducerInput type_id operation trait_operation impl_header resolved_type_shape_hash method_body drop_evidence
+
+//: selfhost_memo_trait_operation_evidence_producer_impl_header_result: impl header input を public impl header producer で[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - public declaration payload hash だけを信用せず、visibility、impl kind、target shape、trait application shape、generic unsupported 境界を既存 header producer で再検査します。
+fn selfhost_memo_trait_operation_evidence_producer_impl_header_result %fn SelfhostMemoTraitPublicImplHeaderInput Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \impl_header:
+    match selfhost_memo_trait_public_impl_header_evidence_result impl_header:
+        Result::Ok _evidence:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected e
+
+//: selfhost_memo_trait_operation_evidence_producer_resolved_type_shape_result: resolved TypeId shape evidence を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - `none` と `some 0` は、現在の `SelfhostTypeId` から stable target shape が作れていない状態として拒否します。
+fn selfhost_memo_trait_operation_evidence_producer_resolved_type_shape_result %fn Option i32 Result i32 SelfhostMemoTraitOperationEvidenceProducerErrorKind \resolved_type_shape_hash:
+    match resolved_type_shape_hash:
+        Option::Some shape_hash:
+            if:
+                eq shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapePlaceholder
+                else:
+                    Result::Ok shape_hash
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMissing
+
+//: selfhost_memo_trait_operation_evidence_producer_impl_target_shape_result: impl header target shape を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - header producer が同じ input を検査済みであることを前提にせず、ここでも missing / placeholder を nested header error として保持します。
+fn selfhost_memo_trait_operation_evidence_producer_impl_target_shape_result %fn SelfhostMemoTraitPublicImplHeaderInput Result i32 SelfhostMemoTraitOperationEvidenceProducerErrorKind \impl_header:
+    match impl_header.target_type_shape_hash:
+        Option::Some shape_hash:
+            if:
+                eq shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashPlaceholder
+                else:
+                    Result::Ok shape_hash
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashMissing
+
+//: selfhost_memo_trait_operation_evidence_producer_target_shape_match_result: TypeId shape と impl target shape の一致を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - operation evidence record の `type_id` と public impl header の target type が対応していることを typed shape hash で確認します。
+fn selfhost_memo_trait_operation_evidence_producer_target_shape_match_result %fn SelfhostMemoTraitOperationEvidenceProducerInput Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \input:
+    match selfhost_memo_trait_operation_evidence_producer_resolved_type_shape_result input.resolved_type_shape_hash:
+        Result::Ok resolved_shape:
+            match selfhost_memo_trait_operation_evidence_producer_impl_target_shape_result input.impl_header:
+                Result::Ok impl_shape:
+                    if:
+                        eq resolved_shape impl_shape
+                        then:
+                            Result::Ok unit
+                        else:
+                            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_evidence_producer_impl_trait_shape_result: impl header trait application shape を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - public impl header producer の accepted path に依存せず、missing / placeholder を nested header error として保持します。
+fn selfhost_memo_trait_operation_evidence_producer_impl_trait_shape_result %fn SelfhostMemoTraitPublicImplHeaderInput Result i32 SelfhostMemoTraitOperationEvidenceProducerErrorKind \impl_header:
+    match impl_header.trait_application_shape_hash:
+        Option::Some shape_hash:
+            if:
+                eq shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashPlaceholder
+                else:
+                    Result::Ok shape_hash
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashMissing
+
+//: selfhost_memo_trait_operation_evidence_producer_classifier_shape_result: classifier が読んだ trait application shape を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - `none` と `some 0` は trusted classifier evidence として受理しません。
+fn selfhost_memo_trait_operation_evidence_producer_classifier_shape_result %fn SelfhostMemoTraitOperationClassifierEvidence Result i32 SelfhostMemoTraitOperationEvidenceProducerErrorKind \trait_operation:
+    match trait_operation.classified_trait_application_shape_hash:
+        Option::Some shape_hash:
+            if:
+                eq shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapePlaceholder
+                else:
+                    Result::Ok shape_hash
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMissing
+
+//: selfhost_memo_trait_operation_evidence_producer_trait_shape_match_result: impl header と classifier の trait shape を[照合/しょうごう]する
+//:
+//: [目的/もくてき]:
+//: - classifier evidence が別の trait application に対する判定だった場合に、requested operation kind だけで record を作れないようにします。
+fn selfhost_memo_trait_operation_evidence_producer_trait_shape_match_result %fn SelfhostMemoTraitOperationEvidenceProducerInput Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \input:
+    match selfhost_memo_trait_operation_evidence_producer_impl_trait_shape_result input.impl_header:
+        Result::Ok impl_shape:
+            match selfhost_memo_trait_operation_evidence_producer_classifier_shape_result input.trait_operation:
+                Result::Ok classifier_shape:
+                    if:
+                        eq impl_shape classifier_shape
+                        then:
+                            Result::Ok unit
+                        else:
+                            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMismatch
+                Result::Err classifier_error:
+                    Result::Err classifier_error
+        Result::Err impl_error:
+            Result::Err impl_error
+
+//: selfhost_memo_trait_operation_evidence_producer_trait_operation_match_result: trait application classifier と operation kind の一致を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - trusted trait identity classifier が作った operation と、caller が作ろうとしている operation record の kind が一致する場合だけ受理します。
+fn selfhost_memo_trait_operation_evidence_producer_trait_operation_match_result %fn SelfhostMemoTraitOperationEvidenceProducerInput Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \input:
+    if:
+        selfhost_memo_trait_operation_evidence_kind_eq input.operation input.trait_operation.operation
+        then:
+            Result::Ok unit
+        else:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch
+
+//: selfhost_memo_trait_operation_evidence_producer_method_body_status: method body evidence を proof status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - method body の missing / unknown / impure は失敗ではなく、後続 solver が評価する status として残します。
+fn selfhost_memo_trait_operation_evidence_producer_method_body_status %fn SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitAggregateProofStatus \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+            SelfhostMemoTraitAggregateProofStatus::Proven
+        SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+            SelfhostMemoTraitAggregateProofStatus::Missing
+        SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+            SelfhostMemoTraitAggregateProofStatus::Impure
+        SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+            SelfhostMemoTraitAggregateProofStatus::Unknown
+        SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+            SelfhostMemoTraitAggregateProofStatus::Proven
+
+//: selfhost_memo_trait_operation_evidence_producer_drop_status: drop evidence を proof status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `NoDropRequired` と `PureDrop` は、どちらも外部観測可能な Drop effect がないことを表すため `Proven` に畳みます。
+fn selfhost_memo_trait_operation_evidence_producer_drop_status %fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitAggregateProofStatus \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+            SelfhostMemoTraitAggregateProofStatus::Proven
+        SelfhostMemoTraitOperationDropEvidence::PureDrop:
+            SelfhostMemoTraitAggregateProofStatus::Proven
+        SelfhostMemoTraitOperationDropEvidence::Missing:
+            SelfhostMemoTraitAggregateProofStatus::Missing
+        SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+            SelfhostMemoTraitAggregateProofStatus::Impure
+        SelfhostMemoTraitOperationDropEvidence::Unknown:
+            SelfhostMemoTraitAggregateProofStatus::Unknown
+        SelfhostMemoTraitOperationDropEvidence::NotRequired:
+            SelfhostMemoTraitAggregateProofStatus::Proven
+
+//: selfhost_memo_trait_operation_evidence_producer_method_required_result: method body evidence が必要な operation の[検査/けんさ]
+//:
+//: [契約/けいやく]:
+//: - `Eq` / `Hash` では method body purity evidence が必要です。`NotRequired` は「method body を検査しなくてよい」証拠なので、missing status ではなく構造的な producer error として拒否します。
+fn selfhost_memo_trait_operation_evidence_producer_method_required_result %fn SelfhostMemoTraitOperationMethodBodyEvidence Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired
+        SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+            Result::Ok unit
+        SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+            Result::Ok unit
+        SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+            Result::Ok unit
+        SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+            Result::Ok unit
+
+//: selfhost_memo_trait_operation_evidence_producer_method_not_required_result: method body evidence が不要な operation の[検査/けんさ]
+//:
+//: [契約/けいやく]:
+//: - `Copy` と `Drop` operation record では method body purity evidence をこの producer で合成しません。method evidence が渡された場合は、別 trait operation の evidence を混ぜた可能性があるため fail-closed に拒否します。
+fn selfhost_memo_trait_operation_evidence_producer_method_not_required_result %fn SelfhostMemoTraitOperationMethodBodyEvidence Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+            Result::Ok unit
+        SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence
+        SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence
+        SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence
+        SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence
+
+//: selfhost_memo_trait_operation_evidence_producer_drop_required_result: Drop evidence が必要な operation の[検査/けんさ]
+//:
+//: [契約/けいやく]:
+//: - `Drop` operation record では Drop なし proof または pure Drop proof の evidence が必要です。`NotRequired` は構造的な入力誤りとして拒否します。
+fn selfhost_memo_trait_operation_evidence_producer_drop_required_result %fn SelfhostMemoTraitOperationDropEvidence Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationDropEvidence::NotRequired:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired
+        SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+            Result::Ok unit
+        SelfhostMemoTraitOperationDropEvidence::PureDrop:
+            Result::Ok unit
+        SelfhostMemoTraitOperationDropEvidence::Missing:
+            Result::Ok unit
+        SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+            Result::Ok unit
+        SelfhostMemoTraitOperationDropEvidence::Unknown:
+            Result::Ok unit
+
+//: selfhost_memo_trait_operation_evidence_producer_drop_not_required_result: Drop evidence が不要な operation の[検査/けんさ]
+//:
+//: [契約/けいやく]:
+//: - `Copy` / `Eq` / `Hash` operation record では Drop evidence を混ぜません。Drop evidence が必要な場合は別の `Drop` operation record として運びます。
+fn selfhost_memo_trait_operation_evidence_producer_drop_not_required_result %fn SelfhostMemoTraitOperationDropEvidence Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationDropEvidence::NotRequired:
+            Result::Ok unit
+        SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropEvidence::PureDrop:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropEvidence::Missing:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropEvidence::Unknown:
+            Result::Err SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence
+
+//: selfhost_memo_trait_operation_evidence_producer_evidence_applicability_result: operation 別 evidence matrix を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - `NotRequired` を単に `Proven` として扱う前に、その operation で本当に不要な証拠なのかを確認します。
+fn selfhost_memo_trait_operation_evidence_producer_evidence_applicability_result %fn SelfhostMemoTraitOperationEvidenceProducerInput Result unit SelfhostMemoTraitOperationEvidenceProducerErrorKind \input:
+    match input.operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            match selfhost_memo_trait_operation_evidence_producer_method_not_required_result input.method_body:
+                Result::Ok _method_ok:
+                    selfhost_memo_trait_operation_evidence_producer_drop_not_required_result input.drop_evidence
+                Result::Err method_error:
+                    Result::Err method_error
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            match selfhost_memo_trait_operation_evidence_producer_method_not_required_result input.method_body:
+                Result::Ok _method_ok:
+                    selfhost_memo_trait_operation_evidence_producer_drop_required_result input.drop_evidence
+                Result::Err method_error:
+                    Result::Err method_error
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            match selfhost_memo_trait_operation_evidence_producer_method_required_result input.method_body:
+                Result::Ok _method_ok:
+                    selfhost_memo_trait_operation_evidence_producer_drop_not_required_result input.drop_evidence
+                Result::Err method_error:
+                    Result::Err method_error
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            match selfhost_memo_trait_operation_evidence_producer_method_required_result input.method_body:
+                Result::Ok _method_ok:
+                    selfhost_memo_trait_operation_evidence_producer_drop_not_required_result input.drop_evidence
+                Result::Err method_error:
+                    Result::Err method_error
+
+//: selfhost_memo_trait_operation_evidence_producer_status_rank: proof status の強さを[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - rank は status merge のための局所 helper です。public payload は enum のまま保持します。
+fn selfhost_memo_trait_operation_evidence_producer_status_rank %fn SelfhostMemoTraitAggregateProofStatus i32 \status:
+    match status:
+        SelfhostMemoTraitAggregateProofStatus::Proven:
+            0
+        SelfhostMemoTraitAggregateProofStatus::Missing:
+            1
+        SelfhostMemoTraitAggregateProofStatus::Unknown:
+            2
+        SelfhostMemoTraitAggregateProofStatus::Impure:
+            3
+
+//: selfhost_memo_trait_operation_evidence_producer_status_merge: body / drop status を conservative に[合成/ごうせい]する
+//:
+//: [契約/けいやく]:
+//: - `Impure` が最も強く、次に `Unknown`、`Missing`、`Proven` の順に保守的な status を選びます。
+fn selfhost_memo_trait_operation_evidence_producer_status_merge %fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitAggregateProofStatus \body_status\drop_status:
+    if:
+        gt:
+            selfhost_memo_trait_operation_evidence_producer_status_rank body_status
+            selfhost_memo_trait_operation_evidence_producer_status_rank drop_status
+        then:
+            body_status
+        else:
+            drop_status
+
+//: selfhost_memo_trait_operation_evidence_producer_status_result: producer input から operation proof status を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - impl header input、target shape、trait operation classifier を検査し、body と drop の typed evidence を 1 つの aggregate proof status へ畳みます。
+pub fn selfhost_memo_trait_operation_evidence_producer_status_result %fn SelfhostMemoTraitOperationEvidenceProducerInput Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceProducerErrorKind \input:
+    match selfhost_memo_trait_operation_evidence_producer_impl_header_result input.impl_header:
+        Result::Ok _ok:
+            match selfhost_memo_trait_operation_evidence_producer_target_shape_match_result input:
+                Result::Ok _target_ok:
+                    match selfhost_memo_trait_operation_evidence_producer_trait_shape_match_result input:
+                        Result::Ok _trait_shape_ok:
+                            match selfhost_memo_trait_operation_evidence_producer_trait_operation_match_result input:
+                                Result::Ok _trait_ok:
+                                    match selfhost_memo_trait_operation_evidence_producer_evidence_applicability_result input:
+                                        Result::Ok _applicability_ok:
+                                            let body_status %SelfhostMemoTraitAggregateProofStatus selfhost_memo_trait_operation_evidence_producer_method_body_status input.method_body
+                                            let drop_status %SelfhostMemoTraitAggregateProofStatus selfhost_memo_trait_operation_evidence_producer_drop_status input.drop_evidence
+                                            Result::Ok selfhost_memo_trait_operation_evidence_producer_status_merge body_status drop_status
+                                        Result::Err applicability_error:
+                                            Result::Err applicability_error
+                                Result::Err trait_error:
+                                    Result::Err trait_error
+                        Result::Err trait_shape_error:
+                            Result::Err trait_shape_error
+                Result::Err target_error:
+                    Result::Err target_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_evidence_producer_record_result: producer input から operation evidence record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - checker-layer evidence を ty 層の operation evidence table record に変換する主 API です。
+//:
+//: [契約/けいやく]:
+//: - record は `selfhost_memo_trait_operation_evidence_record_new` を通して作ります。producer は operation table lookup や aggregate proof record 生成を行いません。
+pub fn selfhost_memo_trait_operation_evidence_producer_record_result %fn SelfhostMemoTraitOperationEvidenceProducerInput Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind \input:
+    match selfhost_memo_trait_operation_evidence_producer_status_result input:
+        Result::Ok status:
+            Result::Ok selfhost_memo_trait_operation_evidence_record_new input.type_id input.operation status
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_evidence_producer_error_kind_code: producer error を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_evidence_producer_error_kind_code %fn SelfhostMemoTraitOperationEvidenceProducerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected _header_error:
+            1
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMissing:
+            2
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapePlaceholder:
+            3
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch:
+            4
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMissing:
+            5
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapePlaceholder:
+            6
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMismatch:
+            7
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch:
+            8
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired:
+            9
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence:
+            10
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired:
+            11
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence:
+            12
+
+//: selfhost_memo_trait_operation_evidence_producer_error_kind_eq: producer error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `HeaderRejected` は public impl header error payload まで比較します。その他の variant は code で比較します。
+pub fn selfhost_memo_trait_operation_evidence_producer_error_kind_eq %fn SelfhostMemoTraitOperationEvidenceProducerErrorKind fn SelfhostMemoTraitOperationEvidenceProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected header_error:
+            match b:
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected other_header_error:
+                    selfhost_memo_trait_public_impl_header_error_kind_eq header_error other_header_error
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMissing:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapePlaceholder:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMissing:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapePlaceholder:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMismatch:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence:
+                    false
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMissing:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapePlaceholder:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMissing:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapePlaceholder:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMismatch:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+        SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence:
+            eq selfhost_memo_trait_operation_evidence_producer_error_kind_code a selfhost_memo_trait_operation_evidence_producer_error_kind_code b
+
+//: selfhost_memo_trait_operation_evidence_producer_record_result_header_rejected_eq: record result が期待した header rejection か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が payload 付き producer error を直接組み立てず、public impl header error payload の比較だけを確認できるようにします。
+pub fn selfhost_memo_trait_operation_evidence_producer_record_result_header_rejected_eq %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn SelfhostMemoTraitPublicImplHeaderErrorKind bool \result\expected:
+    match result:
+        Result::Ok _record:
+            false
+        Result::Err e:
+            match e:
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected header_error:
+                    selfhost_memo_trait_public_impl_header_error_kind_eq header_error expected
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMissing:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapePlaceholder:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMissing:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapePlaceholder:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationClassifierShapeMismatch:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedMethodBodyEvidence:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationEvidenceProducerErrorKind::UnexpectedDropEvidence:
+                    false
+
+//: selfhost_memo_trait_operation_evidence_producer_record_result_status_eq: record result の status を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - doctest が record 内の status だけを確認し、record の type id や operation kind を直接分解しなくてよいようにします。
+pub fn selfhost_memo_trait_operation_evidence_producer_record_result_status_eq %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn SelfhostMemoTraitAggregateProofStatus bool \result\expected:
+    match result:
+        Result::Ok record:
+            selfhost_memo_trait_operation_evidence_status_eq record.status expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_evidence_producer_proof_record_has_missing_eq_and_impure_hash: table projection の代表 status を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - producer が作った record を operation evidence table に入れた後、solver 入力の proof record へ正しく投影できることを確認します。
+pub fn selfhost_memo_trait_operation_evidence_producer_proof_record_has_missing_eq_and_impure_hash %fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind bool \result:
+    match result:
+        Result::Ok record:
+            and:
+                selfhost_memo_trait_operation_evidence_status_eq record.eq_proof SelfhostMemoTraitAggregateProofStatus::Missing
+                selfhost_memo_trait_operation_evidence_status_eq record.hash_proof SelfhostMemoTraitAggregateProofStatus::Impure
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_evidence_producer_stage0_summary_new %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind SelfhostMemoTraitOperationEvidenceProducerStage0Summary \accepted_record\missing_status_record\impure_status_record\unknown_drop_status_record\target_mismatch_rejected\classifier_shape_mismatch_rejected\trait_operation_mismatch_rejected\eq_method_not_required_rejected\drop_evidence_not_required_rejected\generic_header_rejected\proof_record:
+    SelfhostMemoTraitOperationEvidenceProducerStage0Summary accepted_record missing_status_record impure_status_record unknown_drop_status_record target_mismatch_rejected classifier_shape_mismatch_rejected trait_operation_mismatch_rejected eq_method_not_required_rejected drop_evidence_not_required_rejected generic_header_rejected proof_record
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_push_hash: Hash record を push して table projection を[返/かえ]す
+fn selfhost_memo_trait_operation_evidence_producer_stage0_push_hash %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceRecord Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind StdErrorKind \table\type_id\hash_record:
+    match selfhost_memo_trait_operation_evidence_table_push table hash_record:
+        Result::Ok next_table:
+            let proof %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_record_for_type_or_missing_result &next_table type_id
+            selfhost_memo_trait_operation_evidence_table_free next_table
+            Result::Ok proof
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_push_eq: Eq record を push する
+fn selfhost_memo_trait_operation_evidence_producer_stage0_push_eq %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind StdErrorKind \table\type_id\eq_record\hash_record:
+    match selfhost_memo_trait_operation_evidence_table_push table eq_record:
+        Result::Ok next_table:
+            selfhost_memo_trait_operation_evidence_producer_stage0_push_hash next_table type_id hash_record
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_push_drop: Drop record を push する
+fn selfhost_memo_trait_operation_evidence_producer_stage0_push_drop %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind StdErrorKind \table\type_id\drop_record\eq_record\hash_record:
+    match selfhost_memo_trait_operation_evidence_table_push table drop_record:
+        Result::Ok next_table:
+            selfhost_memo_trait_operation_evidence_producer_stage0_push_eq next_table type_id eq_record hash_record
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_push_copy: Copy record を push する
+fn selfhost_memo_trait_operation_evidence_producer_stage0_push_copy %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind StdErrorKind \table\type_id\copy_record\drop_record\eq_record\hash_record:
+    match selfhost_memo_trait_operation_evidence_table_push table copy_record:
+        Result::Ok next_table:
+            selfhost_memo_trait_operation_evidence_producer_stage0_push_drop next_table type_id drop_record eq_record hash_record
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_table_projection: producer record を table proof へ[投影/とうえい]する
+fn selfhost_memo_trait_operation_evidence_producer_stage0_table_projection %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord impure fn SelfhostMemoTraitOperationEvidenceRecord Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind StdErrorKind \type_id\copy_record\drop_record\eq_record\hash_record:
+    match selfhost_memo_trait_operation_evidence_table_new:
+        Result::Ok table:
+            selfhost_memo_trait_operation_evidence_producer_stage0_push_copy table type_id copy_record drop_record eq_record hash_record
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_projection_from_results: stage0 record result から proof projection を[作/つく]る
+fn selfhost_memo_trait_operation_evidence_producer_stage0_projection_from_results %impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationEvidenceErrorKind StdErrorKind \type_id\copy_result\drop_result\eq_result\hash_result:
+    match copy_result:
+        Result::Ok copy_record:
+            match drop_result:
+                Result::Ok drop_record:
+                    match eq_result:
+                        Result::Ok eq_record:
+                            match hash_result:
+                                Result::Ok hash_record:
+                                    selfhost_memo_trait_operation_evidence_producer_stage0_table_projection type_id copy_record drop_record eq_record hash_record
+                                Result::Err _hash_error:
+                                    Result::Err StdErrorKind::InvalidOperation
+                        Result::Err _eq_error:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _drop_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _copy_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_impl_header: accepted stage0 impl header input を[作/つく]る
+fn selfhost_memo_trait_operation_evidence_producer_stage0_impl_header %fn void SelfhostMemoTraitPublicImplHeaderInput \void:
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 0 0
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_generic_header: generic rejected path 用 impl header input を[作/つく]る
+fn selfhost_memo_trait_operation_evidence_producer_stage0_generic_header %fn void SelfhostMemoTraitPublicImplHeaderInput \void:
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 2 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 1 0
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0_input: stage0 input を[作/つく]る
+fn selfhost_memo_trait_operation_evidence_producer_stage0_input %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationClassifierEvidence fn SelfhostMemoTraitPublicImplHeaderInput fn Option i32 fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationEvidenceProducerInput \type_id\operation\trait_operation\impl_header\resolved_type_shape_hash\method_body\drop_evidence:
+    selfhost_memo_trait_operation_evidence_producer_input_new type_id operation trait_operation impl_header resolved_type_shape_hash method_body drop_evidence
+
+//: selfhost_memo_trait_operation_evidence_producer_stage0: operation evidence producer の smoke API
+//:
+//: [目的/もくてき]:
+//: - accepted impl header、target shape match、trait operation match、missing / impure / unknown status、generic header rejection、operation table projection を実行で確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の input だけを作るため O(1) です。
+pub fn selfhost_memo_trait_operation_evidence_producer_stage0 %impure fn void Result SelfhostMemoTraitOperationEvidenceProducerStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 70
+    let impl_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_evidence_producer_stage0_impl_header
+    let generic_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_evidence_producer_stage0_generic_header
+    let copy_classifier %SelfhostMemoTraitOperationClassifierEvidence selfhost_memo_trait_operation_classifier_evidence_new SelfhostMemoTraitOperationEvidenceKind::Copy some 8101
+    let drop_classifier %SelfhostMemoTraitOperationClassifierEvidence selfhost_memo_trait_operation_classifier_evidence_new SelfhostMemoTraitOperationEvidenceKind::Drop some 8101
+    let eq_classifier %SelfhostMemoTraitOperationClassifierEvidence selfhost_memo_trait_operation_classifier_evidence_new SelfhostMemoTraitOperationEvidenceKind::Eq some 8101
+    let hash_classifier %SelfhostMemoTraitOperationClassifierEvidence selfhost_memo_trait_operation_classifier_evidence_new SelfhostMemoTraitOperationEvidenceKind::Hash some 8101
+    let copy_classifier_other_shape %SelfhostMemoTraitOperationClassifierEvidence selfhost_memo_trait_operation_classifier_evidence_new SelfhostMemoTraitOperationEvidenceKind::Copy some 8102
+    let accepted_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let drop_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Drop drop_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NoDropRequired
+    let missing_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Eq eq_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::Missing SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let impure_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Hash hash_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::Impure SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let unknown_drop_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Drop drop_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::Unknown
+    let target_mismatch_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_classifier impl_header some 7102 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let classifier_shape_mismatch_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_classifier_other_shape impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let trait_operation_mismatch_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Copy hash_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let eq_method_not_required_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Eq eq_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let drop_evidence_not_required_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Drop drop_classifier impl_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let generic_header_input %SelfhostMemoTraitOperationEvidenceProducerInput:
+        selfhost_memo_trait_operation_evidence_producer_stage0_input type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_classifier generic_header some 7101 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+    let accepted_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result accepted_input
+    let drop_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result drop_input
+    let missing_status_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result missing_input
+    let impure_status_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result impure_input
+    let unknown_drop_status_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result unknown_drop_input
+    let target_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result target_mismatch_input
+    let classifier_shape_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result classifier_shape_mismatch_input
+    let trait_operation_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result trait_operation_mismatch_input
+    let eq_method_not_required_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result eq_method_not_required_input
+    let drop_evidence_not_required_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result drop_evidence_not_required_input
+    let generic_header_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationEvidenceProducerErrorKind selfhost_memo_trait_operation_evidence_producer_record_result generic_header_input
+    match selfhost_memo_trait_operation_evidence_producer_stage0_projection_from_results type_id accepted_record drop_record missing_status_record impure_status_record:
+        Result::Ok proof_record:
+            Result::Ok selfhost_memo_trait_operation_evidence_producer_stage0_summary_new accepted_record missing_status_record impure_status_record unknown_drop_status_record target_mismatch_rejected classifier_shape_mismatch_rejected trait_operation_mismatch_rejected eq_method_not_required_rejected drop_evidence_not_required_rejected generic_header_rejected proof_record
+        Result::Err e:
+            Result::Err e
