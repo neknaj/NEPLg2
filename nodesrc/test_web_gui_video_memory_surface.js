@@ -53,6 +53,7 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.match(source, /Atomics\.wait/);
     assert.match(source, /acquireGuiVideoMemoryWriteSlot/);
     assert.match(source, /publishGuiVideoMemoryWriteSlot/);
+    assert.match(source, /discardGuiVideoMemoryWriteSlot/);
     assert.match(source, /acquireGuiVideoMemoryReadSlot/);
     assert.match(source, /releaseGuiVideoMemoryReadSlot/);
     assert.match(source, /writer-closed/);
@@ -130,6 +131,7 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.equal(header[12], 16);
     assert.equal(header[13], 16 * 4 + 2 * 8 * 4);
     assert.equal(header[14], 24);
+    const slots = surface.slots;
 
     const opened = videoMemory.openGuiVideoMemorySurface(surface.buffer);
     assert.equal(opened.kind, "ok");
@@ -168,6 +170,34 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.equal(released.kind, "ok");
     assert.equal(header[9], waited.value.slot.epoch);
 
+    const unpublishedWrite = videoMemory.acquireGuiVideoMemoryWriteSlot(surface);
+    assert.equal(unpublishedWrite.kind, "ok");
+    const unpublishedSlotBase = unpublishedWrite.value.slotIndex * 8;
+    Atomics.store(slots, unpublishedSlotBase + 2, 2);
+    Atomics.store(slots, unpublishedSlotBase + 3, 1);
+    Atomics.store(slots, unpublishedSlotBase + 4, 1);
+    Atomics.store(slots, unpublishedSlotBase + 5, 1);
+    Atomics.store(slots, unpublishedSlotBase + 6, 1);
+    const publishedEpochBeforeDiscard = header[8];
+    const presentedEpochBeforeDiscard = header[9];
+    const discardedWrite = videoMemory.discardGuiVideoMemoryWriteSlot(unpublishedWrite.value);
+    assert.equal(discardedWrite.kind, "ok");
+    assert.equal(header[8], publishedEpochBeforeDiscard);
+    assert.equal(header[9], presentedEpochBeforeDiscard);
+    assert.equal(Atomics.load(slots, unpublishedSlotBase), videoMemory.GUI_VIDEO_MEMORY_SLOT_FREE);
+    assert.equal(Atomics.load(slots, unpublishedSlotBase + 2), 0);
+    assert.equal(Atomics.load(slots, unpublishedSlotBase + 3), 0);
+    assert.equal(Atomics.load(slots, unpublishedSlotBase + 4), 0);
+    assert.equal(Atomics.load(slots, unpublishedSlotBase + 5), 0);
+    assert.equal(Atomics.load(slots, unpublishedSlotBase + 6), 0);
+    const doubleDiscard = videoMemory.discardGuiVideoMemoryWriteSlot(unpublishedWrite.value);
+    assert.equal(doubleDiscard.kind, "err");
+    assert.equal(doubleDiscard.error.kind, "invalid-slot-state");
+    const reacquiredAfterDiscard = videoMemory.acquireGuiVideoMemoryWriteSlot(surface);
+    assert.equal(reacquiredAfterDiscard.kind, "ok");
+    const cleanupReacquired = videoMemory.discardGuiVideoMemoryWriteSlot(reacquiredAfterDiscard.value);
+    assert.equal(cleanupReacquired.kind, "ok");
+
     const presenterResult = exerciseVideoMemoryCanvasPresenter(videoMemory, presenter);
     assert.equal(presenterResult.imageDataConstructed, 2);
     assert.equal(presenterResult.reusedImageData, true);
@@ -189,6 +219,7 @@ async function runWebGuiVideoMemorySurfaceRegression() {
         checks: [
             "Web GUI video memory surface requires at least two pixel slots",
             "writer and presenter use explicit Atomics ownership transitions",
+            "unpublished write slots can be discarded without advancing presentation epochs",
             "video memory errors are typed instead of falling back silently",
             "malformed shared buffers return typed errors instead of JavaScript exceptions",
             "invalid surface creation config returns typed errors instead of clamping dimensions",

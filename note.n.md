@@ -1,3 +1,42 @@
+# 2026-06-14 Agent2 Web GUI write slot discard checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、Web video memory の未公開 write frame を fallback や silent no-op ではなく typed status / `Result` で明示的に破棄する。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-video-memory-discard-slot-20260614`
+- classification: Web GUI video memory ownership recovery / stdlib Web wrapper / source policy regression
+- design:
+  - `video_memory_discard_write_slot` は `Writing -> Free` の状態遷移だけを行う。
+  - publish しない frame を surface close で回収せず、dirty metadata を消して slot を writer へ返す。
+  - published epoch と presented epoch は進めない。
+  - invalid surface / frame、double discard、stale resize generation は typed status へ写し、stdout / command frame / DOM / Canvas fallback は持たない。
+- implementation:
+  - `web/src/gui-preview/video-memory-surface.ts` に `discardGuiVideoMemoryWriteSlot` と dirty metadata clear helper を追加した。
+  - `web/src/runtime/worker.ts` に `nepl_gui_web.video_memory_discard_write_slot` を追加し、discard 成功時だけ Worker の frame record を削除するようにした。
+  - `stdlib/platforms/gui/web/surface.nepl` に raw extern と `gui_web_video_memory_discard_write_frame` wrapper を追加した。
+  - `nodesrc/test_web_gui_video_memory_surface.js` と `nodesrc/test_web_gui_video_memory_host_import.js` を更新し、slot 回復、epoch 非更新、dirty metadata 消去、fallback 禁止を固定した。
+  - `doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md` を更新した。
+- subagent review:
+  - Godel: plan review で blockers なし。必須条件として publish と同じ generation/state authority、dirty metadata clear、成功時だけ frame record 削除、`run_test.js` import table 更新、discard が publish / present / stdout / command-frame / DOM / Canvas path を呼ばない source policy を要求。実装に反映済み。
+  - Godel: implementation review で blocker / major なし。現行の worker-local frame ownership では dirty metadata clear と `compareExchange( Writing, Free )` の順序に publish 競合は見えないと確認した。minor として `gui_web_input` doctest、source policy warn-only、note 文言更新を要求。対応済み。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/test_web_gui_video_memory_surface.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_host_import.js`
+  - pass: `node nodesrc/test_web_gui_runtime_bridge.js`
+  - pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+  - pass: `node nodesrc/test_web_gui_same_app_code_contract.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_floating_window_source.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp_gui_std_discard_slot.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core_discard_slot.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_web_input.n.md --no-tree -o tmp_gui_web_input_discard_slot.json -j 1 --dist web/dist --assert-io`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。今回差分由来の warning はなし。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+
 # 2026-06-14 Agent2 Web GUI video memory host import checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、今回の slice では Web worker から main thread presenter へ直接 DOM / Canvas authority を持ち込まず、Web-only scalar host import、opaque positive id、`Result` に写される negative status、ack `SharedArrayBuffer` による typed request / response を使う。stdout / command-frame fallback、ArrayBuffer transfer fallback、string handle、JS object handle、silent success は入れない。

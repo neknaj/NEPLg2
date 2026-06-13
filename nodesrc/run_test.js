@@ -165,6 +165,7 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
                 video_memory_acquire_write_slot: () => -1,
                 video_memory_write_slot_bytes: () => -2,
                 video_memory_fill_rect_rgba8888: () => -2,
+                video_memory_discard_write_slot: () => -2,
                 video_memory_publish_slot: () => -2,
                 video_memory_present_surface: () => -2,
                 video_memory_close_surface: () => -2,
