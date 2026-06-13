@@ -1354,6 +1354,20 @@ composer は partial stream を再採番しない。LocalMemoTrait の `MemoKey`
 
 現実装は target ordinal ごとに partial stream を走査するため O(n^2) である。この計算量は公開契約ではなく現状の実装詳細であり、後で sorted index や merge cursor に置き換えられる。置換時も public item schema、borrowed partial stream API、typed error contract、source-derived authority を使わない境界は変えてはならない。この checkpoint 後の残件は、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 stable payload producer、trait impl table、method body purity、Drop なし proofを接続することである。
 
+2026-06-13 MemoKey / MemoValue public declaration payload producer checkpoint では、`memo_trait_public_surface_normalizer.nepl` に `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` と内部 payload producer を追加し、public function / struct / enum / impl の stable payload hash を caller supplied raw hash ではなく typed component から作る境界へ進めた。
+
+payload input は `kind`、`stable_declaration_key_hash`、`normalized_declaration_shape_hash` を持つ。`kind` は Function / Struct / Enum / Impl の payload domain を分けるために必ず fold へ入れる。`stable_declaration_key_hash` は stable definition key、stable nominal key、stable impl header key のような宣言 identity の typed hash であり、source span や display name ではない。`normalized_declaration_shape_hash` は function signature、struct / enum layout header、impl header のように依存側の型検査や layout 判定へ影響する公開 shape の typed hash である。
+
+producer は `alloc/hash/hash32::mix` を使う fixed-size mixing だけを行い、source text、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact、proof store、serialized artifact を読まない。stable key が 0 の場合は `StableDeclarationKeyHashPlaceholder`、normalized shape が 0 の場合は `NormalizedDeclarationShapeHashPlaceholder`、derived payload が 0 の場合は `DerivedDeclarationPayloadHashPlaceholder` を返す。これにより、placeholder の原因を `StablePayloadHashPlaceholder` へ潰さず、後続の signature / layout / impl header producer がどの component を壊したかを typed enum で追える。
+
+この adapter は module checker facade へ public export しない。現時点の安定した公開境界は、graph authority 付きの `selfhost_memo_trait_public_surface_normalizer_partial_input_items_result` と、hash module 側の seed + partial stream composer である。payload producer は normalizer 内で stage0 と後続 internal orchestration のために使う。上流の function signature / struct layout / enum layout / impl header producer を別 module として公開する段階では、facade public API と DAG を再確認してから安定境界を設計する。
+
+ただし、現 public partial stream API は互換境界として `Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` を受け取るため、payload provenance を型だけではまだ閉じ切っていない。caller は今回の内部 adapter、または同等の typed signature / layout / impl header producer が作った stable payload だけを渡す必要がある。次 slice では function signature、struct / enum layout header、impl header の実 producer を接続し、public declaration evidence を source-derived raw hash ではなく producer 由来に寄せる。
+
+stage0 smoke は Function / Struct / Enum / Impl の declaration evidence をすべて payload producer 経由で作る。さらに stable key placeholder と normalized shape placeholder を別々の typed error として確認する。source policy は typed payload input、kind / schema fold、原因別 placeholder error、facade 非公開、source/span/path/diagnostic authority 禁止、line count / doc comment length cap 禁止を固定した。
+
+計算量は declaration 1 件あたり O(1) である。vector producer に接続した場合、normalizer 全体は dependency / re-export / public declaration evidence 件数 k に対して O(k) のまま残る。stable nominal key table lookup、real function signature normalization、real struct / enum layout header normalization、real impl header normalization はまだ後続 stage の責務であり、今回の producer はそれらの output hash を安全に受ける境界である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

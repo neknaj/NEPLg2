@@ -399,6 +399,30 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait public declaration payload producer checkpoint
+
+`memo_trait_public_surface_normalizer.nepl` に public declaration payload producer 境界を追加した。
+
+`SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` は `kind`、`stable_declaration_key_hash`、`normalized_declaration_shape_hash` を持つ。`kind` は Function / Struct / Enum / Impl の payload domain を分けるために fold へ入れる。`stable_declaration_key_hash` は stable definition key、stable nominal key、stable impl header key などの宣言 identity を表す typed hash であり、source span や display name ではない。`normalized_declaration_shape_hash` は function signature、struct / enum layout header、impl header などの公開 shape を表す typed hash である。
+
+producer は source text、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact、proof store、serialized artifact を読まない。fixed-size typed field だけを `alloc/hash/hash32::mix` で混合する。stable key が 0 の場合は `StableDeclarationKeyHashPlaceholder`、normalized shape が 0 の場合は `NormalizedDeclarationShapeHashPlaceholder`、derived payload が 0 の場合は `DerivedDeclarationPayloadHashPlaceholder` を返す。従来の `StablePayloadHashPlaceholder` にすべて潰さず、どの component が壊れているかを error enum として保持する。
+
+この producer は module checker facade の public API には出さない。既存の安定公開境界は graph authority 付き partial stream producer と hash module の seed + partial stream composer であり、payload producer は normalizer 内部 adapter と stage0 smoke に閉じる。stage0 は Function / Struct / Enum / Impl の declaration evidence を producer 経由で作り、stable key placeholder と normalized shape placeholder を別々の error として検査する。
+
+現 public partial stream API は互換境界として `Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` を受け取るため、payload provenance を型だけではまだ閉じ切っていない。caller は今回の内部 adapter、または同等の typed signature / layout / impl header producer が作った stable payload だけを渡す必要がある。次 slice では function signature、struct / enum layout header、impl header の実 producer を接続し、public declaration evidence を producer 由来へ寄せる。
+
+source policy は typed payload input、kind / schema fold、原因別 placeholder error、facade 非公開、source/span/path/diagnostic authority 禁止、line count / doc comment length cap 禁止を固定した。subagent review の Required であった原因別 placeholder error と契約 / 現状の明記も反映した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-surface-normalizer-payload-typed-errors.json`
+
+この checkpoint 後の残件は、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producer を今回の payload input 境界へ接続すること、trait impl table、method body purity、Drop なし proof を operation solver へ接続することである。
+
 ## 2026-06-13 selfhost public surface seed and partial stream composer checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` に `selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result` を追加し、local `MemoKey` / `MemoValue` seed table と normalizer が返す partial input stream を同じ full public surface input stream へ合成する境界を作った。

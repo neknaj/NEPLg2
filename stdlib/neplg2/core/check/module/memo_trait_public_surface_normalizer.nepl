@@ -7,17 +7,18 @@
 //: - import graph、re-export、public non-trait declaration の正規化済み evidence を、後続の full public surface hash builder が fold できる ordered input item stream へ変換します。
 //: - hash module に loader / graph / VFS を逆流させず、この module が lookup authority と hash authority の境界になります。
 //: - `SelfhostModuleGraph` の node は dependency が loader graph に存在することの検査にだけ使い、accepted hash material には ordinal、kind、visibility、stable payload hash、typed dependency public surface hash だけを渡します。
+//: - public declaration は、生の source header ではなく stable declaration key hash と normalized declaration shape hash から declaration payload hash を作ります。
 //:
 //: [契約/けいやく]:
 //: - graph path、import alias、source span、source text、diagnostic text、display name は hash input に入りません。
 //: - dependency module と re-export は、caller が別 stage で計算した typed dependency public surface hash を必須にします。欠落と placeholder は normalizer の typed error で拒否します。
-//: - public function / struct / enum / impl は、この slice では caller supplied stable payload hash だけを扱います。signature normalizer、trait impl table、method body purity、Drop なし proof は後続 stage の責務です。
+//: - public function / struct / enum / impl は、この slice では caller supplied stable declaration key hash と normalized declaration shape hash を typed input として受け取り、normalizer が stable payload hash へ畳みます。signature normalizer、trait impl table、method body purity、Drop なし proof は後続 stage の責務です。
 //: - この module が公開する stream は dependency / re-export / public declaration の部分入力です。`LocalMemoTrait` item を含む full public surface hash の確定は、すべての input producer が揃う後続 boundary で行います。
 //: - normalizer は proof store、HIR、Resource IR、backend、serialized artifact を読みません。`.neplmeta` / `.neplproof` からの再投影は別境界で typed evidence を作ってから、この module へ渡します。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 producer は graph node 存在、dependency public surface hash、public declaration payload hash、owned stream 生成を接続します。
-//: - re-export projection の完全な export table、public declaration signature hash の本体、stable nominal key はまだ caller supplied payload hash として扱います。
+//: - Phase 1 producer は graph node 存在、dependency public surface hash、public declaration payload input、owned stream 生成を接続します。
+//: - re-export projection の完全な export table、public declaration signature hash / layout header hash / impl header hash の本体、stable nominal key はまだ caller supplied typed hash として扱います。
 //:
 //: [計算量/けいさんりょう]:
 //: - graph node lookup は現行 `SelfhostModuleGraph` の線形探索 / index read に従います。
@@ -25,12 +26,13 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
+//: ##: [5] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -46,12 +48,14 @@
 //:     let checks2 checks_push checks1 check selfhost_memo_trait_public_surface_normalizer_error_kind_eq unwrap_err summary.dependency_hash_missing_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DependencyPublicSurfaceHashMissing
 //:     let checks3 checks_push checks2 check selfhost_memo_trait_public_surface_normalizer_error_kind_eq unwrap_err summary.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DependencyPublicSurfaceHashPlaceholder
 //:     let checks4 checks_push checks3 check selfhost_memo_trait_public_surface_normalizer_error_kind_eq unwrap_err summary.graph_node_missing_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphNodeUnavailable
-//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_normalizer_error_kind_eq unwrap_err summary.stable_payload_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder
-//:     let shown checks_print_report checks5
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_normalizer_error_kind_eq unwrap_err summary.stable_declaration_key_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_surface_normalizer_error_kind_eq unwrap_err summary.normalized_declaration_shape_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder
+//:     let shown checks_print_report checks6
 //:     checks_exit_code shown
 //: ```
 
 #import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -97,10 +101,29 @@ pub enum SelfhostMemoTraitPublicSurfacePublicDeclarationKind:
     Enum
     Impl
 
+//: SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput: public declaration payload hash を[作/つく]る typed input
+//:
+//: [目的/もくてき]:
+//: - public function / struct / enum / impl の stable payload hash を、source text ではなく検査済みの stable key と normalized shape から作ります。
+//: - 後続の function signature normalizer、struct / enum layout header normalizer、impl header normalizer が作る hash を、同じ public surface input schema へ渡すための入口です。
+//:
+//: [契約/けいやく]:
+//: - `kind` は payload domain を分けるために必ず fold へ入れます。同じ key / shape でも function と struct は同じ payload になってはいけません。
+//: - `stable_declaration_key_hash` は stable definition key、stable nominal key、stable impl header key など、宣言 identity を source span や表示名から切り離した typed hash です。
+//: - `normalized_declaration_shape_hash` は function signature、struct / enum layout header、impl header など、依存側の型検査や layout 判定に影響する公開 shape の typed hash です。
+//: - どちらかが 0 の場合は placeholder として拒否します。0 を意味のある hash として特別扱いしません。
+//: - source lexeme、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact はこの payload input に入りません。
+pub struct SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:
+    kind %SelfhostMemoTraitPublicSurfacePublicDeclarationKind
+    stable_declaration_key_hash %i32
+    normalized_declaration_shape_hash %i32
+
 //: SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence: public non-trait declaration input の typed evidence
 //:
 //: [契約/けいやく]:
-//: - `payload_hash` は normalized signature / layout header / impl header の stable hash です。
+//: - `payload_hash` は source text ではなく、normalized signature / layout header / impl header などから作られた stable hash でなければなりません。
+//: - この module 内の stage0 と内部 adapter では `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` から payload hash を作り、function / struct / enum / impl の種類、stable declaration key、normalized shape を payload に反映します。
+//: - 現在の public partial stream API は互換境界として `Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` を受け取るため、型だけで payload provenance を完全には証明しません。caller は同等の typed producer を通した stable payload だけを渡す必要があります。
 //: - source lexeme、span、display name、diagnostic text はこの record に入れません。
 pub struct SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence:
     kind %SelfhostMemoTraitPublicSurfacePublicDeclarationKind
@@ -130,18 +153,22 @@ pub enum SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:
     DependencyPublicSurfaceHashMissing
     DependencyPublicSurfaceHashPlaceholder
     StablePayloadHashPlaceholder
+    StableDeclarationKeyHashPlaceholder
+    NormalizedDeclarationShapeHashPlaceholder
+    DerivedDeclarationPayloadHashPlaceholder
     HashRejected %SelfhostMemoTraitPublicSurfaceHashErrorKind
 
 //: SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary: normalizer smoke の代表結果
 //:
 //: [目的/もくてき]:
-//: - graph authority 付き accepted path と、dependency hash / graph node / stable payload placeholder の fail-closed path をまとめます。
+//: - graph authority 付き accepted path と、dependency hash / graph node / public declaration payload component placeholder の fail-closed path をまとめます。
 pub struct SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary:
     accepted_item_count %Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
     dependency_hash_missing_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
     dependency_hash_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
     graph_node_missing_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
-    stable_payload_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
+    stable_declaration_key_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
+    normalized_declaration_shape_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
 
 impl Clone for SelfhostMemoTraitPublicSurfaceDependencyEvidence:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceDependencyEvidence SelfhostMemoTraitPublicSurfaceDependencyEvidence \self:
@@ -165,6 +192,14 @@ impl Clone for SelfhostMemoTraitPublicSurfacePublicDeclarationKind:
 
 impl Copy for SelfhostMemoTraitPublicSurfacePublicDeclarationKind:
     fn copy_mark %fn SelfhostMemoTraitPublicSurfacePublicDeclarationKind SelfhostMemoTraitPublicSurfacePublicDeclarationKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:
+    fn clone %fn &SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \self:
         self
 
 impl Clone for SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence:
@@ -207,13 +242,20 @@ fn selfhost_memo_trait_public_surface_dependency_evidence_new %fn i32 fn i32 fn 
 fn selfhost_memo_trait_public_surface_reexport_evidence_new %fn i32 fn i32 fn i32 fn Option i32 SelfhostMemoTraitPublicSurfaceReExportEvidence \module_index\ordinal\payload_hash\dependency_public_surface_hash:
     SelfhostMemoTraitPublicSurfaceReExportEvidence module_index ordinal payload_hash dependency_public_surface_hash
 
+//: selfhost_memo_trait_public_surface_public_declaration_payload_input_new: public declaration payload input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は typed field をまとめるだけです。placeholder hash の拒否と kind domain folding は `selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result` で行います。
+fn selfhost_memo_trait_public_surface_public_declaration_payload_input_new %fn SelfhostMemoTraitPublicSurfacePublicDeclarationKind fn i32 fn i32 SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \kind\stable_declaration_key_hash\normalized_declaration_shape_hash:
+    SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput kind stable_declaration_key_hash normalized_declaration_shape_hash
+
 //: selfhost_memo_trait_public_surface_public_declaration_evidence_new: public declaration evidence を[作/つく]る
 fn selfhost_memo_trait_public_surface_public_declaration_evidence_new %fn SelfhostMemoTraitPublicSurfacePublicDeclarationKind fn i32 fn i32 SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence \kind\ordinal\payload_hash:
     SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence kind ordinal payload_hash
 
 //: selfhost_memo_trait_public_surface_normalizer_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_public_surface_normalizer_stage0_summary_new %fn Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary \accepted_item_count\dependency_hash_missing_rejected\dependency_hash_placeholder_rejected\graph_node_missing_rejected\stable_payload_placeholder_rejected:
-    SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary accepted_item_count dependency_hash_missing_rejected dependency_hash_placeholder_rejected graph_node_missing_rejected stable_payload_placeholder_rejected
+fn selfhost_memo_trait_public_surface_normalizer_stage0_summary_new %fn Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary \accepted_item_count\dependency_hash_missing_rejected\dependency_hash_placeholder_rejected\graph_node_missing_rejected\stable_declaration_key_placeholder_rejected\normalized_declaration_shape_placeholder_rejected:
+    SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary accepted_item_count dependency_hash_missing_rejected dependency_hash_placeholder_rejected graph_node_missing_rejected stable_declaration_key_placeholder_rejected normalized_declaration_shape_placeholder_rejected
 
 //: selfhost_memo_trait_public_surface_graph_rejection_kind_code: graph rejection kind を比較用 code へ[写/うつ]す
 fn selfhost_memo_trait_public_surface_graph_rejection_kind_code %fn SelfhostMemoTraitPublicSurfaceGraphRejectionKind i32 \kind:
@@ -280,8 +322,14 @@ fn selfhost_memo_trait_public_surface_normalizer_error_kind_code %fn SelfhostMem
             6
         SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder:
             7
-        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::HashRejected _hash_error:
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder:
             8
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder:
+            9
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder:
+            10
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::HashRejected _hash_error:
+            11
 
 //: selfhost_memo_trait_public_surface_normalizer_error_kind_eq: normalizer error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_normalizer_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceNormalizerErrorKind fn SelfhostMemoTraitPublicSurfaceNormalizerErrorKind bool \a\b:
@@ -304,6 +352,12 @@ pub fn selfhost_memo_trait_public_surface_normalizer_error_kind_eq %fn SelfhostM
                     false
                 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder:
                     false
+                SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder:
+                    false
         SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphRejected graph_kind:
             match b:
                 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphRejected other_graph_kind:
@@ -322,6 +376,12 @@ pub fn selfhost_memo_trait_public_surface_normalizer_error_kind_eq %fn SelfhostM
                     false
                 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder:
                     false
+                SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder:
+                    false
         SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphNodeUnavailable:
             eq selfhost_memo_trait_public_surface_normalizer_error_kind_code a selfhost_memo_trait_public_surface_normalizer_error_kind_code b
         SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed:
@@ -334,6 +394,12 @@ pub fn selfhost_memo_trait_public_surface_normalizer_error_kind_eq %fn SelfhostM
             eq selfhost_memo_trait_public_surface_normalizer_error_kind_code a selfhost_memo_trait_public_surface_normalizer_error_kind_code b
         SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder:
             eq selfhost_memo_trait_public_surface_normalizer_error_kind_code a selfhost_memo_trait_public_surface_normalizer_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder:
+            eq selfhost_memo_trait_public_surface_normalizer_error_kind_code a selfhost_memo_trait_public_surface_normalizer_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_surface_normalizer_error_kind_code a selfhost_memo_trait_public_surface_normalizer_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder:
+            eq selfhost_memo_trait_public_surface_normalizer_error_kind_code a selfhost_memo_trait_public_surface_normalizer_error_kind_code b
 
 //: selfhost_memo_trait_public_surface_normalizer_nonzero_payload_result: stable payload hash の placeholder を[拒否/きょひ]する
 fn selfhost_memo_trait_public_surface_normalizer_nonzero_payload_result %fn i32 Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \payload_hash:
@@ -343,6 +409,99 @@ fn selfhost_memo_trait_public_surface_normalizer_nonzero_payload_result %fn i32 
             Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder
         else:
             Result::Ok payload_hash
+
+//: selfhost_memo_trait_public_surface_normalizer_nonzero_payload_with_error_result: stable payload hash を指定 error で[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - 同じ nonzero 検査を使いながら、stable key、normalized shape、derived payload のどこが placeholder だったかを error enum で分けます。
+fn selfhost_memo_trait_public_surface_normalizer_nonzero_payload_with_error_result %fn i32 fn SelfhostMemoTraitPublicSurfaceNormalizerErrorKind Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \payload_hash\placeholder_error:
+    if:
+        eq payload_hash 0
+        then:
+            Result::Err placeholder_error
+        else:
+            Result::Ok payload_hash
+
+//: selfhost_memo_trait_public_surface_normalizer_payload_schema_code: public declaration payload schema の domain code を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - public declaration payload の field 構成や意味を変える場合は、この schema code を更新します。
+//: - hash module の full input schema code とは別 domain です。ここでは 1 declaration の stable payload だけを作ります。
+fn selfhost_memo_trait_public_surface_normalizer_payload_schema_code %fn void i32 \void:
+    252301
+
+//: selfhost_memo_trait_public_surface_normalizer_payload_kind_code: public declaration kind を payload domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_surface_normalizer_payload_kind_code %fn SelfhostMemoTraitPublicSurfacePublicDeclarationKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function:
+            252311
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Struct:
+            252312
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Enum:
+            252313
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl:
+            252314
+
+//: selfhost_memo_trait_public_surface_normalizer_payload_mix2: payload hash 用の 2 field [混合/こんごう]
+//:
+//: [契約/けいやく]:
+//: - fixed-size typed field だけを混ぜます。source text や span の可変長走査は行いません。
+fn selfhost_memo_trait_public_surface_normalizer_payload_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_surface_normalizer_payload_mix3: payload hash 用の 3 field [混合/こんごう]
+fn selfhost_memo_trait_public_surface_normalizer_payload_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_public_surface_normalizer_payload_mix2 a b c
+
+//: selfhost_memo_trait_public_surface_public_declaration_payload_hash_result: public declaration payload input から stable hash を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public function / struct / enum / impl の公開 surface payload を、kind、stable declaration key、normalized declaration shape の typed field から作ります。
+//:
+//: [契約/けいやく]:
+//: - `stable_declaration_key_hash` と `normalized_declaration_shape_hash` はどちらも nonzero でなければなりません。
+//: - stable key 側の placeholder は `StableDeclarationKeyHashPlaceholder`、shape 側の placeholder は `NormalizedDeclarationShapeHashPlaceholder`、derived payload 側の placeholder は `DerivedDeclarationPayloadHashPlaceholder` として分けて返します。
+//: - accepted hash material は `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` の field だけです。
+//: - source text、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact は読まず、hash material にも入れません。
+//: - 戻り値が `Ok` の場合、payload hash も nonzero です。derived hash が 0 になった場合も placeholder として拒否します。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed-size field を O(1) で検査し、O(1) で混合します。
+fn selfhost_memo_trait_public_surface_public_declaration_payload_hash_result %fn SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \input:
+    match selfhost_memo_trait_public_surface_normalizer_nonzero_payload_with_error_result input.stable_declaration_key_hash SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder:
+        Result::Ok stable_key_hash:
+            match selfhost_memo_trait_public_surface_normalizer_nonzero_payload_with_error_result input.normalized_declaration_shape_hash SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder:
+                Result::Ok shape_hash:
+                    let kind_hash %i32 selfhost_memo_trait_public_surface_normalizer_payload_kind_code input.kind
+                    let header_hash %i32 selfhost_memo_trait_public_surface_normalizer_payload_mix3 selfhost_memo_trait_public_surface_normalizer_payload_schema_code kind_hash stable_key_hash
+                    let payload_hash %i32 selfhost_memo_trait_public_surface_normalizer_payload_mix2 header_hash shape_hash
+                    selfhost_memo_trait_public_surface_normalizer_nonzero_payload_with_error_result payload_hash SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder
+                Result::Err shape_error:
+                    Result::Err shape_error
+        Result::Err stable_key_error:
+            Result::Err stable_key_error
+
+//: selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result: public declaration evidence を typed payload input から[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 後続 stage が作った stable declaration key hash と normalized declaration shape hash を、normalizer の declaration evidence へ変換します。
+//:
+//: [契約/けいやく]:
+//: - `ordinal` は full public surface input stream 上の 1-origin ordinal です。この関数では source byte position や graph category order から再計算しません。
+//: - placeholder component、または placeholder derived payload は component ごとの typed enum variant として fail-closed にします。
+//: - 成功時の evidence は source text / span / path / alias / display name / diagnostic text を含まず、`kind`、`ordinal`、derived stable payload hash だけを持ちます。
+//:
+//: [現状/げんじょう]:
+//: - function signature hash、struct / enum layout header hash、impl header hash の実計算はまだ caller 側の後続 stage です。この関数はそれらが typed hash として渡された後の共通境界です。
+//:
+//: [計算量/けいさんりょう]:
+//: - payload hash 生成と evidence construction は O(1) です。
+fn selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result %fn i32 fn SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \ordinal\input:
+    match selfhost_memo_trait_public_surface_public_declaration_payload_hash_result input:
+        Result::Ok payload_hash:
+            Result::Ok selfhost_memo_trait_public_surface_public_declaration_evidence_new input.kind ordinal payload_hash
+        Result::Err payload_error:
+            Result::Err payload_error
 
 //: selfhost_memo_trait_public_surface_normalizer_dependency_hash_result: dependency public surface hash を[検査/けんさ]する
 fn selfhost_memo_trait_public_surface_normalizer_dependency_hash_result %fn Option i32 Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \dependency_public_surface_hash:
@@ -513,6 +672,8 @@ fn selfhost_memo_trait_public_surface_normalizer_push_declaration_vec_result %im
 //: - caller は成功時に返る `Vec SelfhostMemoTraitPublicSurfaceHashInputItem` の owner です。後続 fold / merge が終わったら必ず解放してください。
 //: - `dependencies`、`reexports`、`declarations` は caller owned の borrowed vector です。この関数は読みにだけ使い、解放しません。
 //: - この関数は graph node の存在確認と typed hash availability だけを行います。graph node path や source span を returned input item に混ぜません。
+//: - public declaration evidence の `payload_hash` は、この module 内の payload adapter、または同等の typed signature / layout / impl header producer が作った stable hash でなければなりません。
+//: - 現 public API は evidence vector を受ける互換境界であり、payload provenance を型だけでは閉じません。次 slice で function signature / layout / impl header producer を接続し、この境界へ渡す evidence を実 producer 由来に寄せます。
 //: - 署名 hash や impl purity proof の算出、LocalMemoTrait item との結合、最終 public surface hash の fold は caller の責務です。ここでは nonzero stable payload hash であることだけを確認します。
 pub fn selfhost_memo_trait_public_surface_normalizer_partial_input_items_result %impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn &Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence Result Vec SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \graph\dependencies\reexports\declarations:
     let items_result %Result Vec SelfhostMemoTraitPublicSurfaceHashInputItem StdErrorKind v::new
@@ -542,21 +703,37 @@ fn selfhost_memo_trait_public_surface_normalizer_stage0_reexport_evidence %fn vo
     let dependency_hash %Option i32 some 5102
     selfhost_memo_trait_public_surface_reexport_evidence_new 1 2 4102 dependency_hash
 
-//: selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence: stage0 function evidence を[作/つく]る
-fn selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence %fn i32 SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence \ordinal:
-    selfhost_memo_trait_public_surface_public_declaration_evidence_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function ordinal 4103
+//: selfhost_memo_trait_public_surface_normalizer_stage0_function_payload_input: stage0 function payload input を[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_function_payload_input %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \void:
+    selfhost_memo_trait_public_surface_public_declaration_payload_input_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function 7103 8103
 
-//: selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence: stage0 struct evidence を[作/つく]る
-fn selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence \void:
-    selfhost_memo_trait_public_surface_public_declaration_evidence_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Struct 4 4104
+//: selfhost_memo_trait_public_surface_normalizer_stage0_struct_payload_input: stage0 struct payload input を[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_struct_payload_input %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \void:
+    selfhost_memo_trait_public_surface_public_declaration_payload_input_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Struct 7104 8104
 
-//: selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence: stage0 enum evidence を[作/つく]る
-fn selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence \void:
-    selfhost_memo_trait_public_surface_public_declaration_evidence_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Enum 5 4105
+//: selfhost_memo_trait_public_surface_normalizer_stage0_enum_payload_input: stage0 enum payload input を[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_enum_payload_input %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \void:
+    selfhost_memo_trait_public_surface_public_declaration_payload_input_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Enum 7105 8105
 
-//: selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence: stage0 impl evidence を[作/つく]る
-fn selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence \void:
-    selfhost_memo_trait_public_surface_public_declaration_evidence_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl 6 4106
+//: selfhost_memo_trait_public_surface_normalizer_stage0_impl_payload_input: stage0 impl payload input を[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_impl_payload_input %fn void SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput \void:
+    selfhost_memo_trait_public_surface_public_declaration_payload_input_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl 7106 8106
+
+//: selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence_result: stage0 function evidence を payload producer 経由で[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence_result %fn i32 Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \ordinal:
+    selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result ordinal selfhost_memo_trait_public_surface_normalizer_stage0_function_payload_input
+
+//: selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence_result: stage0 struct evidence を payload producer 経由で[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence_result %fn void Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \void:
+    selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result 4 selfhost_memo_trait_public_surface_normalizer_stage0_struct_payload_input
+
+//: selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence_result: stage0 enum evidence を payload producer 経由で[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence_result %fn void Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \void:
+    selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result 5 selfhost_memo_trait_public_surface_normalizer_stage0_enum_payload_input
+
+//: selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence_result: stage0 impl evidence を payload producer 経由で[作/つく]る
+fn selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence_result %fn void Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \void:
+    selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result 6 selfhost_memo_trait_public_surface_normalizer_stage0_impl_payload_input
 
 //: selfhost_memo_trait_public_surface_normalizer_stage0_push_dependency_evidence_result: stage0 dependency vector へ evidence を[追加/ついか]する
 fn selfhost_memo_trait_public_surface_normalizer_stage0_push_dependency_evidence_result %impure fn Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn SelfhostMemoTraitPublicSurfaceDependencyEvidence Result Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \items\evidence:
@@ -607,28 +784,40 @@ fn selfhost_memo_trait_public_surface_normalizer_stage0_reexport_vec_result %imp
 
 //: selfhost_memo_trait_public_surface_normalizer_stage0_declaration_vec_result: stage0 declaration evidence vector を[作/つく]る
 fn selfhost_memo_trait_public_surface_normalizer_stage0_declaration_vec_result %impure fn i32 Result Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \function_ordinal:
-    let function_decl %SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence function_ordinal
-    let struct_decl %SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence
-    let enum_decl %SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence
-    let impl_decl %SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence
-    let items_result %Result Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence StdErrorKind v::new
-    match items_result:
-        Result::Ok items0:
-            match selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items0 function_decl:
-                Result::Ok items1:
-                    match selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items1 struct_decl:
-                        Result::Ok items2:
-                            match selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items2 enum_decl:
-                                Result::Ok items3:
-                                    selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items3 impl_decl
-                                Result::Err enum_error:
-                                    Result::Err enum_error
-                        Result::Err struct_error:
-                            Result::Err struct_error
-                Result::Err function_error:
-                    Result::Err function_error
-        Result::Err _alloc_error:
-            Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+    match selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence_result function_ordinal:
+        Result::Ok function_decl:
+            match selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence_result:
+                Result::Ok struct_decl:
+                    match selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence_result:
+                        Result::Ok enum_decl:
+                            match selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence_result:
+                                Result::Ok impl_decl:
+                                    let items_result %Result Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence StdErrorKind v::new
+                                    match items_result:
+                                        Result::Ok items0:
+                                            match selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items0 function_decl:
+                                                Result::Ok items1:
+                                                    match selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items1 struct_decl:
+                                                        Result::Ok items2:
+                                                            match selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items2 enum_decl:
+                                                                Result::Ok items3:
+                                                                    selfhost_memo_trait_public_surface_normalizer_stage0_push_declaration_evidence_result items3 impl_decl
+                                                                Result::Err enum_error:
+                                                                    Result::Err enum_error
+                                                        Result::Err struct_error:
+                                                            Result::Err struct_error
+                                                Result::Err function_error:
+                                                    Result::Err function_error
+                                        Result::Err _alloc_error:
+                                            Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+                                Result::Err impl_error:
+                                    Result::Err impl_error
+                        Result::Err enum_error:
+                            Result::Err enum_error
+                Result::Err struct_error:
+                    Result::Err struct_error
+        Result::Err function_error:
+            Result::Err function_error
 
 //: selfhost_memo_trait_public_surface_normalizer_stage0_items_with_graph_result: stage0 graph から partial input stream を[作/つく]る
 fn selfhost_memo_trait_public_surface_normalizer_stage0_items_with_graph_result %impure fn &SelfhostModuleGraph impure fn Option i32 impure fn i32 Result Vec SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \graph\dependency_hash\function_ordinal:
@@ -711,10 +900,25 @@ fn selfhost_memo_trait_public_surface_normalizer_stage0_graph_node_missing_resul
     let dependency %SelfhostMemoTraitPublicSurfaceDependencyEvidence selfhost_memo_trait_public_surface_dependency_evidence_new 99 1 4101 dependency_hash
     selfhost_memo_trait_public_surface_normalizer_stage0_item_result dependency
 
-//: selfhost_memo_trait_public_surface_normalizer_stage0_payload_placeholder_result: stable payload placeholder path を[実行/じっこう]する
-fn selfhost_memo_trait_public_surface_normalizer_stage0_payload_placeholder_result %impure fn void Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \void:
-    let function_decl %SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence selfhost_memo_trait_public_surface_public_declaration_evidence_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function 3 0
-    selfhost_memo_trait_public_surface_normalizer_declaration_input_item_result function_decl
+//: selfhost_memo_trait_public_surface_normalizer_stage0_stable_key_placeholder_result: stable declaration key placeholder path を[実行/じっこう]する
+fn selfhost_memo_trait_public_surface_normalizer_stage0_stable_key_placeholder_result %impure fn void Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \void:
+    let payload_input %SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:
+        selfhost_memo_trait_public_surface_public_declaration_payload_input_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function 0 8103
+    match selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result 3 payload_input:
+        Result::Ok function_decl:
+            selfhost_memo_trait_public_surface_normalizer_declaration_input_item_result function_decl
+        Result::Err payload_error:
+            Result::Err payload_error
+
+//: selfhost_memo_trait_public_surface_normalizer_stage0_shape_placeholder_result: normalized declaration shape placeholder path を[実行/じっこう]する
+fn selfhost_memo_trait_public_surface_normalizer_stage0_shape_placeholder_result %impure fn void Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \void:
+    let payload_input %SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:
+        selfhost_memo_trait_public_surface_public_declaration_payload_input_new SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function 7103 0
+    match selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result 3 payload_input:
+        Result::Ok function_decl:
+            selfhost_memo_trait_public_surface_normalizer_declaration_input_item_result function_decl
+        Result::Err payload_error:
+            Result::Err payload_error
 
 //: selfhost_memo_trait_public_surface_normalizer_stage0: public surface normalizer の代表結果を[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_normalizer_stage0 %impure fn void SelfhostMemoTraitPublicSurfaceNormalizerStage0Summary \void:
@@ -730,6 +934,8 @@ pub fn selfhost_memo_trait_public_surface_normalizer_stage0 %impure fn void Self
         selfhost_memo_trait_public_surface_normalizer_stage0_item_result placeholder_dependency
     let graph_node_missing_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:
         selfhost_memo_trait_public_surface_normalizer_stage0_graph_node_missing_result
-    let stable_payload_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:
-        selfhost_memo_trait_public_surface_normalizer_stage0_payload_placeholder_result
-    selfhost_memo_trait_public_surface_normalizer_stage0_summary_new accepted_item_count dependency_hash_missing_rejected dependency_hash_placeholder_rejected graph_node_missing_rejected stable_payload_placeholder_rejected
+    let stable_declaration_key_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:
+        selfhost_memo_trait_public_surface_normalizer_stage0_stable_key_placeholder_result
+    let normalized_declaration_shape_placeholder_rejected %Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:
+        selfhost_memo_trait_public_surface_normalizer_stage0_shape_placeholder_result
+    selfhost_memo_trait_public_surface_normalizer_stage0_summary_new accepted_item_count dependency_hash_missing_rejected dependency_hash_placeholder_rejected graph_node_missing_rejected stable_declaration_key_placeholder_rejected normalized_declaration_shape_placeholder_rejected

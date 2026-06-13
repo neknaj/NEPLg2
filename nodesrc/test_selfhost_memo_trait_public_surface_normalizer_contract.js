@@ -47,6 +47,16 @@ assert.match(
 );
 assert.match(
     source,
+    /public declaration は、生の source header ではなく stable declaration key hash と normalized declaration shape hash から declaration payload hash を作ります/,
+    "normalizer docs must state that public declaration payloads are derived from typed stable key and normalized shape hashes",
+);
+assert.match(
+    source,
+    /#import "alloc\/hash\/hash32" as \*/,
+    "public declaration payload producer should use the shared fixed-size hash mixing helper",
+);
+assert.match(
+    source,
     /pub struct SelfhostMemoTraitPublicSurfaceDependencyEvidence:[\s\S]*module_index %i32[\s\S]*ordinal %i32[\s\S]*payload_hash %i32[\s\S]*dependency_public_surface_hash %Option i32/,
     "dependency evidence must carry graph node index, ordinal, stable payload hash, and typed dependency public surface hash",
 );
@@ -62,18 +72,63 @@ assert.match(
 );
 assert.match(
     source,
+    /pub struct SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:[\s\S]*kind %SelfhostMemoTraitPublicSurfacePublicDeclarationKind[\s\S]*stable_declaration_key_hash %i32[\s\S]*normalized_declaration_shape_hash %i32/,
+    "public declaration payload producer must take typed kind, stable declaration key hash, and normalized declaration shape hash",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence:[\s\S]*現在の public partial stream API は互換境界として `Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` を受け取るため、型だけで payload provenance を完全には証明しません/,
+    "public declaration evidence docs must distinguish current evidence-vector compatibility from producer-proven payload authority",
+);
+assert.match(
+    source,
+    /partial_input_items_result[\s\S]*現 public API は evidence vector を受ける互換境界であり、payload provenance を型だけでは閉じません[\s\S]*次 slice で function signature \/ layout \/ impl header producer を接続/,
+    "partial stream API docs must state that producer provenance is not fully encoded in the current public evidence vector boundary",
+);
+assert.match(
+    source,
+    /SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput:[\s\S]*source lexeme、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact はこの payload input に入りません/,
+    "public declaration payload input docs must exclude source, display, diagnostic, HIR, Resource IR, and backend authority",
+);
+assert.match(
+    source,
     /pub enum SelfhostMemoTraitPublicSurfaceGraphRejectionKind:[\s\S]*OutOfMemory[\s\S]*MissingModule[\s\S]*Cycle[\s\S]*Internal[\s\S]*UnexpectedDiagnostic/,
     "graph diagnostic payloads must be normalized to typed graph rejection kinds",
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:[\s\S]*GraphRejected %SelfhostMemoTraitPublicSurfaceGraphRejectionKind[\s\S]*GraphNodeUnavailable[\s\S]*InputVectorAllocationFailed[\s\S]*InputVectorReadFailed[\s\S]*DependencyPublicSurfaceHashMissing[\s\S]*DependencyPublicSurfaceHashPlaceholder[\s\S]*StablePayloadHashPlaceholder[\s\S]*HashRejected %SelfhostMemoTraitPublicSurfaceHashErrorKind/,
+    /pub enum SelfhostMemoTraitPublicSurfaceNormalizerErrorKind:[\s\S]*GraphRejected %SelfhostMemoTraitPublicSurfaceGraphRejectionKind[\s\S]*GraphNodeUnavailable[\s\S]*InputVectorAllocationFailed[\s\S]*InputVectorReadFailed[\s\S]*DependencyPublicSurfaceHashMissing[\s\S]*DependencyPublicSurfaceHashPlaceholder[\s\S]*StablePayloadHashPlaceholder[\s\S]*StableDeclarationKeyHashPlaceholder[\s\S]*NormalizedDeclarationShapeHashPlaceholder[\s\S]*DerivedDeclarationPayloadHashPlaceholder[\s\S]*HashRejected %SelfhostMemoTraitPublicSurfaceHashErrorKind/,
     "normalizer failures must be typed enum variants instead of bool or string collapse",
+);
+assert.match(
+    source,
+    /StableDeclarationKeyHashPlaceholder[\s\S]*NormalizedDeclarationShapeHashPlaceholder[\s\S]*DerivedDeclarationPayloadHashPlaceholder/,
+    "declaration payload producer must keep stable key, normalized shape, and derived payload placeholder causes separate",
 );
 assert.match(
     source,
     /pub fn selfhost_memo_trait_public_surface_normalizer_partial_input_items_result %impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn &Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence Result Vec SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceNormalizerErrorKind/,
     "normalizer must expose a graph-authority arbitrary-length partial input stream producer rather than an incomplete final hash or fixed smoke shape",
+);
+assert.match(
+    source,
+    /\nfn selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result %fn i32 fn SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfaceNormalizerErrorKind/,
+    "normalizer must keep a typed public declaration evidence producer as an internal adapter until the full orchestration boundary is designed",
+);
+assert.doesNotMatch(
+    source,
+    /pub fn selfhost_memo_trait_public_surface_public_declaration_evidence_from_payload_result\b/,
+    "normalizer must not expose the declaration payload adapter through the module checker facade before upstream signature and layout producers are composed",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_public_declaration_payload_hash_result[\s\S]*input\.stable_declaration_key_hash SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder[\s\S]*input\.normalized_declaration_shape_hash SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder[\s\S]*selfhost_memo_trait_public_surface_normalizer_payload_kind_code input\.kind[\s\S]*selfhost_memo_trait_public_surface_normalizer_payload_schema_code[\s\S]*payload_hash SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder/,
+    "public declaration payload producer must reject placeholder components with cause-specific enum variants, include kind and schema, and reject a placeholder derived payload",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_normalizer_payload_kind_code[\s\S]*Function:[\s\S]*Struct:[\s\S]*Enum:[\s\S]*Impl:/,
+    "public declaration payload kind code must be exhaustive over function, struct, enum, and impl",
 );
 assert.doesNotMatch(
     source,
@@ -110,6 +165,11 @@ assert.match(
     /selfhost_memo_trait_public_surface_normalizer_declaration_input_item_result[\s\S]*PublicFunction[\s\S]*PublicStruct[\s\S]*PublicEnum[\s\S]*PublicImpl/,
     "public declaration input production must cover function, struct, enum, and impl item kinds",
 );
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_normalizer_stage0_declaration_vec_result[\s\S]*selfhost_memo_trait_public_surface_normalizer_stage0_function_evidence_result[\s\S]*selfhost_memo_trait_public_surface_normalizer_stage0_struct_evidence_result[\s\S]*selfhost_memo_trait_public_surface_normalizer_stage0_enum_evidence_result[\s\S]*selfhost_memo_trait_public_surface_normalizer_stage0_impl_evidence_result/,
+    "stage0 declaration stream must exercise the typed payload producer for every public declaration kind",
+);
 assert.doesNotMatch(
     source,
     /pub fn selfhost_memo_trait_public_surface_normalizer_hash_from_graph_evidence_result|selfhost_memo_trait_public_surface_normalizer_hash_owned_items_result/,
@@ -132,8 +192,8 @@ assert.match(
 );
 assert.match(
     source,
-    /summary\.accepted_item_count[\s\S]*summary\.dependency_hash_missing_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DependencyPublicSurfaceHashMissing[\s\S]*summary\.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DependencyPublicSurfaceHashPlaceholder[\s\S]*summary\.graph_node_missing_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphNodeUnavailable[\s\S]*summary\.stable_payload_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StablePayloadHashPlaceholder/,
-    "stage0 doctest must assert accepted graph path, dependency hash rejection, graph node rejection, and stable payload placeholder rejection",
+    /summary\.accepted_item_count[\s\S]*summary\.dependency_hash_missing_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DependencyPublicSurfaceHashMissing[\s\S]*summary\.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DependencyPublicSurfaceHashPlaceholder[\s\S]*summary\.graph_node_missing_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphNodeUnavailable[\s\S]*summary\.stable_declaration_key_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder[\s\S]*summary\.normalized_declaration_shape_placeholder_rejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder/,
+    "stage0 doctest must assert accepted graph path, dependency hash rejection, graph node rejection, and declaration payload component placeholder rejection",
 );
 const publicSignatures = Array.from(source.matchAll(/^pub fn[^\n]+$/gm), (match) => match[0]).join("\n");
 assert.doesNotMatch(

@@ -58097,3 +58097,21 @@ MERGE_APPROVED
 - public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 stable payload producer は未完了である。
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - composer の O(n^2) partial stream scan、graph lookup index 化、stream owner の内部表現、stage0 fixture の整理は public item schema / normalizer evidence / accumulator API / typed error contract を変えずに後から置換できる最適化として扱う。
+## 2026-06-13 selfhost memo trait public declaration payload producer checkpoint
+
+- `memo_trait_public_surface_normalizer.nepl` に `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` を追加し、public function / struct / enum / impl の stable payload hash を caller supplied raw hash ではなく、`kind`、`stable_declaration_key_hash`、`normalized_declaration_shape_hash` の typed field から作る内部 adapter を接続した。
+- payload producer は `alloc/hash/hash32::mix` による fixed-size mixing のみを行い、source text、span、path、alias、display name、diagnostic text、HIR、Resource IR、backend artifact、proof store、serialized artifact を読まない。
+- placeholder error は `StableDeclarationKeyHashPlaceholder`、`NormalizedDeclarationShapeHashPlaceholder`、`DerivedDeclarationPayloadHashPlaceholder` に分け、どの component が壊れているかを `StablePayloadHashPlaceholder` へ潰さないようにした。
+- module checker facade はこの adapter を public API として公開しない。既存の安定公開境界は graph authority 付き partial stream producer と hash module の seed + partial stream composer のまま維持した。
+- stage0 smoke は Function / Struct / Enum / Impl の declaration evidence を payload producer 経由で作り、stable key placeholder と normalized shape placeholder を別々に検査する。
+- subagent review では、caller supplied hash を別名 record に包むだけでは不十分であり、typed input から hash を導出する producer boundary、原因別 placeholder error、契約 / 現状 / 計算量 doc、source/span/path/diagnostic authority 禁止を Required とされた。実装はこの指摘に合わせた。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-surface-normalizer-payload-typed-errors.json`
+
+この checkpoint 後の残件は、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producerを今回の payload input 境界へ接続すること、trait impl table、method body purity、Drop なし proof を operation solver へ接続することである。
