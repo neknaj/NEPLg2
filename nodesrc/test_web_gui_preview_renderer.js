@@ -37,6 +37,9 @@ async function runWebGuiPreviewRendererRegression() {
     const panelSource = readRepoFile("web", "src", "gui-preview", "panel.ts");
     const panelLayoutSource = readRepoFile("web", "src", "workspace", "panel-layout.ts");
     const panelManagerSource = readRepoFile("web", "src", "workspace", "panel-manager.ts");
+    const guiRedesignSpec = readRepoFile("doc", "neplg2", "gui_redesign_spec.md");
+    const guiRedesignDetailedDesign = readRepoFile("doc", "neplg2", "gui_redesign_detailed_design.md");
+    const guiTuiImplementationPlan = readRepoFile("doc", "neplg2", "gui_tui_implementation_plan.md");
 
     assert.equal(repoPathExists("web", "src", "gui-preview", "renderer.ts"), false);
     assert.match(commandSource, /GuiPreviewDrawCommand =/);
@@ -47,6 +50,7 @@ async function runWebGuiPreviewRendererRegression() {
     assert.match(commandSource, /GuiPreviewCommandFrame/);
     assert.match(canvasSource, /renderGuiPreviewFrameToCanvas/);
     assert.match(canvasSource, /rasterizeGuiPreviewCommand/);
+    assert.match(canvasSource, /guiPreviewCanvasBitmapBuffers = new WeakMap/);
     assert.match(bitmapBufferSource, /createGuiPreviewBitmapBuffer/);
     assert.match(bitmapBufferSource, /Uint8ClampedArray/);
     assert.match(bitmapRasterizerSource, /rasterizeGuiPreviewRgbaRow/);
@@ -55,6 +59,7 @@ async function runWebGuiPreviewRendererRegression() {
     assert.match(bitmapRasterizerSource, /invalid-geometry/);
     assert.doesNotMatch(bitmapRasterizerSource, /\?\] \?\? GUI_PREVIEW_BITMAP_FONT/);
     assert.match(bitmapPresenterSource, /putImageData/);
+    assert.match(bitmapPresenterSource, /guiPreviewImageDataCache = new WeakMap/);
     assert.match(panelSource, /presentHostFrame\(frame: GuiPreviewCommandFrame, windowId: number\)/);
     assert.match(panelSource, /GuiPreviewDebugSink/);
     assert.match(panelSource, /waiting-for-frame/);
@@ -64,6 +69,11 @@ async function runWebGuiPreviewRendererRegression() {
     assert.doesNotMatch(commandSource, /GuiPreviewKind/);
     assert.doesNotMatch(canvasSource, /renderGuiPreviewSceneToCanvas|GuiPreviewScene|renderer\.js/);
     assert.doesNotMatch(canvasSource, /frame\.title|fillText\(frame\.title/);
+    assert.match(canvasSource, /scale:\s*1/);
+    assert.doesNotMatch(canvasSource, /padding\s*=/);
+    assert.doesNotMatch(canvasSource, /availableWidth\s*\/\s*frame\.width/);
+    assert.doesNotMatch(canvasSource, /availableHeight\s*\/\s*frame\.height/);
+    assert.doesNotMatch(canvasSource, /Math\.min\([^)]*frame\.(width|height)/);
     assert.doesNotMatch(canvasSource, /ctx\.(fillRect|strokeRect|fillText|strokeText|stroke|drawImage|clearRect)\s*\(/);
     assert.doesNotMatch(panelSource, /ctx\.(fillRect|strokeRect|fillText|strokeText|stroke|drawImage|clearRect)\s*\(/);
     assert.doesNotMatch(bitmapPresenterSource, /ctx\.(fillRect|strokeRect|fillText|strokeText|stroke|drawImage|clearRect)\s*\(/);
@@ -72,6 +82,9 @@ async function runWebGuiPreviewRendererRegression() {
     assert.doesNotMatch(panelLayoutSource, /'gui-preview'/);
     assert.doesNotMatch(panelManagerSource, /createGuiPreviewRuntime|showGuiPreviewForActiveFile|openWindowForSourcePath|openWindowForKind/);
     assert.doesNotMatch(panelManagerSource, /GuiPreviewPanel|GuiPreviewRuntime|previewKind/);
+    assert.match(guiRedesignSpec, /1920 x 1080[\s\S]*60 fps/);
+    assert.match(guiRedesignDetailedDesign, /1920 x 1080[\s\S]*60 fps/);
+    assert.match(guiTuiImplementationPlan, /FHD 60 fps/);
 
     const buffer = modules.buffer.createGuiPreviewBitmapBuffer(64, 32, modules.commands.guiPreviewRgb(0, 0, 0));
     const ascii = modules.rasterizer.rasterizeGuiPreviewCommand(buffer, {
@@ -114,8 +127,14 @@ async function runWebGuiPreviewRendererRegression() {
 
     const fakeCanvas = renderWithFakeCanvas(modules);
     assert.equal(fakeCanvas.rendered.kind, "ok");
-    assert.equal(fakeCanvas.putImageDataCalls, 1);
+    assert.equal(fakeCanvas.rendered.viewport.left, 0);
+    assert.equal(fakeCanvas.rendered.viewport.top, 0);
+    assert.equal(fakeCanvas.rendered.viewport.scale, 1);
+    assert.equal(fakeCanvas.putImageDataCalls, 2);
+    assert.equal(fakeCanvas.imageDataConstructs, 1);
     assert.equal(fakeCanvas.setTransformCalls, 0);
+    assert.deepEqual(pixelRgba(fakeCanvas.imageData, 1, 1), [16, 24, 32, 255]);
+    assert.deepEqual(pixelRgba(fakeCanvas.imageData, 3, 2), [32, 180, 80, 255]);
     const unsupportedCanvas = renderUnsupportedTextWithFakeCanvas(modules);
     assert.equal(unsupportedCanvas.rendered.kind, "err");
     assert.equal(unsupportedCanvas.putImageDataCalls, 0);
@@ -126,6 +145,9 @@ async function runWebGuiPreviewRendererRegression() {
             "old TS GUI example renderer is removed",
             "Web GUI renderer accepts only typed host command frames including rgba row payloads",
             "Web GUI renderer rasterizes into a bitmap buffer before putImageData presentation",
+            "Web GUI canvas presentation keeps frame pixels at one-to-one scale during window resize",
+            "Web GUI renderer reuses bitmap and ImageData objects for same-size frames",
+            "Web GUI docs define FHD 60fps as the minimum visible pixel surface target",
             "Web GUI bitmap text returns typed unsupported errors instead of replacement glyph fallback",
             "Web GUI zero-size fill rectangles do not draw and invalid geometry returns typed errors",
             "Web GUI canvas presentation is putImageData-only at runtime",
@@ -152,6 +174,7 @@ function renderWithFakeCanvas(modules) {
     const previousImageData = globalThis.ImageData;
     globalThis.ImageData = class FakeImageData {
         constructor(data, width, height) {
+            imageDataConstructs += 1;
             this.data = data;
             this.width = width;
             this.height = height;
@@ -159,10 +182,13 @@ function renderWithFakeCanvas(modules) {
     };
     let putImageDataCalls = 0;
     let setTransformCalls = 0;
+    let lastImageData = undefined;
+    let imageDataConstructs = 0;
     const ctx = {
         canvas: { width: 64, height: 48 },
-        putImageData() {
+        putImageData(imageData) {
             putImageDataCalls += 1;
+            lastImageData = imageData;
         },
         setTransform() {
             setTransformCalls += 1;
@@ -182,19 +208,19 @@ function renderWithFakeCanvas(modules) {
         },
     };
     try {
-        const rendered = modules.canvasRenderer.renderGuiPreviewFrameToCanvas(ctx, {
+        const firstFrame = {
             title: "Runtime Canvas Test",
-            width: 32,
-            height: 24,
+            width: 16,
+            height: 12,
             commands: [
                 {
                     kind: "fill-rect",
-                    rect: { x: 0, y: 0, width: 32, height: 24 },
-                    color: modules.commands.guiPreviewRgb(16, 24, 32),
+                    rect: { x: 1, y: 1, width: 1, height: 1 },
+                    color: modules.commands.guiPreviewRgb(220, 35, 30),
                 },
                 {
                     kind: "text-run",
-                    origin: { x: 2, y: 2 },
+                    origin: { x: 4, y: 2 },
                     text: "OK",
                     color: modules.commands.guiPreviewRgb(255, 255, 255),
                     size: 14,
@@ -202,8 +228,24 @@ function renderWithFakeCanvas(modules) {
                 },
             ],
             inputTargets: [],
-        }, 64, 48, { fontSize: 14 });
-        return { rendered, putImageDataCalls, setTransformCalls };
+        };
+        const secondFrame = {
+            title: "Runtime Canvas Test",
+            width: 16,
+            height: 12,
+            commands: [
+                {
+                    kind: "fill-rect",
+                    rect: { x: 3, y: 2, width: 1, height: 1 },
+                    color: modules.commands.guiPreviewRgb(32, 180, 80),
+                },
+            ],
+            inputTargets: [],
+        };
+        const first = modules.canvasRenderer.renderGuiPreviewFrameToCanvas(ctx, firstFrame, 64, 48, { fontSize: 14 });
+        const second = modules.canvasRenderer.renderGuiPreviewFrameToCanvas(ctx, secondFrame, 64, 48, { fontSize: 14 });
+        assert.equal(first.kind, "ok");
+        return { rendered: second, putImageDataCalls, setTransformCalls, imageData: lastImageData, imageDataConstructs };
     } finally {
         globalThis.ImageData = previousImageData;
     }
@@ -246,6 +288,12 @@ function renderUnsupportedTextWithFakeCanvas(modules) {
     } finally {
         globalThis.ImageData = previousImageData;
     }
+}
+
+function pixelRgba(imageData, x, y) {
+    assert.ok(imageData, "expected putImageData to receive an ImageData payload");
+    const offset = (y * imageData.width + x) * 4;
+    return Array.from(imageData.data.slice(offset, offset + 4));
 }
 
 module.exports = {

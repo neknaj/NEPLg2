@@ -43,6 +43,11 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(managerSource, /setAttribute\('aria-hidden'/);
     assert.match(managerSource, /closeWindowState\(lookup\.windowState, \{ emitCloseRequest: true \}\)/);
     assert.match(managerSource, /closeWindowState\(lookup\.windowState, \{ emitCloseRequest: false \}\)/);
+    assert.match(managerSource, /previousSurfaceSize = windowState\.preview\.drawableSurfaceCssSize\(\)/);
+    assert.match(managerSource, /nextSurfaceSize = windowState\.preview\.drawableSurfaceCssSize\(\)/);
+    assert.match(managerSource, /queueHostWindowEvent\(windowState, 'resized', nextSurfaceSize\)/);
+    assert.match(panelSource, /drawableSurfaceCssSize\(\)/);
+    assert.doesNotMatch(managerSource, /requestAnimationFrame\(\(\) => windowState\.preview\.resizeEditor\(\)\)/);
     assert.match(managerSource, /minimizeWindow/);
     assert.match(managerSource, /toggleMaximizeWindow/);
     assert.match(managerSource, /startDrag/);
@@ -85,6 +90,7 @@ function runWebGuiFloatingWindowSourceRegression() {
             "Web Playground exposes a GUI window layer above the workspace",
             "GUI floating windows support minimize, maximize, drag, and resize handlers",
             "manual GUI preview panes are not exposed; NEPL execution opens host-frame windows",
+            "GUI floating windows report drawable surface resize instead of stretching content",
             "host event and queue status is separated from the GUI window content",
             "toolbar Stop targets the active running terminal owner instead of only the focused terminal",
         ],

@@ -190,6 +190,9 @@ function guiWebInputEventsWithQueuedEvent(events: GuiWebInputEvent[], event: Gui
     if (event.kind === 'timer') {
         return guiWebInputEventsWithTimer(events, event);
     }
+    if (event.kind === 'window' && event.windowKind !== 'close-requested') {
+        return guiWebInputEventsWithWindowState(events, event);
+    }
     return [
         ...events,
         event,
@@ -232,6 +235,30 @@ function guiWebInputEventsWithTimer(
         && lastEvent.kind === 'timer'
         && lastEvent.windowId === event.windowId
         && lastEvent.timerId === event.timerId
+    ) {
+        return [
+            ...events.slice(0, lastIndex),
+            event,
+        ];
+    }
+    return [
+        ...events,
+        event,
+    ];
+}
+
+function guiWebInputEventsWithWindowState(
+    events: GuiWebInputEvent[],
+    event: Extract<GuiWebInputEvent, { kind: 'window' }>,
+): GuiWebInputEvent[] {
+    const lastIndex = events.length - 1;
+    const lastEvent = events[lastIndex];
+    if (
+        lastEvent
+        && lastEvent.kind === 'window'
+        && lastEvent.windowKind === event.windowKind
+        && lastEvent.windowId === event.windowId
+        && lastEvent.windowKind !== 'close-requested'
     ) {
         return [
             ...events.slice(0, lastIndex),

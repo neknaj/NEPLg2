@@ -14,6 +14,7 @@ GUI application code は Web、native、bare、offscreen、headless のどの ba
 
 - GUI app content は DOM node として描画しない。
 - Web の可視 canvas は `putImageData` による bitmap presentation だけを行う。
+- Web の可視 canvas は CSS scaling や fit-to-window viewport で app content を拡大縮小しない。window resize は drawable pixel surface の `WindowEvent::Resized` として app に渡し、app / layout engine が新しい pixel buffer を生成して再 present する。
 - `draw_line`、`draw_text`、`fill_rect` などの public drawing API は `DrawCommand` として保持する。
 - `DrawCommand` は backend が直接可視 surface に描かず、必ず rasterizer を通して pixel buffer へ反映する。
 - `SharedArrayBuffer` video memory surface を Web GUI の正式 presentation path とする。
@@ -21,6 +22,12 @@ GUI application code は Web、native、bare、offscreen、headless のどの ba
 - 未対応の surface、command、pixel format、host capability は `Result::Err GuiError::Unsupported` またはより具体的な `GuiError` で返す。
 - headless と offscreen は fallback ではなく、独立した正式 backend である。
 - platform 固有名、DOM、Canvas、minifb、Win32、AppKit、Wayland、X11、JavaScript `null` / `undefined` は `core/gui`、`alloc/gui`、`std/gui` の public type に出さない。
+
+## 最低性能目標
+
+Visible pixel surface backend の最低性能目標は FHD、つまり 1920 x 1080 pixel buffer を 60 fps で present できることである。この目標は Web、native、offscreen screenshot capture の設計基準であり、renderer は毎 frame の巨大 allocation、DOM node 更新、Canvas2D primitive replay、CSS transform による拡大縮小を標準 path にしてはいけない。
+
+この目標を満たせない backend は、別 backend へ silent fallback しない。Capability と `Result` で制約を表し、application / test が `match` で扱う。
 
 この方針は、platform 依存処理を表層へ閉じ、失敗を `Option` / `Result` と enum で表す設計方針に従う。実装都合の暫定 path を hidden fallback として残してはいけない。
 

@@ -43,6 +43,11 @@ type GuiWebScalarLookup =
     | { kind: 'scalar'; value: number }
     | { kind: 'none' };
 
+export type GuiPreviewDrawableSurfaceSize = {
+    width: number;
+    height: number;
+};
+
 export class GuiPreviewPanel {
     contentEl: HTMLElement;
     rootEl: HTMLElement;
@@ -111,25 +116,22 @@ export class GuiPreviewPanel {
     }
 
     resizeEditor() {
-        const rect = this.canvas.getBoundingClientRect();
-        const width = Math.max(1, Math.floor(rect.width));
-        const height = Math.max(1, Math.floor(rect.height));
+        const size = this.drawableSurfaceCssSize();
         const pixelRatio = window.devicePixelRatio || 1;
-        this.canvas.width = Math.max(1, Math.floor(width * pixelRatio));
-        this.canvas.height = Math.max(1, Math.floor(height * pixelRatio));
+        this.canvas.width = Math.max(1, Math.floor(size.width * pixelRatio));
+        this.canvas.height = Math.max(1, Math.floor(size.height * pixelRatio));
         this.render();
     }
 
     render() {
-        const width = this.canvas.clientWidth || Math.max(1, this.canvas.width);
-        const height = this.canvas.clientHeight || Math.max(1, this.canvas.height);
+        const size = this.drawableSurfaceCssSize();
         if (this.contextState.kind === 'unavailable') {
             this.reportDebug({ kind: 'canvas-unavailable', message: this.contextState.message });
             return;
         }
         const ctx = this.contextState.ctx;
         if (this.hostFrame.kind === 'presented') {
-            const rendered = renderGuiPreviewFrameToCanvas(ctx, this.hostFrame.frame, width, height, { fontSize: this.fontSize });
+            const rendered = renderGuiPreviewFrameToCanvas(ctx, this.hostFrame.frame, size.width, size.height, { fontSize: this.fontSize });
             if (rendered.kind === 'err') {
                 this.reportDebug({
                     kind: 'render-error',
@@ -142,6 +144,20 @@ export class GuiPreviewPanel {
             return;
         }
         presentGuiPreviewCanvasBackground(ctx);
+    }
+
+    drawableSurfaceCssSize(): GuiPreviewDrawableSurfaceSize {
+        const rect = this.canvas.getBoundingClientRect();
+        const width = rect.width > 0
+            ? rect.width
+            : this.canvas.clientWidth;
+        const height = rect.height > 0
+            ? rect.height
+            : this.canvas.clientHeight;
+        return {
+            width: Math.max(1, Math.floor(width)),
+            height: Math.max(1, Math.floor(height)),
+        };
     }
 
     handleCanvasClick(event: MouseEvent) {
