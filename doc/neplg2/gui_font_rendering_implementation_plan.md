@@ -531,6 +531,8 @@ git diff --check
 - `gui_sfnt_glyf_simple_curve_segment_with_tables` は public wrapper ではなく `gui_sfnt_glyf_simple_contour_edge_with_tables` と `gui_sfnt_glyf_simple_contour_point_with_tables` を通る。
 - Source policy で curve segment API、payload enum、doubled coordinate field、no integer midpoint division、conditional lookahead decode、internal helper reuse、metadata 非依存、no curve segment `Vec` allocation を固定する。
 - `tests/stdlib/gui_font_sfnt_glyf_curve.n.md` を追加し、巨大化した `tests/stdlib/gui_font_sfnt_glyf.n.md` とは別に分類規則の doctest を保持する。
+- `tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md` を追加し、public `gui_sfnt_lookup_simple_glyph_curve_segment` が最小 SFNT byte fixture から odd implied midpoint の `Quadratic` へ到達する smoke を保持する。
+- 現時点の compiler では `alloc/gui/font/sfnt/glyf` import の resource static check が 60 秒制限に近いため、public lookup smoke は `skip` 付きの仕様化 doctest とし、source policy で fixture、public lookup 呼び出し、`ByteBuilder` binary construction、`io_bytebuf_from_str_result` 禁止を固定する。
 
 完了条件:
 
@@ -541,12 +543,17 @@ git diff --check
 - off-curve start が `NoSegment OffCurveStart` の typed success になる。
 - `edge_index` 範囲外や malformed bytes は引き続き `Result::Err GuiSfntParseError` になる。
 - classifier helper と byte lookup helper は full outline allocation、`Vec GuiSfntSimpleGlyphCurveSegment`、rasterizer、platform API、fallback rendering path を使わない。
+- public lookup smoke は UTF-8 text conversion ではなく `ByteBuilder` で binary SFNT bytes を組み立てる。
 
 検証:
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+# skip policy check: current compiler exceeds the normal 60s timeout for this byte-level public lookup smoke.
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve_lookup.json -j 1
+# executable smoke check until the resource static check is made faster:
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve_lookup_long.json -j 1; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS
 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
