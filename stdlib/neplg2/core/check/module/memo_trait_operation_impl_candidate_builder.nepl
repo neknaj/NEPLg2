@@ -1,0 +1,1352 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_impl_candidate_builder
+//: typed public impl candidate input から `MemoKey` / `MemoValue` operation impl candidate table を[構築/こうちく]する checker-layer orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - actual public impl materializer が作る予定の typed record table を受け取り、method body fact orchestrator、body check resolver、operation impl table を 1 つの owner-safe な境界で接続します。
+//: - public impl header、trait application、resolved target type shape、method body root を同じ input record に束ね、source text や method name string に戻らず candidate table を作ります。
+//: - Eq / Hash の method body fact は `memo_trait_operation_method_body_fact_orchestrator` へ委譲し、Copy には method body fact を混ぜません。
+//: - Drop proof はこの slice ではまだ導出しません。Drop operation が input に現れた場合は、未証明の `Unknown` evidence を作らず、`DropOperationUnsupportedUntilResourceProof` で明示的に拒否します。
+//: - 同じ `SelfhostTypeId` と operation kind の candidate が複数来た場合は first-wins にせず、builder 入口で `CandidateDuplicate` として拒否します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationImplCandidateBuilderInputTable` の typed field、`SelfhostHirModule` borrow、既存の scan / resolver / purity gate boundary だけです。
+//: - この module は public impl AST scanning、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から operation や method root を推測しません。
+//: - `source` input table と `module` は borrow です。この module はどちらも閉じません。
+//: - method body scan table、method fact table、Drop fact table、output impl candidate table は builder が作ります。success の場合だけ output table owner を caller に返し、failure の場合は所有中の owner を閉じます。
+//: - `NoDropRequired` は「Drop 実装がないことを上流が確認した」証拠なので、この module は空の Drop table からそれを合成しません。Drop proof がまだ接続されていない Phase 1 では Drop input を candidate 化しません。
+//: - candidate は `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を通して作ります。producer input や evidence record への変換は下流の impl table / producer API に任せ、この builder では行いません。
+//: - HIR は method body effect fact を作るためだけに読みます。Resource IR、backend artifact、proof store、`.neplproof` reader / serializer、canonical key codec には依存しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では actual public impl materializer は未接続です。stage0 smoke が typed input table を直接作り、accepted path、Eq root 欠落、candidate duplicate、Drop unsupported rejection を確認します。
+//: - Drop body effect checker、Drop なし proof generator、generic impl binder、trait coherence、PrivateCache / PrivateState masking、Resource IR no-escape proof、full public surface orchestration は後続 slice の責務です。
+//: - facade にはまだ re-export しません。full operation evidence orchestration が public surface materializer と proof boundary をまとめる段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 入力 candidate 数を m、Eq / Hash method body root から到達する expression 数を n_i、child edge 数を e_i とすると、method fact build は O(m + Σ(n_i + e_i)) 時間です。
+//: - output candidate の duplicate probe は現状の `Vec` table lookup を使うため O(m^2) 時間です。これは Phase 1 の実装詳細であり、error contract と owner contract を保ったまま後続で operation 別 bucket や sorted index へ置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_impl_candidate_builder" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_impl_candidate_builder_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_len_eq summary.accepted 3
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq summary.accepted SelfhostMemoTraitOperationEvidenceKind::Copy SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq summary.accepted SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostMemoTraitOperationMethodBodyEvidence::Pure
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq summary.accepted SelfhostMemoTraitOperationEvidenceKind::Hash SelfhostMemoTraitOperationMethodBodyEvidence::Impure
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_impl_candidate_builder_scan_required_error_result_eq summary.scan_missing 0
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_impl_candidate_builder_duplicate_error_result_eq summary.duplicate_rejected
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_error_result_eq summary.drop_unsupported 0
+//:             let shown checks_print_report checks7
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "impl candidate builder stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_body_check_resolver" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+#import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_method_body_fact_input_scan" as *
+#import "./memo_trait_operation_method_body_fact_orchestrator" as *
+#import "./memo_trait_operation_method_body_resolver" as *
+#import "./memo_trait_operation_purity_gate" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitOperationImplCandidateBuilderInput: candidate builder が読む typed public impl candidate
+//:
+//: [目的/もくてき]:
+//: - actual public impl materializer が確定した operation impl 候補を、candidate builder が source に戻らず処理できる field 群として保持します。
+//:
+//: [契約/けいやく]:
+//: - `type_id` と `operation` は output candidate lookup key です。
+//: - `impl_header` と `trait_application` は producer / classifier が再検査する typed input です。
+//: - `resolved_type_shape_hash` は現在の `SelfhostTypeId` に対応する target type shape evidence です。
+//: - `method_body_root` は Eq / Hash の場合だけ `some(root)` でなければなりません。Copy / Drop では `none` でなければなりません。Drop 自体は Phase 1 builder では後段 Resource proof が未接続なので、別途 typed error として拒否されます。
+//: - `fuel` は HIR traversal の上限であり、builder は値を解釈せず method body fact builder へ渡します。
+pub struct SelfhostMemoTraitOperationImplCandidateBuilderInput:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    impl_header %SelfhostMemoTraitPublicImplHeaderInput
+    trait_application %SelfhostMemoTraitOperationTraitApplicationInput
+    resolved_type_shape_hash %Option i32
+    method_body_root %Option SelfhostHirExprId
+    fuel %i32
+
+//: SelfhostMemoTraitOperationImplCandidateBuilderInputTable: builder input の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。builder 本体は borrow で読み、閉じません。
+//: - この table は session-local typed input であり、永続 artifact や public surface hash の authority ではありません。
+pub struct SelfhostMemoTraitOperationImplCandidateBuilderInputTable:
+    records %Vec SelfhostMemoTraitOperationImplCandidateBuilderInput
+
+//: SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation: input index 付き operation payload
+//:
+//: [目的/もくてき]:
+//: - Drop proof 未接続による拒否など、source table のどの typed input が問題だったかを bool や文字列ではなく typed payload として保持します。
+//:
+//: [契約/けいやく]:
+//: - `index` は builder input table 内の 0-based position です。source byte offset や diagnostic span ではありません。
+//: - `operation` は拒否対象の operation kind です。現在の Phase 1 では Drop unsupported rejection の payload として使います。
+pub struct SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation:
+    index %i32
+    operation %SelfhostMemoTraitOperationEvidenceKind
+
+//: SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary: accepted path の代表結果
+//:
+//: [目的/もくてき]:
+//: - stage0 doctest が output table owner を閉じた後でも、len と operation 別 candidate を確認できるように結果だけを保持します。
+pub struct SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary:
+    len %i32
+    copy_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+    eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+    hash_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+
+//: SelfhostMemoTraitOperationImplCandidateBuilderErrorKind: candidate builder 境界の拒否理由
+//:
+//: [目的/もくてき]:
+//: - setup、scan、method fact build、Drop table setup、Drop unsupported、body check、purity gate、candidate duplicate、candidate push の失敗箇所を typed enum として保持します。
+pub enum SelfhostMemoTraitOperationImplCandidateBuilderErrorKind:
+    HirSetupFailed %StdErrorKind
+    InputTableAllocFailed %StdErrorKind
+    SourcePushFailed %StdErrorKind
+    MethodScanTableAllocFailed %StdErrorKind
+    SourceReadFailed %i32
+    MethodScanRecordPushFailed %SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
+    MethodFactBuildRejected %SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind
+    DropTableAllocFailed %StdErrorKind
+    DropOperationUnsupportedUntilResourceProof %SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation
+    OutputTableAllocFailed %StdErrorKind
+    BodyCheckRejected %SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    CandidateRejected %SelfhostMemoTraitOperationPurityGateErrorKind
+    CandidateDuplicate
+    CandidateLookupRejected %SelfhostMemoTraitOperationImplTableErrorKind
+    CandidatePushRejected %SelfhostMemoTraitOperationImplTableErrorKind
+
+//: SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary: impl candidate builder smoke の代表結果
+pub struct SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary:
+    accepted %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+    scan_missing %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+    duplicate_rejected %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+    drop_unsupported %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
+
+impl Clone for SelfhostMemoTraitOperationImplCandidateBuilderInput:
+    fn clone %fn &SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationImplCandidateBuilderInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplCandidateBuilderInput:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationImplCandidateBuilderInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationImplCandidateBuilderErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationImplCandidateBuilderErrorKind SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplCandidateBuilderErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplCandidateBuilderErrorKind SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation:
+    fn clone %fn &SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_input_new: builder input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - constructor は typed field を束ねるだけです。operation と method root の整合性は scan / body check / purity gate が確認し、header / classifier / producer 側の構造検査は下流の impl table / producer API が確認します。
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_input_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitPublicImplHeaderInput fn SelfhostMemoTraitOperationTraitApplicationInput fn Option i32 fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitOperationImplCandidateBuilderInput \type_id\operation\impl_header\trait_application\resolved_type_shape_hash\method_body_root\fuel:
+    SelfhostMemoTraitOperationImplCandidateBuilderInput type_id operation impl_header trait_application resolved_type_shape_hash method_body_root fuel
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_input_table_new: [空/から]の builder input table を[作/つく]る
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_input_table_new %impure fn void Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationImplCandidateBuilderInput StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationImplCandidateBuilderInputTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_input_table_free: builder input table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_input_table_free %impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_input_table_len: builder input 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_input_table_len %fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationImplCandidateBuilderInput field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_input_table_push: builder input を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `table` はこの関数が消費します。成功時は追加後の owner を返します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、`SourcePushFailed(error)` として `StdErrorKind` を保持します。
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_input_table_push %impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn SelfhostMemoTraitOperationImplCandidateBuilderInput Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitOperationImplCandidateBuilderInput field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitOperationImplCandidateBuilderInputTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_input_to_scan_record: builder input を method fact scan record へ[写/うつ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_input_to_scan_record %fn SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationMethodBodyFactInputScanRecord \record:
+    selfhost_memo_trait_operation_method_body_fact_input_scan_record_new record.type_id record.operation record.method_body_root record.fuel
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_scan_loop: builder input から method body scan table を[組/く]む
+//:
+//: [契約/けいやく]:
+//: - `scan` はこの関数が消費します。success では更新後の owner を返します。
+//: - source read の不整合ではこの関数が scan owner を閉じます。scan push failure では既存 scan table push boundary が owner cleanup を担当します。
+fn selfhost_memo_trait_operation_impl_candidate_builder_scan_loop %impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn i32 Result SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \scan\source\index:
+    if:
+        ge index selfhost_memo_trait_operation_impl_candidate_builder_input_table_len source
+        then:
+            Result::Ok scan
+        else:
+            let records %&Vec SelfhostMemoTraitOperationImplCandidateBuilderInput field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    let scan_record %SelfhostMemoTraitOperationMethodBodyFactInputScanRecord selfhost_memo_trait_operation_impl_candidate_builder_input_to_scan_record record
+                    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_push scan scan_record:
+                        Result::Ok next_scan:
+                            selfhost_memo_trait_operation_impl_candidate_builder_scan_loop next_scan source add index 1
+                        Result::Err push_error:
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed push_error
+                Option::None:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan: scan table owner から method fact table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `scan` はこの関数が消費します。success / failure のどちらでも scan owner を閉じます。
+fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\scan:
+    match selfhost_memo_trait_operation_method_body_fact_table_from_scan_records_result module &scan:
+        Result::Ok method_table:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan
+            Result::Ok method_table
+        Result::Err build_error:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free scan
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected build_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_method_facts_result: builder input から method fact table を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_method_facts_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\source:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok scan0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_scan_loop scan0 source 0:
+                Result::Ok scan:
+                    selfhost_memo_trait_operation_impl_candidate_builder_method_facts_from_scan module scan
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result: method fact scan 前に Drop input を[拒否/きょひ]する
+//:
+//: [目的/もくてき]:
+//: - Phase 1 では Drop proof が Resource IR no-escape proof へ接続されていません。そのため Drop input は method body root の有無にかかわらず、method fact scan や purity gate へ進める前に同じ typed error で拒否します。
+//:
+//: [契約/けいやく]:
+//: - `source` は borrow で読み、閉じません。
+//: - Drop record を見つけた場合は、input table 内 index と operation kind を payload に持つ `DropOperationUnsupportedUntilResourceProof` を返します。
+//: - source table read の不整合は `SourceReadFailed(index)` として返し、string diagnostic や span には依存しません。
+fn selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result %fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable fn i32 Result unit SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \source\index:
+    if:
+        ge index selfhost_memo_trait_operation_impl_candidate_builder_input_table_len source
+        then:
+            Result::Ok unit
+        else:
+            let records %&Vec SelfhostMemoTraitOperationImplCandidateBuilderInput field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match record.operation:
+                        SelfhostMemoTraitOperationEvidenceKind::Drop:
+                            let indexed %SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation index record.operation
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof indexed
+                        SelfhostMemoTraitOperationEvidenceKind::Copy:
+                            selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result source add index 1
+                        SelfhostMemoTraitOperationEvidenceKind::Eq:
+                            selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result source add index 1
+                        SelfhostMemoTraitOperationEvidenceKind::Hash:
+                            selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result source add index 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_duplicate_probe_result: output table 内の同一 key を事前に[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - `CandidateMissing` はこれから挿入できる正常状態です。
+//: - 既に候補がある場合は first-wins にせず `CandidateDuplicate` を返します。
+//: - lookup 自体が duplicate/read/producer/classifier error を返した場合は nested error として保持します。
+fn selfhost_memo_trait_operation_impl_candidate_builder_duplicate_probe_result %fn &SelfhostMemoTraitOperationImplTable fn SelfhostMemoTraitOperationImplCandidateBuilderInput Result unit SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \output\record:
+    match selfhost_memo_trait_operation_impl_candidate_for_type_operation_result output record.type_id record.operation:
+        Result::Ok _existing:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate
+        Result::Err lookup_error:
+            match lookup_error:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    Result::Ok unit
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected lookup_error
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _idx:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected lookup_error
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _push:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected lookup_error
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _classifier:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected lookup_error
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _producer:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected lookup_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_append_candidate_result: 1 input を output candidate table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `output` はこの関数が消費します。success では更新後の owner を返します。
+//: - duplicate / body check / purity gate rejection ではこの関数が output owner を閉じます。
+//: - push rejection では `selfhost_memo_trait_operation_impl_table_push` が owner cleanup を担当します。
+fn selfhost_memo_trait_operation_impl_candidate_builder_append_candidate_result %impure fn SelfhostMemoTraitOperationImplTable impure fn &SelfhostMemoTraitOperationMethodBodyTable impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostMemoTraitOperationImplCandidateBuilderInput Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \output\method_table\drop_table\record:
+    match selfhost_memo_trait_operation_impl_candidate_builder_duplicate_probe_result &output record:
+        Result::Ok _missing:
+            match selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete method_table SelfhostMemoTraitOperationDropImplSurfaceState::Unknown drop_table record.type_id record.operation:
+                Result::Ok checks:
+                    match selfhost_memo_trait_operation_impl_candidate_from_checks_result record.type_id record.operation record.impl_header record.trait_application record.resolved_type_shape_hash checks.method_body checks.drop_impl:
+                        Result::Ok candidate:
+                            match selfhost_memo_trait_operation_impl_table_push output candidate:
+                                Result::Ok next_output:
+                                    Result::Ok next_output
+                                Result::Err push_error:
+                                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected push_error
+                        Result::Err candidate_error:
+                            selfhost_memo_trait_operation_impl_table_free output
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected candidate_error
+                Result::Err body_error:
+                    selfhost_memo_trait_operation_impl_table_free output
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected body_error
+        Result::Err duplicate_error:
+            selfhost_memo_trait_operation_impl_table_free output
+            Result::Err duplicate_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_output_loop: builder input を順に output table へ[投入/とうにゅう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_output_loop %impure fn SelfhostMemoTraitOperationImplTable impure fn &SelfhostMemoTraitOperationMethodBodyTable impure fn &SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn i32 Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \output\method_table\drop_table\source\index:
+    if:
+        ge index selfhost_memo_trait_operation_impl_candidate_builder_input_table_len source
+        then:
+            Result::Ok output
+        else:
+            let records %&Vec SelfhostMemoTraitOperationImplCandidateBuilderInput field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match record.operation:
+                        SelfhostMemoTraitOperationEvidenceKind::Drop:
+                            selfhost_memo_trait_operation_impl_table_free output
+                            let indexed %SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation index record.operation
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof indexed
+                        SelfhostMemoTraitOperationEvidenceKind::Copy:
+                            match selfhost_memo_trait_operation_impl_candidate_builder_append_candidate_result output method_table drop_table record:
+                                Result::Ok next_output:
+                                    selfhost_memo_trait_operation_impl_candidate_builder_output_loop next_output method_table drop_table source add index 1
+                                Result::Err e:
+                                    Result::Err e
+                        SelfhostMemoTraitOperationEvidenceKind::Eq:
+                            match selfhost_memo_trait_operation_impl_candidate_builder_append_candidate_result output method_table drop_table record:
+                                Result::Ok next_output:
+                                    selfhost_memo_trait_operation_impl_candidate_builder_output_loop next_output method_table drop_table source add index 1
+                                Result::Err e:
+                                    Result::Err e
+                        SelfhostMemoTraitOperationEvidenceKind::Hash:
+                            match selfhost_memo_trait_operation_impl_candidate_builder_append_candidate_result output method_table drop_table record:
+                                Result::Ok next_output:
+                                    selfhost_memo_trait_operation_impl_candidate_builder_output_loop next_output method_table drop_table source add index 1
+                                Result::Err e:
+                                    Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_impl_table_free output
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_from_tables_result: method / Drop table と source から output table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `method_table` と `drop_table` はこの関数が消費し、success / failure のどちらでも閉じます。
+//: - success の場合だけ output candidate table owner を caller に返します。
+fn selfhost_memo_trait_operation_impl_candidate_builder_from_tables_result %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \method_table\drop_table\source:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok output0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_output_loop output0 &method_table &drop_table source 0:
+                Result::Ok output:
+                    selfhost_memo_trait_operation_method_body_table_free method_table
+                    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                    Result::Ok output
+                Result::Err e:
+                    selfhost_memo_trait_operation_method_body_table_free method_table
+                    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                    Result::Err e
+        Result::Err alloc_error:
+            selfhost_memo_trait_operation_method_body_table_free method_table
+            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result: typed builder input から impl candidate table を[構築/こうちく]する
+//:
+//: [契約/けいやく]:
+//: - `module` と `source` は borrow です。この関数は閉じません。
+//: - method body surface は complete として扱います。Eq / Hash root 欠落は scan stage で拒否されます。
+//: - Drop operation は method fact scan より前の preflight と output loop の二重境界で `DropOperationUnsupportedUntilResourceProof` として拒否します。空 table から `NoDropRequired` や `Unknown` evidence を合成しません。
+pub fn selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationImplCandidateBuilderInputTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\source:
+    match selfhost_memo_trait_operation_impl_candidate_builder_drop_preflight_result source 0:
+        Result::Ok _drop_absent:
+            match selfhost_memo_trait_operation_impl_candidate_builder_method_facts_result module source:
+                Result::Ok method_table:
+                    match selfhost_memo_trait_operation_drop_impl_table_new:
+                        Result::Ok drop_table:
+                            selfhost_memo_trait_operation_impl_candidate_builder_from_tables_result method_table drop_table source
+                        Result::Err drop_alloc:
+                            selfhost_memo_trait_operation_method_body_table_free method_table
+                            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed drop_alloc
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_code a selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_indexed_operation_eq: index 付き operation payload が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `index` と `operation` の両方を比較します。index だけが同じでも、拒否対象 operation が異なれば同じ error payload ではありません。
+fn selfhost_memo_trait_operation_impl_candidate_builder_indexed_operation_eq %fn SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation fn SelfhostMemoTraitOperationImplCandidateBuilderIndexedOperation bool \a\b:
+    and:
+        eq a.index b.index
+        selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq: builder error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ error は payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_error_kind_eq %fn SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn SelfhostMemoTraitOperationImplCandidateBuilderErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed a_setup:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed b_setup:
+                    selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_setup b_setup
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed a_push:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed b_push:
+                    selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed a_scan_alloc:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed b_scan_alloc:
+                    selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_scan_alloc b_scan_alloc
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed a_read:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed b_read:
+                    eq a_read b_read
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed a_scan_push:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed b_scan_push:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_error_kind_eq a_scan_push b_scan_push
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected a_fact:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected b_fact:
+                    selfhost_memo_trait_operation_method_body_fact_orchestrator_error_kind_eq a_fact b_fact
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed a_drop_alloc:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed b_drop_alloc:
+                    selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_drop_alloc b_drop_alloc
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed a_output_alloc:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed b_output_alloc:
+                    selfhost_memo_trait_operation_impl_candidate_builder_std_error_kind_eq a_output_alloc b_output_alloc
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected a_body:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected b_body:
+                    selfhost_memo_trait_operation_body_check_resolver_error_kind_eq a_body b_body
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected a_candidate:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected b_candidate:
+                    selfhost_memo_trait_operation_purity_gate_error_kind_eq a_candidate b_candidate
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    true
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected a_lookup:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected b_lookup:
+                    selfhost_memo_trait_operation_impl_table_error_kind_eq a_lookup b_lookup
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected a_push_candidate:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected b_push_candidate:
+                    selfhost_memo_trait_operation_impl_table_error_kind_eq a_push_candidate b_push_candidate
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _b_drop_unsupported:
+                    false
+        SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof a_drop_unsupported:
+            match b:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _b_setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _b_scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _b_scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _b_fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _b_drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _b_output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _b_body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _b_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _b_lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _b_push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof b_drop_unsupported:
+                    selfhost_memo_trait_operation_impl_candidate_builder_indexed_operation_eq a_drop_unsupported b_drop_unsupported
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_accepted_len_eq: accepted summary の len が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_accepted_len_eq %fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok summary:
+            eq summary.len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_candidate_result_method_evidence_eq: candidate result の method body evidence が期待値か[返/かえ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_candidate_result_method_evidence_eq %fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn SelfhostMemoTraitOperationMethodBodyEvidence bool \result\expected:
+    match result:
+        Result::Ok candidate:
+            selfhost_memo_trait_operation_method_body_evidence_eq candidate.method_body expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq: accepted summary の operation candidate evidence が期待値か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - builder stage0 は evidence record や aggregate proof status を作りません。raw candidate に保存された method body evidence だけを確認します。
+//: - Drop は Phase 1 builder では accepted candidate にしないため false を返します。
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_accepted_method_evidence_eq %fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationMethodBodyEvidence bool \result\operation\expected:
+    match result:
+        Result::Ok summary:
+            match operation:
+                SelfhostMemoTraitOperationEvidenceKind::Copy:
+                    selfhost_memo_trait_operation_impl_candidate_builder_candidate_result_method_evidence_eq summary.copy_candidate expected
+                SelfhostMemoTraitOperationEvidenceKind::Drop:
+                    false
+                SelfhostMemoTraitOperationEvidenceKind::Eq:
+                    selfhost_memo_trait_operation_impl_candidate_builder_candidate_result_method_evidence_eq summary.eq_candidate expected
+                SelfhostMemoTraitOperationEvidenceKind::Hash:
+                    selfhost_memo_trait_operation_impl_candidate_builder_candidate_result_method_evidence_eq summary.hash_candidate expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_scan_required_error_result_eq: Eq root 欠落が scan required error になったか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_scan_required_error_result_eq %fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn i32 bool \result\expected_index:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected nested:
+                    let nested_result %Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind Result::Err nested
+                    selfhost_memo_trait_operation_method_body_fact_orchestrator_scan_required_error_result_eq nested_result expected_index
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _drop_unsupported:
+                    false
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_duplicate_error_result_eq: duplicate candidate が期待通り拒否されたか[返/かえ]す
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_duplicate_error_result_eq %fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind bool \result:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    true
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _push_candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof _drop_unsupported:
+                    false
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_error_result_eq: Drop input が explicit unsupported error になったか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `expected_index` と operation kind の両方を確認します。Drop 以外の operation で同じ error variant が出た場合は不整合として false を返します。
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_drop_unsupported_error_result_eq %fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn i32 bool \result\expected_index:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropOperationUnsupportedUntilResourceProof payload:
+                    and:
+                        eq payload.index expected_index
+                        selfhost_memo_trait_operation_evidence_kind_eq payload.operation SelfhostMemoTraitOperationEvidenceKind::Drop
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed _setup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourcePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanTableAllocFailed _scan_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodScanRecordPushFailed _scan_push:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::MethodFactBuildRejected _fact:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::DropTableAllocFailed _drop_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::OutputTableAllocFailed _output_alloc:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::BodyCheckRejected _body:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateRejected _candidate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected _lookup:
+                    false
+                SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidatePushRejected _push_candidate:
+                    false
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new %fn Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary \accepted\scan_missing\duplicate_rejected\drop_unsupported:
+    SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary accepted scan_missing duplicate_rejected drop_unsupported
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_accepted_summary_new: accepted summary を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_accepted_summary_new %fn i32 fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary \len\copy_candidate\eq_candidate\hash_candidate:
+    SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary len copy_candidate eq_candidate hash_candidate
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_header: stage0 用 public impl header input を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_header %fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \ordinal\target_shape_hash\trait_shape_hash:
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 720101 some ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash some trait_shape_hash 0 0
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record: stage0 input table へ record を[追加/ついか]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record %impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn i32 impure fn Option SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \table\type_id\operation\source_identity\ordinal\target_shape_hash\trait_shape_hash\method_body_root:
+    let impl_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_candidate_builder_stage0_header ordinal target_shape_hash trait_shape_hash
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new source_identity 0 some trait_shape_hash
+    let record %SelfhostMemoTraitOperationImplCandidateBuilderInput selfhost_memo_trait_operation_impl_candidate_builder_input_new type_id operation impl_header trait_application some target_shape_hash method_body_root 16
+    selfhost_memo_trait_operation_impl_candidate_builder_input_table_push table record
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new: stage0 source table を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new %impure fn void Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \void:
+    match selfhost_memo_trait_operation_impl_candidate_builder_input_table_new:
+        Result::Ok table:
+            Result::Ok table
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::InputTableAllocFailed e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_owned_source: source owner を[閉/と]じながら builder result の len を[返/かえ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_owned_source %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\source:
+    match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result module &source:
+        Result::Ok table:
+            let table_len %i32 selfhost_memo_trait_operation_impl_table_len &table
+            selfhost_memo_trait_operation_impl_table_free table
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            Result::Ok table_len
+        Result::Err e:
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_summary_from_table: output table owner を[閉/と]じて accepted summary を[返/かえ]す
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_summary_from_table %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary \table\type_id:
+    let accepted_len %i32 selfhost_memo_trait_operation_impl_table_len &table
+    let copy_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_candidate_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+    let eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_candidate_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+    let hash_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_candidate_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Hash
+    selfhost_memo_trait_operation_impl_table_free table
+    selfhost_memo_trait_operation_impl_candidate_builder_accepted_summary_new accepted_len copy_candidate eq_candidate hash_candidate
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_owned_source: source owner を[閉/と]じて accepted summary を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_owned_source %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\source\type_id:
+    match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result module &source:
+        Result::Ok table:
+            let summary %SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_summary_from_table table type_id
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            Result::Ok summary
+        Result::Err e:
+            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free source
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_source: accepted path の input table を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_source %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \type_id\registry\target_shape_hash\copy_shape_hash\eq_shape_hash\hash_shape_hash\pure_root\external_root:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Copy registry.copy_source 1 target_shape_hash copy_shape_hash none:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table1 type_id SelfhostMemoTraitOperationEvidenceKind::Eq registry.eq_source 2 target_shape_hash eq_shape_hash some pure_root:
+                        Result::Ok table2:
+                            selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table2 type_id SelfhostMemoTraitOperationEvidenceKind::Hash registry.hash_source 3 target_shape_hash hash_shape_hash some external_root
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted: accepted path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\target_shape_hash\copy_shape_hash\eq_shape_hash\hash_shape_hash\pure_root\external_root:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted_source type_id registry target_shape_hash copy_shape_hash eq_shape_hash hash_shape_hash pure_root external_root:
+        Result::Ok source:
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_accepted_owned_source module source type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_scan_missing: Eq root 欠落 path を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_scan_missing %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\target_shape_hash\eq_shape_hash:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq registry.eq_source 5 target_shape_hash eq_shape_hash none:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_owned_source module table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate: duplicate candidate path を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\target_shape_hash\copy_shape_hash:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Copy registry.copy_source 6 target_shape_hash copy_shape_hash none:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table1 type_id SelfhostMemoTraitOperationEvidenceKind::Copy registry.copy_source 7 target_shape_hash copy_shape_hash none:
+                        Result::Ok table2:
+                            selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_owned_source module table2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_drop_unsupported: Drop input を Phase 1 unsupported として拒否する path を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_drop_unsupported %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\registry\target_shape_hash\drop_shape_hash:
+    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_source_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Drop registry.drop_source 8 target_shape_hash drop_shape_hash none:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_impl_candidate_builder_stage0_run_len_owned_source module table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes: trait shape が揃った状態で smoke を[実行/じっこう]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\pure_root\external_root\registry\target_shape_hash\copy_shape_hash\drop_shape_hash\eq_shape_hash\hash_shape_hash:
+    let accepted %Result SelfhostMemoTraitOperationImplCandidateBuilderAcceptedSummary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_accepted &module type_id registry target_shape_hash copy_shape_hash eq_shape_hash hash_shape_hash pure_root external_root
+    let scan_missing %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_scan_missing &module type_id registry target_shape_hash eq_shape_hash
+    let duplicate_rejected %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_duplicate &module type_id registry target_shape_hash copy_shape_hash
+    let drop_unsupported %Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind selfhost_memo_trait_operation_impl_candidate_builder_stage0_drop_unsupported &module type_id registry target_shape_hash drop_shape_hash
+    selfhost_hir_module_free module
+    Result::Ok selfhost_memo_trait_operation_impl_candidate_builder_stage0_summary_new accepted scan_missing duplicate_rejected drop_unsupported
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result: operation source から shape hash を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \source:
+    match selfhost_memo_trait_operation_trait_application_shape_hash_result source 0:
+        Result::Ok shape_hash:
+            Result::Ok shape_hash
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry: trusted registry から shape hash を[準備/じゅんび]する
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\type_id\pure_root\external_root:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result registry.copy_source:
+                Result::Ok copy_shape_hash:
+                    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result registry.drop_source:
+                        Result::Ok drop_shape_hash:
+                            match selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result registry.eq_source:
+                                Result::Ok eq_shape_hash:
+                                    match selfhost_memo_trait_operation_impl_candidate_builder_stage0_shape_result registry.hash_source:
+                                        Result::Ok hash_shape_hash:
+                                            selfhost_memo_trait_operation_impl_candidate_builder_stage0_with_shapes module type_id pure_root external_root registry 8301 copy_shape_hash drop_shape_hash eq_shape_hash hash_shape_hash
+                                        Result::Err e:
+                                            selfhost_hir_module_free module
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_hir_module_free module
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_hir_module_free module
+                            Result::Err e
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err classifier_error:
+            selfhost_hir_module_free module
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0_external: ExternalIo expression までの smoke HIR module を[作/つく]る
+fn selfhost_memo_trait_operation_impl_candidate_builder_stage0_external %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \module\pure_root\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "read" selfhost_def_id_new 4601 type_id SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok external_alloc:
+            let external_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &external_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module external_alloc
+            selfhost_memo_trait_operation_impl_candidate_builder_stage0_registry module1 type_id pure_root external_root
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed e
+
+//: selfhost_memo_trait_operation_impl_candidate_builder_stage0: impl candidate builder の smoke API
+//:
+//: [目的/もくてき]:
+//: - accepted path は Copy / Eq / Hash の 3 candidate を作ります。
+//: - Eq は pure method body、Hash は ExternalIo root、Copy は method body 不要として raw candidate に保存されます。
+//: - Eq root 欠落は scan rejection、Copy duplicate は builder duplicate rejection、Drop input は Phase 1 unsupported rejection として返ることを確認します。
+pub fn selfhost_memo_trait_operation_impl_candidate_builder_stage0 %impure fn void Result SelfhostMemoTraitOperationImplCandidateBuilderStage0Summary SelfhostMemoTraitOperationImplCandidateBuilderErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 10101
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok pure_alloc:
+                    let pure_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &pure_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module pure_alloc
+                    selfhost_memo_trait_operation_impl_candidate_builder_stage0_external module1 pure_root type_id span
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::HirSetupFailed e

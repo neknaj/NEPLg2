@@ -59779,3 +59779,41 @@ MERGE_APPROVED
 
 - actual public impl candidate materializer が typed record table を作ってこの boundary へ渡す candidate builder / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保てるため後続最適化として扱う。
+
+## 2026-06-13 selfhost operation impl candidate builder checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / Option / enum error、網羅 match、責務分割、純粋性、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針、line count / doc comment length cap 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl` を追加した。
+- actual public impl materializer が後続 stage で作る typed record table から、method body fact table、body check resolver、operation impl candidate table を owner-safe に接続する checker-layer builder boundary とした。
+- builder input は `SelfhostTypeId`、operation kind、typed public impl header input、typed trait application input、resolved target type shape evidence、optional method body root、fuel だけを持つ。source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string は authority にしない。
+- method body fact は既存 `memo_trait_operation_method_body_fact_orchestrator` を通して作る。builder が fact constructor や low-level table push を直接呼んで既存 cleanup / typed error contract を迂回しないようにした。
+- Drop proof はこの slice では導出しない。Phase 1 では Drop preflight を method fact scan より前に実行し、Drop operation input を `DropOperationUnsupportedUntilResourceProof(index, operation)` で明示的に拒否する。method body root が混入した Drop input でも method fact scan や purity gate へ進めない。空 table から `NoDropRequired` を推測しないだけでなく、未証明の `Unknown` evidence もこの builder では作らない。
+- output candidate は duplicate probe、body check resolver、purity gate、impl table push の順で作る。同一 `SelfhostTypeId` / operation kind の candidate は first-wins ではなく `CandidateDuplicate` で拒否する。
+- builder は producer input、operation evidence record、aggregate proof status を作らない。public API は typed input table から `SelfhostMemoTraitOperationImplTable` owner を返すところで止め、下流の impl table / producer API が evidence record へ変換する。
+- `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、candidate builder boundary 接続済みと後続 actual materializer / Drop proof / generic binder の残件を整理した。
+
+### subagent_review
+
+- Tesla review は Blocker なし。ただし Required として、Drop operation は Phase 1 では `Unknown` / `Missing` evidence candidate を作らず explicit typed error で fail-closed にすること、candidate 作成は `selfhost_memo_trait_operation_impl_candidate_from_checks_result` に限定すること、builder public API は impl candidate table owner を返すだけにすること、producer input / evidence record / aggregate proof status を builder で生成しないこと、source policy でこれらを固定することが指摘された。
+- 対応として、Drop input を `DropOperationUnsupportedUntilResourceProof(index, operation)` で拒否し、accepted stage0 を Copy / Eq / Hash の 3 candidate に限定した。stage0 は raw candidate の method body evidence を確認し、Drop は独立した unsupported error smoke で確認する。source policy には producer input / evidence record / aggregate status 生成禁止を追加した。
+- Tesla 再レビューでも Blocker はなかった。Required として、source policy の禁止 regex に direct producer API (`SelfhostMemoTraitOperationEvidenceProducerInput`、producer input / status / record result API) を追加すること、append candidate の duplicate / body-check / purity-gate rejection で output owner を閉じることを contract で固定することが指摘された。対応として、禁止 regex と branch order assertion を追加した。
+- Anscombe review も Blocker はなかった。Required として、Drop record に method body root が混入した場合に method fact scan の `UnexpectedMethodBodyRoot` が先に出る可能性があり、「Drop input は Phase 1 で常に `DropOperationUnsupportedUntilResourceProof`」という契約とずれる点が指摘された。対応として、public builder entry の先頭に Drop preflight を追加し、Drop input を method fact scan より前に拒否する方針へ統一した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl -o tmp/selfhost_impl_candidate_builder_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+
+### residual
+
+- actual public impl candidate materializer / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- operation impl table lookup の sorted index 化、method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の operation bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保てるため後続最適化として扱う。

@@ -170,6 +170,25 @@ subagent review では Bohr が、full public surface orchestration へ直接進
 
 この checkpoint 後の残件は、actual public impl candidate materializer が typed record table を作ってこの boundary へ渡す candidate builder / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
 
+## 2026-06-13 selfhost operation impl candidate builder checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl` を追加し、actual public impl materializer が後続 stage で作る typed record table から、method body fact table、body check resolver、operation impl candidate table を接続する checker-layer boundary を作った。
+
+builder input は `SelfhostTypeId`、operation kind、typed public impl header input、typed trait application input、resolved target type shape evidence、optional method body root、fuel だけを持つ。source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から operation や method root を推測しない。input table と HIR module は caller-owned borrow であり、builder は閉じない。
+
+内部では input record を method body fact scan record table へ写し、既存 `memo_trait_operation_method_body_fact_orchestrator` で complete method body fact table を作る。その後、body check resolver と operation impl table を接続し、Copy / Eq / Hash candidate は `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を通してから output table へ push する。producer input や operation evidence record への変換は下流の impl table / producer API の責務であり、この builder では行わない。
+
+Drop proof はこの slice で導出しない。Phase 1 では Drop preflight を method fact scan より前に実行し、Drop operation input を `DropOperationUnsupportedUntilResourceProof(index, operation)` で明示的に拒否する。これは method body root が混入した Drop input でも同じであり、method fact scan や purity gate へ進めない。空 table から `NoDropRequired` を推測しないだけでなく、未証明の `Unknown` evidence もこの builder では作らない。Drop なし証拠と pure Drop proof は上流 Resource proof stage が明示的に作り、後続 slice で candidate 化する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js` で固定し、source policy runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、typed input payload、nested typed error、method fact orchestrator 経由、Drop unsupported typed error、producer input / evidence record / aggregate status 生成禁止、duplicate rejection、owner cleanup、line count / doc comment length cap 禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl -o tmp/selfhost_impl_candidate_builder_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
+
+この checkpoint 後の残件は、actual public impl candidate materializer / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の operation bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。
