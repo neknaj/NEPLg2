@@ -3,10 +3,28 @@
 //:
 //: ### [目的/もくてき]
 //: - SFNT table directory、numeric metrics、name table parser、cmap glyph lookup を責務別 submodule から再公開します。
-//: - 実装本体を分割し、metadata parser、name table parser、cmap parser の契約を個別に検査できるようにします。
+//: - 実装本体を分割し、metadata parser、name table parser、cmap parser、hmtx parser の契約を個別に検査できるようにします。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_font_sfnt_facade_doc1\" count=1 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"table length\" expected=\"3\" actual=\"3\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/font/sfnt" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let record %GuiSfntTableRecord gui_sfnt_table_record 1 2 3
+//:     let actual %i32 gui_sfnt_table_record_length &record
+//:     let report0 %TestReport test_report_new "alloc_gui_font_sfnt_facade_doc1"
+//:     let report %TestReport test_report_push report0 assert_eq_i32 "table length" 3 actual
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
 
 #indent 4
 
 pub #import "./sfnt/metadata" as @merge
 pub #import "./sfnt/name" as @merge
 pub #import "./sfnt/cmap" as @merge
+pub #import "./sfnt/hmtx" as @merge

@@ -8,7 +8,7 @@ valid standalone sfnt metrics 用の `head` / `hhea` / `maxp` を持つ最小 SF
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"gui_sfnt_parser_reads_numeric_metrics_and_typed_errors\" count=37 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"ascent\" expected=\"1900\" actual=\"1900\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"descent\" expected=\"-500\" actual=\"-500\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"line gap\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"ttf container\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"truncated header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"missing maxp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"high bit table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"ttc face required\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"ttc out of range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"ttc oversized face count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"single face rejects one\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"family name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"subfamily name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"full name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"missing name table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"unsupported name encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"odd utf16 name length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"non ascii name character\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"name string offset overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=eq_i32 label=\"cmap glyph A\" expected=\"36\" actual=\"36\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"cmap missing glyph\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"cmap outside bmp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"missing cmap table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"unsupported cmap encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"unsupported selected cmap format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"cmap glyph zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"malformed cmap segment count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=eq_i32 label=\"cmap glyph array A\" expected=\"36\" actual=\"36\" message=\"\"\nassertion index=32 status=ok kind=bool label=\"cmap glyph array zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=33 status=ok kind=bool label=\"cmap glyph array range malformed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=34 status=ok kind=bool label=\"cmap subtable overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=35 status=ok kind=bool label=\"short cmap header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=36 status=ok kind=bool label=\"short cmap subtable\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_sfnt_parser_reads_numeric_metrics_and_typed_errors\" count=47 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"ascent\" expected=\"1900\" actual=\"1900\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"descent\" expected=\"-500\" actual=\"-500\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"line gap\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"ttf container\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"truncated header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"missing maxp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"high bit table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"ttc face required\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"ttc out of range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"ttc oversized face count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"single face rejects one\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"family name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"subfamily name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"full name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"missing name table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"unsupported name encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"odd utf16 name length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"non ascii name character\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"name string offset overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=eq_i32 label=\"cmap glyph A\" expected=\"36\" actual=\"36\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"cmap missing glyph\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"cmap outside bmp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"missing cmap table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"unsupported cmap encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"unsupported selected cmap format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"cmap glyph zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"malformed cmap segment count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=eq_i32 label=\"cmap glyph array A\" expected=\"36\" actual=\"36\" message=\"\"\nassertion index=32 status=ok kind=bool label=\"cmap glyph array zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=33 status=ok kind=bool label=\"cmap glyph array range malformed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=34 status=ok kind=bool label=\"cmap subtable overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=35 status=ok kind=bool label=\"short cmap header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=36 status=ok kind=bool label=\"short cmap subtable\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=37 status=ok kind=eq_i32 label=\"hmtx glyph1 advance\" expected=\"600\" actual=\"600\" message=\"\"\nassertion index=38 status=ok kind=eq_i32 label=\"hmtx glyph1 lsb\" expected=\"20\" actual=\"20\" message=\"\"\nassertion index=39 status=ok kind=eq_i32 label=\"hmtx glyph3 advance\" expected=\"600\" actual=\"600\" message=\"\"\nassertion index=40 status=ok kind=eq_i32 label=\"hmtx glyph3 lsb\" expected=\"-40\" actual=\"-40\" message=\"\"\nassertion index=41 status=ok kind=bool label=\"missing hmtx table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=42 status=ok kind=bool label=\"short hhea for hmtx\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=43 status=ok kind=bool label=\"zero hmetrics count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=44 status=ok kind=bool label=\"too many hmetrics\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=45 status=ok kind=bool label=\"hmtx glyph outside maxp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=46 status=ok kind=bool label=\"short hmtx declared length\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -419,6 +419,25 @@ fn sfnt_push_cmap_records %impure fn ByteBuilder impure fn i32 Result ByteBuilde
                         Result::Ok b3:
                             sfnt_push_record b3 sfnt_tag4 'c' 'm' 'a' 'p' 112 cmap_length
 
+fn sfnt_push_hmtx_records %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\hhea_length\hmtx_length:
+    let head_offset %i32 76
+    let hhea_offset %i32 96
+    let maxp_offset %i32 add hhea_offset hhea_length
+    let hmtx_offset %i32 add maxp_offset 6
+    match sfnt_push_record builder sfnt_tag4 'h' 'e' 'a' 'd' head_offset 20:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_record b1 sfnt_tag4 'h' 'h' 'e' 'a' hhea_offset hhea_length:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_record b2 sfnt_tag4 'm' 'a' 'x' 'p' maxp_offset 6:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_record b3 sfnt_tag4 'h' 'm' 't' 'x' hmtx_offset hmtx_length
+
 fn sfnt_push_cmap_record %impure fn ByteBuilder impure fn i32 impure fn i32 impure fn i32 Result ByteBuilder str \builder\platform_id\encoding_id\offset:
     match sfnt_push_u16_be builder platform_id:
         Result::Err message:
@@ -686,6 +705,85 @@ fn sfnt_push_short_cmap_subtable_table %impure fn ByteBuilder Result ByteBuilder
                         Result::Ok b3:
                             sfnt_push_u16_be b3 4
 
+fn sfnt_push_hhea_for_hmtx %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\hhea_length\number_of_hmetrics:
+    match sfnt_push_zero_run builder 4:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1900:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 65036:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 200:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    if:
+                                        lt hhea_length 36
+                                        then:
+                                            if:
+                                                gt hhea_length 10
+                                                then:
+                                                    sfnt_push_zero_run b4 sub hhea_length 10
+                                                else:
+                                                    Result::Ok b4
+                                        else:
+                                            match sfnt_push_zero_run b4 24:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b5:
+                                                    match sfnt_push_u16_be b5 number_of_hmetrics:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b6:
+                                                            sfnt_push_zero_run b6 sub hhea_length 36
+
+fn sfnt_push_hmtx_metric_tables %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\hhea_length\number_of_hmetrics:
+    match sfnt_push_zero_run builder 18:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 2048:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_hhea_for_hmtx b2 hhea_length number_of_hmetrics:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u32_be b3 65536:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_u16_be b4 4
+
+fn sfnt_push_valid_hmtx_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 500:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 10:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 600:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 20:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_u16_be b4 30:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            sfnt_push_u16_be b5 65496
+
 fn sfnt_push_named_sfnt_prefix %impure fn ByteBuilder Result ByteBuilder str \builder:
     match sfnt_push_header builder 4:
         Result::Err message:
@@ -707,6 +805,17 @@ fn sfnt_push_cmap_sfnt_prefix %impure fn ByteBuilder impure fn i32 Result ByteBu
                     Result::Err message
                 Result::Ok b2:
                     sfnt_push_valid_tables b2
+
+fn sfnt_push_hmtx_sfnt_prefix %impure fn ByteBuilder impure fn i32 impure fn i32 impure fn i32 Result ByteBuilder str \builder\hhea_length\number_of_hmetrics\hmtx_length:
+    match sfnt_push_header builder 4:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_hmtx_records b1 hhea_length hmtx_length:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    sfnt_push_hmtx_metric_tables b2 hhea_length number_of_hmetrics
 
 fn sfnt_finish %impure fn Result ByteBuilder str Result ByteBuf str \builder_result:
     match builder_result:
@@ -927,6 +1036,66 @@ fn build_short_cmap_subtable_sfnt %impure fn void Result ByteBuf str \void:
                         Result::Err message
                     Result::Ok b1:
                         sfnt_push_short_cmap_subtable_table b1
+
+fn build_valid_hmtx_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 150:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_hmtx_sfnt_prefix b0 36 2 12:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_valid_hmtx_table b1
+
+fn build_short_hhea_hmtx_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 124:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_hmtx_sfnt_prefix b0 10 2 12:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_valid_hmtx_table b1
+
+fn build_zero_hmetrics_count_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 150:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_hmtx_sfnt_prefix b0 36 0 12:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_valid_hmtx_table b1
+
+fn build_too_many_hmetrics_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 150:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_hmtx_sfnt_prefix b0 36 5 12:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_valid_hmtx_table b1
+
+fn build_short_hmtx_length_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 150:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_hmtx_sfnt_prefix b0 36 2 10:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_valid_hmtx_table b1
 
 fn build_missing_maxp_sfnt %impure fn void Result ByteBuf str \void:
     match byte_builder_with_capacity 74:
@@ -1160,6 +1329,33 @@ fn sfnt_cmap_error_is %fn Result GuiGlyphId GuiSfntParseError fn GuiSfntParseErr
                 _:
                     false
         Result::Ok _glyph:
+            false
+
+fn sfnt_hmtx_error_is %fn Result GuiSfntHorizontalMetric GuiSfntParseError fn GuiSfntParseErrorKind bool \result\expected:
+    match result:
+        Result::Err error:
+            match expected:
+                GuiSfntParseErrorKind::MissingTable:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MissingTable:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::MalformedHmtxRecord:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MalformedHmtxRecord:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::MissingGlyphMetric:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MissingGlyphMetric:
+                            true
+                        _:
+                            false
+                _:
+                    false
+        Result::Ok _metric:
             false
 
 fn sfnt_option_str_eq %fn Option str fn str bool \value\expected:
@@ -1398,11 +1594,77 @@ fn append_cmap_cases %impure fn TestReport TestReport \report0:
             io_bytebuf_free bytes
             test_report_push report11 assert "short cmap subtable" short_subtable_ok
 
+fn append_hmtx_cases %impure fn TestReport TestReport \report0:
+    let glyph1 %GuiGlyphId unwrap_ok gui_glyph_id_result 1
+    let glyph3 %GuiGlyphId unwrap_ok gui_glyph_id_result 3
+    let glyph4 %GuiGlyphId unwrap_ok gui_glyph_id_result 4
+    let report1 %TestReport match build_valid_hmtx_sfnt:
+        Result::Err _message:
+            test_report_push report0 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_horizontal_metric &bytes none glyph1:
+                Result::Err _error:
+                    test_report_push report0 assert false
+                Result::Ok metric1:
+                    let r1 %TestReport test_report_push report0 assert_eq_i32 "hmtx glyph1 advance" 600 gui_sfnt_horizontal_metric_advance_width &metric1
+                    test_report_push r1 assert_eq_i32 "hmtx glyph1 lsb" 20 gui_sfnt_horizontal_metric_left_side_bearing &metric1
+            let metric3_report %TestReport match gui_sfnt_lookup_horizontal_metric &bytes none glyph3:
+                Result::Err _error:
+                    test_report_push next_report assert false
+                Result::Ok metric3:
+                    let r2 %TestReport test_report_push next_report assert_eq_i32 "hmtx glyph3 advance" 600 gui_sfnt_horizontal_metric_advance_width &metric3
+                    test_report_push r2 assert_eq_i32 "hmtx glyph3 lsb" -40 gui_sfnt_horizontal_metric_left_side_bearing &metric3
+            io_bytebuf_free bytes
+            metric3_report
+    let report2 %TestReport match build_valid_sfnt:
+        Result::Err _message:
+            test_report_push report1 assert false
+        Result::Ok bytes:
+            let missing_ok %bool sfnt_hmtx_error_is gui_sfnt_lookup_horizontal_metric &bytes none glyph1 GuiSfntParseErrorKind::MissingTable
+            io_bytebuf_free bytes
+            test_report_push report1 assert "missing hmtx table" missing_ok
+    let report3 %TestReport match build_short_hhea_hmtx_sfnt:
+        Result::Err _message:
+            test_report_push report2 assert false
+        Result::Ok bytes:
+            let short_hhea_ok %bool sfnt_hmtx_error_is gui_sfnt_lookup_horizontal_metric &bytes none glyph1 GuiSfntParseErrorKind::MalformedHmtxRecord
+            io_bytebuf_free bytes
+            test_report_push report2 assert "short hhea for hmtx" short_hhea_ok
+    let report4 %TestReport match build_zero_hmetrics_count_sfnt:
+        Result::Err _message:
+            test_report_push report3 assert false
+        Result::Ok bytes:
+            let zero_count_ok %bool sfnt_hmtx_error_is gui_sfnt_lookup_horizontal_metric &bytes none glyph1 GuiSfntParseErrorKind::MalformedHmtxRecord
+            io_bytebuf_free bytes
+            test_report_push report3 assert "zero hmetrics count" zero_count_ok
+    let report5 %TestReport match build_too_many_hmetrics_sfnt:
+        Result::Err _message:
+            test_report_push report4 assert false
+        Result::Ok bytes:
+            let too_many_ok %bool sfnt_hmtx_error_is gui_sfnt_lookup_horizontal_metric &bytes none glyph1 GuiSfntParseErrorKind::MalformedHmtxRecord
+            io_bytebuf_free bytes
+            test_report_push report4 assert "too many hmetrics" too_many_ok
+    let report6 %TestReport match build_valid_hmtx_sfnt:
+        Result::Err _message:
+            test_report_push report5 assert false
+        Result::Ok bytes:
+            let outside_ok %bool sfnt_hmtx_error_is gui_sfnt_lookup_horizontal_metric &bytes none glyph4 GuiSfntParseErrorKind::MissingGlyphMetric
+            io_bytebuf_free bytes
+            test_report_push report5 assert "hmtx glyph outside maxp" outside_ok
+    match build_short_hmtx_length_sfnt:
+        Result::Err _message:
+            test_report_push report6 assert false
+        Result::Ok bytes:
+            let short_len_ok %bool sfnt_hmtx_error_is gui_sfnt_lookup_horizontal_metric &bytes none glyph1 GuiSfntParseErrorKind::MalformedHmtxRecord
+            io_bytebuf_free bytes
+            test_report_push report6 assert "short hmtx declared length" short_len_ok
+
 fn main %impure fn void i32 \void:
     let report0 %TestReport parse_valid_values
     let report1 %TestReport append_error_cases report0
     let report2 %TestReport append_name_cases report1
     let report3 %TestReport append_cmap_cases report2
-    let shown test_report_print_stdout report3
+    let report4 %TestReport append_hmtx_cases report3
+    let shown test_report_print_stdout report4
     test_report_exit_code shown
 ```

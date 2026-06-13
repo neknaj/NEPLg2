@@ -1,0 +1,329 @@
+//: # alloc/gui/font/sfnt/hmtx
+//: SFNT horizontal metrics table parser
+//:
+//: ### [目的/もくてき]
+//: - SFNT `hmtx` table から checked glyph の advance width と left side bearing を[読/よ]みます。
+//: - platform text measurement や fixed-cell utility ではなく、font bytes 内の `hhea` / `maxp` / `hmtx` だけを authority とします。
+//:
+//: ### [契約/けいやく]
+//: - `hmtx` table がない場合は `MissingTable` を[返/かえ]します。
+//: - `hhea.numberOfHMetrics` が読めない場合、count が不正な場合、declared `hmtx.length` が不足する場合は `MalformedHmtxRecord` です。
+//: - `GuiGlyphId` の raw value が `maxp.numGlyphs` の範囲外なら `MissingGlyphMetric` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - metadata parse は table 数 `n` に対して O(n)、metric lookup 自体は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/sfnt" as *
+//: ```
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: "test_report name=\"alloc_gui_font_sfnt_hmtx_doc1\" count=2 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"advance width\" expected=\"600\" actual=\"600\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"left side bearing\" expected=\"20\" actual=\"20\" message=\"\"\n"
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/gui/font/sfnt" as *
+//:| #import "core/gui/font" as *
+//:| #import "core/result" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 1
+//:     let metric %GuiSfntHorizontalMetric gui_sfnt_horizontal_metric glyph 600 20
+//:     let advance_width %i32 gui_sfnt_horizontal_metric_advance_width &metric
+//:     let left_side_bearing %i32 gui_sfnt_horizontal_metric_left_side_bearing &metric
+//:     let report0 %TestReport test_report_new "alloc_gui_font_sfnt_hmtx_doc1"
+//:     let report1 %TestReport test_report_push report0 assert_eq_i32 "advance width" 600 advance_width
+//:     let report %TestReport test_report_push report1 assert_eq_i32 "left side bearing" 20 left_side_bearing
+//:     let shown test_report_print_stdout report
+//:     test_report_exit_code shown
+//: ```
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/field" as field
+#import "core/gui/font" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./metadata" as *
+
+//: GuiSfntHorizontalMetric: `hmtx` から得た横方向 metric
+//:
+//: [目的/もくてき]:
+//: - outline bounds が未解析の段階でも、layout が必要とする horizontal advance と left side bearing を typed value として[運/はこ]びます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntHorizontalMetric:
+    glyph %GuiGlyphId
+    advance_width %i32
+    left_side_bearing %i32
+
+impl Clone for GuiSfntHorizontalMetric:
+    fn clone %fn &GuiSfntHorizontalMetric GuiSfntHorizontalMetric \metric:
+        *metric
+
+impl Copy for GuiSfntHorizontalMetric:
+    fn copy_mark %fn GuiSfntHorizontalMetric GuiSfntHorizontalMetric \metric:
+        metric
+
+//: gui_sfnt_horizontal_metric: horizontal metric value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_horizontal_metric %fn GuiGlyphId fn i32 fn i32 GuiSfntHorizontalMetric \glyph\advance_width\left_side_bearing:
+    GuiSfntHorizontalMetric glyph advance_width left_side_bearing
+
+//: gui_sfnt_horizontal_metric_glyph: metric の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_horizontal_metric_glyph %fn &GuiSfntHorizontalMetric GuiGlyphId \metric:
+    *field::get_ref metric "glyph"
+
+//: gui_sfnt_horizontal_metric_advance_width: advance width を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_horizontal_metric_advance_width %fn &GuiSfntHorizontalMetric i32 \metric:
+    *field::get_ref metric "advance_width"
+
+//: gui_sfnt_horizontal_metric_left_side_bearing: left side bearing を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_horizontal_metric_left_side_bearing %fn &GuiSfntHorizontalMetric i32 \metric:
+    *field::get_ref metric "left_side_bearing"
+
+//: gui_sfnt_hmtx_checked_range: file byte range を overflow なしで[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - table-derived offset を読む前に、negative range と buffer 外 range を typed error に[変換/へんかん]します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_checked_range %fn &ByteBuf fn i32 fn i32 fn GuiSfntParseErrorKind Result unit GuiSfntParseError \bytes\offset\size\kind:
+    let total %i32 io_bytebuf_len_ref bytes
+    if:
+        or lt offset 0 lt size 0
+        then:
+            Result::Err gui_sfnt_parse_error kind offset
+        else:
+            if:
+                gt offset total
+                then:
+                    Result::Err gui_sfnt_parse_error kind offset
+                else:
+                    if:
+                        gt size sub total offset
+                        then:
+                            Result::Err gui_sfnt_parse_error kind offset
+                        else:
+                            Result::Ok unit
+
+//: gui_sfnt_hmtx_read_u8: 1 byte を typed range error 付きで[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_read_u8 %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_hmtx_checked_range bytes offset 1 kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match io_bytebuf_byte_at bytes offset:
+                Option::Some byte:
+                    Result::Ok byte
+                Option::None:
+                    Result::Err gui_sfnt_parse_error kind offset
+
+//: gui_sfnt_hmtx_read_u16_be: big-endian u16 を i32 として[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_read_u16_be %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_hmtx_read_u8 bytes offset kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok hi:
+            match gui_sfnt_hmtx_read_u8 bytes add offset 1 kind:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok lo:
+                    Result::Ok add shl hi 8 lo
+
+//: gui_sfnt_hmtx_read_i16_be: big-endian i16 を符号拡張して[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_read_i16_be %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_hmtx_read_u16_be bytes offset kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok raw:
+            if:
+                ge raw 32768
+                then:
+                    Result::Ok sub raw 65536
+                else:
+                    Result::Ok raw
+
+//: gui_sfnt_hmtx_table_relative_range_is_valid: declared table length 内の相対 range か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_table_relative_range_is_valid %fn GuiSfntTableRecord fn i32 fn i32 bool \table\offset\size:
+    let table_length %i32 gui_sfnt_table_record_length &table
+    if:
+        or lt offset 0 lt size 0
+        then:
+            false
+        else:
+            if:
+                gt offset table_length
+                then:
+                    false
+                else:
+                    le size sub table_length offset
+
+//: gui_sfnt_hmtx_required_length_is_valid: longHorMetric と lsb array が declared length に[収/おさ]まるか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_required_length_is_valid %fn GuiSfntTableRecord fn i32 fn i32 bool \hmtx\number_of_hmetrics\num_glyphs:
+    let long_metric_bytes %i32 mul number_of_hmetrics 4
+    let bearing_count %i32 sub num_glyphs number_of_hmetrics
+    let bearing_bytes %i32 mul bearing_count 2
+    let required_length %i32 add long_metric_bytes bearing_bytes
+    le required_length gui_sfnt_table_record_length &hmtx
+
+//: gui_sfnt_hmtx_read_number_of_metrics: `hhea.numberOfHMetrics` を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - F4a metadata の `hhea.length >= 10` とは分け、hmtx lookup だけで offset 34 を[要求/ようきゅう]します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_read_number_of_metrics %fn &ByteBuf fn GuiSfntTableRecord Result i32 GuiSfntParseError \bytes\hhea:
+    if:
+        lt gui_sfnt_table_record_length &hhea 36
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedHmtxRecord gui_sfnt_table_record_offset &hhea
+        else:
+            gui_sfnt_hmtx_read_u16_be bytes add gui_sfnt_table_record_offset &hhea 34 GuiSfntParseErrorKind::MalformedHmtxRecord
+
+//: gui_sfnt_hmtx_validate_counts: `numberOfHMetrics` と `numGlyphs` の関係を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_validate_counts %fn i32 fn i32 fn i32 Result unit GuiSfntParseError \number_of_hmetrics\num_glyphs\offset:
+    if:
+        or le number_of_hmetrics 0 gt number_of_hmetrics num_glyphs
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedHmtxRecord offset
+        else:
+            Result::Ok unit
+
+//: gui_sfnt_hmtx_checked_glyph_raw: metric lookup 用の glyph raw range を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_checked_glyph_raw %fn GuiGlyphId fn i32 Result i32 GuiSfntParseError \glyph\num_glyphs:
+    let raw %i32 gui_glyph_id_raw &glyph
+    if:
+        or le raw 0 ge raw num_glyphs
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphMetric raw
+        else:
+            Result::Ok raw
+
+//: gui_sfnt_hmtx_read_long_metric: longHorMetric entry から advance と lsb を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_read_long_metric %fn &ByteBuf fn GuiSfntTableRecord fn GuiGlyphId fn i32 Result GuiSfntHorizontalMetric GuiSfntParseError \bytes\hmtx\glyph\relative_offset:
+    if:
+        not gui_sfnt_hmtx_table_relative_range_is_valid hmtx relative_offset 4
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedHmtxRecord add gui_sfnt_table_record_offset &hmtx relative_offset
+        else:
+            let file_offset %i32 add gui_sfnt_table_record_offset &hmtx relative_offset
+            match gui_sfnt_hmtx_read_u16_be bytes file_offset GuiSfntParseErrorKind::MalformedHmtxRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok advance_width:
+                    match gui_sfnt_hmtx_read_i16_be bytes add file_offset 2 GuiSfntParseErrorKind::MalformedHmtxRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok left_side_bearing:
+                            Result::Ok gui_sfnt_horizontal_metric glyph advance_width left_side_bearing
+
+//: gui_sfnt_hmtx_read_bearing_array_metric: 共有 advance と後続 lsb array から metric を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_read_bearing_array_metric %fn &ByteBuf fn GuiSfntTableRecord fn GuiGlyphId fn i32 fn i32 Result GuiSfntHorizontalMetric GuiSfntParseError \bytes\hmtx\glyph\number_of_hmetrics\glyph_raw:
+    let advance_relative_offset %i32 mul sub number_of_hmetrics 1 4
+    let bearing_relative_offset %i32 add mul number_of_hmetrics 4 mul sub glyph_raw number_of_hmetrics 2
+    if:
+        not and gui_sfnt_hmtx_table_relative_range_is_valid hmtx advance_relative_offset 4 gui_sfnt_hmtx_table_relative_range_is_valid hmtx bearing_relative_offset 2
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedHmtxRecord add gui_sfnt_table_record_offset &hmtx bearing_relative_offset
+        else:
+            let advance_file_offset %i32 add gui_sfnt_table_record_offset &hmtx advance_relative_offset
+            let bearing_file_offset %i32 add gui_sfnt_table_record_offset &hmtx bearing_relative_offset
+            match gui_sfnt_hmtx_read_u16_be bytes advance_file_offset GuiSfntParseErrorKind::MalformedHmtxRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok advance_width:
+                    match gui_sfnt_hmtx_read_i16_be bytes bearing_file_offset GuiSfntParseErrorKind::MalformedHmtxRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok left_side_bearing:
+                            Result::Ok gui_sfnt_horizontal_metric glyph advance_width left_side_bearing
+
+//: gui_sfnt_hmtx_lookup_with_tables: metadata 済み table から horizontal metric を[引/ひ]く
+//:
+//: [目的/もくてき]:
+//: - public API の中で、table 欠落処理と actual metric lookup を[分離/ぶんり]します。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_hmtx_lookup_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId Result GuiSfntHorizontalMetric GuiSfntParseError \bytes\hhea\hmtx\metrics\glyph:
+    match gui_sfnt_hmtx_read_number_of_metrics bytes hhea:
+        Result::Err error:
+            Result::Err error
+        Result::Ok number_of_hmetrics:
+            let num_glyphs %i32 gui_sfnt_metrics_num_glyphs &metrics
+            match gui_sfnt_hmtx_validate_counts number_of_hmetrics num_glyphs gui_sfnt_table_record_offset &hhea:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok _:
+                    if:
+                        not gui_sfnt_hmtx_required_length_is_valid hmtx number_of_hmetrics num_glyphs
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedHmtxRecord gui_sfnt_table_record_offset &hmtx
+                        else:
+                            match gui_sfnt_hmtx_checked_glyph_raw glyph num_glyphs:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok glyph_raw:
+                                    if:
+                                        lt glyph_raw number_of_hmetrics
+                                        then:
+                                            gui_sfnt_hmtx_read_long_metric bytes hmtx glyph mul glyph_raw 4
+                                        else:
+                                            gui_sfnt_hmtx_read_bearing_array_metric bytes hmtx glyph number_of_hmetrics glyph_raw
+
+//: gui_sfnt_lookup_horizontal_metric: SFNT hmtx から glyph horizontal metric を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - `cmap` などで得た checked `GuiGlyphId` に対し、font bytes 内の horizontal metrics を O(1) で[返/かえ]します。
+//:
+//: [契約/けいやく]:
+//: - metadata parse とは独立した API です。metadata parser は `hmtx` の成功を要求しません。
+//: - glyph 0、`maxp.numGlyphs` 以上の glyph、壊れた count / length は typed error で返します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_horizontal_metric %fn &ByteBuf fn Option i32 fn GuiGlyphId Result GuiSfntHorizontalMetric GuiSfntParseError \bytes\face_index\glyph:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+            match gui_sfnt_directory_hhea &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some hhea:
+                    match gui_sfnt_directory_hmtx &directory:
+                        Option::None:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                        Option::Some hmtx:
+                            gui_sfnt_hmtx_lookup_with_tables bytes hhea hmtx metrics glyph

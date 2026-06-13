@@ -48,11 +48,13 @@ const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
 const allocFontSfntCmap = read("stdlib/alloc/gui/font/sfnt/cmap.nepl");
-const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap].join("\n");
+const allocFontSfntHmtx = read("stdlib/alloc/gui/font/sfnt/hmtx.nepl");
+const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx].join("\n");
 const allocFontSfntImpl = withoutComments(allocFontSfnt);
 const allocFontSfntMetadataImpl = withoutComments(allocFontSfntMetadata);
 const allocFontSfntNameImpl = withoutComments(allocFontSfntName);
 const allocFontSfntCmapImpl = withoutComments(allocFontSfntCmap);
+const allocFontSfntHmtxImpl = withoutComments(allocFontSfntHmtx);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
@@ -139,14 +141,29 @@ assertMatch(
     "font spec must define F4c cmap lookup as typed GuiGlyphId with exact error policy",
 );
 assertMatch(
+    spec,
+    /SFNT horizontal metrics[\s\S]*GuiSfntHorizontalMetric:[\s\S]*glyph GuiGlyphId[\s\S]*advance_width i32[\s\S]*left_side_bearing i32[\s\S]*gui_sfnt_lookup_horizontal_metric:[\s\S]*Result GuiSfntHorizontalMetric GuiSfntParseError[\s\S]*MissingGlyphMetric[\s\S]*hhea\.length >= 36[\s\S]*MalformedHmtxRecord[\s\S]*numberOfHMetrics \* 4 \+ \(numGlyphs - numberOfHMetrics\) \* 2/,
+    "font spec must define F4d hmtx lookup as typed horizontal metrics with exact bounds policy",
+);
+assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
     "font detailed design must define F4c cmap format-4 lookup and bounds validation",
 );
 assertMatch(
+    detailedDesign,
+    /SFNT horizontal metrics table[\s\S]*GuiSfntHorizontalMetric[\s\S]*numberOfHMetrics[\s\S]*hhea\.length >= 36[\s\S]*valid public metric lookup range is `1 <= glyphRaw < numGlyphs`[\s\S]*hmtx\.length[\s\S]*leftSideBearing/,
+    "font detailed design must define F4d hmtx count, glyph range, and table-relative lookup",
+);
+assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
     "font implementation plan must define F4c cmap parser data types and error kinds",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4d:[\s\S]*alloc\/gui\/font\/sfnt\/hmtx\.nepl[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric[\s\S]*GuiSfntHorizontalMetric[\s\S]*Result GuiSfntHorizontalMetric GuiSfntParseError[\s\S]*hhea\.offset \+ 34[\s\S]*declared `hmtx\.length`/,
+    "font implementation plan must define F4d hmtx parser data types and error kinds",
 );
 
 assertMatch(
@@ -217,6 +234,7 @@ assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "al
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/metadata"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export metadata parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/name"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export name parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/cmap"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export cmap parser");
+assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/hmtx"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export hmtx parser");
 assertMatch(
     allocFontSfntImpl,
     /pub\s+enum\s+GuiSfntContainerKind:[\s\S]*TrueTypeSfnt[\s\S]*OpenTypeSfnt[\s\S]*TrueTypeCollection[\s\S]*OpenTypeCollection/,
@@ -224,7 +242,7 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping/,
+    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric/,
     "alloc/gui/font/sfnt must expose typed parser errors",
 );
 assertMatch(
@@ -239,8 +257,8 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord[\s\S]*cmap\s+%Option\s+GuiSfntTableRecord/,
-    "alloc/gui/font/sfnt directory must track optional name and cmap tables without requiring decoding",
+    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord[\s\S]*cmap\s+%Option\s+GuiSfntTableRecord[\s\S]*hmtx\s+%Option\s+GuiSfntTableRecord/,
+    "alloc/gui/font/sfnt directory must track optional name, cmap, and hmtx tables without requiring decoding",
 );
 assertMatch(
     allocFontSfntImpl,
@@ -352,6 +370,41 @@ assertMatch(
     /records_end[\s\S]*lt\s+record_offset\s+records_end[\s\S]*GuiSfntParseErrorKind::MalformedCmapRecord/,
     "alloc/gui/font/sfnt/cmap must reject selected subtable offsets that overlap encoding records",
 );
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /pub\s+struct\s+GuiSfntHorizontalMetric:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*advance_width\s+%i32[\s\S]*left_side_bearing\s+%i32/,
+    "alloc/gui/font/sfnt/hmtx must expose horizontal metrics as typed data",
+);
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_horizontal_metric\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+Result\s+GuiSfntHorizontalMetric\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/hmtx lookup must take borrowed ByteBuf and checked GuiGlyphId",
+);
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /gui_sfnt_hmtx_read_number_of_metrics[\s\S]*lt\s+gui_sfnt_table_record_length\s+&hhea\s+36[\s\S]*add\s+gui_sfnt_table_record_offset\s+&hhea\s+34/,
+    "alloc/gui/font/sfnt/hmtx must read hhea.numberOfHMetrics only after hhea length 36",
+);
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /gui_sfnt_hmtx_validate_counts[\s\S]*le\s+number_of_hmetrics\s+0[\s\S]*gt\s+number_of_hmetrics\s+num_glyphs[\s\S]*GuiSfntParseErrorKind::MalformedHmtxRecord/,
+    "alloc/gui/font/sfnt/hmtx must reject invalid numberOfHMetrics",
+);
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /gui_sfnt_hmtx_checked_glyph_raw[\s\S]*le\s+raw\s+0[\s\S]*ge\s+raw\s+num_glyphs[\s\S]*GuiSfntParseErrorKind::MissingGlyphMetric/,
+    "alloc/gui/font/sfnt/hmtx must reject glyph 0 and glyphs outside maxp.numGlyphs",
+);
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /long_metric_bytes\s+%i32\s+mul\s+number_of_hmetrics\s+4[\s\S]*bearing_bytes\s+%i32\s+mul\s+bearing_count\s+2[\s\S]*le\s+required_length\s+gui_sfnt_table_record_length\s+&hmtx/,
+    "alloc/gui/font/sfnt/hmtx must validate declared hmtx length before reading",
+);
+assertMatch(
+    allocFontSfntHmtxImpl,
+    /lt\s+glyph_raw\s+number_of_hmetrics[\s\S]*gui_sfnt_hmtx_read_long_metric[\s\S]*gui_sfnt_hmtx_read_bearing_array_metric/,
+    "alloc/gui/font/sfnt/hmtx must cover longHorMetric and leftSideBearing-array paths",
+);
 assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_parse_names\b/,
@@ -361,6 +414,16 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_glyph_id\b/,
     "gui_sfnt_parse_metadata must remain independent from cmap glyph lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_horizontal_metric\b/,
+    "gui_sfnt_parse_metadata must remain independent from hmtx metric lookup",
+);
+assertNoMatch(
+    allocFontSfntHmtxImpl,
+    /\bgui_sfnt_parse_names\b|\bgui_sfnt_lookup_glyph_id\b/,
+    "alloc/gui/font/sfnt/hmtx must not use name or cmap parsing as a metric substitute",
 );
 assertNoMatch(
     allocFontSfntImpl,
@@ -426,6 +489,22 @@ for (const cmapCase of [
         guiFontSfntTests,
         new RegExp(cmapCase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
         `gui font sfnt doctest must cover ${cmapCase}`,
+    );
+}
+for (const hmtxCase of [
+    "hmtx glyph1 advance",
+    "hmtx glyph3 lsb",
+    "missing hmtx table",
+    "short hhea for hmtx",
+    "zero hmetrics count",
+    "too many hmetrics",
+    "hmtx glyph outside maxp",
+    "short hmtx declared length",
+]) {
+    assertMatch(
+        guiFontSfntTests,
+        new RegExp(hmtxCase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        `gui font sfnt doctest must cover ${hmtxCase}`,
     );
 }
 

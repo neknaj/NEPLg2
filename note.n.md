@@ -58264,3 +58264,45 @@ MERGE_APPROVED
 
 - F4c は BMP format 4 の glyph lookup だけであり、format 12 / variation selector / real HackGen integration、glyph outline / hmtx / shaping / ruby / vertical / math bridge は後続 phase で接続する。
 - SFNT parser の shared byte reader / table helper は F4a/F4b/F4c の public contract を変えずに後続で共通 submodule へ整理できる。
+
+## 2026-06-13 GUI font SFNT hmtx horizontal metrics checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-hmtx-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: host text measurement、browser text API、fixed-cell utility、path suffix を metrics authority にせず、font bytes 内の `hhea` / `maxp` / `hmtx` と typed `GuiGlyphId`、`Result`、enum error を authority とした。
+
+### implementation
+
+- `gui_font_rendering_spec.md`、`gui_font_rendering_detailed_design.md`、`gui_font_rendering_implementation_plan.md` に F4d の SFNT horizontal metrics contract を追加した。
+- `GuiSfntDirectory` に optional `hmtx` table record を追加し、metadata parser は `hmtx` の存在だけを記録するようにした。
+- `GuiSfntParseErrorKind` に `MalformedHmtxRecord` と `MissingGlyphMetric` を追加した。
+- `stdlib/alloc/gui/font/sfnt/hmtx.nepl` を追加し、`GuiSfntHorizontalMetric` と `gui_sfnt_lookup_horizontal_metric` を実装した。
+- `hhea.numberOfHMetrics` は `hmtx` lookup 専用で `hhea.offset + 34` から読み、F4a metadata parser の `hhea.length >= 10` 要件は変更していない。
+- `numberOfHMetrics > 0`、`numberOfHMetrics <= maxp.numGlyphs`、`1 <= glyphRaw < numGlyphs`、declared `hmtx.length >= numberOfHMetrics * 4 + (numGlyphs - numberOfHMetrics) * 2` を検査し、壊れた table は typed error にした。
+- `longHorMetric` 経路と、最後の advance width を共有して後続 leftSideBearing array を読む経路を分けた。
+- `tests/stdlib/gui_font_sfnt.n.md` に explicit byte fixture の success / missing hmtx / short hhea / invalid count / glyph range 外 / short declared hmtx length を追加し、leftSideBearing array 側では負値 lsb によって i16 sign extension も固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4d 文書 gate、facade export、typed error、metadata と hmtx lookup の独立、platform / host font API 禁止を固定した。
+- `stdlib/alloc/gui/font/sfnt.nepl` と `hmtx.nepl` に runnable module doctest を追加し、今回追加した GUI/font touched files では declaration doc 欠落がないことを確認した。
+
+### subagent_review
+
+- 実装前 review では、`hhea.length >= 36` は `hmtx` lookup 専用要件とし metadata 成功条件に混ぜないこと、glyph raw range を `1 <= glyphRaw < numGlyphs` と明文化すること、declared table length を table-relative に検査することが Required とされた。
+- 対応として、doc に F4d の count / glyph range / table-relative length contract を追加し、実装は metadata と `hmtx` lookup を分離した。
+- 実装後 review では Required はなく merge-ready と判断された。
+- Suggested として負値 leftSideBearing fixture が推奨されたため、glyph 3 の lsb を `-40` にして sign extension を regression 化した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/hmtx.nepl --no-tree -o tmp_gui_font_hmtx.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt.nepl --no-tree -o tmp_gui_font_sfnt_facade.json -j 1`
+- pass: `git diff --check`
+- note: `node nodesrc/run_source_policy_regressions.js --warn-only` は GUI/font F4d policy を通過したが、既存の stdlib documentation baseline drift を warn-only として報告した。今回触った `stdlib/alloc/gui/font/sfnt/hmtx.nepl`、`metadata.nepl`、`sfnt.nepl` には declaration doc 欠落がないことを個別確認した。
+
+### residual
+
+- F4d は horizontal advance width と left side bearing だけであり、full `GuiGlyphMetrics` に必要な outline / bitmap ink bounds、CFF/CFF2 / glyf outline、format 12 cmap、GSUB/GPOS shaping、ruby / vertical / math bridge は後続 phase で接続する。
+- `metadata` / `name` / `cmap` / `hmtx` の byte reader と table-relative range helper は重複しているため、public contract を変えずに後続で shared internal helper へ整理できる。
