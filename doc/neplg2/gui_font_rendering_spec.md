@@ -347,6 +347,42 @@ F4i は F4f の `gui_sfnt_glyf_simple_topology_with_tables` validation path に�
 
 `contour_index < 0` または `contour_index >= topology.contour_count` は、valid glyph に要求された contour が存在しないことを表すため `MissingGlyphOutline` とする。font byte 構造の破損ではない。
 
+### SFNT simple glyph contour point lookup
+
+F4j は checked contour span と checked point decode を合成し、contour-local point index から 1 点を復元する段階である。full point `Vec`、full contour `Vec`、curve segment builder、rasterizer は後続 phase の責務である。
+
+```text
+GuiSfntSimpleGlyphContourPoint:
+    span GuiSfntSimpleGlyphContourSpan
+    contour_point_index i32
+    point GuiSfntSimpleGlyphPoint
+
+gui_sfnt_lookup_simple_glyph_contour_point:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    contour_point_index i32
+    -> Result GuiSfntSimpleGlyphContourPoint GuiSfntParseError
+```
+
+`contour_point_index` は contour-local index である。一方、nested `point.point_index` は glyph 全体での absolute logical point index である。absolute point index は次の式で定義する。
+
+```text
+absolute_point_index = span.start_point_index + contour_point_index
+```
+
+F4j は必ず次の順序で処理する。
+
+```text
+contour span lookup
+    -> validate contour_point_index
+    -> compute absolute_point_index
+    -> point decode
+```
+
+`contour_point_index < 0` または `contour_point_index >= span.point_count` は `MissingGlyphOutline` とする。local index validation は point decode より先に行う。F4i / F4h 由来の byte 構造不整合は、それぞれの typed error をそのまま伝播する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
