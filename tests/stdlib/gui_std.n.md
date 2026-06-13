@@ -42,6 +42,228 @@ fn main %impure fn void i32 \void:
     test_report_exit_code shown
 ```
 
+## gui_offscreen_snapshot_requires_offscreen_present_command
+
+[目的/もくてき]:
+- offscreen screenshot / snapshot は visible window や headless への fallback ではなく、`OffscreenPixel` host と `PresentSurface` command だけから作られることを固定します。
+- pixel hash は 0 や -1 を sentinel として扱わず、backend presenter が返した opaque `i32` として保持します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_offscreen_snapshot_requires_offscreen_present_command\" count=7 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"snapshot width\" expected=\"16\" actual=\"16\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"pixel hash\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"dirty full\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"headless unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"window unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"device unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"noop unsupported\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn snapshot_error_is_unsupported %fn Result GuiOffscreenSnapshot GuiError bool \result:
+    match result:
+        Result::Err error:
+            match error:
+                GuiError::Unsupported:
+                    true
+                _:
+                    false
+        Result::Ok _snapshot:
+            false
+
+fn main %impure fn void i32 \void:
+    let offscreen_caps %GuiCapabilities gui_capabilities_offscreen_pixel 256 256
+    let window_caps %GuiCapabilities gui_capabilities_window_pixel 256 256
+    let device_caps %GuiCapabilities gui_capabilities_device_pixel ColorFormat::FormatRgba8888 false
+    let no_window %Option WindowId none
+    let offscreen_host %GuiHost gui_host_new offscreen_caps no_window
+    let window_host %GuiHost gui_host_new window_caps no_window
+    let device_host %GuiHost gui_host_new device_caps no_window
+    let headless_host %GuiHost gui_host_headless
+    let surface %SurfaceId unwrap_ok surface_id_result 2
+    let descriptor %GuiPixelBufferDescriptor unwrap_ok gui_pixel_buffer_descriptor surface 16 8 64 ColorFormat::FormatRgba8888
+    let frame %FrameId unwrap_ok frame_id_result 4
+    let surface_frame %GuiSurfaceFrame gui_surface_frame frame descriptor dirty_region_full
+    let present %GuiSurfacePresentCommand gui_surface_present_pixel_frame surface_frame
+    let command %GuiRuntimeCommand GuiRuntimeCommand::PresentSurface present
+    let noop_command %GuiRuntimeCommand GuiRuntimeCommand::Noop
+    let snapshot %GuiOffscreenSnapshot unwrap_ok gui_offscreen_snapshot_from_runtime_command &offscreen_host command -1
+    let headless_result %Result GuiOffscreenSnapshot GuiError gui_offscreen_snapshot_from_runtime_command &headless_host command 1
+    let window_result %Result GuiOffscreenSnapshot GuiError gui_offscreen_snapshot_from_runtime_command &window_host command 1
+    let device_result %Result GuiOffscreenSnapshot GuiError gui_offscreen_snapshot_from_runtime_command &device_host command 1
+    let noop_result %Result GuiOffscreenSnapshot GuiError gui_offscreen_snapshot_from_runtime_command &offscreen_host noop_command 1
+    let dirty %DirtyRegion gui_offscreen_snapshot_dirty &snapshot
+    let width_value %i32 gui_offscreen_snapshot_width &snapshot
+    let hash_value %i32 gui_offscreen_snapshot_pixel_hash &snapshot
+    let width_check assert_eq_i32 "snapshot width" 16 width_value
+    let hash_check assert_eq_i32 "pixel hash" -1 hash_value
+    let dirty_check assert "dirty full" dirty_region_is_full dirty
+    let headless_check assert "headless unsupported" snapshot_error_is_unsupported headless_result
+    let window_check assert "window unsupported" snapshot_error_is_unsupported window_result
+    let device_check assert "device unsupported" snapshot_error_is_unsupported device_result
+    let noop_check assert "noop unsupported" snapshot_error_is_unsupported noop_result
+    let checks:
+        test_report_new "gui_offscreen_snapshot_requires_offscreen_present_command"
+        |> test_report_push width_check
+        |> test_report_push hash_check
+        |> test_report_push dirty_check
+        |> test_report_push headless_check
+        |> test_report_push window_check
+        |> test_report_push device_check
+        |> test_report_push noop_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
+## gui_virtual_event_script_replays_typed_events_without_sentinel
+
+[目的/もくてき]:
+- headless/offscreen test 用 event replay が raw string や `GuiEvent::None` sentinel ではなく、`Option GuiEvent` slot を用いることを確認します。
+- virtual clock の負値と overflow、script overflow が typed error になることを固定します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_virtual_event_script_replays_typed_events_without_sentinel\" count=12 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"clock now\" expected=\"125\" actual=\"125\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"clock tick\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"negative initial time rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"negative delta rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"clock overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"script overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"first action\" expected=\"7\" actual=\"7\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"second timer tick\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"empty poll none\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"malformed empty rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"malformed one rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"cursor overflow rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn clock_error_is_invalid %fn Result GuiVirtualClock GuiError bool \result:
+    match result:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _clock:
+            false
+
+fn script_error_is_resource_exhausted %fn Result GuiVirtualEventScript GuiError bool \result:
+    match result:
+        Result::Err error:
+            match error:
+                GuiError::ResourceExhausted:
+                    true
+                _:
+                    false
+        Result::Ok _script:
+            false
+
+fn script_error_is_invalid %fn Result GuiVirtualEventScript GuiError bool \result:
+    match result:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _script:
+            false
+
+fn poll_error_is_invalid %fn Result GuiVirtualEventPoll GuiError bool \result:
+    match result:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _poll:
+            false
+
+fn option_action_value %fn Option GuiEvent i32 \event_option:
+    match event_option:
+        Option::Some event:
+            match event:
+                GuiEvent::Action action:
+                    action_id_raw &action
+                _:
+                    -1
+        Option::None:
+            -2
+
+fn option_timer_tick %fn Option GuiEvent i32 \event_option:
+    match event_option:
+        Option::Some event:
+            match event:
+                GuiEvent::Timer timer:
+                    timer_event_tick &timer
+                _:
+                    -1
+        Option::None:
+            -2
+
+fn main %impure fn void i32 \void:
+    let clock0 %GuiVirtualClock unwrap_ok gui_virtual_clock_result 100
+    let clock1 %GuiVirtualClock unwrap_ok gui_virtual_clock_advance clock0 25
+    let negative_initial %Result GuiVirtualClock GuiError gui_virtual_clock_result -1
+    let negative_delta %Result GuiVirtualClock GuiError gui_virtual_clock_advance clock0 -1
+    let near_max %GuiVirtualClock unwrap_ok gui_virtual_clock_result 2147483647
+    let clock_overflow %Result GuiVirtualClock GuiError gui_virtual_clock_advance near_max 1
+    let empty_script %GuiVirtualEventScript gui_virtual_event_script_empty
+    let action %ActionId action_id_new 7
+    let action_event %GuiEvent gui_event_action action
+    let timer %TimerEvent timer_event_new 11 3
+    let timer_event %GuiEvent gui_event_timer timer
+    let script1 %GuiVirtualEventScript unwrap_ok gui_virtual_event_script_push empty_script action_event
+    let script2 %GuiVirtualEventScript unwrap_ok gui_virtual_event_script_push script1 timer_event
+    let overflow_push %Result GuiVirtualEventScript GuiError gui_virtual_event_script_push script2 action_event
+    let poll1 %GuiVirtualEventPoll unwrap_ok gui_virtual_event_script_poll script2
+    let event1 %Option GuiEvent gui_virtual_event_poll_event &poll1
+    let after1 %GuiVirtualEventScript gui_virtual_event_poll_script &poll1
+    let poll2 %GuiVirtualEventPoll unwrap_ok gui_virtual_event_script_poll after1
+    let event2 %Option GuiEvent gui_virtual_event_poll_event &poll2
+    let after2 %GuiVirtualEventScript gui_virtual_event_poll_script &poll2
+    let poll3 %GuiVirtualEventPoll unwrap_ok gui_virtual_event_script_poll after2
+    let event3 %Option GuiEvent gui_virtual_event_poll_event &poll3
+    let malformed_empty %GuiVirtualEventScript GuiVirtualEventScript some action_event none 0 0
+    let malformed_one %GuiVirtualEventScript GuiVirtualEventScript some action_event some timer_event 1 0
+    let cursor_max %GuiVirtualEventScript GuiVirtualEventScript some action_event none 1 2147483647
+    let malformed_empty_poll %Result GuiVirtualEventPoll GuiError gui_virtual_event_script_poll malformed_empty
+    let malformed_one_push %Result GuiVirtualEventScript GuiError gui_virtual_event_script_push malformed_one action_event
+    let cursor_overflow_poll %Result GuiVirtualEventPoll GuiError gui_virtual_event_script_poll cursor_max
+    let clock_now %i32 gui_virtual_clock_now_ms &clock1
+    let clock_tick %i32 gui_virtual_clock_tick &clock1
+    let action_value %i32 option_action_value event1
+    let timer_tick %i32 option_timer_tick event2
+    let clock_now_check assert_eq_i32 "clock now" 125 clock_now
+    let clock_tick_check assert_eq_i32 "clock tick" 1 clock_tick
+    let negative_initial_check assert "negative initial time rejected" clock_error_is_invalid negative_initial
+    let negative_delta_check assert "negative delta rejected" clock_error_is_invalid negative_delta
+    let clock_overflow_check assert "clock overflow rejected" clock_error_is_invalid clock_overflow
+    let script_overflow_check assert "script overflow rejected" script_error_is_resource_exhausted overflow_push
+    let action_check assert_eq_i32 "first action" 7 action_value
+    let timer_check assert_eq_i32 "second timer tick" 3 timer_tick
+    let empty_poll_check assert "empty poll none" is_none event3
+    let malformed_empty_check assert "malformed empty rejected" poll_error_is_invalid malformed_empty_poll
+    let malformed_one_check assert "malformed one rejected" script_error_is_invalid malformed_one_push
+    let cursor_overflow_check assert "cursor overflow rejected" poll_error_is_invalid cursor_overflow_poll
+    let checks:
+        test_report_new "gui_virtual_event_script_replays_typed_events_without_sentinel"
+        |> test_report_push clock_now_check
+        |> test_report_push clock_tick_check
+        |> test_report_push negative_initial_check
+        |> test_report_push negative_delta_check
+        |> test_report_push clock_overflow_check
+        |> test_report_push script_overflow_check
+        |> test_report_push action_check
+        |> test_report_push timer_check
+        |> test_report_push empty_poll_check
+        |> test_report_push malformed_empty_check
+        |> test_report_push malformed_one_check
+        |> test_report_push cursor_overflow_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
 ## gui_std_contract_values_have_no_platform_handle
 
 [目的/もくてき]:

@@ -1,3 +1,42 @@
+# 2026-06-13 Agent GUI offscreen snapshot / virtual event checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、hidden fallback 禁止、`Option` / `Result` と enum error、platform detail の表層化、match による分岐、doc/test 分離、実装前後の subagent review を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。
+- 対象 branch: `gui-offscreen-headless-20260613`
+- classification: GUI stdlib offscreen/headless implementation slice
+- design:
+  - `doc/neplg2/gui_redesign_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md` に Phase 5.1 を追記した。
+  - `OffscreenPixel` は snapshot source として明示的に扱い、`WindowPixel` / `DevicePixel` / `Headless` への fallback 成功を禁止した。
+  - `GuiOffscreenSnapshot` は surface / frame / geometry / format / dirty / backend-supplied `pixel_hash` だけを持ち、DOM / Canvas / OS handle / raw pointer / pixel owner を持たない。
+  - `pixel_hash` は signed opaque `i32` であり、0 や -1 を sentinel にしない。
+  - virtual event replay は `Option GuiEvent` slot を使い、`GuiEvent::None`、raw string、raw platform event object を使わない。
+- implementation:
+  - `stdlib/std/gui/offscreen.nepl` を追加し、`gui_offscreen_snapshot_from_runtime_command` で `SurfaceKind::OffscreenPixel` と `GuiRuntimeCommand::PresentSurface` / `GuiSurfacePresentCommand::PresentPixelFrame` だけを snapshot source とするようにした。
+  - `stdlib/std/gui/virtual_event.nepl` を追加し、deterministic virtual clock、capacity 2 の `GuiVirtualEventScript`、`GuiVirtualEventPoll` を実装した。
+  - unsupported host / command は `GuiError::Unsupported`、malformed count / negative time / overflow は `GuiError::InvalidCommand`、script overflow は `GuiError::ResourceExhausted` として返す。
+  - `stdlib/std/gui.nepl` facade から `offscreen` と `virtual_event` を re-export した。
+  - `tests/stdlib/gui_std.n.md` に offscreen-only snapshot と Option-based virtual event replay の stdio doctest を追加した。
+  - `nodesrc/test_web_gui_offscreen_headless_contract.js` を追加し、docs / stdlib / doctest の契約を source policy として固定した。
+- subagent review:
+  - 初回 design review で `GuiVirtualEventScript` の direct `GuiEvent` slot が sentinel 不在契約と衝突すると指摘されたため、`Option GuiEvent` slot に変更した。
+  - re-review で実装開始許可あり。
+  - 実装後 review で public struct constructor による malformed `GuiVirtualEventScript` が `Ok None` へ落ちる blocker を指摘された。
+  - Required 対応として `gui_virtual_event_script_slots_are_valid` を追加し、count / slot / cursor invariant と cursor overflow を push / poll 前に検査するようにした。
+  - malformed empty、malformed count 1、cursor overflow、`WindowPixel` / `DevicePixel` snapshot rejection の doctest を追加した。
+  - 再レビューでは Blocker / Required なし。implementation may be committed / merged / pushed と判断された。
+- verify:
+  - pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/test_stdlib_gui_opaque_id_contract.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp_gui_std_tests.json -j 1`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `node nodesrc/run_source_policy_regressions.js`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - 既存 warning: Git の LF / CRLF working-copy warning、Node WASI ExperimentalWarning は確認済み。今回差分由来の failure はない。
+- next:
+  - 問題がなければ source policy regression、必要な追加検証、commit / merge / push / report へ進む。
+
 # 2026-06-13 Agent selfhost memo trait nested operation fold checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、pure core boundary、DAG、source authority 排除、探索範囲の明示、丁寧な doc comment、試作段階でも公開 API 境界を雑にしない方針に従った。

@@ -1,0 +1,266 @@
+//: # std/gui/virtual_event
+//: headless/offscreen test 用 virtual event replay contract
+//:
+//: ### [目的/もくてき]
+//: - platform raw event を[直接/ちょくせつ][使/つか]わず、正規化済みの `GuiEvent` を deterministic に[再生/さいせい]する test helper を[提供/ていきょう]します。
+//: - event loop、timer、clock を host 実時間へ[結/むす]びつけず、virtual clock と bounded script value として[扱/あつか]います。
+//:
+//: ### [契約/けいやく]
+//: - event slot は `Option GuiEvent` で[表/あらわ]し、`GuiEvent::None` や raw string sentinel は[使/つか]いません。
+//: - capacity 2 の小さな replay script です。overflow は `GuiError::ResourceExhausted` を[返/かえ]します。
+//: - 負の時刻、負の delta、`i32` overflow は `GuiError::InvalidCommand` です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/virtual_event" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiVirtualClock: test 用 deterministic clock
+//:
+//: neplg2:test[skip]
+pub struct GuiVirtualClock:
+    now_ms %i32
+    tick %i32
+
+impl Clone for GuiVirtualClock:
+    fn clone %fn &GuiVirtualClock GuiVirtualClock \clock:
+        *clock
+
+impl Copy for GuiVirtualClock:
+    fn copy_mark %fn GuiVirtualClock GuiVirtualClock \clock:
+        clock
+
+//: GuiVirtualEventScript: normalized GuiEvent の bounded replay script
+//:
+//: [契約/けいやく]:
+//: - `first` と `second` は `Option GuiEvent` です。空 slot は `Option::None` であり、event enum に sentinel variant を[追加/ついか]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiVirtualEventScript:
+    first %Option GuiEvent
+    second %Option GuiEvent
+    count %i32
+    cursor %i32
+
+impl Clone for GuiVirtualEventScript:
+    fn clone %fn &GuiVirtualEventScript GuiVirtualEventScript \script:
+        *script
+
+impl Copy for GuiVirtualEventScript:
+    fn copy_mark %fn GuiVirtualEventScript GuiVirtualEventScript \script:
+        script
+
+//: GuiVirtualEventPoll: poll 後 script と取得 event を[同時/どうじ]に[返/かえ]す value
+//:
+//: neplg2:test[skip]
+pub struct GuiVirtualEventPoll:
+    script %GuiVirtualEventScript
+    event %Option GuiEvent
+
+impl Clone for GuiVirtualEventPoll:
+    fn clone %fn &GuiVirtualEventPoll GuiVirtualEventPoll \poll:
+        *poll
+
+impl Copy for GuiVirtualEventPoll:
+    fn copy_mark %fn GuiVirtualEventPoll GuiVirtualEventPoll \poll:
+        poll
+
+//: gui_virtual_i32_max: virtual clock contract で[使/つか]う i32 maximum
+//:
+//: neplg2:test[skip]
+fn gui_virtual_i32_max %fn void i32 \void:
+    2147483647
+
+//: gui_virtual_clock: 検査済み virtual clock を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_virtual_clock %fn i32 fn i32 GuiVirtualClock \now_ms\tick:
+    GuiVirtualClock now_ms tick
+
+//: gui_virtual_clock_result: 初期時刻を[検査/けんさ]して virtual clock を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `now_ms` が負なら `GuiError::InvalidCommand` です。
+//: - 成功時の tick は 0 です。
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_clock_result %fn i32 Result GuiVirtualClock GuiError \now_ms:
+    if lt now_ms 0:
+        then Result::Err GuiError::InvalidCommand
+        else Result::Ok gui_virtual_clock now_ms 0
+
+//: gui_virtual_clock_now_ms: virtual clock の現在時刻を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_clock_now_ms %fn &GuiVirtualClock i32 \clock:
+    *field::get_ref clock "now_ms"
+
+//: gui_virtual_clock_tick: virtual clock の advance 回数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_clock_tick %fn &GuiVirtualClock i32 \clock:
+    *field::get_ref clock "tick"
+
+//: gui_virtual_clock_advance: virtual clock を deterministic に[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - 負の delta、負の current time、`now_ms + delta_ms` overflow、tick overflow は `GuiError::InvalidCommand` です。
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_clock_advance %fn GuiVirtualClock fn i32 Result GuiVirtualClock GuiError \clock\delta_ms:
+    let now_ms %i32 gui_virtual_clock_now_ms &clock
+    let tick %i32 gui_virtual_clock_tick &clock
+    if or lt delta_ms 0 lt now_ms 0:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            let max_delta %i32 sub gui_virtual_i32_max now_ms
+            if or gt delta_ms max_delta ge tick gui_virtual_i32_max:
+                then Result::Err GuiError::InvalidCommand
+                else Result::Ok gui_virtual_clock add now_ms delta_ms add tick 1
+
+//: gui_virtual_event_script_empty: 空の replay script を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_empty %fn void GuiVirtualEventScript \void:
+    GuiVirtualEventScript none none 0 0
+
+//: gui_virtual_event_script_count: 未消費 event 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_count %fn &GuiVirtualEventScript i32 \script:
+    *field::get_ref script "count"
+
+//: gui_virtual_event_script_cursor: poll cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_cursor %fn &GuiVirtualEventScript i32 \script:
+    *field::get_ref script "cursor"
+
+//: gui_virtual_event_script_first: first event slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_first %fn &GuiVirtualEventScript Option GuiEvent \script:
+    *field::get_ref script "first"
+
+//: gui_virtual_event_script_second: second event slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_second %fn &GuiVirtualEventScript Option GuiEvent \script:
+    *field::get_ref script "second"
+
+//: gui_virtual_event_poll: poll result value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_poll %fn GuiVirtualEventScript fn Option GuiEvent GuiVirtualEventPoll \script\event:
+    GuiVirtualEventPoll script event
+
+//: gui_virtual_event_poll_script: poll 後の script を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_poll_script %fn &GuiVirtualEventPoll GuiVirtualEventScript \poll:
+    *field::get_ref poll "script"
+
+//: gui_virtual_event_poll_event: poll で[取/と]れた event を Option で[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_poll_event %fn &GuiVirtualEventPoll Option GuiEvent \poll:
+    *field::get_ref poll "event"
+
+//: gui_virtual_event_script_slots_are_valid: script の count / slot / cursor [不変条件/ふへんじょうけん]を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - public struct constructor で壊れた script が作られても、push / poll はここで拒否します。
+//: - `count == 0` なら両 slot は `None`、`count == 1` なら first だけ `Some`、`count == 2` なら両 slot が `Some` である必要があります。
+//:
+//: neplg2:test[skip]
+fn gui_virtual_event_script_slots_are_valid %fn &GuiVirtualEventScript bool \script:
+    let event_count %i32 gui_virtual_event_script_count script
+    let cursor %i32 gui_virtual_event_script_cursor script
+    let first %Option GuiEvent gui_virtual_event_script_first script
+    let second %Option GuiEvent gui_virtual_event_script_second script
+    if or lt event_count 0 gt event_count 2:
+        then false
+        else:
+            if lt cursor 0:
+                then false
+                else:
+                    if eq event_count 0:
+                        then and is_none first is_none second
+                        else:
+                            if eq event_count 1:
+                                then and is_some first is_none second
+                                else and is_some first is_some second
+
+//: gui_virtual_event_script_push: replay script に normalized GuiEvent を[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - capacity は 2 です。3 個目の push は `GuiError::ResourceExhausted` です。
+//: - count と slot の[整合/せいごう]が[壊/こわ]れた script は `GuiError::InvalidCommand` です。
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_push %fn GuiVirtualEventScript fn GuiEvent Result GuiVirtualEventScript GuiError \script\event:
+    let event_count %i32 gui_virtual_event_script_count &script
+    let cursor %i32 gui_virtual_event_script_cursor &script
+    if not gui_virtual_event_script_slots_are_valid &script:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            if eq event_count 0:
+                then Result::Ok GuiVirtualEventScript some event none 1 cursor
+                else:
+                    if eq event_count 1:
+                        then:
+                            match gui_virtual_event_script_first &script:
+                                Option::Some first:
+                                    Result::Ok GuiVirtualEventScript some first some event 2 cursor
+                                Option::None:
+                                    Result::Err GuiError::InvalidCommand
+                        else Result::Err GuiError::ResourceExhausted
+
+//: gui_virtual_event_script_poll: replay script から次の event を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - 空 script は `Ok` と `Option::None` を[返/かえ]します。
+//: - event がある場合は、poll 後 script と `Option::Some GuiEvent` を[返/かえ]します。
+//: - raw platform event、文字列 sentinel、`GuiEvent::None` は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_virtual_event_script_poll %fn GuiVirtualEventScript Result GuiVirtualEventPoll GuiError \script:
+    let event_count %i32 gui_virtual_event_script_count &script
+    let cursor %i32 gui_virtual_event_script_cursor &script
+    if not gui_virtual_event_script_slots_are_valid &script:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            if eq event_count 0:
+                then Result::Ok gui_virtual_event_poll script none
+                else:
+                    if ge cursor gui_virtual_i32_max:
+                        then Result::Err GuiError::InvalidCommand
+                        else:
+                            if eq event_count 1:
+                                then:
+                                    match gui_virtual_event_script_first &script:
+                                        Option::Some event:
+                                            let returned_script %GuiVirtualEventScript GuiVirtualEventScript none none 0 add cursor 1
+                                            Result::Ok gui_virtual_event_poll returned_script some event
+                                        Option::None:
+                                            Result::Err GuiError::InvalidCommand
+                                else:
+                                    match gui_virtual_event_script_first &script:
+                                        Option::Some event:
+                                            match gui_virtual_event_script_second &script:
+                                                Option::Some next:
+                                                    let returned_script %GuiVirtualEventScript GuiVirtualEventScript some next none 1 add cursor 1
+                                                    Result::Ok gui_virtual_event_poll returned_script some event
+                                                Option::None:
+                                                    Result::Err GuiError::InvalidCommand
+                                        Option::None:
+                                            Result::Err GuiError::InvalidCommand

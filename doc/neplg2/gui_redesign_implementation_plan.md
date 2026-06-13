@@ -231,6 +231,49 @@ Subagent review:
 
 - headless が fallback になっていないこと、event virtualization が platform event と同じ `GuiEvent` を使うことを確認させる。
 
+## Phase 5.1: stdlib offscreen snapshot and virtual event contract
+
+目的:
+
+- std layer に offscreen snapshot data boundary を追加する。
+- headless が screenshot / present fallback ではないことを typed error で固定する。
+- test helper として virtual event script と virtual clock を追加し、Web / native / bare と同じ `GuiEvent` を application に渡せるようにする。
+
+変更:
+
+- `stdlib/std/gui/offscreen.nepl` を追加する。
+- `GuiOffscreenSnapshot` を追加し、`SurfaceId`、`FrameId`、width、height、stride、format、dirty region、backend-supplied pixel hash を保持する。
+- `gui_offscreen_snapshot_from_runtime_command` は `GuiHost`、`GuiRuntimeCommand`、pixel hash から snapshot を作る。
+- `SurfaceKind::OffscreenPixel` だけが snapshot 生成を許可される。
+- `WindowPixel`、`DevicePixel`、`TextGrid`、`Headless` は screenshot source として `GuiError::Unsupported` を返す。
+- `GuiRuntimeCommand::PresentSurface` 以外の command から snapshot を作らない。
+- `stdlib/std/gui/virtual_event.nepl` を追加する。
+- `GuiOffscreenSnapshot.pixel_hash` は signed opaque `i32` とし、0 や -1 を sentinel にしない。
+- `GuiVirtualClock` は deterministic clock value として `now_ms` と `tick` を持つ。
+- `gui_virtual_clock_result` は negative initial time を `GuiError::InvalidCommand` として拒否する。
+- `gui_virtual_clock_advance` は negative delta と i32 overflow を `GuiError::InvalidCommand` として拒否する。
+- `GuiVirtualEventScript` は初期 implementation では capacity 2 の bounded script とし、slot は `Option GuiEvent` とする。empty script は dummy event ではなく `Option::None` を保持する。
+- `gui_virtual_event_script_push` は empty slot に `Option::Some event` を入れ、overflow は `GuiError::ResourceExhausted` を返す。
+- `gui_virtual_event_script_poll` は script と `Option GuiEvent` を返す。queue empty は `Option::None` であり、sentinel event を作らない。
+- `std/gui.nepl` facade に offscreen / virtual event を公開する。
+- `tests/stdlib/gui_std.n.md` に offscreen snapshot、headless rejection、virtual event polling、virtual clock negative delta の doctest を追加する。
+- `nodesrc/test_web_gui_offscreen_headless_contract.js` を追加し、doc / source policy として hidden fallback、DOM / Canvas / OS handle 混入、raw event string 混入を禁止する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_offscreen_headless_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp/gui-std-offscreen-headless.json -j 1 --dist web/dist --assert-io
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+```
+
+Subagent review:
+
+- 実装開始前に、Zenn 方針と GUI redesign 3 文書を読ませ、offscreen snapshot / virtual event の方針に `implementation may start` が出るまで実装しない。
+- 実装後に、offscreen と headless の混同がないこと、screenshot が hidden fallback になっていないこと、virtual event が `GuiEvent` を使っていることを確認させる。
+
 ## Phase 6: migration and cleanup
 
 目的:
@@ -291,10 +334,10 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 ## Current implementation target
 
-Phase 3.5 の typed surface value は完了済みである。現在の再開 target は Phase 4.1 である。
+Phase 4.1 の `PresentSurfaceEffect -> GuiRuntimeCommand::PresentSurface` bridge は完了済みである。現在の再開 target は Phase 5.1 である。
 
-- `GuiSurfacePresentCommand` は存在するが、まだ `GuiEffect` と `GuiRuntimeCommand` に接続されていない。
-- `alloc/gui/app` は std 型を持たない present request data を返せる必要がある。
-- `std/gui/runtime` は present request を checked `GuiSurfacePresentCommand` と platform-neutral runtime command へ変換し、host capability によって許可 / unsupported を決める必要がある。
-- この slice では Web TypeScript backend や example migration は行わない。stdout legacy smoke transport の削除は Phase 6 で扱う。
+- `OffscreenPixel` は present command を受けて deterministic snapshot metadata を作れる必要がある。
+- `Headless` は screenshot / present の代替先ではなく、`GuiError::Unsupported` を返す必要がある。
+- virtual event replay は platform-specific string や raw DOM event ではなく、正規化済み `GuiEvent` を使う必要がある。
+- std layer は pixel bytes を直接読まず、backend-supplied pixel hash を data contract として受ける。
 - 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。

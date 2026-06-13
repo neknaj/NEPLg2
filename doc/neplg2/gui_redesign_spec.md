@@ -233,6 +233,17 @@ Contract:
 - snapshot comparison は deterministic pixel hash または golden image で行える。
 - visible window が存在しない CI でも offscreen rasterization と screenshot は動作する。
 - headless は pixel surface を持たないため screenshot は `GuiError::Unsupported` である。
+- offscreen は `GuiRuntimeCommand::PresentSurface` を受け取れる `OffscreenPixel` backend であり、visible window backend の fallback ではない。
+- screenshot hash は backend presenter が実 pixel bytes から計算する値であり、`std/gui` は DOM、Canvas、OS handle、raw framebuffer pointer を読まない。
+- 初期 stdlib contract は present command、surface descriptor、dirty region、backend-supplied pixel hash を typed snapshot value にまとめる。pixel bytes の所有、tiling、row transfer、SIMD hashing は backend 実装詳細である。
+- headless backend は application state transition と event replay を検査する target であり、pixel present や screenshot を no-op 成功にしない。
+
+Virtual event:
+
+- Web / native / bare / headless / offscreen test はすべて `GuiEvent` を application へ渡す。
+- test 用 virtual event source は platform raw event ではなく、正規化済み `GuiEvent` の script を保持する。
+- virtual clock は timer event 生成の input として扱い、実 OS clock や browser timer を直接参照しない。
+- event queue overflow は silent drop ではなく `GuiError::ResourceExhausted` を返す。高頻度 event coalescing を行う backend は、その contract を backend 側で明記する。
 
 ## Backend requirements
 

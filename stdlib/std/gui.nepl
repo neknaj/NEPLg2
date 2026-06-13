@@ -20,6 +20,7 @@ pub #import "core/gui" as *
 pub #import "alloc/gui" as *
 pub #import "./gui/window" as *
 pub #import "./gui/surface" as *
+pub #import "./gui/offscreen" as *
 pub #import "./gui/timer" as *
 pub #import "./gui/text_measure" as *
 pub #import "./gui/ime" as *
@@ -27,4 +28,5 @@ pub #import "./gui/accessibility_host" as *
 pub #import "./gui/host" as *
 pub #import "./gui/keymap" as *
 pub #import "./gui/runtime" as *
+pub #import "./gui/virtual_event" as *
 pub #import "./gui/error_display" as *

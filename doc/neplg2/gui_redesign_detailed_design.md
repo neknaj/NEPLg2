@@ -115,6 +115,85 @@ Implementation note:
 - Phase 4.1 の NEPL stdlib 実装では `GuiEffectBatch` の capacity 2 を維持する。これは現在の bounded data contract の継続であり、hidden fallback ではない。
 - 将来 `Vec GuiEffect` へ置換するときも、`PresentSurfaceEffect` は `alloc/gui` の request data として維持し、checked `GuiSurfacePresentCommand` の生成責務は `std/gui/runtime` に残す。
 
+## Offscreen snapshot and virtual event contract
+
+Offscreen は visible window のない pixel surface backend である。`Headless` と同一視しない。
+
+```text
+SurfaceKind::OffscreenPixel:
+    accepts GuiRuntimeCommand::PresentSurface
+    can produce GuiOffscreenSnapshot
+    can be used by screenshot / golden image tests
+
+SurfaceKind::Headless:
+    rejects PresentSurface with GuiError::Unsupported
+    rejects screenshot with GuiError::Unsupported
+    can run update / event replay tests without presentation
+```
+
+`GuiOffscreenSnapshot` は platform handle や pixel owner を持たない std layer value である。
+
+```text
+GuiOffscreenSnapshot:
+    surface SurfaceId
+    frame FrameId
+    width i32
+    height i32
+    stride_bytes i32
+    format ColorFormat
+    dirty DirtyRegion
+    pixel_hash i32
+```
+
+`pixel_hash` は backend presenter が実 pixel bytes から計算して std contract へ渡す。`std/gui/offscreen` は pixel memory を読まない。Web では video memory surface、native では framebuffer presenter、bare では device / offscreen adapter が hash authority である。これにより std layer は deterministic snapshot comparison の data boundary を持つが、DOM、Canvas、OS handle、raw pointer へ依存しない。
+
+Validation:
+
+- `GuiRuntimeCommand::PresentSurface` だけが snapshot source になる。
+- `GuiRuntimeCommand::Noop`、`RequestRedraw`、`SetTitle` は screenshot source ではないため `GuiError::Unsupported` を返す。
+- `SurfaceKind::OffscreenPixel` 以外の host で snapshot capture を要求した場合は `GuiError::Unsupported` を返す。visible window screenshot は将来別 command として定義する。
+- `pixel_hash` は backend-supplied value として保持する。0 を special sentinel にしない。
+
+Virtual event source は正規化済み `GuiEvent` を保持する test helper である。
+
+```text
+GuiVirtualClock:
+    now_ms i32
+    tick i32
+
+GuiVirtualEventScript:
+    first Option GuiEvent
+    second Option GuiEvent
+    count i32
+    cursor i32
+
+GuiVirtualEventPoll:
+    script GuiVirtualEventScript
+    event Option GuiEvent
+```
+
+Initial implementation は `GuiEffectBatch` と同じく bounded capacity 2 とする。内部 slot は `Option GuiEvent` であり、empty script は `Option::None` を 2 つ保持する。push は空 slot に `Option::Some event` を入れる。capacity overflow は `GuiError::ResourceExhausted` を返す。この bounded script は test helper contract であり、platform event queue の最終設計ではない。後続で `Vec GuiEvent` に置換しても、poll が `Option GuiEvent` を返し、overflow を typed error として扱う契約は維持する。
+
+Sentinel は使わない。
+
+- `GuiEvent::None` は追加しない。
+- empty poll は `Option::None` で表す。
+- raw string、DOM event object、OS event handle は virtual event script に入れない。
+
+Virtual clock:
+
+- `gui_virtual_clock_result now_ms` は 0 以上の initial clock を作る。negative time は `GuiError::InvalidCommand` として拒否する。
+- `gui_virtual_clock_advance clock delta_ms` は negative delta を `GuiError::InvalidCommand` として拒否する。
+- `now_ms + delta_ms` または `tick + 1` が i32 positive range を超える場合は wrap せず `GuiError::InvalidCommand` とする。
+- advance は OS clock を読まない。caller が渡した delta だけで deterministic に進む。
+- timer event は `GuiEvent::Timer` として script に入れる。virtual timer scheduler は後続 slice で追加する。
+
+Pixel hash:
+
+- `pixel_hash` は signed opaque `i32` として全 bit pattern を有効値にする。
+- 0 や -1 を sentinel にしない。
+- hash algorithm と collision policy は backend presenter contract で定義し、std layer は hash value を保持するだけにする。
+
 ## Video memory header
 
 Web backend の video memory surface は `SharedArrayBuffer` を 1 つ使い、header と 2 個以上の pixel plane を同じ buffer 内に置く。単一 pixel plane は writer と presenter が同じ memory を同時に触る危険があるため、正式 contract では禁止する。
