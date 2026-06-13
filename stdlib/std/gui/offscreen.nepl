@@ -1,0 +1,141 @@
+//: # std/gui/offscreen
+//: offscreen pixel surface の snapshot contract
+//:
+//: ### [目的/もくてき]
+//: - visible window ではなく `SurfaceKind::OffscreenPixel` backend が[生成/せいせい]した frame を、test や screenshot [検査/けんさ]で[扱/あつか]う typed snapshot として[表/あらわ]します。
+//: - DOM、Canvas、OS handle、raw pointer、pixel memory の[読/よ]み[取/と]りはこの module に[置/お]かず、backend presenter が[計算/けいさん]した pixel hash と typed surface descriptor だけを[束/たば]ねます。
+//:
+//: ### [契約/けいやく]
+//: - snapshot source として[認/みと]めるのは `GuiRuntimeCommand::PresentSurface` の pixel frame だけです。
+//: - `SurfaceKind::OffscreenPixel` 以外の host は、visible window や headless への fallback を[行/おこな]わず `GuiError::Unsupported` を[返/かえ]します。
+//: - `pixel_hash` は backend presenter が[実/じつ]pixel bytes から[計算/けいさん]した opaque `i32` です。0 や -1 を sentinel として[扱/あつか]わず、すべての bit pattern を[有効/ゆうこう]な hash 値として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/offscreen" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/host" as *
+#import "std/gui/runtime" as *
+#import "std/gui/surface" as *
+#import "std/gui/window" as *
+
+//: GuiOffscreenSnapshot: offscreen presenter が[確定/かくてい]した frame snapshot
+//:
+//: [契約/けいやく]:
+//: - geometry と format は `GuiPixelBufferDescriptor` から[転記/てんき]します。
+//: - `pixel_hash` はこの型では[再計算/さいけいさん]しません。pixel memory の[所有/しょゆう]と hash [権限/けんげん]は backend presenter [側/がわ]にあります。
+//:
+//: neplg2:test[skip]
+pub struct GuiOffscreenSnapshot:
+    surface %SurfaceId
+    frame %FrameId
+    width %i32
+    height %i32
+    stride_bytes %i32
+    format %ColorFormat
+    dirty %DirtyRegion
+    pixel_hash %i32
+
+impl Clone for GuiOffscreenSnapshot:
+    fn clone %fn &GuiOffscreenSnapshot GuiOffscreenSnapshot \snapshot:
+        *snapshot
+
+impl Copy for GuiOffscreenSnapshot:
+    fn copy_mark %fn GuiOffscreenSnapshot GuiOffscreenSnapshot \snapshot:
+        snapshot
+
+//: gui_offscreen_snapshot: 検査済み snapshot value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot %fn SurfaceId fn FrameId fn i32 fn i32 fn i32 fn ColorFormat fn DirtyRegion fn i32 GuiOffscreenSnapshot \surface\frame\width\height\stride_bytes\format\dirty\pixel_hash:
+    GuiOffscreenSnapshot surface frame width height stride_bytes format dirty pixel_hash
+
+//: gui_offscreen_snapshot_surface: snapshot の surface id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_surface %fn &GuiOffscreenSnapshot SurfaceId \snapshot:
+    *field::get_ref snapshot "surface"
+
+//: gui_offscreen_snapshot_frame: snapshot の frame id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_frame %fn &GuiOffscreenSnapshot FrameId \snapshot:
+    *field::get_ref snapshot "frame"
+
+//: gui_offscreen_snapshot_width: snapshot width を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_width %fn &GuiOffscreenSnapshot i32 \snapshot:
+    *field::get_ref snapshot "width"
+
+//: gui_offscreen_snapshot_height: snapshot height を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_height %fn &GuiOffscreenSnapshot i32 \snapshot:
+    *field::get_ref snapshot "height"
+
+//: gui_offscreen_snapshot_stride_bytes: snapshot stride bytes を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_stride_bytes %fn &GuiOffscreenSnapshot i32 \snapshot:
+    *field::get_ref snapshot "stride_bytes"
+
+//: gui_offscreen_snapshot_format: snapshot color format を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_format %fn &GuiOffscreenSnapshot ColorFormat \snapshot:
+    *field::get_ref snapshot "format"
+
+//: gui_offscreen_snapshot_dirty: snapshot dirty region を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_dirty %fn &GuiOffscreenSnapshot DirtyRegion \snapshot:
+    *field::get_ref snapshot "dirty"
+
+//: gui_offscreen_snapshot_pixel_hash: backend が[計算/けいさん]した opaque pixel hash を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_pixel_hash %fn &GuiOffscreenSnapshot i32 \snapshot:
+    *field::get_ref snapshot "pixel_hash"
+
+//: gui_offscreen_host_can_snapshot: host が offscreen snapshot source か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_offscreen_host_can_snapshot %fn &GuiHost bool \host:
+    let capabilities %GuiCapabilities gui_host_capabilities host
+    surface_kind_is_offscreen_pixel gui_capabilities_surface_kind &capabilities
+
+//: gui_offscreen_snapshot_from_runtime_command: present command と backend hash から snapshot を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - host が `SurfaceKind::OffscreenPixel` でない場合は `GuiError::Unsupported` です。
+//: - command が `PresentSurface` でない場合も、snapshot の source ではないため `GuiError::Unsupported` です。
+//: - visible window や headless host への fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_offscreen_snapshot_from_runtime_command %fn &GuiHost fn GuiRuntimeCommand fn i32 Result GuiOffscreenSnapshot GuiError \host\command\pixel_hash:
+    if gui_offscreen_host_can_snapshot host:
+        then:
+            match command:
+                GuiRuntimeCommand::PresentSurface present:
+                    match present:
+                        GuiSurfacePresentCommand::PresentPixelFrame surface_frame:
+                            let descriptor %GuiPixelBufferDescriptor gui_surface_frame_descriptor &surface_frame
+                            let surface %SurfaceId gui_pixel_buffer_surface &descriptor
+                            let frame %FrameId gui_surface_frame_id &surface_frame
+                            let width %i32 gui_pixel_buffer_width &descriptor
+                            let height %i32 gui_pixel_buffer_height &descriptor
+                            let stride_bytes %i32 gui_pixel_buffer_stride_bytes &descriptor
+                            let format %ColorFormat gui_pixel_buffer_format &descriptor
+                            let dirty %DirtyRegion gui_surface_frame_dirty &surface_frame
+                            Result::Ok gui_offscreen_snapshot surface frame width height stride_bytes format dirty pixel_hash
+                _:
+                    Result::Err GuiError::Unsupported
+        else Result::Err GuiError::Unsupported
