@@ -57910,3 +57910,39 @@ MERGE_APPROVED
 - trait impl table、method body purity、Drop なし proof の実計算は未完了である。
 - re-export / import graph / public non-trait declaration を含む full public surface normalizer は未完了である。
 - nested traversal / operation fold の重複削減、layout lookup index 化、stage0 helper の内部整理は public side payload contract を変えずに後からできる最適化として扱う。
+
+## 2026-06-13 selfhost public surface input accumulator checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-public-surface-normalizer-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、typed enum / Result error、pure core / boundary 分離、DAG、探索範囲削減、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API 境界を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_public_surface_hash.nepl` に `SelfhostMemoTraitPublicSurfaceHashInputAccumulator` を追加し、full public surface normalizer が任意長 ordered input item stream を渡せる fold boundary を作った。
+- `input_accumulator_push_result` は item ordinal が `count + 1` でない場合に `PublicSurfaceInputOrdinalMismatch` で拒否する。`finish_result` は empty input を `PublicSurfaceInputEmpty` で拒否し、schema code、item count、folded item hash だけから final hash を作る。
+- dependency module / re-export item には typed dependency public surface hash を必須にし、missing / placeholder / unexpected dependency hash を `DependencyPublicSurfaceHashMissing`、`DependencyPublicSurfaceHashPlaceholder`、`UnexpectedDependencyPublicSurfaceHash` として分けた。
+- public function / struct / enum / impl の typed input item constructor を追加した。これらは source path、lexeme、span、display name、diagnostic text を authority にせず、caller supplied stable payload hash だけを受け取る。現時点では facade へ公開せず、後続 full normalizer producer が安定 API として設計されるまで module 内 helper に閉じる。
+- 既存 local `MemoKey` / `MemoValue` pair の fixed 2 slot table は compatibility adapter として残し、fold 本体は accumulator API を通すようにした。可変長 table への置換は public item schema と accumulator contract を変えずに後からできる。
+- stage0 smoke は local memo trait pair、dependency、re-export、public declaration item の accepted fold と、dependency hash missing / placeholder、unexpected dependency hash、ordinal mismatch の rejected path を確認するようにした。
+- `nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`todo.md`、対象 issue を更新した。
+
+### subagent_review
+
+- Lorentz review: Blocker なし。Required として、line count / comment length cap 禁止の source policy regex が英語表現だけで、日本語の `行数制限` / `行数上限` / `コメント長制限` / `コメント長上限` を直接固定していない点を指摘した。
+- Required 対応として、`nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js` の禁止 regex を日本語表現と doc comment length cap 表現まで拡張した。
+- Lorentz は、typed enum / Result error、source text / span / path / display / diagnostic 非 authority、HIR / Resource IR / backend / proof-store 逆依存なし、trait impl / method purity / Drop proof の先取りなしを確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-normalizer.json`
+
+### residual
+
+- loader / module graph authority から re-export / import graph / public non-trait declaration の stable payload を作り、typed input stream へ投影する full public surface normalizer producer は未実装である。
+- trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- accumulator fold の内部 memoization、fixed 2 slot compatibility table の可変長 table 化、field 別 placeholder error の追加は public item / accumulator contract を変えずに後からできる最適化または診断強化として扱う。

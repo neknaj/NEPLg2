@@ -54,7 +54,7 @@ assert.match(
 );
 assert.match(
     source,
-    /token-aware API が計算する public surface hash は、local `MemoKey` \/ `MemoValue` marker trait pair と method-bearing trait pair に対応[\s\S]*AST-only 互換 API は token authority がないため marker trait pair だけに限定[\s\S]*import \/ use \/ prelude \/ public non-trait declaration は[\s\S]*拒否/,
+    /token-aware API が計算する public surface hash は、local `MemoKey` \/ `MemoValue` marker trait pair と method-bearing trait pair に対応[\s\S]*AST-only 互換 API は token authority がないため marker trait pair だけに限定[\s\S]*import \/ use \/ prelude \/ public non-trait declaration [をは][\s\S]*拒否/,
     "hash materializer must document token-aware method-bearing support and fail-closed unsupported full public surface cases",
 );
 assert.match(
@@ -94,8 +94,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:[\s\S]*ModuleIdentityFingerprintMissing[\s\S]*ModuleIdentityFingerprintPlaceholder[\s\S]*ImportSurfaceUnsupported[\s\S]*UseSurfaceUnsupported[\s\S]*PreludeSurfaceUnsupported[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*PublicStructSurfaceUnsupported[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*PublicImplSurfaceUnsupported[\s\S]*PublicSurfaceSeedRejected %SelfhostMemoTraitPublicSurfaceSeedErrorKind[\s\S]*MemoKeySeedMissing[\s\S]*MemoValueSeedMissing[\s\S]*MemoKeyPrivateVisibility[\s\S]*MemoValuePrivateVisibility[\s\S]*PublicSurfaceHashPlaceholder/,
-    "hash failures must be typed enum variants covering identity, unsupported surface, seed scan, field, visibility, and derived hash errors",
+    /pub struct SelfhostMemoTraitPublicSurfaceHashInputAccumulator:[\s\S]*count %i32[\s\S]*folded_hash %i32/,
+    "full public surface hash must expose a typed input accumulator for normalizer-provided item streams",
+);
+assert.match(
+    source,
+    /pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:[\s\S]*ModuleIdentityFingerprintMissing[\s\S]*ModuleIdentityFingerprintPlaceholder[\s\S]*ImportSurfaceUnsupported[\s\S]*UseSurfaceUnsupported[\s\S]*PreludeSurfaceUnsupported[\s\S]*NoPreludeSurfaceUnsupported[\s\S]*PublicFunctionSurfaceUnsupported[\s\S]*PublicStructSurfaceUnsupported[\s\S]*PublicEnumSurfaceUnsupported[\s\S]*PublicImplSurfaceUnsupported[\s\S]*PublicSurfaceSeedRejected %SelfhostMemoTraitPublicSurfaceSeedErrorKind[\s\S]*MemoKeySeedMissing[\s\S]*MemoValueSeedMissing[\s\S]*MemoKeyPrivateVisibility[\s\S]*MemoValuePrivateVisibility[\s\S]*PublicSurfaceHashPlaceholder[\s\S]*PublicSurfaceInputEmpty[\s\S]*PublicSurfaceInputOrdinalMismatch[\s\S]*DependencyPublicSurfaceHashMissing[\s\S]*DependencyPublicSurfaceHashPlaceholder[\s\S]*UnexpectedDependencyPublicSurfaceHash/,
+    "hash failures must be typed enum variants covering identity, unsupported surface, seed scan, field, visibility, input stream, dependency hash, and derived hash errors",
 );
 assert.match(
     source,
@@ -239,13 +244,33 @@ assert.match(
 );
 assert.match(
     source,
+    /\nfn selfhost_memo_trait_public_surface_hash_dependency_module_input_item[\s\S]*DependencyModule[\s\S]*\nfn selfhost_memo_trait_public_surface_hash_reexport_input_item[\s\S]*ReExport[\s\S]*\nfn selfhost_memo_trait_public_surface_hash_public_function_input_item[\s\S]*PublicFunction[\s\S]*\nfn selfhost_memo_trait_public_surface_hash_public_struct_input_item[\s\S]*PublicStruct[\s\S]*\nfn selfhost_memo_trait_public_surface_hash_public_enum_input_item[\s\S]*PublicEnum[\s\S]*\nfn selfhost_memo_trait_public_surface_hash_public_impl_input_item[\s\S]*PublicImpl/,
+    "full public surface constructors must accept typed dependency, re-export, and public declaration items without leaking through the module checker facade",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_dependency_part_result[\s\S]*DependencyModule:[\s\S]*DependencyPublicSurfaceHashPlaceholder[\s\S]*DependencyPublicSurfaceHashMissing[\s\S]*ReExport:[\s\S]*DependencyPublicSurfaceHashPlaceholder[\s\S]*DependencyPublicSurfaceHashMissing[\s\S]*LocalMemoTrait _source_kind:[\s\S]*UnexpectedDependencyPublicSurfaceHash[\s\S]*PublicFunction:[\s\S]*UnexpectedDependencyPublicSurfaceHash/,
+    "dependency and re-export input items must require a typed dependency surface hash while local/public declaration items reject unexpected dependency hashes",
+);
+assert.match(
+    source,
+    /\nfn selfhost_memo_trait_public_surface_hash_input_accumulator_push_result[\s\S]*let expected_ordinal %i32 add state\.count 1[\s\S]*PublicSurfaceInputOrdinalMismatch[\s\S]*selfhost_memo_trait_public_surface_hash_input_item_result item[\s\S]*selfhost_memo_trait_public_surface_hash_accumulator_next_hash/,
+    "input accumulator push must enforce ordinal adjacency before folding a validated item hash",
+);
+assert.match(
+    source,
+    /\nfn selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result[\s\S]*PublicSurfaceInputEmpty[\s\S]*selfhost_memo_trait_public_surface_hash_mix3 selfhost_memo_trait_public_surface_hash_input_schema_code state\.count state\.folded_hash/,
+    "input accumulator finish must reject empty input and include schema, count, and folded item hash",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_key_input_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_value_input_item_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_new key_item value_item/,
     "seed table must be adapted into an ordered full-surface input table before hash folding",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_public_surface_hash_input_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_schema_code[\s\S]*first_hash[\s\S]*second_hash/,
-    "ordered input table folding must use the new full-input schema and preserve item order",
+    /selfhost_memo_trait_public_surface_hash_input_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_empty[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_push_result start table\.first[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_first table\.second[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result after_second/,
+    "ordered input table folding must route through the accumulator so the two-item compatibility path uses the full-input schema",
 );
 assert.match(
     source,
@@ -319,6 +344,16 @@ assert.match(
 );
 assert.match(
     source,
+    /selfhost_memo_trait_public_surface_hash_stage0_full_surface_input_hash_result[\s\S]*selfhost_memo_trait_public_surface_hash_dependency_module_input_item[\s\S]*selfhost_memo_trait_public_surface_hash_reexport_input_item[\s\S]*selfhost_memo_trait_public_surface_hash_public_function_input_item[\s\S]*selfhost_memo_trait_public_surface_hash_public_struct_input_item[\s\S]*selfhost_memo_trait_public_surface_hash_public_enum_input_item[\s\S]*selfhost_memo_trait_public_surface_hash_public_impl_input_item[\s\S]*selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_missing_result[\s\S]*selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_placeholder_result[\s\S]*selfhost_memo_trait_public_surface_hash_stage0_unexpected_dependency_hash_result[\s\S]*selfhost_memo_trait_public_surface_hash_stage0_ordinal_mismatch_result/,
+    "stage0 smoke helpers must build full typed input acceptance and dependency or ordinal rejection paths",
+);
+assert.match(
+    source,
+    /summary\.full_surface_input_hash[\s\S]*summary\.dependency_hash_missing_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing[\s\S]*summary\.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder[\s\S]*summary\.unexpected_dependency_hash_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash[\s\S]*summary\.ordinal_mismatch_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch/,
+    "stage0 doctest must assert full typed input acceptance and dependency or ordinal rejection variants",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_public_surface_hash_key_input_item_result[\s\S]*selfhost_memo_trait_source_kind_eq seed\.kind SelfhostMemoTraitSourceKind::MemoKeyTrait[\s\S]*seed\.declaration_ordinal[\s\S]*seed\.normalized_signature_hash[\s\S]*SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait seed\.kind/,
     "MemoKey seed adapter must check source kind, ordinal, signature, visibility, and create a typed input item",
 );
@@ -359,8 +394,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     sourceCode,
-    /line count|comment length|file size|500 行/,
-    "public surface hash policy must not introduce line-count or doc-comment-length restrictions",
+    /line count|comment length|file size|500 行|行数制限|行数上限|コメント長制限|コメント長上限|doc comment length cap|doc-comment-length cap/i,
+    "public surface hash policy must not introduce line-count or doc-comment-length restrictions in English or Japanese",
 );
 
 console.log("selfhost memo trait public surface hash contract passed");

@@ -399,6 +399,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost public surface input accumulator checkpoint
+
+`memo_trait_public_surface_hash.nepl` の ordered typed input boundary を full public surface normalizer 用 accumulator へ拡張した。
+
+`SelfhostMemoTraitPublicSurfaceHashInputAccumulator` は `count` と `folded_hash` を持ち、`selfhost_memo_trait_public_surface_hash_input_accumulator_push_result` が item ordinal を `count + 1` として検査する。欠番、重複、順序入れ替えは `PublicSurfaceInputOrdinalMismatch` で fail-closed にする。`finish_result` は empty input を `PublicSurfaceInputEmpty` で拒否し、schema code、item count、folded item hash から final public surface hash を作る。
+
+dependency module と re-export item には caller supplied typed dependency public surface hash を必須にした。`none` は `DependencyPublicSurfaceHashMissing`、`some 0` は `DependencyPublicSurfaceHashPlaceholder`、local item や public declaration item への余分な dependency hash は `UnexpectedDependencyPublicSurfaceHash` として分ける。hash module は import graph や re-export path を source text / path / display name から解決せず、loader / module graph authority が検査した typed hash だけを fold する。
+
+stage0 smoke は local `MemoKey` / `MemoValue`、dependency、re-export、public function、public struct、public enum、public impl を同じ accumulator schema に通す accepted path と、dependency hash missing / placeholder、unexpected dependency hash、ordinal mismatch の rejected path を確認する。既存 local memo trait pair の fixed 2 slot table は互換 adapter として残したが、fold 本体は accumulator API を通るため、後続で可変長 table へ置換しても item schema と public hash contract は維持される。
+
+typed item constructor と accumulator helper は現時点では module 内部に閉じ、module checker facade へ公開しない。後続 full normalizer producer が loader / module graph authority を持つ段階で、必要な stable API を別途設計する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-normalizer.json`
+
+この checkpoint 後も、loader / module graph authority から re-export / import graph / public non-trait declaration の stable payload を作り、typed input stream へ投影する full public surface normalizer producer は未実装である。trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算、persistent stable map / serialized index、generic instantiation artifact 接続も後続 slice に残る。
+
 ## 2026-06-13 selfhost memo trait operation solver checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl` を追加し、type arena と layout evidence から Copy / Drop / Eq / Hash operation proof status table を作る境界を実装した。

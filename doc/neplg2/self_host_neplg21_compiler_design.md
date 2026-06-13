@@ -1326,6 +1326,16 @@ stage0 smoke は empty aggregate、i32 field aggregate、f32 field aggregate、m
 
 この checkpoint は full public surface normalizer ではない。public function / struct / enum / impl signature、dependency module identity、re-export chain、stable nominal key、serialized `.neplmeta` 入力は後続 slice の責務である。今回固定したのは、後続 normalizer が stable input を渡すための受け口と、source-derived authority へ戻らない hash folding contract である。
 
+2026-06-13 MemoKey / MemoValue public surface input accumulator checkpoint では、上記の ordered typed input boundary を full public surface normalizer が使える accumulator API へ拡張した。
+
+`SelfhostMemoTraitPublicSurfaceHashInputAccumulator` は、`count` と `folded_hash` だけを持つ fold state である。`selfhost_memo_trait_public_surface_hash_input_accumulator_push_result` は次に受け取る item の `ordinal` が `count + 1` と一致する場合だけ item hash を fold する。欠番、重複、順序入れ替えは `PublicSurfaceInputOrdinalMismatch` で拒否する。`selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result` は item が 1 件もない input を `PublicSurfaceInputEmpty` として拒否し、schema code、item count、folded item hash から final public surface hash を作る。
+
+dependency と re-export item には caller supplied typed dependency public surface hash を必須にした。`none` は `DependencyPublicSurfaceHashMissing`、`some 0` は `DependencyPublicSurfaceHashPlaceholder` で拒否する。逆に local memo trait item や public function / struct / enum / impl item に dependency public surface hash が付いた場合は `UnexpectedDependencyPublicSurfaceHash` として拒否する。これにより、import graph や re-export chain を hash module が source path から解決する経路を作らず、loader / module graph 側が検査した typed dependency hash だけを受け取る境界を固定した。
+
+Stage0 smoke は、local `MemoKey` / `MemoValue`、dependency、re-export、public function、public struct、public enum、public impl を同じ accumulator schema で fold できることを確認する。また dependency hash missing、dependency hash placeholder、unexpected dependency hash、ordinal mismatch を typed enum error として確認する。既存の local memo trait pair adapter は fixed 2 slot table の互換 path として残るが、その fold 本体も accumulator API を通る。fixed 2 slot table を可変長 table へ置換することは、item schema と accumulator contract を変えずに後からできる。
+
+この checkpoint でも、re-export / import graph / public non-trait declaration の stable payload を実際に作る normalizer は未実装である。typed item constructor と accumulator helper は module 内部に閉じ、stable facade API へは出さない。次 stage では loader / module graph authority が持つ typed dependency surface、re-export projection、public function / struct / enum / impl signature を `SelfhostMemoTraitPublicSurfaceHashInputItem` stream へ投影する producer を実装し、その producer 用に必要な公開境界を改めて設計する。trait impl table、method body purity、Drop なし proof は operation solver 側の後続 slice として扱う。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

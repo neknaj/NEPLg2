@@ -6,12 +6,14 @@
 //: [目的/もくてき]:
 //: - `SelfhostModuleAst` の local public memo trait declaration から seed table を作り、その seed table を full public surface hash 用の ordered typed input table へ変換してから fold します。
 //: - source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず、kind、visibility、declaration ordinal、normalized signature seed、caller supplied dependency public surface hash だけを input field として使います。
+//: - full public surface normalizer が後続で作る dependency / re-export / public declaration item は、同じ typed input accumulator に渡します。hash module は import graph や declaration body を自力で解決せず、caller が検査済み stable payload を渡した場合だけ fold します。
 //: - scanner candidate、public surface hash materializer、stable evidence producer、fingerprint gate、trusted registry validator を順に通し、途中の未正規化 surface を成功扱いしないようにします。
 //:
 //: [契約/けいやく]:
 //: - `module_identity_hash` は caller が作った typed fingerprint です。`none` と `some 0` は typed error で拒否します。
 //: - token-aware API が計算する public surface hash は、local `MemoKey` / `MemoValue` marker trait pair と method-bearing trait pair に対応します。AST-only 互換 API は token authority がないため marker trait pair だけに限定されます。
-//: - import / use / prelude / public non-trait declaration は、full module public surface の正規化が未接続なので拒否します。
+//: - AST scan path では import / use / prelude / public non-trait declaration を、full module public surface normalizer が未接続であるため拒否します。
+//: - typed input accumulator path では、normalizer が渡した dependency / re-export / public declaration item を順序付き input として fold できます。ただし dependency hash の欠落、placeholder、local item への余分な dependency hash は typed error にします。
 //: - public surface hash は ordered typed input item を deterministic に fold した nonzero fingerprint です。source spelling や byte range は hash material に入りません。
 //: - 成功時も registry を直接構築しません。既存 seed evidence producer と stable source registry gate へ委譲します。
 //:
@@ -24,17 +26,22 @@
 //: - materialize は hash module 内の scan loop が unsupported public surface の fail-closed 判定、`MemoKey` / `MemoValue` seed accumulation、seed table complete check を同じ pass で行うため、module item stream を 1 回走査します。
 //: - token-aware materialize も hash module 内の loop が module item stream を 1 回走査します。method-bearing trait の正規化だけは trait body token 数 k に比例するため、全体は O(n + k) です。
 //: - registry convenience path は candidate table と seed table を同じ item loop で作るため、module item stream を 1 回だけ走査し、token-aware method 正規化を含めても全体は O(n + k) です。既存の scanner API と materialize API は単体検査と互換のため残します。
-//: - 現 checkpoint の input table は local memo trait pair 用の固定 2 slot なので O(1) 追加空間です。full public surface normalizer が入る後続 slice では、同じ item schema を可変長 table へ広げます。
+//: - local memo trait pair adapter は互換のため固定 2 slot table を使いますが、hash folding 本体は accumulator API を通します。full public surface normalizer は同じ item schema を任意長の ordered stream として渡します。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
 //: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: ##: [10] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -48,12 +55,17 @@
 //:     let summary selfhost_memo_trait_public_surface_hash_stage0
 //:     let checks0 checks_new
 //:     let checks1 checks_push checks0 check is_ok summary.accepted_registry
-//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.module_identity_missing_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing
-//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.import_surface_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported
-//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.public_declaration_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported
-//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_hash_error_kind_eq (unwrap_err summary.body_surface_rejected) SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.module_identity_missing_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.import_surface_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::ImportSurfaceUnsupported
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.public_declaration_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicFunctionSurfaceUnsupported
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.body_surface_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceSeedRejected SelfhostMemoTraitPublicSurfaceSeedErrorKind::MemoKeyTraitBodyNormalizationUnsupported
 //:     let checks6 checks_push checks5 check is_ok summary.method_surface_accepted_registry
-//:     let shown checks_print_report checks6
+//:     let checks7 checks_push checks6 check is_ok summary.full_surface_input_hash
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.dependency_hash_missing_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing
+//:     let checks9 checks_push checks8 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.dependency_hash_placeholder_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder
+//:     let checks10 checks_push checks9 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.unexpected_dependency_hash_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash
+//:     let checks11 checks_push checks10 check selfhost_memo_trait_public_surface_hash_error_kind_eq unwrap_err summary.ordinal_mismatch_rejected SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch
+//:     let shown checks_print_report checks11
 //:     checks_exit_code shown
 //: ```
 
@@ -163,6 +175,18 @@ pub struct SelfhostMemoTraitPublicSurfaceHashInputTable:
     first %SelfhostMemoTraitPublicSurfaceHashInputItem
     second %SelfhostMemoTraitPublicSurfaceHashInputItem
 
+//: SelfhostMemoTraitPublicSurfaceHashInputAccumulator: full public surface input stream の fold state
+//:
+//: [目的/もくてき]:
+//: - full public surface normalizer が後続で作る任意長の ordered input item を、source order ではなく normalizer が確定した ordinal 順に fold します。
+//:
+//: [契約/けいやく]:
+//: - `count` はすでに fold 済みの item 数です。次に受け取る item の ordinal は `count + 1` でなければなりません。
+//: - `folded_hash` は validated item hash だけから作ります。source text、span、path、display name、diagnostic text はこの accumulator に入りません。
+pub struct SelfhostMemoTraitPublicSurfaceHashInputAccumulator:
+    count %i32
+    folded_hash %i32
+
 //: SelfhostMemoTraitPublicSurfaceHashErrorKind: public surface hash materialization の拒否理由
 //:
 //: [目的/もくてき]:
@@ -197,6 +221,11 @@ pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:
     MemoKeyNormalizedSignaturePlaceholder
     MemoValueNormalizedSignaturePlaceholder
     PublicSurfaceHashPlaceholder
+    PublicSurfaceInputEmpty
+    PublicSurfaceInputOrdinalMismatch
+    DependencyPublicSurfaceHashMissing
+    DependencyPublicSurfaceHashPlaceholder
+    UnexpectedDependencyPublicSurfaceHash
 
 //: SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind: hash materializer から registry までの拒否理由
 //:
@@ -218,6 +247,11 @@ pub struct SelfhostMemoTraitPublicSurfaceHashStage0Summary:
     public_declaration_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
     body_surface_rejected %Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind
     method_surface_accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind
+    full_surface_input_hash %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind
+    dependency_hash_missing_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind
+    dependency_hash_placeholder_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind
+    unexpected_dependency_hash_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind
+    ordinal_mismatch_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind
 
 impl Clone for SelfhostMemoTraitPublicSurfaceHashMaterialization:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashMaterialization \self:
@@ -267,6 +301,14 @@ impl Copy for SelfhostMemoTraitPublicSurfaceHashInputTable:
     fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashInputTable SelfhostMemoTraitPublicSurfaceHashInputTable \self:
         self
 
+impl Clone for SelfhostMemoTraitPublicSurfaceHashInputAccumulator:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashInputAccumulator SelfhostMemoTraitPublicSurfaceHashInputAccumulator \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashInputAccumulator:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashInputAccumulator SelfhostMemoTraitPublicSurfaceHashInputAccumulator \self:
+        self
+
 impl Clone for SelfhostMemoTraitPublicSurfaceHashErrorKind:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashErrorKind \self:
         *self
@@ -314,9 +356,51 @@ fn selfhost_memo_trait_public_surface_hash_registry_scan_state_empty %fn void Se
 fn selfhost_memo_trait_public_surface_hash_input_item_new %fn SelfhostMemoTraitPublicSurfaceHashInputKind fn i32 fn SelfhostModuleDeclarationVisibility fn i32 fn Option i32 SelfhostMemoTraitPublicSurfaceHashInputItem \kind\ordinal\visibility\payload_hash\dependency_public_surface_hash:
     SelfhostMemoTraitPublicSurfaceHashInputItem kind ordinal visibility payload_hash dependency_public_surface_hash
 
+//: selfhost_memo_trait_public_surface_hash_dependency_module_input_item: dependency module item を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - import graph / loader が検査済み dependency public surface hash を full surface hash input へ渡すための typed constructor です。
+//:
+//: [契約/けいやく]:
+//: - `dependency_public_surface_hash` はこの constructor では raw path から作りません。caller が module graph authority から得た typed hash を渡します。
+//: - hash folding 時に `none` や `some 0` は typed error になります。
+fn selfhost_memo_trait_public_surface_hash_dependency_module_input_item %fn i32 fn i32 fn Option i32 SelfhostMemoTraitPublicSurfaceHashInputItem \ordinal\payload_hash\dependency_public_surface_hash:
+    selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::DependencyModule ordinal SelfhostModuleDeclarationVisibility::Public payload_hash dependency_public_surface_hash
+
+//: selfhost_memo_trait_public_surface_hash_reexport_input_item: re-export item を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - re-export 先の public surface hash は caller supplied typed hash です。re-export path や表示名はこの item に入りません。
+fn selfhost_memo_trait_public_surface_hash_reexport_input_item %fn i32 fn i32 fn Option i32 SelfhostMemoTraitPublicSurfaceHashInputItem \ordinal\payload_hash\dependency_public_surface_hash:
+    selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::ReExport ordinal SelfhostModuleDeclarationVisibility::Public payload_hash dependency_public_surface_hash
+
+//: selfhost_memo_trait_public_surface_hash_public_function_input_item: public function item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_public_function_input_item %fn i32 fn i32 SelfhostMemoTraitPublicSurfaceHashInputItem \ordinal\payload_hash:
+    selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::PublicFunction ordinal SelfhostModuleDeclarationVisibility::Public payload_hash Option::None
+
+//: selfhost_memo_trait_public_surface_hash_public_struct_input_item: public struct item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_public_struct_input_item %fn i32 fn i32 SelfhostMemoTraitPublicSurfaceHashInputItem \ordinal\payload_hash:
+    selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::PublicStruct ordinal SelfhostModuleDeclarationVisibility::Public payload_hash Option::None
+
+//: selfhost_memo_trait_public_surface_hash_public_enum_input_item: public enum item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_public_enum_input_item %fn i32 fn i32 SelfhostMemoTraitPublicSurfaceHashInputItem \ordinal\payload_hash:
+    selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::PublicEnum ordinal SelfhostModuleDeclarationVisibility::Public payload_hash Option::None
+
+//: selfhost_memo_trait_public_surface_hash_public_impl_input_item: public impl item を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_public_impl_input_item %fn i32 fn i32 SelfhostMemoTraitPublicSurfaceHashInputItem \ordinal\payload_hash:
+    selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::PublicImpl ordinal SelfhostModuleDeclarationVisibility::Public payload_hash Option::None
+
 //: selfhost_memo_trait_public_surface_hash_input_table_new: ordered input table を[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_input_table_new %fn SelfhostMemoTraitPublicSurfaceHashInputItem fn SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashInputTable \first\second:
     SelfhostMemoTraitPublicSurfaceHashInputTable first second
+
+//: selfhost_memo_trait_public_surface_hash_input_accumulator_new: input fold state を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_input_accumulator_new %fn i32 fn i32 SelfhostMemoTraitPublicSurfaceHashInputAccumulator \count\folded_hash:
+    SelfhostMemoTraitPublicSurfaceHashInputAccumulator count folded_hash
+
+//: selfhost_memo_trait_public_surface_hash_input_accumulator_empty: [空/から]の input fold state を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_input_accumulator_empty %fn void SelfhostMemoTraitPublicSurfaceHashInputAccumulator \void:
+    selfhost_memo_trait_public_surface_hash_input_accumulator_new 0 0
 
 //: selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table: seed table 更新済み state を[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table %fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashRegistryScanState \state\seed_table:
@@ -397,6 +481,16 @@ fn selfhost_memo_trait_public_surface_hash_error_kind_code %fn SelfhostMemoTrait
             28
         SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
             29
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputEmpty:
+            30
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch:
+            31
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing:
+            32
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder:
+            33
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash:
+            34
 
 //: selfhost_memo_trait_public_surface_hash_error_kind_eq: public surface hash error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceHashErrorKind fn SelfhostMemoTraitPublicSurfaceHashErrorKind bool \a\b:
@@ -460,6 +554,16 @@ pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTra
                 SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
                     false
                 SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputEmpty:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder:
+                    false
+                SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash:
                     false
         SelfhostMemoTraitPublicSurfaceHashErrorKind::ModuleIdentityFingerprintMissing:
             eq:
@@ -570,6 +674,26 @@ pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTra
                 selfhost_memo_trait_public_surface_hash_error_kind_code a
                 selfhost_memo_trait_public_surface_hash_error_kind_code b
         SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputEmpty:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder:
+            eq:
+                selfhost_memo_trait_public_surface_hash_error_kind_code a
+                selfhost_memo_trait_public_surface_hash_error_kind_code b
+        SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash:
             eq:
                 selfhost_memo_trait_public_surface_hash_error_kind_code a
                 selfhost_memo_trait_public_surface_hash_error_kind_code b
@@ -676,14 +800,52 @@ fn selfhost_memo_trait_public_surface_hash_input_kind_code %fn SelfhostMemoTrait
 //: selfhost_memo_trait_public_surface_hash_dependency_part_result: dependency public surface hash を fold 用 seed へ[変換/へんかん]する
 //:
 //: [契約/けいやく]:
-//: - local declaration item では dependency hash が無いので `none` を 0 seed として fold します。
-//: - import graph / re-export item で `some 0` が渡された場合は placeholder として拒否します。dependency hash を caller supplied typed input として扱い、path 文字列から作りません。
-fn selfhost_memo_trait_public_surface_hash_dependency_part_result %fn Option i32 Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \dependency_public_surface_hash:
-    match dependency_public_surface_hash:
-        Option::Some dependency_hash:
-            selfhost_memo_trait_public_surface_hash_nonzero_result dependency_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
-        Option::None:
-            Result::Ok 0
+//: - `DependencyModule` と `ReExport` は dependency public surface hash を必須にします。`none` は missing、`some 0` は placeholder として拒否します。
+//: - local declaration item に dependency hash が付いている場合は、別 module の surface を local item に混ぜる不整合なので拒否します。
+fn selfhost_memo_trait_public_surface_hash_dependency_part_result %fn SelfhostMemoTraitPublicSurfaceHashInputKind fn Option i32 Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \kind\dependency_public_surface_hash:
+    match kind:
+        SelfhostMemoTraitPublicSurfaceHashInputKind::DependencyModule:
+            match dependency_public_surface_hash:
+                Option::Some dependency_hash:
+                    selfhost_memo_trait_public_surface_hash_nonzero_result dependency_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing
+        SelfhostMemoTraitPublicSurfaceHashInputKind::ReExport:
+            match dependency_public_surface_hash:
+                Option::Some dependency_hash:
+                    selfhost_memo_trait_public_surface_hash_nonzero_result dependency_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashPlaceholder
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DependencyPublicSurfaceHashMissing
+        SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait _source_kind:
+            match dependency_public_surface_hash:
+                Option::Some _dependency_hash:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash
+                Option::None:
+                    Result::Ok 0
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicFunction:
+            match dependency_public_surface_hash:
+                Option::Some _dependency_hash:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash
+                Option::None:
+                    Result::Ok 0
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicStruct:
+            match dependency_public_surface_hash:
+                Option::Some _dependency_hash:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash
+                Option::None:
+                    Result::Ok 0
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicEnum:
+            match dependency_public_surface_hash:
+                Option::Some _dependency_hash:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash
+                Option::None:
+                    Result::Ok 0
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicImpl:
+            match dependency_public_surface_hash:
+                Option::Some _dependency_hash:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::UnexpectedDependencyPublicSurfaceHash
+                Option::None:
+                    Result::Ok 0
 
 //: selfhost_memo_trait_public_surface_hash_input_item_result: input item 1 件を hash part へ[変換/へんかん]する
 //:
@@ -695,7 +857,7 @@ fn selfhost_memo_trait_public_surface_hash_input_item_result %fn SelfhostMemoTra
         Result::Ok ordinal:
             match selfhost_memo_trait_public_surface_hash_nonzero_result item.payload_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
                 Result::Ok payload_hash:
-                    match selfhost_memo_trait_public_surface_hash_dependency_part_result item.dependency_public_surface_hash:
+                    match selfhost_memo_trait_public_surface_hash_dependency_part_result item.kind item.dependency_public_surface_hash:
                         Result::Ok dependency_hash:
                             let kind_hash %i32 selfhost_memo_trait_public_surface_hash_input_kind_code item.kind
                             let visibility_hash %i32 selfhost_memo_trait_public_surface_hash_visibility_code item.visibility
@@ -710,18 +872,68 @@ fn selfhost_memo_trait_public_surface_hash_input_item_result %fn SelfhostMemoTra
         Result::Err ordinal_error:
             Result::Err ordinal_error
 
+//: selfhost_memo_trait_public_surface_hash_accumulator_next_hash: accumulator の[次/つぎ]の fold hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - 1 件目は item hash をそのまま採用します。2 件目以降は直前の folded hash と item hash を domain mix します。
+//: - item 自体の検査は呼び出し側で済ませます。この helper は順序検査や dependency hash 検査を行いません。
+fn selfhost_memo_trait_public_surface_hash_accumulator_next_hash %fn i32 fn i32 fn i32 i32 \count\folded_hash\item_hash:
+    if:
+        eq count 0
+        then:
+            item_hash
+        else:
+            selfhost_memo_trait_public_surface_hash_mix2 folded_hash item_hash
+
+//: selfhost_memo_trait_public_surface_hash_input_accumulator_push_result: input item を fold state へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - full public surface normalizer が作った ordered item を 1 件ずつ fold します。
+//:
+//: [契約/けいやく]:
+//: - item ordinal は `state.count + 1` と一致しなければなりません。これにより duplicate ordinal、欠番、順序入れ替えを fail-closed にします。
+//: - item 自体の hash は `selfhost_memo_trait_public_surface_hash_input_item_result` で検査し、dependency hash 欠落や local item への余分な dependency hash をここで潰しません。
+fn selfhost_memo_trait_public_surface_hash_input_accumulator_push_result %fn SelfhostMemoTraitPublicSurfaceHashInputAccumulator fn SelfhostMemoTraitPublicSurfaceHashInputItem Result SelfhostMemoTraitPublicSurfaceHashInputAccumulator SelfhostMemoTraitPublicSurfaceHashErrorKind \state\item:
+    let expected_ordinal %i32 add state.count 1
+    if:
+        not eq item.ordinal expected_ordinal
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch
+        else:
+            match selfhost_memo_trait_public_surface_hash_input_item_result item:
+                Result::Ok item_hash:
+                    let next_count %i32 expected_ordinal
+                    let next_hash %i32 selfhost_memo_trait_public_surface_hash_accumulator_next_hash state.count state.folded_hash item_hash
+                    Result::Ok selfhost_memo_trait_public_surface_hash_input_accumulator_new next_count next_hash
+                Result::Err item_error:
+                    Result::Err item_error
+
+//: selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result: fold state から public surface hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - item が 1 件も無い input は full public surface ではないため拒否します。
+//: - finish hash は schema code、item count、folded item hash だけから作ります。
+fn selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result %fn SelfhostMemoTraitPublicSurfaceHashInputAccumulator Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \state:
+    if:
+        eq state.count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputEmpty
+        else:
+            let public_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 selfhost_memo_trait_public_surface_hash_input_schema_code state.count state.folded_hash
+            selfhost_memo_trait_public_surface_hash_nonzero_result public_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+
 //: selfhost_memo_trait_public_surface_hash_input_table_result: ordered input table から public surface hash を[作/つく]る
 //:
 //: [契約/けいやく]:
 //: - item 順序は public surface hash の一部です。同じ item でも順序が違えば別の hash になります。
 //: - この関数は full public surface input schema だけを使い、seed table を別 schema で直接 fold しません。
 fn selfhost_memo_trait_public_surface_hash_input_table_result %fn SelfhostMemoTraitPublicSurfaceHashInputTable Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \table:
-    match selfhost_memo_trait_public_surface_hash_input_item_result table.first:
-        Result::Ok first_hash:
-            match selfhost_memo_trait_public_surface_hash_input_item_result table.second:
-                Result::Ok second_hash:
-                    let public_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 selfhost_memo_trait_public_surface_hash_input_schema_code first_hash second_hash
-                    selfhost_memo_trait_public_surface_hash_nonzero_result public_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+    let start %SelfhostMemoTraitPublicSurfaceHashInputAccumulator selfhost_memo_trait_public_surface_hash_input_accumulator_empty
+    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result start table.first:
+        Result::Ok after_first:
+            match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_first table.second:
+                Result::Ok after_second:
+                    selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result after_second
                 Result::Err second_error:
                     Result::Err second_error
         Result::Err first_error:
@@ -1725,9 +1937,99 @@ fn selfhost_memo_trait_public_surface_hash_stage0_three_item_materialize_result 
         Result::Err _alloc_error:
             Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::DeclarationHeaderMissing
 
+//: selfhost_memo_trait_public_surface_hash_stage0_single_item_hash_result: 1 item の accumulator 検査を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - dependency hash 欠落、placeholder、unexpected dependency hash、ordinal mismatch など、full public surface input item 単位の fail-closed path を stage0 smoke で確認します。
+//:
+//: [契約/けいやく]:
+//: - source text や parser span は一切使わず、typed input item と accumulator の contract だけを通します。
+fn selfhost_memo_trait_public_surface_hash_stage0_single_item_hash_result %fn SelfhostMemoTraitPublicSurfaceHashInputItem Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \item:
+    let start %SelfhostMemoTraitPublicSurfaceHashInputAccumulator selfhost_memo_trait_public_surface_hash_input_accumulator_empty
+    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result start item:
+        Result::Ok after_item:
+            selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result after_item
+        Result::Err item_error:
+            Result::Err item_error
+
+//: selfhost_memo_trait_public_surface_hash_stage0_full_surface_input_hash_result: typed full surface input smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - local `MemoKey` / `MemoValue` に加えて、dependency、re-export、public function / struct / enum / impl の typed input item が同じ accumulator schema で fold できることを確認します。
+//:
+//: [契約/けいやく]:
+//: - dependency と re-export の public surface hash は caller supplied typed hash です。この smoke は path や表示名から hash を作らず、正規化済み payload だけを渡します。
+fn selfhost_memo_trait_public_surface_hash_stage0_full_surface_input_hash_result %fn void Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \void:
+    let start %SelfhostMemoTraitPublicSurfaceHashInputAccumulator selfhost_memo_trait_public_surface_hash_input_accumulator_empty
+    let key_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait SelfhostMemoTraitSourceKind::MemoKeyTrait 1 SelfhostModuleDeclarationVisibility::Public 1001 Option::None
+    let value_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait SelfhostMemoTraitSourceKind::MemoValueTrait 2 SelfhostModuleDeclarationVisibility::Public 1002 Option::None
+    let dependency_hash %Option i32 some 3001
+    let reexport_hash %Option i32 some 3002
+    let dependency_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_dependency_module_input_item 3 2001 dependency_hash
+    let reexport_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_reexport_input_item 4 2002 reexport_hash
+    let function_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_public_function_input_item 5 2003
+    let struct_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_public_struct_input_item 6 2004
+    let enum_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_public_enum_input_item 7 2005
+    let impl_item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_public_impl_input_item 8 2006
+    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result start key_item:
+        Result::Ok after_key:
+            match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_key value_item:
+                Result::Ok after_value:
+                    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_value dependency_item:
+                        Result::Ok after_dependency:
+                            match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_dependency reexport_item:
+                                Result::Ok after_reexport:
+                                    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_reexport function_item:
+                                        Result::Ok after_function:
+                                            match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_function struct_item:
+                                                Result::Ok after_struct:
+                                                    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_struct enum_item:
+                                                        Result::Ok after_enum:
+                                                            match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result after_enum impl_item:
+                                                                Result::Ok after_impl:
+                                                                    selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result after_impl
+                                                                Result::Err impl_error:
+                                                                    Result::Err impl_error
+                                                        Result::Err enum_error:
+                                                            Result::Err enum_error
+                                                Result::Err struct_error:
+                                                    Result::Err struct_error
+                                        Result::Err function_error:
+                                            Result::Err function_error
+                                Result::Err reexport_error:
+                                    Result::Err reexport_error
+                        Result::Err dependency_error:
+                            Result::Err dependency_error
+                Result::Err value_error:
+                    Result::Err value_error
+        Result::Err key_error:
+            Result::Err key_error
+
+//: selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_missing_result: dependency hash missing path を[実行/じっこう]する
+fn selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_missing_result %fn void Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \void:
+    let item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_dependency_module_input_item 1 2001 Option::None
+    selfhost_memo_trait_public_surface_hash_stage0_single_item_hash_result item
+
+//: selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_placeholder_result: dependency hash placeholder path を[実行/じっこう]する
+fn selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_placeholder_result %fn void Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \void:
+    let dependency_hash %Option i32 some 0
+    let item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_dependency_module_input_item 1 2001 dependency_hash
+    selfhost_memo_trait_public_surface_hash_stage0_single_item_hash_result item
+
+//: selfhost_memo_trait_public_surface_hash_stage0_unexpected_dependency_hash_result: local item の unexpected dependency hash path を[実行/じっこう]する
+fn selfhost_memo_trait_public_surface_hash_stage0_unexpected_dependency_hash_result %fn void Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \void:
+    let dependency_hash %Option i32 some 3001
+    let item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_input_item_new SelfhostMemoTraitPublicSurfaceHashInputKind::PublicFunction 1 SelfhostModuleDeclarationVisibility::Public 2003 dependency_hash
+    selfhost_memo_trait_public_surface_hash_stage0_single_item_hash_result item
+
+//: selfhost_memo_trait_public_surface_hash_stage0_ordinal_mismatch_result: ordinal mismatch path を[実行/じっこう]する
+fn selfhost_memo_trait_public_surface_hash_stage0_ordinal_mismatch_result %fn void Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \void:
+    let item %SelfhostMemoTraitPublicSurfaceHashInputItem selfhost_memo_trait_public_surface_hash_public_function_input_item 2 2003
+    selfhost_memo_trait_public_surface_hash_stage0_single_item_hash_result item
+
 //: selfhost_memo_trait_public_surface_hash_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_public_surface_hash_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind SelfhostMemoTraitPublicSurfaceHashStage0Summary \accepted_registry\module_identity_missing_rejected\import_surface_rejected\public_declaration_rejected\body_surface_rejected\method_surface_accepted_registry:
-    SelfhostMemoTraitPublicSurfaceHashStage0Summary accepted_registry module_identity_missing_rejected import_surface_rejected public_declaration_rejected body_surface_rejected method_surface_accepted_registry
+fn selfhost_memo_trait_public_surface_hash_stage0_summary_new %fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind fn Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind fn Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashStage0Summary \accepted_registry\module_identity_missing_rejected\import_surface_rejected\public_declaration_rejected\body_surface_rejected\method_surface_accepted_registry\full_surface_input_hash\dependency_hash_missing_rejected\dependency_hash_placeholder_rejected\unexpected_dependency_hash_rejected\ordinal_mismatch_rejected:
+    SelfhostMemoTraitPublicSurfaceHashStage0Summary accepted_registry module_identity_missing_rejected import_surface_rejected public_declaration_rejected body_surface_rejected method_surface_accepted_registry full_surface_input_hash dependency_hash_missing_rejected dependency_hash_placeholder_rejected unexpected_dependency_hash_rejected ordinal_mismatch_rejected
 
 //: selfhost_memo_trait_public_surface_hash_stage0_method_source: method-bearing memo trait fixture を[返/かえ]す
 //:
@@ -1781,6 +2083,11 @@ pub fn selfhost_memo_trait_public_surface_hash_stage0 %impure fn void SelfhostMe
         selfhost_memo_trait_public_surface_hash_stage0_two_item_materialize_result module_identity source body_key_item value_item
     let method_surface_accepted_registry %Result SelfhostMemoTraitTrustedSourceRegistry SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind:
         selfhost_memo_trait_public_surface_hash_stage0_method_registry_result module_identity
+    let full_surface_input_hash %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind selfhost_memo_trait_public_surface_hash_stage0_full_surface_input_hash_result
+    let dependency_hash_missing_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_missing_result
+    let dependency_hash_placeholder_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind selfhost_memo_trait_public_surface_hash_stage0_dependency_hash_placeholder_result
+    let unexpected_dependency_hash_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind selfhost_memo_trait_public_surface_hash_stage0_unexpected_dependency_hash_result
+    let ordinal_mismatch_rejected %Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind selfhost_memo_trait_public_surface_hash_stage0_ordinal_mismatch_result
     selfhost_memo_trait_public_surface_hash_stage0_summary_new:
         accepted_registry
         module_identity_missing_rejected
@@ -1788,3 +2095,8 @@ pub fn selfhost_memo_trait_public_surface_hash_stage0 %impure fn void SelfhostMe
         public_declaration_rejected
         body_surface_rejected
         method_surface_accepted_registry
+        full_surface_input_hash
+        dependency_hash_missing_rejected
+        dependency_hash_placeholder_rejected
+        unexpected_dependency_hash_rejected
+        ordinal_mismatch_rejected
