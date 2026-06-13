@@ -138,6 +138,45 @@ gui_sfnt_lookup_horizontal_metric:
 
 File 末尾に余分な byte があっても、declared `hmtx.length` が不足している場合は成功にしてはならない。
 
+### SFNT glyph header bounds
+
+SFNT `loca` / `glyf` table から得る glyph bounds は、font bytes 内の `head` / `maxp` / `loca` / `glyf` table だけを authority とする。Host text measurement、browser text API、fixed-cell test utility、glyph name、family name、path suffix、別 glyph への置換は使わない。
+
+初期 slice は glyph header の bounding box だけを扱う。contour flags、coordinate array、composite component、CFF / CFF2 charstring、rasterization は後続 phase で扱う。
+
+```text
+GuiSfntGlyphBounds:
+    glyph GuiGlyphId
+    x_min i32
+    y_min i32
+    x_max i32
+    y_max i32
+
+gui_sfnt_lookup_glyph_bounds:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    -> Result GuiSfntGlyphBounds GuiSfntParseError
+```
+
+`gui_sfnt_parse_metadata` は `loca` / `glyf` table record を directory summary に記録してよいが、glyph bounds lookup を成功条件にしてはならない。F4a metadata の `head` 最小長は `unitsPerEm` 用の 20 byte のままである。`head.indexToLocFormat` を読むための `head.length >= 52` は `gui_sfnt_lookup_glyph_bounds` だけの契約である。
+
+`loca` / `glyf` validation は declared table length に対して table-relative に行う。
+
+- `loca` または `glyf` table がなければ `MissingTable`。
+- `head.length < 52` は `MalformedGlyfRecord`。
+- `head.indexToLocFormat == 0` は short loca offset として u16 value を 2 倍する。
+- `head.indexToLocFormat == 1` は long loca offset として u32 value を読む。u32 value が i32 範囲外なら `MalformedGlyfRecord`。
+- `head.indexToLocFormat` が 0 / 1 以外なら `UnsupportedLocaFormat`。
+- 必要な `loca` declared length は format 0 で `(numGlyphs + 1) * 2`、format 1 で `(numGlyphs + 1) * 4` である。これを満たさない場合は `MalformedGlyfRecord`。
+- `glyphRaw <= 0` または `glyphRaw >= maxp.numGlyphs` は `MissingGlyphOutline`。
+- glyph offset pair は `start <= end <= glyf.length` を満たす必要がある。`start > end` または `end > glyf.length` は `MalformedGlyfRecord`。
+- `start == end` は empty glyph outline なので `MissingGlyphOutline`。
+- glyph header は 10 byte 必須であり、`end - start < 10` は `MalformedGlyfRecord`。
+- header の `xMin <= xMax` と `yMin <= yMax` が成り立たない場合は `MalformedGlyfRecord`。
+
+File 末尾に余分な byte があっても、declared `loca.length` や `glyf.length` を越えて成功にしてはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

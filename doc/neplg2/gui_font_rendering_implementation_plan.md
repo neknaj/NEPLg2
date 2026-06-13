@@ -232,6 +232,47 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_fo
 git diff --check
 ```
 
+## Phase F4e: sfnt loca/glyf glyph header bounds lookup
+
+目的:
+
+- `GuiGlyphId` から glyph header の x/y bounds を取得する最初の `loca` / `glyf` parser を追加する。
+- layout engine が rendered bounds を扱う前段として、host text measurement や fixed-cell utility に逃げず、font bytes の outline table header を authority として使えるようにする。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` を追加する。
+- `alloc/gui/font/sfnt.nepl` facade から metadata、name、cmap、hmtx、glyf を再公開する。
+- `GuiSfntDirectory` に optional `loca` / `glyf` table record を追加し、`gui_sfnt_directory_head`、`gui_sfnt_directory_loca`、`gui_sfnt_directory_glyf` を公開する。
+- `GuiSfntParseErrorKind` に `UnsupportedLocaFormat`、`MalformedGlyfRecord`、`MissingGlyphOutline` を追加する。
+- `GuiSfntGlyphBounds` を追加し、glyph、x_min、y_min、x_max、y_max を typed value として返す。
+- `gui_sfnt_lookup_glyph_bounds` は `Result GuiSfntGlyphBounds GuiSfntParseError` を返す。
+- `head.indexToLocFormat` は `head.offset + 50` の i16 として読む。このため `head.length >= 52` は `glyf` lookup 専用の要件とし、F4a metadata parser の `head.length >= 20` は変更しない。
+- `indexToLocFormat == 0` は short loca offset として u16 value を 2 倍する。`indexToLocFormat == 1` は long loca offset として u32 value を読む。u32 value が i32 範囲外なら `MalformedGlyfRecord` とする。
+- `indexToLocFormat` が 0 / 1 以外なら `UnsupportedLocaFormat` とする。
+- `loca.length` は format 0 で `(numGlyphs + 1) * 2`、format 1 で `(numGlyphs + 1) * 4` 以上でなければならない。file 末尾に余分な byte があっても declared table length を越えて読まない。
+- `glyphRaw <= 0`、`glyphRaw >= maxp.numGlyphs`、empty glyph range は `MissingGlyphOutline` とする。
+- `start > end`、`end > glyf.length`、glyph header 10 byte 未満、inverted x/y bounds は `MalformedGlyfRecord` とする。
+- Source policy で `gui_sfnt_parse_metadata` が `gui_sfnt_lookup_glyph_bounds` を呼ばないこと、`glyf` parser が platform / host font API / path authority / fixed-cell fallback / name or cmap or hmtx 代替を持たないことを固定する。
+
+完了条件:
+
+- explicit fixture bytes から glyph 1 の negative x/y min を含む bounds を取得できる。
+- format 1 loca fixture から glyph bounds を取得できる。
+- `loca` / `glyf` table がない fixture は `MissingTable` になる。
+- `head` が `indexToLocFormat` を読めない fixture、unsupported format、long loca high-bit u32 offset、declared `loca.length` 不足、decreasing offset、empty glyph、short glyph header、inverted bounds は typed error になる。
+- `gui_sfnt_parse_metadata` の existing F4a doctest は `loca` / `glyf` table の有無に依存せず通る。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

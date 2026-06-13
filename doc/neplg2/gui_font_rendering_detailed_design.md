@@ -264,6 +264,54 @@ If `glyphRaw < numberOfHMetrics`, the metric offset is `glyphRaw * 4`. If `glyph
 
 `hmtx` does not provide ink bounds or outline geometry. F4d therefore returns `GuiSfntHorizontalMetric` rather than pretending to produce full `GuiGlyphMetrics`. Conversion to `GuiGlyphMetrics` happens after outline / bitmap bounds are available.
 
+## SFNT glyph header bounds
+
+F4e は `alloc/gui/font/sfnt/glyf.nepl` が所有する。`gui_sfnt_parse_metadata` は `loca` / `glyf` table の有無を directory summary に記録するだけで、glyph bounds lookup を行わない。`gui_sfnt_lookup_glyph_bounds` は別 API として font bytes、face index、checked `GuiGlyphId` を受け取り、`GuiSfntGlyphBounds` を返す。
+
+```text
+GuiSfntGlyphBounds:
+    glyph GuiGlyphId
+    x_min i32
+    y_min i32
+    x_max i32
+    y_max i32
+```
+
+`indexToLocFormat` は `head` table offset 50 の i16 である。F4a metadata parser は `unitsPerEm` のために `head.length >= 20` だけを要求するが、F4e glyph bounds lookup は `indexToLocFormat` を読むので `head.length >= 52` を要求する。この要件を metadata parser へ持ち込んではならない。
+
+Validation rules:
+
+- `loca` / `glyf` table must exist; otherwise `MissingTable`.
+- `head.length >= 52` must hold for this lookup; otherwise `MalformedGlyfRecord`.
+- `indexToLocFormat == 0` uses short offsets: `loca[glyph]` and `loca[glyph + 1]` are u16 values multiplied by 2.
+- `indexToLocFormat == 1` uses long offsets: `loca[glyph]` and `loca[glyph + 1]` are u32 values constrained to i32 range.
+- other `indexToLocFormat` values are `UnsupportedLocaFormat`.
+- required declared `loca.length` is `(numGlyphs + 1) * 2` for format 0 and `(numGlyphs + 1) * 4` for format 1.
+- valid public glyph bounds lookup range is `1 <= glyphRaw < numGlyphs`; glyph 0 is not a successful renderable glyph in the GUI font contract.
+- glyph offset pair must satisfy `start <= end <= glyf.length`.
+- `start == end` is `MissingGlyphOutline`.
+- `end - start < 10`, inverted x bounds, and inverted y bounds are `MalformedGlyfRecord`.
+- all glyph reads use `glyf.offset + table_relative_offset`, and each relative range must stay inside declared `glyf.length`.
+
+Lookup layout:
+
+```text
+loca format 0:
+    offset[numGlyphs + 1] u16, actual offset = value * 2
+
+loca format 1:
+    offset[numGlyphs + 1] u32
+
+glyf glyph header:
+    numberOfContours i16
+    xMin i16
+    yMin i16
+    xMax i16
+    yMax i16
+```
+
+F4e reads `numberOfContours` only as part of the required 10 byte header. Simple glyph contour arrays, composite component recursion, CFF / CFF2 charstrings, fill / stroke rasterization, and `GuiGlyphMetrics` synthesis are later phases.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

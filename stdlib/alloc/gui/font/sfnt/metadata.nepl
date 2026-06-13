@@ -75,6 +75,9 @@ pub enum GuiSfntParseErrorKind:
     MissingGlyphMapping
     MalformedHmtxRecord
     MissingGlyphMetric
+    UnsupportedLocaFormat
+    MalformedGlyfRecord
+    MissingGlyphOutline
 
 impl Clone for GuiSfntParseErrorKind:
     fn clone %fn &GuiSfntParseErrorKind GuiSfntParseErrorKind \kind:
@@ -136,6 +139,8 @@ pub struct GuiSfntDirectory:
     name %Option GuiSfntTableRecord
     cmap %Option GuiSfntTableRecord
     hmtx %Option GuiSfntTableRecord
+    loca %Option GuiSfntTableRecord
+    glyf %Option GuiSfntTableRecord
 
 impl Clone for GuiSfntDirectory:
     fn clone %fn &GuiSfntDirectory GuiSfntDirectory \directory:
@@ -232,14 +237,20 @@ pub fn gui_sfnt_table_record_length %fn &GuiSfntTableRecord i32 \record:
 //: gui_sfnt_directory: table directory summary を[作/つく]る
 //:
 //: neplg2:test[skip]
-pub fn gui_sfnt_directory %fn i32 fn i32 fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord GuiSfntDirectory \sfnt_version\table_count\head\hhea\maxp\name\cmap\hmtx:
-    GuiSfntDirectory sfnt_version table_count head hhea maxp name cmap hmtx
+pub fn gui_sfnt_directory %fn i32 fn i32 fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord GuiSfntDirectory \sfnt_version\table_count\head\hhea\maxp\name\cmap\hmtx\loca\glyf:
+    GuiSfntDirectory sfnt_version table_count head hhea maxp name cmap hmtx loca glyf
 
 //: gui_sfnt_directory_table_count: directory の table 数を[読/よ]む
 //:
 //: neplg2:test[skip]
 pub fn gui_sfnt_directory_table_count %fn &GuiSfntDirectory i32 \directory:
     *field::get_ref directory "table_count"
+
+//: gui_sfnt_directory_head: `head` table record を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_directory_head %fn &GuiSfntDirectory Option GuiSfntTableRecord \directory:
+    *field::get_ref directory "head"
 
 //: gui_sfnt_directory_hhea: `hhea` table record を[読/よ]む
 //:
@@ -264,6 +275,18 @@ pub fn gui_sfnt_directory_cmap %fn &GuiSfntDirectory Option GuiSfntTableRecord \
 //: neplg2:test[skip]
 pub fn gui_sfnt_directory_hmtx %fn &GuiSfntDirectory Option GuiSfntTableRecord \directory:
     *field::get_ref directory "hmtx"
+
+//: gui_sfnt_directory_loca: `loca` table record を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_directory_loca %fn &GuiSfntDirectory Option GuiSfntTableRecord \directory:
+    *field::get_ref directory "loca"
+
+//: gui_sfnt_directory_glyf: `glyf` table record を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_directory_glyf %fn &GuiSfntDirectory Option GuiSfntTableRecord \directory:
+    *field::get_ref directory "glyf"
 
 //: gui_sfnt_metrics: basic metrics value を[作/つく]る
 //:
@@ -378,6 +401,18 @@ fn gui_sfnt_tag_cmap %fn void i32 \void:
 //: neplg2:test[skip]
 fn gui_sfnt_tag_hmtx %fn void i32 \void:
     gui_sfnt_tag4 'h' 'm' 't' 'x'
+
+//: gui_sfnt_tag_loca: `loca` table tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_loca %fn void i32 \void:
+    gui_sfnt_tag4 'l' 'o' 'c' 'a'
+
+//: gui_sfnt_tag_glyf: `glyf` table tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_glyf %fn void i32 \void:
+    gui_sfnt_tag4 'g' 'l' 'y' 'f'
 
 //: gui_sfnt_tag_ttcf: TrueType/OpenType collection header tag を[返/かえ]す
 //:
@@ -636,39 +671,51 @@ fn gui_sfnt_directory_with_record %fn GuiSfntDirectory fn GuiSfntTableRecord Gui
     let name0 %Option GuiSfntTableRecord *field::get_ref &directory "name"
     let cmap0 %Option GuiSfntTableRecord *field::get_ref &directory "cmap"
     let hmtx0 %Option GuiSfntTableRecord *field::get_ref &directory "hmtx"
+    let loca0 %Option GuiSfntTableRecord *field::get_ref &directory "loca"
+    let glyf0 %Option GuiSfntTableRecord *field::get_ref &directory "glyf"
     let version0 %i32 *field::get_ref &directory "sfnt_version"
     let count0 %i32 *field::get_ref &directory "table_count"
     if:
         eq tag gui_sfnt_tag_head
         then:
-            gui_sfnt_directory version0 count0 some record hhea0 maxp0 name0 cmap0 hmtx0
+            gui_sfnt_directory version0 count0 some record hhea0 maxp0 name0 cmap0 hmtx0 loca0 glyf0
         else:
             if:
                 eq tag gui_sfnt_tag_hhea
                 then:
-                    gui_sfnt_directory version0 count0 head0 some record maxp0 name0 cmap0 hmtx0
+                    gui_sfnt_directory version0 count0 head0 some record maxp0 name0 cmap0 hmtx0 loca0 glyf0
                 else:
                     if:
                         eq tag gui_sfnt_tag_maxp
                         then:
-                            gui_sfnt_directory version0 count0 head0 hhea0 some record name0 cmap0 hmtx0
+                            gui_sfnt_directory version0 count0 head0 hhea0 some record name0 cmap0 hmtx0 loca0 glyf0
                         else:
                             if:
                                 eq tag gui_sfnt_tag_name
                                 then:
-                                    gui_sfnt_directory version0 count0 head0 hhea0 maxp0 some record cmap0 hmtx0
+                                    gui_sfnt_directory version0 count0 head0 hhea0 maxp0 some record cmap0 hmtx0 loca0 glyf0
                                 else:
                                     if:
                                         eq tag gui_sfnt_tag_cmap
                                         then:
-                                            gui_sfnt_directory version0 count0 head0 hhea0 maxp0 name0 some record hmtx0
+                                            gui_sfnt_directory version0 count0 head0 hhea0 maxp0 name0 some record hmtx0 loca0 glyf0
                                         else:
                                             if:
                                                 eq tag gui_sfnt_tag_hmtx
                                                 then:
-                                                    gui_sfnt_directory version0 count0 head0 hhea0 maxp0 name0 cmap0 some record
+                                                    gui_sfnt_directory version0 count0 head0 hhea0 maxp0 name0 cmap0 some record loca0 glyf0
                                                 else:
-                                                    directory
+                                                    if:
+                                                        eq tag gui_sfnt_tag_loca
+                                                        then:
+                                                            gui_sfnt_directory version0 count0 head0 hhea0 maxp0 name0 cmap0 hmtx0 some record glyf0
+                                                        else:
+                                                            if:
+                                                                eq tag gui_sfnt_tag_glyf
+                                                                then:
+                                                                    gui_sfnt_directory version0 count0 head0 hhea0 maxp0 name0 cmap0 hmtx0 loca0 some record
+                                                                else:
+                                                                    directory
 
 //: gui_sfnt_read_directory_records: table directory を順に scan する
 //:
@@ -712,7 +759,7 @@ fn gui_sfnt_parse_directory_at %fn &ByteBuf fn i32 Result GuiSfntDirectory GuiSf
                                         Result::Err error:
                                             Result::Err error
                                         Result::Ok _ok:
-                                            let empty_directory %GuiSfntDirectory gui_sfnt_directory version table_count none none none none none none
+                                            let empty_directory %GuiSfntDirectory gui_sfnt_directory version table_count none none none none none none none none
                                             gui_sfnt_read_directory_records bytes add face_offset 12 table_count 0 empty_directory
 
 //: gui_sfnt_required_table: 必須 table の欠落を typed error に[変換/へんかん]する
