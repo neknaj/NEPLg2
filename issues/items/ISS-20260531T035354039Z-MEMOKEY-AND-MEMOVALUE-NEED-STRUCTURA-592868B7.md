@@ -232,6 +232,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract
 
 この checkpoint 後の残件は、scanner output を full public surface composer へ接続して complete public surface state を作る orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。public impl record lookup の ordinal index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した association / owner / error contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 selfhost public impl surface orchestrator checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl` を追加し、public impl scanner output を full public surface hash と operation impl candidate table へ同じ boundary で接続した。
+
+この orchestrator は scanner output の `public_declarations` から normalizer partial input stream を作り、caller supplied LocalMemoTrait seed table と合わせて full public surface hash を計算する。その後、同じ scanner output の `operation_records` を public impl materializer へ渡し、operation impl candidate table owner を作る。public surface normalizer / hash が拒否した場合は operation materializer へ進まず、scanner output owner を作る upper API では downstream success / rejection の両方で scanner output を閉じる。
+
+accepted authority は scanner output の typed field、caller supplied dependency / re-export evidence、caller supplied seed table、module graph、typed HIR module borrow、既存 normalizer / hash / materializer boundary に限定する。source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から public surface、operation、HIR root を推測しない。Drop Resource proof、PrivateCache / PrivateState masking、operation evidence record、aggregate proof status、backend artifact、proof store はこの module の責務ではない。
+
+stage0 doctest は compile time を抑えるため、accepted path だけを real scanner / normalizer / hash / materializer の owner path で実行する。scanner / normalizer / materializer の rejection branch は下位 module の stage0 と source policy に任せ、この module では synthetic typed `Result::Err` payload を使って wrapping contract を確認する。これは `resource_static_initialized_moves` の探索範囲を不必要に広げないための fixture 設計であり、public API や error payload の契約を弱めるものではない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` で固定し、source policy runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、normalizer -> hash -> materializer の順序、partial item / scanner output owner cleanup、source-derived authority 禁止、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、complete public surface state から Copy / Drop / Eq / Hash pure evidence を実計算する aggregate solver 接続、Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、public impl record lookup の ordinal index 化、normalizer / hash composer の sorted index / merge cursor 化、stage0 fixture のさらなる分割は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

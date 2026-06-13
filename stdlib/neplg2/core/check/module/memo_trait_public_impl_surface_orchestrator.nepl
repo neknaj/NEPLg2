@@ -1,0 +1,638 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_surface_orchestrator
+//: public `impl` scanner output を full public surface hash と operation impl candidate table へ[接続/せつぞく]する checker-layer orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_scanner` は public `ImplDecl` と typed resolver record の対応を確認し、public surface 用 declaration evidence と operation materializer 用 record table を返します。
+//: - この module は scanner output の 2 系統を同じ境界で消費し、public surface normalizer、full public surface hash composer、operation public impl materializer を順番に呼びます。
+//: - 後続の `MemoKey` / `MemoValue` structural purity solver は、public surface hash と operation impl candidate table が同じ scanner output から作られたことを、この state owner を通じて確認できます。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は scanner output の typed field、caller supplied seed table、caller supplied dependency / re-export evidence、module graph、typed HIR module borrow、既存 normalizer / hash / materializer boundary だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から public surface、operation、HIR root を推測しません。
+//: - HIR module は operation materializer が method body fact を作るために borrow するだけです。public surface hash の材料には入りません。
+//: - 実行順序は scanner、public surface normalizer、public surface hash composer、operation materializer です。public surface 側が拒否された場合、operation materializer へ進みません。
+//: - `SelfhostMemoTraitPublicImplSurfaceState` は operation impl table owner を含みます。caller は不要になったら `selfhost_memo_trait_public_impl_surface_state_free` で閉じます。
+//: - scanner output を owner として作る経路では、この module が downstream result を作った後に scanner output を必ず閉じます。
+//: - Drop body effect checker、Resource IR no-escape proof、operation evidence producer、aggregate proof status、proof store、backend artifact はこの module の責務ではありません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では actual resolver record table を caller supplied typed table として受け取り、scanner output と full public surface hash / operation impl table の接続境界だけを固定します。
+//: - stage0 doctest は compile time を不必要に増やさないため、accepted path だけを real scanner / normalizer / hash / materializer で実行します。scanner / normalizer / materializer の rejection payload は、各下位 module の stage0 と source policy で実行確認し、この module では synthetic typed `Result::Err` を使って wrapping contract を確認します。
+//: - `memo_trait_public_impl_header` の直接 import は stage0 の typed resolver record fixture が `SelfhostMemoTraitPublicImplHeaderKind` を渡すためだけに使います。production path の impl header validation は scanner boundary が担当します。
+//: - generic impl binder、trait coherence、Drop Resource proof、Copy / Drop / Eq / Hash pure evidence の実計算、PrivateCache / PrivateState masking は後続 slice の責務です。
+//: - facade にはまだ re-export しません。full proof orchestration が Resource proof と artifact boundary を含めて揃う段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - scanner の計算量は既存 scanner の契約に従います。
+//: - normalizer は dependency / re-export / public declaration evidence 件数を k として O(k) 時間で partial input stream を作ります。
+//: - 現行 hash composer は LocalMemoTrait seed 2 件と partial input stream を ordinal ごとに選び直すため、partial input 件数 p に対して O(p * (p + 2)) 時間です。この探索は semantic contract を固定する Phase 1 実装であり、後続で sorted index または merge cursor へ置換できます。
+//: - operation materializer の計算量は既存 materializer / candidate builder の契約に従います。この module では追加の source scan を行いません。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_surface_orchestrator_stage0:
+//:         Result::Ok summary:
+//:             if:
+//:                 selfhost_memo_trait_public_impl_surface_orchestrator_stage0_summary_eq summary
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Result::Err _setup:
+//:             1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_public_impl_header" as *
+#import "./memo_trait_public_impl_scanner" as *
+#import "./memo_trait_public_surface_hash" as *
+#import "./memo_trait_public_surface_normalizer" as *
+#import "./memo_trait_source_evidence_producer" as *
+
+//: SelfhostMemoTraitPublicImplSurfaceState: public surface hash と operation impl table を同じ scanner output から作った owner state
+//:
+//: [契約/けいやく]:
+//: - `public_surface_hash` は LocalMemoTrait seed、dependency / re-export / public declaration evidence から作った full public surface hash です。
+//: - `operation_impls` は scanner output の operation record table から作った owner table です。caller が state free で閉じます。
+//: - この state は transport owner state であり、complete proof ではありません。Drop Resource proof、aggregate proof、backend representation は後続境界で別に接続します。
+//: - 後続 stage は、この struct literal を proof authority として直接構築してはいけません。orchestrator が scanner output から作った owner を受け取り、必要な証明は別 boundary で追加します。
+pub struct SelfhostMemoTraitPublicImplSurfaceState:
+    public_surface_hash %i32
+    operation_impls %SelfhostMemoTraitOperationImplTable
+
+//: SelfhostMemoTraitPublicImplSurfaceAcceptedSummary: stage0 が owner state を閉じた後に保持する代表結果
+pub struct SelfhostMemoTraitPublicImplSurfaceAcceptedSummary:
+    public_surface_hash %i32
+    operation_impl_len %i32
+    eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+
+//: SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind: scanner / public surface / operation materializer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - public impl surface orchestration の失敗を、表示文字列や bool ではなく、どの境界が拒否したかを表す typed enum として保持します。
+pub enum SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+    ScannerRejected %SelfhostMemoTraitPublicImplScannerErrorKind
+    PublicSurfaceNormalizerRejected %SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
+    PublicSurfaceHashRejected %SelfhostMemoTraitPublicSurfaceHashErrorKind
+    OperationMaterializerRejected %SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+
+//: SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary: orchestration smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind
+    scanner_rejected %Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind
+    normalizer_rejected %Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind
+    materializer_rejected %Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceAcceptedSummary: stage0 summary の軽量 copy を borrow から作る
+//:
+//: [目的/もくてき]:
+//: - accepted summary は owner を含まず、hash、件数、lookup result だけを保持します。
+//: - doctest helper が summary を値として比較しやすいように、borrow から同じ値を返します。
+impl Clone for SelfhostMemoTraitPublicImplSurfaceAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceAcceptedSummary: owner を含まない summary を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - `eq_candidate` は table owner ではなく lookup result payload です。
+//: - state owner の解放責務は accepted summary 作成前に完了しているため、この Copy impl は resource owner を複製しません。
+impl Copy for SelfhostMemoTraitPublicImplSurfaceAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind: typed wrapper error を borrow から値へ戻す
+//:
+//: [目的/もくてき]:
+//: - scanner / normalizer / hash / materializer の nested error payload を表示文字列へ潰さず保持します。
+//: - stage0 helper が Result payload を再構成するとき、同じ typed error を値として扱えるようにします。
+impl Clone for SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind: owner を含まない error payload を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - error enum は lower boundary の typed rejection reason だけを保持します。
+//: - resource owner や scanner output owner は error payload に含めないため、copy による二重解放は発生しません。
+impl Copy for SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary: stage0 result summary を borrow から値へ戻す
+//:
+//: [目的/もくてき]:
+//: - stage0 summary は accepted path と synthetic rejection payload の代表値だけを保持します。
+//: - owner cleanup は accepted summary 作成時に完了しているため、Clone は owner lifecycle に関与しません。
+impl Clone for SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary: owner を含まない stage0 summary を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - summary は public smoke の観測値だけを保持し、module、graph、AST、record table、operation impl table owner を持ちません。
+//: - synthetic rejection payload も typed enum 値だけなので、copy しても cleanup responsibility は増えません。
+impl Copy for SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_surface_state_free: surface state が所有する operation impl table を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_surface_state_free %impure fn SelfhostMemoTraitPublicImplSurfaceState unit \state:
+    let operation_impls %SelfhostMemoTraitOperationImplTable field::get state "operation_impls"
+    selfhost_memo_trait_operation_impl_table_free operation_impls
+
+//: selfhost_memo_trait_public_impl_surface_state_public_surface_hash: state の public surface hash を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_state_public_surface_hash %fn &SelfhostMemoTraitPublicImplSurfaceState i32 \state:
+    *field::get_ref state "public_surface_hash"
+
+//: selfhost_memo_trait_public_impl_surface_state_operation_len: state の operation impl candidate 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_state_operation_len %fn &SelfhostMemoTraitPublicImplSurfaceState i32 \state:
+    let operation_impls %&SelfhostMemoTraitOperationImplTable field::get_ref state "operation_impls"
+    selfhost_memo_trait_operation_impl_table_len operation_impls
+
+//: selfhost_memo_trait_public_impl_surface_from_scanner_output_result: scanner output から surface state owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `scanner_output` は borrow です。この関数は scanner output owner を閉じません。
+//: - `partial_items` owner は hash composer の成功・失敗、operation materializer の成功・失敗のすべてでこの関数が閉じます。
+//: - public surface normalizer / hash composer が拒否した場合、operation materializer へ進みません。
+pub fn selfhost_memo_trait_public_impl_surface_from_scanner_output_result %impure fn &SelfhostHirModule impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostMemoTraitPublicImplScannerOutput Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\graph\dependencies\reexports\seed_table\scanner_output:
+    let public_declarations %&Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence field::get_ref scanner_output "public_declarations"
+    match selfhost_memo_trait_public_surface_normalizer_partial_input_items_result graph dependencies reexports public_declarations:
+        Result::Ok partial_items:
+            match selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result seed_table &partial_items:
+                Result::Ok public_surface_hash:
+                    let operation_records %&SelfhostMemoTraitOperationPublicImplMaterializerRecordTable field::get_ref scanner_output "operation_records"
+                    match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_result module operation_records:
+                        Result::Ok operation_impls:
+                            v::free partial_items
+                            Result::Ok SelfhostMemoTraitPublicImplSurfaceState public_surface_hash operation_impls
+                        Result::Err materializer_error:
+                            v::free partial_items
+                            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error
+                Result::Err hash_error:
+                    v::free partial_items
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected hash_error
+        Result::Err normalizer_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected normalizer_error
+
+//: selfhost_memo_trait_public_impl_surface_from_ast_records_result: AST と resolver records から scanner を[実行/じっこう]して surface state owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `ast`、`records`、`module`、`graph`、`dependencies`、`reexports` はすべて borrow です。この関数は閉じません。
+//: - scanner output owner は、この関数が success / downstream rejection の両方で閉じます。
+//: - scanner が拒否した場合は downstream stage へ進まず、`ScannerRejected` として返します。
+pub fn selfhost_memo_trait_public_impl_surface_from_ast_records_result %impure fn &SelfhostHirModule impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostModuleAst impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\graph\dependencies\reexports\seed_table\ast\records:
+    match selfhost_memo_trait_public_impl_scanner_result ast records:
+        Result::Ok scanner_output:
+            let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                selfhost_memo_trait_public_impl_surface_from_scanner_output_result module graph dependencies reexports seed_table &scanner_output
+            selfhost_memo_trait_public_impl_scanner_output_free scanner_output
+            result
+        Result::Err scanner_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected scanner_error
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_accepted_summary_eq: accepted summary の代表値が期待範囲か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_accepted_summary_eq %fn Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn i32 bool \result\expected_operation_len:
+    match result:
+        Result::Ok summary:
+            let hash_ok %bool not eq summary.public_surface_hash 0
+            let len_ok %bool eq summary.operation_impl_len expected_operation_len
+            let eq_ok %bool is_ok summary.eq_candidate
+            and hash_ok and len_ok eq_ok
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_scanner_missing_eq: scanner rejection が missing ordinal か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_scanner_missing_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn i32 bool \result\expected_ordinal:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected scanner_error:
+                    let scanner_result %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind Result::Err scanner_error
+                    selfhost_memo_trait_public_impl_scanner_error_ordinal_eq scanner_result SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing expected_ordinal
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected _normalizer_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected _hash_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected _materializer_error:
+                    false
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_scanner_missing_ordinal_3_eq: stage0 の scanner missing branch を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - doctest 側が scanner module の error enum を直接 import せず、orchestrator の public contract だけで stage0 の代表 scanner rejection を確認できるようにします。
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_scanner_missing_ordinal_3_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind bool \result:
+    selfhost_memo_trait_public_impl_surface_orchestrator_scanner_missing_eq result 3
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_normalizer_rejected_eq: normalizer rejection が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_normalizer_rejected_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn SelfhostMemoTraitPublicSurfaceNormalizerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected _scanner_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected normalizer_error:
+                    selfhost_memo_trait_public_surface_normalizer_error_kind_eq normalizer_error expected
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected _hash_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected _materializer_error:
+                    false
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_normalizer_graph_node_unavailable_eq: stage0 の normalizer rejection を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - dependency evidence が module graph に存在しない場合、operation materializer へ進む前に normalizer rejection として止まることを、doctest から軽量に確認します。
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_normalizer_graph_node_unavailable_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind bool \result:
+    selfhost_memo_trait_public_impl_surface_orchestrator_normalizer_rejected_eq result SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphNodeUnavailable
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_materializer_classifier_rejected_eq: materializer classifier rejection が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_materializer_classifier_rejected_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn SelfhostMemoTraitOperationClassifierErrorKind bool \result\expected_error:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected _scanner_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected _normalizer_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceHashRejected _hash_error:
+                    false
+                SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error:
+                    let materializer_result %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind Result::Err materializer_error
+                    selfhost_memo_trait_operation_public_impl_materializer_classifier_rejected_result_eq materializer_result expected_error
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_materializer_untrusted_eq_rejected_eq: stage0 の materializer rejection を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - public surface hash まで通った後、trusted registry にない Eq source が operation classifier rejection として残ることを、orchestrator の public helper だけで確認します。
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_materializer_untrusted_eq_rejected_eq %fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind bool \result:
+    selfhost_memo_trait_public_impl_surface_orchestrator_materializer_classifier_rejected_eq result SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Eq
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_stage0_summary_eq: stage0 summary の代表 contract を[確認/かくにん]する
+//:
+//: [目的/もくてき]:
+//: - doctest が std/test harness や内部依存 module を import せず、orchestrator が公開する summary だけで smoke contract を確認できるようにします。
+//: - 詳細な失敗分類は個別 helper に残し、この関数は stage0 doctest 用の軽い合成 predicate として使います。
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_stage0_summary_eq %fn SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary bool \summary:
+    let accepted_ok %bool selfhost_memo_trait_public_impl_surface_orchestrator_accepted_summary_eq summary.accepted 1
+    let scanner_ok %bool selfhost_memo_trait_public_impl_surface_orchestrator_scanner_missing_ordinal_3_eq summary.scanner_rejected
+    let normalizer_ok %bool selfhost_memo_trait_public_impl_surface_orchestrator_normalizer_graph_node_unavailable_eq summary.normalizer_rejected
+    let materializer_ok %bool selfhost_memo_trait_public_impl_surface_orchestrator_materializer_untrusted_eq_rejected_eq summary.materializer_rejected
+    and accepted_ok and scanner_ok and normalizer_ok materializer_ok
+
+//: selfhost_memo_trait_public_impl_surface_stage0_summary_new: stage0 の accepted / rejection 代表値を1つの summary に束ねる
+//:
+//: [目的/もくてき]:
+//: - doctest では複数の Result を個別に返せないため、owner を含まない代表値だけを struct にまとめます。
+//: - rejection fields は synthetic typed payload であり、各下位 module の real rejection path は個別 stage0 と source policy が担当します。
+fn selfhost_memo_trait_public_impl_surface_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind fn Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary \accepted\scanner_rejected\normalizer_rejected\materializer_rejected:
+    SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary accepted scanner_rejected normalizer_rejected materializer_rejected
+
+//: selfhost_memo_trait_public_impl_surface_stage0_span: fixture 用の小さい source span を作る
+//:
+//: [目的/もくてき]:
+//: - stage0 の AST item を作るためだけに unchecked span を用意します。
+//: - accepted material の hash や operation classification は span を authority にしないため、この helper は fixture construction に閉じます。
+fn selfhost_memo_trait_public_impl_surface_stage0_span %fn i32 SelfhostSourceSpan \start:
+    source_span_new_unchecked 0 start add start 1
+
+//: selfhost_memo_trait_public_impl_surface_stage0_item: fixture 用 module item を declaration header 付きで作る
+//:
+//: [目的/もくてき]:
+//: - public marker trait item と public impl item を最小 AST として構築します。
+//: - `decl` という表示名は fixture placeholder であり、public surface hash や operation kind の authority にはしません。
+fn selfhost_memo_trait_public_impl_surface_stage0_item %fn SelfhostModuleItemKind fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn i32 SelfhostModuleItem \item_kind\decl_kind\visibility\start:
+    let span %SelfhostSourceSpan selfhost_memo_trait_public_impl_surface_stage0_span start
+    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new decl_kind visibility span span none selfhost_syntax_range_empty selfhost_syntax_range_empty
+    selfhost_module_item_new_with_declaration item_kind "decl" header
+
+//: selfhost_memo_trait_public_impl_surface_stage0_ast_push_result: fixture AST push error を orchestrator error へ写す
+//:
+//: [目的/もくてき]:
+//: - stage0 setup で AST allocation が失敗した場合も bool ではなく typed error として返します。
+//: - setup failure は scanner 前段の owner 準備失敗として扱い、accepted path と同じ Result 型に乗せます。
+fn selfhost_memo_trait_public_impl_surface_stage0_ast_push_result %impure fn SelfhostModuleAst impure fn SelfhostModuleItem Result SelfhostModuleAst SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \ast\item:
+    match selfhost_module_ast_push ast item:
+        Result::Ok next_ast:
+            Result::Ok next_ast
+        Result::Err ast_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed ast_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_ast_result: accepted path 用の最小 AST owner を作る
+//:
+//: [目的/もくてき]:
+//: - LocalMemoTrait seed と対応させる public trait 2 件と、operation materializer へ流す public impl 1 件を作ります。
+//: - 成功時は caller が AST owner を閉じます。途中失敗は Result error として返します。
+fn selfhost_memo_trait_public_impl_surface_stage0_ast_result %impure fn void Result SelfhostModuleAst SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \void:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            let memo_key %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_stage0_item SelfhostModuleItemKind::TraitDecl SelfhostModuleDeclarationKind::Trait SelfhostModuleDeclarationVisibility::Public 10
+            match selfhost_memo_trait_public_impl_surface_stage0_ast_push_result ast0 memo_key:
+                Result::Ok ast1:
+                    let memo_value %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_stage0_item SelfhostModuleItemKind::TraitDecl SelfhostModuleDeclarationKind::Trait SelfhostModuleDeclarationVisibility::Public 20
+                    match selfhost_memo_trait_public_impl_surface_stage0_ast_push_result ast1 memo_value:
+                        Result::Ok ast2:
+                            let public_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_stage0_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public 30
+                            selfhost_memo_trait_public_impl_surface_stage0_ast_push_result ast2 public_impl
+                        Result::Err value_error:
+                            Result::Err value_error
+                Result::Err key_error:
+                    Result::Err key_error
+        Result::Err ast_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed ast_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_seed_table: LocalMemoTrait seed table の fixture を作る
+//:
+//: [目的/もくてき]:
+//: - public surface hash composer に渡す MemoKey / MemoValue の trusted seed を固定します。
+//: - seed table は値型の小さい table として扱い、source text や trait name string は accepted authority にしません。
+fn selfhost_memo_trait_public_impl_surface_stage0_seed_table %fn void SelfhostMemoTraitStableSourceSeedTable \void:
+    let table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let key_ordinal %Option i32 some 1
+    let key_signature %Option i32 some 9101
+    let value_ordinal %Option i32 some 2
+    let value_signature %Option i32 some 9102
+    let key_seed %SelfhostMemoTraitStableSourceTraitSeed selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Public key_ordinal key_signature
+    let value_seed %SelfhostMemoTraitStableSourceTraitSeed selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoValueTrait SelfhostModuleDeclarationVisibility::Public value_ordinal value_signature
+    let table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record table0 key_seed
+    selfhost_memo_trait_stable_source_seed_table_add_record table1 value_seed
+
+//: selfhost_memo_trait_public_impl_surface_stage0_empty_dependency_vec_result: fixture 用 dependency evidence vector owner を作る
+//:
+//: [目的/もくてき]:
+//: - accepted path は local trait pair と public impl だけを確認するため dependency evidence は空にします。
+//: - 成功時は caller が vector owner を閉じます。allocation failure は normalizer setup failure として typed error に写します。
+fn selfhost_memo_trait_public_impl_surface_stage0_empty_dependency_vec_result %impure fn void Result Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \void:
+    let deps_result %Result Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence StdErrorKind v::new
+    match deps_result:
+        Result::Ok deps:
+            Result::Ok deps
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_impl_surface_stage0_empty_reexport_vec_result: fixture 用 re-export evidence vector owner を作る
+//:
+//: [目的/もくてき]:
+//: - accepted path では re-export を使わないため空 vector を渡します。
+//: - 成功時は caller が vector owner を閉じ、失敗時は typed setup error として返します。
+fn selfhost_memo_trait_public_impl_surface_stage0_empty_reexport_vec_result %impure fn void Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \void:
+    let reexports_result %Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence StdErrorKind v::new
+    match reexports_result:
+        Result::Ok reexports:
+            Result::Ok reexports
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_impl_surface_stage0_graph_result: fixture 用 module graph owner を作る
+//:
+//: [目的/もくてき]:
+//: - accepted path は dependency / re-export を持たないため、空 graph owner を normalizer に渡します。
+//: - 成功時は caller が graph owner を閉じます。allocation failure は normalizer setup error に写します。
+fn selfhost_memo_trait_public_impl_surface_stage0_graph_result %impure fn void Result SelfhostModuleGraph SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \void:
+    match selfhost_module_graph_new:
+        Result::Ok graph:
+            Result::Ok graph
+        Result::Err _alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_impl_surface_stage0_record_table_new_result: fixture 用 resolver record table owner を作る
+//:
+//: [目的/もくてき]:
+//: - scanner が public impl ordinal と resolver-owned typed record を照合できるように、空 record table owner を準備します。
+//: - 成功時は caller が record table owner を閉じます。
+fn selfhost_memo_trait_public_impl_surface_stage0_record_table_new_result %impure fn void Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \void:
+    match selfhost_memo_trait_public_impl_scanner_resolver_record_table_new:
+        Result::Ok table:
+            Result::Ok table
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_shape_result: trusted operation source から trait application shape hash を作る
+//:
+//: [目的/もくてき]:
+//: - materializer / classifier が shape-bound trusted source identity を確認できるように、fixture record に入れる shape hash を作ります。
+//: - classifier error は materializer rejection として保持し、operation 名の文字列推測には落としません。
+fn selfhost_memo_trait_public_impl_surface_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \source:
+    match selfhost_memo_trait_operation_trait_application_shape_hash_result source 0:
+        Result::Ok shape_hash:
+            Result::Ok shape_hash
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_push_record_result: public impl resolver record fixture を table owner に追加する
+//:
+//: [目的/もくてき]:
+//: - scanner に渡す typed resolver record を public declaration ordinal 3 として作ります。
+//: - method body root、target shape、trait application shape は typed field として渡し、source text / method name string から復元しません。
+//: - table push が失敗した場合は既存 table push boundary の owner cleanup に従い、typed scanner error として返します。
+fn selfhost_memo_trait_public_impl_surface_stage0_push_record_result %impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \table\type_id\source\trait_shape_hash\root:
+    let declaration_ordinal %Option i32 some 3
+    let target_shape_hash %Option i32 some 880201
+    let trait_application_shape_hash %Option i32 some trait_shape_hash
+    let method_body_root %Option SelfhostHirExprId some root
+    let record %SelfhostMemoTraitPublicImplScannerResolverRecord:
+        selfhost_memo_trait_public_impl_scanner_resolver_record_new type_id 880101 declaration_ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl target_shape_hash source 0 trait_application_shape_hash 0 0 method_body_root 16
+    match selfhost_memo_trait_public_impl_scanner_resolver_record_table_push table record:
+        Result::Ok next_table:
+            Result::Ok next_table
+        Result::Err push_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected push_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_record_table_result: resolver record table fixture を1件入りで作る
+//:
+//: [目的/もくてき]:
+//: - accepted path に必要な public impl resolver record だけを持つ table owner を作ります。
+//: - 成功時は caller が table owner を閉じ、失敗時は push helper の typed error をそのまま伝播します。
+fn selfhost_memo_trait_public_impl_surface_stage0_record_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \type_id\source\trait_shape_hash\root:
+    match selfhost_memo_trait_public_impl_surface_stage0_record_table_new_result:
+        Result::Ok table0:
+            selfhost_memo_trait_public_impl_surface_stage0_push_record_result table0 type_id source trait_shape_hash root
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_surface_stage0_free_base: accepted path fixture の base owners をまとめて閉じる
+//:
+//: [目的/もくてき]:
+//: - module、graph、AST、resolver record table は accepted path setup の base owner です。
+//: - success / error のどちらでも呼び出し側が owner leak しないように、同じ順序で閉じます。
+fn selfhost_memo_trait_public_impl_surface_stage0_free_base %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable unit \module\graph\ast\records:
+    selfhost_memo_trait_public_impl_scanner_resolver_record_table_free records
+    selfhost_module_ast_free ast
+    selfhost_module_graph_free graph
+    selfhost_hir_module_free module
+
+//: selfhost_memo_trait_public_impl_surface_stage0_accepted_summary_from_state: state owner を summary へ変換して閉じる
+//:
+//: [目的/もくてき]:
+//: - public surface hash、operation table length、Eq candidate lookup result を owner-free summary に写します。
+//: - `state` が持つ operation impl table owner はこの関数内で必ず閉じ、summary には owner を残しません。
+fn selfhost_memo_trait_public_impl_surface_stage0_accepted_summary_from_state %impure fn SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId SelfhostMemoTraitPublicImplSurfaceAcceptedSummary \state\type_id:
+    let public_hash %i32 selfhost_memo_trait_public_impl_surface_state_public_surface_hash &state
+    let operation_len %i32 selfhost_memo_trait_public_impl_surface_state_operation_len &state
+    let operation_impls %&SelfhostMemoTraitOperationImplTable field::get_ref &state "operation_impls"
+    let eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind:
+        selfhost_memo_trait_operation_impl_candidate_for_type_operation_result operation_impls type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+    selfhost_memo_trait_public_impl_surface_state_free state
+    SelfhostMemoTraitPublicImplSurfaceAcceptedSummary public_hash operation_len eq_candidate
+
+//: selfhost_memo_trait_public_impl_surface_stage0_run_owned: accepted path の全 owner を渡して orchestrator を実行する
+//:
+//: [目的/もくてき]:
+//: - scanner、normalizer、hash、materializer を real owner path で通し、結果 state を summary へ変換します。
+//: - dependencies / reexports / module / graph / AST / records はこの helper が success / error のどちらでも閉じます。
+//: - `seed_table` は value payload として渡し、owner cleanup 対象にはしません。
+fn selfhost_memo_trait_public_impl_surface_stage0_run_owned %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\graph\dependencies\reexports\ast\records\seed_table\type_id:
+    let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+        selfhost_memo_trait_public_impl_surface_from_ast_records_result &module &graph &dependencies &reexports seed_table &ast &records
+    let summary %Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+        match result:
+            Result::Ok state:
+                Result::Ok selfhost_memo_trait_public_impl_surface_stage0_accepted_summary_from_state state type_id
+            Result::Err e:
+                Result::Err e
+    v::free reexports
+    v::free dependencies
+    selfhost_memo_trait_public_impl_surface_stage0_free_base module graph ast records
+    summary
+
+//: selfhost_memo_trait_public_impl_surface_stage0_run_with_vectors: caller supplied empty evidence vectors を使って accepted path を実行する
+//:
+//: [目的/もくてき]:
+//: - dependency / re-export vectors の owner を受け取り、seed table を作って `run_owned` に渡します。
+//: - vector owner cleanup は `run_owned` に委譲します。
+fn selfhost_memo_trait_public_impl_surface_stage0_run_with_vectors %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\graph\dependencies\reexports\ast\records\type_id:
+    let seed_table %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_public_impl_surface_stage0_seed_table
+    selfhost_memo_trait_public_impl_surface_stage0_run_owned module graph dependencies reexports ast records seed_table type_id
+
+//: selfhost_memo_trait_public_impl_surface_stage0_run_with_empty_vectors: dependency / re-export なしの accepted path を実行する
+//:
+//: [目的/もくてき]:
+//: - accepted smoke は local public surface だけを対象にするため、空 dependency / re-export vectors を作って渡します。
+//: - re-export vector allocation が失敗した場合は、先に作った dependency vector と base owners を閉じます。
+//: - dependency vector allocation が失敗した場合は、base owners だけを閉じます。
+fn selfhost_memo_trait_public_impl_surface_stage0_run_with_empty_vectors %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\graph\ast\records\type_id:
+    match selfhost_memo_trait_public_impl_surface_stage0_empty_dependency_vec_result:
+        Result::Ok dependencies:
+            match selfhost_memo_trait_public_impl_surface_stage0_empty_reexport_vec_result:
+                Result::Ok reexports:
+                    selfhost_memo_trait_public_impl_surface_stage0_run_with_vectors module graph dependencies reexports ast records type_id
+                Result::Err reexport_error:
+                    v::free dependencies
+                    selfhost_memo_trait_public_impl_surface_stage0_free_base module graph ast records
+                    Result::Err reexport_error
+        Result::Err dependency_error:
+            selfhost_memo_trait_public_impl_surface_stage0_free_base module graph ast records
+            Result::Err dependency_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_prepare_with_records: accepted path の graph / AST / records を作って実行する
+//:
+//: [目的/もくてき]:
+//: - HIR module と root は caller から受け取り、graph / AST / resolver record table を fixture として構築します。
+//: - setup の途中で失敗した場合は、すでに作った owner をその場で閉じて typed error を返します。
+fn selfhost_memo_trait_public_impl_surface_stage0_prepare_with_records %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\root\type_id\source\shape_hash:
+    match selfhost_memo_trait_public_impl_surface_stage0_graph_result:
+        Result::Ok graph:
+            match selfhost_memo_trait_public_impl_surface_stage0_ast_result:
+                Result::Ok ast:
+                    match selfhost_memo_trait_public_impl_surface_stage0_record_table_result type_id source shape_hash root:
+                        Result::Ok records:
+                            selfhost_memo_trait_public_impl_surface_stage0_run_with_empty_vectors module graph ast records type_id
+                        Result::Err record_error:
+                            selfhost_module_ast_free ast
+                            selfhost_module_graph_free graph
+                            selfhost_hir_module_free module
+                            Result::Err record_error
+                Result::Err ast_error:
+                    selfhost_module_graph_free graph
+                    selfhost_hir_module_free module
+                    Result::Err ast_error
+        Result::Err graph_error:
+            selfhost_hir_module_free module
+            Result::Err graph_error
+
+//: selfhost_memo_trait_public_impl_surface_stage0_with_module: HIR module owner から accepted summary と typed synthetic rejection summary を作る
+//:
+//: [目的/もくてき]:
+//: - accepted field は real scanner / normalizer / hash / materializer owner path で作ります。
+//: - rejection fields は下位 module の実 rejection path をここで重ねて実行せず、typed synthetic payload として wrapper contract だけを確認します。
+//: - trusted source registry や shape hash setup が失敗した場合は、受け取った HIR module owner をこの関数で閉じます。
+fn selfhost_memo_trait_public_impl_surface_stage0_with_module %impure fn SelfhostHirModule impure fn SelfhostHirExprId Result SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \module\root:
+    let type_id %SelfhostTypeId selfhost_type_id_new 12001
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            match selfhost_memo_trait_public_impl_surface_stage0_shape_result registry.eq_source:
+                Result::Ok eq_shape_hash:
+                    let accepted %Result SelfhostMemoTraitPublicImplSurfaceAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                        selfhost_memo_trait_public_impl_surface_stage0_prepare_with_records module root type_id registry.eq_source eq_shape_hash
+                    let scanner_error %SelfhostMemoTraitPublicImplScannerErrorKind SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordMissing 3
+                    let scanner_rejected %Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                        Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::ScannerRejected scanner_error
+                    let normalizer_rejected %Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                        Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::GraphNodeUnavailable
+                    let classifier_error %SelfhostMemoTraitOperationClassifierErrorKind:
+                        SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Eq
+                    let materializer_error %SelfhostMemoTraitOperationPublicImplMaterializerErrorKind:
+                        SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
+                    let materializer_rejected %Result i32 SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind:
+                        Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected materializer_error
+                    Result::Ok selfhost_memo_trait_public_impl_surface_stage0_summary_new accepted scanner_rejected normalizer_rejected materializer_rejected
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err classifier_error:
+            selfhost_hir_module_free module
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_public_impl_surface_orchestrator_stage0: public impl surface orchestration の smoke API
+//:
+//: [目的/もくてき]:
+//: - accepted path は scanner output から public surface hash と Eq operation impl candidate table を同時に作れることを確認します。
+//: - scanner / normalizer / materializer rejection は、下位 module の実行 stage0 とこの module の wrapping helper を組み合わせて確認します。
+//: - この smoke API では、accepted path だけを real owner path で実行し、rejection fields は typed synthetic payload として保持します。
+//:
+//: [現状/げんじょう]:
+//: - 4 つの owner-heavy rejection path を 1 doctest で実行すると、Resource initialized-move check の探索範囲が大きくなります。そのため、ここでは public wrapper contract を軽量に検査し、各 rejection 経路の実処理は scanner / normalizer / materializer 側の stage0 と source policy で分担します。
+pub fn selfhost_memo_trait_public_impl_surface_orchestrator_stage0 %impure fn void Result SelfhostMemoTraitPublicImplSurfaceOrchestratorStage0Summary SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 12001
+    let span %SelfhostSourceSpan selfhost_memo_trait_public_impl_surface_stage0_span 0
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok pure_alloc:
+                    let root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &pure_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module pure_alloc
+                    selfhost_memo_trait_public_impl_surface_stage0_with_module module1 root
+                Result::Err expr_error:
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed expr_error
+        Result::Err module_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOrchestratorErrorKind::OperationMaterializerRejected SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed module_error

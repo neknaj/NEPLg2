@@ -1639,6 +1639,22 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract
 
 この checkpoint 後の残件は、scanner output を full public surface composer へ接続して complete public surface state を作る orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。public impl record lookup の ordinal index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した association / owner / error contract を保って後から行える最適化として扱う。
 
+### 2026-06-14 MemoKey / MemoValue public impl surface orchestrator checkpoint
+
+`memo_trait_public_impl_surface_orchestrator.nepl` を追加し、public impl scanner output を full public surface hash と operation impl candidate table へ同じ boundary で接続した。
+
+この orchestrator は scanner output の `public_declarations` を `memo_trait_public_surface_normalizer` へ渡し、caller supplied local `MemoKey` / `MemoValue` seed table と normalizer partial stream を `memo_trait_public_surface_hash` で full public surface hash へ畳む。その後、同じ scanner output の `operation_records` を `memo_trait_operation_public_impl_materializer` へ渡し、candidate builder / operation impl table へ接続する。public surface 側が拒否した場合は operation materializer へ進まない。
+
+owner contract は、scanner output を borrow で消費する lower API と、AST / resolver records から scanner output owner を作る upper API に分けた。`from_scanner_output_result` は normalizer が返す partial item owner を hash success / hash rejection / materializer success / materializer rejection のすべてで閉じる。`from_ast_records_result` は scanner output owner を success / downstream rejection のどちらでも閉じ、scanner rejection では downstream stage へ進まない。
+
+accepted authority は scanner output の typed field、caller supplied dependency / re-export evidence、caller supplied seed table、module graph、typed HIR module borrow、既存 normalizer / hash / materializer boundary に限定した。source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から public surface、operation、HIR root を推測しない。Drop Resource proof、PrivateCache / PrivateState masking、operation evidence record、aggregate proof status、backend artifact、proof store はこの module の責務ではない。
+
+stage0 doctest は compile time を抑えるため、accepted path だけを real scanner / normalizer / hash / materializer の owner path で実行する。scanner / normalizer / materializer の rejection branch は下位 module の stage0 と source policy に任せ、この module では synthetic typed `Result::Err` payload を使って wrapping contract を確認する。これは `resource_static_initialized_moves` の探索範囲を不必要に広げないための fixture 設計であり、public API や error payload の契約を弱めるものではない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / producer / purity / method body / Drop resolver import 禁止、normalizer -> hash -> materializer の順序、owner cleanup、source-derived authority 禁止、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、complete public surface state から Copy / Drop / Eq / Hash pure evidence を実計算する aggregate solver 接続、Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、public impl record lookup の ordinal index 化、normalizer / hash composer の sorted index / merge cursor 化、stage0 fixture のさらなる分割は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

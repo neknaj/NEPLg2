@@ -1,3 +1,85 @@
+# 2026-06-14 Agent selfhost public impl surface orchestrator checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、pure core boundary、DAG、source authority 排除、丁寧な doc comment、探索範囲を不必要に広げない fixture 設計、試作段階でも設計を雑にしない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / public impl scanner output から full public surface hash と operation impl candidate table owner を作る orchestration boundary
+- classification: selfhost MemoKey / MemoValue structural purity / public impl surface orchestration boundary
+- policy/spec:
+  - scanner output の `public_declarations` と `operation_records` を同じ boundary で消費し、public surface hash と operation impl candidate table が同じ association boundary から来ることを固定する。
+  - 実行順序は scanner output borrow、public surface normalizer、public surface hash composer、operation public impl materializer とし、public surface normalizer / hash が拒否した場合は operation materializer へ進まない。
+  - error は `ScannerRejected` / `PublicSurfaceNormalizerRejected` / `PublicSurfaceHashRejected` / `OperationMaterializerRejected` の typed enum payload とし、bool、sentinel 値、表示文字列へ潰さない。
+  - accepted authority は scanner output の typed field、caller supplied dependency / re-export evidence、caller supplied seed table、module graph、typed HIR module borrow、既存 normalizer / hash / materializer boundary に限定する。source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string は authority にしない。
+  - `SelfhostMemoTraitPublicImplSurfaceState` は transport owner state であり、complete proof ではない。Drop Resource proof、aggregate proof、backend representation、PrivateCache / PrivateState masking は後続 boundary で追加する。
+  - stage0 は accepted path だけを real scanner / normalizer / hash / materializer owner path で実行し、scanner / normalizer / materializer rejection fields は synthetic typed `Result::Err` payload として wrapper contract を確認する。下位 module の real rejection path は各 stage0 と source policy が担当する。
+  - operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、public impl record lookup の ordinal index 化、normalizer / hash composer の sorted index / merge cursor 化、stage0 fixture のさらなる分割はあとからできる最適化であり、今の stage では typed input / owner / error / authority contract を優先する。
+- decision:
+  - actual aggregate solver、Drop body Resource proof、generic impl binder へ進む前に、public impl scanner output から public surface hash と operation impl table owner を同時に作る transport state boundary を固定する。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl` を追加し、scanner output の public declaration evidence を normalizer / hash composer へ、operation records を materializer / candidate builder へ接続した。
+  - lower API `selfhost_memo_trait_public_impl_surface_from_scanner_output_result` は scanner output を borrow で受け取り、normalizer が返す partial item owner を hash success / hash rejection / materializer success / materializer rejection のすべてで閉じる。
+  - upper API `selfhost_memo_trait_public_impl_surface_from_ast_records_result` は scanner output owner を作り、downstream success / rejection のどちらでも scanner output を閉じる。
+  - `SelfhostMemoTraitPublicImplSurfaceState` は public surface hash と operation impl table owner を保持するが、final proof authority ではなく transport owner state として明記した。
+  - `memo_trait_public_impl_header` import は stage0 typed resolver record fixture の `SelfhostMemoTraitPublicImplHeaderKind` 用に限定し、production path の impl header validation は scanner boundary が担当する。
+- implementation:
+  - surface state owner、accepted summary、orchestrator error enum、stage0 summary、state free / accessor、scanner output orchestration、AST record orchestration、typed assertion helper、accepted real path + synthetic typed rejection stage0 を追加した。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - subagent Required に従い、private stage0 helpers と Clone / Copy impl を含む全 declaration に直前 doc comment を追加した。
+  - subagent Non-blocker に従い、direct candidate builder import 禁止、`./memo_trait_*` import allow-list、transport state の外部直接利用禁止、header import の fixture 限定 doc を source policy に追加した。
+  - `todo.md`、MemoKey/MemoValue issue、selfhost compiler design に checkpoint を反映した。
+- implementation/test:
+  - focused doctest は accepted path を real owner path で通し、summary helper で accepted hash / operation len / Eq candidate lookup と synthetic typed rejection wrapper を確認する。
+  - source_policy は facade private、`nodesrc/selfhost_ty_sources.js` 非登録、explicit memo_trait import allow-list、candidate builder / Resource IR / backend / proof store / canonical key / producer / purity / method body / Drop resolver import 禁止、normalizer -> hash -> materializer order、partial item cleanup、scanner output cleanup、transport state doc、external state use absence、source-derived authority 禁止、全 declaration doc comment、行数制限 / doc comment 長制限禁止を確認する。
+- subagent review:
+  - files_read: stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl; nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js; nodesrc/run_source_policy_regressions.js; doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md; todo.md; note.n.md
+  - not_reviewed: なし
+  - base: HEAD before current public impl surface orchestrator diff
+  - head: working tree after public impl surface orchestrator diff
+  - subagent_review_ids: `019ec1ef-ed4a-7670-a803-c836a8557ca1`, `019ec1c8-5e90-7432-a695-6ecd59386196`
+  - subagent_review_count: 2
+  - subagent_review_rounds: 2
+  - review response checklist: `nodesrc/selfhost_zenn_review_response_check.js` の Blocker / Non-blocker / Question / Approve 分類に沿って記録した。
+  - Locke review:
+    - Blocker: なし。
+    - Required: private stage0 helpers と Clone / Copy impl の doc comment が不足し、`run_source_policy_regressions --warn-only` で selfhost documentation gap が増えると指摘された。修正として全 declaration 直前に目的、owner cleanup、synthetic stage0 branch の役割を説明する doc comment を追加し、source policy に declaration doc comment 検査を追加した。
+    - Non-blocker: DAG / responsibility boundary、source authority 排除、partial item cleanup、scanner output cleanup、stage0 lightweight strategy は妥当と確認された。
+    - Question: public surface state が proof authority と誤解されないか確認があった。修正として transport owner state であり direct construction を proof authority にしないことを doc comment と source policy に追加した。
+    - Approve: Required 対応後の focused verification で承認可能。
+  - Ampere review:
+    - Blocker: なし。
+    - Required: なし。
+    - Non-blocker: source policy が direct candidate builder import と余分な `./memo_trait_*` import をより強く禁止するとよいと指摘された。修正として candidate builder を forbidden import に追加し、memo_trait import allow-list を追加した。full source policy は reviewer 側では 120 秒で完了しなかったが、こちらでは 158.5 秒で warn-only 完走した。
+    - Question: `memo_trait_public_impl_header` import が stage0 fixture 目的か確認があった。修正として header import は fixture 用で production header authority は scanner にあることを module doc と source policy に追加した。
+    - Approve: main boundary、typed enum / Result、source authority 排除、owner cleanup、DAG order、stage0 bounded design は妥当として Approve。
+  - decision: MERGE_APPROVED after focused verification and source policy rerun.
+  - source_policy: updated。`nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - source_policy: updated implementation/test contract for declaration doc comments, transport state not proof authority, external direct state use absence, explicit memo_trait import allow-list, candidate builder import ban, header import fixture limitation, typed owner cleanup, source-derived authority ban, and no line/doc comment length cap.
+- verify:
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl -o tmp/selfhost-public-impl-surface-orchestrator.json --no-tree -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した orchestrator contract は pass。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass_with_git_warning: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - 既存 warning: Node WASI ExperimentalWarning、CRLF warning、full source policy の既存 stdlib declaration doc gap baseline。
+  - existing_warnings: Node WASI ExperimentalWarning; CRLF warning; stdlib declaration doc gaps increased: 153 > 108 baseline.
+  - 今回差分由来 warning: なし。
+  - new_warnings: なし
+  - 検証済み: focused contract、focused doctest、関連 public surface / public impl / candidate builder contracts、Zenn review gate、source policy warn-only、issues check、diff check。
+  - blockers: なし
+  - questions: なし
+  - approve: approved
+  - residual_risk: なし
+  - unexecuted_verification: なし
+- residual:
+  - complete public surface state から Copy / Drop / Eq / Hash pure evidence を実計算する aggregate solver 接続、Drop body effect checker / Resource IR escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
+  - 次 slice: complete public surface state から operation proof status / pure evidence へ進む aggregate solver 接続、または Drop body effect checker / Resource IR no-escape proof を typed effect summary / no-escape proof boundary へ接続する。
+
 # 2026-06-13 Agent selfhost operation body check resolver checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、pure core boundary、DAG、source authority 排除、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。
