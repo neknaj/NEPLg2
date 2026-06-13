@@ -192,6 +192,30 @@ assertMatch(
     /SFNT simple glyph contour point lookup[\s\S]*GuiSfntSimpleGlyphContourPoint:[\s\S]*span GuiSfntSimpleGlyphContourSpan[\s\S]*contour_point_index i32[\s\S]*point GuiSfntSimpleGlyphPoint[\s\S]*gui_sfnt_lookup_simple_glyph_contour_point:[\s\S]*Result GuiSfntSimpleGlyphContourPoint GuiSfntParseError[\s\S]*contour_point_index[\s\S]*contour-local[\s\S]*point\.point_index[\s\S]*absolute logical point index[\s\S]*absolute_point_index = span\.start_point_index \+ contour_point_index[\s\S]*validate contour_point_index[\s\S]*point decode[\s\S]*MissingGlyphOutline/,
     "font spec must define F4j contour-local point contract, absolute point formula, local-before-point order, and typed errors",
 );
+for (const fragment of [
+    "SFNT simple glyph contour edge lookup",
+    "描画される直線 segment ではない",
+    "GuiSfntSimpleGlyphContourEdge:",
+    "start GuiSfntSimpleGlyphContourPoint",
+    "end GuiSfntSimpleGlyphContourPoint",
+    "edge_index i32",
+    "next_contour_point_index i32",
+    "gui_sfnt_lookup_simple_glyph_contour_edge:",
+    "Result GuiSfntSimpleGlyphContourEdge GuiSfntParseError",
+    "start.contour_point_index == edge_index",
+    "end.contour_point_index == next_contour_point_index",
+    "contour span lookup",
+    "validate edge_index",
+    "compute next_contour_point_index",
+    "decode start contour point",
+    "decode end contour point",
+    "MissingGlyphOutline",
+    "span.point_count == 1",
+    "自己 wrap",
+    "full edge `Vec`",
+]) {
+    assert(spec.includes(fragment), `font spec F4k contour edge contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -232,6 +256,26 @@ assertMatch(
     /SFNT simple glyph contour point lookup[\s\S]*GuiSfntSimpleGlyphContourPoint:[\s\S]*span GuiSfntSimpleGlyphContourSpan[\s\S]*contour_point_index i32[\s\S]*point GuiSfntSimpleGlyphPoint[\s\S]*gui_sfnt_lookup_simple_glyph_contour_point:[\s\S]*Result GuiSfntSimpleGlyphContourPoint GuiSfntParseError[\s\S]*gui_sfnt_glyf_simple_contour_span_with_tables[\s\S]*validate contour-local contour_point_index[\s\S]*absolute_point_index = span\.start_point_index \+ contour_point_index[\s\S]*gui_sfnt_glyf_simple_point_with_tables[\s\S]*point\.point_index[\s\S]*absolute[\s\S]*validate local point range before calling point decode[\s\S]*MissingGlyphOutline/,
     "font detailed design must define F4j local point flow, internal helper reuse, absolute point invariant, and local-before-point validation",
 );
+for (const fragment of [
+    "SFNT simple glyph contour edge lookup",
+    "topology point pair",
+    "not a drawable line segment",
+    "GuiSfntSimpleGlyphContourEdge:",
+    "gui_sfnt_lookup_simple_glyph_contour_edge:",
+    "Result GuiSfntSimpleGlyphContourEdge GuiSfntParseError",
+    "gui_sfnt_glyf_simple_contour_span_with_tables",
+    "validate edge_index against span.point_count",
+    "next_contour_point_index = wrap(edge_index + 1, span.point_count)",
+    "gui_sfnt_glyf_simple_contour_point_with_tables for start",
+    "gui_sfnt_glyf_simple_contour_point_with_tables for end",
+    "start.contour_point_index",
+    "end.contour_point_index",
+    "One-point contours",
+    "self-wrapping topology edge",
+    "must not allocate `Vec GuiSfntSimpleGlyphContourEdge`",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4k contour edge contract must mention ${fragment}`);
+}
 assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
@@ -272,6 +316,28 @@ assertMatch(
     /Phase F4j:[\s\S]*GuiSfntSimpleGlyphContourPoint[\s\S]*gui_sfnt_lookup_simple_glyph_contour_point[\s\S]*span GuiSfntSimpleGlyphContourSpan[\s\S]*contour_point_index i32[\s\S]*point GuiSfntSimpleGlyphPoint[\s\S]*absolute_point_index = span\.start_point_index \+ contour_point_index[\s\S]*contour span lookup -> validate contour_point_index -> compute absolute_point_index -> point decode[\s\S]*MissingGlyphOutline[\s\S]*gui_sfnt_glyf_simple_contour_span_with_tables[\s\S]*gui_sfnt_glyf_simple_point_with_tables[\s\S]*Source policy[\s\S]*no Vec allocation/,
     "font implementation plan must define F4j contour point implementation, local-before-point order, internal helper reuse, source policy gates, and doctest coverage",
 );
+for (const fragment of [
+    "Phase F4k:",
+    "topology pair",
+    "quadratic curve classification",
+    "full edge `Vec`",
+    "GuiSfntSimpleGlyphContourEdge",
+    "gui_sfnt_lookup_simple_glyph_contour_edge",
+    "start GuiSfntSimpleGlyphContourPoint",
+    "end GuiSfntSimpleGlyphContourPoint",
+    "edge_index i32",
+    "next_contour_point_index i32",
+    "start.contour_point_index == edge_index",
+    "end.contour_point_index == next_contour_point_index",
+    "contour span lookup -> validate edge_index -> compute next_contour_point_index -> decode start contour point -> decode end contour point",
+    "span.point_count == 1",
+    "topology self-wrap",
+    "gui_sfnt_glyf_simple_contour_edge_with_tables",
+    "Source policy",
+    "no Vec allocation",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4k contour edge contract must mention ${fragment}`);
+}
 
 assertMatch(
     coreFontImpl,
@@ -575,69 +641,118 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphContourEdge:[\s\S]*start\s+%GuiSfntSimpleGlyphContourPoint[\s\S]*end\s+%GuiSfntSimpleGlyphContourPoint[\s\S]*edge_index\s+%i32[\s\S]*next_contour_point_index\s+%i32/,
+    "alloc/gui/font/sfnt/glyf must expose contour edge topology as typed nested point data",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_contour_edge\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphContourEdge\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf contour edge lookup must take borrowed ByteBuf, checked GuiGlyphId, contour index, and contour-local edge index",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /not\s+or\s+eq\s+format\s+0\s+eq\s+format\s+1[\s\S]*GuiSfntParseErrorKind::UnsupportedLocaFormat/,
+assert(
+    allocFontSfntGlyfImpl.includes("not or eq format 0 eq format 1") &&
+        allocFontSfntGlyfImpl.includes("GuiSfntParseErrorKind::UnsupportedLocaFormat"),
     "alloc/gui/font/sfnt/glyf must reject unsupported loca formats as typed unsupported",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /fn\s+gui_sfnt_glyf_read_u32_i32_be[\s\S]*high_byte_limit\s+%i32\s+add\s+64\s+64[\s\S]*ge\s+b0\s+high_byte_limit[\s\S]*Result::Err\s+gui_sfnt_parse_error\s+kind\s+offset/,
+const readU32I32Be = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_u32_i32_be");
+assert(
+    readU32I32Be.includes("high_byte_limit %i32 add 64 64") &&
+        readU32I32Be.includes("ge b0 high_byte_limit") &&
+        readU32I32Be.includes("Result::Err gui_sfnt_parse_error kind offset"),
     "alloc/gui/font/sfnt/glyf must reject long loca offsets outside i32 range",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /entry_count\s+%i32\s+add\s+num_glyphs\s+1[\s\S]*eq\s+format\s+0[\s\S]*mul\s+entry_count\s+2[\s\S]*eq\s+format\s+1[\s\S]*mul\s+entry_count\s+4/,
+const locaRequiredLength = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_loca_required_length_is_valid");
+assert(
+    locaRequiredLength.includes("entry_count %i32 add num_glyphs 1") &&
+        locaRequiredLength.includes("eq format 0") &&
+        locaRequiredLength.includes("mul entry_count 2") &&
+        locaRequiredLength.includes("eq format 1") &&
+        locaRequiredLength.includes("mul entry_count 4"),
     "alloc/gui/font/sfnt/glyf must validate declared loca length for short and long formats",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_checked_glyph_raw[\s\S]*le\s+raw\s+0[\s\S]*ge\s+raw\s+num_glyphs[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline/,
+const checkedGlyphRaw = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_checked_glyph_raw");
+assert(
+    checkedGlyphRaw.includes("le raw 0") &&
+        checkedGlyphRaw.includes("ge raw num_glyphs") &&
+        checkedGlyphRaw.includes("GuiSfntParseErrorKind::MissingGlyphOutline"),
     "alloc/gui/font/sfnt/glyf must reject glyph 0 and glyphs outside maxp.numGlyphs",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /gt\s+start\s+end[\s\S]*gt\s+end\s+gui_sfnt_table_record_length\s+&glyf[\s\S]*eq\s+start\s+end[\s\S]*MissingGlyphOutline[\s\S]*lt\s+sub\s+end\s+start\s+10/,
+const validateGlyfOffsets = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_validate_offsets");
+assert(
+    validateGlyfOffsets.includes("gt start end") &&
+        validateGlyfOffsets.includes("gt end gui_sfnt_table_record_length &glyf") &&
+        validateGlyfOffsets.includes("eq start end") &&
+        validateGlyfOffsets.includes("MissingGlyphOutline") &&
+        validateGlyfOffsets.includes("lt sub end start 10"),
     "alloc/gui/font/sfnt/glyf must validate glyf declared bounds and empty/short glyph ranges",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_bounds_from_header[\s\S]*add\s+file_offset\s+2[\s\S]*add\s+file_offset\s+4[\s\S]*add\s+file_offset\s+6[\s\S]*add\s+file_offset\s+8[\s\S]*or\s+gt\s+x_min\s+x_max\s+gt\s+y_min\s+y_max/,
+const boundsFromHeader = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_bounds_from_header");
+assert(
+    boundsFromHeader.includes("add file_offset 2") &&
+        boundsFromHeader.includes("add file_offset 4") &&
+        boundsFromHeader.includes("add file_offset 6") &&
+        boundsFromHeader.includes("add file_offset 8") &&
+        boundsFromHeader.includes("or gt x_min x_max gt y_min y_max"),
     "alloc/gui/font/sfnt/glyf must read x/y bounds from the glyf header and reject inverted bounds",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_read_last_endpoint[\s\S]*not\s+gui_sfnt_glyf_glyph_relative_range_is_valid\s+start\s+end\s+endpoint_offset\s+2[\s\S]*le\s+endpoint\s+previous_endpoint/,
+const readLastEndpoint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_last_endpoint");
+assert(
+    readLastEndpoint.includes("not gui_sfnt_glyf_glyph_relative_range_is_valid start end endpoint_offset 2") &&
+        readLastEndpoint.includes("le endpoint previous_endpoint"),
     "alloc/gui/font/sfnt/glyf must validate simple glyph endpoints inside glyph range and strict increasing",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /lt\s+contour_count\s+0[\s\S]*GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat[\s\S]*eq\s+contour_count\s+0[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline/,
-    "alloc/gui/font/sfnt/glyf must split composite, zero-contour, and malformed simple glyphs into typed errors",
+const topologyFromSpan = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_topology_from_span");
+assert(
+    topologyFromSpan.includes("lt contour_count 0") &&
+        topologyFromSpan.includes("GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat") &&
+        topologyFromSpan.includes("eq contour_count 0") &&
+        topologyFromSpan.includes("GuiSfntParseErrorKind::MissingGlyphOutline") &&
+        topologyFromSpan.includes("instruction_length_offset %i32 add endpoint_array_offset endpoint_array_length") &&
+        topologyFromSpan.includes("instruction_start %i32 add instruction_length_offset 2") &&
+        topologyFromSpan.includes("point_data_offset %i32 add instruction_start instruction_length") &&
+        topologyFromSpan.includes("point_data_length %i32 sub end point_data_offset") &&
+        topologyFromSpan.includes("le point_data_length 0"),
+    "alloc/gui/font/sfnt/glyf must split contour count errors and validate instruction/point data range",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /instruction_length_offset\s+%i32\s+add\s+endpoint_array_offset\s+endpoint_array_length[\s\S]*gui_sfnt_glyf_read_u16_be[\s\S]*instruction_start\s+%i32\s+add\s+instruction_length_offset\s+2[\s\S]*point_data_offset\s+%i32\s+add\s+instruction_start\s+instruction_length[\s\S]*point_data_length\s+%i32\s+sub\s+end\s+point_data_offset[\s\S]*le\s+point_data_length\s+0/,
-    "alloc/gui/font/sfnt/glyf must validate instruction range and non-empty point data range",
-);
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_scan_flag_stream[\s\S]*eq\s+logical_count\s+point_count[\s\S]*sub\s+cursor\s+flag_start[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+8[\s\S]*repeat_count_offset\s+%i32\s+add\s+cursor\s+1[\s\S]*run_count\s+%i32\s+add\s+repeat_count\s+1[\s\S]*gt\s+next_logical_count\s+point_count[\s\S]*GuiSfntParseErrorKind::MalformedGlyfRecord/,
+const scanFlagStream = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_scan_flag_stream");
+assert(
+    scanFlagStream.includes("eq logical_count point_count") &&
+        scanFlagStream.includes("sub cursor flag_start") &&
+        scanFlagStream.includes("gui_sfnt_glyf_flag_has_bit flag 8") &&
+        scanFlagStream.includes("repeat_count_offset %i32 add cursor 1") &&
+        scanFlagStream.includes("run_count %i32 add repeat_count 1") &&
+        scanFlagStream.includes("gt next_logical_count point_count") &&
+        scanFlagStream.includes("GuiSfntParseErrorKind::MalformedGlyfRecord"),
     "alloc/gui/font/sfnt/glyf must scan raw flag bytes with repeat count semantics and reject repeat overrun",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /gui_sfnt_glyf_flag_x_byte_length[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+2[\s\S]*then:[\s\S]*1[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+16[\s\S]*then:[\s\S]*0[\s\S]*else:[\s\S]*2[\s\S]*gui_sfnt_glyf_flag_y_byte_length[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+4[\s\S]*then:[\s\S]*1[\s\S]*gui_sfnt_glyf_flag_has_bit\s+flag\s+32[\s\S]*then:[\s\S]*0[\s\S]*else:[\s\S]*2/,
+const flagXByteLength = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_flag_x_byte_length");
+const flagYByteLength = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_flag_y_byte_length");
+assert(
+    flagXByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 2") &&
+        flagXByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 16") &&
+        flagXByteLength.includes("2") &&
+        flagYByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 4") &&
+        flagYByteLength.includes("gui_sfnt_glyf_flag_has_bit flag 32") &&
+        flagYByteLength.includes("2"),
     "alloc/gui/font/sfnt/glyf must derive x/y coordinate byte lengths from short and same bits",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /flag_data_offset\s+%i32\s+gui_sfnt_simple_glyph_topology_point_data_offset\s+&topology[\s\S]*flag_data_length\s+%i32\s+gui_sfnt_simple_glyph_flag_scan_raw_length\s+&scan[\s\S]*x_data_offset\s+%i32\s+add\s+flag_data_offset\s+flag_data_length[\s\S]*y_data_offset\s+%i32\s+add\s+x_data_offset\s+x_data_length[\s\S]*trailing_data_offset\s+%i32\s+add\s+y_data_offset\s+y_data_length[\s\S]*trailing_data_length\s+%i32\s+sub\s+point_data_end\s+trailing_data_offset[\s\S]*lt\s+trailing_data_length\s+0/,
-    "alloc/gui/font/sfnt/glyf must derive point stream offsets and reject coordinate byte overrun",
-);
+const pointStreamFromTopology = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_point_stream_from_topology");
+for (const fragment of [
+    "flag_data_offset %i32 gui_sfnt_simple_glyph_topology_point_data_offset &topology",
+    "flag_data_length %i32 gui_sfnt_simple_glyph_flag_scan_raw_length &scan",
+    "x_data_offset %i32 add flag_data_offset flag_data_length",
+    "y_data_offset %i32 add x_data_offset x_data_length",
+    "trailing_data_offset %i32 add y_data_offset y_data_length",
+    "trailing_data_length %i32 sub point_data_end trailing_data_offset",
+    "lt trailing_data_length 0",
+]) {
+    assert(pointStreamFromTopology.includes(fragment), `alloc/gui/font/sfnt/glyf point stream offset derivation must include ${fragment}`);
+}
 assertMatch(
     allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_simple_point_with_tables[\s\S]*gui_sfnt_glyf_simple_point_stream_with_tables[\s\S]*gui_sfnt_glyf_decode_point_from_stream/,
@@ -678,6 +793,19 @@ assertMatch(
     /gui_sfnt_glyf_simple_contour_point_with_tables[\s\S]*gui_sfnt_glyf_simple_contour_span_with_tables[\s\S]*or\s+lt\s+contour_point_index\s+0\s+ge\s+contour_point_index\s+span_point_count[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline[\s\S]*absolute_point_index\s+%i32\s+add\s+gui_sfnt_simple_glyph_contour_span_start_point_index\s+&span\s+contour_point_index[\s\S]*gui_sfnt_glyf_simple_point_with_tables/,
     "alloc/gui/font/sfnt/glyf contour point lookup must validate local index before point decode and compute the absolute point index from the span start",
 );
+const contourEdgeWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_edge_with_tables");
+for (const fragment of [
+    "gui_sfnt_glyf_simple_contour_span_with_tables",
+    "or lt edge_index 0 ge edge_index span_point_count",
+    "GuiSfntParseErrorKind::MissingGlyphOutline",
+    "eq add edge_index 1 span_point_count",
+    "then:\n                            0",
+    "else:\n                            add edge_index 1",
+    "gui_sfnt_glyf_simple_contour_point_with_tables",
+    "gui_sfnt_simple_glyph_contour_edge",
+]) {
+    assert(contourEdgeWithTables.includes(fragment), `alloc/gui/font/sfnt/glyf contour edge helper must include ${fragment}`);
+}
 assertNoMatch(
     allocFontSfntGlyfImpl,
     /\bVec\s+GuiSfntSimpleGlyphPoint\b|\bpush\s+.*GuiSfntSimpleGlyphPoint\b/,
@@ -692,6 +820,11 @@ assertNoMatch(
     allocFontSfntGlyfImpl,
     /\bVec\s+GuiSfntSimpleGlyphContourPoint\b|\bpush\s+.*GuiSfntSimpleGlyphContourPoint\b/,
     "alloc/gui/font/sfnt/glyf F4j must not allocate or build a full contour point Vec",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /\bVec\s+GuiSfntSimpleGlyphContourEdge\b|\bpush\s+.*GuiSfntSimpleGlyphContourEdge\b/,
+    "alloc/gui/font/sfnt/glyf F4k must not allocate or build a full contour edge Vec",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
@@ -709,6 +842,16 @@ assertNoMatch(
     contourPointWithTables,
     /\bgui_sfnt_lookup_simple_glyph_contour_span\b|\bgui_sfnt_lookup_simple_glyph_point\b|\bgui_sfnt_lookup_simple_glyph_point_stream\b/,
     "alloc/gui/font/sfnt/glyf F4j table helper must not call public wrappers after metadata unwrap",
+);
+assertMatch(
+    contourEdgeWithTables,
+    /\bgui_sfnt_glyf_simple_contour_span_with_tables\b[\s\S]*\bgui_sfnt_glyf_simple_contour_point_with_tables\b[\s\S]*\bgui_sfnt_glyf_simple_contour_point_with_tables\b/,
+    "alloc/gui/font/sfnt/glyf F4k table helper must compose F4i and F4j internal table helpers",
+);
+assertNoMatch(
+    contourEdgeWithTables,
+    /\bgui_sfnt_lookup_simple_glyph_contour_span\b|\bgui_sfnt_lookup_simple_glyph_contour_point\b|\bgui_sfnt_lookup_simple_glyph_point\b|\bgui_sfnt_lookup_simple_glyph_point_stream\b/,
+    "alloc/gui/font/sfnt/glyf F4k table helper must not call public wrappers after metadata unwrap",
 );
 assertNoMatch(
     allocFontSfntMetadataImpl,
@@ -754,6 +897,11 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_simple_glyph_contour_point\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf contour point lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_contour_edge\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf contour edge lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,
@@ -912,6 +1060,19 @@ for (const glyfCase of [
     "contour point signed x",
     "contour point signed y",
     "contour point signed on curve",
+    "contour edge first edge index",
+    "contour edge first next local index",
+    "contour edge first start absolute index",
+    "contour edge first end absolute index",
+    "contour edge first end contour end",
+    "contour edge wrap next local index",
+    "contour edge wrap start absolute index",
+    "contour edge wrap end absolute index",
+    "contour edge self wrap next local index",
+    "contour edge self wrap same absolute index",
+    "contour edge signed start absolute index",
+    "contour edge signed start x",
+    "contour edge signed start y",
     "missing loca table",
     "missing glyf table",
     "short head for glyf",
@@ -943,6 +1104,9 @@ for (const glyfCase of [
     "contour point negative local missing",
     "contour point local count missing",
     "contour point x coordinate overrun",
+    "contour edge negative local missing",
+    "contour edge local count missing",
+    "contour edge x coordinate overrun",
 ]) {
     assertMatch(
         guiFontSfntTests,

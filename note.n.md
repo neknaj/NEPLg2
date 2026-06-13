@@ -58825,3 +58825,53 @@ MERGE_APPROVED
 - F4j は contour-local single point lookup であり、full outline `Vec`、streaming contour sink、quadratic curve segment builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
 - 次 slice では allocation failure / owner recovery と streaming sink の contract を固めたうえで、simple glyph outline builder へ進む。
 - `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。
+
+## 2026-06-13 GUI font SFNT simple glyph contour edge checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-contour-edge-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に沿って、Result / enum error、platform boundary 分離、doc contract と current implementation の分離、静的検査に掛かる typed value、hidden fallback なしを優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F4k `GuiSfntSimpleGlyphContourEdge` の仕様、詳細設計、実装計画を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphContourEdge` と `gui_sfnt_lookup_simple_glyph_contour_edge` を追加した。
+- `GuiSfntSimpleGlyphContourEdge` は `start GuiSfntSimpleGlyphContourPoint`、`end GuiSfntSimpleGlyphContourPoint`、`edge_index i32`、`next_contour_point_index i32` を持つ topology typed value とした。
+- edge は描画線分ではなく contour topology 上の adjacent point pair として定義した。quadratic curve classification、implied on-curve point、winding、rasterization は後続 phase の責務である。
+- `edge_index` は contour-local edge start index とし、`start.contour_point_index == edge_index`、`end.contour_point_index == next_contour_point_index`、nested `start.point.point_index` / `end.point.point_index` は glyph absolute point index のままとした。
+- `gui_sfnt_glyf_simple_contour_edge_with_tables` は `gui_sfnt_glyf_simple_contour_span_with_tables` で span を取り、endpoint decode より先に `edge_index` を検査し、wrap 後に `gui_sfnt_glyf_simple_contour_point_with_tables` で start / end を読む。
+- `edge_index < 0` または `edge_index >= span.point_count` は `MissingGlyphOutline` として返す。
+- last edge は `next_contour_point_index = 0` として contour start へ wrap する。
+- `span.point_count == 1` は topology self-wrap として成功させる。ただし描画可能な線分とは見なさない。
+- source policy は F4k API、internal helper reuse、edge-before-endpoint validation、wrap/self-wrap、metadata 非依存、no edge `Vec` allocation を固定した。
+- 既存 glyf source policy の一部は、F4k 追加後に全ファイル regex が重くなったため、同じ invariant を helper slice / `includes` 検査へ局所化した。
+
+### tests
+
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に two-contour edge、last edge wrap、one-point self-wrap、signed coordinate edge、negative edge index、span.point_count edge index、coordinate overrun propagation を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt --no-tree -o tmp_gui_font_sfnt_dir.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した `nodesrc/test_web_gui_font_rendering_contract.js` を含めて GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+
+### subagent_review
+
+- Boole pre-review: Required として、edge は drawable line segment ではなく topological adjacent point pair とすること、一点 contour の扱いを明確化すること、`span lookup -> validate edge_index -> compute next_contour_point_index -> decode start/end` の順序を固定すること、start/end の local/absolute index 不変条件、internal helper reuse、no `Vec` edge allocation、metadata independence が指摘された。
+- Boole implementation review: Required なし。Suggested として `edge.end.contour_point_index == edge.next_contour_point_index` の doctest と y-coordinate overrun symmetry test が挙がった。前者は一度追加したが monolithic doctest が 60 秒 compile timeout を超えるため戻した。後者は既存 contour point helper と x-overrun propagation で API 経由の伝播を確認済みのため今回は追加しない。
+- Boole は commit / merge 可能と判断した。
+- 未追跡の `NUL` / `tmp_gui_*` は stage しない。
+
+### residual
+
+- F4k は topology edge lookup であり、line / quadratic / implied on-curve point の curve segment classifier、streaming contour sink、full outline ownership、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
+- 次 slice は allocation-free curve segment classifier を先に実装し、その後に streaming contour sink を検討する。sink が drawable geometry を出すなら line/quadratic/implied-point rules が先に必要である。
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` は 60 秒 compile timeout に近いため、次のGUI font test追加前に success / error / edge / point stream などへ doctest を分割する。
+- `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。

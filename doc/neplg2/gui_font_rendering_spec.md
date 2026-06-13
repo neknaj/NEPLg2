@@ -383,6 +383,49 @@ contour span lookup
 
 `contour_point_index < 0` または `contour_point_index >= span.point_count` は `MissingGlyphOutline` とする。local index validation は point decode より先に行う。F4i / F4h 由来の byte 構造不整合は、それぞれの typed error をそのまま伝播する。
 
+### SFNT simple glyph contour edge lookup
+
+F4k は contour-local edge index から、contour 上で隣り合う 2 点を取得する段階である。この edge は topology 上の隣接 point pair であり、描画される直線 segment ではない。TrueType simple glyph では on-curve / off-curve の組み合わせにより quadratic curve や implied on-curve point が生じるため、curve segment classification、implied point 挿入、winding、rasterization は後続 phase の責務である。
+
+```text
+GuiSfntSimpleGlyphContourEdge:
+    start GuiSfntSimpleGlyphContourPoint
+    end GuiSfntSimpleGlyphContourPoint
+    edge_index i32
+    next_contour_point_index i32
+
+gui_sfnt_lookup_simple_glyph_contour_edge:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphContourEdge GuiSfntParseError
+```
+
+`edge_index` は contour-local edge start index である。`start.contour_point_index == edge_index` であり、`end.contour_point_index == next_contour_point_index` である。nested `start.point.point_index` と `end.point.point_index` は glyph 全体での absolute logical point index のままである。
+
+F4k は必ず次の順序で処理する。
+
+```text
+contour span lookup
+    -> validate edge_index
+    -> compute next_contour_point_index
+    -> decode start contour point
+    -> decode end contour point
+```
+
+`edge_index < 0` または `edge_index >= span.point_count` は `MissingGlyphOutline` とする。`next_contour_point_index` は次の式で定義する。
+
+```text
+next_contour_point_index =
+    if edge_index + 1 == span.point_count then 0 else edge_index + 1
+```
+
+`span.point_count == 1` の contour は topology として有効な自己 wrap edge を返す。この場合、`edge_index == 0`、`next_contour_point_index == 0`、`start.point.point_index == end.point.point_index` である。ただし、これを描画可能な線分と見なしてはならない。後続の curve builder が renderability を判定する。
+
+F4k は full edge `Vec`、full contour `Vec`、curve segment builder、rasterizer を作らない。F4i / F4j / F4h 由来の byte 構造不整合は、それぞれの typed error をそのまま伝播する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

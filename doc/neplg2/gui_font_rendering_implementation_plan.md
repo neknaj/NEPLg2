@@ -461,6 +461,46 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4k: sfnt simple glyph contour edge lookup
+
+目的:
+
+- contour-local edge index から、contour topology 上で隣接する start / end point pair を 1 つだけ復元する。
+- edge は描画線分ではなく topology pair であり、quadratic curve classification、implied on-curve point、winding、rasterization は後続 phase で実装する。
+- full edge `Vec` / full contour `Vec` / curve segment builder は作らず、allocation なしの lookup boundary を提供する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphContourEdge` と `gui_sfnt_lookup_simple_glyph_contour_edge` を追加する。
+- `GuiSfntSimpleGlyphContourEdge` は `start GuiSfntSimpleGlyphContourPoint`、`end GuiSfntSimpleGlyphContourPoint`、`edge_index i32`、`next_contour_point_index i32` を持つ。
+- `edge_index` は contour-local edge start index、`next_contour_point_index` は wrap 後の contour-local end index とする。
+- `start.contour_point_index == edge_index`、`end.contour_point_index == next_contour_point_index` を不変条件とする。
+- nested `start.point.point_index` と `end.point.point_index` は glyph absolute point index のままとする。
+- 処理順序は `contour span lookup -> validate edge_index -> compute next_contour_point_index -> decode start contour point -> decode end contour point` とし、edge index validation を endpoint decode より先に行う。
+- `edge_index < 0` または `edge_index >= span.point_count` は `MissingGlyphOutline` とする。
+- `edge_index + 1 == span.point_count` の場合、`next_contour_point_index = 0` として contour end から contour start へ wrap する。
+- `span.point_count == 1` の場合、`edge_index = 0` だけを成功させ、start と end が同じ point を参照する topology self-wrap とする。
+- `gui_sfnt_glyf_simple_contour_edge_with_tables` は public wrapper ではなく `gui_sfnt_glyf_simple_contour_span_with_tables` と `gui_sfnt_glyf_simple_contour_point_with_tables` を通る。
+- Source policy で contour edge API、internal table helper reuse、edge-before-endpoint validation、wrap formula、metadata 非依存、no Vec allocation を固定する。
+
+完了条件:
+
+- two-contour fixture の contour 0 edge 0 が start local 0 / absolute 0、end local 1 / absolute 1、wrap なしを返す。
+- two-contour fixture の contour 1 last edge が start local 1 / absolute 3、next local 0、end absolute 2 を返す。
+- one-point contour fixture の edge 0 が next local 0、start/end absolute point equal の self-wrap を返す。
+- signed coordinate fixture の edge 1 が start absolute point 1、x 2、y -6 を返す。
+- edge index `-1` と `span.point_count` は `MissingGlyphOutline` になる。
+- coordinate overrun fixture を contour edge lookup 経由でも `MalformedGlyfRecord` として扱える。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

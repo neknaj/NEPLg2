@@ -412,6 +412,57 @@ pub fn gui_sfnt_simple_glyph_contour_point_local_index %fn &GuiSfntSimpleGlyphCo
 pub fn gui_sfnt_simple_glyph_contour_point_point %fn &GuiSfntSimpleGlyphContourPoint GuiSfntSimpleGlyphPoint \contour_point:
     *field::get_ref contour_point "point"
 
+//: GuiSfntSimpleGlyphContourEdge: contour topology 上で[隣接/りんせつ]する 2 point
+//:
+//: [目的/もくてき]:
+//: - `edge_index` から始まる contour-local point pair を[運/はこ]びます。
+//: - これは描画線分ではなく、後続の curve builder が曲線分類を行うための topology 情報です。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourEdge:
+    start %GuiSfntSimpleGlyphContourPoint
+    end %GuiSfntSimpleGlyphContourPoint
+    edge_index %i32
+    next_contour_point_index %i32
+
+impl Clone for GuiSfntSimpleGlyphContourEdge:
+    fn clone %fn &GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphContourEdge \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphContourEdge:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphContourEdge \edge:
+        edge
+
+//: gui_sfnt_simple_glyph_contour_edge: contour-local edge value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_edge %fn GuiSfntSimpleGlyphContourPoint fn GuiSfntSimpleGlyphContourPoint fn i32 fn i32 GuiSfntSimpleGlyphContourEdge \start\end\edge_index\next_contour_point_index:
+    GuiSfntSimpleGlyphContourEdge start end edge_index next_contour_point_index
+
+//: gui_sfnt_simple_glyph_contour_edge_start: edge start point を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_edge_start %fn &GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphContourPoint \edge:
+    *field::get_ref edge "start"
+
+//: gui_sfnt_simple_glyph_contour_edge_end: edge end point を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_edge_end %fn &GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphContourPoint \edge:
+    *field::get_ref edge "end"
+
+//: gui_sfnt_simple_glyph_contour_edge_index: contour-local edge start index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_edge_index %fn &GuiSfntSimpleGlyphContourEdge i32 \edge:
+    *field::get_ref edge "edge_index"
+
+//: gui_sfnt_simple_glyph_contour_edge_next_local_index: wrap 後の contour-local end index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_edge_next_local_index %fn &GuiSfntSimpleGlyphContourEdge i32 \edge:
+    *field::get_ref edge "next_contour_point_index"
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
@@ -1472,6 +1523,36 @@ fn gui_sfnt_glyf_simple_contour_point_with_tables %fn &ByteBuf fn GuiSfntTableRe
                         Result::Ok point:
                             Result::Ok gui_sfnt_simple_glyph_contour_point span contour_point_index point
 
+//: gui_sfnt_glyf_simple_contour_edge_with_tables: metadata 済み table から contour edge を[引/ひ]く
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_simple_contour_edge_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph\contour_index\edge_index:
+    match gui_sfnt_glyf_simple_contour_span_with_tables bytes head loca glyf metrics glyph contour_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok span:
+            let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+            if:
+                or lt edge_index 0 ge edge_index span_point_count
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline add gui_sfnt_table_record_offset &glyf gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                else:
+                    let next_contour_point_index %i32 if:
+                        eq add edge_index 1 span_point_count
+                        then:
+                            0
+                        else:
+                            add edge_index 1
+                    match gui_sfnt_glyf_simple_contour_point_with_tables bytes head loca glyf metrics glyph contour_index edge_index:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok start:
+                            match gui_sfnt_glyf_simple_contour_point_with_tables bytes head loca glyf metrics glyph contour_index next_contour_point_index:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok end:
+                                    Result::Ok gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index
+
 //: gui_sfnt_lookup_glyph_bounds: SFNT glyf から glyph header bounds を[読/よ]む
 //:
 //: [目的/もくてき]:
@@ -1660,3 +1741,36 @@ pub fn gui_sfnt_lookup_simple_glyph_contour_point %fn &ByteBuf fn Option i32 fn 
                                     Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
                                 Option::Some glyf:
                                     gui_sfnt_glyf_simple_contour_point_with_tables bytes head loca glyf metrics glyph contour_index contour_point_index
+
+//: gui_sfnt_lookup_simple_glyph_contour_edge: SFNT glyf から simple glyph の contour edge topology を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - contour-local edge index を start / end contour point pair に[変換/へんかん]します。
+//: - edge は描画線分ではなく、後続の curve builder が on-curve / off-curve を分類するための topology です。
+//:
+//: [注意/ちゅうい]:
+//: - `edge_index` が contour の edge 数外なら `MissingGlyphOutline` です。
+//: - 1 point contour は self-wrap topology として成功します。
+//: - full edge allocation、curve segment builder、rasterization はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_contour_edge %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntParseError \bytes\face_index\glyph\contour_index\edge_index:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+            match gui_sfnt_directory_head &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some head:
+                    match gui_sfnt_directory_loca &directory:
+                        Option::None:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                        Option::Some loca:
+                            match gui_sfnt_directory_glyf &directory:
+                                Option::None:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                                Option::Some glyf:
+                                    gui_sfnt_glyf_simple_contour_edge_with_tables bytes head loca glyf metrics glyph contour_index edge_index
