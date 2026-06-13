@@ -124,6 +124,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_t
 
 この checkpoint 後の残件は、complete public surface impl candidate 群から method body fact build input table を作る scanner / full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed input batch contract を保って後から行える最適化として扱う。
 
+## 2026-06-13 selfhost method body fact input scan checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_input_scan.nepl` を追加し、complete public impl surface 由来の operation impl 候補から、Eq / Hash method body だけを `SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` へ変換する scanner boundary を作った。
+
+scan record は `SelfhostTypeId`、operation kind、optional HIR root、fuel だけを持つ。accepted path はこの typed payload だけを authority とし、source text、span、lexeme、display name、diagnostic text、module path、method name string から operation や root を推測しない。Eq / Hash は `some(root)` を要求して output build input へ push し、Copy / Drop は `none` の場合だけ skip する。Eq / Hash の root 欠落は `RequiredMethodBodyMissing(index, operation)`、Copy / Drop の root 混入は `UnexpectedMethodBodyRoot(index, operation)` として fail-closed にする。
+
+scan API は output build input table owner を内部で作る。成功時だけ caller が owner を受け取り、失敗時は partial output table をこの module が閉じるか、既存 output input table push boundary が閉じる。source record table は borrow で読むため、caller は success / failure 後に source table owner を閉じる。error は source push、output allocation、source read、output push、operation matrix rejection を typed enum として分け、output push rejection では nested `SelfhostMemoTraitOperationMethodBodyFactTableInputsErrorKind` を保持する。
+
+この scanner は HIR effect checker、fact producer、fact table builder、method body resolver lookup、Drop resolver、purity gate、operation impl candidate table、Resource IR proof、backend artifact、proof store、public surface hash を実行しない。実 public impl AST scanning、impl header / trait application からの candidate materialization、Drop body effect checker、Resource IR no-escape proof、generic impl binder、PrivateCache / PrivateState masking は後続 stage の責務である。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、operation matrix、Eq / Hash push、Copy / Drop skip、matrix rejection 時の output table cleanup、output push error branch の二重解放禁止、resolver / fact constructor / direct table push bypass 禁止、body check / evidence / proof 作成禁止、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_input_scan.nepl -o tmp/selfhost-method-body-fact-input-scan.json --no-tree -j 1 --assert-io`
+
+この checkpoint 後の残件は、method body fact input scan と batch builder を実 public surface impl candidate materialization へ接続する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、scanner source table の operation bucket 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed scan/input contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

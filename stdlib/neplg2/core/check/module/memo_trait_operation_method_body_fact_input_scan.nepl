@@ -1,0 +1,554 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_method_body_fact_input_scan
+//: complete public impl surface から得た operation impl 候補の method body root 有無を、method body fact build input table へ[変換/へんかん]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - full public surface orchestration は、Copy / Drop / Eq / Hash の impl 候補を同じ列として扱います。一方で method body purity が必要なのは Eq / Hash だけです。
+//: - この module は、上流が typed candidate として決めた `SelfhostTypeId`、operation kind、optional HIR root、fuel を走査し、Eq / Hash だけを `SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` へ投入します。
+//: - Copy / Drop に method body root が付いている場合や、Eq / Hash に method body root が欠けている場合を bool や表示文字列にせず typed error として返します。
+//:
+//: [契約/けいやく]:
+//: - caller は complete public impl surface から作った typed candidate table だけを渡します。この module は source text、span、lexeme、display name、diagnostic text、module path、method name string から operation や root を推測しません。
+//: - `SelfhostMemoTraitOperationMethodBodyFactInputScanRecord` は、public impl header / trait application classifier / method body lowering がすでに決定した session-local input です。この module は public impl header hash や trait application shape を再検査しません。
+//: - `Eq` / `Hash` は `method_body_root = some(root)` を要求し、対応する build input を output table へ追加します。
+//: - `Copy` / `Drop` は method body fact を必要としないため、`method_body_root = none` の場合は output table に何も追加しません。`some(root)` が渡された場合は `UnexpectedMethodBodyRoot` として拒否します。
+//: - scan API は output `SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` owner を内部で作ります。成功時だけ caller がその owner を受け取り、不要になったら既存の `selfhost_memo_trait_operation_method_body_fact_build_input_table_free` で閉じます。
+//: - output table allocation、output push、source read、operation matrix rejection はすべて typed enum で返します。失敗時に部分構築された output table owner はこの module が閉じるか、既存 push boundary が閉じます。
+//: - この module は HIR effect checker、fact producer、fact table builder、method body resolver lookup、Drop resolver、purity gate、operation impl candidate table、Resource IR proof、backend artifact、proof store、public surface hash を実行しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では、上流 scanner の代わりに stage0 smoke が typed record table を組み立て、Eq / Hash accepted、Copy / Drop skipped、Eq missing body rejection、Copy unexpected body rejection を確認します。
+//: - actual public impl AST scanning、impl header / trait application からの candidate materialization、Drop body effect checker、Resource IR no-escape proof、generic impl binder、PrivateCache / PrivateState masking は後続 stage の責務です。
+//: - facade にはまだ re-export しません。full orchestration が public surface scanner、method body fact input scan、Drop resolver、purity gate、operation impl table をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - source record 数を n とすると、scan は O(n) 時間・O(1) 追加制御空間です。Eq / Hash の output push は `Vec` push の償却 O(1) 時間です。
+//: - operation 別に sorted index や bucket を持つ最適化は、typed error contract と input/output schema を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_fact_input_scan" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_method_body_fact_input_scan_len_result_eq summary.accepted_len 2
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_method_body_fact_input_scan_required_error_result_eq summary.eq_missing_body 0 SelfhostMemoTraitOperationEvidenceKind::Eq
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_method_body_fact_input_scan_unexpected_error_result_eq summary.copy_unexpected_body 0 SelfhostMemoTraitOperationEvidenceKind::Copy
+//:             let shown checks_print_report checks3
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "method body fact input scan stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_method_body_fact_table_inputs" as *
+
+//: SelfhostMemoTraitOperationMethodBodyFactInputScanRecord: public impl candidate 由来の method body root scan input
+//:
+//: [契約/けいやく]:
+//: - `type_id` と `operation` は、public impl classifier が typed evidence として決定済みの lookup key です。
+//: - `method_body_root` は、Eq / Hash method body が HIR lowering 済みの場合だけ `some(root)` になります。Copy / Drop では `none` でなければなりません。
+//: - `fuel` は HIR traversal の上限として後続 builder へ渡す値です。この module は HIR を読まないため fuel exhaustion の判定は effect checker に委ねます。
+pub struct SelfhostMemoTraitOperationMethodBodyFactInputScanRecord:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    method_body_root %Option SelfhostHirExprId
+    fuel %i32
+
+//: SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable: scan record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。scan API は borrow で読むだけなので、caller は success / failure 後にこの table を閉じます。
+//: - table は checker-layer の session-local input 列であり、永続 artifact や public surface hash の authority ではありません。
+pub struct SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable:
+    records %Vec SelfhostMemoTraitOperationMethodBodyFactInputScanRecord
+
+//: SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation: scan 拒否の index / operation payload
+//:
+//: [目的/もくてき]:
+//: - 現在の enum payload が単一であるため、失敗した source record index と operation kind を 1 struct に束ねます。
+pub struct SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation:
+    index %i32
+    operation %SelfhostMemoTraitOperationEvidenceKind
+
+//: SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind: method body fact input scan の拒否理由
+//:
+//: [目的/もくてき]:
+//: - source table の構築 / 読み取り、output table の構築 / push、operation matrix rejection を分けて保持します。
+pub enum SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind:
+    SourcePushFailed %StdErrorKind
+    OutputInputAllocFailed %StdErrorKind
+    SourceReadFailed %i32
+    OutputInputPushFailed %SelfhostMemoTraitOperationMethodBodyFactTableInputsErrorKind
+    RequiredMethodBodyMissing %SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation
+    UnexpectedMethodBodyRoot %SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation
+
+//: SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary: input scan smoke の代表結果
+pub struct SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary:
+    accepted_len %Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
+    eq_missing_body %Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
+    copy_unexpected_body %Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactInputScanRecord:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactInputScanRecord SelfhostMemoTraitOperationMethodBodyFactInputScanRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactInputScanRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecord SelfhostMemoTraitOperationMethodBodyFactInputScanRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_record_new: scan record を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - constructor は typed field を束ねるだけです。operation と method body root の整合性は scan API が検査します。
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_record_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitOperationMethodBodyFactInputScanRecord \type_id\operation\method_body_root\fuel:
+    SelfhostMemoTraitOperationMethodBodyFactInputScanRecord type_id operation method_body_root fuel
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new: [空/から]の source record table を[作/つく]る
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new %impure fn void Result SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationMethodBodyFactInputScanRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free: source record table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free %impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_len: source record 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_len %fn &SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationMethodBodyFactInputScanRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_push: source record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `table` はこの関数が消費します。成功時は追加後の table owner を返します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、`SourcePushFailed(error)` として `StdErrorKind` を保持します。caller は失敗後に元の table を再利用してはいけません。
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_push %impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecord Result SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitOperationMethodBodyFactInputScanRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed error
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_new: index / operation payload を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_new %fn i32 fn SelfhostMemoTraitOperationEvidenceKind SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation \index\operation:
+    SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation index operation
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_operation_requires_body: operation が method body root を[必要/ひつよう]とするか[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_operation_requires_body %fn SelfhostMemoTraitOperationEvidenceKind bool \operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            true
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            true
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_required_missing_error: 必須 root 欠落で output table を閉じて[失敗/しっぱい]する
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_required_missing_error %impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn i32 impure fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationMethodBodyFactBuildInputTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \inputs\index\operation:
+    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+    Result::Err SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_new index operation
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_unexpected_root_error: 不要 root 混入で output table を閉じて[失敗/しっぱい]する
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_unexpected_root_error %impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn i32 impure fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationMethodBodyFactBuildInputTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \inputs\index\operation:
+    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+    Result::Err SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_new index operation
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_push_output: Eq / Hash root を output build input table へ[投入/とうにゅう]する
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_push_output %impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecord impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationMethodBodyFactBuildInputTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \inputs\record\root:
+    let build_input %SelfhostMemoTraitOperationMethodBodyFactBuildInput selfhost_memo_trait_operation_method_body_fact_build_input_new record.type_id record.operation root record.fuel
+    match selfhost_memo_trait_operation_method_body_fact_build_input_table_push inputs build_input:
+        Result::Ok next_inputs:
+            Result::Ok next_inputs
+        Result::Err push_error:
+            Result::Err SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed push_error
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_record_into_inputs: 1 record を operation matrix に従って output table へ[反映/はんえい]する
+//:
+//: [契約/けいやく]:
+//: - `inputs` はこの関数が消費します。success では更新後の owner を返します。
+//: - matrix rejection ではこの関数が `inputs` を閉じます。output push rejection では既存 push boundary が owner cleanup を担当します。
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_record_into_inputs %impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecord impure fn i32 Result SelfhostMemoTraitOperationMethodBodyFactBuildInputTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \inputs\record\index:
+    if:
+        selfhost_memo_trait_operation_method_body_fact_input_scan_operation_requires_body record.operation
+        then:
+            match record.method_body_root:
+                Option::Some root:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_push_output inputs record root
+                Option::None:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_required_missing_error inputs index record.operation
+        else:
+            match record.method_body_root:
+                Option::Some _unexpected:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_unexpected_root_error inputs index record.operation
+                Option::None:
+                    Result::Ok inputs
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_loop: source record table を順番に[読/よ]み output input table を[組/く]む
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_loop %impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable impure fn &SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn i32 Result SelfhostMemoTraitOperationMethodBodyFactBuildInputTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \inputs\source\index:
+    if:
+        ge index selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_len source
+        then:
+            Result::Ok inputs
+        else:
+            let records %&Vec SelfhostMemoTraitOperationMethodBodyFactInputScanRecord field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_into_inputs inputs record index:
+                        Result::Ok next_inputs:
+                            selfhost_memo_trait_operation_method_body_fact_input_scan_loop next_inputs source add index 1
+                        Result::Err error:
+                            Result::Err error
+                Option::None:
+                    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+                    Result::Err SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_method_body_fact_inputs_from_scan_records_result: typed public impl operation record 列から method body fact build inputs を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `source` は borrow であり、この関数は閉じません。caller は success / failure のあとに source record table owner を閉じます。
+//: - success の場合だけ output build input table owner を返します。failure では部分構築済み output はこの module または既存 output push boundary が閉じます。
+//: - complete public impl surface であることは caller が保証します。incomplete surface の status は method body resolver の `SelfhostMemoTraitOperationMethodBodySurfaceState` で扱います。
+pub fn selfhost_memo_trait_operation_method_body_fact_inputs_from_scan_records_result %impure fn &SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable Result SelfhostMemoTraitOperationMethodBodyFactBuildInputTable SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \source:
+    match selfhost_memo_trait_operation_method_body_fact_build_input_table_new:
+        Result::Ok inputs:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_loop inputs source 0
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed e
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_code a selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_eq: index / operation payload が同じか[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_eq %fn SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation fn SelfhostMemoTraitOperationMethodBodyFactInputScanIndexedOperation bool \a\b:
+    and:
+        eq a.index b.index
+        selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_error_kind_eq: scan error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ error は payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_error_kind_eq %fn SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind fn SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed a_push:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed b_push:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _b_output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing _b_required:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot _b_unexpected:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _b_output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing _b_required:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot _b_unexpected:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed a_idx:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed b_idx:
+                    eq a_idx b_idx
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _b_output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing _b_required:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot _b_unexpected:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed a_output:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed b_output:
+                    selfhost_memo_trait_operation_method_body_fact_table_inputs_error_kind_eq a_output b_output
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing _b_required:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot _b_unexpected:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing a_required:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _b_output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing b_required:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_eq a_required b_required
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot _b_unexpected:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot a_unexpected:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _b_output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing _b_required:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot b_unexpected:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_indexed_operation_eq a_unexpected b_unexpected
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_len_result_eq: scan 後 len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_len_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual_len:
+            eq actual_len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_required_error_result_eq: 必須 method body 欠落 error が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_required_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind fn i32 fn SelfhostMemoTraitOperationEvidenceKind bool \result\expected_index\expected_operation:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing payload:
+                    and:
+                        eq payload.index expected_index
+                        selfhost_memo_trait_operation_evidence_kind_eq payload.operation expected_operation
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot _unexpected:
+                    false
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_unexpected_error_result_eq: 不要 method body root 混入 error が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_unexpected_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind fn i32 fn SelfhostMemoTraitOperationEvidenceKind bool \result\expected_index\expected_operation:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::UnexpectedMethodBodyRoot payload:
+                    and:
+                        eq payload.index expected_index
+                        selfhost_memo_trait_operation_evidence_kind_eq payload.operation expected_operation
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourcePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::OutputInputPushFailed _output:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind::RequiredMethodBodyMissing _required:
+                    false
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary \accepted_len\eq_missing_body\copy_unexpected_body:
+    SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary accepted_len eq_missing_body copy_unexpected_body
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_len_and_free: scan success table の len を[読/よ]んで owner を[閉/と]じる
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_len_and_free %impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind \inputs:
+    let output_len %i32 selfhost_memo_trait_operation_method_body_fact_build_input_table_len &inputs
+    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+    Result::Ok output_len
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_scan_with_owned_source: source table owner を[閉/と]じながら scan result を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_scan_with_owned_source %impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable Result Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind StdErrorKind \source:
+    match selfhost_memo_trait_operation_method_body_fact_inputs_from_scan_records_result &source:
+        Result::Ok inputs:
+            let result %Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_len_and_free inputs
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free source
+            Result::Ok result
+        Result::Err error:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free source
+            Result::Ok Result::Err error
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record: stage0 source table へ 1 record を[追加/ついか]する
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record %impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn Option SelfhostHirExprId Result SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable StdErrorKind \table\type_id\operation\root:
+    let record %SelfhostMemoTraitOperationMethodBodyFactInputScanRecord selfhost_memo_trait_operation_method_body_fact_input_scan_record_new type_id operation root 16
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_push table record:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err _push_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_accepted: Eq / Hash root を投入し Copy / Drop を skip する scan を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_accepted %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind StdErrorKind \type_id\eq_root\hash_root:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq some eq_root:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record table1 type_id SelfhostMemoTraitOperationEvidenceKind::Hash some hash_root:
+                        Result::Ok table2:
+                            match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record table2 type_id SelfhostMemoTraitOperationEvidenceKind::Copy none:
+                                Result::Ok table3:
+                                    match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record table3 type_id SelfhostMemoTraitOperationEvidenceKind::Drop none:
+                                        Result::Ok table4:
+                                            selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_scan_with_owned_source table4
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_missing: Eq root 欠落の scan を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_missing %impure fn SelfhostTypeId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq none:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_scan_with_owned_source table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_unexpected: Copy root 混入の scan を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_unexpected %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind StdErrorKind \type_id\root:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Copy some root:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_scan_with_owned_source table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_input_scan_stage0: method body fact input scan の smoke API
+//:
+//: [目的/もくてき]:
+//: - complete public surface 由来の typed records から Eq / Hash だけが output input へ入ること、Eq missing body と Copy unexpected body が index 付き typed error になることを確認します。
+pub fn selfhost_memo_trait_operation_method_body_fact_input_scan_stage0 %impure fn void Result SelfhostMemoTraitOperationMethodBodyFactInputScanStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9801
+    let eq_root %SelfhostHirExprId selfhost_hir_expr_id_new 11
+    let hash_root %SelfhostHirExprId selfhost_hir_expr_id_new 12
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_accepted type_id eq_root hash_root:
+        Result::Ok accepted_len:
+            match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_missing type_id:
+                Result::Ok eq_missing_body:
+                    match selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_unexpected type_id eq_root:
+                        Result::Ok copy_unexpected_body:
+                            Result::Ok selfhost_memo_trait_operation_method_body_fact_input_scan_stage0_summary_new accepted_len eq_missing_body copy_unexpected_body
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

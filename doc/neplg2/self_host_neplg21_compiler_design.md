@@ -1567,6 +1567,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_t
 
 この checkpoint 後の残件は、complete public surface impl candidate 群から method body fact build input table を作る scanner / full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed input batch contract を保って後から行える最適化として扱う。
 
+### 2026-06-13 MemoKey / MemoValue method body fact input scan checkpoint
+
+`memo_trait_operation_method_body_fact_input_scan.nepl` を追加し、complete public impl surface 由来の typed operation impl records から、Eq / Hash method body だけを `SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` へ変換する scanner boundary を作った。
+
+scan record は `SelfhostTypeId`、`SelfhostMemoTraitOperationEvidenceKind`、optional `SelfhostHirExprId`、fuel だけを持つ。accepted authority はこの typed field に限定し、source text、span、lexeme、display name、diagnostic text、module path、method name string を読まない。Eq / Hash は `some(root)` を要求して output build input に入り、Copy / Drop は `none` の場合だけ skip される。Eq / Hash の root 欠落と Copy / Drop の root 混入は、それぞれ index / operation payload 付き typed error として返す。
+
+scan API は output build input table owner を内部で作り、成功時だけ caller へ返す。source record table は borrow で読むため caller が閉じる。失敗時は partial output owner を scanner が閉じるか、既存 output input table push boundary が閉じる。これにより、public impl candidate 列の走査と、builder batch boundary の owner lifecycle が分離される。
+
+この scanner は HIR effect checker、fact producer、fact table builder、method body resolver lookup、Drop resolver、purity gate、operation impl candidate table、Resource IR proof、backend artifact、proof store、public surface hash を実行しない。actual public impl AST scanning、impl header / trait application materialization、Drop body effect checker、Resource IR no-escape proof、generic impl binder、private effect masking は後続 stage の責務として残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js` で、facade 非公開、forbidden layer import 禁止、operation matrix、cleanup、direct fact constructor bypass 禁止、line count / doc comment length cap 禁止を固定する。
+
+この checkpoint 後の残件は、method body fact input scan と batch builder を実 public surface impl candidate materialization へ接続する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、scanner source table の operation bucket 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed scan/input contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

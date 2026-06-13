@@ -59619,3 +59619,44 @@ MERGE_APPROVED
 
 - F4q は dispatch kind classification までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
 - ルビ付き日本語 example は font rasterization / text layout / window layout が実描画できる段階で実装する。
+
+## 2026-06-13 selfhost method body fact input scan checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、責務分割、純粋性、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針、line count / doc comment length cap 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_input_scan.nepl` を追加した。
+- complete public impl surface 由来の typed operation impl record から、Eq / Hash の `some(root)` だけを `SelfhostMemoTraitOperationMethodBodyFactBuildInputTable` へ変換する scanner boundary とした。
+- scan record は `SelfhostTypeId`、`SelfhostMemoTraitOperationEvidenceKind`、`Option SelfhostHirExprId`、fuel だけを持つ。source text、span、lexeme、display name、diagnostic text、module path、method name string は authority にしない。
+- Eq / Hash の root 欠落は `RequiredMethodBodyMissing(index, operation)`、Copy / Drop の root 混入は `UnexpectedMethodBodyRoot(index, operation)` として typed error で fail-closed にする。
+- source record table は borrow で読み、output build input table owner は scan API が作る。成功時だけ caller へ返し、失敗時は partial output owner を scanner または既存 push boundary が閉じる。
+- HIR effect checker、fact producer、fact table builder、method body resolver lookup、Drop resolver、purity gate、operation impl candidate table、Resource IR proof、backend artifact、proof store、public surface hash はこの module へ入れていない。
+- `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、scanner boundary 接続済みと後続 full orchestration / proof 実計算の残件を整理した。
+
+### subagent_review
+
+- Anscombe review: Blocker として、既存 `SelfhostMemoTraitPublicImplHeaderInput` と `SelfhostMemoTraitOperationImplCandidate` だけから method body HIR root を得ることはできず、source range / method name / public header から root を推測すると authority 分離を壊すと指摘された。
+- Required として、typed method body build input candidate producer/table を挟み、classifier 済み operation evidence、`SelfhostTypeId`、HIR root、fuel だけを受け取り、Eq / Hash だけを build input に変換すること、Copy / Drop root を skip または typed error として固定すること、public surface scanner と HIR root materialization を同一 module に混ぜないことが挙げられた。
+- 実装では `memo_trait_operation_method_body_fact_input_scan.nepl` を full scanner ではなく typed candidate から build input table を作る境界に限定した。Copy / Drop は `none` だけ skip し、`some(root)` は typed error として拒否する方針を採用した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_input_scan.nepl -o tmp/selfhost-method-body-fact-input-scan.json --no-tree -j 1 --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_inputs_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した method body fact input scan contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+### residual
+
+- method body fact input scan と batch builder を実 public surface impl candidate materialization へ接続する full orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- method body fact table lookup の sorted index 化、input table の sorted index 化、scanner source table の operation bucket 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed scan/input contract を保てるため後続最適化として扱う。
