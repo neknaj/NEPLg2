@@ -58540,3 +58540,46 @@ MERGE_APPROVED
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - generic impl binder / bound detailed evidence、recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
 - graph lookup index 化、re-export duplicate ordinal scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えず後から置換できる最適化として扱う。
+## 2026-06-13 GUI font SFNT simple glyph point stream checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-simple-point-stream-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に沿って、fallback なし、Result / enum error、platform boundary 分離、doc contract と current implementation の分離、静的検査に掛かる typed value を優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F4g `GuiSfntSimpleGlyphPointStream` の仕様、詳細設計、実装計画を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に simple glyph の raw point stream range decoder を追加した。
+- `flag_data_length` は repeat count byte を含む raw consumed byte length とし、expanded logical point count ではないことを contract と実装に固定した。
+- repeat flag byte 自身を 1 point、repeat count byte を追加 point 数として扱い、`repeat_count = 0` は current flag 1 個だけとして成功させる。
+- x/y coordinate byte length は short bit と same bit からだけ求める。short bit が立つ場合、same / positive bit は sign 用であり byte length には影響しない。
+- `x_data_offset = flag_data_offset + flag_data_length`、`y_data_offset = x_data_offset + x_data_length`、`trailing_data_offset = y_data_offset + y_data_length`、`trailing_data_length = point_data_end - trailing_data_offset` とした。
+- `trailing_data_length < 0` は `MalformedGlyfRecord`、`trailing_data_length >= 0` は明示値を返す success として扱い、hidden fallback や暗黙消費にしない。
+- `gui_sfnt_parse_metadata` 側へ outline / point stream decode を混ぜず、`glyf` parser からも name / cmap / hmtx / host font / platform API / fixed-cell fallback へ逃げないことを source policy で固定した。
+
+### tests
+
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に no-repeat point stream、repeat run、`repeat_count = 0`、repeat overrun、missing repeat byte、x coordinate overrun、y coordinate overrun の explicit byte fixture を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4g doc / implementation / doctest label / metadata independence の source policy を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。今回追加した `nodesrc/test_web_gui_font_rendering_contract.js` は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+
+### subagent_review
+
+- Boole pre-review: Blocker なし。Required として raw flag length、repeat_count=0、exact point_count scan、coordinate byte length formula、offset derivation、trailing data policy、doctest coverage を明確にすることが指摘された。
+- Boole implementation review: Blocker / Required なし。repeat semantics、byte range derivation、x/y byte length formula、typed error、no hidden fallback、Zenn 方針適合を確認した。
+- Suggested として、F4h で実座標・repeat flags・point arrays に入る前に `glyf/simple.nepl` などへの分割を検討すること、untracked `NUL` / `tmp_gui_*` を stage しないこと、`run_source_policy_regressions --warn-only` の stdlib declaration doc gap warning は既存 baseline drift として別途扱うことが挙げられた。
+
+### residual
+
+- F4g は coordinate value を復元しない。次 slice は F4h として x/y delta sign、cumulative coordinate、on-curve flag、contour point range を typed point stream として復元する。
+- compound glyph、phantom points、hint instruction semantics、outline winding、rasterization、font fallback policy は未実装である。
