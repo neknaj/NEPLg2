@@ -103,6 +103,48 @@ function runWasiBytes(wasmBytes, stdinText, argv = []) {
     };
 }
 
+function defaultNeplGuiWebImports() {
+    return {
+        poll_action_id: () => 0,
+        wait_action_id: () => 0,
+        poll_event_kind: () => 0,
+        wait_event_kind: () => 0,
+        last_event_window_id: () => 0,
+        last_event_action_id: () => 0,
+        last_event_point_x_milli: () => 0,
+        last_event_point_y_milli: () => 0,
+        last_event_pointer_kind: () => 0,
+        last_event_pointer_id: () => 0,
+        last_event_pointer_button: () => 0,
+        last_event_keyboard_kind: () => 0,
+        last_event_key_code: () => 0,
+        last_event_key_modifiers: () => 0,
+        last_event_text_scalar_value: () => 0,
+        last_event_window_kind: () => 0,
+        last_event_window_width: () => 0,
+        last_event_window_height: () => 0,
+        last_event_timer_id: () => 0,
+        last_event_timer_tick: () => 0,
+        video_memory_create_surface: () => -1,
+        video_memory_acquire_write_slot: () => -1,
+        video_memory_write_slot_bytes: () => -2,
+        video_memory_write_rgba8888_row: () => -2,
+        video_memory_fill_rect_rgba8888: () => -2,
+        video_memory_discard_write_slot: () => -2,
+        video_memory_publish_slot: () => -2,
+        video_memory_present_surface: () => -2,
+        video_memory_close_surface: () => -2,
+    };
+}
+
+function resolveRuntimeImports(extraImports, context) {
+    if (typeof extraImports === 'function') {
+        const resolved = extraImports(context);
+        return resolved && typeof resolved === 'object' ? resolved : {};
+    }
+    return extraImports && typeof extraImports === 'object' ? extraImports : {};
+}
+
 function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports = {}) {
     const wasmPath = mkTmpPath('nepl-doctest') + '.wasm';
     const stdinPath = mkTmpPath('wasi-stdin');
@@ -136,42 +178,25 @@ function runWasiBytesWithImports(wasmBytes, stdinText, argv = [], extraImports =
     let trapError = null;
     let returnValue = null;
     let memory = null;
+    const runtimeContext = {
+        getMemory: () => memory,
+    };
     try {
         const module = new WebAssembly.Module(Buffer.from(wasmBytes));
+        const resolvedExtraImports = resolveRuntimeImports(extraImports, runtimeContext);
+        const {
+            nepl_gui_web: extraNeplGuiWebImports = {},
+            ...extraImportNamespaces
+        } = resolvedExtraImports;
         const instance = new WebAssembly.Instance(module, {
             wasi_snapshot_preview1: wasi.wasiImport,
+            ...extraImportNamespaces,
             nepl_gui_web: {
-                poll_action_id: () => 0,
-                wait_action_id: () => 0,
-                poll_event_kind: () => 0,
-                wait_event_kind: () => 0,
-                last_event_window_id: () => 0,
-                last_event_action_id: () => 0,
-                last_event_point_x_milli: () => 0,
-                last_event_point_y_milli: () => 0,
-                last_event_pointer_kind: () => 0,
-                last_event_pointer_id: () => 0,
-                last_event_pointer_button: () => 0,
-                last_event_keyboard_kind: () => 0,
-                last_event_key_code: () => 0,
-                last_event_key_modifiers: () => 0,
-                last_event_text_scalar_value: () => 0,
-                last_event_window_kind: () => 0,
-                last_event_window_width: () => 0,
-                last_event_window_height: () => 0,
-                last_event_timer_id: () => 0,
-                last_event_timer_tick: () => 0,
-                video_memory_create_surface: () => -1,
-                video_memory_acquire_write_slot: () => -1,
-                video_memory_write_slot_bytes: () => -2,
-                video_memory_write_rgba8888_row: () => -2,
-                video_memory_fill_rect_rgba8888: () => -2,
-                video_memory_discard_write_slot: () => -2,
-                video_memory_publish_slot: () => -2,
-                video_memory_present_surface: () => -2,
-                video_memory_close_surface: () => -2,
+                ...defaultNeplGuiWebImports(),
+                ...(extraNeplGuiWebImports && typeof extraNeplGuiWebImports === 'object'
+                    ? extraNeplGuiWebImports
+                    : {}),
             },
-            ...extraImports,
         });
         memory = instance.exports.memory || null;
         if (typeof instance.exports.main === 'function') {
@@ -352,10 +377,16 @@ async function runWasixBytes(wasmBytes, stdinText, argv = []) {
     return wasmerResult;
 }
 
-async function runTargetBytes(source, wasmBytes, stdinText, argv = []) {
+async function runTargetBytes(source, wasmBytes, stdinText, argv = [], extraImports = {}) {
     const target = detectTarget(source);
     if (target === 'wasix') {
         return await runWasixBytes(wasmBytes, stdinText, argv);
+    }
+    if (extraImports && (typeof extraImports === 'function' || Object.keys(extraImports).length > 0)) {
+        return {
+            ...runWasiBytesWithImports(wasmBytes, stdinText, argv, extraImports),
+            runner: 'node-wasi',
+        };
     }
     return runWasiBytes(wasmBytes, stdinText, argv);
 }
@@ -984,7 +1015,10 @@ async function runSingle(req, preloaded, onProgress = null) {
 
         notifyPhaseProgress(onProgress, { id, phase: 'run', event: 'start', elapsed_ms: Date.now() - t0 });
         const runStart = Date.now();
-        const runRes = await runTargetBytes(source, wasmU8, stdinText, argv);
+        const runtimeImports = typeof req.runtimeImportsFactory === 'function'
+            ? req.runtimeImportsFactory
+            : {};
+        const runRes = await runTargetBytes(source, wasmU8, stdinText, argv, runtimeImports);
         timing.run_ms = Date.now() - runStart;
         notifyPhaseProgress(onProgress, {
             id,
