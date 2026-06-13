@@ -1,0 +1,367 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_method_body_fact_orchestrator
+//: typed method body root scan record から complete surface 用 method body fact table を[構築/こうちく]する checker-layer orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_method_body_fact_input_scan` が作る build input table と、`memo_trait_operation_method_body_fact_table_inputs` が行う batch build を 1 つの owner-safe 境界として接続します。
+//: - full public surface orchestration は後続で、public impl candidate materializer が作った typed scan record table をこの module に渡します。
+//: - scan、output fact table allocation、batch build の失敗を bool や表示文字列にせず、nested typed error として保持します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable` の typed field、`SelfhostHirModule` borrow、既存 scan / batch build boundary だけです。
+//: - この module は source text、span、lexeme、display name、diagnostic text、module path、method name string から operation や HIR root を推測しません。
+//: - `source` scan record table は borrow であり、この module は閉じません。caller は success / failure 後に `selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free` で閉じます。
+//: - scan が成功した場合、この module は build input table owner を受け取ります。batch build success / failure のどちらでも build input table owner はこの module が閉じます。
+//: - output `SelfhostMemoTraitOperationMethodBodyTable` owner はこの module が新規に作ります。success の場合だけ caller に返し、failure の場合は既存 batch build boundary が閉じるか、この module が allocation 前の input owner を閉じます。
+//: - scan rejection、output allocation failure、batch build rejection は `SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind` の別 variant で返します。
+//: - この module は public impl AST scanning、trait classifier、purity gate、operation impl table、Drop resolver、Resource IR proof、backend artifact、proof store、public surface hash を実行しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では stage0 smoke が typed scan record table を直接作り、accepted path、scan rejection、batch build rejection を確認します。
+//: - actual public impl materializer、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence 実計算、generic impl binder、PrivateCache / PrivateState masking は後続 stage の責務です。
+//: - facade にはまだ re-export しません。full public surface orchestration がこの boundary を安定した公開 API として消費する段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - scan record 数を m、各 HIR root から到達する expression 数を n_i、child edge 数を e_i とすると、全体は O(m + Σ(n_i + e_i)) 時間です。
+//: - この module 自体は、scan / batch build の逐次接続と owner cleanup だけを行います。scan source table の bucket 化、build input table の sorted index 化、HIR traversal の subtree memoization は、error contract と owner contract を保ったまま後続で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_effect_checker" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_fact_orchestrator" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_method_body_fact_orchestrator_len_result_eq summary.accepted_len 2
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_method_body_fact_orchestrator_scan_required_error_result_eq summary.scan_missing 0
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_method_body_fact_orchestrator_batch_effect_error_result_eq summary.batch_missing_root 0 SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing 9999
+//:             let shown checks_print_report checks3
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "method body fact orchestrator stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_method_body_effect_checker" as *
+#import "./memo_trait_operation_method_body_fact_input_scan" as *
+#import "./memo_trait_operation_method_body_fact_table_inputs" as *
+#import "./memo_trait_operation_method_body_resolver" as *
+
+//: SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind: scan から fact table build までの拒否理由
+//:
+//: [目的/もくてき]:
+//: - scan rejection、output table allocation failure、batch build rejection を同じ文字列 error に潰さず、後続診断が必要な nested typed payload を保持します。
+pub enum SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind:
+    InputScanRejected %SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind
+    OutputTableAllocFailed %StdErrorKind
+    BatchBuildRejected %SelfhostMemoTraitOperationMethodBodyFactTableInputsErrorKind
+
+//: SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary: orchestrator smoke の代表結果
+pub struct SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary:
+    accepted_len %Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind
+    scan_missing %Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind
+    batch_missing_root %Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_build_scanned_inputs_result: build input table から fact table を[構築/こうちく]する
+//:
+//: [契約/けいやく]:
+//: - `inputs` はこの関数が消費します。success / failure のどちらでも build input table owner はこの関数が閉じます。
+//: - output table allocation が失敗した場合は、batch build に進まず `inputs` を閉じて `OutputTableAllocFailed` を返します。
+//: - batch build が失敗した場合、output fact table owner は既存 batch build boundary が cleanup 済みです。この関数は `inputs` だけを閉じます。
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_build_scanned_inputs_result %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationMethodBodyFactBuildInputTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind \module\inputs:
+    match selfhost_memo_trait_operation_method_body_table_new:
+        Result::Ok table:
+            match selfhost_memo_trait_operation_method_body_fact_table_build_from_inputs_result table module &inputs:
+                Result::Ok built:
+                    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+                    Result::Ok built
+                Result::Err batch_error:
+                    selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+                    Result::Err SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected batch_error
+        Result::Err alloc_error:
+            selfhost_memo_trait_operation_method_body_fact_build_input_table_free inputs
+            Result::Err SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_method_body_fact_table_from_scan_records_result: scan record table から fact table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module` と `source` は borrow です。この関数はどちらも閉じません。
+//: - success の場合だけ caller は output fact table owner を受け取ります。
+//: - scan rejection の場合、partial build input table owner の cleanup は scan boundary が完結済みです。
+pub fn selfhost_memo_trait_operation_method_body_fact_table_from_scan_records_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind \module\source:
+    match selfhost_memo_trait_operation_method_body_fact_inputs_from_scan_records_result source:
+        Result::Ok inputs:
+            selfhost_memo_trait_operation_method_body_fact_orchestrator_build_scanned_inputs_result module inputs
+        Result::Err scan_error:
+            Result::Err SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected scan_error
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_code a selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_error_kind_eq: orchestrator error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested scan error と batch build error は payload まで比較します。
+//: - wildcard arm は使いません。error variant 追加時はこの equality も明示的に更新します。
+pub fn selfhost_memo_trait_operation_method_body_fact_orchestrator_error_kind_eq %fn SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind fn SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected a_scan:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected b_scan:
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_error_kind_eq a_scan b_scan
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected _b_batch:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_method_body_fact_orchestrator_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected _b_batch:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected a_batch:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected _b_scan:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected b_batch:
+                    selfhost_memo_trait_operation_method_body_fact_table_inputs_error_kind_eq a_batch b_batch
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_len_result_eq: orchestrator success len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_fact_orchestrator_len_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual_len:
+            eq actual_len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_scan_required_error_result_eq: scan 側の必須 root 欠落 error が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_orchestrator_scan_required_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind fn i32 bool \result\expected_index:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected scan_error:
+                    let nested %Result i32 SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind Result::Err scan_error
+                    selfhost_memo_trait_operation_method_body_fact_input_scan_required_error_result_eq nested expected_index SelfhostMemoTraitOperationEvidenceKind::Eq
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected _batch:
+                    false
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_batch_effect_error_result_eq: batch build 内の effect checker error が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_orchestrator_batch_effect_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind fn i32 fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind bool \result\expected_index\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::InputScanRejected _scan:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::OutputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind::BatchBuildRejected batch_error:
+                    let nested %Result i32 SelfhostMemoTraitOperationMethodBodyFactTableInputsErrorKind Result::Err batch_error
+                    selfhost_memo_trait_operation_method_body_fact_table_inputs_effect_error_result_eq nested expected_index expected
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary \accepted_len\scan_missing\batch_missing_root:
+    SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary accepted_len scan_missing batch_missing_root
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_len_and_free: success fact table の len を[読/よ]み owner を[閉/と]じる
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_len_and_free %impure fn SelfhostMemoTraitOperationMethodBodyTable Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind \table:
+    let table_record_count %i32 selfhost_memo_trait_operation_method_body_table_len &table
+    selfhost_memo_trait_operation_method_body_table_free table
+    Result::Ok table_record_count
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_run_owned_source: source owner を[閉/と]じながら orchestrator result を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_run_owned_source %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable Result Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind StdErrorKind \module\source:
+    match selfhost_memo_trait_operation_method_body_fact_table_from_scan_records_result module &source:
+        Result::Ok table:
+            let result %Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_len_and_free table
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free source
+            Result::Ok result
+        Result::Err error:
+            selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_free source
+            Result::Ok Result::Err error
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record: stage0 source table へ record を[追加/ついか]する
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record %impure fn SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn Option SelfhostHirExprId Result SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable StdErrorKind \table\type_id\operation\root:
+    let record %SelfhostMemoTraitOperationMethodBodyFactInputScanRecord selfhost_memo_trait_operation_method_body_fact_input_scan_record_new type_id operation root 16
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_push table record:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err _push_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_accepted: Eq / Hash を fact table へ通す accepted path を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_accepted %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind StdErrorKind \module\type_id\eq_root\hash_root:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq some eq_root:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record table1 type_id SelfhostMemoTraitOperationEvidenceKind::Hash some hash_root:
+                        Result::Ok table2:
+                            match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record table2 type_id SelfhostMemoTraitOperationEvidenceKind::Copy none:
+                                Result::Ok table3:
+                                    match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record table3 type_id SelfhostMemoTraitOperationEvidenceKind::Drop none:
+                                        Result::Ok table4:
+                                            selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_run_owned_source module table4
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_scan_missing: Eq root 欠落が scan error になる path を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_scan_missing %impure fn &SelfhostHirModule impure fn SelfhostTypeId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind StdErrorKind \module\type_id:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq none:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_run_owned_source module table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_batch_missing_root: HIR root 不在が batch build error になる path を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_batch_missing_root %impure fn &SelfhostHirModule impure fn SelfhostTypeId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactOrchestratorErrorKind StdErrorKind \module\type_id:
+    match selfhost_memo_trait_operation_method_body_fact_input_scan_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_push_record table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq some selfhost_hir_expr_id_new 9999:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_run_owned_source module table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_finish: 構築済み HIR module で representative path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_finish %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary StdErrorKind \module\pure_id\external_id\type_id:
+    match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_accepted &module type_id pure_id external_id:
+        Result::Ok accepted_len:
+            match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_scan_missing &module type_id:
+                Result::Ok scan_missing:
+                    match selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_batch_missing_root &module type_id:
+                        Result::Ok batch_missing_root:
+                            selfhost_hir_module_free module
+                            Result::Ok selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_summary_new accepted_len scan_missing batch_missing_root
+                        Result::Err e:
+                            selfhost_hir_module_free module
+                            Result::Err e
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            selfhost_hir_module_free module
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_external: ExternalIo expression までの smoke HIR module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_external %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary StdErrorKind \module\pure_id\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "read" selfhost_def_id_new 4501 type_id SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok external_alloc:
+            let external_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &external_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module external_alloc
+            selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_finish module1 pure_id external_id type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0: scan record から fact table までの smoke API
+//:
+//: [目的/もくてき]:
+//: - accepted path は Eq / Hash の 2 fact を返します。
+//: - Eq root 欠落は scan error として返り、存在しない HIR root は batch build error として返ることを確認します。
+pub fn selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0 %impure fn void Result SelfhostMemoTraitOperationMethodBodyFactOrchestratorStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9901
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok pure_alloc:
+                    let pure_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &pure_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module pure_alloc
+                    selfhost_memo_trait_operation_method_body_fact_orchestrator_stage0_external module1 pure_id type_id span
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

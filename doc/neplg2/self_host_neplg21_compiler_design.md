@@ -1581,6 +1581,22 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_i
 
 この checkpoint 後の残件は、method body fact input scan と batch builder を実 public surface impl candidate materialization へ接続する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、scanner source table の operation bucket 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed scan/input contract を保って後から行える最適化として扱う。
 
+### 2026-06-13 MemoKey / MemoValue method body fact orchestrator checkpoint
+
+`memo_trait_operation_method_body_fact_orchestrator.nepl` を追加し、typed scan record table から scan boundary と batch build boundary を順番に呼び、complete surface 用 `SelfhostMemoTraitOperationMethodBodyTable` owner を作る checker-layer orchestration boundary を作った。
+
+この orchestrator は public impl AST materializer ではない。accepted authority は `SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable` の typed field、borrow された `SelfhostHirModule`、既存の input scan / batch build boundary だけである。source text、span、lexeme、display name、diagnostic text、module path、method name string、public surface hash から operation や HIR root を推測しない。また trait classifier、purity gate、operation impl table、Drop resolver、Resource IR proof、backend artifact、proof store も実行しない。
+
+owner contract は、source scan record table を caller-owned borrow とし、scan 成功後の build input table owner は orchestrator が消費する形で固定した。batch build success、batch build rejection、output fact table allocation failure のどの場合でも build input table owner は orchestrator が閉じる。batch build rejection 時の output fact table owner は既存 batch boundary が cleanup 済みであるため、orchestrator は二重解放しない。success の場合だけ completed fact table owner を caller へ返す。
+
+error は `InputScanRejected(SelfhostMemoTraitOperationMethodBodyFactInputScanErrorKind)`、`OutputTableAllocFailed(StdErrorKind)`、`BatchBuildRejected(SelfhostMemoTraitOperationMethodBodyFactTableInputsErrorKind)` に分けた。scan / allocation / batch build の失敗を bool や表示文字列へ潰さず、後続診断が必要な nested payload を保持する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_orchestrator_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、direct fact constructor / low-level builder / direct table push bypass 禁止、body check / evidence / aggregate proof / proof store 作成禁止、source-derived authority 禁止、owner cleanup、nested error equality、line count / doc comment length cap 禁止、unwrap / unreachable / fallback / first-wins 禁止を確認する。
+
+subagent review では Bohr が、actual public surface materialization へ直接進む前に typed materialization input table を置くべきだと指摘した。今回の checkpoint は full public surface materializer ではなく、既存 scan / batch boundary を owner-safe に接続する前段である。次 slice は `memo_trait_operation_impl_candidate_builder.nepl` のような connector とし、public materializer が将来作る typed record table から method body fact table、body check resolver、operation impl candidate table までを source/path/display に触れず接続する。
+
+この checkpoint 後の残件は、actual public impl candidate materializer が typed record table を作ってこの boundary へ渡す candidate builder / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

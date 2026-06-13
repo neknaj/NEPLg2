@@ -143,6 +143,33 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_i
 
 この checkpoint 後の残件は、method body fact input scan と batch builder を実 public surface impl candidate materialization へ接続する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、input table の sorted index 化、scanner source table の operation bucket 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed scan/input contract を保って後から行える最適化として扱う。
 
+## 2026-06-13 selfhost method body fact orchestrator checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_orchestrator.nepl` を追加し、typed scan record table から input scan と batch build を順番に呼び、complete surface 用 `SelfhostMemoTraitOperationMethodBodyTable` を作る checker-layer orchestration boundary を接続した。
+
+この checkpoint は actual public impl AST materialization ではない。accepted authority は `SelfhostMemoTraitOperationMethodBodyFactInputScanRecordTable` の typed field、borrow された `SelfhostHirModule`、既存 scan / batch build boundary だけであり、source text、span、lexeme、display name、diagnostic text、module path、method name string、public surface hash を読んで operation や HIR root を推測しない。trait classifier、purity gate、operation impl table、Drop resolver、Resource IR proof、backend artifact、proof store も実行しない。
+
+owner contract は、source scan record table を caller-owned borrow とし、scan 後の build input table owner を orchestrator が消費する形で固定した。success、batch build rejection、output fact table allocation failure のどの場合でも build input table owner は orchestrator が閉じる。batch build rejection 時の output fact table owner は既存 batch build boundary が cleanup するため、orchestrator は二重解放しない。success の場合だけ completed fact table owner を caller へ返す。
+
+error は `InputScanRejected`、`OutputTableAllocFailed`、`BatchBuildRejected` の nested typed payload として返す。bool / string error、fallback、first-wins は使わない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_orchestrator_contract.js` で固定し、source policy runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import、direct fact constructor / low-level builder / direct table push bypass、body check / evidence / aggregate proof / proof store 作成、source-derived authority、owner cleanup、nested error equality、line count / doc comment length cap 禁止を確認する。
+
+subagent review では Bohr が、full public surface orchestration へ直接進む前に typed materialization input table を置くべきだと指摘した。今回の boundary は scan / batch build を owner-safe に接続する前段として妥当であり、次 slice は `memo_trait_operation_impl_candidate_builder.nepl` のような connector で、public materializer が将来作る typed record table から candidate table owner までを source/path/display に触れず接続する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_orchestrator_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_orchestrator.nepl -o tmp/selfhost-method-body-fact-orchestrator.json --no-tree -j 1 --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_input_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_inputs_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した orchestrator contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+この checkpoint 後の残件は、actual public impl candidate materializer が typed record table を作ってこの boundary へ渡す candidate builder / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。
