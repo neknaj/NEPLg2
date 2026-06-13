@@ -359,6 +359,35 @@ fn selfhost_memo_trait_layout_range_in_table %fn &SelfhostMemoTraitLayoutEvidenc
                         else:
                             le range.field_count sub field_len range.first_field
 
+//: selfhost_memo_trait_layout_field_type_at_result: validated field range から field type を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - caller は layout validator が返した `Known(range)` を渡します。この関数はそれでも range と index を再検査し、壊れた入力を `InvalidFieldRange` として拒否します。
+//: - `idx` は range 内の 0-origin index です。table 全体の絶対 index や source position ではありません。
+//: - 戻り値は arena-local `SelfhostTypeId` だけです。field name、span、source text、diagnostic string は proof authority として返しません。
+pub fn selfhost_memo_trait_layout_field_type_at_result %fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostMemoTraitAggregateFieldRange fn i32 Result SelfhostTypeId SelfhostMemoTraitLayoutEvidenceErrorKind \table\range\idx:
+    if:
+        not selfhost_memo_trait_layout_range_in_table table range
+        then:
+            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+        else:
+            if:
+                lt idx 0
+                then:
+                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+                else:
+                    if:
+                        ge idx range.field_count
+                        then:
+                            Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+                        else:
+                            let fields %&Vec SelfhostMemoTraitLayoutFieldRecord field::get_ref table "fields"
+                            match v::get fields add range.first_field idx:
+                                Option::Some record:
+                                    Result::Ok record.field_type
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitLayoutEvidenceErrorKind::InvalidFieldRange
+
 //: selfhost_memo_trait_layout_validate_field_type: field type が layout evidence に使える状態か[返/かえ]す
 fn selfhost_memo_trait_layout_validate_field_type %fn &SelfhostTypeArena fn SelfhostTypeId Result unit SelfhostMemoTraitLayoutEvidenceErrorKind \types\field_type:
     match selfhost_type_arena_get_record types field_type:

@@ -399,6 +399,39 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait operation solver checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl` を追加し、type arena と layout evidence から Copy / Drop / Eq / Hash operation proof status table を作る境界を実装した。
+
+この module は `memo_trait_operation_proof.nepl` に solver 本体を混ぜない。operation proof module は引き続き session-local table transport と aggregate proof producer への合流だけを担当し、solver はその table に入れる 1 root type 分の record を作る。source list と facade では `memo_trait_operation_proof` の後、`memo_trait_recursive_producer` の前に置き、下位 module からの逆依存を作らない。
+
+`selfhost_memo_trait_operation_solver_table_for_type_result` は `SelfhostTypeArena`、`SelfhostMemoTraitLayoutEvidenceTable`、root `SelfhostTypeId`、`max_depth` を受ける。最初に `selfhost_memo_trait_recursive_aggregate_result` を実行し、cycle、depth limit、function field、generic parameter field、missing type record を `RecursiveRejected(SelfhostMemoTraitRecursiveAggregateErrorKind)` として fail-closed にする。recursive gate が成功した場合だけ operation proof table owner を確保するため、recursive failure path に partial table owner は存在しない。
+record 計算 helper は module 内部の lower helper にした。公開 API は recursive gate 付きの table construction だけであり、外部 caller が cycle / depth / unsupported field の rejection を迂回して operation proof record を得る経路は作らない。
+
+layout field type は `selfhost_memo_trait_layout_field_type_at_result` で読む。この accessor は layout validator が返した `Known(range)` を想定しながらも range と index を再検査し、`idx` を source position や table absolute index として扱わない。戻り値は `SelfhostTypeId` だけであり、field name、span、source text、diagnostic string、display name、path suffix は proof authority にしない。
+
+primitive policy は enum match に閉じた。`unit`、`bool`、`i32`、`u8`、`char` は Copy / Drop / Eq / Hash を `Proven` とする。`f32` は Copy / Drop は `Proven` だが Eq / Hash は `Unknown` として保持し、producer gate で fail-closed にする。nested aggregate、function、parameter、`str`、`i64`、`f64`、`never`、`error` はこの slice では `Unknown` に畳み、推測で accepted proof にしない。
+
+stage0 smoke は empty aggregate、i32 field aggregate、f32 field aggregate、missing layout、operation table lookup、recursive cycle rejection を public boundary 経由で確認する。source policy は facade re-export、source list 登録、DAG 順序、recursive gate 使用、record lower helper の非公開、accepted evidence record / producer acceptance helper の非生成、layout accessor 使用、proof store / artifact / reader / serializer / preseed / canonical key / checker / HIR / Resource IR / backend への依存禁止、source-derived authority 禁止、typed error equality の wildcard 禁止、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Bohr が Required として、solver を `memo_trait_operation_proof.nepl` へ混ぜないこと、accepted record を作らない table-only boundary にすること、`recursive_aggregate` を先行 gate として使うこと、field record access を validated range accessor と source policy で固定すること、`f32` を all-Proven にしないことを求めた。同じ slice で `RecursiveRejected`、`max_depth` 付き table API、cycle rejection smoke、layout field accessor、contract test を追加して対応した。追加 review では `record_result` が public のままだと recursive gate を迂回できること、accepted evidence / producer helper 混入禁止の source policy が弱いことを Required として指摘されたため、`record_result` を private helper にし、`SelfhostMemoTraitEvidenceRecord`、aggregate proof constructor / projector、recursive producer record helper、recursive producer import を禁止する contract を追加した。再レビューでは Blocker / Required なしで Approve となった。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_layout_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 documentation gap sample と Node WASI ExperimentalWarning は表示されたが、この slice の source policy 退行ではない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+この checkpoint 後の残件は、trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement 分離、nested aggregate の operation status fold、re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続である。
+
 ## 2026-06-13 selfhost memo trait public surface hash typed input checkpoint
 
 `memo_trait_public_surface_hash.nepl` に、full public surface hash 用の ordered typed input item boundary を追加した。
