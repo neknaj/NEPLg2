@@ -1,3 +1,36 @@
+# 2026-06-14 Agent2 Mandelbrot progressive video memory timer-loop checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、host boundary、契約と現状実装の分離を確認し、Mandelbrot の progressive row-batch path を既存 `GuiEvent::Timer` で進める有限 checkpoint へ拡張した。
+- 対象 branch: `web-gui-mandelbrot-progressive-loop-20260614`
+- classification: Web GUI Mandelbrot formal video memory timer event loop / progressive row batch scheduling checkpoint / fake host timer event harness
+- 実装内容:
+  - `examples/gui_mandelbrot.nepl` に `--video-memory-progressive-loop-test` を追加した。
+  - `mandelbrot_video_memory_progressive_event_is_tick` は `gui_web_event_timer` と `timer_event_timer_id` で matching timer id の event だけを batch 進行条件にする。
+  - `mandelbrot_video_memory_progressive_loop_with_limit` は matching timer event 1 件につき `mandelbrot_video_memory_render_batch_present` を 1 回だけ実行し、`start_y` を次 batch へ進める。
+  - timer id 不一致、empty event、`Focused`、`Resized`、`Unfocused` は明示 no-op とし、`CloseRequested` だけ current surface を close して終了する。
+  - 全 rows 完了時は次 event を待たずに surface を close して正常終了する。
+  - `nodesrc/gui_video_memory_fake_host.js` に timer event raw kind 6、timer id / tick accessor、video-memory call sequence と分離した `eventCalls` 検査を追加した。
+  - `nodesrc/test_web_gui_mandelbrot_video_memory_progressive_loop_harness.js` を追加し、timer id mismatch、empty event、focused event、resized event では batch が進まず、matching timer 5 件で 32x18 の 5 batch だけが present されることを検査する。
+  - `nodesrc/test_web_gui_mandelbrot_transport_contract.js`、`nodesrc/run_source_policy_regressions.js`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新した。
+- subagent review:
+  - Boyle: 計画レビュー `PLAN_APPROVED`。初回実装レビューで `_` による window event まとめを blocker として指摘。`Resized` / `Focused` / `Unfocused` / `CloseRequested` の明示分岐と resized no-op harness を追加後、`IMPLEMENTATION_REVIEW_APPROVED`。
+- 検証:
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_progressive_loop_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_progressive_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_resize_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_loop_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - pass: `rg -n "^[^/\r\n]*[()]" examples/gui_mandelbrot.nepl` no match。
+  - warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は既存 stdlib documentation gap `153 > 108` を警告した。今回追加の GUI / Mandelbrot source policy は pass。
+- 残件:
+  - formal timer registration ABI、real scheduler policy、FHD 60fps 実測、formal tiled transport、native formal `GuiHost.present` との統合は未完了。
+
 # 2026-06-14 Agent2 Mandelbrot progressive video memory row-batch checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、host boundary、契約と現状実装の分離を確認し、Mandelbrot の formal video memory path を finite progressive row-batch checkpoint へ進めた。

@@ -52,6 +52,7 @@ function createGuiVideoMemoryFakeHost(options) {
     let runtime = null;
     let activeImports = null;
     const calls = [];
+    const eventCalls = [];
     const violations = [];
     const surfaces = new Map();
     const createdSurfaceIds = [];
@@ -96,7 +97,9 @@ function createGuiVideoMemoryFakeHost(options) {
 
     const eventKindRaw = (event) => {
         if (!event) return 0;
+        if (event.kind === "none") return 0;
         if (event.kind === "window") return 5;
+        if (event.kind === "timer") return 6;
         return HOST_INVALID_COMMAND;
     };
 
@@ -297,9 +300,11 @@ function createGuiVideoMemoryFakeHost(options) {
                     return HOST_OK;
                 },
                 poll_event_kind() {
+                    eventCalls.push({ name: "poll", args: Array.from(arguments) });
                     return takeEventKind();
                 },
                 wait_event_kind() {
+                    eventCalls.push({ name: "wait", args: Array.from(arguments) });
                     return takeEventKind();
                 },
                 last_event_window_id() {
@@ -345,10 +350,10 @@ function createGuiVideoMemoryFakeHost(options) {
                     return lastEvent && Number.isInteger(lastEvent.height) ? lastEvent.height : 0;
                 },
                 last_event_timer_id() {
-                    return 0;
+                    return lastEvent && Number.isInteger(lastEvent.timerId) ? lastEvent.timerId : 0;
                 },
                 last_event_timer_tick() {
-                    return 0;
+                    return lastEvent && Number.isInteger(lastEvent.tick) ? lastEvent.tick : 0;
                 },
             },
         };
@@ -363,6 +368,9 @@ function createGuiVideoMemoryFakeHost(options) {
         assert.equal(result.stderr, "");
         assert.deepEqual(violations, []);
         assert.equal(nextEventIndex, events.length, "fake host event sequence must be fully consumed");
+        if (options.expectedEventCalls) {
+            assert.deepEqual(eventCalls, options.expectedEventCalls);
+        }
         assert.equal(createdSurfaceIds.length, expectedSurfaces.length);
         assert.equal(
             acquiredFrameIds.length,
