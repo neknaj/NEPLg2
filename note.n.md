@@ -59900,3 +59900,47 @@ MERGE_APPROVED
 
 - actual public impl candidate materializer / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - operation impl table lookup の sorted index 化、method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の operation bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保てるため後続最適化として扱う。
+
+## 2026-06-14 selfhost public impl materializer checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / Option / enum error、責務分割、純粋性、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針、line count / doc comment length cap 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl` を追加した。
+- actual public surface materializer が後続 stage で作る typed public impl record table から、既存 candidate builder の input table と candidate table owner へ接続する checker-layer materializer boundary とした。
+- materializer record は `SelfhostTypeId`、public impl header input へ写す typed field、operation classifier input へ渡す trait source / type argument / trait application shape、optional HIR method body root、fuel だけを持つ。operation kind は caller supplied field として持たず、classifier evidence の `operation` を builder input に渡す。
+- source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、public surface hash は authority にしない。
+- source record table と HIR module は caller-owned borrow とし、materializer は閉じない。内部で作る builder input table owner は success / failure のどちらでも materializer が閉じる。
+- source read failure と classifier rejection では partial builder input table owner を materializer が閉じる。builder input push rejection では既存 builder input table push boundary が cleanup を完結するため、materializer は二重解放しない。
+- Drop record は classifier shape を確認したうえで builder input に写し、Resource proof 未接続の Phase 1 では既存 builder の `DropOperationUnsupportedUntilResourceProof` へ送る。materializer は Drop proof、`NoDropRequired`、`Unknown` evidence を作らない。
+- operation evidence record、producer input、aggregate proof status、direct impl table push はこの module で作らない。
+- `nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、typed public impl materializer boundary 接続済みと後続 actual AST / typed HIR scanner、Drop proof、generic binder の残件を整理した。
+
+### subagent_review
+
+- Kant pre-review: Drop body effect checker / Resource IR escape proof は public impl surface completeness がまだ無いため次 slice にしないこと、次は actual public impl candidate materializer を typed/fail-closed に進めるべきことが Required として示された。
+- Kant は、Drop は既存 builder の `DropOperationUnsupportedUntilResourceProof` による fail-closed 境界を維持し、Resource proof までは candidate 化しないことを確認した。
+- Averroes implementation review: Blocker / Required なし。typed authority boundary、classifier-derived operation use、temporary builder input owner cleanup、source table cleanup は妥当と確認された。
+- Non-blocker として、materializer-originated Drop input が既存 builder の `DropOperationUnsupportedUntilResourceProof` に届くことを stage0 smoke でも確認するとより直接的だと指摘された。同じ slice 内で `drop_unsupported` summary と `selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_result_eq` を追加し、focused doctest と source policy contract に反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl -o tmp/selfhost-operation-public-impl-materializer.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した public impl materializer contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+### residual
+
+- actual AST / typed HIR public impl scanner と full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保てるため後続最適化として扱う。

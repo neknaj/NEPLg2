@@ -1611,6 +1611,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_bui
 
 この checkpoint 後の残件は、actual public impl candidate materializer / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の operation bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
 
+### 2026-06-14 MemoKey / MemoValue public impl materializer checkpoint
+
+`memo_trait_operation_public_impl_materializer.nepl` を追加し、actual public surface materializer が後続 stage で作る typed public impl record table から、既存 `memo_trait_operation_impl_candidate_builder` の builder input table と candidate table owner へ接続する checker-layer materializer boundary を作った。
+
+`SelfhostMemoTraitOperationPublicImplMaterializerRecord` は、`SelfhostTypeId`、public impl header input へ写す module fingerprint / declaration ordinal / visibility / impl kind / target shape / trait application shape / type parameter count / bound count、classifier input へ渡す operation trait source identity / type argument count、optional HIR method body root、fuel だけを保持する。operation kind は record field として持たず、`selfhost_memo_trait_operation_classifier_evidence_result` が返す `classifier.operation` から builder input へ渡す。これにより、trait name string、method name string、source text、span、lexeme、display name、diagnostic text、module path から operation を推測しない契約を固定した。
+
+materializer public API は `source` record table と `SelfhostHirModule` を borrow で読み、どちらも閉じない。内部で作る `SelfhostMemoTraitOperationImplCandidateBuilderInputTable` owner は、candidate builder success / failure のどちらでも materializer が閉じる。source read failure と classifier rejection では partial builder input table owner を materializer が閉じ、builder input push rejection では既存 builder input table push boundary が owner cleanup を完結するため二重解放しない。success の場合だけ output `SelfhostMemoTraitOperationImplTable` owner を caller へ返す。
+
+この materializer は method body fact、Drop proof、operation evidence record、aggregate proof status を作らない。Drop record は classifier shape を確認したうえで builder input に写し、Resource proof 未接続の Phase 1 では既存 builder の `DropOperationUnsupportedUntilResourceProof` へ送る。空 table から `NoDropRequired` を合成せず、未証明の `Unknown` evidence もこの module では作らない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / evidence producer / purity gate / body check / method body / Drop resolver への直接 import 禁止、classifier-derived operation use、direct impl table push / producer input / evidence record / aggregate proof status 作成禁止、temporary builder input owner cleanup、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、actual AST / typed HIR public impl scanner と full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

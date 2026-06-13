@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-13
+updated: 2026-06-14
 target: "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty"
 ---
 
@@ -188,6 +188,30 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_impl_candidate_bui
 - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl -o tmp/selfhost_impl_candidate_builder_doctest.json --no-tree -j 1 --dist web/dist --assert-io`
 
 この checkpoint 後の残件は、actual public impl candidate materializer / full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、scan source table の operation bucket 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
+
+## 2026-06-14 selfhost public impl materializer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl` を追加し、actual public surface materializer が後続 stage で作る typed public impl record table から、既存 candidate builder の input table と candidate table owner へ接続する checker-layer materializer boundary を作った。
+
+`SelfhostMemoTraitOperationPublicImplMaterializerRecord` は、`SelfhostTypeId`、public impl header input へ写す module fingerprint / declaration ordinal / visibility / impl kind / target shape / trait application shape / generic count、classifier input へ渡す operation trait source identity / type argument count、optional HIR method body root、fuel だけを持つ。operation kind は record field ではなく、`selfhost_memo_trait_operation_classifier_evidence_result` が返す `classifier.operation` から採用する。これにより caller supplied operation kind、trait name string、method name string、source text、span、lexeme、display name、diagnostic text、module path を authority にしない。
+
+materializer public API は source record table と HIR module を borrow で読み、どちらも閉じない。内部で作る builder input table owner は、candidate builder success / failure のどちらでも materializer が閉じる。source read failure と classifier rejection では partial builder input table owner を materializer が閉じ、builder input push rejection では既存 builder input table push boundary が owner cleanup を完結するため二重解放しない。success の場合だけ output `SelfhostMemoTraitOperationImplTable` owner を caller へ返す。
+
+この materializer は method body fact、Drop proof、operation evidence record、aggregate proof status を作らない。Drop record は classifier shape を確認したうえで builder input に写し、Resource proof 未接続の Phase 1 では既存 builder の `DropOperationUnsupportedUntilResourceProof` へ送る。空 table から `NoDropRequired` を合成せず、未証明の `Unknown` evidence もこの module では作らない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` で固定し、source policy runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、classifier-derived operation use、direct impl table push / producer input / evidence record / aggregate proof status 作成禁止、temporary builder input owner cleanup、line count / doc comment length cap 禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl -o tmp/selfhost-operation-public-impl-materializer.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した public impl materializer contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+この checkpoint 後の残件は、actual AST / typed HIR public impl scanner と full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
 
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
