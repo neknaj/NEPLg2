@@ -469,6 +469,29 @@ subagent review では Anscombe が Blocker なしとしつつ、method body / D
 
 この checkpoint 後も、actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked interface artifact 接続は未実装である。
 
+## 2026-06-13 selfhost Drop impl resolver checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_resolver.nepl` を追加し、complete な typed Drop impl fact table から `SelfhostMemoTraitOperationDropCheck` を作る checker-layer resolver を接続した。
+
+この resolver は `SelfhostMemoTraitOperationDropImplSurfaceState` を `Complete` / `Missing` / `Unknown` に分ける。`Complete` の場合だけ fact table を走査し、対象 `SelfhostTypeId` の Drop impl fact が 0 件なら `DropImplAbsent`、1 件なら `DropImplPresent(effect, escape)`、2 件以上なら `RecordDuplicate` として fail-closed に拒否する。`Missing` / `Unknown` surface は lookup miss を no-drop proof にせず、それぞれ `Missing` / `Unknown` check に畳む。
+
+Drop impl fact は session-local `SelfhostTypeId`、typed `SelfhostEffectKind`、typed `SelfhostEffectEscapeState` だけを authority にする。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、canonical key、public surface hash は authority にしない。actual Drop body checker、Resource IR no-escape proof、generic impl binder、trait coherence、full public surface orchestration、private cache effect masking は後続 stage の責務である。
+
+`nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js` を追加し、source policy runner へ登録した。policy は facade 非公開、`selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、complete-only absent proof、Missing / Unknown surface preservation、duplicate fail-closed、impossible Vec read failure の typed error、push failure owner recovery、行数・doc comment 長制限禁止を固定する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_resolver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-drop-impl-resolver.json`
+- pass: `node nodesrc/test_selfhost_prototype_design_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した Drop impl resolver policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後も、actual method body checker、Drop body effect checker / Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked interface artifact 接続は未実装である。
+
 ## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
 
 `memo_trait_operation_evidence.nepl` を追加し、Copy / Drop / Eq / Hash の trait operation evidence を `SelfhostTypeId`、operation kind、`SelfhostMemoTraitAggregateProofStatus` の typed table として運ぶ境界を固定した。

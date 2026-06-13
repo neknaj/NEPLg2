@@ -1454,6 +1454,18 @@ operation 別の matrix もここで固定した。`Eq` / `Hash` は method body
 
 この checkpoint 後の残件は、actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact との接続である。lookup index 化や nested operation fold の重複削減は、今回固定した typed effect fact -> evidence enum の contract を変えずに後から最適化できる。
 
+### 2026-06-13 MemoKey / MemoValue Drop impl resolver checkpoint
+
+`memo_trait_operation_drop_impl_resolver.nepl` を追加し、complete な typed Drop impl fact table から `SelfhostMemoTraitOperationDropCheck` を作る checker-layer 境界を接続した。
+
+この resolver は `SelfhostMemoTraitOperationDropImplSurfaceState` を `Complete` / `Missing` / `Unknown` に分ける。`Complete` の場合だけ fact table を走査し、対象 `SelfhostTypeId` の Drop impl fact が 0 件なら `DropImplAbsent`、1 件なら `DropImplPresent(effect, escape)`、2 件以上なら `RecordDuplicate` として fail-closed に拒否する。`Missing` / `Unknown` surface では lookup miss を no-drop proof にせず、それぞれ `Missing` / `Unknown` check を返す。
+
+Drop impl fact は `SelfhostTypeId`、`SelfhostEffectKind`、`SelfhostEffectEscapeState` だけを authority にする。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record は authority にしない。actual Drop body checker、Resource IR no-escape proof、generic impl binder、trait coherence、full public surface orchestration、private cache effect masking は後続 stage の責務である。
+
+source policy は facade 非公開、`selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、complete-only absent proof、Missing / Unknown surface preservation、duplicate fail-closed、owner recovery、line / doccomment length cap 禁止を固定した。
+
+この checkpoint 後の残件は、actual method body checker、Drop body effect checker と Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。lookup index 化や Drop impl fact table の sorted index 化は、今回固定した complete surface state、duplicate fail-closed、typed fact authority の contract を変えずに後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
