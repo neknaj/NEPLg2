@@ -410,16 +410,16 @@ record 計算 helper は module 内部の lower helper にした。公開 API �
 
 layout field type は `selfhost_memo_trait_layout_field_type_at_result` で読む。この accessor は layout validator が返した `Known(range)` を想定しながらも range と index を再検査し、`idx` を source position や table absolute index として扱わない。戻り値は `SelfhostTypeId` だけであり、field name、span、source text、diagnostic string、display name、path suffix は proof authority にしない。
 
-primitive policy は enum match に閉じた。`unit`、`bool`、`i32`、`u8`、`char` は Copy / Drop / Eq / Hash を `Proven` とする。`f32` は Copy / Drop は `Proven` だが Eq / Hash は `Unknown` として保持し、producer gate で fail-closed にする。nested aggregate、function、parameter、`str`、`i64`、`f64`、`never`、`error` はこの slice では `Unknown` に畳み、推測で accepted proof にしない。
+primitive policy は enum match に閉じた。`unit`、`bool`、`i32`、`u8`、`char` は Copy / Drop / Eq / Hash を `Proven` とする。`f32` は Copy / Drop は `Proven` だが Eq / Hash は `Unknown` として保持し、producer gate で fail-closed にする。nested aggregate は同じ layout evidence table から子 aggregate record を再帰計算し、子の Copy / Drop / Eq / Hash status を親へ merge する。function、parameter、`str`、`i64`、`f64`、`never`、`error` はこの slice では `Unknown` に畳み、推測で accepted proof にしない。
 
-stage0 smoke は empty aggregate、i32 field aggregate、f32 field aggregate、missing layout、operation table lookup、recursive cycle rejection を public boundary 経由で確認する。source policy は facade re-export、source list 登録、DAG 順序、recursive gate 使用、record lower helper の非公開、accepted evidence record / producer acceptance helper の非生成、layout accessor 使用、proof store / artifact / reader / serializer / preseed / canonical key / checker / HIR / Resource IR / backend への依存禁止、source-derived authority 禁止、typed error equality の wildcard 禁止、line count / doc comment length cap 禁止を固定した。
+stage0 smoke は empty aggregate、i32 field aggregate、f32 field aggregate、missing layout、operation table lookup、nested i32 aggregate fold、nested f32 aggregate fold、nested child layout missing rejection、recursive cycle rejection を public boundary 経由で確認する。source policy は facade re-export、source list 登録、DAG 順序、recursive gate 使用、record lower helper の非公開、accepted evidence record / producer acceptance helper の非生成、layout accessor 使用、global visited first-wins 禁止、proof store / artifact / reader / serializer / preseed / canonical key / checker / HIR / Resource IR / backend への依存禁止、source-derived authority 禁止、typed error equality の wildcard 禁止、line count / doc comment length cap 禁止を固定した。
 
-subagent review では Bohr が Required として、solver を `memo_trait_operation_proof.nepl` へ混ぜないこと、accepted record を作らない table-only boundary にすること、`recursive_aggregate` を先行 gate として使うこと、field record access を validated range accessor と source policy で固定すること、`f32` を all-Proven にしないことを求めた。同じ slice で `RecursiveRejected`、`max_depth` 付き table API、cycle rejection smoke、layout field accessor、contract test を追加して対応した。追加 review では `record_result` が public のままだと recursive gate を迂回できること、accepted evidence / producer helper 混入禁止の source policy が弱いことを Required として指摘されたため、`record_result` を private helper にし、`SelfhostMemoTraitEvidenceRecord`、aggregate proof constructor / projector、recursive producer record helper、recursive producer import を禁止する contract を追加した。再レビューでは Blocker / Required なしで Approve となった。
+subagent review では Bohr が Required として、solver を `memo_trait_operation_proof.nepl` へ混ぜないこと、accepted record を作らない table-only boundary にすること、`recursive_aggregate` を先行 gate として使うこと、field record access を validated range accessor と source policy で固定すること、`f32` を all-Proven にしないことを求めた。同じ slice で `RecursiveRejected`、`max_depth` 付き table API、cycle rejection smoke、layout field accessor、contract test を追加して対応した。追加 review では `record_result` が public のままだと recursive gate を迂回できること、accepted evidence / producer helper 混入禁止の source policy が弱いことを Required として指摘されたため、`record_result` を private helper にし、`SelfhostMemoTraitEvidenceRecord`、aggregate proof constructor / projector、recursive producer record helper、recursive producer import を禁止する contract を追加した。再レビューでは Blocker / Required なしで Approve となった。nested aggregate follow-up では Lorentz が、field helper の Result 化、Named / Applied aggregate の再帰 fold、Parameter / Function の Unknown 維持、public recursive gate の維持、accepted evidence 非生成、source authority / unchecked range read / global visited first-wins 禁止を Required として確認した。この slice で `field_record_result`、nested i32 / f32 smoke、nested child layout missing smoke、source policy 退行検出を追加した。
 
 検証:
 
 - pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
-- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver-nested.json`
 - pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
 - pass: `node nodesrc/test_selfhost_memo_trait_layout_contract.js`
 - pass: `node nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js`
@@ -430,7 +430,7 @@ subagent review では Bohr が Required として、solver を `memo_trait_oper
 - pass: `node nodesrc/issues.js check --dir issues`
 - pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
 
-この checkpoint 後の残件は、trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement 分離、nested aggregate の operation status fold、re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続である。
+この checkpoint 後の残件は、trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement 分離、re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続である。
 
 ## 2026-06-13 selfhost memo trait public surface hash typed input checkpoint
 

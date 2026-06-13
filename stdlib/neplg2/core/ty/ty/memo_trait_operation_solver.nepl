@@ -5,8 +5,8 @@
 //:
 //: [目的/もくてき]:
 //: - `memo_trait_operation_proof.nepl` は operation proof status table の運搬と producer gate への合流だけを担当します。この module は、その table に入れる record を型構造から作ります。
-//: - Phase 1 では、recursive aggregate gate で cycle / depth / unsupported field を先に拒否したうえで、layout validator が受理した direct product field を読み、primitive field の operation proof status を root aggregate の status へ fold します。
-//: - field type が nested aggregate、function、parameter、または未対応 primitive である場合は、推測で `Proven` にせず `Unknown` status を fold し、producer gate の typed rejection へ進めます。
+//: - Phase 1 では、recursive aggregate gate で cycle / depth / unsupported field を先に拒否したうえで、layout validator が受理した product field closure を読み、primitive field と nested aggregate field の operation proof status を root aggregate の status へ fold します。
+//: - function、parameter、または未対応 primitive である場合は、推測で `Proven` にせず `Unknown` status を fold し、producer gate の typed rejection へ進めます。
 //:
 //: [契約/けいやく]:
 //: - source text、span、path、display name、diagnostic text、lexeme は proof authority にしません。入力は `SelfhostTypeArena`、`SelfhostMemoTraitLayoutEvidenceTable`、`SelfhostTypeId` だけです。
@@ -14,27 +14,31 @@
 //: - layout は必ず `selfhost_memo_trait_layout_evidence_for_type_result` で検証済みの `Known(range)` だけを使います。field range の counter を source position や unchecked index として使いません。
 //: - primitive `unit` / `bool` / `i32` / `u8` / `char` は Copy / Drop / Eq / Hash を `Proven` とします。
 //: - `f32` は value としては primitive predicate で受理され得ますが、key hash / equality の仕様が未固定なので Eq / Hash を `Unknown` として fold します。
-//: - nested aggregate の recursive status fold、trait impl table、method body purity、Drop なし proof、public mutable state / owner token hazard は後続 slice の責務です。この module はそれらを `Unknown` に畳み、accepted proof へ進めません。
+//: - nested aggregate field は同じ layout evidence から子 aggregate record を再帰計算して親へ merge します。ただし cycle、depth limit、unsupported field の拒否は public table construction が先に通す recursive aggregate gate の責務です。
+//: - trait impl table、method body purity、Drop なし proof、public mutable state / owner token hazard は後続 slice の責務です。この module はそれらを `Unknown` に畳み、accepted proof へ進めません。
 //: - proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend へ依存しません。
 //:
 //: [現状/げんじょう]:
-//: - direct primitive field を持つ product aggregate の operation proof を計算します。
-//: - nested aggregate field を `Unknown` とするため、recursive aggregate traversal が成功していても nested aggregate の operation proof はまだ accepted になりません。これは silent accept を避けるための fail-closed 境界です。
+//: - primitive field と nested aggregate field を持つ product aggregate の operation proof を計算します。
+//: - recursive aggregate gate が成功した nested aggregate closure だけを fold します。trait impl table と method body purity は未接続なので、operation status の authority は primitive policy と layout evidence に限定されます。
 //:
 //: [計算量/けいさんりょう]:
 //: - layout lookup と validation は `memo_trait_layout.nepl` の計算量に従います。
-//: - direct field fold は field 数 n に対して O(n) です。
+//: - recursive field fold は、branch ごとの再計算を含めて実際に展開した field edge 数 e に対して O(e) です。同じ child aggregate が複数 branch から現れる場合は branch ごとに再計算します。
 //: - table construction は record 1 件だけを push するため O(1) です。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
 //: ##: [3] ok
 //: ##: [4] ok
 //: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -56,10 +60,15 @@
 //:             let actual_missing_layout %SelfhostMemoTraitOperationSolverErrorKind unwrap_err summary.missing_layout_rejected
 //:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_solver_error_kind_eq actual_missing_layout missing_layout_error
 //:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_proof_result_is_accept summary.i32_table_lookup
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_solver_record_is_all_proven_result summary.nested_i32_record
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_solver_record_has_hash_unknown_result summary.nested_f32_record
+//:             let nested_missing_layout_error SelfhostMemoTraitOperationSolverErrorKind::RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout
+//:             let actual_nested_missing_layout %SelfhostMemoTraitOperationSolverErrorKind unwrap_err summary.nested_missing_layout_rejected
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_solver_error_kind_eq actual_nested_missing_layout nested_missing_layout_error
 //:             let cycle_error SelfhostMemoTraitOperationSolverErrorKind::RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected
 //:             let actual_cycle %SelfhostMemoTraitOperationSolverErrorKind unwrap_err summary.recursive_cycle_rejected
-//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_solver_error_kind_eq actual_cycle cycle_error
-//:             let shown checks_print_report checks6
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_solver_error_kind_eq actual_cycle cycle_error
+//:             let shown checks_print_report checks9
 //:             checks_exit_code shown
 //:         Result::Err _e:
 //:             let checks1 checks_push checks0 Result::Err "memo trait operation solver stage0 setup failed"
@@ -95,13 +104,16 @@ pub enum SelfhostMemoTraitOperationSolverErrorKind:
 //: SelfhostMemoTraitOperationSolverStage0Summary: structural operation solver の代表 smoke
 //:
 //: [目的/もくてき]:
-//: - empty aggregate、i32 field aggregate、f32 field aggregate、layout 欠落、solver table lookup を public API 経由で確認します。
+//: - empty aggregate、primitive field aggregate、nested aggregate、layout 欠落、solver table lookup を public API 経由で確認します。
 pub struct SelfhostMemoTraitOperationSolverStage0Summary:
     empty_record %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind
     i32_field_record %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind
     f32_field_record %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind
     missing_layout_rejected %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind
     i32_table_lookup %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind
+    nested_i32_record %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind
+    nested_f32_record %Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind
+    nested_missing_layout_rejected %Result unit SelfhostMemoTraitOperationSolverErrorKind
     recursive_cycle_rejected %Result unit SelfhostMemoTraitOperationSolverErrorKind
 
 impl Clone for SelfhostMemoTraitOperationSolverErrorKind:
@@ -121,8 +133,8 @@ impl Copy for SelfhostMemoTraitOperationSolverStage0Summary:
         self
 
 //: selfhost_memo_trait_operation_solver_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_operation_solver_stage0_summary_new %fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind fn Result unit SelfhostMemoTraitOperationSolverErrorKind SelfhostMemoTraitOperationSolverStage0Summary \empty_record\i32_field_record\f32_field_record\missing_layout_rejected\i32_table_lookup\recursive_cycle_rejected:
-    SelfhostMemoTraitOperationSolverStage0Summary empty_record i32_field_record f32_field_record missing_layout_rejected i32_table_lookup recursive_cycle_rejected
+fn selfhost_memo_trait_operation_solver_stage0_summary_new %fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind fn Result unit SelfhostMemoTraitOperationSolverErrorKind fn Result unit SelfhostMemoTraitOperationSolverErrorKind SelfhostMemoTraitOperationSolverStage0Summary \empty_record\i32_field_record\f32_field_record\missing_layout_rejected\i32_table_lookup\nested_i32_record\nested_f32_record\nested_missing_layout_rejected\recursive_cycle_rejected:
+    SelfhostMemoTraitOperationSolverStage0Summary empty_record i32_field_record f32_field_record missing_layout_rejected i32_table_lookup nested_i32_record nested_f32_record nested_missing_layout_rejected recursive_cycle_rejected
 
 //: selfhost_memo_trait_operation_solver_status_code: proof status を merge 用 code へ[写/うつ]す
 //:
@@ -209,26 +221,28 @@ fn selfhost_memo_trait_operation_solver_primitive_record %fn SelfhostTypeId fn S
         SelfhostPrimitiveTypeKind::Never:
             selfhost_memo_trait_operation_solver_record_unknown type_id
 
-//: selfhost_memo_trait_operation_solver_field_record: field type の operation status を[作/つく]る
+//: selfhost_memo_trait_operation_solver_field_record_result: field type の operation status を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - nested aggregate、parameter、function はこの slice では `Unknown` です。推測で `Proven` にしません。
-fn selfhost_memo_trait_operation_solver_field_record %fn &SelfhostTypeArena fn SelfhostTypeId SelfhostMemoTraitOperationProofRecord \types\field_type:
+//: - primitive は local primitive policy で record 化します。
+//: - named / applied aggregate は同じ layout evidence table から子 aggregate record を再帰計算します。
+//: - parameter、function、missing type はこの slice では `Unknown` です。推測で `Proven` にしません。
+fn selfhost_memo_trait_operation_solver_field_record_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostTypeId Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind \types\layout_table\field_type:
     match selfhost_type_arena_get_record types field_type:
         Option::Some record:
             match record:
                 SelfhostTypeRecord::Primitive kind:
-                    selfhost_memo_trait_operation_solver_primitive_record field_type kind
+                    Result::Ok selfhost_memo_trait_operation_solver_primitive_record field_type kind
                 SelfhostTypeRecord::Named _named:
-                    selfhost_memo_trait_operation_solver_record_unknown field_type
+                    selfhost_memo_trait_operation_solver_record_result types layout_table field_type
                 SelfhostTypeRecord::Applied _applied:
-                    selfhost_memo_trait_operation_solver_record_unknown field_type
+                    selfhost_memo_trait_operation_solver_record_result types layout_table field_type
                 SelfhostTypeRecord::Parameter _parameter:
-                    selfhost_memo_trait_operation_solver_record_unknown field_type
+                    Result::Ok selfhost_memo_trait_operation_solver_record_unknown field_type
                 SelfhostTypeRecord::Function _function:
-                    selfhost_memo_trait_operation_solver_record_unknown field_type
+                    Result::Ok selfhost_memo_trait_operation_solver_record_unknown field_type
         Option::None:
-            selfhost_memo_trait_operation_solver_record_unknown field_type
+            Result::Ok selfhost_memo_trait_operation_solver_record_unknown field_type
 
 //: selfhost_memo_trait_operation_solver_record_merge: field record を aggregate record へ[畳/たた]む
 fn selfhost_memo_trait_operation_solver_record_merge %fn SelfhostMemoTraitOperationProofRecord fn SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationProofRecord \aggregate\field_record:
@@ -247,9 +261,12 @@ fn selfhost_memo_trait_operation_solver_fold_fields_result %fn &SelfhostTypeAren
         else:
             match selfhost_memo_trait_layout_field_type_at_result layout_table range idx:
                 Result::Ok field_type:
-                    let field_record %SelfhostMemoTraitOperationProofRecord selfhost_memo_trait_operation_solver_field_record types field_type
-                    let next_aggregate %SelfhostMemoTraitOperationProofRecord selfhost_memo_trait_operation_solver_record_merge aggregate field_record
-                    selfhost_memo_trait_operation_solver_fold_fields_result types layout_table range add idx 1 next_aggregate
+                    match selfhost_memo_trait_operation_solver_field_record_result types layout_table field_type:
+                        Result::Ok field_record:
+                            let next_aggregate %SelfhostMemoTraitOperationProofRecord selfhost_memo_trait_operation_solver_record_merge aggregate field_record
+                            selfhost_memo_trait_operation_solver_fold_fields_result types layout_table range add idx 1 next_aggregate
+                        Result::Err field_error:
+                            Result::Err field_error
                 Result::Err field_error:
                     Result::Err SelfhostMemoTraitOperationSolverErrorKind::FieldReadRejected field_error
 
@@ -567,6 +584,129 @@ fn selfhost_memo_trait_operation_solver_stage0_table_lookup %impure fn void Resu
         Result::Err _e:
             Result::Err StdErrorKind::InvalidOperation
 
+//: selfhost_memo_trait_operation_solver_stage0_nested_record: nested aggregate field record を public table API で[計算/けいさん]する
+//:
+//: [契約/けいやく]:
+//: - root aggregate の field に child aggregate を置き、child aggregate の primitive field status が root record へ fold されることを確認します。
+//: - helper は stage0 専用です。operation solver の公開契約は `selfhost_memo_trait_operation_solver_table_for_type_result` のままです。
+fn selfhost_memo_trait_operation_solver_stage0_nested_record %impure fn SelfhostPrimitiveTypeKind impure fn i32 impure fn i32 Result Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind StdErrorKind \field_kind\root_raw\child_raw:
+    let root_nominal %SelfhostNamedTypeId selfhost_named_type_id_new root_raw
+    let child_nominal %SelfhostNamedTypeId selfhost_named_type_id_new child_raw
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 field_kind:
+                Result::Ok field_alloc:
+                    let field_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &field_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena field_alloc
+                    match selfhost_type_arena_add_named arena1 child_nominal:
+                        Result::Ok child_alloc:
+                            let child_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &child_alloc
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena child_alloc
+                            match selfhost_type_arena_add_named arena2 root_nominal:
+                                Result::Ok root_alloc:
+                                    let root_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &root_alloc
+                                    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena root_alloc
+                                    match selfhost_memo_trait_layout_evidence_table_new:
+                                        Result::Ok table0:
+                                            match selfhost_memo_trait_layout_evidence_table_push_field table0 selfhost_memo_trait_layout_field_record_new child_nominal 0 field_id:
+                                                Result::Ok table1:
+                                                    match selfhost_memo_trait_layout_evidence_table_push_layout table1 selfhost_memo_trait_layout_record_product_named child_nominal 0 1:
+                                                        Result::Ok table2:
+                                                            match selfhost_memo_trait_layout_evidence_table_push_field table2 selfhost_memo_trait_layout_field_record_new root_nominal 0 child_id:
+                                                                Result::Ok table3:
+                                                                    match selfhost_memo_trait_layout_evidence_table_push_layout table3 selfhost_memo_trait_layout_record_product_named root_nominal 1 1:
+                                                                        Result::Ok layout_table:
+                                                                            match selfhost_memo_trait_operation_solver_table_for_type_result &arena &layout_table root_id 8:
+                                                                                Result::Ok operation_table:
+                                                                                    match selfhost_memo_trait_operation_proof_record_for_type_result &operation_table root_id:
+                                                                                        Result::Ok record:
+                                                                                            selfhost_memo_trait_operation_proof_table_free operation_table
+                                                                                            selfhost_memo_trait_layout_evidence_table_free layout_table
+                                                                                            selfhost_type_arena_free arena
+                                                                                            Result::Ok Result::Ok record
+                                                                                        Result::Err _lookup_error:
+                                                                                            selfhost_memo_trait_operation_proof_table_free operation_table
+                                                                                            selfhost_memo_trait_layout_evidence_table_free layout_table
+                                                                                            selfhost_type_arena_free arena
+                                                                                            Result::Err StdErrorKind::InvalidOperation
+                                                                                Result::Err solver_error:
+                                                                                    selfhost_memo_trait_layout_evidence_table_free layout_table
+                                                                                    selfhost_type_arena_free arena
+                                                                                    Result::Ok Result::Err solver_error
+                                                                        Result::Err _e:
+                                                                            selfhost_type_arena_free arena
+                                                                            Result::Err StdErrorKind::InvalidOperation
+                                                                Result::Err _e:
+                                                                    selfhost_type_arena_free arena
+                                                                    Result::Err StdErrorKind::InvalidOperation
+                                                        Result::Err _e:
+                                                            selfhost_type_arena_free arena
+                                                            Result::Err StdErrorKind::InvalidOperation
+                                                Result::Err _e:
+                                                    selfhost_type_arena_free arena
+                                                    Result::Err StdErrorKind::InvalidOperation
+                                        Result::Err _e:
+                                            selfhost_type_arena_free arena
+                                            Result::Err StdErrorKind::InvalidOperation
+                                Result::Err _e:
+                                    Result::Err StdErrorKind::InvalidOperation
+                        Result::Err _e:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _e:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_solver_stage0_nested_missing_layout: child layout 欠落を recursive gate で[確認/かくにん]する
+//:
+//: [契約/けいやく]:
+//: - root layout は存在しますが、root field が指す child aggregate の layout を登録しません。
+//: - public table API は record fold へ進む前に recursive aggregate gate で `RecursiveRejected(LayoutRejected(MissingLayout))` を返します。
+fn selfhost_memo_trait_operation_solver_stage0_nested_missing_layout %impure fn void Result Result unit SelfhostMemoTraitOperationSolverErrorKind StdErrorKind \void:
+    let root_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 40
+    let child_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 41
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_named arena0 child_nominal:
+                Result::Ok child_alloc:
+                    let child_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &child_alloc
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena child_alloc
+                    match selfhost_type_arena_add_named arena1 root_nominal:
+                        Result::Ok root_alloc:
+                            let root_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &root_alloc
+                            let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena root_alloc
+                            match selfhost_memo_trait_layout_evidence_table_new:
+                                Result::Ok table0:
+                                    match selfhost_memo_trait_layout_evidence_table_push_field table0 selfhost_memo_trait_layout_field_record_new root_nominal 0 child_id:
+                                        Result::Ok table1:
+                                            match selfhost_memo_trait_layout_evidence_table_push_layout table1 selfhost_memo_trait_layout_record_product_named root_nominal 0 1:
+                                                Result::Ok layout_table:
+                                                    match selfhost_memo_trait_operation_solver_table_for_type_result &arena &layout_table root_id 8:
+                                                        Result::Ok operation_table:
+                                                            selfhost_memo_trait_operation_proof_table_free operation_table
+                                                            selfhost_memo_trait_layout_evidence_table_free layout_table
+                                                            selfhost_type_arena_free arena
+                                                            Result::Ok Result::Ok unit
+                                                        Result::Err solver_error:
+                                                            selfhost_memo_trait_layout_evidence_table_free layout_table
+                                                            selfhost_type_arena_free arena
+                                                            Result::Ok Result::Err solver_error
+                                                Result::Err _e:
+                                                    selfhost_type_arena_free arena
+                                                    Result::Err StdErrorKind::InvalidOperation
+                                        Result::Err _e:
+                                            selfhost_type_arena_free arena
+                                            Result::Err StdErrorKind::InvalidOperation
+                                Result::Err _e:
+                                    selfhost_type_arena_free arena
+                                    Result::Err StdErrorKind::InvalidOperation
+                        Result::Err _e:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _e:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
 //: selfhost_memo_trait_operation_solver_stage0_recursive_cycle: recursive gate の cycle rejection を[確認/かくにん]する
 //:
 //: [契約/けいやく]:
@@ -621,9 +761,21 @@ fn selfhost_memo_trait_operation_solver_stage0_collect %impure fn void Result Se
                                 Result::Ok missing_layout_rejected:
                                     match selfhost_memo_trait_operation_solver_stage0_table_lookup:
                                         Result::Ok i32_table_lookup:
-                                            match selfhost_memo_trait_operation_solver_stage0_recursive_cycle:
-                                                Result::Ok recursive_cycle_rejected:
-                                                    Result::Ok selfhost_memo_trait_operation_solver_stage0_summary_new empty_record i32_field_record f32_field_record missing_layout_rejected i32_table_lookup recursive_cycle_rejected
+                                            match selfhost_memo_trait_operation_solver_stage0_nested_record SelfhostPrimitiveTypeKind::I32 36 37:
+                                                Result::Ok nested_i32_record:
+                                                    match selfhost_memo_trait_operation_solver_stage0_nested_record SelfhostPrimitiveTypeKind::F32 38 39:
+                                                        Result::Ok nested_f32_record:
+                                                            match selfhost_memo_trait_operation_solver_stage0_nested_missing_layout:
+                                                                Result::Ok nested_missing_layout_rejected:
+                                                                    match selfhost_memo_trait_operation_solver_stage0_recursive_cycle:
+                                                                        Result::Ok recursive_cycle_rejected:
+                                                                            Result::Ok selfhost_memo_trait_operation_solver_stage0_summary_new empty_record i32_field_record f32_field_record missing_layout_rejected i32_table_lookup nested_i32_record nested_f32_record nested_missing_layout_rejected recursive_cycle_rejected
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
                                                 Result::Err e:
                                                     Result::Err e
                                         Result::Err e:

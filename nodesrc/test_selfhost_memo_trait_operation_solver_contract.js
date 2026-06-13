@@ -70,7 +70,7 @@ assert.match(
 );
 assert.match(
     source,
-    /# ty\/memo_trait_operation_solver[\s\S]*\[目的\/もくてき\]:[\s\S]*recursive aggregate gate[\s\S]*\[契約\/けいやく\]:[\s\S]*selfhost_memo_trait_recursive_aggregate_result[\s\S]*\[現状\/げんじょう\]:[\s\S]*\[計算量\/けいさんりょう\]:[\s\S]*neplg2:test/,
+    /# ty\/memo_trait_operation_solver[\s\S]*\[目的\/もくてき\]:[\s\S]*nested aggregate field[\s\S]*\[契約\/けいやく\]:[\s\S]*selfhost_memo_trait_recursive_aggregate_result[\s\S]*nested aggregate field[\s\S]*\[現状\/げんじょう\]:[\s\S]*\[計算量\/けいさんりょう\]:[\s\S]*neplg2:test/,
     "operation solver documentation must record purpose, contract, current limitations, complexity, and a doctest",
 );
 assert.match(
@@ -160,8 +160,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_operation_solver_field_record[\s\S]*SelfhostTypeRecord::Named _named:[\s\S]*record_unknown[\s\S]*SelfhostTypeRecord::Applied _applied:[\s\S]*record_unknown[\s\S]*SelfhostTypeRecord::Parameter _parameter:[\s\S]*record_unknown[\s\S]*SelfhostTypeRecord::Function _function:[\s\S]*record_unknown/,
-    "non-primitive field records must fail closed as Unknown until recursive or trait evidence is connected",
+    /selfhost_memo_trait_operation_solver_field_record_result[\s\S]*SelfhostTypeRecord::Named _named:[\s\S]*selfhost_memo_trait_operation_solver_record_result types layout_table field_type[\s\S]*SelfhostTypeRecord::Applied _applied:[\s\S]*selfhost_memo_trait_operation_solver_record_result types layout_table field_type[\s\S]*SelfhostTypeRecord::Parameter _parameter:[\s\S]*record_unknown[\s\S]*SelfhostTypeRecord::Function _function:[\s\S]*record_unknown/,
+    "named and applied aggregate fields must recurse through the same layout evidence while parameter and function fields remain fail-closed as Unknown",
 );
 assert.match(
     source,
@@ -170,8 +170,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_operation_solver_fold_fields_result[\s\S]*selfhost_memo_trait_layout_field_type_at_result layout_table range idx[\s\S]*selfhost_memo_trait_operation_solver_field_record types field_type[\s\S]*selfhost_memo_trait_operation_solver_record_merge aggregate field_record[\s\S]*FieldReadRejected field_error/,
-    "field fold must read field types through the layout accessor and preserve field read failures",
+    /selfhost_memo_trait_operation_solver_fold_fields_result[\s\S]*selfhost_memo_trait_layout_field_type_at_result layout_table range idx[\s\S]*selfhost_memo_trait_operation_solver_field_record_result types layout_table field_type[\s\S]*Result::Ok field_record:[\s\S]*selfhost_memo_trait_operation_solver_record_merge aggregate field_record[\s\S]*Result::Err field_error:[\s\S]*Result::Err field_error[\s\S]*FieldReadRejected field_error/,
+    "field fold must read field types through the layout accessor, propagate nested solver errors, merge successful records, and preserve field read failures",
 );
 assert.match(
     source,
@@ -185,13 +185,33 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostMemoTraitOperationSolverStage0Summary:[\s\S]*empty_record[\s\S]*i32_field_record[\s\S]*f32_field_record[\s\S]*missing_layout_rejected[\s\S]*i32_table_lookup[\s\S]*recursive_cycle_rejected/,
-    "stage0 summary must expose empty aggregate, i32 field aggregate, f32 field aggregate, missing layout, table lookup, and recursive cycle paths",
+    /pub struct SelfhostMemoTraitOperationSolverStage0Summary:[\s\S]*empty_record[\s\S]*i32_field_record[\s\S]*f32_field_record[\s\S]*missing_layout_rejected[\s\S]*i32_table_lookup[\s\S]*nested_i32_record[\s\S]*nested_f32_record[\s\S]*nested_missing_layout_rejected[\s\S]*recursive_cycle_rejected/,
+    "stage0 summary must expose empty aggregate, primitive field aggregate, nested aggregate, missing layout, table lookup, nested layout rejection, and recursive cycle paths",
 );
 assert.match(
     source,
-    /selfhost_memo_trait_operation_solver_stage0[\s\S]*selfhost_memo_trait_operation_solver_record_is_all_proven_result summary\.empty_record[\s\S]*selfhost_memo_trait_operation_solver_record_is_all_proven_result summary\.i32_field_record[\s\S]*selfhost_memo_trait_operation_solver_record_has_hash_unknown_result summary\.f32_field_record[\s\S]*LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout[\s\S]*selfhost_memo_trait_operation_proof_result_is_accept summary\.i32_table_lookup[\s\S]*RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected[\s\S]*unwrap_err summary\.recursive_cycle_rejected/,
-    "doctest must check proven empty and i32 records, conservative f32 hash status, typed missing layout rejection, operation table lookup, and recursive cycle rejection",
+    /selfhost_memo_trait_operation_solver_stage0[\s\S]*selfhost_memo_trait_operation_solver_record_is_all_proven_result summary\.empty_record[\s\S]*selfhost_memo_trait_operation_solver_record_is_all_proven_result summary\.i32_field_record[\s\S]*selfhost_memo_trait_operation_solver_record_has_hash_unknown_result summary\.f32_field_record[\s\S]*LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout[\s\S]*selfhost_memo_trait_operation_proof_result_is_accept summary\.i32_table_lookup[\s\S]*selfhost_memo_trait_operation_solver_record_is_all_proven_result summary\.nested_i32_record[\s\S]*selfhost_memo_trait_operation_solver_record_has_hash_unknown_result summary\.nested_f32_record[\s\S]*RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout[\s\S]*unwrap_err summary\.nested_missing_layout_rejected[\s\S]*RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected[\s\S]*unwrap_err summary\.recursive_cycle_rejected/,
+    "doctest must check proven empty and i32 records, conservative f32 hash status, typed missing layout rejection, operation table lookup, nested aggregate folding, nested layout rejection, and recursive cycle rejection",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_operation_solver_stage0_nested_record[\s\S]*selfhost_memo_trait_layout_field_record_new child_nominal 0 field_id[\s\S]*selfhost_memo_trait_layout_record_product_named child_nominal 0 1[\s\S]*selfhost_memo_trait_layout_field_record_new root_nominal 0 child_id[\s\S]*selfhost_memo_trait_layout_record_product_named root_nominal 1 1[\s\S]*selfhost_memo_trait_operation_solver_table_for_type_result &arena &layout_table root_id 8[\s\S]*selfhost_memo_trait_operation_proof_record_for_type_result &operation_table root_id/,
+    "stage0 nested smoke must route child aggregate status through the public table solver and root table lookup",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_operation_solver_stage0_nested_missing_layout[\s\S]*root field が指す child aggregate の layout を登録しません[\s\S]*selfhost_memo_trait_layout_field_record_new root_nominal 0 child_id[\s\S]*selfhost_memo_trait_layout_record_product_named root_nominal 0 1[\s\S]*selfhost_memo_trait_operation_solver_table_for_type_result &arena &layout_table root_id 8[\s\S]*Result::Err solver_error:[\s\S]*Result::Ok Result::Err solver_error/,
+    "stage0 nested missing layout smoke must verify that the public recursive gate returns a typed solver error before record folding",
+);
+assert.doesNotMatch(
+    codeOnly,
+    /global_visited|visited_table|visited_first|first_wins|firstWins/,
+    "operation solver must not add a global visited first-wins cache for nested aggregate folding",
+);
+assert.doesNotMatch(
+    codeOnly,
+    /v::get fields add range\.first_field|field::get_ref table "fields"/,
+    "operation solver must not read layout field vectors directly; it must use the validated layout accessor",
 );
 assert.match(
     source,

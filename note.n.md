@@ -1,3 +1,51 @@
+# 2026-06-13 Agent selfhost memo trait nested operation fold checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、pure core boundary、DAG、source authority 排除、探索範囲の明示、丁寧な doc comment、試作段階でも公開 API 境界を雑にしない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/memo-trait-nested-operation-fold-20260613`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / nested aggregate field の operation status fold
+- classification: selfhost implementation slice review
+- decision: operation solver の field record helper を `Result` 化し、Named / Applied field は同じ layout evidence table から child aggregate record を再帰計算して親 record へ merge する。public API は引き続き `selfhost_memo_trait_operation_solver_table_for_type_result` だけであり、先に recursive aggregate gate を通す。
+- policy/spec:
+  - cycle / depth limit / function field / unsubstituted parameter / missing type record は public table API の recursive aggregate gate が `RecursiveRejected` として拒否する。
+  - private record helper は accepted evidence を作らず、operation status record を計算するだけである。
+  - child aggregate の layout error や field read error は `Unknown` に潰さず typed error として伝播する。
+  - Primitive は既存 policy に従う。`unit` / `bool` / `i32` / `u8` / `char` は all `Proven`、`f32` は Copy / Drop のみ `Proven`、Eq / Hash は `Unknown`。
+  - trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement は未接続であり、推測で accepted status を作らない。
+  - proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend、source text、span、path、display name、diagnostic、lexeme はこの boundary の authority にしない。
+- implementation/test:
+  - `selfhost_memo_trait_operation_solver_field_record_result` を追加し、Named / Applied だけ recursive record fold へ進めた。
+  - `fold_fields_result` は nested solver error をそのまま返し、layout accessor failure は `FieldReadRejected` のまま保持する。
+  - stage0 に `nested_i32_record`、`nested_f32_record`、`nested_missing_layout_rejected` を追加した。
+  - source policy は Named / Applied recursive fold、Parameter / Function Unknown、accepted evidence / producer helper 禁止、global visited first-wins 禁止、layout field vector 直読禁止を固定した。
+- subagent review:
+  - subagent_review_ids: `019ebec6-6757-73b0-8f2f-44b206e44599`, `019ebecc-eb75-7f41-a1eb-8479237c7d2f`
+  - subagent_review_count: 2
+  - classification: implementation slice policy/spec review and implementation/test review
+  - Lorentz 設計 review: Blocker なし。Required として、旧 nested Unknown 契約の更新、record helper private 維持、field helper Result 化、cycle/depth/unsupported field を public recursive gate に残すこと、trait impl 未接続のまま primitive + nested aggregate only に閉じること、accepted evidence / producer helper / source authority / unchecked range read / global visited first-wins 禁止を確認した。
+  - Required 対応として、doc comment と source policy を更新し、nested child layout missing smoke を public table API 経由で追加した。
+  - Lorentz 実装 review: Blocker なし。Required なし。Question なし。Non-blocker として計算量コメントの `field edge 数 e` が unique closure edge ではなく branch ごとの再計算を含む展開後 edge であることを明確にするとよいと指摘されたため、同じ slice 内で修正した。Approve と判断された。
+  - source_policy: `nodesrc/test_selfhost_memo_trait_operation_solver_contract.js` で accepted evidence / producer helper 禁止、source authority 禁止、layout field vector 直読禁止、global visited first-wins 禁止、行数制限 / doc comment 長制限禁止を固定した。
+  - verify: `nodesrc/selfhost_zenn_review_response_check.js` に相当する review response checklist の項目に沿って、Blocker / Required / Non-blocker / Question / Approve、source policy、既存 warning、今回差分由来 warning、検証済みコマンド、次 slice を記録した。
+- verification_current:
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver-nested.json`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js`
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/test_selfhost_documentation_contract.js`
+  - pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+  - 既存 warning: Node WASI ExperimentalWarning と既存 stdlib / selfhost documentation gap sample は表示されたが、この slice の退行ではない。
+  - 今回差分由来 warning: なし。焦点 doctest、source policy、Zenn review gate、documentation contract、issues check は pass。
+- residual:
+  - trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement は未実装である。
+  - re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は未完了である。
+  - nested operation fold の重複再帰 memoization は public API / error contract を変えずに後から追加できる最適化として扱う。
+  - 次 slice: trait impl table / method body purity / Drop なし proof / key-value 別 operation requirement、または loader / module graph authority から full public surface normalizer input を作る境界を進める。
+
 # 2026-06-13 Agent selfhost memo trait recursive producer input checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、DAG に沿った責務分割、producer gate の authority 分離、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
