@@ -353,6 +353,7 @@ video_memory_discard_write_slot surface_id frame_id -> status
 video_memory_publish_slot surface_id frame_id dirty_kind x y width height -> status
 video_memory_present_surface window_id title_ptr title_len surface_id -> status
 video_memory_close_surface surface_id -> status
+request_timer window_id timer_id interval_ms repeating -> status
 ```
 
 `surface_id` と `frame_id` は worker-local opaque positive integer である。NEPL/Wasm code は `SharedArrayBuffer`、DOM handle、Canvas handle、JS object handle、ArrayBuffer transfer object、string handle を受け取らない。`SharedArrayBuffer remains a Web backend detail` であり、Worker は `video-memory-surface.ts` の ownership API だけで surface / slot を扱う。
@@ -372,6 +373,8 @@ Negative status は Web platform module 内で `Result` と `GuiError` へ写す
 -5 BackendFailure
 -6 StaleFrame
 ```
+
+`request_timer` は formal event loop の timer 登録 request である。`window_id` は既に `present_surface` に成功して Shell が active window として保持している window だけを受ける。未提示 window への timer request は `InvalidArgument` とし、別 window 作成、stdout `NEPLG2_GUI_ANIMATE_MS`、polling loop へ fallback しない。`interval_ms == 0` は同じ window / timer id の timer clear request である。初期 checkpoint では `repeating == 1` の repeating timer だけを受け、one-shot timer は `InvalidArgument` とする。one-shot timer、timeslice budget、virtual scheduler と real scheduler の統合は後続 slice で定義する。
 
 `discard_write_slot` は未公開 write frame の `Writing -> Free` 状態遷移だけを行う。描画途中の error や application 側の中断で publish しない frame は、surface close ではなくこの import で明示的に破棄する。成功時は dirty metadata を消し、published epoch と presented epoch は進めない。frame が存在しない、既に publish / discard 済み、resize generation が古い場合は typed negative status を返し、stdout protocol や別 surface へ fallback しない。
 

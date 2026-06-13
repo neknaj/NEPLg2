@@ -44,6 +44,13 @@ import {
     GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED,
     waitGuiVideoMemoryHostAck,
 } from '../gui-preview/video-memory-host-abi.js';
+import {
+    createGuiTimerHostAckBuffer,
+    GUI_TIMER_HOST_STATUS_BACKEND_FAILURE,
+    GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT,
+    GUI_TIMER_HOST_STATUS_OK,
+    waitGuiTimerHostAck,
+} from '../gui-preview/timer-host-abi.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -77,12 +84,23 @@ type WorkerGuiVideoMemoryPresentMessage = {
     buffer: SharedArrayBuffer;
 };
 
+type WorkerGuiTimerRequestMessage = {
+    type: 'gui_timer_request';
+    requestId: number;
+    ack: SharedArrayBuffer;
+    windowId: number;
+    timerId: number;
+    intervalMs: number;
+    repeating: boolean;
+};
+
 type WorkerMessage =
     | WorkerStdoutMessage
     | WorkerCompileResultMessage
     | WorkerExitMessage
     | WorkerErrorMessage
     | WorkerGuiVideoMemoryPresentMessage
+    | WorkerGuiTimerRequestMessage
     | { type: 'stdin_request' };
 
 type RunWasmRequest = {
@@ -155,6 +173,7 @@ class WorkerWASI extends WASI {
     private lastGuiWebInputEvent: LastGuiWebInputEvent = { kind: 'empty' };
     private nextGuiVideoMemorySurfaceHandle = 1;
     private nextGuiVideoMemoryPresentRequestId = 1;
+    private nextGuiTimerRequestId = 1;
     private guiVideoMemorySurfaces: GuiWebVideoMemoryHostSurfaceRecord[] = [];
     private stdinOffset = 0;
     private stdinTotal = 0;
@@ -196,6 +215,7 @@ class WorkerWASI extends WASI {
             video_memory_publish_slot: this.nepl_gui_web_video_memory_publish_slot.bind(this),
             video_memory_present_surface: this.nepl_gui_web_video_memory_present_surface.bind(this),
             video_memory_close_surface: this.nepl_gui_web_video_memory_close_surface.bind(this),
+            request_timer: this.nepl_gui_web_request_timer.bind(this),
         };
     }
 
@@ -657,6 +677,18 @@ class WorkerWASI extends WASI {
         return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
     }
 
+    nepl_gui_web_request_timer(windowId: number, timerId: number, intervalMs: number, repeatingRaw: number): number {
+        if (
+            !isPositiveInteger(windowId)
+            || !isPositiveInteger(timerId)
+            || !isNonNegativeInteger(intervalMs)
+            || repeatingRaw !== 1
+        ) {
+            return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        return this.requestGuiRuntimeTimer(windowId, timerId, intervalMs, true);
+    }
+
     private storeGuiWebInputEventTakeResult(result: GuiWebSharedInputEventTakeResult): number {
         if (result.kind === 'empty') {
             this.lastGuiWebInputEvent = { kind: 'empty' };
@@ -708,6 +740,26 @@ class WorkerWASI extends WASI {
             buffer: surface.surface.buffer,
         });
         return waitGuiVideoMemoryHostAck(ack.value);
+    }
+
+    private requestGuiRuntimeTimer(windowId: number, timerId: number, intervalMs: number, repeating: boolean): number {
+        const ack = createGuiTimerHostAckBuffer();
+        if (ack.kind === 'err') {
+            return ack.status;
+        }
+        const requestId = this.nextGuiTimerRequestId;
+        this.nextGuiTimerRequestId += 1;
+        postWorkerMessage({
+            type: 'gui_timer_request',
+            requestId,
+            ack: ack.value,
+            windowId,
+            timerId,
+            intervalMs,
+            repeating,
+        });
+        const status = waitGuiTimerHostAck(ack.value);
+        return status === GUI_TIMER_HOST_STATUS_OK ? GUI_TIMER_HOST_STATUS_OK : status || GUI_TIMER_HOST_STATUS_BACKEND_FAILURE;
     }
 
     private findGuiVideoMemorySurface(surfaceHandle: number): GuiWebVideoMemoryHostSurfaceRecord | null {

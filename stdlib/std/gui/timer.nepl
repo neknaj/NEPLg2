@@ -55,6 +55,14 @@ pub fn timer_id_raw %fn &TimerId i32 \id:
 pub fn timer_request %fn WindowId fn TimerId fn i32 fn bool TimerRequest \window\timer\interval_ms\repeating:
     TimerRequest window timer interval_ms repeating
 
+//: timer_request_window: timer request の window id を[読/よ]む
+pub fn timer_request_window %fn &TimerRequest WindowId \request:
+    *field::get_ref request "window"
+
+//: timer_request_timer: timer request の timer id を[読/よ]む
+pub fn timer_request_timer %fn &TimerRequest TimerId \request:
+    *field::get_ref request "timer"
+
 //: timer_request_interval_ms: interval を[読/よ]む
 pub fn timer_request_interval_ms %fn &TimerRequest i32 \request:
     *field::get_ref request "interval_ms"

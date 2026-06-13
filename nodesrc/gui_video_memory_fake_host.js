@@ -53,6 +53,7 @@ function createGuiVideoMemoryFakeHost(options) {
     let activeImports = null;
     const calls = [];
     const eventCalls = [];
+    const timerRequests = [];
     const violations = [];
     const surfaces = new Map();
     const createdSurfaceIds = [];
@@ -132,6 +133,42 @@ function createGuiVideoMemoryFakeHost(options) {
         runtime = context;
         activeImports = {
             nepl_gui_web: {
+                request_timer(requestedWindowId, requestedTimerId, requestedIntervalMs, requestedRepeatingRaw) {
+                    const request = {
+                        args: Array.from(arguments),
+                        videoCallCount: calls.length,
+                        eventCallCount: eventCalls.length,
+                    };
+                    timerRequests.push(request);
+                    const expected = (options.expectedTimerRequests || [])[timerRequests.length - 1];
+                    if (!expected) {
+                        return fail(`unexpected timer request ${JSON.stringify(request.args)}`);
+                    }
+                    const expectedRepeatingRaw = Object.prototype.hasOwnProperty.call(expected, "repeatingRaw")
+                        ? expected.repeatingRaw
+                        : 1;
+                    if (
+                        requestedWindowId !== expected.windowId
+                        || requestedTimerId !== expected.timerId
+                        || requestedIntervalMs !== expected.intervalMs
+                        || requestedRepeatingRaw !== expectedRepeatingRaw
+                    ) {
+                        return fail(`unexpected timer request ${JSON.stringify(request.args)}`);
+                    }
+                    if (
+                        Object.prototype.hasOwnProperty.call(expected, "afterVideoCalls")
+                        && request.videoCallCount !== expected.afterVideoCalls
+                    ) {
+                        return fail(`timer request happened after ${request.videoCallCount} video calls, expected ${expected.afterVideoCalls}`);
+                    }
+                    if (
+                        Object.prototype.hasOwnProperty.call(expected, "afterEventCalls")
+                        && request.eventCallCount !== expected.afterEventCalls
+                    ) {
+                        return fail(`timer request happened after ${request.eventCallCount} event calls, expected ${expected.afterEventCalls}`);
+                    }
+                    return HOST_OK;
+                },
                 video_memory_create_surface(requestedWidth, requestedHeight, requestedSlotCount) {
                     record("create", arguments);
                     if (nextSurfaceIndex >= expectedSurfaces.length) {
@@ -370,6 +407,19 @@ function createGuiVideoMemoryFakeHost(options) {
         assert.equal(nextEventIndex, events.length, "fake host event sequence must be fully consumed");
         if (options.expectedEventCalls) {
             assert.deepEqual(eventCalls, options.expectedEventCalls);
+        }
+        if (options.expectedTimerRequests) {
+            assert.deepEqual(
+                timerRequests.map((request) => request.args),
+                options.expectedTimerRequests.map((request) => [
+                    request.windowId,
+                    request.timerId,
+                    request.intervalMs,
+                    Object.prototype.hasOwnProperty.call(request, "repeatingRaw") ? request.repeatingRaw : 1,
+                ]),
+            );
+        } else {
+            assert.deepEqual(timerRequests, []);
         }
         assert.equal(createdSurfaceIds.length, expectedSurfaces.length);
         assert.equal(
