@@ -4,17 +4,29 @@ import {
 } from './canvas-renderer.js';
 import { presentGuiPreviewCanvasBackground } from './bitmap-presenter.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
+import { presentNewestGuiVideoMemoryFrameToCanvas } from './video-memory-presenter.js';
+import {
+    openGuiVideoMemorySurface,
+    type GuiVideoMemoryError,
+    type GuiVideoMemorySurface,
+} from './video-memory-surface.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
 import type { GuiWebInputEvent, GuiWebKeyboardEventKind } from './input-bridge.js';
 import type { GuiWebPointerButton, GuiWebPointerEventKind } from './input-bridge.js';
+import type { GuiWebRuntimeErrorKind, GuiWebRuntimeResult } from './runtime-bridge.js';
 
 type GuiHostFrameState =
     | { kind: 'none' }
-    | { kind: 'presented'; frame: GuiPreviewCommandFrame; windowId: number };
+    | { kind: 'command-frame'; frame: GuiPreviewCommandFrame; windowId: number }
+    | { kind: 'video-memory'; buffer: SharedArrayBuffer; surface: GuiVideoMemorySurface; windowId: number };
 
 type GuiCanvasContextState =
     | { kind: 'ready'; ctx: CanvasRenderingContext2D }
     | { kind: 'unavailable'; message: string };
+
+type GuiActiveHostWindowLookup =
+    | { kind: 'missing' }
+    | { kind: 'found'; windowId: number };
 
 type GuiWebPointerInputEvent = Extract<GuiWebInputEvent, { kind: 'pointer' }>;
 
@@ -27,6 +39,8 @@ export type GuiPreviewDebugRecord =
     | { kind: 'canvas-unavailable'; message: string }
     | { kind: 'render-error'; windowId: number; errorKind: string }
     | { kind: 'frame-presented'; windowId: number; commandCount: number; inputTargetCount: number }
+    | { kind: 'video-memory-presented'; windowId: number; epoch: number; width: number; height: number; dirtyKind: string }
+    | { kind: 'video-memory-error'; windowId: number; errorKind: string }
     | { kind: 'input-queued'; windowId: number; eventKind: GuiWebInputEvent['kind'] }
     | { kind: 'action-queued'; windowId: number; actionId: number }
     | { kind: 'input-error'; windowId: number; eventKind: GuiWebInputEvent['kind']; errorKind: string };
@@ -92,7 +106,7 @@ export class GuiPreviewPanel {
     }
 
     presentHostFrame(frame: GuiPreviewCommandFrame, windowId: number) {
-        this.hostFrame = { kind: 'presented', frame, windowId };
+        this.hostFrame = { kind: 'command-frame', frame, windowId };
         this.hostPointerMove = { kind: 'idle' };
         this.reportDebug({
             kind: 'frame-presented',
@@ -104,8 +118,43 @@ export class GuiPreviewPanel {
         this.focusInputSurface();
     }
 
+    presentVideoMemorySurface(buffer: SharedArrayBuffer, windowId: number): GuiWebRuntimeResult<string> {
+        if (this.contextState.kind === 'unavailable') {
+            this.reportDebug({ kind: 'canvas-unavailable', message: this.contextState.message });
+            return guiPreviewRuntimeErr('video-memory-present-failed', '$.canvas', 'available Canvas2D context', this.contextState.message);
+        }
+        const surface = this.openVideoMemorySurface(buffer);
+        if (surface.kind === 'err') {
+            this.reportDebug({ kind: 'video-memory-error', windowId, errorKind: surface.error.actual });
+            return surface;
+        }
+        const presented = presentNewestGuiVideoMemoryFrameToCanvas(this.contextState.ctx, surface.value);
+        if (presented.kind === 'err') {
+            this.reportDebug({ kind: 'video-memory-error', windowId, errorKind: presented.error.kind });
+            return guiPreviewRuntimeErr('video-memory-present-failed', '$.buffer', 'published video memory frame', guiVideoMemoryErrorActual(presented.error));
+        }
+        this.hostFrame = {
+            kind: 'video-memory',
+            buffer,
+            surface: surface.value,
+            windowId,
+        };
+        this.hostPointerMove = { kind: 'idle' };
+        this.viewport = { left: 0, top: 0, scale: 1 };
+        this.reportDebug({
+            kind: 'video-memory-presented',
+            windowId,
+            epoch: presented.value.epoch,
+            width: presented.value.width,
+            height: presented.value.height,
+            dirtyKind: presented.value.dirty.kind,
+        });
+        this.focusInputSurface();
+        return { kind: 'ok', value: 'video-memory-presented' };
+    }
+
     focusInputSurface() {
-        if (this.hostFrame.kind === 'presented') {
+        if (this.activeHostWindow().kind === 'found') {
             this.canvas.focus({ preventScroll: true });
         }
     }
@@ -130,7 +179,7 @@ export class GuiPreviewPanel {
             return;
         }
         const ctx = this.contextState.ctx;
-        if (this.hostFrame.kind === 'presented') {
+        if (this.hostFrame.kind === 'command-frame') {
             const rendered = renderGuiPreviewFrameToCanvas(ctx, this.hostFrame.frame, size.width, size.height, { fontSize: this.fontSize });
             if (rendered.kind === 'err') {
                 this.reportDebug({
@@ -141,6 +190,9 @@ export class GuiPreviewPanel {
                 return;
             }
             this.viewport = rendered.viewport;
+            return;
+        }
+        if (this.hostFrame.kind === 'video-memory') {
             return;
         }
         presentGuiPreviewCanvasBackground(ctx);
@@ -161,7 +213,7 @@ export class GuiPreviewPanel {
     }
 
     handleCanvasClick(event: MouseEvent) {
-        if (this.hostFrame.kind !== 'presented') {
+        if (this.hostFrame.kind !== 'command-frame') {
             return;
         }
         const point = this.toScenePoint(event);
@@ -187,7 +239,7 @@ export class GuiPreviewPanel {
     }
 
     handleCanvasPointer(event: MouseEvent) {
-        if (this.hostFrame.kind !== 'presented') {
+        if (this.hostFrame.kind !== 'command-frame') {
             this.canvas.style.cursor = 'default';
             return;
         }
@@ -213,7 +265,8 @@ export class GuiPreviewPanel {
     }
 
     queueHostPointerEvent(event: PointerEvent, pointerKind: GuiWebPointerEventKind) {
-        if (this.hostFrame.kind !== 'presented') {
+        const active = this.activeHostWindow();
+        if (active.kind === 'missing') {
             return;
         }
         this.flushHostPointerMoveEvent();
@@ -221,21 +274,22 @@ export class GuiPreviewPanel {
         const point = this.toScenePoint(event);
         const queued = queueGuiWebInputEvent({
             kind: 'pointer',
-            windowId: this.hostFrame.windowId,
+            windowId: active.windowId,
             pointerKind,
             pointerId: event.pointerId,
             button: guiWebPointerButtonFromDomButton(event.button),
             point,
         });
         if (queued.kind === 'err') {
-            this.reportInputError(this.hostFrame.windowId, 'pointer', queued.error.kind);
+            this.reportInputError(active.windowId, 'pointer', queued.error.kind);
             return;
         }
-        this.reportInputQueued(this.hostFrame.windowId, 'pointer');
+        this.reportInputQueued(active.windowId, 'pointer');
     }
 
     queueHostPointerMoveEvent(event: PointerEvent) {
-        if (this.hostFrame.kind !== 'presented') {
+        const active = this.activeHostWindow();
+        if (active.kind === 'missing') {
             return;
         }
         const shouldSchedule = this.hostPointerMove.kind === 'idle';
@@ -243,7 +297,7 @@ export class GuiPreviewPanel {
             kind: 'scheduled',
             event: {
                 kind: 'pointer',
-                windowId: this.hostFrame.windowId,
+                windowId: active.windowId,
                 pointerKind: 'move',
                 pointerId: event.pointerId,
                 button: guiWebPointerButtonFromDomButtons(event.buttons),
@@ -270,7 +324,7 @@ export class GuiPreviewPanel {
     }
 
     handleCanvasKeyDown(event: KeyboardEvent) {
-        if (this.hostFrame.kind !== 'presented') {
+        if (this.activeHostWindow().kind === 'missing') {
             return;
         }
         const queuedKeyboard = this.queueHostKeyboardEvent(event, 'down');
@@ -282,7 +336,7 @@ export class GuiPreviewPanel {
     }
 
     handleCanvasKeyUp(event: KeyboardEvent) {
-        if (this.hostFrame.kind !== 'presented') {
+        if (this.activeHostWindow().kind === 'missing') {
             return;
         }
         const queuedKeyboard = this.queueHostKeyboardEvent(event, 'up');
@@ -293,7 +347,8 @@ export class GuiPreviewPanel {
     }
 
     queueHostKeyboardEvent(event: KeyboardEvent, keyboardKind: GuiWebKeyboardEventKind): boolean {
-        if (this.hostFrame.kind !== 'presented' || event.metaKey) {
+        const active = this.activeHostWindow();
+        if (active.kind === 'missing' || event.metaKey) {
             return false;
         }
         const keyCode = guiWebKeyCodeFromDomKey(event.key);
@@ -302,21 +357,22 @@ export class GuiPreviewPanel {
         }
         const queued = queueGuiWebInputEvent({
             kind: 'keyboard',
-            windowId: this.hostFrame.windowId,
+            windowId: active.windowId,
             keyboardKind,
             keyCode: keyCode.keyCode,
             modifierBits: guiWebModifierBitsFromDomEvent(event),
         });
         if (queued.kind === 'err') {
-            this.reportInputError(this.hostFrame.windowId, 'keyboard', queued.error.kind);
+            this.reportInputError(active.windowId, 'keyboard', queued.error.kind);
             return false;
         }
-        this.reportInputQueued(this.hostFrame.windowId, 'keyboard');
+        this.reportInputQueued(active.windowId, 'keyboard');
         return true;
     }
 
     queueHostTextInputEvent(event: KeyboardEvent): boolean {
-        if (this.hostFrame.kind !== 'presented' || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) {
+        const active = this.activeHostWindow();
+        if (active.kind === 'missing' || event.isComposing || event.ctrlKey || event.altKey || event.metaKey) {
             return false;
         }
         const scalar = guiWebSingleScalarFromDomKey(event.key);
@@ -325,14 +381,14 @@ export class GuiPreviewPanel {
         }
         const queued = queueGuiWebInputEvent({
             kind: 'text-input',
-            windowId: this.hostFrame.windowId,
+            windowId: active.windowId,
             scalarValue: scalar.value,
         });
         if (queued.kind === 'err') {
-            this.reportInputError(this.hostFrame.windowId, 'text-input', queued.error.kind);
+            this.reportInputError(active.windowId, 'text-input', queued.error.kind);
             return false;
         }
-        this.reportInputQueued(this.hostFrame.windowId, 'text-input');
+        this.reportInputQueued(active.windowId, 'text-input');
         return true;
     }
 
@@ -361,6 +417,27 @@ export class GuiPreviewPanel {
     dispose() {
         this.hostPointerMove = { kind: 'idle' };
         this.rootEl.remove();
+    }
+
+    private openVideoMemorySurface(buffer: SharedArrayBuffer): GuiWebRuntimeResult<GuiVideoMemorySurface> {
+        if (this.hostFrame.kind === 'video-memory' && this.hostFrame.buffer === buffer) {
+            return { kind: 'ok', value: this.hostFrame.surface };
+        }
+        const opened = openGuiVideoMemorySurface(buffer);
+        if (opened.kind === 'ok') {
+            return opened;
+        }
+        return guiPreviewRuntimeErr('video-memory-open-failed', '$.buffer', 'valid video memory surface', guiVideoMemoryErrorActual(opened.error));
+    }
+
+    private activeHostWindow(): GuiActiveHostWindowLookup {
+        switch (this.hostFrame.kind) {
+            case 'none':
+                return { kind: 'missing' };
+            case 'command-frame':
+            case 'video-memory':
+                return { kind: 'found', windowId: this.hostFrame.windowId };
+        }
     }
 
     private reportInputQueued(windowId: number, eventKind: GuiWebInputEvent['kind']) {
@@ -457,4 +534,55 @@ function guiWebSingleScalarFromDomKey(key: string): GuiWebScalarLookup {
         return { kind: 'scalar', value: scalar };
     }
     return { kind: 'none' };
+}
+
+function guiPreviewRuntimeErr<Value>(
+    kind: GuiWebRuntimeErrorKind,
+    path: string,
+    expected: string,
+    actual: string,
+): GuiWebRuntimeResult<Value> {
+    return {
+        kind: 'err',
+        error: {
+            kind,
+            path,
+            expected,
+            actual,
+        },
+    };
+}
+
+function guiVideoMemoryErrorActual(error: GuiVideoMemoryError): string {
+    switch (error.kind) {
+        case 'shared-buffer-unavailable':
+        case 'no-writable-slot':
+        case 'no-published-slot':
+        case 'presenter-unavailable':
+        case 'present-failed':
+        case 'writer-closed':
+        case 'wait-unavailable':
+            return error.kind;
+        case 'invalid-surface-config':
+            return `${error.kind}:${error.width}x${error.height}:slots=${error.slotCount}`;
+        case 'invalid-buffer-length':
+            return `${error.kind}:actual=${error.actual}:minimum=${error.minimum}`;
+        case 'invalid-header-magic':
+        case 'unsupported-header-version':
+        case 'invalid-surface-state':
+        case 'unsupported-pixel-format':
+            return `${error.kind}:actual=${error.actual}`;
+        case 'invalid-header-layout':
+            return `${error.kind}:slots=${error.slotCount}:header=${error.headerWords}:offset=${error.pixelPlaneByteOffset}:length=${error.pixelPlaneByteLength}`;
+        case 'invalid-slot-state':
+            return `${error.kind}:slot=${error.slotIndex}:actual=${error.actual}`;
+        case 'stale-resize-generation':
+            return `${error.kind}:expected=${error.expected}:actual=${error.actual}`;
+        case 'invalid-dirty-region':
+            return `${error.kind}:${error.x},${error.y},${error.width},${error.height}:surface=${error.surfaceWidth}x${error.surfaceHeight}`;
+        case 'unsupported-stride':
+            return `${error.kind}:stride=${error.strideBytes}:expected=${error.expectedStrideBytes}`;
+        case 'unsupported-command':
+            return `${error.kind}:${error.commandKind}`;
+    }
 }

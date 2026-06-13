@@ -6,6 +6,7 @@ import type { GuiWebInputEvent, GuiWebInputResult } from './input-bridge.js';
 
 export type GuiWebRuntimePresenter = {
     presentHostFrame: (input: unknown) => GuiWebHostResult<string>;
+    presentVideoMemorySurface: (input: GuiWebRuntimeVideoMemoryFrame) => GuiWebRuntimeResult<string>;
     closeHostFrameWindow: (windowId: number) => GuiWebHostResult<string>;
 };
 
@@ -16,6 +17,7 @@ export type GuiWebRuntimePresenterState =
 export type GuiWebRuntimeBridge = {
     kind: 'gui-runtime-bridge';
     presentCommands: (input: unknown) => GuiWebRuntimeResult<string>;
+    presentVideoMemory: (input: unknown) => GuiWebRuntimeResult<string>;
     closeWindow: (input: unknown) => GuiWebRuntimeResult<string>;
     beginFrame: (input: unknown) => GuiWebRuntimeResult<number>;
     pushCommand: (input: unknown) => GuiWebRuntimeResult<'pushed'>;
@@ -29,7 +31,10 @@ export type GuiWebRuntimeErrorKind =
     | GuiWebHostDecodeError['kind']
     | 'presenter-missing'
     | 'invalid-install-target'
-    | 'invalid-frame-state';
+    | 'invalid-frame-state'
+    | 'invalid-video-memory-frame'
+    | 'video-memory-open-failed'
+    | 'video-memory-present-failed';
 
 export type GuiWebRuntimeError = {
     kind: GuiWebRuntimeErrorKind;
@@ -41,6 +46,12 @@ export type GuiWebRuntimeError = {
 export type GuiWebRuntimeResult<Value> =
     | { kind: 'ok'; value: Value }
     | { kind: 'err'; error: GuiWebRuntimeError };
+
+export type GuiWebRuntimeVideoMemoryFrame = {
+    windowId: number;
+    title: string;
+    buffer: SharedArrayBuffer;
+};
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -67,6 +78,7 @@ let runtimeFrameStore: GuiWebRuntimeFrameStore = {
 export const guiWebRuntimeBridge: GuiWebRuntimeBridge = {
     kind: 'gui-runtime-bridge',
     presentCommands: presentGuiWebRuntimeFrame,
+    presentVideoMemory: presentGuiWebRuntimeVideoMemory,
     closeWindow: closeGuiWebRuntimeHostFrameWindow,
     beginFrame: beginGuiWebRuntimeFrame,
     pushCommand: pushGuiWebRuntimeCommand,
@@ -100,6 +112,17 @@ export function presentGuiWebRuntimeFrame(input: unknown): GuiWebRuntimeResult<s
         return err('presenter-missing', '$', 'registered GUI runtime presenter', 'missing');
     }
     return runtimePresenterState.presenter.presentHostFrame(input);
+}
+
+export function presentGuiWebRuntimeVideoMemory(input: unknown): GuiWebRuntimeResult<string> {
+    if (runtimePresenterState.kind === 'missing') {
+        return err('presenter-missing', '$', 'registered GUI runtime presenter', 'missing');
+    }
+    const frame = decodeGuiWebRuntimeVideoMemoryFrame(input);
+    if (frame.kind === 'err') {
+        return frame;
+    }
+    return runtimePresenterState.presenter.presentVideoMemorySurface(frame.value);
 }
 
 export function closeGuiWebRuntimeHostFrameWindow(input: unknown): GuiWebRuntimeResult<string> {
@@ -223,6 +246,33 @@ export function resetGuiWebRuntimeFrameStore(): GuiWebRuntimeFrameStore {
     return runtimeFrameStore;
 }
 
+function decodeGuiWebRuntimeVideoMemoryFrame(input: unknown): GuiWebRuntimeResult<GuiWebRuntimeVideoMemoryFrame> {
+    const record = asRecord(input, '$', 'invalid-video-memory-frame', 'video memory frame object');
+    if (record.kind === 'err') {
+        return record;
+    }
+    const windowId = readPositiveInteger(record.value, 'windowId', '$.windowId', 'invalid-video-memory-frame');
+    if (windowId.kind === 'err') {
+        return windowId;
+    }
+    const title = readString(record.value, 'title', '$.title', 'invalid-video-memory-frame');
+    if (title.kind === 'err') {
+        return title;
+    }
+    const buffer = readSharedArrayBuffer(record.value, 'buffer', '$.buffer', 'invalid-video-memory-frame');
+    if (buffer.kind === 'err') {
+        return buffer;
+    }
+    return {
+        kind: 'ok',
+        value: {
+            windowId: windowId.value,
+            title: title.value,
+            buffer: buffer.value,
+        },
+    };
+}
+
 export function installGuiWebRuntimeBridge(target: unknown): GuiWebRuntimeResult<'installed'> {
     const record = asRecord(target, '$', 'invalid-install-target', 'object target');
     if (record.kind === 'err') {
@@ -338,6 +388,14 @@ function readPositiveInteger(record: UnknownRecord, name: string, path: string, 
     return err(kind, path, 'positive integer', String(value.value));
 }
 
+function readSharedArrayBuffer(record: UnknownRecord, name: string, path: string, kind: GuiWebRuntimeErrorKind): GuiWebRuntimeResult<SharedArrayBuffer> {
+    const value = record[name];
+    if (typeof SharedArrayBuffer === 'function' && value instanceof SharedArrayBuffer) {
+        return { kind: 'ok', value };
+    }
+    return err(kind, path, 'SharedArrayBuffer', actualType(value));
+}
+
 function asRecord(input: unknown, path: string, kind: GuiWebRuntimeErrorKind, expected: string): GuiWebRuntimeResult<UnknownRecord> {
     if (typeof input === 'object' && input !== null && !Array.isArray(input)) {
         return { kind: 'ok', value: input as UnknownRecord };
@@ -369,6 +427,15 @@ function err(kind: GuiWebRuntimeErrorKind, path: string, expected: string, actua
 function actualType(value: unknown): string {
     if (Array.isArray(value)) {
         return 'array';
+    }
+    if (typeof SharedArrayBuffer === 'function' && value instanceof SharedArrayBuffer) {
+        return 'SharedArrayBuffer';
+    }
+    if (ArrayBuffer.isView(value)) {
+        return value.constructor.name;
+    }
+    if (value instanceof ArrayBuffer) {
+        return 'ArrayBuffer';
     }
     if (value === null) {
         return 'null';
