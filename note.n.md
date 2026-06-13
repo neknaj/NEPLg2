@@ -1,3 +1,81 @@
+# 2026-06-13 Agent selfhost operation body check resolver checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、pure core boundary、DAG、source authority 排除、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / operation 別 method body check と Drop impl check の pair resolver
+- classification: selfhost MemoKey / MemoValue structural purity / operation body check pair boundary
+- policy/spec:
+  - `Copy` / `Eq` / `Hash` / `Drop` の operation matrix を checker-layer で一元化し、full orchestration が手書きで `NotRequired` や `Missing` を組み立てる経路を作らない。
+  - `SelfhostMemoTraitOperationBodyChecks` だけを返し、operation evidence record、producer input、aggregate proof status は作らない。
+  - `Missing` / `Unknown` は status check として保持し、resolver error にはしない。duplicate や table read failure などの構造的不整合だけを payload 付き wrapper error として伝播する。
+  - accepted authority は `SelfhostTypeId`、operation enum、typed effect check table、typed surface state に限定し、source / display / diagnostic / path / HIR / Resource IR / backend / proof store / hash を使わない。
+  - method body fact table lookup と Drop impl fact table lookup の sorted index 化は後からできる最適化であり、今の stage では check pair contract、status preservation、duplicate fail-closed、authority boundary の固定を優先する。
+- decision:
+  - actual expression method body checker と Drop body Resource IR proof を実装する前に、それらの結果を operation evidence producer へ渡す pair resolver を固定する。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、既存 method body resolver と Drop impl resolver を operation matrix で組み合わせる境界を作った。
+  - `Copy` は method / Drop とも `NotRequired`、`Eq` / `Hash` は method resolver result + Drop `NotRequired`、`Drop` は method `NotRequired` + Drop impl resolver result とする。
+  - この module が直接作る check は operation 上不要な `NotRequired` だけに限定し、`Present` / `Missing` / `Unknown` / `DropImplAbsent` / `DropImplPresent` は既存 resolver から得る。
+  - nested resolver の duplicate などは `MethodBodyResolverRejected` / `DropImplResolverRejected` で wrapper error 化し、nested payload equality は wildcard arm なしで比較する。
+- implementation:
+  - `SelfhostMemoTraitOperationBodyChecks`、`SelfhostMemoTraitOperationBodyCheckResolverErrorKind`、stage0 summary、operation matrix resolver、wrapper error equality、stage0 smoke helper を追加した。
+  - `nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `todo.md`、MemoKey/MemoValue issue、selfhost compiler design に checkpoint を反映した。
+- implementation/test:
+  - focused doctest は Copy pair、Eq present、Hash missing、method Unknown、Drop absent、Drop Unknown、method duplicate wrapper、Drop duplicate wrapper を実行で確認する。
+  - source_policy は facade private、ty source list 非登録、forbidden layer imports、typed check pair、payload wrapper errors、private generic pair constructor、外部 module からの直接 `SelfhostMemoTraitOperationBodyChecks` 構築禁止、operation matrix、Copy no-table authority、Eq/Hash method-only、Drop drop-only、status preservation、wildcard-free equality、行数制限 / doc comment 長制限禁止を確認する。
+- subagent review:
+  - files_read: stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl; nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js; nodesrc/run_source_policy_regressions.js; doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md; todo.md; note.n.md
+  - not_reviewed: なし
+  - base: HEAD before current operation body check resolver diff
+  - head: working tree after operation body check resolver diff
+  - subagent_review_ids: `019ebca5-8b7e-7433-acff-a097308ca850`, `019ebaff-ce3f-7093-a185-ffdc1f07e0e1`
+  - subagent_review_count: 2
+  - subagent_review_rounds: 3
+  - pre-review: output は typed `SelfhostMemoTraitOperationBodyChecks` に限定し、evidence record / producer input を作らないこと、4-arm matrix、`Missing` / `Unknown` の status preservation、payload wrapper error、direct `NotRequired` construction、facade private、forbidden authority、line / doc comment length cap 禁止が Required として確認された。
+  - implementation review:
+    - Blocker: なし。
+    - Required: 初回 review では `selfhost_memo_trait_operation_body_checks_new` が public constructor になっており、operation matrix を迂回できることが Required として指摘された。修正として private `fn` にし、source policy に `pub fn` 不在の検査を追加した。再レビューでは Required なし。
+    - Non-blocker: 実装本体は typed output、payload wrapper error、wildcard-free equality、facade private、ty source 非登録、forbidden authority、line / doc comment length cap 禁止を満たすと確認された。
+    - Question: なし。
+    - Approve: あり。再レビューで Approve。
+  - Bohr independent review:
+    - Blocker: なし。
+    - Required: なし。
+    - Non-blocker: `Missing` だけでなく method / Drop の `Unknown` pass-through を smoke に入れると境界が強くなること、public payload 型の直接構築を source policy で外部禁止するとよいことが指摘された。
+    - Question: `pub struct SelfhostMemoTraitOperationBodyChecks` が struct constructor を見せる可能性について確認があった。この module は facade-private な resolver return payload としてだけ公開し、repo 内の外部 direct construction を source policy で禁止する方針に整理した。
+    - Approve: あり。
+  - decision: MERGE_APPROVED after focused verification and source policy rerun.
+  - source_policy: updated。`nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - source_policy: updated implementation/test contract for private constructor, external direct construction ban, typed pair output, operation matrix, method/drop Unknown pass-through, status preservation, forbidden authority, and no line/doc comment length cap.
+  - review response checklist: `nodesrc/selfhost_zenn_review_response_check.js` の Blocker / Non-blocker / Question / Approve 分類に沿って記録した。
+- verify:
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl --no-tree -o tmp/selfhost-operation-body-check-resolver.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した body check resolver contract は pass。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - existing warning: Node WASI ExperimentalWarning、CRLF warning、full source policy の既存 stdlib declaration doc gap baseline は既存 warning として扱う。
+  - existing_warnings: Node WASI ExperimentalWarning; CRLF warning; stdlib declaration doc gaps increased: 153 > 108 baseline.
+  - 今回差分由来 warning: なし。
+  - new_warnings: なし
+  - 検証済み: focused contract、focused doctest、関連 operation contract、Zenn review gate、source policy warn-only、issues check、diff check。
+  - blockers: なし
+  - questions: なし
+  - approve: approved
+  - residual_risk: なし
+  - unexecuted_verification: なし
+- residual:
+  - actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
+  - 次 slice: actual expression method body checker または Drop body effect checker / Resource IR escape proof を、同じ typed effect summary / no-escape proof boundary へ接続する。
+
 # 2026-06-13 Agent selfhost method body resolver checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、pure core boundary、DAG、source authority 排除、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。

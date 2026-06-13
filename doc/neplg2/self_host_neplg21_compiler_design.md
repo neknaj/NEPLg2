@@ -1497,6 +1497,22 @@ source policy は facade 非公開、`selfhost_ty_sources.js` 非登録、forbid
 
 この checkpoint 後の残件は、actual method body checker、Drop body effect checker と Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。lookup index 化や Drop impl fact table の sorted index 化は、今回固定した complete surface state、duplicate fail-closed、typed fact authority の contract を変えずに後から行える最適化として扱う。
 
+### 2026-06-13 MemoKey / MemoValue operation body check resolver checkpoint
+
+`memo_trait_operation_body_check_resolver.nepl` を追加し、method body resolver と Drop impl resolver の結果を operation evidence producer 直前の `SelfhostMemoTraitOperationBodyChecks` へ束ねる checker-layer 境界を作った。
+
+この resolver は証明生成層ではない。operation evidence record、producer input、aggregate proof status は作らず、operation kind に対する method body check と Drop impl check の組だけを返す。`Copy` は method body も Drop impl proof も不要なので両方を `NotRequired` にする。`Eq` / `Hash` は method body resolver から得た check と Drop `NotRequired` を組み合わせる。`Drop` は method `NotRequired` と Drop impl resolver から得た check を組み合わせる。この matrix は exhaustive match に閉じ、後続の full orchestration が手書きで `NotRequired` や `Missing` を混ぜる退行を防ぐ。
+
+`Present` / `Missing` / `Unknown` / `DropImplAbsent` / `DropImplPresent` は既存 resolver から得る。この module が直接構築する check は operation 上不要な `NotRequired` だけである。`Missing` / `Unknown` は status check であり、resolver error ではない。method body resolver または Drop impl resolver が duplicate、table read failure、push failure などの構造的不整合を返した場合だけ、payload 付き wrapper error として fail-closed に伝播する。
+
+accepted authority は session-local `SelfhostTypeId`、operation enum、typed effect check table、typed surface state に限定する。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、public surface hash は authority にしない。facade にはまだ re-export せず、`selfhost_ty_sources.js` にも登録しない。full public surface orchestration、actual expression method body checker、Drop body Resource IR proof、generic impl binder、private cache effect masking は後続 stage の責務である。
+
+source policy は、facade 非公開、ty source 非登録、forbidden layer import 禁止、operation matrix、typed check pair、payload 付き wrapper error、status と structural error の分離、wildcard-free equality、line / doc comment length cap 禁止を固定した。
+
+`SelfhostMemoTraitOperationBodyChecks` は resolver の返り値 payload 型として public にするが、この module 自体は facade-private に留める。generic pair constructor は private `fn` とし、repo 内の外部 module が `SelfhostMemoTraitOperationBodyChecks` を直接構築して operation matrix を迂回する退行は source policy で禁止した。stage0 smoke は `Missing` だけでなく method / Drop の `Unknown` pass-through も確認し、incomplete surface を accepted proof へ畳まない境界を実行例で固定する。
+
+この checkpoint 後の残件は、actual expression method body checker、Drop body effect checker と Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup と Drop impl fact table lookup の sorted index 化は、今回固定した check pair contract を変えずに後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

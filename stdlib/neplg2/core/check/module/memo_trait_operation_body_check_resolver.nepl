@@ -1,0 +1,396 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_body_check_resolver
+//: `Copy` / `Drop` / `Eq` / `Hash` operation ごとに、method body check と Drop check の[組/く]みを[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - actual method body checker と Drop body checker が作る typed effect fact を、operation evidence producer へ渡す直前の check pair に束ねます。
+//: - `Copy` は method body も Drop impl proof も必要としません。
+//: - `Eq` / `Hash` は method body purity check を必要とし、Drop impl proof は必要としません。
+//: - `Drop` は Drop impl proof を必要とし、method body purity check は必要としません。
+//: - この operation matrix を 1 つの exhaustive match に固定し、後続の full orchestration が手書きで `NotRequired` や `Missing` を混ぜる退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - この module は `SelfhostMemoTraitOperationBodyChecks` だけを返します。operation evidence record、producer input、aggregate proof status は作りません。
+//: - `Present` / `Missing` / `Unknown` / `DropImplAbsent` / `DropImplPresent` は既存 resolver から得ます。この module が直接作る check は operation 上不要な `NotRequired` だけです。
+//: - `Missing` / `Unknown` は status check であり、resolver error ではありません。これらを `Pure` や `DropImplAbsent` に畳みません。
+//: - method body resolver または Drop impl resolver が duplicate、table read failure、push failure などの構造的不整合を返した場合だけ、payload 付き wrapper error として fail-closed に伝播します。
+//: - `SelfhostMemoTraitOperationBodyChecks` は resolver の返り値 payload 型として公開します。ただし facade へは出さず、repo 内の外部 module が struct constructor を直接呼ぶことは source policy で禁止します。
+//: - accepted authority は session-local `SelfhostTypeId`、operation enum、typed effect check table、typed surface state だけです。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、public surface hash を authority にしません。
+//: - full public surface orchestration、actual expression method body checker、Drop body Resource IR proof、generic impl binder、private cache effect masking は後続 stage の責務です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では method body resolver と Drop impl resolver の既存 table API を呼ぶだけです。
+//: - table lookup は既存 resolver の内部表現に従い O(n) です。body check resolver 自体は table 表現を所有しないため、後続で resolver 内部を sorted index へ置き換えてもこの module の contract は変わりません。
+//: - facade にはまだ re-export しません。full operation evidence orchestration が public impl header、classifier、body check pair、purity gate、impl table をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Copy` は O(1) 時間・O(1) 追加空間です。
+//: - `Eq` / `Hash` は method body fact 数 n に対して O(n) 時間、O(1) 追加空間です。
+//: - `Drop` は Drop impl fact 数 n に対して O(n) 時間、O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_body_check_resolver" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_resolver" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_impl_resolver" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_body_check_resolver_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_body_check_resolver_method_kind_eq summary.copy_checks SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_body_check_resolver_drop_kind_eq summary.copy_checks SelfhostMemoTraitOperationDropCheckKind::NotRequired
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_body_check_resolver_method_kind_eq summary.eq_present_checks SelfhostMemoTraitOperationMethodBodyCheckKind::Present
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_body_check_resolver_drop_kind_eq summary.eq_present_checks SelfhostMemoTraitOperationDropCheckKind::NotRequired
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_body_check_resolver_method_kind_eq summary.hash_missing_checks SelfhostMemoTraitOperationMethodBodyCheckKind::Missing
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_body_check_resolver_method_kind_eq summary.method_unknown_checks SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_body_check_resolver_drop_kind_eq summary.drop_absent_checks SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_body_check_resolver_drop_kind_eq summary.drop_unknown_checks SelfhostMemoTraitOperationDropCheckKind::Unknown
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_body_check_resolver_error_result_eq summary.method_duplicate_rejected SelfhostMemoTraitOperationBodyCheckResolverErrorKind::MethodBodyResolverRejected SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_body_check_resolver_error_result_eq summary.drop_duplicate_rejected SelfhostMemoTraitOperationBodyCheckResolverErrorKind::DropImplResolverRejected SelfhostMemoTraitOperationDropImplResolverErrorKind::RecordDuplicate
+//:             let shown checks_print_report checks10
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "body check resolver stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "core/math" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_purity_gate" as *
+#import "./memo_trait_operation_method_body_resolver" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+
+//: SelfhostMemoTraitOperationBodyChecks: operation 別 method / Drop check pair
+//:
+//: [目的/もくてき]:
+//: - purity gate と impl candidate constructor に渡す 2 つの check を、同じ operation matrix から得た値として束ねます。
+//:
+//: [契約/けいやく]:
+//: - `method_body` は `SelfhostMemoTraitOperationMethodBodyCheck` です。
+//: - `drop_impl` は `SelfhostMemoTraitOperationDropCheck` です。
+//: - この struct は evidence record ではありません。`Missing` / `Unknown` / `Impure` の解釈は後続の purity gate と solver が行います。
+pub struct SelfhostMemoTraitOperationBodyChecks:
+    method_body %SelfhostMemoTraitOperationMethodBodyCheck
+    drop_impl %SelfhostMemoTraitOperationDropCheck
+
+//: SelfhostMemoTraitOperationBodyCheckResolverErrorKind: body check resolver の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - method body resolver と Drop impl resolver の構造的 error を、どちらの resolver 由来か失わずに運びます。
+//:
+//: [契約/けいやく]:
+//: - `Missing` / `Unknown` は error ではなく check status です。
+//: - payload は nested resolver error をそのまま保持します。表示用 string へ潰しません。
+pub enum SelfhostMemoTraitOperationBodyCheckResolverErrorKind:
+    MethodBodyResolverRejected %SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    DropImplResolverRejected %SelfhostMemoTraitOperationDropImplResolverErrorKind
+
+//: SelfhostMemoTraitOperationBodyCheckResolverStage0Summary: body check resolver smoke の代表結果
+pub struct SelfhostMemoTraitOperationBodyCheckResolverStage0Summary:
+    copy_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    eq_present_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    hash_missing_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    method_unknown_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    drop_absent_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    drop_present_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    drop_unknown_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    method_duplicate_rejected %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+    drop_duplicate_rejected %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind
+
+impl Clone for SelfhostMemoTraitOperationBodyChecks:
+    fn clone %fn &SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyChecks \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationBodyChecks:
+    fn copy_mark %fn SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyChecks \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationBodyCheckResolverErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationBodyCheckResolverErrorKind SelfhostMemoTraitOperationBodyCheckResolverErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationBodyCheckResolverErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationBodyCheckResolverErrorKind SelfhostMemoTraitOperationBodyCheckResolverErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationBodyCheckResolverStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationBodyCheckResolverStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_body_checks_new: method / Drop check pair を[作/つく]る private constructor
+//:
+//: [契約/けいやく]:
+//: - この constructor は operation matrix の内部でだけ使います。
+//: - 外部 orchestration が arbitrary pair を手で組み立てると、`Copy` / `Eq` / `Hash` / `Drop` ごとの必要 check が崩れるため public API にはしません。
+fn selfhost_memo_trait_operation_body_checks_new %fn SelfhostMemoTraitOperationMethodBodyCheck fn SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationBodyChecks \method_body\drop_impl:
+    SelfhostMemoTraitOperationBodyChecks method_body drop_impl
+
+//: selfhost_memo_trait_operation_body_check_method_not_required: method body 不要 check を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この module が直接作る method check は `NotRequired` だけです。
+fn selfhost_memo_trait_operation_body_check_method_not_required %fn void SelfhostMemoTraitOperationMethodBodyCheck \void:
+    selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_body_check_drop_not_required: Drop 不要 check を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この module が直接作る Drop check は `NotRequired` だけです。
+fn selfhost_memo_trait_operation_body_check_drop_not_required %fn void SelfhostMemoTraitOperationDropCheck \void:
+    selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::NotRequired SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_body_check_method_error: nested method resolver error を[包/つつ]む
+fn selfhost_memo_trait_operation_body_check_method_error %fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind SelfhostMemoTraitOperationBodyCheckResolverErrorKind \error:
+    SelfhostMemoTraitOperationBodyCheckResolverErrorKind::MethodBodyResolverRejected error
+
+//: selfhost_memo_trait_operation_body_check_drop_error: nested Drop resolver error を[包/つつ]む
+fn selfhost_memo_trait_operation_body_check_drop_error %fn SelfhostMemoTraitOperationDropImplResolverErrorKind SelfhostMemoTraitOperationBodyCheckResolverErrorKind \error:
+    SelfhostMemoTraitOperationBodyCheckResolverErrorKind::DropImplResolverRejected error
+
+//: selfhost_memo_trait_operation_body_check_resolve_copy: Copy operation の check pair を[作/つく]る
+fn selfhost_memo_trait_operation_body_check_resolve_copy %fn void Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind \void:
+    Result::Ok selfhost_memo_trait_operation_body_checks_new selfhost_memo_trait_operation_body_check_method_not_required selfhost_memo_trait_operation_body_check_drop_not_required
+
+//: selfhost_memo_trait_operation_body_check_resolve_method_operation: Eq / Hash operation の check pair を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - method body check は method body resolver から得ます。
+//: - Drop check は operation 上不要なので `NotRequired` を直接作ります。
+//: - method resolver が `Missing` / `Unknown` status を返した場合は成功値として保持し、wrapper error にはしません。
+fn selfhost_memo_trait_operation_body_check_resolve_method_operation %fn SelfhostMemoTraitOperationMethodBodySurfaceState fn &SelfhostMemoTraitOperationMethodBodyTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_surface\method_table\type_id\operation:
+    match selfhost_memo_trait_operation_method_body_resolve_result method_surface method_table type_id operation:
+        Result::Ok method_body:
+            Result::Ok selfhost_memo_trait_operation_body_checks_new method_body selfhost_memo_trait_operation_body_check_drop_not_required
+        Result::Err method_error:
+            Result::Err selfhost_memo_trait_operation_body_check_method_error method_error
+
+//: selfhost_memo_trait_operation_body_check_resolve_drop_operation: Drop operation の check pair を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - method body check は operation 上不要なので `NotRequired` を直接作ります。
+//: - Drop check は Drop impl resolver から得ます。
+//: - Drop resolver が `Missing` / `Unknown` status を返した場合は成功値として保持し、wrapper error にはしません。
+fn selfhost_memo_trait_operation_body_check_resolve_drop_operation %fn SelfhostMemoTraitOperationDropImplSurfaceState fn &SelfhostMemoTraitOperationDropImplTable fn SelfhostTypeId Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind \drop_surface\drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_impl_resolve_result drop_surface drop_table type_id:
+        Result::Ok drop_impl:
+            Result::Ok selfhost_memo_trait_operation_body_checks_new selfhost_memo_trait_operation_body_check_method_not_required drop_impl
+        Result::Err drop_error:
+            Result::Err selfhost_memo_trait_operation_body_check_drop_error drop_error
+
+//: selfhost_memo_trait_operation_body_check_resolve_result: operation kind から必要な body check pair を[解決/かいけつ]する
+//:
+//: [契約/けいやく]:
+//: - `Copy` では method table も Drop table も authority にしません。
+//: - `Eq` / `Hash` では method resolver だけを呼び、Drop resolver は呼びません。
+//: - `Drop` では Drop impl resolver だけを呼び、method table lookup は行いません。
+//: - operation matrix は exhaustive match で管理し、variant 追加時にはこの関数が更新対象になります。
+pub fn selfhost_memo_trait_operation_body_check_resolve_result %fn SelfhostMemoTraitOperationMethodBodySurfaceState fn &SelfhostMemoTraitOperationMethodBodyTable fn SelfhostMemoTraitOperationDropImplSurfaceState fn &SelfhostMemoTraitOperationDropImplTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_surface\method_table\drop_surface\drop_table\type_id\operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            selfhost_memo_trait_operation_body_check_resolve_copy
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            selfhost_memo_trait_operation_body_check_resolve_drop_operation drop_surface drop_table type_id
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            selfhost_memo_trait_operation_body_check_resolve_method_operation method_surface method_table type_id operation
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            selfhost_memo_trait_operation_body_check_resolve_method_operation method_surface method_table type_id operation
+
+//: selfhost_memo_trait_operation_body_check_resolver_error_kind_eq: wrapper error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested resolver error は nested equality helper で payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_body_check_resolver_error_kind_eq %fn SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn SelfhostMemoTraitOperationBodyCheckResolverErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationBodyCheckResolverErrorKind::MethodBodyResolverRejected a_method:
+            match b:
+                SelfhostMemoTraitOperationBodyCheckResolverErrorKind::MethodBodyResolverRejected b_method:
+                    selfhost_memo_trait_operation_method_body_resolver_error_kind_eq a_method b_method
+                SelfhostMemoTraitOperationBodyCheckResolverErrorKind::DropImplResolverRejected _b_drop:
+                    false
+        SelfhostMemoTraitOperationBodyCheckResolverErrorKind::DropImplResolverRejected a_drop:
+            match b:
+                SelfhostMemoTraitOperationBodyCheckResolverErrorKind::MethodBodyResolverRejected _b_method:
+                    false
+                SelfhostMemoTraitOperationBodyCheckResolverErrorKind::DropImplResolverRejected b_drop:
+                    selfhost_memo_trait_operation_drop_impl_resolver_error_kind_eq a_drop b_drop
+
+//: selfhost_memo_trait_operation_body_check_resolver_method_check_kind_code: method check kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_body_check_resolver_method_check_kind_code %fn SelfhostMemoTraitOperationMethodBodyCheckKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+            0
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+            1
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+            2
+        SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+            3
+
+//: selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_code: Drop check kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_code %fn SelfhostMemoTraitOperationDropCheckKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent:
+            0
+        SelfhostMemoTraitOperationDropCheckKind::DropImplPresent:
+            1
+        SelfhostMemoTraitOperationDropCheckKind::Missing:
+            2
+        SelfhostMemoTraitOperationDropCheckKind::Unknown:
+            3
+        SelfhostMemoTraitOperationDropCheckKind::NotRequired:
+            4
+
+//: selfhost_memo_trait_operation_body_check_resolver_method_check_kind_eq: method check kind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_body_check_resolver_method_check_kind_eq %fn SelfhostMemoTraitOperationMethodBodyCheckKind fn SelfhostMemoTraitOperationMethodBodyCheckKind bool \a\b:
+    eq selfhost_memo_trait_operation_body_check_resolver_method_check_kind_code a selfhost_memo_trait_operation_body_check_resolver_method_check_kind_code b
+
+//: selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_eq: Drop check kind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_eq %fn SelfhostMemoTraitOperationDropCheckKind fn SelfhostMemoTraitOperationDropCheckKind bool \a\b:
+    eq selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_code a selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_code b
+
+//: selfhost_memo_trait_operation_body_check_resolver_method_kind_eq: result の method check kind が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_body_check_resolver_method_kind_eq %fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn SelfhostMemoTraitOperationMethodBodyCheckKind bool \result\expected:
+    match result:
+        Result::Ok checks:
+            selfhost_memo_trait_operation_body_check_resolver_method_check_kind_eq checks.method_body.kind expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_body_check_resolver_drop_kind_eq: result の Drop check kind が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_body_check_resolver_drop_kind_eq %fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn SelfhostMemoTraitOperationDropCheckKind bool \result\expected:
+    match result:
+        Result::Ok checks:
+            selfhost_memo_trait_operation_body_check_resolver_drop_check_kind_eq checks.drop_impl.kind expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_body_check_resolver_error_result_eq: result が期待 error か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_body_check_resolver_error_result_eq %fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn SelfhostMemoTraitOperationBodyCheckResolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _checks:
+            false
+        Result::Err e:
+            selfhost_memo_trait_operation_body_check_resolver_error_kind_eq e expected
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_summary_new %fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind SelfhostMemoTraitOperationBodyCheckResolverStage0Summary \copy_checks\eq_present_checks\hash_missing_checks\method_unknown_checks\drop_absent_checks\drop_present_checks\drop_unknown_checks\method_duplicate_rejected\drop_duplicate_rejected:
+    SelfhostMemoTraitOperationBodyCheckResolverStage0Summary copy_checks eq_present_checks hash_missing_checks method_unknown_checks drop_absent_checks drop_present_checks drop_unknown_checks method_duplicate_rejected drop_duplicate_rejected
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_finish: owner table を[閉/と]じて summary を[返/かえ]す
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_finish %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostMemoTraitOperationBodyCheckResolverStage0Summary Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_table\drop_table\summary:
+    selfhost_memo_trait_operation_method_body_table_free method_table
+    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+    Result::Ok summary
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_drop_duplicate: Drop duplicate rejection smoke を[作/つく]る
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_drop_duplicate %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_table\drop_table\type_id\copy_checks\eq_present_checks\hash_missing_checks\method_unknown_checks\drop_absent_checks\drop_present_checks\drop_unknown_checks\method_duplicate_rejected:
+    let duplicate_drop_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
+    match selfhost_memo_trait_operation_drop_impl_table_push drop_table duplicate_drop_fact:
+        Result::Ok drop_table2:
+            let drop_duplicate_rejected %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table2 type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+            let summary %SelfhostMemoTraitOperationBodyCheckResolverStage0Summary selfhost_memo_trait_operation_body_check_resolver_stage0_summary_new copy_checks eq_present_checks hash_missing_checks method_unknown_checks drop_absent_checks drop_present_checks drop_unknown_checks method_duplicate_rejected drop_duplicate_rejected
+            selfhost_memo_trait_operation_body_check_resolver_stage0_finish method_table drop_table2 summary
+        Result::Err drop_error:
+            selfhost_memo_trait_operation_method_body_table_free method_table
+            Result::Err selfhost_memo_trait_operation_body_check_drop_error drop_error
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_method_duplicate: method duplicate rejection smoke を[作/つく]る
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_method_duplicate %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind impure fn Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_table\drop_table\type_id\absent_type_id\copy_checks\eq_present_checks\hash_missing_checks\method_unknown_checks\drop_absent_checks\drop_present_checks\drop_unknown_checks:
+    match selfhost_memo_trait_operation_method_body_fact_new_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable:
+        Result::Ok duplicate_method_fact:
+            match selfhost_memo_trait_operation_method_body_table_push method_table duplicate_method_fact:
+                Result::Ok method_table2:
+                    let method_duplicate_rejected %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table2 SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+                    selfhost_memo_trait_operation_body_check_resolver_stage0_drop_duplicate method_table2 drop_table type_id copy_checks eq_present_checks hash_missing_checks method_unknown_checks drop_absent_checks drop_present_checks drop_unknown_checks method_duplicate_rejected
+                Result::Err method_error:
+                    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                    Result::Err selfhost_memo_trait_operation_body_check_method_error method_error
+        Result::Err method_error:
+            selfhost_memo_trait_operation_method_body_table_free method_table
+            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+            Result::Err selfhost_memo_trait_operation_body_check_method_error method_error
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_drop_fact: Drop present fact を[追加/ついか]する
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_drop_fact %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_table\drop_table\type_id\absent_type_id:
+    let present_drop_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    match selfhost_memo_trait_operation_drop_impl_table_push drop_table present_drop_fact:
+        Result::Ok drop_table1:
+            let copy_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table1 type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+            let eq_present_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table1 type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+            let hash_missing_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table1 type_id SelfhostMemoTraitOperationEvidenceKind::Hash
+            let method_unknown_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Unknown &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table1 type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+            let drop_absent_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table1 absent_type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+            let drop_present_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &drop_table1 type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+            let drop_unknown_checks %Result SelfhostMemoTraitOperationBodyChecks SelfhostMemoTraitOperationBodyCheckResolverErrorKind selfhost_memo_trait_operation_body_check_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &method_table SelfhostMemoTraitOperationDropImplSurfaceState::Unknown &drop_table1 type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+            selfhost_memo_trait_operation_body_check_resolver_stage0_method_duplicate method_table drop_table1 type_id absent_type_id copy_checks eq_present_checks hash_missing_checks method_unknown_checks drop_absent_checks drop_present_checks drop_unknown_checks
+        Result::Err drop_error:
+            selfhost_memo_trait_operation_method_body_table_free method_table
+            Result::Err selfhost_memo_trait_operation_body_check_drop_error drop_error
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_method_fact: Eq method fact を[追加/ついか]する
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_method_fact %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_table\drop_table\type_id\absent_type_id:
+    match selfhost_memo_trait_operation_method_body_fact_new_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable:
+        Result::Ok method_fact:
+            match selfhost_memo_trait_operation_method_body_table_push method_table method_fact:
+                Result::Ok method_table1:
+                    selfhost_memo_trait_operation_body_check_resolver_stage0_drop_fact method_table1 drop_table type_id absent_type_id
+                Result::Err method_error:
+                    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                    Result::Err selfhost_memo_trait_operation_body_check_method_error method_error
+        Result::Err method_error:
+            selfhost_memo_trait_operation_method_body_table_free method_table
+            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+            Result::Err selfhost_memo_trait_operation_body_check_method_error method_error
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0_after_drop_table: Drop table allocation 後の smoke を[続/つづ]ける
+fn selfhost_memo_trait_operation_body_check_resolver_stage0_after_drop_table %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \method_table\drop_table\type_id\absent_type_id:
+    selfhost_memo_trait_operation_body_check_resolver_stage0_method_fact method_table drop_table type_id absent_type_id
+
+//: selfhost_memo_trait_operation_body_check_resolver_stage0: body check resolver の smoke API
+//:
+//: [目的/もくてき]:
+//: - Copy / Eq / Hash / Drop の operation matrix、method duplicate wrapper、Drop duplicate wrapper を実行経路で確認します。
+pub fn selfhost_memo_trait_operation_body_check_resolver_stage0 %impure fn void Result SelfhostMemoTraitOperationBodyCheckResolverStage0Summary SelfhostMemoTraitOperationBodyCheckResolverErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9301
+    let absent_type_id %SelfhostTypeId selfhost_type_id_new 9302
+    match selfhost_memo_trait_operation_method_body_table_new:
+        Result::Ok method_table:
+            match selfhost_memo_trait_operation_drop_impl_table_new:
+                Result::Ok drop_table:
+                    selfhost_memo_trait_operation_body_check_resolver_stage0_after_drop_table method_table drop_table type_id absent_type_id
+                Result::Err drop_alloc:
+                    selfhost_memo_trait_operation_method_body_table_free method_table
+                    Result::Err selfhost_memo_trait_operation_body_check_drop_error SelfhostMemoTraitOperationDropImplResolverErrorKind::TableAllocFailed drop_alloc
+        Result::Err method_alloc:
+            Result::Err selfhost_memo_trait_operation_body_check_method_error SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed method_alloc

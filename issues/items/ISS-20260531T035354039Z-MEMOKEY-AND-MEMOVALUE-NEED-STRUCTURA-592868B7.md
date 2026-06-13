@@ -56,6 +56,22 @@ Accepted tests should cover primitive scalar/unit/structural Copy values; reject
 
 Current Phase 1 regression is covered by `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`.
 
+## 2026-06-13 selfhost operation body check resolver checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
+
+この resolver は operation evidence record、producer input、aggregate proof status を作らない。出力は `SelfhostMemoTraitOperationBodyChecks` だけであり、`Copy` は method body と Drop impl の両方を `NotRequired`、`Eq` / `Hash` は method body resolver の結果と Drop `NotRequired`、`Drop` は method `NotRequired` と Drop impl resolver の結果へ写す。直接構築する check は operation 上不要な `NotRequired` に限定し、`Present` / `Missing` / `Unknown` / `DropImplAbsent` / `DropImplPresent` は既存 resolver から得る。
+
+`Missing` / `Unknown` は resolver error ではなく status check として保持する。method body resolver または Drop impl resolver が duplicate、table read failure、push failure などの構造的不整合を返した場合だけ、`MethodBodyResolverRejected` / `DropImplResolverRejected` の payload 付き wrapper error として fail-closed に伝播する。error equality は wildcard arm を使わず、nested resolver error payload まで比較する。
+
+accepted authority は session-local `SelfhostTypeId`、operation enum、typed effect check table、typed surface state に限定する。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、public surface hash は authority にしない。facade にはまだ re-export せず、`nodesrc/selfhost_ty_sources.js` にも登録しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import、operation matrix、typed check pair、private generic pair constructor、外部 module からの直接 `SelfhostMemoTraitOperationBodyChecks` 構築禁止、payload 付き wrapper error、status と structural error の分離、method / Drop の `Unknown` pass-through、wildcard-free equality、行数・doc comment 長制限禁止を確認する。
+
+subagent review では Anscombe が、generic pair constructor が public だと operation matrix を迂回できることを Required として指摘した。同じ slice 内で `selfhost_memo_trait_operation_body_checks_new` を private `fn` に戻し、source policy に `pub fn` 退行検出を追加した。Bohr は method / Drop の `Unknown` pass-through smoke と public payload 型の外部直接構築禁止を Non-blocker / Question として挙げたため、focused doctest と source policy に反映した。最終的に両 review とも Blocker / Required なしで Approve された。
+
+この checkpoint 後の残件は、actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup と Drop impl fact table lookup の sorted index 化は、今回固定した check pair contract を変えずに後からできる最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。
