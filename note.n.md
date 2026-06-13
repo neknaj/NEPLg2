@@ -1,3 +1,36 @@
+# 2026-06-14 Agent2 Web GUI video memory fake host harness checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、default host stub を成功化しない、fake host を opt-in 検査に閉じる、stdout / command frame / TS simulation へ fallback しない方針で実装した。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-video-memory-fake-host-20260614`
+- classification: Web GUI video memory fake host execution harness / NEPL Wasm happy path regression
+- implementation:
+  - `nodesrc/run_test.js` に JS focused test 用の `runtimeImportsFactory` 経路を追加した。
+  - `run_test.js` の default `nepl_gui_web` import table は unsupported / invalid stub のまま維持し、host capability missing を `GuiError` へ写す既存境界を壊していない。
+  - `nodesrc/test_web_gui_video_memory_fake_host_harness.js` を追加し、`examples/gui_video_memory_rows.nepl` の通常 path を `--contract` なしの NEPL/Wasm として実行する fake positive harness を追加した。
+  - fake host は `create -> acquire -> write_rgba8888_row -> write_rgba8888_row -> publish -> present -> close` の順序、opaque positive surface / frame id、write slot ownership、close 後操作拒否、8x2 row payload を Wasm linear memory から読み出して検査する。
+  - `nodesrc/run_source_policy_regressions.js` に fake host harness を登録し、row example contract test と GUI docs を「後続予定」から「opt-in fake host 実行検査あり」へ更新した。
+  - `todo.md` から fake positive harness 残件を削除し、GUI examples 全体を Zenn 方針と新 video memory / render2d / font / event host 仕様へ然るべき段階で全面移行する残件を追加した。
+- subagent review:
+  - Erdos pre-review: 条件付き許可。default `nepl_gui_web` stub を unsupported のまま維持し、focused harness は通常 path を実行し、順序、opaque id、slot ownership、close 後拒否、row payload の Wasm memory 読み出しを必須確認するよう指摘された。
+  - 実装では、単に `0` を返す mock ではなく state machine fake host を追加し、`write_slot_bytes` / `fill_rect` / stdout / command frame を拒否する検査へ反映した。
+- verify:
+  - pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_rows_example_contract.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_host_import.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_video_memory_rows.nepl --no-tree -o tmp_gui_video_memory_rows_contract2.json -j 1 --dist web/dist --assert-io`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回差分由来の warning は解消済み。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+- residual:
+  - Mandelbrot / life / paint / calculator / breakout などの GUI examples 全体は、font / layout / render2d / event host が安定した段階で新仕様へ全面移行する必要がある。
+  - 今回の harness は Web video memory row example の happy path 実行検査であり、formal tile / RLE transport、native framebuffer presenter、headless screenshot runner までは未実装である。
+
 # 2026-06-14 Agent2 Web GUI focused video memory row example checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、stdout `rgba-row` transport ではなく Web video memory row host import を使う focused NEPL example を追加した。

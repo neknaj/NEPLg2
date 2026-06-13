@@ -359,7 +359,7 @@ video_memory_close_surface surface_id -> status
 
 `write_slot_bytes` は low-level byte copy escape hatch である。application code が row payload を扱う場合は `write_rgba8888_row` を使い、app 側で `y * stride + x * 4` の byte offset を計算しない。`write_rgba8888_row` は `width > 0`、`x + width <= surface.width`、`0 <= y < surface.height`、source byte length が `width * 4` であることを Worker と surface helper の両方で検査する。成功時は pixel plane だけを更新し、dirty metadata、slot epoch、published epoch、presented epoch は更新しない。dirty region と epoch の authority は `publish_slot` である。
 
-`examples/gui_video_memory_rows.nepl` はこの row payload 境界の focused source example である。row bytes は `ByteBuilder` / `ByteBuf` owner と borrowed `MemPtr u8` で渡し、stdout `rgba-row` や command frame fallback は使わない。現行 CI の通常 doctest では `nepl_gui_web` import が unsupported stub なので、positive fake host import harness は後続の検査基盤として追加する。
+`examples/gui_video_memory_rows.nepl` はこの row payload 境界の focused source example である。row bytes は `ByteBuilder` / `ByteBuf` owner と borrowed `MemPtr u8` で渡し、stdout `rgba-row` や command frame fallback は使わない。通常 doctest の `run_test.js` default `nepl_gui_web` import は unsupported stub のまま残し、positive path は `nodesrc/test_web_gui_video_memory_fake_host_harness.js` が opt-in fake host import を注入して通常 path の NEPL/Wasm 実行として検査する。
 
 Negative status は Web platform module 内で `Result` と `GuiError` へ写す。Raw sentinel は public wrapper から漏らさない。
 
