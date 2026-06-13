@@ -418,6 +418,20 @@ typed item constructor と accumulator helper は現時点では module 内部�
 
 この checkpoint 後も、loader / module graph authority から re-export / import graph / public non-trait declaration の stable payload を作り、typed input stream へ投影する full public surface normalizer producer は未実装である。trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算、persistent stable map / serialized index、generic instantiation artifact 接続も後続 slice に残る。
 
+## 2026-06-13 selfhost public surface normalizer producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl` を追加し、loader / module graph authority が持つ任意長 dependency / re-export evidence と、checker が後段で作る任意長 public declaration stable payload hash を `SelfhostMemoTraitPublicSurfaceHashInputItem` stream へ変換する境界を作った。
+
+hash module には `selfhost_memo_trait_public_surface_hash_input_items_result` を module 内 fold gate として追加した。これは `&Vec SelfhostMemoTraitPublicSurfaceHashInputItem` を既存 accumulator に流すだけで、loader、VFS、module graph、path map、diagnostic rendering を import しない。source text、span、path、alias、display name、diagnostic text は hash input に入れない。この gate は LocalMemoTrait item を含む full input stream 合成 boundary が完成するまで facade public API には出さない。
+
+normalizer は dependency と re-export の `module_index` を `SelfhostModuleGraph` に照会して、graph に存在しない target を `GraphNodeUnavailable` で拒否する。ただし graph node の path は hash input へ写さない。dependency public surface hash は caller supplied typed hash として受け取り、`none` は `DependencyPublicSurfaceHashMissing`、`some 0` は `DependencyPublicSurfaceHashPlaceholder` として拒否する。public function / struct / enum / impl は caller supplied stable payload hash だけを受け取り、`0` は `StablePayloadHashPlaceholder` として拒否する。実 module の input 件数は固定ではないため、facade public API は `&Vec` evidence を読む任意長 producer にし、固定個数 helper は stage0 fixture に閉じる。
+
+`SelfhostMemoTraitPublicSurfaceNormalizerErrorKind` は graph rejection、graph node missing、input vector allocation failure、dependency hash missing / placeholder、stable payload hash placeholder、hash fold rejection を分ける。graph build 失敗は `SelfhostDiagnostic` の message / label / note をそのまま public error payload にせず、`SelfhostMemoTraitPublicSurfaceGraphRejectionKind` へ写して表示境界と typed error boundary を分離する。hash 側の ordinal mismatch などは後続 full hash fold boundary で `HashRejected(SelfhostMemoTraitPublicSurfaceHashErrorKind)` に payload を保持するため、normalizer が hash error を文字列や bool に潰さない。
+
+stage0 smoke は graph authority 付き accepted partial input stream、dependency hash missing / placeholder、graph node missing、stable payload placeholder を確認する。source policy は `nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js` で、facade export、typed error enum、graph node existence check、partial input stream producer、VFS / loader / source text / AST / diagnostic payload 非 public API、source/path/span/alias/display/diagnostic 非 authority、proof store / HIR / Resource IR / backend 非依存、line count / doc comment length cap 禁止を固定した。
+
+この checkpoint 後も、LocalMemoTrait item と normalizer 部分 stream を同じ full input stream に合成する boundary、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key、trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。今回固定した normalizer evidence / partial stream / typed error taxonomy は後から崩すと public surface hash の authority が source text や path へ戻るため今必要な設計であり、graph lookup の index 化や stream owner の内部表現は public contract を変えずに後から最適化できる。
+
 ## 2026-06-13 selfhost memo trait operation solver checkpoint
 
 `stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl` を追加し、type arena と layout evidence から Copy / Drop / Eq / Hash operation proof status table を作る境界を実装した。

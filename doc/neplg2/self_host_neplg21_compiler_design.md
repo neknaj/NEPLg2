@@ -1336,6 +1336,16 @@ Stage0 smoke は、local `MemoKey` / `MemoValue`、dependency、re-export、publ
 
 この checkpoint でも、re-export / import graph / public non-trait declaration の stable payload を実際に作る normalizer は未実装である。typed item constructor と accumulator helper は module 内部に閉じ、stable facade API へは出さない。次 stage では loader / module graph authority が持つ typed dependency surface、re-export projection、public function / struct / enum / impl signature を `SelfhostMemoTraitPublicSurfaceHashInputItem` stream へ投影する producer を実装し、その producer 用に必要な公開境界を改めて設計する。trait impl table、method body purity、Drop なし proof は operation solver 側の後続 slice として扱う。
 
+2026-06-13 MemoKey / MemoValue public surface normalizer producer checkpoint では、`stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl` を追加し、loader / module graph authority と full public surface input composition boundary の間に typed producer を置いた。
+
+`memo_trait_public_surface_hash.nepl` には `selfhost_memo_trait_public_surface_hash_input_items_result` を module 内 fold gate として追加した。この関数は `&Vec SelfhostMemoTraitPublicSurfaceHashInputItem` を受け取り、既存 accumulator へ item を順に渡して finish する。hash module は引き続き loader、VFS、module graph、path map、diagnostic rendering を import しない。source text、span、path、alias、display name、diagnostic text は引数にも hash material にも入らない。この fold gate は、LocalMemoTrait item と normalizer 部分 stream を同じ full input stream へ合成する境界が完成するまで、facade public API としては公開しない。
+
+normalizer module は `Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence`、`Vec SelfhostMemoTraitPublicSurfaceReExportEvidence`、`Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` を borrowed input として受け取る。dependency / re-export では `module_index` によって `SelfhostModuleGraph` 上の node 存在を確認するが、node の path は returned input item へ写さない。accepted input item に入るのは、kind、ordinal、public visibility、caller supplied stable payload hash、caller supplied dependency public surface hash だけである。実 module の import / re-export / public declaration 件数は固定ではないため、固定個数 helper は stage0 fixture に閉じ、facade public API は任意長 vector 境界にする。
+
+拒否理由は `SelfhostMemoTraitPublicSurfaceNormalizerErrorKind` に閉じた。graph build / lookup failure、dependency public surface hash missing、dependency public surface hash placeholder、stable payload hash placeholder、hash fold rejection を bool や文字列へ潰さない。graph build 失敗は `SelfhostDiagnostic` payload を public error として保持せず、`SelfhostMemoTraitPublicSurfaceGraphRejectionKind` へ写して error と表示境界を分離する。hash fold rejection は後続 full hash fold boundary で `HashRejected(SelfhostMemoTraitPublicSurfaceHashErrorKind)` として payload を保持するため、ordinal mismatch など hash schema 側の拒否理由を失わない。
+
+この checkpoint は public non-trait declaration の stable payload hash を作る本体でも、最終 public surface hash を確定する本体でもない。function signature、struct / enum layout header、impl header、re-export export table、stable nominal key、method body purity、Drop なし proof は後続 stage が別の typed evidence として計算する。さらに LocalMemoTrait item と normalizer 部分 stream を同じ full input stream に合成する boundary も後続 stage に残す。今回固定したのは、後続 stage が作った stable payload を loader / graph authority と突き合わせて typed input stream へ渡す境界である。これは後から変えると public surface hash の authority が source text や path に戻りやすいため、試作段階の今決めるべき設計である。一方で stream owner の内部表現、graph lookup の index 化、stage0 fixture の整理は、公開 evidence / error / partial stream contract を変えずに後から最適化できる。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

@@ -68,11 +68,12 @@ const moduleCheckerDiagnostic = read("stdlib/neplg2/core/check/module/diagnostic
 const moduleCheckerRawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const moduleCheckerDeclarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
 const moduleCheckerMemoTraitPublicSurfaceHash = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl");
+const moduleCheckerMemoTraitPublicSurfaceNormalizer = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl");
 const moduleCheckerMemoTraitPublicSurfaceSeed = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl");
 const moduleCheckerMemoTraitSourceEvidenceProducer = read("stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl");
 const moduleCheckerMemoTraitSourceScan = read("stdlib/neplg2/core/check/module/memo_trait_source_scan.nepl");
 const moduleCheckerOrchestrate = read("stdlib/neplg2/core/check/module/orchestrate.nepl");
-const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerMemoTraitPublicSurfaceHash}\n${moduleCheckerMemoTraitPublicSurfaceSeed}\n${moduleCheckerMemoTraitSourceEvidenceProducer}\n${moduleCheckerMemoTraitSourceScan}\n${moduleCheckerOrchestrate}`;
+const moduleCheckerPublicSurface = `${moduleCheckerSummary}\n${moduleCheckerMemoTraitPublicSurfaceHash}\n${moduleCheckerMemoTraitPublicSurfaceNormalizer}\n${moduleCheckerMemoTraitPublicSurfaceSeed}\n${moduleCheckerMemoTraitSourceEvidenceProducer}\n${moduleCheckerMemoTraitSourceScan}\n${moduleCheckerOrchestrate}`;
 const moduleCheckerImplementation = [
     moduleCheckerSummary,
     moduleCheckerSummaryUpdate,
@@ -80,6 +81,7 @@ const moduleCheckerImplementation = [
     moduleCheckerRawAdapter,
     moduleCheckerDeclarationAdapter,
     moduleCheckerMemoTraitPublicSurfaceHash,
+    moduleCheckerMemoTraitPublicSurfaceNormalizer,
     moduleCheckerMemoTraitPublicSurfaceSeed,
     moduleCheckerMemoTraitSourceEvidenceProducer,
     moduleCheckerMemoTraitSourceScan,
@@ -602,6 +604,7 @@ assert.match(
 
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/summary" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_hash" as \*/);
+assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_normalizer" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_public_surface_seed" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_signature_shape" as \*/);
 assert.match(moduleCheckerFacade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
@@ -613,6 +616,7 @@ assert.deepEqual(
         .sort(),
     [
         "./module/memo_trait_public_surface_hash as *",
+        "./module/memo_trait_public_surface_normalizer as *",
         "./module/memo_trait_public_surface_seed as *",
         "./module/memo_trait_signature_shape as *",
         "./module/memo_trait_source_evidence_producer as *",
@@ -656,6 +660,9 @@ const allowedPublicModuleCheckerFunctions = new Set([
     "selfhost_memo_trait_public_surface_hash_materialize_result",
     "selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result",
     "selfhost_memo_trait_public_surface_hash_stage0",
+    "selfhost_memo_trait_public_surface_normalizer_error_kind_eq",
+    "selfhost_memo_trait_public_surface_normalizer_partial_input_items_result",
+    "selfhost_memo_trait_public_surface_normalizer_stage0",
     "selfhost_memo_trait_public_surface_seed_error_kind_eq",
     "selfhost_memo_trait_public_surface_seed_registry_error_kind_eq",
     "selfhost_memo_trait_public_surface_seed_scan_module_result",

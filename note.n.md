@@ -57984,3 +57984,48 @@ MERGE_APPROVED
 - loader / module graph authority から re-export / import graph / public non-trait declaration の stable payload を作り、typed input stream へ投影する full public surface normalizer producer は未実装である。
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - accumulator fold の内部 memoization、fixed 2 slot compatibility table の可変長 table 化、field 別 placeholder error の追加は public item / accumulator contract を変えずに後からできる最適化または診断強化として扱う。
+
+## 2026-06-13 selfhost public surface normalizer producer checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-surface-input-producer-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、typed enum / Result error、pure core / boundary 分離、DAG、探索範囲削減、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API 境界を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_public_surface_hash.nepl` に `selfhost_memo_trait_public_surface_hash_input_items_result` を追加し、full public surface input composition boundary が作る `Vec SelfhostMemoTraitPublicSurfaceHashInputItem` を既存 accumulator へ渡せる module 内 fold gate を作った。この gate は LocalMemoTrait item と normalizer 部分 stream を合成する境界が完成するまで facade public API へ出さない。
+- `memo_trait_public_surface_normalizer.nepl` を追加し、loader / module graph authority と full public surface input composition boundary の間で dependency / re-export / public declaration evidence を typed partial input stream へ変換する producer を置いた。
+- dependency / re-export は `SelfhostModuleGraph` の node 存在を確認するが、node path は hash input へ写さない。accepted hash material は kind、ordinal、public visibility、stable payload hash、typed dependency public surface hash だけである。
+- `SelfhostMemoTraitPublicSurfaceNormalizerErrorKind` は graph rejection、graph node missing、input vector allocation failure、dependency hash missing / placeholder、stable payload hash placeholder、hash fold rejection を分ける。graph build 失敗は `SelfhostDiagnostic` payload を public error として保持せず、`SelfhostMemoTraitPublicSurfaceGraphRejectionKind` へ写す。
+- `stdlib/neplg2/core/check/module.nepl` で normalizer を facade re-export し、公開関数は error comparison、partial input stream producer、stage0 smoke に絞った。
+- `nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js` を追加し、facade export、typed error enum、graph node existence check、partial input stream producer、VFS / loader / source text / AST / diagnostic payload 非 public API、source/path/span/alias/display/diagnostic 非 authority、proof store / HIR / Resource IR / backend 非依存、line count / doc comment length cap 禁止を固定した。
+- `nodesrc/test_selfhost_module_checker_split_contract.js`、`nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`、`nodesrc/run_source_policy_regressions.js`、`todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue を更新した。
+
+### subagent_review
+
+- Lorentz design review: Blocker として、hash module 内で path/import/AST 解決を始める設計は不可、accepted hash/proof に source text / span / raw path / alias / display name / diagnostic text を混ぜる設計は不可と確認した。
+- Required として、checker-layer の normalizer module を hash module と loader/module graph の間に置くこと、graph path/alias/span は lookup / diagnostic に閉じること、producer error は typed enum payload で分けること、proof-store / HIR / Resource IR / backend 逆依存を作らないことを確認した。
+- 実装後 review では Blocker として、dependency / re-export / public declaration だけから返した final hash が LocalMemoTrait seed を含まない部分 hash になり得ると指摘された。対応として normalizer public API を `Result i32` の hash 返却から `Result Vec SelfhostMemoTraitPublicSurfaceHashInputItem ...` の partial input stream producer へ変更した。
+- Required として、`GraphRejected %SelfhostDiagnostic` の public payload が診断境界を露出しすぎること、public API が VFS / loader / source text を受け取らないこと、stable payload hash placeholder の smoke が必要なことを指摘された。対応として graph rejection kind enum、public signature source policy、stable payload placeholder stage0 を追加した。
+- 修正後 review では Required として、固定個数の dependency / re-export / function / struct / enum / impl 引数を取る public API では実 module の任意長入力を表せないと指摘された。対応として `selfhost_memo_trait_public_surface_normalizer_partial_input_items_result` を `&Vec` evidence 3 本を受け取る任意長 vector API に変更し、impossible short read は `InputVectorReadFailed` で fail-closed にした。
+- 任意長 vector API 対応後の review は Blocker / Required なし。final hash API が公開されていないこと、borrowed vector producer になっていること、InputVectorReadFailed が fail-closed であること、source/span/path/alias/display/diagnostic text 非 authority、proof store / artifact / HIR / Resource IR / backend 非依存、line count / comment length cap 禁止を確認した。
+- Recommended として、stage0 用 VFS 構築失敗分岐で途中まで作った VFS owner を閉じる補助関数を後で足すとより堅いと指摘された。これは public producer 本体ではなく smoke fixture 側の整理なので、今回の commit では residual に残す。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_normalizer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-normalizer-producer.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-hash-vector-gate.json`
+
+### residual
+
+- LocalMemoTrait item と normalizer 部分 stream を同じ full input stream に合成する boundary、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 stable payload producer は未完了である。
+- trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- graph lookup の index 化、stream owner の内部表現、stage0 fixture の整理は public normalizer evidence / error / partial stream contract を変えずに後からできる最適化として扱う。
+- stage0 用 VFS 構築失敗時の owner cleanup helper は fixture 整理として未完了である。

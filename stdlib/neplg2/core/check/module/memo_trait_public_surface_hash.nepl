@@ -939,6 +939,49 @@ fn selfhost_memo_trait_public_surface_hash_input_table_result %fn SelfhostMemoTr
         Result::Err first_error:
             Result::Err first_error
 
+//: selfhost_memo_trait_public_surface_hash_input_items_loop: ordered input item vector を accumulator へ[畳/たた]み[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - full public surface normalizer が作った可変長 input stream を、hash module の accumulator contract へ接続します。
+//:
+//: [契約/けいやく]:
+//: - caller は source order や graph path ではなく、すでに正規化した ordinal を item に入れて渡します。
+//: - この loop は `Vec` の index と item ordinal を同一視しません。ordinal adjacency は accumulator が検査します。
+//: - `Vec` index が読めない場合は caller の stream 所有不整合なので、ordinal mismatch として fail-closed にします。
+fn selfhost_memo_trait_public_surface_hash_input_items_loop %fn &Vec SelfhostMemoTraitPublicSurfaceHashInputItem fn SelfhostMemoTraitPublicSurfaceHashInputAccumulator fn i32 fn i32 Result SelfhostMemoTraitPublicSurfaceHashInputAccumulator SelfhostMemoTraitPublicSurfaceHashErrorKind \items\state\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok state
+        else:
+            match v::get items idx:
+                Option::Some item:
+                    match selfhost_memo_trait_public_surface_hash_input_accumulator_push_result state item:
+                        Result::Ok next_state:
+                            selfhost_memo_trait_public_surface_hash_input_items_loop items next_state add idx 1 n
+                        Result::Err item_error:
+                            Result::Err item_error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceInputOrdinalMismatch
+
+//: selfhost_memo_trait_public_surface_hash_input_items_result: ordered input item vector から public surface hash を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - full public surface hash を作る境界が渡した typed input stream を、hash module が fold するための module 内 gate です。
+//:
+//: [契約/けいやく]:
+//: - この関数は source text、span、path、alias、display name、diagnostic text を受け取りません。
+//: - `DependencyModule` と `ReExport` の dependency public surface hash、local item への unexpected dependency hash、ordinal gap / duplicate / reorder は既存 accumulator と item validation で拒否します。
+//: - hash module は stream を所有しません。caller が `Vec` owner の lifetime と解放を管理します。
+fn selfhost_memo_trait_public_surface_hash_input_items_result %fn &Vec SelfhostMemoTraitPublicSurfaceHashInputItem Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \items:
+    let start %SelfhostMemoTraitPublicSurfaceHashInputAccumulator selfhost_memo_trait_public_surface_hash_input_accumulator_empty
+    let n %i32 v::len items
+    match selfhost_memo_trait_public_surface_hash_input_items_loop items start 0 n:
+        Result::Ok state:
+            selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result state
+        Result::Err input_error:
+            Result::Err input_error
+
 //: selfhost_memo_trait_public_surface_hash_key_input_item_result: MemoKey seed を input item へ[変換/へんかん]する
 fn selfhost_memo_trait_public_surface_hash_key_input_item_result %fn SelfhostMemoTraitStableSourceTraitSeed Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
     if:

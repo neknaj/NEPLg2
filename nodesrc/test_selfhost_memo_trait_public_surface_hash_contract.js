@@ -274,6 +274,21 @@ assert.match(
 );
 assert.match(
     source,
+    /\nfn selfhost_memo_trait_public_surface_hash_input_items_result %fn &Vec SelfhostMemoTraitPublicSurfaceHashInputItem Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind/,
+    "hash module must keep a narrow vector fold gate for the full public surface composition boundary",
+);
+assert.doesNotMatch(
+    source,
+    /pub fn selfhost_memo_trait_public_surface_hash_input_items_result\b/,
+    "hash vector fold gate must not be facade-public before every full public surface input producer is composed",
+);
+assert.match(
+    source,
+    /selfhost_memo_trait_public_surface_hash_input_items_loop[\s\S]*v::get items idx[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_push_result state item[\s\S]*selfhost_memo_trait_public_surface_hash_input_accumulator_finish_result state/,
+    "vector fold gate must reuse the existing accumulator and finish validation",
+);
+assert.match(
+    source,
     /selfhost_memo_trait_public_surface_hash_from_seed_table_result[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result seed_table[\s\S]*selfhost_memo_trait_public_surface_hash_input_table_result input_table/,
     "seed table folding API must route through the typed input table boundary",
 );

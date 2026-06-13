@@ -23,6 +23,7 @@ const diagnostic = read("stdlib/neplg2/core/check/module/diagnostic.nepl");
 const rawAdapter = read("stdlib/neplg2/core/check/module/raw_backend_adapter.nepl");
 const declarationAdapter = read("stdlib/neplg2/core/check/module/declaration_adapter.nepl");
 const memoTraitPublicSurfaceHash = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl");
+const memoTraitPublicSurfaceNormalizer = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl");
 const memoTraitPublicSurfaceSeed = read("stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl");
 const memoTraitSourceEvidenceProducer = read("stdlib/neplg2/core/check/module/memo_trait_source_evidence_producer.nepl");
 const memoTraitSourceFingerprint = read("stdlib/neplg2/core/check/module/memo_trait_source_fingerprint.nepl");
@@ -35,6 +36,7 @@ const implementation = [
     rawAdapter,
     declarationAdapter,
     memoTraitPublicSurfaceHash,
+    memoTraitPublicSurfaceNormalizer,
     memoTraitPublicSurfaceSeed,
     memoTraitSourceEvidenceProducer,
     memoTraitSourceFingerprint,
@@ -44,6 +46,7 @@ const implementation = [
 
 assert.match(facade, /pub #import "\.\/module\/summary" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_public_surface_hash" as \*/);
+assert.match(facade, /pub #import "\.\/module\/memo_trait_public_surface_normalizer" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_public_surface_seed" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_signature_shape" as \*/);
 assert.match(facade, /pub #import "\.\/module\/memo_trait_source_evidence_producer" as \*/);
@@ -55,6 +58,7 @@ assert.deepEqual(
         .sort(),
     [
         "./module/memo_trait_public_surface_hash as *",
+        "./module/memo_trait_public_surface_normalizer as *",
         "./module/memo_trait_public_surface_seed as *",
         "./module/memo_trait_signature_shape as *",
         "./module/memo_trait_source_evidence_producer as *",
@@ -147,6 +151,9 @@ for (const publicName of publicFunctions(memoTraitSourceScan)) {
 for (const publicName of publicFunctions(memoTraitPublicSurfaceHash)) {
     publicSurface.add(publicName);
 }
+for (const publicName of publicFunctions(memoTraitPublicSurfaceNormalizer)) {
+    publicSurface.add(publicName);
+}
 for (const publicName of publicFunctions(memoTraitPublicSurfaceSeed)) {
     publicSurface.add(publicName);
 }
@@ -171,6 +178,9 @@ const expectedPublicSurface = [
     "selfhost_memo_trait_public_surface_hash_materialize_result",
     "selfhost_memo_trait_trusted_source_registry_from_public_surface_hash_result",
     "selfhost_memo_trait_public_surface_hash_stage0",
+    "selfhost_memo_trait_public_surface_normalizer_error_kind_eq",
+    "selfhost_memo_trait_public_surface_normalizer_partial_input_items_result",
+    "selfhost_memo_trait_public_surface_normalizer_stage0",
     "selfhost_memo_trait_public_surface_seed_error_kind_eq",
     "selfhost_memo_trait_public_surface_seed_registry_error_kind_eq",
     "selfhost_memo_trait_public_surface_seed_scan_module_result",
