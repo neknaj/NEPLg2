@@ -573,6 +573,32 @@ Path command payload は元の `GuiSfntSimpleGlyphContourEdge` / `GuiSfntSimpleG
 
 F4m は `Vec GuiSfntSimpleGlyphPathCommand` を作らない。caller は `move_to_command` と `draw_command` を明示的に呼び分け、必要な command を 1 つずつ取得する。これにより headless / bare / web / native のどの backend でも同じ pure projection を使える。
 
+### SFNT simple glyph path command public lookup
+
+F4n は SFNT byte input から contour-local edge の path command を 1 つ読む public lookup layer である。この段階でも full outline `Vec`、command list、sink trait、winding、fill rule、rasterization、2D renderer command への変換は行わない。
+
+```text
+gui_sfnt_lookup_simple_glyph_move_to_command:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathCommand GuiSfntParseError
+
+gui_sfnt_lookup_simple_glyph_draw_command:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathCommand GuiSfntParseError
+```
+
+F4n は `gui_sfnt_lookup_simple_glyph_curve_segment` を呼び、成功した `GuiSfntSimpleGlyphCurveSegment` を F4m の `move_to_command` または `draw_command` に渡す。`gui_sfnt_parse_metadata`、`*_with_tables` helper、point / contour decode helper、curve classification logic を F4n で重複実装してはならない。
+
+`gui_sfnt_lookup_simple_glyph_curve_segment` が `Result::Err` を返した場合、F4n は同じ `GuiSfntParseError` を伝播する。`NoSegment` は parse error ではないため、F4n でも `Result::Ok (SkipNoSegment ...)` として返す。`Option::None`、empty command、silent no-op、fallback drawing にはしない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

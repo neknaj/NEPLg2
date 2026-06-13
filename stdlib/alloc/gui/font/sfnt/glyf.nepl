@@ -2447,3 +2447,43 @@ pub fn gui_sfnt_lookup_simple_glyph_curve_segment %fn &ByteBuf fn Option i32 fn 
                                     Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
                                 Option::Some glyf:
                                     gui_sfnt_glyf_simple_curve_segment_with_tables bytes head loca glyf metrics glyph contour_index edge_index
+
+//: gui_sfnt_lookup_simple_glyph_move_to_command: SFNT glyf edge から move path command を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - byte-backed curve segment lookup の成功値を F4m の move projection に[渡/わた]します。
+//: - これは public composition helper であり、metadata unwrap や table helper bypass は行いません。
+//:
+//: [注意/ちゅうい]:
+//: - parse error は `GuiSfntParseError` のまま伝播します。
+//: - `NoSegment` は `SkipNoSegment` の成功値として返り、silent no-op にはしません。
+//: - full outline allocation、command list、rasterizer、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_move_to_command %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphPathCommand GuiSfntParseError \bytes\face_index\glyph\contour_index\edge_index:
+    match gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok segment:
+            let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_move_to_command &segment
+            Result::Ok command
+
+//: gui_sfnt_lookup_simple_glyph_draw_command: SFNT glyf edge から draw path command を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - byte-backed curve segment lookup の成功値を F4m の draw projection に[渡/わた]します。
+//: - `Line` は `LineTo`、`Quadratic` は `QuadraticTo`、`NoSegment` は `SkipNoSegment` になります。
+//:
+//: [注意/ちゅうい]:
+//: - parse error は `GuiSfntParseError` のまま伝播します。
+//: - command index、command list、sink trait は導入しません。
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_draw_command %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphPathCommand GuiSfntParseError \bytes\face_index\glyph\contour_index\edge_index:
+    match gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok segment:
+            let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_draw_command &segment
+            Result::Ok command

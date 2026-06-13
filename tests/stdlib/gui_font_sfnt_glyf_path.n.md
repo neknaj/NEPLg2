@@ -135,6 +135,25 @@ fn main %impure fn void i32 \void:
     let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_contour_edge contour contour 0 0
     let no_segment %GuiSfntSimpleGlyphCurveNoSegment gui_sfnt_simple_glyph_curve_no_segment edge GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour
     let segment %GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphCurveSegment::NoSegment no_segment
+    let move_skip_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_move_to_command &segment
+    let move_skip_ok %bool match move_skip_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            let ok_contour %bool eq 0 gui_sfnt_simple_glyph_path_skip_no_segment_contour_index &skip
+            let ok_edge %bool eq 0 gui_sfnt_simple_glyph_path_skip_no_segment_edge_index &skip
+            let ok_reason %bool match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour:
+                    true
+                GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart:
+                    false
+                GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
+                    false
+            and ok_contour and ok_edge ok_reason
     let skip_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_draw_command &segment
     let skip_ok %bool match skip_command:
         GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
@@ -154,5 +173,5 @@ fn main %impure fn void i32 \void:
                 GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
                     false
             and ok_contour and ok_edge ok_reason
-    test_assertion_exit_code assert "no segment path command is explicit skip" skip_ok
+    test_assertion_exit_code assert "no segment path command is explicit skip" and move_skip_ok skip_ok
 ```

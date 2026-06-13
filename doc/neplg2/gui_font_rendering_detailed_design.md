@@ -825,6 +825,34 @@ The command payload must be compact. F4m does not copy the whole edge, line segm
 
 F4m must not allocate `Vec GuiSfntSimpleGlyphPathCommand`, call `gui_sfnt_parse_metadata`, call platform font APIs, use host text measurement, import render2d/backend modules, build full glyph outlines, or rasterize pixels.
 
+### SFNT simple glyph path command public lookup
+
+F4n is a thin public composition layer over F4l and F4m. It takes the same byte-backed lookup input shape as the existing curve segment public lookup and returns the path command value needed by the next layer.
+
+```text
+gui_sfnt_lookup_simple_glyph_move_to_command bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_simple_glyph_curve_segment_move_to_command segment
+
+gui_sfnt_lookup_simple_glyph_draw_command bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_simple_glyph_curve_segment_draw_command segment
+```
+
+The implementation must not call `gui_sfnt_parse_metadata`, `gui_sfnt_glyf_simple_curve_segment_with_tables`, lower point/contour table helpers, renderer APIs, rasterizers, host text measurement, or platform APIs. Those responsibilities already belong to earlier lookup layers or later rendering phases.
+
+Error flow is one-to-one with F4l byte-backed lookup:
+
+```text
+Result::Err parse_error
+    -> Result::Err parse_error
+
+Result::Ok segment
+    -> Result::Ok path_command
+```
+
+`NoSegment` remains a successful path command state. Both public F4n helpers map it to `SkipNoSegment`; they do not return `Option::None`, synthesize an empty command, or silently ignore the edge.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

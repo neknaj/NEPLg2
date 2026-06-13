@@ -270,6 +270,17 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4m path command contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path command public lookup",
+    "gui_sfnt_lookup_simple_glyph_move_to_command:",
+    "gui_sfnt_lookup_simple_glyph_draw_command:",
+    "-> Result GuiSfntSimpleGlyphPathCommand GuiSfntParseError",
+    "F4n は `gui_sfnt_lookup_simple_glyph_curve_segment` を呼び",
+    "F4m の `move_to_command` または `draw_command` に渡す",
+    "`NoSegment` は parse error ではないため、F4n でも `Result::Ok (SkipNoSegment ...)`",
+]) {
+    assert(spec.includes(fragment), `font spec F4n path command lookup contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -372,6 +383,18 @@ for (const fragment of [
     "must not allocate `Vec GuiSfntSimpleGlyphPathCommand`",
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4m path command contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "SFNT simple glyph path command public lookup",
+    "thin public composition layer over F4l and F4m",
+    "gui_sfnt_lookup_simple_glyph_move_to_command bytes face_index glyph contour_index edge_index",
+    "gui_sfnt_lookup_simple_glyph_draw_command bytes face_index glyph contour_index edge_index",
+    "The implementation must not call `gui_sfnt_parse_metadata`",
+    "Result::Ok segment",
+    "Result::Ok path_command",
+    "`NoSegment` remains a successful path command state",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4n path command lookup contract must mention ${fragment}`);
 }
 assertMatch(
     implementationPlan,
@@ -478,6 +501,20 @@ for (const fragment of [
     "tests/stdlib/gui_font_sfnt_glyf_path.n.md",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4m path command contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4n:",
+    "sfnt simple glyph path command public lookup",
+    "gui_sfnt_lookup_simple_glyph_move_to_command",
+    "gui_sfnt_lookup_simple_glyph_draw_command",
+    "F4l の byte-backed curve segment lookup と F4m の path command projection を合成するだけ",
+    "`Result::Err` は同じ `GuiSfntParseError` として伝播",
+    "F4n では `gui_sfnt_parse_metadata`",
+    "`NoSegment` は `Result::Ok SkipNoSegment`",
+    "no `Vec GuiSfntSimpleGlyphPathCommand`",
+    "tests/stdlib/gui_font_sfnt_glyf_path.n.md",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4n path command lookup contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -862,6 +899,16 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_move_to_command\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphPathCommand\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf move command lookup must take borrowed ByteBuf, checked GuiGlyphId, contour index, and contour-local edge index",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_draw_command\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphPathCommand\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf draw command lookup must take borrowed ByteBuf, checked GuiGlyphId, contour index, and contour-local edge index",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
 );
@@ -1084,6 +1131,46 @@ assertNoMatch(
     /\b(?:gui_sfnt_parse_metadata|gui_sfnt_lookup_|RenderCommand|render_command_|RenderTarget|DrawTarget|raster|Raster|platform|Canvas|DOM|FontFace|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
     "alloc/gui/font/sfnt/glyf F4m projection must stay pure and must not parse metadata, render, rasterize, or call host/platform text APIs",
 );
+const moveCommandLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_move_to_command");
+for (const fragment of [
+    "gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index",
+    "Result::Err error",
+    "Result::Ok segment",
+    "gui_sfnt_simple_glyph_curve_segment_move_to_command &segment",
+    "Result::Ok command",
+]) {
+    assert(moveCommandLookup.includes(fragment), `alloc/gui/font/sfnt/glyf move command lookup must include ${fragment}`);
+}
+assertNoMatch(
+    moveCommandLookup,
+    /\b(?:gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_|gui_sfnt_glyf_simple_point_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|raster|Raster|platform|Canvas|DOM|FontFace|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4n move command lookup must stay a thin F4l/F4m composition layer",
+);
+assertNoMatch(
+    moveCommandLookup,
+    /\bgui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_span|contour_point|contour_edge)\b/,
+    "alloc/gui/font/sfnt/glyf F4n move command lookup must not bypass F4l through lower public lookup helpers",
+);
+const drawCommandLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_draw_command");
+for (const fragment of [
+    "gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index",
+    "Result::Err error",
+    "Result::Ok segment",
+    "gui_sfnt_simple_glyph_curve_segment_draw_command &segment",
+    "Result::Ok command",
+]) {
+    assert(drawCommandLookup.includes(fragment), `alloc/gui/font/sfnt/glyf draw command lookup must include ${fragment}`);
+}
+assertNoMatch(
+    drawCommandLookup,
+    /\b(?:gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_|gui_sfnt_glyf_simple_point_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|raster|Raster|platform|Canvas|DOM|FontFace|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4n draw command lookup must stay a thin F4l/F4m composition layer",
+);
+assertNoMatch(
+    drawCommandLookup,
+    /\bgui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_span|contour_point|contour_edge)\b/,
+    "alloc/gui/font/sfnt/glyf F4n draw command lookup must not bypass F4l through lower public lookup helpers",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,
@@ -1206,6 +1293,16 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_simple_glyph_curve_segment\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf curve segment lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_move_to_command\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf move command lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_draw_command\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf draw command lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,
