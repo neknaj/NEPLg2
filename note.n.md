@@ -59054,3 +59054,23 @@ MERGE_APPROVED
 
 - actual method body checker、Drop body effect checker / Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked interface artifact 接続は未実装である。
 - Drop impl fact table lookup の sorted index 化は、complete surface state、duplicate fail-closed、typed fact authority の contract を変えずに後から行える最適化として扱う。
+
+## 2026-06-13 selfhost stage optimization classification policy
+
+### scope
+
+- branch: `work/selfhost-optimization-stage-policy`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- user_policy: 後からできる最適化と今やっておかないと取り返しがつかない最適化を区別し、後からできる最適化であれば一定の時間超過を許容して次の stage を進める。
+
+### decision
+
+- 今の stage で固定する最適化は、source authority、typed proof boundary、artifact key、public API、module DAG、diagnostic code、owner / borrow / drop 意味論、cache invalidation key に影響するものとした。
+- 後からできる最適化は、typed input / output、error enum、proof status、facade boundary、source policy contract を保ったまま内部表現だけ置き換えられるものとした。
+- `Vec` scan の sorted index 化、lookup cache、merge cursor、stage0 fixture 分割、nested traversal memoization、linear validation の index-assisted 化は後続最適化として扱える。
+- lookup miss を proof success に畳む、source spelling を authority にする、cache key が不完全、Resource proof を省く、typed enum ではなく bool / string で失敗を潰す、といった問題は速度に関係なく今の stage で修正する。
+
+### documentation
+
+- `doc/neplg2/self_host_neplg21_compiler_design.md` に「stage 進行と性能最適化の分類」を追加した。
+- `todo.md` に、selfhost MemoKey / MemoValue stage ではこの分類に従い、contract を保てる内部最適化で semantic stage を止めないことを追記した。

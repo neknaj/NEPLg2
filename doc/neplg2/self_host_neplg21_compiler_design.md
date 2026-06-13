@@ -1,6 +1,6 @@
 # NEPLg2.1 セルフホストコンパイラ設計
 
-最終更新: 2026-06-11
+最終更新: 2026-06-13
 
 ## 位置づけ
 
@@ -23,6 +23,37 @@
 - 失敗は `Option` / `Result` / enum diagnostic として表現し、string 判定や sentinel 値へ依存しない。
 - public API に型名付き重複関数を増やさず、型注釈、期待型、trait / generic 解決で選択する。
 - prototype 段階では大きな再設計を許すが、後続実装へ隠れた技術的負債を渡さない。
+
+## stage 進行と性能最適化の分類
+
+セルフホストコンパイラの実装では、性能問題をすべて同じ優先度で扱わない。現在の stage で設計を誤ると後から取り返しがつかない最適化と、公開 contract を保ったまま後から差し替えられる最適化を分ける。
+
+今の stage で固定するべき最適化は、後続の型、authority、artifact key、proof boundary、module DAG、public API、diagnostic code、owner / borrow / drop の意味論に影響するものである。これらは実装後に直すと、既存 artifact、source policy、issue、doctest、selfhost module 間の依存関係を広く壊す。したがって、多少時間がかかっても先に正しい境界を作る。
+
+具体的には、次は今やっておく必要がある。
+
+- source text、span、display name、diagnostic message、path suffix を semantic authority にしないこと。
+- parser、type resolver、checker、HIR、Resource IR、backend、artifact reader / writer の authority を混ぜないこと。
+- `TypeId` や arena-local id を永続 artifact key にせず、stable canonical key / fingerprint / public surface hash へ分けること。
+- lookup miss を proof success に畳まないこと。complete witness、missing、unknown、duplicate、unsupported を typed enum で区別すること。
+- `Result` / `Option` / enum error、owner recovery、drop / borrow / no-escape proof、private effect masking の境界を先に固定すること。
+- cache を使う場合でも、cache key と invalidation boundary に必要な入力を先に型として固定すること。
+- 後続 module から見える public data shape、facade boundary、source policy contract、doctest の成功 / fail-closed 条件を曖昧にしないこと。
+
+一方で、公開 contract と authority を保ったまま内部実装だけを置き換えられる最適化は、一定の時間超過を許容して次の stage を進める。これは性能問題を無視するという意味ではない。現 stage では「後から置換できる形に閉じる」ことを完了条件にし、実測で支配的になった時点で独立 issue として扱う。
+
+後からできる最適化の例は次である。
+
+- `Vec` scan を sorted index、hash index、bucket table、merge cursor に置き換えること。
+- O(n) lookup を module-local cache や same-session memo table に置き換えること。
+- stage0 smoke の入力を分割して compile time を短くすること。ただし検査責務は削らない。
+- public summary contract を変えずに nested traversal の重複計算を memoize すること。
+- artifact reader / writer の linear validation を index-assisted validation に置き換えること。
+- 同じ typed input / typed output を保ったまま、allocation 回数や temporary owner を減らすこと。
+
+ただし、後からできる最適化として扱うには条件がある。現在の実装が安全性検査を省略していないこと、探索範囲と計算量を doc comment または issue に記録していること、置換時に守る contract が source policy で固定されていること、実測上の時間超過が stage 進行を妨げるほどではないことを確認する。
+
+この分類により、compile time が一時的に長い module があっても、原因が「内部 table がまだ O(n) である」「stage0 fixture が大きい」「後で index 化できる linear validation である」なら、semantic stage を止めない。逆に、原因が「型証拠の不足を fallback success にしている」「cache key が不完全」「source spelling を authority にしている」「Resource proof を省いている」なら、速度に関係なくその stage で修正する。
 
 ## Zenn 方針 review gate
 
