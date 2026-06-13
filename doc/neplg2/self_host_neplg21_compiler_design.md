@@ -1288,6 +1288,16 @@ source policy は `nodesrc/test_selfhost_memo_trait_type_argument_identity_contr
 
 この checkpoint は proof status の運搬と producer 接続であり、trait impl table、method body purity、Drop なし proof、Eq / Hash の純粋性検査、recursive field traversal、cycle boundary はまだ実装しない。型が `SelfhostTypeArena` に存在しない場合は `MissingTypeRecord` で拒否し、fake TypeId の operation proof record だけで accepted aggregate proof を作らない。source policy と doctest は duplicate record rejection、fake TypeId rejection、missing record fail-closed を実行経路として固定する。source policy はさらに facade re-export、source list 登録、checker / HIR / Resource IR / backend への逆依存禁止、proof store / artifact / codec への依存禁止、wildcard arm 禁止、line count / doc comment length cap 禁止を固定する。
 
+2026-06-13 MemoKey / MemoValue recursive aggregate traversal checkpoint では、`stdlib/neplg2/core/ty/ty/memo_trait_recursive_aggregate.nepl` を追加し、aggregate field closure を cycle-safe に走査する境界を作った。
+
+この module は accepted proof を作らない。`SelfhostMemoTraitRecursiveAggregateSummary` は root、到達 aggregate 数、field edge 数、最大 depth だけを保持し、Copy / Drop / Eq / Hash proof status、hazard proof、producer record、proof store record を保持しない。`SelfhostMemoTraitRecursiveAggregateErrorKind` は `MissingTypeRecord`、`TargetNotAggregate`、`LayoutRejected(SelfhostMemoTraitLayoutEvidenceErrorKind)`、`FieldRecordMissing`、`UnsupportedFieldType`、`CycleDetected`、`DepthLimitReached`、`StackPushFailed(StdErrorKind)` を typed enum として持ち、layout validator や Vec push の失敗を bool や diagnostic string に潰さない。
+
+走査は `memo_trait_layout.nepl` の public layout validator だけを通って field range を取得する。primitive field は leaf として扱うが、root primitive は aggregate target ではないため拒否する。Named / Applied field は再帰的に visit し、Parameter field は `LayoutRejected(GenericArgumentUnsubstituted)`、Function field は `UnsupportedFieldType` として fail-closed にする。cycle 判定は現在の ancestry stack に限定し、sibling branch の再登場は global visited first-wins として拒否しない。`max_depth` は root depth 0 を含む fuel であり、`depth > max_depth` で `DepthLimitReached` を返す。
+
+stage0 smoke は accepted root->primitive、nested accepted root->child->primitive、self-cycle、depth limit、primitive target、missing TypeId、parameter field rejection、function field rejection を public entry 経由で確認する。source policy は facade re-export、source list 登録、`layout < producer < recursive aggregate < operation proof` の順序、proof store / operation proof / HIR / Resource IR / backend / source text authority への依存禁止、typed error equality の wildcard 禁止、line count / doc comment length cap 禁止を固定する。
+
+最適化の扱いは二段階に分ける。今固定したのは、後続 producer gate が依存する traversal contract、typed error taxonomy、cycle / depth / unsupported field の fail-closed 境界であり、これは後から崩すと accepted proof の意味が変わるため今必要な設計である。一方で、layout lookup の indexing、sibling branch の summary memoization、persistent artifact との共有、branch 間再走査の削減は summary と error の public 契約を変えずに後から差し替えられるため、ある程度の時間超過を理由にこの stage を止めず、次は producer gate / Copy-Drop-Eq-Hash pure evidence へ進める。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

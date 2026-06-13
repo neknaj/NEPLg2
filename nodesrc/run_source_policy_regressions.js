@@ -216,6 +216,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_canonical_key_contract.js",
     "nodesrc/test_selfhost_memo_trait_canonical_key_payload_contract.js",
     "nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js",
+    "nodesrc/test_selfhost_memo_trait_recursive_aggregate_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_proof_contract.js",
     "nodesrc/test_selfhost_memo_trait_artifact_word_codec_contract.js",
     "nodesrc/test_selfhost_memo_trait_canonical_key_payload_codec_contract.js",

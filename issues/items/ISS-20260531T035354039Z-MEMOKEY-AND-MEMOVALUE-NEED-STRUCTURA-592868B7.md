@@ -610,6 +610,35 @@ subagent review では Hume が Blocker なしと判断した。Required とし�
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 recursive aggregate traversal checkpoint
+
+`memo_trait_recursive_aggregate.nepl` を追加し、`MemoKey` / `MemoValue` aggregate proof の前段として aggregate field closure を cycle-safe に走査する境界を接続した。
+
+この checkpoint は proof acceptance ではない。出力 summary は root、到達 aggregate 数、field edge 数、最大 depth だけを持ち、Copy / Drop / Eq / Hash proof status、hazard proof、accepted evidence record、proof store record は作らない。失敗は `SelfhostMemoTraitRecursiveAggregateErrorKind` に閉じ、layout rejection と stack push failure の nested payload を保持する。
+
+走査は `memo_trait_layout.nepl` の public layout evidence validator だけを通る。primitive field は leaf、Named / Applied field は再帰、Parameter field は `LayoutRejected(GenericArgumentUnsubstituted)`、Function field は `UnsupportedFieldType` として扱う。cycle 判定は ancestry stack 上の再登場だけを拒否し、global visited first-wins で sibling branch を誤って拒否しない。depth は root depth 0 を含む fuel として明示し、上限を超えた場合だけ `DepthLimitReached` にする。
+
+stage0 smoke は accepted root->primitive、nested accepted root->child->primitive、self-cycle、depth limit、primitive target、missing TypeId、parameter field rejection、function field rejection を public entry 経由で確認する。source policy は facade re-export、source list 登録、`layout < producer < recursive aggregate < operation proof` の順序、operation proof / proof artifact / HIR / Resource IR / backend / source text authority への逆依存禁止、typed error equality の wildcard 禁止、line count / doc comment length cap 禁止を固定した。
+
+最適化は今必要なものと後から可能なものに分ける。今固定した traversal contract、typed error taxonomy、cycle / depth / unsupported field の fail-closed 境界は producer gate の意味に関わるため後回しにしない。一方で、layout lookup indexing、sibling branch summary memoization、persistent artifact 共有、branch 間再走査削減は public summary / error 契約を変えずに後から置換できるため、この checkpoint では未実装のまま次 stage に進める。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_recursive_aggregate_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_layout_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_recursive_aggregate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-recursive-aggregate.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`。既存 documentation gap sample は表示されるが baseline check は pass。
+- pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+この checkpoint 後の残件は、recursive aggregate summary を producer gate の実入力へ接続すること、Copy / Drop / Eq / Hash pure evidence の実計算、re-export / import graph / public non-trait declaration を含む full public surface hash、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation identity の HIR / monomorphize / artifact 接続である。
+
 ## 2026-06-12 selfhost token-aware public surface seed scan core checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_seed_scan.nepl` を追加し、method-bearing `MemoKey` / `MemoValue` trait definition を扱う token-aware public surface seed scan を seed / hash / token_gate から独立した shared core に分離した。

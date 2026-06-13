@@ -1,0 +1,801 @@
+#indent 4
+
+//: # ty/memo_trait_recursive_aggregate
+//: `MemoKey` / `MemoValue` aggregate proof の前段で、aggregate field closure を cycle-safe に走査する module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_layout.nepl` は 1 つの aggregate type に対する field range と field table の整合性を検査します。この module は、その field type を再帰的に辿り、cycle、depth limit、unsupported field type を typed error として fail-closed にします。
+//: - `memo_trait_operation_proof.nepl` は Copy / Drop / Eq / Hash の proof status を運びます。この module は operation proof を計算せず、accepted proof record も作りません。
+//: - producer gate に渡す前に「field closure が有限で、generic parameter や function type を含まない」という形だけを確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 走査対象は `SelfhostTypeRecord::Named` と `SelfhostTypeRecord::Applied` だけです。primitive field は leaf として許可しますが、root が primitive の場合は aggregate proof 対象ではないため拒否します。
+//: - cycle 判定は「現在の ancestry stack」に限定します。すでに別 branch で走査した aggregate が sibling branch に再登場することは cycle ではありません。
+//: - `max_depth` は root depth `0` を含む上限です。`depth > max_depth` になった時点で `DepthLimitReached` を返します。
+//: - field range と field record の整合性は `memo_trait_layout.nepl` の public validator に委譲します。この module は layout validator を迂回して `Known(range)` を作りません。
+//: - 成功 result は受理証明ではありません。Copy / Drop / Eq / Hash proof、cache escape hazard、MemoKey / MemoValue の最終判定は producer / proof solver の責務です。
+//: - proof store、artifact reader、serializer、Resource IR、HIR、backend、source text、diagnostic string へ依存しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では product field layout の再帰走査だけを扱います。enum variant layout、trait impl table からの operation proof 計算、hazard solver、persistent proof artifact との接続は後続 slice です。
+//: - visit stack は session-local `Vec SelfhostTypeId` で保持し、public API の戻り値や artifact へは出しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 各 aggregate visit で layout lookup と field validation を既存 layout module に委譲します。現在の layout lookup は layout record 数 n に対する O(n) です。
+//: - cycle check は現在の depth d に対する O(d) です。
+//: - 同じ aggregate が複数 branch から現れた場合は branch ごとに再走査します。これは accepted proof cache ではなく closure boundary なので、memoized solver / proof store による共有は後続 slice で扱います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_layout" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_recursive_aggregate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_recursive_aggregate_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_recursive_aggregate_summary_is_shape summary.accepted 1 1 0
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_recursive_aggregate_summary_is_shape summary.nested_accepted 2 2 1
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_recursive_aggregate_error_kind_eq (unwrap_err summary.cycle_rejected) SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_recursive_aggregate_error_kind_eq (unwrap_err summary.depth_rejected) SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_recursive_aggregate_error_kind_eq (unwrap_err summary.target_rejected) SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_recursive_aggregate_error_kind_eq (unwrap_err summary.missing_type_rejected) SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_recursive_aggregate_error_kind_eq (unwrap_err summary.parameter_field_rejected) SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_recursive_aggregate_error_kind_eq (unwrap_err summary.function_field_rejected) SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait recursive aggregate stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./kind/model" as *
+#import "./memo_trait_layout" as *
+#import "./memo_trait_producer" as *
+#import "./record" as *
+
+//: SelfhostMemoTraitRecursiveAggregateSummary: aggregate field closure の走査 summary
+//:
+//: [目的/もくてき]:
+//: - accepted proof ではなく、走査が到達した aggregate 数、field edge 数、最大 depth を記録します。
+//: - `root` は caller が渡した arena-local TypeId です。artifact や cross-arena cache の identity として使ってはいけません。
+pub struct SelfhostMemoTraitRecursiveAggregateSummary:
+    root %SelfhostTypeId
+    aggregate_count %i32
+    field_count %i32
+    max_depth_seen %i32
+
+//: SelfhostMemoTraitRecursiveAggregateErrorKind: recursive aggregate boundary の失敗分類
+//:
+//: [目的/もくてき]:
+//: - layout validator からの拒否、cycle/depth 境界、unsupported field type、visit stack allocation failure を enum として分けます。
+pub enum SelfhostMemoTraitRecursiveAggregateErrorKind:
+    MissingTypeRecord
+    TargetNotAggregate
+    LayoutRejected %SelfhostMemoTraitLayoutEvidenceErrorKind
+    FieldRecordMissing
+    UnsupportedFieldType
+    CycleDetected
+    DepthLimitReached
+    StackPushFailed %StdErrorKind
+
+//: SelfhostMemoTraitRecursiveAggregateVisitOk: 内部 visit が成功したときの stack owner と summary
+//:
+//: [目的/もくてき]:
+//: - recursion 中の ancestry stack owner と summary を同じ Result payload に入れ、成功時だけ caller が stack owner を受け取れるようにします。
+//: - error path ではこの module が stack owner を閉じるため、error payload に owner を入れません。
+struct SelfhostMemoTraitRecursiveAggregateVisitOk:
+    stack %Vec SelfhostTypeId
+    summary %SelfhostMemoTraitRecursiveAggregateSummary
+
+//: SelfhostMemoTraitRecursiveAggregateStage0Summary: recursive aggregate smoke の代表結果
+pub struct SelfhostMemoTraitRecursiveAggregateStage0Summary:
+    accepted %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    nested_accepted %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    cycle_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    depth_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    target_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    missing_type_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    parameter_field_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+    function_field_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind
+
+impl Clone for SelfhostMemoTraitRecursiveAggregateSummary:
+    fn clone %fn &SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateSummary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitRecursiveAggregateSummary:
+    fn copy_mark %fn SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateSummary \self:
+        self
+
+impl Clone for SelfhostMemoTraitRecursiveAggregateErrorKind:
+    fn clone %fn &SelfhostMemoTraitRecursiveAggregateErrorKind SelfhostMemoTraitRecursiveAggregateErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitRecursiveAggregateErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitRecursiveAggregateErrorKind SelfhostMemoTraitRecursiveAggregateErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitRecursiveAggregateStage0Summary:
+    fn clone %fn &SelfhostMemoTraitRecursiveAggregateStage0Summary SelfhostMemoTraitRecursiveAggregateStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitRecursiveAggregateStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitRecursiveAggregateStage0Summary SelfhostMemoTraitRecursiveAggregateStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_recursive_aggregate_summary_new: recursive aggregate summary を[作/つく]る
+pub fn selfhost_memo_trait_recursive_aggregate_summary_new %fn SelfhostTypeId fn i32 fn i32 fn i32 SelfhostMemoTraitRecursiveAggregateSummary \root\aggregate_count\field_count\max_depth_seen:
+    SelfhostMemoTraitRecursiveAggregateSummary root aggregate_count field_count max_depth_seen
+
+//: selfhost_memo_trait_recursive_aggregate_summary_single: 1 aggregate visit 分の summary を[作/つく]る
+fn selfhost_memo_trait_recursive_aggregate_summary_single %fn SelfhostTypeId fn i32 SelfhostMemoTraitRecursiveAggregateSummary \type_id\depth:
+    selfhost_memo_trait_recursive_aggregate_summary_new type_id 1 0 depth
+
+//: selfhost_memo_trait_recursive_aggregate_max_i32: 2 つの i32 の大きい方を[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_max_i32 %fn i32 fn i32 i32 \a\b:
+    if gt a b a b
+
+//: selfhost_memo_trait_recursive_aggregate_summary_add_field: summary に field edge 1 本を[足/た]す
+fn selfhost_memo_trait_recursive_aggregate_summary_add_field %fn SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateSummary \summary:
+    selfhost_memo_trait_recursive_aggregate_summary_new summary.root summary.aggregate_count add summary.field_count 1 summary.max_depth_seen
+
+//: selfhost_memo_trait_recursive_aggregate_summary_merge_child: child aggregate summary を parent summary に[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - `root` は parent の root を保持します。child root は traversal 内部の到達点であり、public summary の root には使いません。
+fn selfhost_memo_trait_recursive_aggregate_summary_merge_child %fn SelfhostMemoTraitRecursiveAggregateSummary fn SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateSummary \parent\child:
+    selfhost_memo_trait_recursive_aggregate_summary_new parent.root add parent.aggregate_count child.aggregate_count add parent.field_count child.field_count selfhost_memo_trait_recursive_aggregate_max_i32 parent.max_depth_seen child.max_depth_seen
+
+//: selfhost_memo_trait_recursive_aggregate_summary_is_shape: stage0 用に summary の shape を[確認/かくにん]する
+pub fn selfhost_memo_trait_recursive_aggregate_summary_is_shape %fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn i32 fn i32 fn i32 bool \result\aggregate_count\field_count\max_depth_seen:
+    match result:
+        Result::Ok summary:
+            and:
+                eq summary.aggregate_count aggregate_count
+                and eq summary.field_count field_count eq summary.max_depth_seen max_depth_seen
+        Result::Err _kind:
+            false
+
+//: selfhost_memo_trait_recursive_aggregate_visit_ok_new: visit success payload を[作/つく]る
+fn selfhost_memo_trait_recursive_aggregate_visit_ok_new %impure fn Vec SelfhostTypeId impure fn SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateVisitOk \stack\summary:
+    SelfhostMemoTraitRecursiveAggregateVisitOk stack summary
+
+//: selfhost_memo_trait_recursive_aggregate_visit_error_after_free: stack を閉じて error を[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_visit_error_after_free %impure fn Vec SelfhostTypeId impure fn SelfhostMemoTraitRecursiveAggregateErrorKind Result SelfhostMemoTraitRecursiveAggregateVisitOk SelfhostMemoTraitRecursiveAggregateErrorKind \stack\kind:
+    v::free stack
+    Result::Err kind
+
+//: selfhost_memo_trait_recursive_aggregate_std_error_kind_code: StdErrorKind payload 比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `StdErrorKind` は payload を持たない enum なので、網羅 match で作った code を equality にだけ使います。
+//: - wildcard arm は使いません。`StdErrorKind` が増えた場合、この関数も明示的に更新します。
+fn selfhost_memo_trait_recursive_aggregate_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_recursive_aggregate_std_error_kind_eq: StdErrorKind payload が同じ分類か[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_recursive_aggregate_std_error_kind_code a selfhost_memo_trait_recursive_aggregate_std_error_kind_code b
+
+//: selfhost_memo_trait_recursive_aggregate_error_kind_eq: recursive aggregate error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ `LayoutRejected` と `StackPushFailed` は nested error variant も比較します。
+//: - wildcard arm は使いません。新しい variant を追加した場合、この equality も更新します。
+pub fn selfhost_memo_trait_recursive_aggregate_error_kind_eq %fn SelfhostMemoTraitRecursiveAggregateErrorKind fn SelfhostMemoTraitRecursiveAggregateErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    true
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    true
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected a_layout:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected b_layout:
+                    selfhost_memo_trait_layout_error_kind_eq a_layout b_layout
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    true
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    true
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    true
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    true
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed _b_push:
+                    false
+        SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed a_push:
+            match b:
+                SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached:
+                    false
+                SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed b_push:
+                    selfhost_memo_trait_recursive_aggregate_std_error_kind_eq a_push b_push
+
+//: selfhost_memo_trait_recursive_aggregate_stack_contains_loop: ancestry stack に type id があるか[調/しら]べる
+fn selfhost_memo_trait_recursive_aggregate_stack_contains_loop %fn &Vec SelfhostTypeId fn SelfhostTypeId fn i32 bool \stack\type_id\idx:
+    if:
+        ge idx v::len stack
+        then:
+            false
+        else:
+            match v::get stack idx:
+                Option::Some current:
+                    if:
+                        selfhost_type_id_eq current type_id
+                        then:
+                            true
+                        else:
+                            selfhost_memo_trait_recursive_aggregate_stack_contains_loop stack type_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_memo_trait_recursive_aggregate_stack_contains: ancestry stack に type id があるか[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_stack_contains %fn &Vec SelfhostTypeId fn SelfhostTypeId bool \stack\type_id:
+    selfhost_memo_trait_recursive_aggregate_stack_contains_loop stack type_id 0
+
+//: selfhost_memo_trait_recursive_aggregate_push_stack_result: stack に現在 type id を[積/つ]む
+//:
+//: [契約/けいやく]:
+//: - push に失敗した場合、`VecPushError` が返した stack owner をこの関数が閉じます。
+fn selfhost_memo_trait_recursive_aggregate_push_stack_result %impure fn Vec SelfhostTypeId impure fn SelfhostTypeId Result Vec SelfhostTypeId SelfhostMemoTraitRecursiveAggregateErrorKind \stack\type_id:
+    match v::push stack type_id:
+        Result::Ok next_stack:
+            Result::Ok next_stack
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            let returned %Vec SelfhostTypeId v::vec_push_error_vec e
+            v::free returned
+            Result::Err SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed error
+
+//: selfhost_memo_trait_recursive_aggregate_pop_stack: current type id を走査し終えた stack を 1 件戻す
+fn selfhost_memo_trait_recursive_aggregate_pop_stack %impure fn Vec SelfhostTypeId Vec SelfhostTypeId \stack:
+    let popped %VecPop SelfhostTypeId v::pop stack
+    v::vec_pop_vec popped
+
+//: selfhost_memo_trait_recursive_aggregate_field_record_at: layout field table から field record を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - range 検査は layout validator が先に行います。この accessor は、それでも field table と range が食い違った場合に `none` を返す fail-closed guard です。
+fn selfhost_memo_trait_recursive_aggregate_field_record_at %fn &SelfhostMemoTraitLayoutEvidenceTable fn SelfhostMemoTraitAggregateFieldRange fn i32 Option SelfhostMemoTraitLayoutFieldRecord \layout_table\range\idx:
+    let fields %&Vec SelfhostMemoTraitLayoutFieldRecord field::get_ref layout_table "fields"
+    v::get fields add range.first_field idx
+
+//: selfhost_memo_trait_recursive_aggregate_visit_type_result: aggregate type を再帰走査する
+fn selfhost_memo_trait_recursive_aggregate_visit_type_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn Vec SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 Result SelfhostMemoTraitRecursiveAggregateVisitOk SelfhostMemoTraitRecursiveAggregateErrorKind \types\layout_table\stack\type_id\depth\max_depth:
+    if:
+        gt depth max_depth
+        then:
+            selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::DepthLimitReached
+        else:
+            if:
+                selfhost_memo_trait_recursive_aggregate_stack_contains &stack type_id
+                then:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected
+                else:
+                    match selfhost_type_arena_get_record types type_id:
+                        Option::Some record:
+                            match record:
+                                SelfhostTypeRecord::Primitive _kind:
+                                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate
+                                SelfhostTypeRecord::Named _named:
+                                    selfhost_memo_trait_recursive_aggregate_visit_known_aggregate_result types layout_table stack type_id depth max_depth
+                                SelfhostTypeRecord::Parameter _parameter:
+                                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                                SelfhostTypeRecord::Applied _applied:
+                                    selfhost_memo_trait_recursive_aggregate_visit_known_aggregate_result types layout_table stack type_id depth max_depth
+                                SelfhostTypeRecord::Function _function:
+                                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::TargetNotAggregate
+                        Option::None:
+                            selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord
+
+//: selfhost_memo_trait_recursive_aggregate_visit_known_aggregate_result: Named / Applied aggregate record を layout evidence 経由で[走査/そうさ]する
+fn selfhost_memo_trait_recursive_aggregate_visit_known_aggregate_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn Vec SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 Result SelfhostMemoTraitRecursiveAggregateVisitOk SelfhostMemoTraitRecursiveAggregateErrorKind \types\layout_table\stack\type_id\depth\max_depth:
+    match selfhost_memo_trait_layout_evidence_for_type_result layout_table types type_id:
+        Result::Ok evidence:
+            match evidence:
+                SelfhostMemoTraitAggregateFieldEvidence::Known range:
+                    match selfhost_memo_trait_recursive_aggregate_push_stack_result stack type_id:
+                        Result::Ok pushed_stack:
+                            let summary %SelfhostMemoTraitRecursiveAggregateSummary selfhost_memo_trait_recursive_aggregate_summary_single type_id depth
+                            match selfhost_memo_trait_recursive_aggregate_fields_loop_result types layout_table pushed_stack range summary 0 depth max_depth:
+                                Result::Ok done:
+                                    let done_stack %Vec SelfhostTypeId field::get done "stack"
+                                    let done_summary %SelfhostMemoTraitRecursiveAggregateSummary field::get done "summary"
+                                    let restored %Vec SelfhostTypeId selfhost_memo_trait_recursive_aggregate_pop_stack done_stack
+                                    Result::Ok selfhost_memo_trait_recursive_aggregate_visit_ok_new restored done_summary
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                SelfhostMemoTraitAggregateFieldEvidence::MissingLayout:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::MissingLayout
+                SelfhostMemoTraitAggregateFieldEvidence::GenericArgumentUnsubstituted:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostMemoTraitAggregateFieldEvidence::CycleLimitReached:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::CycleLimitReached
+        Result::Err layout_error:
+            selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected layout_error
+
+//: selfhost_memo_trait_recursive_aggregate_fields_loop_result: field range を左から[走査/そうさ]する
+fn selfhost_memo_trait_recursive_aggregate_fields_loop_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn Vec SelfhostTypeId impure fn SelfhostMemoTraitAggregateFieldRange impure fn SelfhostMemoTraitRecursiveAggregateSummary impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitRecursiveAggregateVisitOk SelfhostMemoTraitRecursiveAggregateErrorKind \types\layout_table\stack\range\summary\idx\depth\max_depth:
+    if:
+        ge idx range.field_count
+        then:
+            Result::Ok selfhost_memo_trait_recursive_aggregate_visit_ok_new stack summary
+        else:
+            match selfhost_memo_trait_recursive_aggregate_field_record_at layout_table range idx:
+                Option::Some field_record:
+                    let with_field %SelfhostMemoTraitRecursiveAggregateSummary selfhost_memo_trait_recursive_aggregate_summary_add_field summary
+                    selfhost_memo_trait_recursive_aggregate_field_type_result types layout_table stack range with_field idx depth max_depth field_record.field_type
+                Option::None:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::FieldRecordMissing
+
+//: selfhost_memo_trait_recursive_aggregate_field_type_result: 1 field type を leaf または aggregate recursion として[処理/しょり]する
+fn selfhost_memo_trait_recursive_aggregate_field_type_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn Vec SelfhostTypeId impure fn SelfhostMemoTraitAggregateFieldRange impure fn SelfhostMemoTraitRecursiveAggregateSummary impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostTypeId Result SelfhostMemoTraitRecursiveAggregateVisitOk SelfhostMemoTraitRecursiveAggregateErrorKind \types\layout_table\stack\range\summary\idx\depth\max_depth\field_type:
+    match selfhost_type_arena_get_record types field_type:
+        Option::Some record:
+            match record:
+                SelfhostTypeRecord::Primitive _kind:
+                    selfhost_memo_trait_recursive_aggregate_fields_loop_result types layout_table stack range summary add idx 1 depth max_depth
+                SelfhostTypeRecord::Named _named:
+                    match selfhost_memo_trait_recursive_aggregate_visit_type_result types layout_table stack field_type add depth 1 max_depth:
+                        Result::Ok child_ok:
+                            let child_stack %Vec SelfhostTypeId field::get child_ok "stack"
+                            let child_summary %SelfhostMemoTraitRecursiveAggregateSummary field::get child_ok "summary"
+                            let merged %SelfhostMemoTraitRecursiveAggregateSummary selfhost_memo_trait_recursive_aggregate_summary_merge_child summary child_summary
+                            selfhost_memo_trait_recursive_aggregate_fields_loop_result types layout_table child_stack range merged add idx 1 depth max_depth
+                        Result::Err e:
+                            Result::Err e
+                SelfhostTypeRecord::Parameter _parameter:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::LayoutRejected SelfhostMemoTraitLayoutEvidenceErrorKind::GenericArgumentUnsubstituted
+                SelfhostTypeRecord::Applied _applied:
+                    match selfhost_memo_trait_recursive_aggregate_visit_type_result types layout_table stack field_type add depth 1 max_depth:
+                        Result::Ok child_ok:
+                            let child_stack %Vec SelfhostTypeId field::get child_ok "stack"
+                            let child_summary %SelfhostMemoTraitRecursiveAggregateSummary field::get child_ok "summary"
+                            let merged %SelfhostMemoTraitRecursiveAggregateSummary selfhost_memo_trait_recursive_aggregate_summary_merge_child summary child_summary
+                            selfhost_memo_trait_recursive_aggregate_fields_loop_result types layout_table child_stack range merged add idx 1 depth max_depth
+                        Result::Err e:
+                            Result::Err e
+                SelfhostTypeRecord::Function _function:
+                    selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::UnsupportedFieldType
+        Option::None:
+            selfhost_memo_trait_recursive_aggregate_visit_error_after_free stack SelfhostMemoTraitRecursiveAggregateErrorKind::MissingTypeRecord
+
+//: selfhost_memo_trait_recursive_aggregate_result: root aggregate の field closure を[検査/けんさ]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: root から到達する aggregate field closure が cycle / depth / unsupported field type で拒否されませんでした。
+//: - `Err(kind)`: root が aggregate ではない、layout が拒否した、cycle/depth 境界に達した、または visit stack allocation に失敗しました。
+pub fn selfhost_memo_trait_recursive_aggregate_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind \types\layout_table\root\max_depth:
+    let stack_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match stack_result:
+        Result::Ok stack:
+            match selfhost_memo_trait_recursive_aggregate_visit_type_result types layout_table stack root 0 max_depth:
+                Result::Ok ok:
+                    let restored %Vec SelfhostTypeId field::get ok "stack"
+                    let summary %SelfhostMemoTraitRecursiveAggregateSummary field::get ok "summary"
+                    v::free restored
+                    Result::Ok summary
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitRecursiveAggregateErrorKind::StackPushFailed e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_recursive_aggregate_stage0_summary_new %fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind fn Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind SelfhostMemoTraitRecursiveAggregateStage0Summary \accepted\nested_accepted\cycle_rejected\depth_rejected\target_rejected\missing_type_rejected\parameter_field_rejected\function_field_rejected:
+    SelfhostMemoTraitRecursiveAggregateStage0Summary accepted nested_accepted cycle_rejected depth_rejected target_rejected missing_type_rejected parameter_field_rejected function_field_rejected
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_finish: arena と table を閉じて summary を[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostMemoTraitRecursiveAggregateStage0Summary Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\summary:
+    selfhost_memo_trait_layout_evidence_table_free table
+    selfhost_type_arena_free arena
+    Result::Ok summary
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_abort_arena: arena owner を閉じて setup failure を[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_abort_arena %impure fn SelfhostTypeArena Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena:
+    selfhost_type_arena_free arena
+    Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_abort_all: arena と table owner を閉じて setup failure を[返/かえ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_abort_all %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table:
+    selfhost_memo_trait_layout_evidence_table_free table
+    selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_table: fixture 構築後に public API を[実行/じっこう]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_table %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\unit_id\root_id\child_id\nested_root_id\parameter_root_id\function_root_id:
+    let accepted %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table root_id 4
+    let nested_accepted %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table nested_root_id 4
+    let cycle_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table child_id 4
+    let depth_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table child_id 0
+    let target_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table unit_id 4
+    let missing_id %SelfhostTypeId selfhost_type_id_new 9999
+    let missing_type_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table missing_id 4
+    let parameter_field_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table parameter_root_id 4
+    let function_field_rejected %Result SelfhostMemoTraitRecursiveAggregateSummary SelfhostMemoTraitRecursiveAggregateErrorKind selfhost_memo_trait_recursive_aggregate_result &arena &table function_root_id 4
+    let summary %SelfhostMemoTraitRecursiveAggregateStage0Summary selfhost_memo_trait_recursive_aggregate_stage0_summary_new accepted nested_accepted cycle_rejected depth_rejected target_rejected missing_type_rejected parameter_field_rejected function_field_rejected
+    selfhost_memo_trait_recursive_aggregate_stage0_finish arena table summary
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_push_extra_layouts: nested / rejected field fixture を table に[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - root->child->primitive の成功経路と、generic parameter / function field の拒否経路を同じ public entry で観測できるようにします。
+//: - この補助関数は stage0 fixture だけを作り、accepted proof や operation proof は作りません。
+fn selfhost_memo_trait_recursive_aggregate_stage0_push_extra_layouts %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\function_id\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_memo_trait_layout_evidence_table_push_field table selfhost_memo_trait_layout_field_record_new nested_root_nominal 0 nested_child_id:
+        Result::Ok table1:
+            match selfhost_memo_trait_layout_evidence_table_push_layout table1 selfhost_memo_trait_layout_record_product_named nested_root_nominal 2 1:
+                Result::Ok table2:
+                    match selfhost_memo_trait_layout_evidence_table_push_field table2 selfhost_memo_trait_layout_field_record_new nested_child_nominal 0 unit_id:
+                        Result::Ok table3:
+                            match selfhost_memo_trait_layout_evidence_table_push_layout table3 selfhost_memo_trait_layout_record_product_named nested_child_nominal 3 1:
+                                Result::Ok table4:
+                                    match selfhost_memo_trait_layout_evidence_table_push_field table4 selfhost_memo_trait_layout_field_record_new parameter_root_nominal 0 parameter_id:
+                                        Result::Ok table5:
+                                            match selfhost_memo_trait_layout_evidence_table_push_layout table5 selfhost_memo_trait_layout_record_product_named parameter_root_nominal 4 1:
+                                                Result::Ok table6:
+                                                    match selfhost_memo_trait_layout_evidence_table_push_field table6 selfhost_memo_trait_layout_field_record_new function_root_nominal 0 function_id:
+                                                        Result::Ok table7:
+                                                            match selfhost_memo_trait_layout_evidence_table_push_layout table7 selfhost_memo_trait_layout_record_product_named function_root_nominal 5 1:
+                                                                Result::Ok table8:
+                                                                    selfhost_memo_trait_recursive_aggregate_stage0_after_table arena table8 unit_id root_id child_id nested_root_id parameter_root_id function_root_id
+                                                                Result::Err _e:
+                                                                    selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+                                                        Result::Err _e:
+                                                            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+                                                Result::Err _e:
+                                                    selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+                                        Result::Err _e:
+                                            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+                                Result::Err _e:
+                                    selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+                        Result::Err _e:
+                            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+                Result::Err _e:
+                    selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+        Result::Err _e:
+            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_push_cycle_layout: cycle 用 layout を table に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_push_cycle_layout %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\function_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_memo_trait_layout_evidence_table_push_layout table selfhost_memo_trait_layout_record_product_named child_nominal 1 1:
+        Result::Ok table_next:
+            selfhost_memo_trait_recursive_aggregate_stage0_push_extra_layouts arena table_next unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id function_id nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_push_cycle_field: cycle 用 field record を table に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_push_cycle_field %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\function_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_memo_trait_layout_evidence_table_push_field table selfhost_memo_trait_layout_field_record_new child_nominal 0 child_id:
+        Result::Ok table_next:
+            selfhost_memo_trait_recursive_aggregate_stage0_push_cycle_layout arena table_next unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id function_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_push_root_layout: root aggregate layout を table に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_push_root_layout %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\function_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_memo_trait_layout_evidence_table_push_layout table selfhost_memo_trait_layout_record_product_named root_nominal 0 1:
+        Result::Ok table_next:
+            selfhost_memo_trait_recursive_aggregate_stage0_push_cycle_field arena table_next unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id function_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_push_root_field: root aggregate の primitive field を table に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_push_root_field %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\table\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\function_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_memo_trait_layout_evidence_table_push_field table selfhost_memo_trait_layout_field_record_new root_nominal 0 unit_id:
+        Result::Ok table_next:
+            selfhost_memo_trait_recursive_aggregate_stage0_push_root_layout arena table_next unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id function_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_function_type: function field 用 TypeId を[取/と]り[出/だ]して table を[作/つく]る
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_function_type %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \function_alloc\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let function_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &function_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_alloc
+    match selfhost_memo_trait_layout_evidence_table_new:
+        Result::Ok table:
+            selfhost_memo_trait_recursive_aggregate_stage0_push_root_field arena table unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id function_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            selfhost_memo_trait_recursive_aggregate_stage0_abort_arena arena
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_function_type: function field 拒否用の function type を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_function_type %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\function_root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params:
+            match selfhost_type_arena_add_function arena params unit_id:
+                Result::Ok function_alloc:
+                    selfhost_memo_trait_recursive_aggregate_stage0_after_function_type function_alloc unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_function_root: function field を持つ aggregate root を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_function_root %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \function_root_alloc\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let function_root_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &function_root_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena function_root_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_function_type arena unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id function_root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_function_root: function field を持つ aggregate root を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_function_root %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\parameter_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_type_arena_add_named arena function_root_nominal:
+        Result::Ok function_root_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_function_root function_root_alloc unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_parameter: parameter field 用 TypeId を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_parameter %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \parameter_alloc\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let parameter_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &parameter_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena parameter_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_function_root arena unit_id root_id child_id nested_root_id nested_child_id parameter_root_id parameter_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_parameter: generic parameter field 拒否用の parameter type を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_parameter %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\child_id\nested_root_id\nested_child_id\parameter_root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_type_arena_add_type_parameter arena selfhost_type_parameter_binding_new_unchecked 0 0:
+        Result::Ok parameter_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_parameter parameter_alloc unit_id root_id child_id nested_root_id nested_child_id parameter_root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_parameter_root: parameter field を持つ aggregate root を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_parameter_root %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \parameter_root_alloc\unit_id\root_id\child_id\nested_root_id\nested_child_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let parameter_root_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &parameter_root_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena parameter_root_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_parameter arena unit_id root_id child_id nested_root_id nested_child_id parameter_root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_parameter_root: parameter field を持つ aggregate root を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_parameter_root %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\child_id\nested_root_id\nested_child_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_type_arena_add_named arena parameter_root_nominal:
+        Result::Ok parameter_root_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_parameter_root parameter_root_alloc unit_id root_id child_id nested_root_id nested_child_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_nested_child: acyclic child aggregate の TypeId を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_nested_child %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \nested_child_alloc\unit_id\root_id\child_id\nested_root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let nested_child_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &nested_child_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena nested_child_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_parameter_root arena unit_id root_id child_id nested_root_id nested_child_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_nested_child: acyclic child aggregate を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_nested_child %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\child_id\nested_root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_type_arena_add_named arena nested_child_nominal:
+        Result::Ok nested_child_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_nested_child nested_child_alloc unit_id root_id child_id nested_root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_nested_root: acyclic root aggregate の TypeId を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_nested_root %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \nested_root_alloc\unit_id\root_id\child_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let nested_root_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &nested_root_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena nested_root_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_nested_child arena unit_id root_id child_id nested_root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_nested_root: acyclic nested aggregate fixture の root を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_nested_root %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\child_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_type_arena_add_named arena nested_root_nominal:
+        Result::Ok nested_root_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_nested_root nested_root_alloc unit_id root_id child_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_child: child aggregate の type id を[取/と]り[出/だ]して table を[作/つく]る
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_child %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \child_alloc\unit_id\root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let child_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &child_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena child_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_nested_root arena unit_id root_id child_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_child: cycle fixture 用 aggregate を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_child %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id\root_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    match selfhost_type_arena_add_named arena child_nominal:
+        Result::Ok child_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_child child_alloc unit_id root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_root: root aggregate の type id を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_root %impure fn SelfhostTypeArenaAlloc impure fn SelfhostTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId impure fn SelfhostNamedTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \root_alloc\unit_id\root_nominal\child_nominal\nested_root_nominal\nested_child_nominal\parameter_root_nominal\function_root_nominal:
+    let root_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &root_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena root_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_child arena unit_id root_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_add_root: root aggregate を arena に[追加/ついか]する
+fn selfhost_memo_trait_recursive_aggregate_stage0_add_root %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \arena\unit_id:
+    let root_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 21
+    let child_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 22
+    let nested_root_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 23
+    let nested_child_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 24
+    let parameter_root_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 25
+    let function_root_nominal %SelfhostNamedTypeId selfhost_named_type_id_new 26
+    match selfhost_type_arena_add_named arena root_nominal:
+        Result::Ok root_alloc:
+            selfhost_memo_trait_recursive_aggregate_stage0_after_root root_alloc unit_id root_nominal child_nominal nested_root_nominal nested_child_nominal parameter_root_nominal function_root_nominal
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_recursive_aggregate_stage0_after_unit: unit primitive の type id を[取/と]り[出/だ]す
+fn selfhost_memo_trait_recursive_aggregate_stage0_after_unit %impure fn SelfhostTypeArenaAlloc Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \unit_alloc:
+    let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &unit_alloc
+    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena unit_alloc
+    selfhost_memo_trait_recursive_aggregate_stage0_add_root arena unit_id
+
+//: selfhost_memo_trait_recursive_aggregate_stage0: recursive aggregate boundary の代表 smoke を[実行/じっこう]する
+//:
+//: [目的/もくてき]:
+//: - public entry を通して、accepted root、nested accepted root、self-cycle、depth limit、primitive root、missing TypeId、parameter field、function field を確認します。
+pub fn selfhost_memo_trait_recursive_aggregate_stage0 %impure fn void Result SelfhostMemoTraitRecursiveAggregateStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok unit_alloc:
+                    selfhost_memo_trait_recursive_aggregate_stage0_after_unit unit_alloc
+                Result::Err _e:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation

@@ -57435,3 +57435,55 @@ MERGE_APPROVED
 - Copy / Drop / Eq / Hash proof status の実計算は未実装であり、この table へ status を供給する trait impl / method body purity / Drop なし proof solver が必要である。
 - recursive aggregate traversal と cycle boundary は未実装であり、Tesla の提案どおり次の候補 slice として扱う。
 - re-export / import graph / public non-trait declaration を含む full public surface hash、generic instantiation identity の HIR / monomorphize / artifact 接続、PrivateCache proof / backend representation は未完了である。
+
+## 2026-06-13 Agent selfhost memo trait recursive aggregate checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-recursive-aggregate-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、静的検査、typed enum error、Result API、pure core / boundary 分離、DAG、探索範囲削減、丁寧な doc comment、行数制限によるコメント抑制禁止を優先した。
+
+### implementation
+
+- `memo_trait_recursive_aggregate.nepl` を追加し、aggregate field closure を cycle-safe に走査する境界を作った。
+- `SelfhostMemoTraitRecursiveAggregateSummary` は root、到達 aggregate 数、field edge 数、最大 depth だけを保持する。accepted proof、operation proof、hazard proof、proof store record は作らない。
+- `SelfhostMemoTraitRecursiveAggregateErrorKind` は missing type、non-aggregate target、layout rejection、field record missing、unsupported field type、cycle、depth limit、stack push failure を typed enum として分ける。layout error と push error は nested payload のまま保持する。
+- field traversal は `memo_trait_layout.nepl` の public layout validator だけを通る。primitive field は leaf、Named / Applied field は再帰、Parameter field は `LayoutRejected(GenericArgumentUnsubstituted)`、Function field は `UnsupportedFieldType` として fail-closed にする。
+- cycle 判定は ancestry stack に限定した。global visited first-wins で sibling branch を拒否しないため、後続で shared memoization を追加しても意味論を変えずに済む。
+- stage0 smoke は accepted root->primitive、nested accepted root->child->primitive、self-cycle、depth limit、primitive target、missing TypeId、parameter field rejection、function field rejection を public entry 経由で確認する。
+- source policy は facade re-export、source list 登録、`layout < producer < recursive aggregate < operation proof` の順序、operation proof / proof artifact / HIR / Resource IR / backend / source text authority への逆依存禁止、typed error equality の wildcard 禁止、line count / doc comment length cap 禁止を固定した。
+
+### optimization_policy
+
+- 今やっておく必要がある最適化: traversal contract、typed error taxonomy、cycle / depth / unsupported field の fail-closed 境界、source authority 禁止、proof acceptance 非生成。これらは producer gate の意味に関わるため、後から変えると証明の意味が変わる。
+- 後からできる最適化: layout lookup の index 化、sibling branch summary memoization、persistent artifact 共有、branch 間再走査削減、stage0 fixture helper の内部整理。これらは public summary / error 契約を維持したまま置換できるため、現段階の時間超過を理由に次 stage を止めない。
+
+### subagent_review
+
+- Bohr 初回実装 review: Blocker なし。Required として、root aggregate + primitive leaf だけでなく nested aggregate traversal の成功系を実行 smoke に入れること、parameter field / function field の拒否を source policy regex だけでなく public stage0/doctest に入れること、source list order を強めることを求めた。
+- Required 対応として、`nested_accepted`、`parameter_field_rejected`、`function_field_rejected` を stage0 summary と doctest に追加し、source policy に order check と実行経路 check を追加した。
+- Tesla 追レビュー: Blocker なし。Required として、stage0 doc comment を nested / parameter / function まで更新すること、recursive boundary が proof object creation へ退行しないよう `SelfhostMemoTraitAggregateProof` / aggregate proof constructor 禁止を source policy に足すことを求めた。stage0 doc は更新済みであり、source policy に aggregate proof object / constructor 禁止と facade import order check を追加した。
+- Bohr 追レビュー: Blocker / Required なし。root / field / parameter / function の fail-closed 境界、no proof acceptance / no source-text authority、source list order、stage0 doc comment 更新を確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_recursive_aggregate_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_layout_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_recursive_aggregate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-recursive-aggregate.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`。既存 documentation gap sample は表示されるが baseline check は pass。
+- pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+### residual
+
+- recursive aggregate summary はまだ producer gate の実入力に接続していない。
+- Copy / Drop / Eq / Hash pure evidence の実計算は未実装である。
+- full public surface hash、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation identity の HIR / monomorphize / artifact 接続は未完了である。
