@@ -12,12 +12,18 @@
 //: argv: ["--test-video-memory-contract"]
 //: stdout: "mandelbrot video memory contract ok\n"
 //:
+//: neplg2:test[gui_mandelbrot_responsive_contract, normalize_newlines]
+//: [目的/もくてき]: window resize event が drawable pixel size に合わせた Mandelbrot model を作ることを確認する
+//: argv: ["--test-responsive-contract"]
+//: stdout: "mandelbrot responsive contract ok\n"
+//:
 //: gui_mandelbrot: Mandelbrot 集合を HD surface 向けの GUI row payload stream として描画する例
 //:
 //: [目的/もくてき]:
 //: - Canvas や DOM に依存せず、NEPL の model から `rgba-row` payload command stream を作ります。
 //: - button は closure ではなく `ActionId` を持ち、update は action と model から次の model を返します。
 //: - HD button は 1280x720 logical surface に 1 logical pixel per sample の row payload を描きます。
+//: - resize event は drawable pixel size から model を作り直し、window 側で content を伸縮しない契約を固定します。
 //: - `--video-memory-once` は stdout path へ戻らない formal Web video memory host import の有限検査用 path です。
 //:
 //: [実装/じっそう]:
@@ -58,6 +64,7 @@ enum MandelbrotMode:
     Preview
     HD
     Detail
+    Responsive
 
 impl Clone for MandelbrotMode:
     fn clone %fn &MandelbrotMode MandelbrotMode \mode:
@@ -127,6 +134,8 @@ fn mandelbrot_mode_debug_code %fn MandelbrotMode i32 \mode:
             2
         MandelbrotMode::Detail:
             3
+        MandelbrotMode::Responsive:
+            4
 
 fn mandelbrot_model_preview %fn void MandelbrotModel \void:
     mandelbrot_model_new 48 27 8 24 MandelbrotMode::Preview
@@ -139,6 +148,26 @@ fn mandelbrot_model_detail %fn void MandelbrotModel \void:
 
 fn mandelbrot_control_height %fn void i32 \void:
     72
+
+fn mandelbrot_min_sample_extent %fn void i32 \void:
+    2
+
+fn mandelbrot_clamp_sample_extent %fn i32 i32 \value:
+    if:
+        lt value mandelbrot_min_sample_extent
+        then:
+            mandelbrot_min_sample_extent
+        else:
+            value
+
+fn mandelbrot_responsive_sample_height %fn i32 i32 \surface_height:
+    let content_height %i32 sub surface_height mandelbrot_control_height
+    mandelbrot_clamp_sample_extent content_height
+
+fn mandelbrot_model_for_surface %fn i32 fn i32 MandelbrotModel \surface_width\surface_height:
+    let sample_width %i32 mandelbrot_clamp_sample_extent surface_width
+    let sample_height %i32 mandelbrot_responsive_sample_height surface_height
+    mandelbrot_model_new sample_width sample_height 1 64 MandelbrotMode::Responsive
 
 fn mandelbrot_frame_width %fn &MandelbrotModel i32 \model:
     let sample_width %i32 mandelbrot_model_sample_width model
@@ -588,12 +617,30 @@ fn mandelbrot_update_action %fn MandelbrotModel fn ActionId MandelbrotModel \mod
         MandelbrotAction::Unknown:
             model
 
+fn mandelbrot_update_window %fn MandelbrotModel fn WindowEvent MandelbrotModel \model\window:
+    match window_event_kind &window:
+        WindowEventKind::Resized:
+            let size %GuiSize window_event_size &window
+            let width %i32 gui_size_width &size
+            let height %i32 gui_size_height &size
+            mandelbrot_model_for_surface width height
+        WindowEventKind::Focused:
+            model
+        WindowEventKind::Unfocused:
+            model
+        WindowEventKind::CloseRequested:
+            model
+
 fn mandelbrot_update_event %fn MandelbrotModel fn GuiWebEvent MandelbrotModel \model\web_event:
     match gui_web_event_action &web_event:
         Option::Some action:
             mandelbrot_update_action model action
         Option::None:
-            model
+            match gui_web_event_window &web_event:
+                Option::Some window:
+                    mandelbrot_update_window model window
+                Option::None:
+                    model
 
 fn mandelbrot_has_flag_loop %impure fn str impure fn i32 impure fn i32 bool \flag\idx\count:
     if:
@@ -630,6 +677,9 @@ fn mandelbrot_has_hd_contract_flag %impure fn void bool \void:
 fn mandelbrot_has_video_memory_contract_flag %impure fn void bool \void:
     mandelbrot_has_flag "--test-video-memory-contract"
 
+fn mandelbrot_has_responsive_contract_flag %impure fn void bool \void:
+    mandelbrot_has_flag "--test-responsive-contract"
+
 fn mandelbrot_hd_contract_ok %fn void bool \void:
     let model %MandelbrotModel mandelbrot_model_hd
     let width_ok %bool eq mandelbrot_frame_width &model 1280
@@ -656,6 +706,62 @@ fn mandelbrot_video_memory_contract_ok %fn void bool \void:
     let shape_ok %bool and size_ok render_ok
     and shape_ok slot_ok
 
+fn mandelbrot_responsive_model_contract_ok %fn void bool \void:
+    let model %MandelbrotModel mandelbrot_model_for_surface 1920 1080
+    let width_ok %bool eq mandelbrot_frame_width &model 1920
+    let height_ok %bool eq mandelbrot_frame_height &model 1080
+    let sample_width_ok %bool eq mandelbrot_model_sample_width &model 1920
+    let sample_height_ok %bool eq mandelbrot_model_sample_height &model 1008
+    let cell_size_ok %bool eq mandelbrot_model_cell_size &model 1
+    let limit_ok %bool eq mandelbrot_model_iteration_limit &model 64
+    let command_count_ok %bool eq mandelbrot_command_count &model 1018
+    let mode %MandelbrotMode mandelbrot_model_mode &model
+    let mode_ok %bool eq mandelbrot_mode_debug_code mode 4
+    let size_ok %bool and width_ok height_ok
+    let sample_ok %bool and sample_width_ok sample_height_ok
+    let render_ok %bool and cell_size_ok limit_ok
+    let command_and_mode_ok %bool and command_count_ok mode_ok
+    let primary_ok %bool and size_ok sample_ok
+    let secondary_ok %bool and render_ok command_and_mode_ok
+    and primary_ok secondary_ok
+
+fn mandelbrot_responsive_minimum_contract_ok %fn void bool \void:
+    let model %MandelbrotModel mandelbrot_model_for_surface 1 1
+    let sample_width_ok %bool eq mandelbrot_model_sample_width &model 2
+    let sample_height_ok %bool eq mandelbrot_model_sample_height &model 2
+    let frame_width_ok %bool eq mandelbrot_frame_width &model 2
+    let frame_height_ok %bool eq mandelbrot_frame_height &model 74
+    let sample_ok %bool and sample_width_ok sample_height_ok
+    let frame_ok %bool and frame_width_ok frame_height_ok
+    and sample_ok frame_ok
+
+fn mandelbrot_responsive_event_contract_ok %fn void bool \void:
+    match window_id_result 1:
+        Result::Ok host_window:
+            let point %GuiPoint gui_point_new 0 0
+            let size %GuiSize gui_size_new 1920 1080
+            let window %WindowEvent window_event_new WindowEventKind::Resized size
+            let web_event %GuiWebEvent GuiWebEvent host_window point gui_event_window window
+            let start %MandelbrotModel mandelbrot_model_preview
+            let updated %MandelbrotModel mandelbrot_update_event start web_event
+            let width_ok %bool eq mandelbrot_model_sample_width &updated 1920
+            let height_ok %bool eq mandelbrot_model_sample_height &updated 1008
+            let frame_ok %bool eq mandelbrot_frame_height &updated 1080
+            let mode %MandelbrotMode mandelbrot_model_mode &updated
+            let mode_ok %bool eq mandelbrot_mode_debug_code mode 4
+            let sample_ok %bool and width_ok height_ok
+            let output_ok %bool and frame_ok mode_ok
+            and sample_ok output_ok
+        Result::Err _:
+            false
+
+fn mandelbrot_responsive_contract_ok %fn void bool \void:
+    let model_ok %bool mandelbrot_responsive_model_contract_ok
+    let minimum_ok %bool mandelbrot_responsive_minimum_contract_ok
+    let event_ok %bool mandelbrot_responsive_event_contract_ok
+    let shape_ok %bool and model_ok minimum_ok
+    and shape_ok event_ok
+
 fn mandelbrot_run_hd_contract_test %impure fn void unit \void:
     if:
         mandelbrot_hd_contract_ok
@@ -671,6 +777,14 @@ fn mandelbrot_run_video_memory_contract_test %impure fn void unit \void:
             println "mandelbrot video memory contract ok"
         else:
             println "mandelbrot video memory contract failed"
+
+fn mandelbrot_run_responsive_contract_test %impure fn void unit \void:
+    if:
+        mandelbrot_responsive_contract_ok
+        then:
+            println "mandelbrot responsive contract ok"
+        else:
+            println "mandelbrot responsive contract failed"
 
 fn mandelbrot_print_status %impure fn MandelbrotModel unit \model:
     print "mandelbrot commands = "
@@ -731,22 +845,27 @@ fn main %impure fn void unit \void:
             mandelbrot_run_hd_contract_test
         else:
             if:
-                mandelbrot_has_video_memory_contract_flag
+                mandelbrot_has_responsive_contract_flag
                 then:
-                    mandelbrot_run_video_memory_contract_test
+                    mandelbrot_run_responsive_contract_test
                 else:
                     if:
-                        mandelbrot_has_video_memory_once_flag
+                        mandelbrot_has_video_memory_contract_flag
                         then:
-                            mandelbrot_run_video_memory_once video_memory_model
+                            mandelbrot_run_video_memory_contract_test
                         else:
                             if:
-                                mandelbrot_has_once_flag
+                                mandelbrot_has_video_memory_once_flag
                                 then:
-                                    mandelbrot_run_once model0
+                                    mandelbrot_run_video_memory_once video_memory_model
                                 else:
-                                    match mandelbrot_present_frame model0:
-                                        Result::Ok _:
-                                            mandelbrot_event_loop model0
-                                        Result::Err _:
-                                            println "mandelbrot gui protocol error"
+                                    if:
+                                        mandelbrot_has_once_flag
+                                        then:
+                                            mandelbrot_run_once model0
+                                        else:
+                                            match mandelbrot_present_frame model0:
+                                                Result::Ok _:
+                                                    mandelbrot_event_loop model0
+                                                Result::Err _:
+                                                    println "mandelbrot gui protocol error"

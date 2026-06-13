@@ -1,3 +1,31 @@
+# 2026-06-14 Agent2 Mandelbrot responsive resize model checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed enum / `Result`、host event を app update へ渡す方針を確認し、Mandelbrot の resize 追従を TS simulation や DOM / Canvas scale に寄せず NEPL 側の model/update contract として進めた。
+- 対象 branch: `web-gui-mandelbrot-resize-model-20260614`
+- classification: Web GUI Mandelbrot responsive resize model / legacy stdout interactive update contract / formal video memory scope split
+- 実装内容:
+  - `examples/gui_mandelbrot.nepl` に `MandelbrotMode::Responsive` を追加した。
+  - `mandelbrot_model_for_surface` は window drawable size から sample width / height を作り、1 drawable pixel per sample、iteration limit 64 の model を返す。最小 sample extent は 2 に clamp し、fixed point Mandelbrot 計算の分母 0 を避ける。
+  - `mandelbrot_update_event` は action event がない場合に `gui_web_event_window` を見て、`WindowEventKind::Resized` を `mandelbrot_update_window` へ渡す。これにより resize event は window 側の伸縮ではなく application model の再構築として扱う。
+  - `--test-responsive-contract` を追加し、1920x1080 drawable surface が 1920x1008 sample と 1920x1080 frame に変換されること、および pure `GuiWebEvent::Window` routing で同じ model へ更新されることを描画なしで検査する。
+  - `nodesrc/test_web_gui_mandelbrot_transport_contract.js`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新し、legacy stdout interactive path の resize model contract と、formal video memory event loop / surface recreate / progressive rendering の残件を分けた。
+- subagent review:
+  - Boyle: 事前レビューで `WindowEventKind` の no-op を wildcard ではなく明示分岐にすること、responsive contract が描画や video memory host import を呼ばないことを要求した。実装後レビューでは `MERGE_APPROVED`。
+- 検証:
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+  - pass: `node nodesrc/test_web_gui_input_bridge.js`
+  - pass: `node nodesrc/test_web_gui_floating_window_source.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_harness.js`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - pass: `rg -n "^[^/\r\n]*[()]" examples/gui_mandelbrot.nepl` no match
+  - warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は今回未変更の stdlib documentation gap `153 > 108` を警告した。GUI / Mandelbrot focused source policy は pass。
+- 残件:
+  - formal video memory surface で resize event を受けて surface recreate / full-resolution redraw / progressive rendering まで進める path は未完了。
+  - FHD 60fps の実性能検査、tile / bitmap / row / RLE formal host import ABI、native formal `GuiHost.present` との統合は後続 slice。
+
 # 2026-06-14 Agent2 Mandelbrot finite video memory path checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、platform boundary、NEPL 実行結果を authority にする方針を確認し、Mandelbrot の formal video memory path を stdout / command frame / TS simulation へ戻さない形で進めた。

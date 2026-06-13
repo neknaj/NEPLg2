@@ -18,6 +18,10 @@ function runWebGuiMandelbrotTransportContractRegression() {
     const bitmapRasterizerSource = readRepoFile("web", "src", "gui-preview", "bitmap-rasterizer.ts");
     const specSource = readRepoFile("doc", "neplg2", "gui_standard_library_spec.md");
     const planSource = readRepoFile("doc", "neplg2", "gui_tui_implementation_plan.md");
+    const responsiveContractSlice = mandelbrotSource.slice(
+        mandelbrotSource.indexOf("fn mandelbrot_responsive_model_contract_ok"),
+        mandelbrotSource.indexOf("fn mandelbrot_run_hd_contract_test"),
+    );
 
     assert.match(mandelbrotSource, /fn mandelbrot_model_hd[\s\S]*mandelbrot_model_new 1280 648 1 64 MandelbrotMode::HD/);
     assert.match(mandelbrotSource, /fn mandelbrot_model_detail[\s\S]*mandelbrot_model_new 1280 648 1 96 MandelbrotMode::Detail/);
@@ -25,8 +29,18 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(mandelbrotSource, /gui_web_stdout_rgba_row_pixel/);
     assert.match(mandelbrotSource, /gui_web_stdout_rgba_row_end/);
     assert.match(mandelbrotSource, /--test-hd-contract/);
+    assert.match(mandelbrotSource, /--test-responsive-contract/);
     assert.match(mandelbrotSource, /--video-memory-once/);
     assert.match(mandelbrotSource, /--test-video-memory-contract/);
+    assert.match(mandelbrotSource, /MandelbrotMode::Responsive/);
+    assert.match(mandelbrotSource, /fn mandelbrot_model_for_surface[\s\S]*mandelbrot_model_new sample_width sample_height 1 64 MandelbrotMode::Responsive/);
+    assert.match(mandelbrotSource, /fn mandelbrot_update_window[\s\S]*WindowEventKind::Resized[\s\S]*mandelbrot_model_for_surface width height[\s\S]*WindowEventKind::Focused:[\s\S]*WindowEventKind::Unfocused:[\s\S]*WindowEventKind::CloseRequested:/);
+    assert.match(mandelbrotSource, /fn mandelbrot_update_event[\s\S]*gui_web_event_action[\s\S]*gui_web_event_window[\s\S]*mandelbrot_update_window/);
+    assert.match(mandelbrotSource, /let model %MandelbrotModel mandelbrot_model_for_surface 1920 1080/);
+    assert.match(mandelbrotSource, /let sample_height_ok %bool eq mandelbrot_model_sample_height &model 1008/);
+    assert.match(mandelbrotSource, /let command_count_ok %bool eq mandelbrot_command_count &model 1018/);
+    assert.match(mandelbrotSource, /let web_event %GuiWebEvent GuiWebEvent host_window point gui_event_window window/);
+    assert.doesNotMatch(responsiveContractSlice, /mandelbrot_present_frame|gui_web_stdout_|gui_web_video_memory_|mandelbrot_video_memory_present_model/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_model[\s\S]*mandelbrot_model_new 32 18 1 24 MandelbrotMode::Preview/);
     assert.match(mandelbrotSource, /gui_web_video_memory_create_surface/);
     assert.match(mandelbrotSource, /gui_web_video_memory_write_rgba8888_row/);
@@ -73,13 +87,16 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(planSource, /正式 host import ABI/);
     assert.match(planSource, /`--video-memory-once`/);
     assert.match(planSource, /legacy transport/);
-    assert.match(planSource, /resize event loop \/ surface recreate \/ true responsive high-resolution は後続 slice/);
+    assert.match(planSource, /legacy stdout interactive path は resize event を application update に取り込み/);
+    assert.match(planSource, /formal video memory event loop \/ surface recreate \/ progressive rendering は後続 slice/);
 
     return {
         ok: true,
         checks: [
             "Mandelbrot HD mode uses 1280x720 logical row payload transport",
             "Mandelbrot source emits typed rgba row payloads from NEPL instead of TS simulation",
+            "Mandelbrot app model consumes window resize events as a typed update input",
+            "Mandelbrot responsive contract remains pure and does not render",
             "Mandelbrot has an opt-in formal video memory path that does not fallback to stdout transport",
             "Web stdout parser, host bridge, and bitmap rasterizer support rgba-row as a typed command",
             "docs keep stdout row payload distinct from the future formal host import ABI",
