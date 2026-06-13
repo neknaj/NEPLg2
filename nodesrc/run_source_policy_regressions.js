@@ -85,6 +85,7 @@ const checks = [
     "nodesrc/test_web_gui_host_bridge.js",
     "nodesrc/test_web_gui_runtime_bridge.js",
     "nodesrc/test_web_gui_video_memory_host_import.js",
+    "nodesrc/test_web_gui_video_memory_fake_host_harness.js",
     "nodesrc/test_web_gui_video_memory_rows_example_contract.js",
     "nodesrc/test_web_gui_input_bridge.js",
     "nodesrc/test_web_gui_offscreen_headless_contract.js",
