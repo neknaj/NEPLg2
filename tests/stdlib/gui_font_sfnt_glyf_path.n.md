@@ -1,7 +1,7 @@
 # GUI font SFNT glyf path command doctests
 
-このファイルは、F4l の `GuiSfntSimpleGlyphCurveSegment` を F4m の path command projection へ写す pure helper を検査する。
-full outline `Vec`、rasterizer、platform API は使わず、typed value だけで line / quadratic / no-segment の command sequence を確認する。
+このファイルは、F4l の `GuiSfntSimpleGlyphCurveSegment` を F4m/F4o の path command projection へ写す pure helper を検査する。
+full outline `Vec`、rasterizer、platform API は使わず、typed value だけで line / quadratic / no-segment の command projection と single-edge command pair を確認する。
 
 ## line segment emits move and line commands
 
@@ -58,7 +58,32 @@ fn main %impure fn void i32 \void:
             false
         GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
             false
-    test_assertion_exit_code assert "line path commands" and move_ok line_ok
+    let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment
+    let pair_move_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_move_command &pair
+    let pair_move_ok %bool match pair_move_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            let ok_x %bool eq 2 gui_sfnt_simple_glyph_path_move_to_x2 &move_to
+            let ok_y %bool eq 4 gui_sfnt_simple_glyph_path_move_to_y2 &move_to
+            and ok_x ok_y
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    let pair_draw_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_draw_command &pair
+    let pair_line_ok %bool match pair_draw_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            let ok_x %bool eq 10 gui_sfnt_simple_glyph_path_line_to_x2 &line_to
+            let ok_y %bool eq -6 gui_sfnt_simple_glyph_path_line_to_y2 &line_to
+            and ok_x ok_y
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    test_assertion_exit_code assert "line path commands" and move_ok and line_ok and pair_move_ok pair_line_ok
 ```
 
 ## implied quadratic keeps doubled coordinates
@@ -90,8 +115,21 @@ fn main %impure fn void i32 \void:
     let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_contour_edge contour0 contour1 0 1
     let quadratic %GuiSfntSimpleGlyphQuadraticSegment gui_sfnt_simple_glyph_quadratic_segment edge contour2 0 0 2 6 5 11 true
     let segment %GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic
-    let quadratic_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_draw_command &segment
-    let quadratic_ok %bool match quadratic_command:
+    let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment
+    let pair_move_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_move_command &pair
+    let pair_move_ok %bool match pair_move_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            let ok_x %bool eq 0 gui_sfnt_simple_glyph_path_move_to_x2 &move_to
+            let ok_y %bool eq 0 gui_sfnt_simple_glyph_path_move_to_y2 &move_to
+            and ok_x ok_y
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    let pair_draw_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_draw_command &pair
+    let pair_quadratic_ok %bool match pair_draw_command:
         GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
             false
         GuiSfntSimpleGlyphPathCommand::LineTo line_to:
@@ -102,12 +140,10 @@ fn main %impure fn void i32 \void:
             let ok_end_x %bool eq 5 gui_sfnt_simple_glyph_path_quadratic_to_end_x2 &quadratic_to
             let ok_end_y %bool eq 11 gui_sfnt_simple_glyph_path_quadratic_to_end_y2 &quadratic_to
             let ok_implied %bool gui_sfnt_simple_glyph_path_quadratic_to_end_is_implied &quadratic_to
-            let ok_contour %bool eq 0 gui_sfnt_simple_glyph_path_quadratic_to_contour_index &quadratic_to
-            let ok_edge %bool eq 0 gui_sfnt_simple_glyph_path_quadratic_to_edge_index &quadratic_to
-            and ok_control_x and ok_control_y and ok_end_x and ok_end_y and ok_implied and ok_contour ok_edge
+            and ok_control_x and ok_control_y and ok_end_x and ok_end_y ok_implied
         GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
             false
-    test_assertion_exit_code assert "quadratic path command keeps odd doubled midpoint" quadratic_ok
+    test_assertion_exit_code assert "quadratic path command keeps odd doubled midpoint" and pair_move_ok pair_quadratic_ok
 ```
 
 ## no segment emits explicit skip command
@@ -173,5 +209,40 @@ fn main %impure fn void i32 \void:
                 GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
                     false
             and ok_contour and ok_edge ok_reason
-    test_assertion_exit_code assert "no segment path command is explicit skip" and move_skip_ok skip_ok
+    let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment
+    let pair_move_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_move_command &pair
+    let pair_move_ok %bool match pair_move_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            let ok_reason %bool match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour:
+                    true
+                GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart:
+                    false
+                GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
+                    false
+            ok_reason
+    let pair_draw_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_command_pair_draw_command &pair
+    let pair_draw_ok %bool match pair_draw_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            let ok_reason %bool match gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip:
+                GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour:
+                    true
+                GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart:
+                    false
+                GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
+                    false
+            ok_reason
+    test_assertion_exit_code assert "no segment path command is explicit skip" and move_skip_ok and skip_ok and pair_move_ok pair_draw_ok
 ```

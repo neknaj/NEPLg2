@@ -853,6 +853,39 @@ Result::Ok segment
 
 `NoSegment` remains a successful path command state. Both public F4n helpers map it to `SkipNoSegment`; they do not return `Option::None`, synthesize an empty command, or silently ignore the edge.
 
+### SFNT simple glyph path command pair lookup
+
+F4o is a single-edge pair boundary. It is not a contour stream and does not define a command sequence for a full outline. The pair is an O(1) value that carries the two explicit phases already defined by F4m.
+
+```text
+GuiSfntSimpleGlyphPathCommandPair:
+    move_command GuiSfntSimpleGlyphPathCommand
+    draw_command GuiSfntSimpleGlyphPathCommand
+```
+
+Pure projection:
+
+```text
+gui_sfnt_simple_glyph_curve_segment_path_command_pair segment
+    -> move = gui_sfnt_simple_glyph_curve_segment_move_to_command segment
+    -> draw = gui_sfnt_simple_glyph_curve_segment_draw_command segment
+    -> GuiSfntSimpleGlyphPathCommandPair move draw
+```
+
+Byte-backed public lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_simple_glyph_curve_segment_path_command_pair segment
+```
+
+The public byte-backed helper must call `gui_sfnt_lookup_simple_glyph_curve_segment` exactly once. It must not call the separate move and draw public lookup helpers because that would decode the same SFNT edge twice. It must not call `gui_sfnt_parse_metadata`, `gui_sfnt_glyf_simple_curve_segment_with_tables`, lower public lookup helpers, the curve classifier, renderer APIs, rasterizers, host text measurement, or platform APIs.
+
+The pair is not a list. F4o does not expose `command_index`, `count`, `next`, mutable current point state, or `Vec GuiSfntSimpleGlyphPathCommand`. A later contour/path sink can choose how to consume the pair values, but F4o does not define contour closure or off-curve contour-start synthesis.
+
+`NoSegment` remains explicit. Both `move_command` and `draw_command` are `SkipNoSegment`, preserving the reason value for later diagnostic, skip counting, or sink behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

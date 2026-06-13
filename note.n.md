@@ -59189,3 +59189,43 @@ MERGE_APPROVED
 
 - F4n は single edge の move / draw command lookup までであり、contour-wide streaming path sink、full outline assembly、compound glyph、phantom points、hint instruction semantics、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
 - 後続 F5 では F4n の public byte lookup と F4m の compact command を使い、allocation / owner recovery と no fallback contract を保ったまま outline/path sink を追加する。
+
+## 2026-06-13 GUI font SFNT path command pair lookup checkpoint
+
+### scope
+
+- branch: `gui-font-contour-path-stream-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を前提に、hidden fallback、silent no-op、platform leakage、stringly error を避け、`Result` / enum payload / source policy で single-edge pair boundary を固定した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4o: SFNT simple glyph path command pair lookup を追加した。
+- F4o は single edge の move / draw command pair であり、contour stream、command sequence、full outline `Vec`、sink trait、winding、fill rule、rasterizer、render2d command はまだ作らない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathCommandPair`、constructor、move/draw accessor、`gui_sfnt_simple_glyph_curve_segment_path_command_pair`、`gui_sfnt_lookup_simple_glyph_path_command_pair` を追加した。
+- pure pair helper は F4m の move projection と draw projection を同じ segment に適用するだけで、command index、count、next、current point state を持たない。
+- byte-backed pair lookup は `gui_sfnt_lookup_simple_glyph_curve_segment` を 1 回だけ呼び、`Result::Err error` は同じ `GuiSfntParseError` として伝播し、`Result::Ok segment` を pair helper に渡す。
+- source policy で curve lookup 1 回、move/draw public lookup への迂回禁止、metadata unwrap / `*_with_tables` / lower public lookup / classifier 再実装禁止、renderer/platform/rasterizer/host text API 禁止を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に line pair、implied quadratic pair、NoSegment pair の typed assertion を追加した。通常 60 秒 timeout に収まるよう、quadratic の standalone draw check と pair draw check の重複はなくした。
+
+### subagent_review
+
+- Godel pre-review: Blocker なし。ただし phase 名は F5a ではなく F4o が妥当と指摘された。Required として、single edge pair であり contour stream / command sequence ではないこと、list / command_index / count / next / current point state を導入しないこと、curve lookup 1 回を source policy で固定すること、NoSegment pair を doctest で見ることが挙げられた。
+- 実装では phase を F4o に変更し、doc / source policy / doctest を single-edge pair boundary に合わせた。
+- Godel implementation review: Blocker なし。Required として `note.n.md` 更新、path doctest 冒頭の `command sequence` 表現修正、temp 除外確認が指摘された。
+- 対応として、doctest 冒頭を `command projection` / `single-edge command pair` 表現へ修正し、本 checkpoint を追記した。`NUL` と `tmp_gui_*.json` は commit 対象外のままにする。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+- pass: `git diff --check`
+
+### residual
+
+- F4o は single edge の pair lookup までであり、contour-wide streaming path sink、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+- 後続では F4o の pair boundary を使い、allocation / owner recovery と no fallback contract を保ったまま contour/path sink へ進む。

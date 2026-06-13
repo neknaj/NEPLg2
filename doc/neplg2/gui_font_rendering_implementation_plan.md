@@ -641,6 +641,50 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4o: sfnt simple glyph path command pair lookup
+
+目的:
+
+- 同じ contour-local edge の move command と draw command を 1 つの pair value として取得できるようにする。
+- F4n の move lookup と draw lookup を別々に呼ぶことで同じ SFNT edge decode が 2 回走る問題を避ける。
+- contour stream、command sequence、full outline `Vec`、sink trait、winding、fill rule、rasterizer、render2d command はまだ作らない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathCommandPair`
+  - `gui_sfnt_simple_glyph_path_command_pair`
+  - `gui_sfnt_simple_glyph_path_command_pair_move_command`
+  - `gui_sfnt_simple_glyph_path_command_pair_draw_command`
+  - `gui_sfnt_simple_glyph_curve_segment_path_command_pair`
+  - `gui_sfnt_lookup_simple_glyph_path_command_pair`
+- `GuiSfntSimpleGlyphPathCommandPair` は ordered list ではなく、`move_command` と `draw_command` だけを持つ O(1) value とする。
+- pure helper は F4m の `move_to_command` と `draw_command` を同じ segment に適用して pair を返す。
+- byte-backed helper は `gui_sfnt_lookup_simple_glyph_curve_segment` を 1 回だけ呼び、`Result::Err` は同じ `GuiSfntParseError` として伝播する。
+- `Result::Ok segment` の場合、`gui_sfnt_simple_glyph_curve_segment_path_command_pair` を呼び、`Result::Ok GuiSfntSimpleGlyphPathCommandPair` を返す。
+- `NoSegment` は pair 内の move / draw の両方で `SkipNoSegment` の成功値として保持する。
+- F4o では command index、count、next、current point state、`Vec GuiSfntSimpleGlyphPathCommand`、`push` を導入しない。
+- F4o public helper では `gui_sfnt_parse_metadata`、`*_with_tables` helper、lower public lookup helper、curve classifier、render2d/backend/platform、rasterizer、host text API を使わない。
+- Source policy で pair API、curve lookup 1 回、pair helper composition、no list / no sink / no metadata unwrap / no table-helper bypass を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に line pair、implied quadratic pair、NoSegment pair の typed doctest assertion を追加する。
+
+完了条件:
+
+- line segment pair が `MoveTo` と `LineTo` を保持する。
+- implied quadratic segment pair が `MoveTo` と `QuadraticTo` を保持し、doubled coordinate と `end_is_implied` を落とさない。
+- NoSegment pair が move / draw の両方で `SkipNoSegment` と reason を保持する。
+- byte-backed public lookup が curve segment lookup を 1 回だけ呼ぶ thin composition になっている。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

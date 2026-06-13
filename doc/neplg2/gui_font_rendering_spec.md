@@ -599,6 +599,42 @@ F4n は `gui_sfnt_lookup_simple_glyph_curve_segment` を呼び、成功した `G
 
 `gui_sfnt_lookup_simple_glyph_curve_segment` が `Result::Err` を返した場合、F4n は同じ `GuiSfntParseError` を伝播する。`NoSegment` は parse error ではないため、F4n でも `Result::Ok (SkipNoSegment ...)` として返す。`Option::None`、empty command、silent no-op、fallback drawing にはしない。
 
+### SFNT simple glyph path command pair lookup
+
+F4o は同じ contour-local edge について、move command と draw command を O(1) の pair value として取得する層である。これは contour stream、command sequence、full outline、sink trait ではない。command index、count、next pointer、current point state は導入しない。
+
+```text
+GuiSfntSimpleGlyphPathCommandPair:
+    move_command GuiSfntSimpleGlyphPathCommand
+    draw_command GuiSfntSimpleGlyphPathCommand
+```
+
+Pure projection API:
+
+```text
+gui_sfnt_simple_glyph_curve_segment_path_command_pair:
+    segment &GuiSfntSimpleGlyphCurveSegment
+    -> GuiSfntSimpleGlyphPathCommandPair
+```
+
+Byte-backed public lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathCommandPair GuiSfntParseError
+```
+
+F4o の public lookup は `gui_sfnt_lookup_simple_glyph_curve_segment` を 1 回だけ呼び、成功した segment を `gui_sfnt_simple_glyph_curve_segment_path_command_pair` に渡す。F4n の move lookup と draw lookup を別々に呼ぶと同じ SFNT edge decode が 2 回走るため、pair lookup は後続 sink が single-edge boundary を効率よく読むための API である。
+
+`NoSegment` は pair 内の `move_command` と `draw_command` の両方で `SkipNoSegment` になる。これは parse error、empty command、silent no-op ではない。
+
+F4o は `Vec GuiSfntSimpleGlyphPathCommand` を作らない。`gui_sfnt_parse_metadata`、`*_with_tables` helper、lower public lookup、curve classifier、renderer、rasterizer、platform API を F4o の public helper に混ぜてはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
