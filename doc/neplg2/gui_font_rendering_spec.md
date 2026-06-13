@@ -177,6 +177,43 @@ gui_sfnt_lookup_glyph_bounds:
 
 File 末尾に余分な byte があっても、declared `loca.length` や `glyf.length` を越えて成功にしてはならない。
 
+### SFNT simple glyph topology
+
+SFNT `glyf` simple glyph の topology は、後続の flags / coordinate decode と rasterization の入力である。ここでは point stream 自体を解析せず、glyph header 後の contour endpoint array、instruction length、point data range だけを typed value として返す。
+
+```text
+GuiSfntSimpleGlyphTopology:
+    glyph GuiGlyphId
+    bounds GuiSfntGlyphBounds
+    contour_count i32
+    point_count i32
+    instruction_length i32
+    point_data_offset i32
+    point_data_length i32
+
+gui_sfnt_lookup_simple_glyph_topology:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    -> Result GuiSfntSimpleGlyphTopology GuiSfntParseError
+```
+
+`point_data_offset` は file absolute offset ではなく、`glyf` table-relative offset である。後続 decoder は `glyf.offset + point_data_offset` を file offset として使う。`point_data_length` も declared glyph range 内の相対長であり、file 末尾の余分な byte を使って補完してはならない。
+
+Validation rules:
+
+- F4e の `loca` / `glyf` validation と glyph header bounds validation を先に満たす。
+- `numberOfContours < 0` は composite glyph または未対応 outline format なので `UnsupportedGlyphOutlineFormat`。
+- `numberOfContours == 0` は成功値として使える outline がないため `MissingGlyphOutline`。
+- `numberOfContours > 0` の場合、`endPtsOfContours[numberOfContours]` 全体が glyph range 内になければ `MalformedGlyfRecord`。
+- endpoint は strict increasing でなければならない。
+- `point_count = last_endpoint + 1` とし、`point_count > 0` でなければならない。overflow は `MalformedGlyfRecord`。
+- `instructionLength` は u16 として読む。`instruction_length_offset + 2 + instructionLength <= glyph_end` を満たさない場合は `MalformedGlyfRecord`。
+- `point_data_offset = instruction_start + instructionLength`、`point_data_length = glyph_end - point_data_offset` とする。
+- `numberOfContours > 0` かつ `point_count > 0` なのに `point_data_length == 0` なら `MalformedGlyfRecord`。
+
+F4f は flags / coordinate stream が「十分な長さを持つか」までは判定しない。flag repeat、x/y coordinate delta、contour point decode は後続 phase の責務である。ただし point stream が空の glyph を success にしてはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

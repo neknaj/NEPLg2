@@ -312,6 +312,53 @@ glyf glyph header:
 
 F4e reads `numberOfContours` only as part of the required 10 byte header. Simple glyph contour arrays, composite component recursion, CFF / CFF2 charstrings, fill / stroke rasterization, and `GuiGlyphMetrics` synthesis are later phases.
 
+### SFNT simple glyph topology
+
+F4f extends `alloc/gui/font/sfnt/glyf.nepl` with simple glyph topology. This remains in `glyf.nepl` because it shares the same `head` / `loca` / `glyf` table lookup and declared range validation as F4e. A later point decoder can split into `glyf/simple.nepl` or `outline.nepl` when flags, coordinates, and composite recursion grow beyond header topology.
+
+```text
+GuiSfntSimpleGlyphTopology:
+    glyph GuiGlyphId
+    bounds GuiSfntGlyphBounds
+    contour_count i32
+    point_count i32
+    instruction_length i32
+    point_data_offset i32
+    point_data_length i32
+```
+
+`point_data_offset` is relative to the `glyf` table, not absolute file offset. The file offset is `glyf.offset + point_data_offset`. Keeping topology ranges table-relative lets headless, native, web, and bare providers share the same checked payload without path or host font authority.
+
+Simple glyph layout:
+
+```text
+glyf glyph header:
+    numberOfContours i16
+    xMin i16
+    yMin i16
+    xMax i16
+    yMax i16
+
+simple glyph payload:
+    endPtsOfContours[numberOfContours] u16
+    instructionLength u16
+    instructions[instructionLength] u8
+    flags and coordinate stream
+```
+
+Validation:
+
+- F4e `loca` / `glyf` range and bounds validation must pass first.
+- `numberOfContours < 0` is `UnsupportedGlyphOutlineFormat`.
+- `numberOfContours == 0` is `MissingGlyphOutline`.
+- endpoint array range and `instructionLength` range must remain inside the selected glyph range.
+- endpoints must be strict increasing; `point_count = last_endpoint + 1`.
+- `point_count <= 0` or overflow is `MalformedGlyfRecord`.
+- `point_data_offset = instruction_start + instructionLength`, `point_data_length = glyph_end - point_data_offset`.
+- `numberOfContours > 0` and `point_count > 0` with zero point data length is `MalformedGlyfRecord`.
+
+F4f deliberately does not parse flags or x/y deltas. That means it only proves the topology prefix and non-empty point stream boundary. Later outline phases must validate repeat flags, coordinate stream length, contour closure, and composite recursion.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -87,6 +87,111 @@ pub fn gui_sfnt_glyph_bounds_x_max %fn &GuiSfntGlyphBounds i32 \bounds:
 pub fn gui_sfnt_glyph_bounds_y_max %fn &GuiSfntGlyphBounds i32 \bounds:
     *field::get_ref bounds "y_max"
 
+//: GuiSfntSimpleGlyphTopology: simple glyph の contour topology prefix
+//:
+//: [目的/もくてき]:
+//: - full point decode 前に、contour 数、point 数、instruction 長、point data range を typed value として[運/はこ]びます。
+//: - `point_data_offset` は `glyf` table-relative offset であり、file absolute offset ではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphTopology:
+    glyph %GuiGlyphId
+    bounds %GuiSfntGlyphBounds
+    contour_count %i32
+    point_count %i32
+    instruction_length %i32
+    point_data_offset %i32
+    point_data_length %i32
+
+impl Clone for GuiSfntSimpleGlyphTopology:
+    fn clone %fn &GuiSfntSimpleGlyphTopology GuiSfntSimpleGlyphTopology \topology:
+        *topology
+
+impl Copy for GuiSfntSimpleGlyphTopology:
+    fn copy_mark %fn GuiSfntSimpleGlyphTopology GuiSfntSimpleGlyphTopology \topology:
+        topology
+
+//: gui_sfnt_simple_glyph_topology: simple glyph topology value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology %fn GuiGlyphId fn GuiSfntGlyphBounds fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphTopology \glyph\bounds\contour_count\point_count\instruction_length\point_data_offset\point_data_length:
+    GuiSfntSimpleGlyphTopology glyph bounds contour_count point_count instruction_length point_data_offset point_data_length
+
+//: gui_sfnt_simple_glyph_topology_glyph: topology の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_glyph %fn &GuiSfntSimpleGlyphTopology GuiGlyphId \topology:
+    *field::get_ref topology "glyph"
+
+//: gui_sfnt_simple_glyph_topology_bounds: topology の bounds を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_bounds %fn &GuiSfntSimpleGlyphTopology GuiSfntGlyphBounds \topology:
+    *field::get_ref topology "bounds"
+
+//: gui_sfnt_simple_glyph_topology_contour_count: contour count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_contour_count %fn &GuiSfntSimpleGlyphTopology i32 \topology:
+    *field::get_ref topology "contour_count"
+
+//: gui_sfnt_simple_glyph_topology_point_count: point count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_point_count %fn &GuiSfntSimpleGlyphTopology i32 \topology:
+    *field::get_ref topology "point_count"
+
+//: gui_sfnt_simple_glyph_topology_instruction_length: instruction length を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_instruction_length %fn &GuiSfntSimpleGlyphTopology i32 \topology:
+    *field::get_ref topology "instruction_length"
+
+//: gui_sfnt_simple_glyph_topology_point_data_offset: `glyf` table-relative point data offset を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_point_data_offset %fn &GuiSfntSimpleGlyphTopology i32 \topology:
+    *field::get_ref topology "point_data_offset"
+
+//: gui_sfnt_simple_glyph_topology_point_data_length: point data length を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_topology_point_data_length %fn &GuiSfntSimpleGlyphTopology i32 \topology:
+    *field::get_ref topology "point_data_length"
+
+//: GuiSfntGlyphSpan: `glyf` table-relative glyph byte range
+//:
+//: neplg2:test[skip]
+struct GuiSfntGlyphSpan:
+    start %i32
+    end %i32
+
+impl Clone for GuiSfntGlyphSpan:
+    fn clone %fn &GuiSfntGlyphSpan GuiSfntGlyphSpan \span:
+        *span
+
+impl Copy for GuiSfntGlyphSpan:
+    fn copy_mark %fn GuiSfntGlyphSpan GuiSfntGlyphSpan \span:
+        span
+
+//: gui_sfnt_glyph_span: glyph span value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyph_span %fn i32 fn i32 GuiSfntGlyphSpan \start\end:
+    GuiSfntGlyphSpan start end
+
+//: gui_sfnt_glyph_span_start: span start を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyph_span_start %fn &GuiSfntGlyphSpan i32 \span:
+    *field::get_ref span "start"
+
+//: gui_sfnt_glyph_span_end: span end を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyph_span_end %fn &GuiSfntGlyphSpan i32 \span:
+    *field::get_ref span "end"
+
 //: gui_sfnt_glyf_checked_range: file byte range を overflow なしで[検査/けんさ]する
 //:
 //: neplg2:test[skip]
@@ -197,6 +302,22 @@ fn gui_sfnt_glyf_table_relative_range_is_valid %fn GuiSfntTableRecord fn i32 fn 
                 else:
                     le size sub table_length offset
 
+//: gui_sfnt_glyf_glyph_relative_range_is_valid: selected glyph 内の相対 range か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_glyph_relative_range_is_valid %fn i32 fn i32 fn i32 fn i32 bool \start\end\offset\size:
+    if:
+        or lt offset start lt size 0
+        then:
+            false
+        else:
+            if:
+                gt offset end
+                then:
+                    false
+                else:
+                    le size sub end offset
+
 //: gui_sfnt_glyf_read_index_to_loc_format: `head.indexToLocFormat` を[読/よ]む
 //:
 //: [目的/もくてき]:
@@ -298,6 +419,43 @@ fn gui_sfnt_glyf_validate_offsets %fn GuiSfntTableRecord fn i32 fn i32 Result un
                                 else:
                                     Result::Ok unit
 
+//: gui_sfnt_glyf_lookup_span_with_tables: metadata 済み table から glyph byte span を[引/ひ]く
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_lookup_span_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId Result GuiSfntGlyphSpan GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph:
+    match gui_sfnt_glyf_read_index_to_loc_format bytes head:
+        Result::Err error:
+            Result::Err error
+        Result::Ok format:
+            if:
+                not or eq format 0 eq format 1
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedLocaFormat add gui_sfnt_table_record_offset &head 50
+                else:
+                    let num_glyphs %i32 gui_sfnt_metrics_num_glyphs &metrics
+                    if:
+                        not gui_sfnt_glyf_loca_required_length_is_valid loca format num_glyphs
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord gui_sfnt_table_record_offset &loca
+                        else:
+                            match gui_sfnt_glyf_checked_glyph_raw glyph num_glyphs:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok glyph_raw:
+                                    match gui_sfnt_glyf_read_loca_offset bytes loca format glyph_raw:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok start:
+                                            match gui_sfnt_glyf_read_loca_offset bytes loca format add glyph_raw 1:
+                                                Result::Err error:
+                                                    Result::Err error
+                                                Result::Ok end:
+                                                    match gui_sfnt_glyf_validate_offsets glyf start end:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok _:
+                                                            Result::Ok gui_sfnt_glyph_span start end
+
 //: gui_sfnt_glyf_bounds_from_header: glyf header 10 byte から bounds を[読/よ]む
 //:
 //: neplg2:test[skip]
@@ -338,34 +496,115 @@ fn gui_sfnt_glyf_bounds_from_header %fn &ByteBuf fn GuiSfntTableRecord fn GuiGly
 //:
 //: neplg2:test[skip]
 fn gui_sfnt_glyf_lookup_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId Result GuiSfntGlyphBounds GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph:
-    match gui_sfnt_glyf_read_index_to_loc_format bytes head:
+    match gui_sfnt_glyf_lookup_span_with_tables bytes head loca glyf metrics glyph:
         Result::Err error:
             Result::Err error
-        Result::Ok format:
+        Result::Ok span:
+            gui_sfnt_glyf_bounds_from_header bytes glyf glyph gui_sfnt_glyph_span_start &span gui_sfnt_glyph_span_end &span
+
+//: gui_sfnt_glyf_read_last_endpoint: simple glyph endpoint array を strict increasing として[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_read_last_endpoint %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 GuiSfntParseError \bytes\glyf\start\end\index\contour_count\previous_endpoint:
+    if:
+        ge index contour_count
+        then:
+            Result::Ok previous_endpoint
+        else:
+            let endpoint_offset %i32 add add start 10 mul index 2
             if:
-                not or eq format 0 eq format 1
+                not gui_sfnt_glyf_glyph_relative_range_is_valid start end endpoint_offset 2
                 then:
-                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedLocaFormat add gui_sfnt_table_record_offset &head 50
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_offset
                 else:
-                    let num_glyphs %i32 gui_sfnt_metrics_num_glyphs &metrics
+                    match gui_sfnt_glyf_read_u16_be bytes add gui_sfnt_table_record_offset &glyf endpoint_offset GuiSfntParseErrorKind::MalformedGlyfRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok endpoint:
+                            if:
+                                le endpoint previous_endpoint
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_offset
+                                else:
+                                    gui_sfnt_glyf_read_last_endpoint bytes glyf start end add index 1 contour_count endpoint
+
+//: gui_sfnt_glyf_topology_from_span: checked glyph span から simple topology を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_topology_from_span %fn &ByteBuf fn GuiSfntTableRecord fn GuiGlyphId fn GuiSfntGlyphSpan Result GuiSfntSimpleGlyphTopology GuiSfntParseError \bytes\glyf\glyph\span:
+    let start %i32 gui_sfnt_glyph_span_start &span
+    let end %i32 gui_sfnt_glyph_span_end &span
+    let file_offset %i32 add gui_sfnt_table_record_offset &glyf start
+    match gui_sfnt_glyf_bounds_from_header bytes glyf glyph start end:
+        Result::Err error:
+            Result::Err error
+        Result::Ok bounds:
+            match gui_sfnt_glyf_read_i16_be bytes file_offset GuiSfntParseErrorKind::MalformedGlyfRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok contour_count:
                     if:
-                        not gui_sfnt_glyf_loca_required_length_is_valid loca format num_glyphs
+                        lt contour_count 0
                         then:
-                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord gui_sfnt_table_record_offset &loca
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat file_offset
                         else:
-                            match gui_sfnt_glyf_checked_glyph_raw glyph num_glyphs:
-                                Result::Err error:
-                                    Result::Err error
-                                Result::Ok glyph_raw:
-                                    match gui_sfnt_glyf_read_loca_offset bytes loca format glyph_raw:
-                                        Result::Err error:
-                                            Result::Err error
-                                        Result::Ok start:
-                                            match gui_sfnt_glyf_read_loca_offset bytes loca format add glyph_raw 1:
+                            if:
+                                eq contour_count 0
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline file_offset
+                                else:
+                                    let endpoint_array_offset %i32 add start 10
+                                    let endpoint_array_length %i32 mul contour_count 2
+                                    if:
+                                        not gui_sfnt_glyf_glyph_relative_range_is_valid start end endpoint_array_offset endpoint_array_length
+                                        then:
+                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_array_offset
+                                        else:
+                                            let initial_endpoint %i32 -1
+                                            match gui_sfnt_glyf_read_last_endpoint bytes glyf start end 0 contour_count initial_endpoint:
                                                 Result::Err error:
                                                     Result::Err error
-                                                Result::Ok end:
-                                                    gui_sfnt_glyf_bounds_from_header bytes glyf glyph start end
+                                                Result::Ok last_endpoint:
+                                                    let point_count %i32 add last_endpoint 1
+                                                    if:
+                                                        le point_count 0
+                                                        then:
+                                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_array_offset
+                                                        else:
+                                                            let instruction_length_offset %i32 add endpoint_array_offset endpoint_array_length
+                                                            if:
+                                                                not gui_sfnt_glyf_glyph_relative_range_is_valid start end instruction_length_offset 2
+                                                                then:
+                                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf instruction_length_offset
+                                                                else:
+                                                                    match gui_sfnt_glyf_read_u16_be bytes add gui_sfnt_table_record_offset &glyf instruction_length_offset GuiSfntParseErrorKind::MalformedGlyfRecord:
+                                                                        Result::Err error:
+                                                                            Result::Err error
+                                                                        Result::Ok instruction_length:
+                                                                            let instruction_start %i32 add instruction_length_offset 2
+                                                                            if:
+                                                                                not gui_sfnt_glyf_glyph_relative_range_is_valid start end instruction_start instruction_length
+                                                                                then:
+                                                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf instruction_start
+                                                                                else:
+                                                                                    let point_data_offset %i32 add instruction_start instruction_length
+                                                                                    let point_data_length %i32 sub end point_data_offset
+                                                                                    if:
+                                                                                        le point_data_length 0
+                                                                                        then:
+                                                                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf point_data_offset
+                                                                                        else:
+                                                                                            Result::Ok gui_sfnt_simple_glyph_topology glyph bounds contour_count point_count instruction_length point_data_offset point_data_length
+
+//: gui_sfnt_glyf_simple_topology_with_tables: metadata 済み table から simple topology を[引/ひ]く
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_simple_topology_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId Result GuiSfntSimpleGlyphTopology GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph:
+    match gui_sfnt_glyf_lookup_span_with_tables bytes head loca glyf metrics glyph:
+        Result::Err error:
+            Result::Err error
+        Result::Ok span:
+            gui_sfnt_glyf_topology_from_span bytes glyf glyph span
 
 //: gui_sfnt_lookup_glyph_bounds: SFNT glyf から glyph header bounds を[読/よ]む
 //:
@@ -396,3 +635,34 @@ pub fn gui_sfnt_lookup_glyph_bounds %fn &ByteBuf fn Option i32 fn GuiGlyphId Res
                                     Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
                                 Option::Some glyf:
                                     gui_sfnt_glyf_lookup_with_tables bytes head loca glyf metrics glyph
+
+//: gui_sfnt_lookup_simple_glyph_topology: SFNT glyf から simple glyph topology を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - full point decode 前に、contour endpoint array、instruction length、point data range を typed value として[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - `point_data_offset` は `glyf` table-relative offset です。
+//: - composite glyph、flags、coordinate delta、CFF / CFF2 は後続 phase で扱います。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_topology %fn &ByteBuf fn Option i32 fn GuiGlyphId Result GuiSfntSimpleGlyphTopology GuiSfntParseError \bytes\face_index\glyph:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+            match gui_sfnt_directory_head &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some head:
+                    match gui_sfnt_directory_loca &directory:
+                        Option::None:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                        Option::Some loca:
+                            match gui_sfnt_directory_glyf &directory:
+                                Option::None:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                                Option::Some glyf:
+                                    gui_sfnt_glyf_simple_topology_with_tables bytes head loca glyf metrics glyph

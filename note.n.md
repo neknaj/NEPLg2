@@ -58352,6 +58352,51 @@ MERGE_APPROVED
 - F4e は glyph header の bbox だけであり、actual outline contour decode、CFF/CFF2、quadratic curve rasterization、hinting、anti-alias mask、GSUB/GPOS shaping、ruby / vertical / math bridge は後続 phase で接続する。
 - `metadata` / `name` / `cmap` / `hmtx` / `glyf` の byte reader と table-relative range helper は重複しているため、public contract を変えずに後続で shared internal helper へ整理できる。
 
+## 2026-06-13 GUI font SFNT simple glyph topology checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-simple-topology-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: glyph topology を host font API、browser text API、path suffix、fixed-cell fallback へ委譲せず、font bytes 内の `head` / `maxp` / `loca` / `glyf` と typed `GuiGlyphId`、`Result`、enum error を authority とした。
+
+### implementation
+
+- `gui_font_rendering_spec.md`、`gui_font_rendering_detailed_design.md`、`gui_font_rendering_implementation_plan.md` に F4f の SFNT simple glyph topology contract を追加した。
+- `GuiSfntParseErrorKind` に `UnsupportedGlyphOutlineFormat` を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphTopology` と `gui_sfnt_lookup_simple_glyph_topology` を追加した。
+- `GuiSfntSimpleGlyphTopology` は glyph、bounds、contour_count、point_count、instruction_length、point_data_offset、point_data_length を持つ。
+- `point_data_offset` は file absolute offset ではなく `glyf` table-relative offset として固定した。
+- `GuiSfntGlyphSpan` と `gui_sfnt_glyf_lookup_span_with_tables` を内部に追加し、F4e bounds lookup と F4f topology lookup が同じ `loca` / `glyf` span validation を通るようにした。
+- `numberOfContours < 0` は composite glyph / unsupported outline format として `UnsupportedGlyphOutlineFormat`、`numberOfContours == 0` は renderable outline がないため `MissingGlyphOutline`、endpoint / instruction / empty point data は `MalformedGlyfRecord` とした。
+- endpoint array は selected glyph range 内、strict increasing、`point_count = last_endpoint + 1` として検査する。
+- `instructionLength` は u16 として読み、`instruction_start + instructionLength <= glyph_end`、かつ positive contour / point count で point data range が空なら `MalformedGlyfRecord` とする。
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に topology success 5 件と composite / zero contour / endpoint / instruction / point data の typed error cases 7 件を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4f の doc gate、public API gate、range validation gate、doctest label gate を追加した。
+
+### subagent_review
+
+- 実装前 review では、`point_data_offset` を `glyf` table-relative として doc に固定すること、`numberOfContours == 0` は `MissingGlyphOutline`、`point_data_length == 0` は正確に `numberOfContours > 0` / `point_count > 0` 条件で `MalformedGlyfRecord` とすること、endpoint と instructionLength の declared glyph range validation を明記することが Required とされた。
+- 対応として、docs と実装に table-relative offset、endpoint strict increasing、instructionLength range、non-empty point data condition を追加した。
+- 実装後 review では Blocker / Required はなく、merge-ready と判断された。
+- Suggested として、次の flags / coordinate decode へ進む前に `glyf.nepl` の分割を検討するタイミングとされた。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+`nodesrc/run_source_policy_regressions.js --warn-only` では GUI/font F4f policy を通過したが、既存の `nodesrc/test_stdlib_documentation_contract.js` が `stdlib declaration doc gaps increased: 153 > 108` を報告した。この warning は既存 baseline drift として切り分ける。
+
+### residual
+
+- F4f は simple glyph topology prefix だけであり、flag repeat、x/y coordinate delta、contour point decode、composite glyph recursion、CFF/CFF2、rasterization、shaping、ruby / vertical / math bridge は後続 phase で接続する。
+- 次の flags / coordinate decode に入る前に、`glyf.nepl` を `glyf/simple.nepl` などへ分割するか検討する。
+
 ## 2026-06-13 selfhost stable nominal key and public type layout header checkpoint
 
 ### scope
