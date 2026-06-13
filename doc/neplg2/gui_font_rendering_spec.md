@@ -664,6 +664,40 @@ pure projection は total であり、`Option` や `Result` を返さない。va
 
 F4p は `Vec GuiSfntSimpleGlyphPathSinkEvent` を作らない。`command_index`、`count`、`next`、mutable current point state、`push`、`gui_sfnt_lookup_simple_glyph_path_command_pair`、`gui_sfnt_lookup_simple_glyph_curve_segment`、metadata parser、`*_with_tables` helper、lower point / contour helper、curve classifier、renderer、rasterizer、platform API を F4p の pure helper に混ぜてはならない。
 
+### SFNT simple glyph path sink event kind classification
+
+F4q は F4p の `GuiSfntSimpleGlyphPathSinkEvent` を、後続 sink の dispatch 用分類値へ写す段階である。これは path command payload の軽量版ではなく、描画座標、source contour / edge、rasterization state、current point state の authority ではない。実 payload は常に `GuiSfntSimpleGlyphPathSinkEvent` から `GuiSfntSimpleGlyphPathCommand` を読む側に残す。
+
+```text
+GuiSfntSimpleGlyphPathSinkEventKind:
+    MoveTo
+    LineTo
+    QuadraticTo
+    SkipNoSegment GuiSfntSimpleGlyphCurveNoSegmentReason
+
+GuiSfntSimpleGlyphPathSinkEventKindPair:
+    first_kind GuiSfntSimpleGlyphPathSinkEventKind
+    second_kind GuiSfntSimpleGlyphPathSinkEventKind
+```
+
+`SkipNoSegment` kind は diagnostics、skip counting、branch selection のために reason だけを保持する。これは source contour / edge を復元する値ではない。`contour_index`、`edge_index`、`x2`、`y2`、`control_x2`、`end_x2` などが必要な caller は kind ではなく既存 command payload を読む。
+
+```text
+gui_sfnt_simple_glyph_path_sink_event_kind event
+    -> match event.command:
+        MoveTo -> GuiSfntSimpleGlyphPathSinkEventKind::MoveTo
+        LineTo -> GuiSfntSimpleGlyphPathSinkEventKind::LineTo
+        QuadraticTo -> GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo
+        SkipNoSegment skip -> GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment skip.reason
+
+gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair pair
+    -> first_kind = gui_sfnt_simple_glyph_path_sink_event_kind pair.first_event
+    -> second_kind = gui_sfnt_simple_glyph_path_sink_event_kind pair.second_event
+    -> GuiSfntSimpleGlyphPathSinkEventKindPair first_kind second_kind
+```
+
+F4q の pure helper は total であり、`Option` や `Result` を返さない。valid event は必ず既存 command を包んでいるため kind も必ず決まる。F4q は `Vec GuiSfntSimpleGlyphPathSinkEventKind`、`push`、command index、count、next、current point state、contour closure、winding、fill rule、byte lookup、metadata parser、`*_with_tables` helper、curve classifier、renderer、rasterizer、platform API を導入しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

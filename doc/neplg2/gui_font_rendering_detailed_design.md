@@ -923,6 +923,49 @@ F4p must not return `Option` or `Result` from the pure adapter because a valid `
 
 `SkipNoSegment` remains a typed event by wrapping the existing `GuiSfntSimpleGlyphPathCommand::SkipNoSegment` value. This keeps later sink behavior explicit without changing parse status.
 
+### SFNT simple glyph path sink event kind classification
+
+F4q adds a dispatch classification boundary above the F4p event wrapper. It is not a replacement path representation and not a compact payload enum. The authority for coordinates, contour index, edge index, and skip source remains the wrapped `GuiSfntSimpleGlyphPathCommand`.
+
+```text
+GuiSfntSimpleGlyphPathSinkEventKind:
+    MoveTo
+    LineTo
+    QuadraticTo
+    SkipNoSegment GuiSfntSimpleGlyphCurveNoSegmentReason
+
+GuiSfntSimpleGlyphPathSinkEventKindPair:
+    first_kind GuiSfntSimpleGlyphPathSinkEventKind
+    second_kind GuiSfntSimpleGlyphPathSinkEventKind
+```
+
+The event kind helper is total and uses exhaustive `match` on the wrapped command:
+
+```text
+gui_sfnt_simple_glyph_path_sink_event_kind event
+    -> command = gui_sfnt_simple_glyph_path_sink_event_command event
+    -> match command:
+        MoveTo _ -> MoveTo
+        LineTo _ -> LineTo
+        QuadraticTo _ -> QuadraticTo
+        SkipNoSegment skip -> SkipNoSegment (reason skip)
+```
+
+`SkipNoSegment` carries only `GuiSfntSimpleGlyphCurveNoSegmentReason`. That reason is suitable for diagnostics, explicit skip counting, and branch selection, but it is not enough to recover the source contour/edge. Callers that need source indices or coordinates must read the original command payload from `GuiSfntSimpleGlyphPathSinkEvent`.
+
+The kind pair helper must use only F4p event pair accessors and `gui_sfnt_simple_glyph_path_sink_event_kind`:
+
+```text
+gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair pair
+    -> first_event = gui_sfnt_simple_glyph_path_sink_event_pair_first_event pair
+    -> second_event = gui_sfnt_simple_glyph_path_sink_event_pair_second_event pair
+    -> first_kind = gui_sfnt_simple_glyph_path_sink_event_kind first_event
+    -> second_kind = gui_sfnt_simple_glyph_path_sink_event_kind second_event
+    -> GuiSfntSimpleGlyphPathSinkEventKindPair first_kind second_kind
+```
+
+F4q must not add `contour_index`, `edge_index`, coordinate fields, control/end fields, a real sink trait, allocation ownership, contour stream traversal, contour closure, off-curve contour-start synthesis, winding, fill rules, rasterization, render2d commands, host text measurement, or platform presentation. The pure helpers must not return `Option` or `Result`, allocate `Vec GuiSfntSimpleGlyphPathSinkEventKind`, expose `command_index`, `count`, `next`, or call byte-backed lookup helpers, metadata parsers, `*_with_tables` helpers, lower point / contour helpers, or the curve classifier.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

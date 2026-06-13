@@ -275,6 +275,22 @@ fn main %impure fn void i32 \void:
             false
         GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
             true
+    let skip_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &event
+    let skip_kind_ok %bool match skip_kind:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            match reason:
+                GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour:
+                    true
+                GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart:
+                    false
+                GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
+                    false
     let move_payload %GuiSfntSimpleGlyphPathMoveTo gui_sfnt_simple_glyph_path_move_to 7 8 10 12
     let line_payload %GuiSfntSimpleGlyphPathLineTo gui_sfnt_simple_glyph_path_line_to 7 8 14 16
     let move_command %GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand::MoveTo move_payload
@@ -303,5 +319,26 @@ fn main %impure fn void i32 \void:
             false
         GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
             false
-    test_assertion_exit_code assert "sink event pair wraps path commands" and event_ok and first_ok second_ok
+    let kind_pair %GuiSfntSimpleGlyphPathSinkEventKindPair gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair &event_pair
+    let first_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind &kind_pair
+    let second_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind &kind_pair
+    let first_kind_ok %bool match first_kind:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            true
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            false
+    let second_kind_ok %bool match second_kind:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            true
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            false
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            false
+    test_assertion_exit_code assert "sink event pair wraps path commands" and event_ok and skip_kind_ok and first_ok and second_ok and first_kind_ok second_kind_ok
 ```

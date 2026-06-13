@@ -59572,3 +59572,50 @@ MERGE_APPROVED
 
 - complete public surface impl candidate 群から method body fact build input table を作る scanner / full orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - method body fact table lookup の sorted index 化、method body fact build input table の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed input batch contract を変えずに後からできる最適化として扱う。
+
+## 2026-06-13 GUI font SFNT path sink event kind classification checkpoint
+
+### scope
+
+- branch: `gui-font-sink-event-kind-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を前提に、hidden fallback、payload duplication、platform leakage、stringly state を避け、既存 event / command payload を authority とする dispatch-only enum を追加した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4q: SFNT simple glyph path sink event kind classification を追加した。
+- F4q は F4p の `GuiSfntSimpleGlyphPathSinkEvent` を、後続 sink が dispatch するための `GuiSfntSimpleGlyphPathSinkEventKind` へ写す pure boundary である。
+- `GuiSfntSimpleGlyphPathSinkEventKind` は `MoveTo`、`LineTo`、`QuadraticTo`、`SkipNoSegment GuiSfntSimpleGlyphCurveNoSegmentReason` だけを持つ。
+- kind は path command payload の軽量版ではなく、座標、source contour / edge、current point state、rendering state の authority ではない。必要な caller は元の `GuiSfntSimpleGlyphPathSinkEvent` から `GuiSfntSimpleGlyphPathCommand` を読む。
+- `SkipNoSegment` kind の reason は diagnostics / skip counting / branch selection 用であり、source contour / edge 復元用ではない。
+- `GuiSfntSimpleGlyphPathSinkEventKindPair` と `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` を追加し、F4p event pair accessor と kind helper だけで first / second kind を作るようにした。
+- F4q では real sink trait、contour-wide traversal、`Vec GuiSfntSimpleGlyphPathSinkEventKind`、`push`、command index、count、next、current point state、byte-backed lookup、metadata parser、`*_with_tables` helper、curve classifier、renderer、rasterizer、platform API、host text API を導入していない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4q の docs / implementation / source policy assertion を追加した。kind enum が coordinate / source index / full path payload を持たないことも固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の direct sink event doctest に、`SkipNoSegment` reason kind と `MoveTo` / `LineTo` kind pair の cheap assertion を追加した。
+- font rendering / text layout が実描画可能になった後続要件として、古今和歌集仮名序を使うルビ付き日本語 GUI example を `todo.md` に追加した。window 幅に合わせた自動改行、ruby layout、font size 変更 button、keymap を備える予定である。
+
+### subagent_review
+
+- Godel pre-review: Blocker なし。F4q は F4p 上の small typed classification boundary として妥当で、実装開始可とされた。
+- Required として、kind は描画・座標・source contour/edge の authority ではないこと、`SkipNoSegment` reason は source contour/edge 復元用ではないこと、kind に contour/edge/coordinate fields を入れないこと、pair helper は F4p event pair accessor と kind helper だけを使うこと、catch-all / fallback arm を置かないこと、note 更新と temp 除外確認が指摘された。
+- 実装では docs/source policy/NEPL code/doctest にこれらを反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### implementation_review
+
+- Godel implementation review: Blocker なし。dispatch-only classification に収まっており、event/command payload authority、hidden fallback 禁止、silent no-op 禁止、Option/Result misuse 禁止、platform leakage 禁止、payload duplication 禁止は満たされていると確認された。
+- Required として、`note.n.md` の検証記録へ curve doctest、issues check、diff check、warn-only regression を追記すること、`NUL` / `tmp_gui_*.json` を commit から除外することが指摘された。
+
+### residual
+
+- F4q は dispatch kind classification までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+- ルビ付き日本語 example は font rasterization / text layout / window layout が実描画できる段階で実装する。

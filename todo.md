@@ -16,6 +16,7 @@
 - Web Playground の `GuiWebEvent` action / pointer down-move-up-cancel / keyboard / single-scalar text input / window resized-close / timer checkpoint を、IME composition / multi-scalar text、window focus-unfocus policy、lifecycle variant、session id formalization へ拡張する
 - Mandelbrot progressive rendering を NEPL app の update loop で処理する
 - Paint example を直近 stroke slot の軽量 model から persistent canvas / stroke storage へ拡張する
+- font rasterization / text layout が実描画可能になった段階で、examples に古今和歌集仮名序を使うルビ付き日本語 sample を追加する。window 幅に合わせた自動改行、ruby layout、font size 変更 button、keymap を備える
 - stdout fallback の timer request を正式 Wasm host import ABI と `std/gui` scheduler / timeslice contract へ移す
 - `nepl-gui-native` の framebuffer renderer を、`std/gui::GuiHost` と `platforms/gui/native` の正式 `present` 実装へ寄せる
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
