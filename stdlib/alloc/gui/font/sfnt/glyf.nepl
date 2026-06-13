@@ -1107,6 +1107,98 @@ pub fn gui_sfnt_simple_glyph_path_command_pair_sink_event_pair %fn &GuiSfntSimpl
     let second_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_command_sink_event draw_command
     gui_sfnt_simple_glyph_path_sink_event_pair first_event second_event
 
+//: GuiSfntSimpleGlyphPathSinkEventKind: sink event の dispatch 用 kind
+//:
+//: [目的/もくてき]:
+//: - 後続 sink が command payload を[複製/ふくせい]せずに `match` できる分類値を[運/はこ]びます。
+//: - 座標や contour / edge index は保持せず、必要な caller は元の command payload を[読/よ]みます。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkEventKind:
+    MoveTo
+    LineTo
+    QuadraticTo
+    SkipNoSegment %GuiSfntSimpleGlyphCurveNoSegmentReason
+
+impl Clone for GuiSfntSimpleGlyphPathSinkEventKind:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkEventKind GuiSfntSimpleGlyphPathSinkEventKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphPathSinkEventKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkEventKind GuiSfntSimpleGlyphPathSinkEventKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphPathSinkEventKindPair: single-edge event pair の first / second kind
+//:
+//: [目的/もくてき]:
+//: - F4p の event pair を dispatch しやすい O(1) value に[写/うつ]します。
+//: - これは command list や contour stream ではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkEventKindPair:
+    first_kind %GuiSfntSimpleGlyphPathSinkEventKind
+    second_kind %GuiSfntSimpleGlyphPathSinkEventKind
+
+impl Clone for GuiSfntSimpleGlyphPathSinkEventKindPair:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkEventKindPair GuiSfntSimpleGlyphPathSinkEventKindPair \pair:
+        *pair
+
+impl Copy for GuiSfntSimpleGlyphPathSinkEventKindPair:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkEventKindPair GuiSfntSimpleGlyphPathSinkEventKindPair \pair:
+        pair
+
+//: gui_sfnt_simple_glyph_path_sink_event_kind: sink event を dispatch 用 kind に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - valid event は必ず command を[持/も]つため、`Option` / `Result` は返しません。
+//: - `SkipNoSegment` は reason だけを kind に[残/のこ]し、source contour / edge は元の command payload に[残/のこ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_kind %fn &GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphPathSinkEventKind \event:
+    let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_sink_event_command event
+    match command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            GuiSfntSimpleGlyphPathSinkEventKind::MoveTo
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            GuiSfntSimpleGlyphPathSinkEventKind::LineTo
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            let reason %GuiSfntSimpleGlyphCurveNoSegmentReason gui_sfnt_simple_glyph_path_skip_no_segment_reason &skip
+            GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason
+
+//: gui_sfnt_simple_glyph_path_sink_event_kind_pair: kind pair value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_kind_pair %fn GuiSfntSimpleGlyphPathSinkEventKind fn GuiSfntSimpleGlyphPathSinkEventKind GuiSfntSimpleGlyphPathSinkEventKindPair \first_kind\second_kind:
+    GuiSfntSimpleGlyphPathSinkEventKindPair first_kind second_kind
+
+//: gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind: pair の first kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind %fn &GuiSfntSimpleGlyphPathSinkEventKindPair GuiSfntSimpleGlyphPathSinkEventKind \pair:
+    *field::get_ref pair "first_kind"
+
+//: gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind: pair の second kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind %fn &GuiSfntSimpleGlyphPathSinkEventKindPair GuiSfntSimpleGlyphPathSinkEventKind \pair:
+    *field::get_ref pair "second_kind"
+
+//: gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair: event pair を kind pair に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - F4p の event pair accessor と kind helper だけを[使/つか]います。
+//: - byte lookup、metadata parser、curve classifier、renderer、platform API は[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair %fn &GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphPathSinkEventKindPair \pair:
+    let first_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_first_event pair
+    let second_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_second_event pair
+    let first_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &first_event
+    let second_kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &second_event
+    gui_sfnt_simple_glyph_path_sink_event_kind_pair first_kind second_kind
+
 //: gui_sfnt_simple_glyph_contour_edge_source_contour_index: edge が[属/ぞく]する contour index を[読/よ]む
 //:
 //: neplg2:test[skip]

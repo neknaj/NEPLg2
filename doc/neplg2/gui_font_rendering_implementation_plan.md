@@ -729,6 +729,50 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4q: sfnt simple glyph path sink event kind classification
+
+目的:
+
+- F4p の `GuiSfntSimpleGlyphPathSinkEvent` を、後続 sink の dispatch 用 kind へ写す。
+- kind は path command payload の軽量版ではなく、座標や contour/edge の authority は既存 event command payload に残す。
+- real sink trait、ownership / allocation boundary、contour traversal、winding、fill、rasterizer、render2d command はまだ作らない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkEventKind`
+  - `GuiSfntSimpleGlyphPathSinkEventKindPair`
+  - `gui_sfnt_simple_glyph_path_sink_event_kind`
+  - `gui_sfnt_simple_glyph_path_sink_event_kind_pair`
+  - `gui_sfnt_simple_glyph_path_sink_event_kind_pair_first_kind`
+  - `gui_sfnt_simple_glyph_path_sink_event_kind_pair_second_kind`
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair`
+- `GuiSfntSimpleGlyphPathSinkEventKind` は `MoveTo`、`LineTo`、`QuadraticTo`、`SkipNoSegment GuiSfntSimpleGlyphCurveNoSegmentReason` だけを持つ。
+- `SkipNoSegment` kind の reason は diagnostics / skip counting / branch selection 用であり、source contour / edge 復元用ではない。
+- kind には `contour_index`、`edge_index`、`x2`、`y2`、`control_x2`、`end_x2` などを入れない。
+- `gui_sfnt_simple_glyph_path_sink_event_kind` は `gui_sfnt_simple_glyph_path_sink_event_command` で command を読み、全 variant を明示的に `match` する。catch-all arm は使わない。
+- `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` は F4p event pair accessors と `gui_sfnt_simple_glyph_path_sink_event_kind` だけを使う。
+- F4q では `Option` / `Result`、`Vec GuiSfntSimpleGlyphPathSinkEventKind`、`push`、command index、count、next、current point state、contour closure、off-curve contour-start synthesis、byte-backed lookup、metadata parser、`*_with_tables` helper、lower point / contour helper、curve classifier、render2d/backend/platform、rasterizer、host text API を使わない。
+- Source policy で kind の dispatch 専用性、no duplicate payload、no coordinate/source index fields、no allocation/stream state、no lookup/parser/helper bypass を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の direct sink event doctest に、`MoveTo` / `LineTo` kind pair と `SkipNoSegment` reason kind を確認する cheap typed assertion を追加する。
+
+完了条件:
+
+- direct `MoveTo` event が `GuiSfntSimpleGlyphPathSinkEventKind::MoveTo` として分類される。
+- direct `LineTo` event が `GuiSfntSimpleGlyphPathSinkEventKind::LineTo` として分類される。
+- direct `SkipNoSegment` event が reason を保持した `GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment` として分類される。
+- kind helper が lookup / parser / table helper / renderer / platform API に依存しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
