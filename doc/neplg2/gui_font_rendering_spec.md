@@ -80,6 +80,31 @@ GuiSfntNames:
 
 `name` table が存在しない場合は `MissingTable`、format 0 以外は `UnsupportedNameTableFormat`、record range や UTF-16BE 奇数 length は `MalformedNameRecord`、ASCII subset 外の文字は `UnsupportedNameCharacter` で返す。空文字の selected representative は layout / UI display の metadata として不正なので `MalformedNameRecord` とする。
 
+### SFNT cmap glyph mapping
+
+SFNT `cmap` table から得る character-to-glyph mapping は、font bytes 内の mapping table だけを authority とする。Host font substitution、OS character map、browser text API、resource path suffix は使わない。
+
+初期 slice は Unicode BMP の最小実用経路だけを扱う。
+
+```text
+gui_sfnt_lookup_glyph_id:
+    bytes &ByteBuf
+    face_index Option i32
+    code_point i32
+    -> Result GuiGlyphId GuiSfntParseError
+```
+
+Subtable selection は deterministic である。
+
+1. `cmap` encoding record のうち platformID 3 / encodingID 1 を選択する。
+2. 同じ platformID 3 / encodingID 1 が複数ある場合は最初に出現した record を使う。
+3. それ以外の record は F4c の candidate ではない。対象 record がなければ `UnsupportedCmapEncoding` を返す。
+4. 選択 record の subtable format が 4 でなければ `UnsupportedCmapTableFormat` を返す。別 record へ切り替えない。
+
+`cmap` table 自体がない場合は `MissingTable` である。code point が BMP 外、つまり `0..65535` の範囲外の場合は、format 4 では表現できないので `UnsupportedCmapEncoding` で返す。BMP 内だが segment が存在しない場合、computed glyph id が 0 の場合、または glyphIdArray entry が 0 の場合は `MissingGlyphMapping` で返す。Glyph 0 を成功値として返してはならない。
+
+Format 4 parser は `cmap` table header が declared table length 内に収まること、選択 subtable offset が encoding record array より後ろを指すこと、`length` が `cmap` table record 内に収まること、`segCountX2` が 0 でなく偶数であること、`reservedPad` が 0 であること、endCode / startCode / idDelta / idRangeOffset の各 array が subtable 内に収まること、idRangeOffset の指す glyphIdArray entry がその idRangeOffset word の位置から計算して subtable 内に収まることを検査する。不正な範囲は `MalformedCmapRecord` として返す。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
