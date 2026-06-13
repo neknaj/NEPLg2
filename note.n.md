@@ -59239,3 +59239,47 @@ MERGE_APPROVED
 
 - public lookup smoke は現行 compiler の 60 秒 doctest 制限により `skip` 付きである。通常 CI で実行可能にするには、`alloc/gui/font/sfnt/glyf` import の resource static check 時間を下げるか、テスト用 binary fixture を shared helper 化して compile surface をさらに小さくする必要がある。
 - F4l 後続の streaming outline/path sink、compound glyph、phantom points、hint instruction semantics、outline winding、2D renderer への path emission、rasterization は未実装である。
+## 2026-06-13 selfhost method body effect checker checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、enum / Result / match による静的検査、core 側の純粋な境界、責務分割、丁寧な doc comment、試作段階でも雑な設計を残さない方針を優先した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl` を追加した。
+- この module は typed HIR expression root から `SelfhostEffectKind` / `SelfhostEffectEscapeState` の method body effect summary だけを作る。
+- method body fact、operation evidence record、body check pair、Resource IR proof、backend artifact、public surface orchestration は作らない。
+- `Call` の accepted authority は HIR payload の `effect` と child range に限定した。call name、source text、span、lexeme、display name、diagnostic text、module path から effect を再分類しない。
+- `InternalAlloc` は Resource IR no-escape proof なしに `Pure` へ mask しない。HIR call payload 由来の `InternalAlloc` は `SelfhostEffectEscapeState::NotApplicable` のまま残し、後続 purity gate が fail-closed に扱える状態にした。
+- `Error` expression、missing root、malformed child range、fuel exhaustion は typed enum error として返し、bool / string error や fallback pure success にしない。
+- stage0 smoke は pure leaf、ExternalIo call、InternalAlloc call、block child fold、Error expression、missing root、fuel exhaustion を確認する。
+- stage0 の Vec allocation / push は `Result` で明示的に扱い、push failure では返却 owner Vec を解放してから `StdErrorKind` を返す。`unwrap_ok` / `unreachable` shortcut は使わない。
+- `nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js` を追加し、source policy runner に登録した。
+- source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / operation resolver / body check resolver / purity gate / evidence producer import 禁止、fact / evidence / check pair 構築禁止、HIR payload variant の明示 match、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、HIR method body effect summary checker を接続済みとして残件を再整理した。
+
+### subagent_review
+
+- Anscombe pre-review: Blocker なし。Required として、HIR traversal と method body fact 化を同一 module に混ぜると authority 境界が曖昧になるため、HIR / raw tree -> typed effect summary までに留めるべきだと指摘された。
+- 実装では HIR -> typed effect summary のみをこの module に置き、fact table / resolver / operation evidence への接続は後続 orchestration に残した。
+- Anscombe implementation review: Blocker なし。Required として、source policy の forbidden import / 禁止 symbol に `memo_trait_operation_purity_gate`、`SelfhostMemoTraitOperationMethodBodyCheck`、`SelfhostMemoTraitOperationDropCheck`、method/drop evidence 系の直接構築禁止を追加することが指摘された。
+- 対応として、source policy に purity gate import 禁止と method body check / Drop check / method body evidence / Drop evidence の直接構築禁止を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-method-body-effect-checker.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した selfhost method body effect checker policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+
+### residual
+
+- summary から complete surface の method body fact table へ接続する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続は未実装である。
+- HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は、今回固定した summary / error contract を変えずに後からできる最適化として扱う。

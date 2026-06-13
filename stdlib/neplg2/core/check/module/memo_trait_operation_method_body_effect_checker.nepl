@@ -1,0 +1,479 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_method_body_effect_checker
+//: `Eq` / `Hash` method body の HIR root から、operation purity gate へ渡す前段の effect summary を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - method body の typed HIR expression tree を 1 度だけ走査し、body 内で観測される call effect を `SelfhostEffectKind` と `SelfhostEffectEscapeState` の typed summary へ畳み込みます。
+//: - source text、span、表示名、diagnostic message ではなく、checker / lowering が確定した HIR payload の effect enum と child range を authority にします。
+//: - `memo_trait_operation_method_body_resolver` が読む method body fact は、この summary を受け取る後続境界が `SelfhostTypeId` と operation kind を添えて作ります。この module は fact table、operation evidence、aggregate proof status を作りません。
+//:
+//: [契約/けいやく]:
+//: - leaf expression は外部観測可能な effect を発生させないため `Pure` / `NotApplicable` として扱います。
+//: - `Call` は payload の `effect` を accepted authority とし、argument child range の summary と結合します。call name、span、source spelling から effect を再分類しません。
+//: - `Block` と `If` は child range を左から右へ畳み込みます。child range が module table 外を指す場合は typed error として fail-closed にします。
+//: - `Error` expression は既に前段 checker が失敗している placeholder なので、pure success へ畳まず `ErrorExpressionUnsupported` で拒否します。
+//: - `InternalAlloc` はこの module では `Pure` に mask しません。Resource IR no-escape proof がない call payload 由来の `InternalAlloc` は `NotApplicable` escape のまま残し、後続 purity gate が fail-closed に扱えるようにします。
+//: - `UnsafeMemory`、`ExternalIo`、`Nondet` はここで表示用文字列や bool に潰さず、最も強い effect kind として summary に保持します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では HIR payload に `PrivateCache` / `PrivateState` effect row がまだ無いため、既存 `SelfhostEffectKind` だけを畳み込みます。
+//: - method body fact 化、Drop body effect checker、Resource IR escape proof、private cache masking、generic impl binder、full public surface orchestration は後続 stage の責務です。
+//: - 深い malformed HIR で再帰が止まらないことを避けるため、caller は fuel を渡します。これは探索範囲を隠す fallback ではなく、壊れた arena に対する fail-closed guard です。
+//:
+//: [計算量/けいさんりょう]:
+//: - HIR root から到達する expression 数を n、child edge 数を e とすると O(n + e) 時間、再帰深さに対して O(depth) stack を使います。
+//: - 同じ subtree が複数箇所から参照される場合の memoization、explicit stack 化、child range index cache は summary / error contract を変えず後から追加できる最適化です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_effect_checker" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_method_body_effect_checker_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_method_body_effect_checker_summary_result_eq summary.pure_leaf SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_method_body_effect_checker_summary_result_eq summary.external_call SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_method_body_effect_checker_summary_result_eq summary.internal_alloc_call SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_method_body_effect_checker_summary_result_eq summary.block_with_children SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_method_body_effect_checker_error_result_eq summary.error_expr SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_method_body_effect_checker_error_result_eq summary.missing_root SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing 9999
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_method_body_effect_checker_error_result_eq summary.fuel_exhausted SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted
+//:             let shown checks_print_report checks7
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "method body effect checker stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+
+//: SelfhostMemoTraitOperationMethodBodyEffectSummary: method body effect の typed summary
+//:
+//: [契約/けいやく]:
+//: - `effect` は HIR root から到達した expression のうち、外部観測上もっとも強い effect kind です。
+//: - `escape` は `InternalAlloc` を扱うときだけ意味を持ちます。それ以外の effect では `NotApplicable` を保持します。
+//: - この summary は method body fact ではありません。`SelfhostTypeId`、operation kind、surface completeness、duplicate check は別 module が担当します。
+pub struct SelfhostMemoTraitOperationMethodBodyEffectSummary:
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+
+//: SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind: HIR effect summary 作成の拒否理由
+//:
+//: [目的/もくてき]:
+//: - malformed HIR、未対応 payload、fuel 不足を bool や文字列ではなく enum として返します。
+pub enum SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind:
+    ExpressionMissing %i32
+    ChildExpressionMissing %i32
+    FuelExhausted
+    ErrorExpressionUnsupported
+
+//: SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary: stage0 smoke の代表結果
+pub struct SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary:
+    pure_leaf %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    external_call %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    internal_alloc_call %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    block_with_children %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    error_expr %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    missing_root %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    fuel_exhausted %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyEffectSummary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectSummary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyEffectSummary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectSummary \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_effect_summary_new: effect summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_summary_new %fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationMethodBodyEffectSummary \effect\escape:
+    SelfhostMemoTraitOperationMethodBodyEffectSummary effect escape
+
+//: selfhost_memo_trait_operation_method_body_effect_summary_pure: pure leaf 用 summary を[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_effect_summary_pure %fn void SelfhostMemoTraitOperationMethodBodyEffectSummary \void:
+    selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_method_body_call_effect_summary: HIR call payload の effect を summary に[写/うつ]す
+fn selfhost_memo_trait_operation_method_body_call_effect_summary %fn SelfhostEffectKind SelfhostMemoTraitOperationMethodBodyEffectSummary \effect:
+    match effect:
+        SelfhostEffectKind::Pure:
+            selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostEffectKind::InternalAlloc:
+            selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::UnsafeMemory:
+            selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::UnsafeMemory SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::ExternalIo:
+            selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectKind::Nondet:
+            selfhost_memo_trait_operation_method_body_effect_summary_new SelfhostEffectKind::Nondet SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_method_body_effect_rank: effect kind の結合優先度を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - rank はこの module 内の deterministic fold のためだけに使います。diagnostic severity や surface effect の public API ではありません。
+fn selfhost_memo_trait_operation_method_body_effect_rank %fn SelfhostEffectKind i32 \effect:
+    match effect:
+        SelfhostEffectKind::Pure:
+            0
+        SelfhostEffectKind::InternalAlloc:
+            1
+        SelfhostEffectKind::UnsafeMemory:
+            2
+        SelfhostEffectKind::ExternalIo:
+            3
+        SelfhostEffectKind::Nondet:
+            4
+
+//: selfhost_memo_trait_operation_method_body_stronger_effect: 2 つの effect kind から強い方を[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_stronger_effect %fn SelfhostEffectKind fn SelfhostEffectKind SelfhostEffectKind \a\b:
+    if:
+        gt selfhost_memo_trait_operation_method_body_effect_rank b selfhost_memo_trait_operation_method_body_effect_rank a
+        then:
+            b
+        else:
+            a
+
+//: selfhost_memo_trait_operation_method_body_escape_combine: `InternalAlloc` 同士の escape summary を[結合/けつごう]する
+fn selfhost_memo_trait_operation_method_body_escape_combine %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState SelfhostEffectEscapeState \a\b:
+    match a:
+        SelfhostEffectEscapeState::MayEscape:
+            SelfhostEffectEscapeState::MayEscape
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::MayEscape:
+                    SelfhostEffectEscapeState::MayEscape
+                SelfhostEffectEscapeState::NotApplicable:
+                    SelfhostEffectEscapeState::NotApplicable
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    SelfhostEffectEscapeState::NotApplicable
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::MayEscape:
+                    SelfhostEffectEscapeState::MayEscape
+                SelfhostEffectEscapeState::NotApplicable:
+                    SelfhostEffectEscapeState::NotApplicable
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    SelfhostEffectEscapeState::NoEscapeProven
+
+//: selfhost_memo_trait_operation_method_body_summary_combine: 2 つの summary を[結合/けつごう]する
+//:
+//: [契約/けいやく]:
+//: - `InternalAlloc` が最終 effect のときだけ escape state を保持します。
+//: - `UnsafeMemory` / `ExternalIo` / `Nondet` が混じる場合、private allocation の escape proof より観測可能 effect が優先されるため escape は `NotApplicable` に戻します。
+fn selfhost_memo_trait_operation_method_body_summary_combine %fn SelfhostMemoTraitOperationMethodBodyEffectSummary fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectSummary \a\b:
+    let effect %SelfhostEffectKind selfhost_memo_trait_operation_method_body_stronger_effect a.effect b.effect
+    if:
+        selfhost_effect_kind_eq effect SelfhostEffectKind::InternalAlloc
+        then:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect selfhost_memo_trait_operation_method_body_escape_combine a.escape b.escape
+        else:
+            selfhost_memo_trait_operation_method_body_effect_summary_new effect SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_method_body_effect_fold_children_loop: child range を左から右へ[畳/たた]む
+fn selfhost_memo_trait_operation_method_body_effect_fold_children_loop %fn &SelfhostHirModule fn SelfhostHirChildRange fn i32 fn i32 fn SelfhostMemoTraitOperationMethodBodyEffectSummary Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind \module\children\idx\fuel\acc:
+    if:
+        ge idx selfhost_hir_child_range_count children
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_hir_module_get_child module children idx:
+                Option::Some child_id:
+                    match selfhost_memo_trait_operation_method_body_effect_check_expr_result module child_id fuel:
+                        Result::Ok child_summary:
+                            selfhost_memo_trait_operation_method_body_effect_fold_children_loop module children add idx 1 fuel selfhost_memo_trait_operation_method_body_summary_combine acc child_summary
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ChildExpressionMissing idx
+
+//: selfhost_memo_trait_operation_method_body_effect_check_payload_result: HIR payload を effect summary へ[畳/たた]む
+fn selfhost_memo_trait_operation_method_body_effect_check_payload_result %fn &SelfhostHirModule fn SelfhostHirExprPayload fn i32 Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind \module\payload\fuel:
+    match payload:
+        SelfhostHirExprPayload::Error:
+            Result::Err SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported
+        SelfhostHirExprPayload::Unit:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::BoolLiteral _value:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::I32Literal _value:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::F32Literal _value:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::StrLiteral _value:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::Var _identity:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::FnValue _identity:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::MemoizedFunctionValue _identity:
+            Result::Ok selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::Call call:
+            let call_summary %SelfhostMemoTraitOperationMethodBodyEffectSummary selfhost_memo_trait_operation_method_body_call_effect_summary call.effect
+            selfhost_memo_trait_operation_method_body_effect_fold_children_loop module call.args 0 fuel call_summary
+        SelfhostHirExprPayload::Block children:
+            selfhost_memo_trait_operation_method_body_effect_fold_children_loop module children 0 fuel selfhost_memo_trait_operation_method_body_effect_summary_pure
+        SelfhostHirExprPayload::If branches:
+            selfhost_memo_trait_operation_method_body_effect_fold_children_loop module branches 0 fuel selfhost_memo_trait_operation_method_body_effect_summary_pure
+
+//: selfhost_memo_trait_operation_method_body_effect_check_expr_result: HIR expression id から effect summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_check_expr_result %fn &SelfhostHirModule fn SelfhostHirExprId fn i32 Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind \module\expr_id\fuel:
+    if:
+        le fuel 0
+        then:
+            Result::Err SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted
+        else:
+            match selfhost_hir_module_get_expr module expr_id:
+                Option::Some expr:
+                    selfhost_memo_trait_operation_method_body_effect_check_payload_result module expr.payload sub fuel 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing selfhost_hir_expr_id_index expr_id
+
+//: selfhost_memo_trait_operation_method_body_effect_check_result: method body HIR root を effect summary へ[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - `module` は checker / lowering が作った HIR arena です。この関数は arena を所有せず、borrow から expression table と child table を読むだけです。
+//: - `root` は method body root expression id です。root が欠ける場合、成功扱いにせず `ExpressionMissing` を返します。
+//: - `fuel` は malformed arena からの無限再帰を止める上限です。正常な caller は root から到達可能な最大深さ以上を渡してください。
+pub fn selfhost_memo_trait_operation_method_body_effect_check_result %fn &SelfhostHirModule fn SelfhostHirExprId fn i32 Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind \module\root\fuel:
+    selfhost_memo_trait_operation_method_body_effect_check_expr_result module root fuel
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_effect_checker_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_summary_result_eq: summary result が期待 effect / escape か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_effect_checker_summary_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn SelfhostEffectKind fn SelfhostEffectEscapeState bool \result\expected_effect\expected_escape:
+    match result:
+        Result::Ok summary:
+            and:
+                selfhost_effect_kind_eq summary.effect expected_effect
+                selfhost_memo_trait_operation_method_body_effect_checker_escape_state_eq summary.escape expected_escape
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq: checker error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ error は payload まで比較します。
+//: - wildcard arm は使いません。error variant 追加時はこの equality も更新します。
+pub fn selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq %fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing a_index:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing b_index:
+                    eq a_index b_index
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ChildExpressionMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ChildExpressionMissing a_index:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ChildExpressionMissing b_index:
+                    eq a_index b_index
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ChildExpressionMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted:
+                    true
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ChildExpressionMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::FuelExhausted:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported:
+                    true
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_error_result_eq: result が期待 error か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_effect_checker_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _summary:
+            false
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq e expected
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_checker_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary \pure_leaf\external_call\internal_alloc_call\block_with_children\error_expr\missing_root\fuel_exhausted:
+    SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary pure_leaf external_call internal_alloc_call block_with_children error_expr missing_root fuel_exhausted
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0_finish: 構築済み module で代表 check を[実行/じっこう]する
+fn selfhost_memo_trait_operation_method_body_effect_checker_stage0_finish %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary StdErrorKind \module\unit_id\external_id\alloc_id\block_id\error_id:
+    let pure_leaf %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module unit_id 16
+    let external_call %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module external_id 16
+    let internal_alloc_call %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module alloc_id 16
+    let block_with_children %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module block_id 16
+    let error_expr %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module error_id 16
+    let missing_root %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module selfhost_hir_expr_id_new 9999 16
+    let fuel_exhausted %Result SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind selfhost_memo_trait_operation_method_body_effect_check_result &module unit_id 0
+    selfhost_hir_module_free module
+    Result::Ok selfhost_memo_trait_operation_method_body_effect_checker_stage0_summary_new pure_leaf external_call internal_alloc_call block_with_children error_expr missing_root fuel_exhausted
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0_block: block child range までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_checker_stage0_block %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary StdErrorKind \module\unit_id\external_id\alloc_id\error_id\ty\span:
+    let child_ids_result %Result Vec SelfhostHirExprId StdErrorKind v::new
+    match child_ids_result:
+        Result::Ok child_ids0:
+            match v::push child_ids0 unit_id:
+                Result::Ok child_ids1:
+                    match v::push child_ids1 external_id:
+                        Result::Ok child_ids2:
+                            match selfhost_hir_module_add_child_range module child_ids2:
+                                Result::Ok range_alloc:
+                                    let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                    let module1 %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                    match selfhost_hir_module_add_expr module1 selfhost_hir_expr_block ty span child_range:
+                                        Result::Ok block_alloc:
+                                            let block_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &block_alloc
+                                            let module2 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module block_alloc
+                                            selfhost_memo_trait_operation_method_body_effect_checker_stage0_finish module2 unit_id external_id alloc_id block_id error_id
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            selfhost_hir_module_free module
+                            Result::Err error
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_hir_module_free module
+                    Result::Err error
+        Result::Err e:
+            selfhost_hir_module_free module
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0_error: error expression までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_checker_stage0_error %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary StdErrorKind \module\unit_id\external_id\alloc_id\ty\span:
+    match selfhost_hir_module_add_expr module selfhost_hir_expr_error ty span:
+        Result::Ok error_alloc:
+            let error_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &error_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module error_alloc
+            selfhost_memo_trait_operation_method_body_effect_checker_stage0_block module1 unit_id external_id alloc_id error_id ty span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0_alloc: InternalAlloc call までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_checker_stage0_alloc %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary StdErrorKind \module\unit_id\external_id\ty\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call ty span "alloc" selfhost_def_id_new 301 ty SelfhostEffectKind::InternalAlloc selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok alloc_alloc:
+            let alloc_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc_alloc
+            selfhost_memo_trait_operation_method_body_effect_checker_stage0_error module1 unit_id external_id alloc_id ty span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0_external: ExternalIo call までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_effect_checker_stage0_external %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary StdErrorKind \module\unit_id\ty\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call ty span "read" selfhost_def_id_new 300 ty SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok external_alloc:
+            let external_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &external_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module external_alloc
+            selfhost_memo_trait_operation_method_body_effect_checker_stage0_alloc module1 unit_id external_id ty span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_effect_checker_stage0: HIR effect checker の smoke API
+//:
+//: [目的/もくてき]:
+//: - pure leaf、call effect、child fold、error placeholder、missing root、fuel guard の代表経路を小さな HIR module で確認します。
+pub fn selfhost_memo_trait_operation_method_body_effect_checker_stage0 %impure fn void Result SelfhostMemoTraitOperationMethodBodyEffectCheckerStage0Summary StdErrorKind \void:
+    let ty %SelfhostTypeId selfhost_type_id_new 9401
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit ty span:
+                Result::Ok unit_alloc:
+                    let unit_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &unit_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module unit_alloc
+                    selfhost_memo_trait_operation_method_body_effect_checker_stage0_external module1 unit_id ty span
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

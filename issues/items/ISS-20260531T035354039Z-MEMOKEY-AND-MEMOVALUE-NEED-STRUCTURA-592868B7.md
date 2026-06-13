@@ -70,7 +70,21 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_body_check_resolve
 
 subagent review では Anscombe が、generic pair constructor が public だと operation matrix を迂回できることを Required として指摘した。同じ slice 内で `selfhost_memo_trait_operation_body_checks_new` を private `fn` に戻し、source policy に `pub fn` 退行検出を追加した。Bohr は method / Drop の `Unknown` pass-through smoke と public payload 型の外部直接構築禁止を Non-blocker / Question として挙げたため、focused doctest と source policy に反映した。最終的に両 review とも Blocker / Required なしで Approve された。
 
-この checkpoint 後の残件は、actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup と Drop impl fact table lookup の sorted index 化は、今回固定した check pair contract を変えずに後からできる最適化として扱う。
+この checkpoint 後の残件は、actual expression method body effect summary producer、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup と Drop impl fact table lookup の sorted index 化は、今回固定した check pair contract を変えずに後からできる最適化として扱う。
+
+## 2026-06-13 selfhost method body effect checker checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_effect_checker.nepl` を追加し、typed HIR expression root から method body effect summary を作る checker-layer 境界を作った。
+
+この checker は method body fact、operation evidence record、aggregate proof status、body check pair を作らない。`SelfhostHirExprPayload::Call` の `effect` と child range、`Block` / `If` の child range だけを typed authority とし、call name、source text、span、lexeme、display name、diagnostic text、module path から effect を推測しない。`Error` expression、missing root、malformed child range、fuel exhaustion は typed enum error として fail-closed に返す。
+
+`InternalAlloc` は Resource IR no-escape proof なしに pure へ mask しない。HIR call payload 由来の `InternalAlloc` は `SelfhostEffectEscapeState::NotApplicable` のまま summary に残し、後続 purity gate が `Unknown` / fail-closed として扱える境界を保った。`UnsafeMemory` / `ExternalIo` / `Nondet` も文字列や bool へ潰さず effect summary として保持する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / operation resolver / body check resolver / evidence producer import 禁止、fact / evidence / check pair 構築禁止、HIR payload variant の明示 match、行数・doc comment 長制限禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+subagent review では Anscombe が、HIR traversal と method body fact 化を同一 module に混ぜると authority 境界が曖昧になると指摘した。実装では HIR -> typed effect summary のみをこの module に置き、fact table / resolver / operation evidence への接続は後続 orchestration に残した。
+
+この checkpoint 後の残件は、summary から complete surface の method body fact table へ接続する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は summary / error contract を保って後から行える最適化として扱う。
 
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 

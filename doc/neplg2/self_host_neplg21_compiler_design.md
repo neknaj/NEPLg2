@@ -1505,13 +1505,25 @@ source policy は facade 非公開、`selfhost_ty_sources.js` 非登録、forbid
 
 `Present` / `Missing` / `Unknown` / `DropImplAbsent` / `DropImplPresent` は既存 resolver から得る。この module が直接構築する check は operation 上不要な `NotRequired` だけである。`Missing` / `Unknown` は status check であり、resolver error ではない。method body resolver または Drop impl resolver が duplicate、table read failure、push failure などの構造的不整合を返した場合だけ、payload 付き wrapper error として fail-closed に伝播する。
 
-accepted authority は session-local `SelfhostTypeId`、operation enum、typed effect check table、typed surface state に限定する。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、public surface hash は authority にしない。facade にはまだ re-export せず、`selfhost_ty_sources.js` にも登録しない。full public surface orchestration、actual expression method body checker、Drop body Resource IR proof、generic impl binder、private cache effect masking は後続 stage の責務である。
+accepted authority は session-local `SelfhostTypeId`、operation enum、typed effect check table、typed surface state に限定する。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、public surface hash は authority にしない。facade にはまだ re-export せず、`selfhost_ty_sources.js` にも登録しない。full public surface orchestration、actual expression method body effect summary producer、Drop body Resource IR proof、generic impl binder、private cache effect masking は後続 stage の責務である。
 
 source policy は、facade 非公開、ty source 非登録、forbidden layer import 禁止、operation matrix、typed check pair、payload 付き wrapper error、status と structural error の分離、wildcard-free equality、line / doc comment length cap 禁止を固定した。
 
 `SelfhostMemoTraitOperationBodyChecks` は resolver の返り値 payload 型として public にするが、この module 自体は facade-private に留める。generic pair constructor は private `fn` とし、repo 内の外部 module が `SelfhostMemoTraitOperationBodyChecks` を直接構築して operation matrix を迂回する退行は source policy で禁止した。stage0 smoke は `Missing` だけでなく method / Drop の `Unknown` pass-through も確認し、incomplete surface を accepted proof へ畳まない境界を実行例で固定する。
 
-この checkpoint 後の残件は、actual expression method body checker、Drop body effect checker と Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup と Drop impl fact table lookup の sorted index 化は、今回固定した check pair contract を変えずに後から行える最適化として扱う。
+この checkpoint 後の残件は、actual expression method body effect summary producer、Drop body effect checker と Resource IR escape proof の実接続、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup と Drop impl fact table lookup の sorted index 化は、今回固定した check pair contract を変えずに後から行える最適化として扱う。
+
+### 2026-06-13 MemoKey / MemoValue method body effect checker checkpoint
+
+`memo_trait_operation_method_body_effect_checker.nepl` を追加し、typed HIR expression root から method body の `SelfhostEffectKind` / `SelfhostEffectEscapeState` summary を作る checker-layer 境界を作った。
+
+この module は method body fact、operation evidence record、aggregate proof status を作らない。`Call` payload に保存済みの effect enum と、`Block` / `If` / `Call` の child range だけを authority として読み、call name、source text、span、diagnostic text、module path から effect を再分類しない。`Error` expression は pure success へ畳まず typed error にし、missing root / malformed child range / fuel exhaustion も bool や表示文字列ではなく enum error として返す。
+
+`InternalAlloc` はこの module では `Pure` に mask しない。HIR call payload から来た `InternalAlloc` は Resource IR no-escape proof をまだ持たないため `NotApplicable` escape のまま summary に残し、後続 purity gate が fail-closed に扱える状態を保つ。`UnsafeMemory` / `ExternalIo` / `Nondet` も同じく summary payload として保持し、表示用 severity や文字列 code に変換しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js` で固定した。facade 非公開、`selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / operation resolver / body check resolver / evidence producer への依存禁止、fact / evidence / check pair 構築禁止、HIR payload variant の明示 match、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+この checkpoint 後の残件は、summary を complete surface の method body fact table へ接続する orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は summary / error contract を保って後からできる最適化として扱う。
 
 ## 既存 issue との対応
 

@@ -240,6 +240,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js",
