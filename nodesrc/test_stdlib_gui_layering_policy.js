@@ -85,6 +85,23 @@ for (const filePath of [
 }
 
 const renderCommand = read("stdlib/core/gui/render_command.nepl");
+const capabilitySource = read("stdlib/core/gui/capability.nepl");
+const capabilityImpl = withoutComments(capabilitySource);
+assertMatch(
+    capabilityImpl,
+    /pub\s+enum\s+SurfaceKind:[\s\S]*WindowPixel[\s\S]*OffscreenPixel[\s\S]*DevicePixel[\s\S]*TextGrid[\s\S]*Headless/,
+    "SurfaceKind must distinguish visible, offscreen, device, text-grid, and headless surfaces",
+);
+assertNoMatch(
+    capabilityImpl,
+    /(?:^|\s)(?:Pixel|Command)(?:\s|$)/,
+    "SurfaceKind must not keep old Pixel or Command surface variants",
+);
+assertMatch(
+    capabilityImpl,
+    /pub\s+fn\s+surface_kind_has_pixel_buffer[\s\S]*SurfaceKind::WindowPixel[\s\S]*SurfaceKind::OffscreenPixel[\s\S]*SurfaceKind::DevicePixel/,
+    "core/gui capability must expose a platform-neutral pixel-buffer predicate",
+);
 assertMatch(renderCommand, /pub\s+struct\s+TextGridPoint:/, "core/gui must own TextGridPoint");
 assertMatch(renderCommand, /pub\s+struct\s+TextCellStyle:/, "core/gui must own TextCellStyle");
 assertMatch(renderCommand, /pub\s+struct\s+TextCellRun:/, "core/gui must own TextCellRun");
@@ -113,6 +130,24 @@ for (const filePath of [
         `${relPath} must not expose concrete platform names in std/gui`,
     );
 }
+
+const stdSurface = read("stdlib/std/gui/surface.nepl");
+const stdSurfaceImpl = withoutComments(stdSurface);
+assertMatch(
+    stdSurfaceImpl,
+    /pub\s+struct\s+GuiPixelBufferDescriptor:[\s\S]*surface\s+%SurfaceId[\s\S]*format\s+%ColorFormat/,
+    "std/gui surface must define a platform-neutral pixel buffer descriptor",
+);
+assertMatch(
+    stdSurfaceImpl,
+    /pub\s+enum\s+GuiSurfacePresentCommand:[\s\S]*PresentPixelFrame\s+%GuiSurfaceFrame/,
+    "std/gui surface must define a platform-neutral present command",
+);
+assertNoMatch(
+    stdSurfaceImpl,
+    /\b(?:DOM|Canvas|SharedArrayBuffer|ImageData|stdout|Win32|AppKit|Wayland|minifb)\b/i,
+    "std/gui surface must not expose concrete platform transport details",
+);
 
 const terminalCapability = read("stdlib/platforms/gui/terminal/capability.nepl");
 assertMatch(

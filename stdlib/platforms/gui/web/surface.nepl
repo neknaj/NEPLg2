@@ -1,0 +1,93 @@
+//: # platforms/gui/web/surface
+//: Web backend の video memory surface contract
+//:
+//: ### [目的/もくてき]
+//: - Web Playground backend が正式 GUI presentation path として使う video memory surface を typed value として[表/あらわ]します。
+//: - application model は `std/gui/surface` の `GuiPixelBufferDescriptor` と `GuiSurfacePresentCommand` を[使/つか]い、stdout protocol helper を正式 ABI として[要求/ようきゅう]しません。
+//:
+//: ### [契約/けいやく]
+//: - Web video memory surface は 2 slot 以上を[要求/ようきゅう]します。single slot は tearing を[防/ふせ]げないため `GuiError::InvalidCommand` です。
+//: - pixel format は初期実装では `Rgba8888` です。他 format は標準 descriptor 側で `GuiError::Unsupported` として[拒否/きょひ]されます。
+//: - `resize_generation` は host が surface resize を[区別/くべつ]するための value であり、old surface への silent publish を[許/ゆる]しません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - この file は NEPL stdlib 側の typed boundary だけを定義します。
+//: - 実際の `SharedArrayBuffer` header、slot state、`putImageData` presentation は TypeScript backend の detail です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "platforms/gui/web/surface" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui" as *
+
+//: GuiWebVideoMemorySurface: Web backend の video memory surface descriptor
+//:
+//: neplg2:test[skip]
+pub struct GuiWebVideoMemorySurface:
+    descriptor %GuiPixelBufferDescriptor
+    slot_count %i32
+    resize_generation %i32
+
+impl Clone for GuiWebVideoMemorySurface:
+    fn clone %fn &GuiWebVideoMemorySurface GuiWebVideoMemorySurface \surface:
+        *surface
+
+impl Copy for GuiWebVideoMemorySurface:
+    fn copy_mark %fn GuiWebVideoMemorySurface GuiWebVideoMemorySurface \surface:
+        surface
+
+//: gui_web_video_memory_surface: Web video memory surface descriptor を[検査/けんさ]して[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - Web backend の正式 surface path を、stdout transport ではなく標準 pixel buffer descriptor へ[接続/せつぞく]します。
+//:
+//: [契約/けいやく]:
+//: - `slot_count < 2` は `GuiError::InvalidCommand` です。
+//: - width / height / stride / format の検査は `gui_pixel_buffer_descriptor` に[委/ゆだ]ねます。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_surface %fn SurfaceId fn i32 fn i32 fn i32 fn i32 fn i32 Result GuiWebVideoMemorySurface GuiError \surface\width\height\stride_bytes\slot_count\resize_generation:
+    if lt slot_count 2:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            match gui_pixel_buffer_descriptor surface width height stride_bytes ColorFormat::FormatRgba8888:
+                Result::Ok descriptor:
+                    Result::Ok GuiWebVideoMemorySurface descriptor slot_count resize_generation
+                Result::Err error:
+                    Result::Err error
+
+//: gui_web_video_memory_surface_descriptor: 標準 pixel buffer descriptor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_surface_descriptor %fn &GuiWebVideoMemorySurface GuiPixelBufferDescriptor \surface:
+    *field::get_ref surface "descriptor"
+
+//: gui_web_video_memory_surface_slot_count: slot count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_surface_slot_count %fn &GuiWebVideoMemorySurface i32 \surface:
+    *field::get_ref surface "slot_count"
+
+//: gui_web_video_memory_surface_resize_generation: resize generation を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_surface_resize_generation %fn &GuiWebVideoMemorySurface i32 \surface:
+    *field::get_ref surface "resize_generation"
+
+//: gui_web_video_memory_present_command: Web video memory surface 用 present command を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_present_command %fn &GuiWebVideoMemorySurface fn FrameId fn DirtyRegion GuiSurfacePresentCommand \surface\frame\dirty:
+    let descriptor %GuiPixelBufferDescriptor gui_web_video_memory_surface_descriptor surface
+    gui_surface_present_pixel_frame gui_surface_frame frame descriptor dirty

@@ -26,8 +26,9 @@
 
 //: SurfaceKind: backend surface の[種類/しゅるい]
 pub enum SurfaceKind:
-    Pixel
-    Command
+    WindowPixel
+    OffscreenPixel
+    DevicePixel
     TextGrid
     Headless
 
@@ -92,6 +93,70 @@ pub fn gui_capabilities_text_grid %fn void GuiCapabilities \void:
         none
         none
 
+//: gui_capabilities_window_pixel: window へ[表示/ひょうじ]する pixel surface capability を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - Web / native の visible window backend を `WindowPixel` として[表/あらわ]します。
+//: - `DrawCommand` stream そのものは surface kind ではなく、rasterizer の[入力/にゅうりょく]です。
+//:
+//: neplg2:test[skip]
+pub fn gui_capabilities_window_pixel %fn i32 fn i32 GuiCapabilities \max_texture_width\max_texture_height:
+    gui_capabilities_new:
+        SurfaceKind::WindowPixel
+        ColorFormat::FormatRgba8888
+        true
+        true
+        false
+        true
+        false
+        true
+        true
+        true
+        true
+        false
+        some max_texture_width
+        some max_texture_height
+
+//: gui_capabilities_offscreen_pixel: screenshot / snapshot 用 pixel surface capability を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_capabilities_offscreen_pixel %fn i32 fn i32 GuiCapabilities \max_texture_width\max_texture_height:
+    gui_capabilities_new:
+        SurfaceKind::OffscreenPixel
+        ColorFormat::FormatRgba8888
+        true
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        some max_texture_width
+        some max_texture_height
+
+//: gui_capabilities_device_pixel: bare / embedded framebuffer 用 pixel surface capability を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_capabilities_device_pixel %fn ColorFormat fn bool GuiCapabilities \color_format\requires_flush:
+    gui_capabilities_new:
+        SurfaceKind::DevicePixel
+        color_format
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        false
+        requires_flush
+        none
+        none
+
 //: gui_capabilities_headless: render surface を[持/も]たない test backend capability を[作/つく]る
 pub fn gui_capabilities_headless %fn void GuiCapabilities \void:
     gui_capabilities_new:
@@ -130,6 +195,50 @@ pub fn gui_capabilities_has_windowing %fn &GuiCapabilities bool \caps:
 pub fn surface_kind_is_text_grid %fn SurfaceKind bool \kind:
     match kind:
         SurfaceKind::TextGrid:
+            true
+        _:
+            false
+
+//: surface_kind_is_window_pixel: visible window pixel surface か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn surface_kind_is_window_pixel %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::WindowPixel:
+            true
+        _:
+            false
+
+//: surface_kind_is_offscreen_pixel: offscreen pixel surface か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn surface_kind_is_offscreen_pixel %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::OffscreenPixel:
+            true
+        _:
+            false
+
+//: surface_kind_is_device_pixel: bare / embedded device pixel surface か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn surface_kind_is_device_pixel %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::DevicePixel:
+            true
+        _:
+            false
+
+//: surface_kind_has_pixel_buffer: pixel buffer を[持/も]つ surface か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn surface_kind_has_pixel_buffer %fn SurfaceKind bool \kind:
+    match kind:
+        SurfaceKind::WindowPixel:
+            true
+        SurfaceKind::OffscreenPixel:
+            true
+        SurfaceKind::DevicePixel:
             true
         _:
             false

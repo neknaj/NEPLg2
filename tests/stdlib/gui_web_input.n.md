@@ -127,3 +127,61 @@ fn main %impure fn void i32 \void:
     let shown test_report_print_stdout report
     test_report_exit_code shown
 ```
+
+## web video memory surface produces standard present command
+
+[目的/もくてき]:
+- Web backend の正式 GUI presentation path が legacy stdout helper ではなく、標準 `GuiSurfacePresentCommand` を作ることを確認します。
+- single-slot surface は tearing 防止のため `GuiError::InvalidCommand` として拒否されます。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"web video memory surface produces standard present command\" count=4 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"slot count\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"frame id\" expected=\"8\" actual=\"8\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"single slot rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"descriptor width\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#target std
+#indent 4
+
+#import "core/math" as *
+#import "core/result" as *
+#import "platforms/gui/web" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn single_slot_rejected %fn SurfaceId bool \surface:
+    match gui_web_video_memory_surface surface 16 16 64 1 0:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _surface:
+            false
+
+fn command_frame_id %fn GuiSurfacePresentCommand i32 \command:
+    match command:
+        GuiSurfacePresentCommand::PresentPixelFrame payload:
+            let frame %FrameId gui_surface_frame_id &payload
+            frame_id_raw &frame
+
+fn main %impure fn void i32 \void:
+    let surface_id_value %SurfaceId unwrap_ok surface_id_result 6
+    let web_surface %GuiWebVideoMemorySurface unwrap_ok gui_web_video_memory_surface surface_id_value 16 16 64 2 3
+    let descriptor %GuiPixelBufferDescriptor gui_web_video_memory_surface_descriptor &web_surface
+    let frame %FrameId unwrap_ok frame_id_result 8
+    let command %GuiSurfacePresentCommand gui_web_video_memory_present_command &web_surface frame dirty_region_full
+    let width_ok %bool eq 16 gui_pixel_buffer_width &descriptor
+    let slot_count %i32 gui_web_video_memory_surface_slot_count &web_surface
+    let slot_count_check assert_eq_i32 "slot count" 2 slot_count
+    let frame_id_check assert_eq_i32 "frame id" 8 command_frame_id command
+    let single_slot_check assert "single slot rejected" single_slot_rejected surface_id_value
+    let width_check assert "descriptor width" width_ok
+    let checks0 test_report_new "web video memory surface produces standard present command"
+    let checks1 test_report_push checks0 slot_count_check
+    let checks2 test_report_push checks1 frame_id_check
+    let checks3 test_report_push checks2 single_slot_check
+    let checks test_report_push checks3 width_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```

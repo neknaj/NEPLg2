@@ -268,3 +268,79 @@ fn main %impure fn void i32 \void:
     let shown test_report_print_stdout checks
     test_report_exit_code shown
 ```
+
+## gui_surface_present_command_uses_typed_pixel_frame
+
+[目的/もくてき]:
+- `std/gui` の surface contract が Web 専用 stdout transport ではなく、typed pixel frame present command を使うことを確認します。
+- 不正な stride と未対応 color format が silent fallback ではなく `GuiError` になることを固定します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_surface_present_command_uses_typed_pixel_frame\" count=5 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"frame id\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"width\" expected=\"640\" actual=\"640\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"short stride rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"unaligned stride rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"unsupported format rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn short_stride_rejected %fn SurfaceId bool \surface:
+    match gui_pixel_buffer_descriptor surface 2 2 4 ColorFormat::FormatRgba8888:
+        Result::Err error:
+            match error:
+                GuiError::InvalidGeometry:
+                    true
+                _:
+                    false
+        Result::Ok _descriptor:
+            false
+
+fn unaligned_stride_rejected %fn SurfaceId bool \surface:
+    match gui_pixel_buffer_descriptor surface 2 2 9 ColorFormat::FormatRgba8888:
+        Result::Err error:
+            match error:
+                GuiError::InvalidGeometry:
+                    true
+                _:
+                    false
+        Result::Ok _descriptor:
+            false
+
+fn unsupported_format_rejected %fn SurfaceId bool \surface:
+    match gui_pixel_buffer_descriptor surface 2 2 8 ColorFormat::FormatRgb888:
+        Result::Err error:
+            match error:
+                GuiError::Unsupported:
+                    true
+                _:
+                    false
+        Result::Ok _descriptor:
+            false
+
+fn main %impure fn void i32 \void:
+    let surface %SurfaceId unwrap_ok surface_id_result 2
+    let descriptor %GuiPixelBufferDescriptor unwrap_ok gui_pixel_buffer_descriptor surface 640 480 2560 ColorFormat::FormatRgba8888
+    let frame %FrameId unwrap_ok frame_id_result 4
+    let surface_frame %GuiSurfaceFrame gui_surface_frame frame descriptor dirty_region_full
+    let command %GuiSurfacePresentCommand gui_surface_present_pixel_frame surface_frame
+    let frame_check match command:
+        GuiSurfacePresentCommand::PresentPixelFrame payload:
+            let payload_frame %FrameId gui_surface_frame_id &payload
+            assert_eq_i32 "frame id" 4 frame_id_raw &payload_frame
+    let descriptor_check assert_eq_i32 "width" 640 gui_pixel_buffer_width &descriptor
+    let short_stride_check assert "short stride rejected" short_stride_rejected surface
+    let unaligned_stride_check assert "unaligned stride rejected" unaligned_stride_rejected surface
+    let format_check assert "unsupported format rejected" unsupported_format_rejected surface
+    let checks:
+        test_report_new "gui_surface_present_command_uses_typed_pixel_frame"
+        |> test_report_push frame_check
+        |> test_report_push descriptor_check
+        |> test_report_push short_stride_check
+        |> test_report_push unaligned_stride_check
+        |> test_report_push format_check
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
