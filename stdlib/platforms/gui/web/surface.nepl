@@ -39,7 +39,9 @@
 #extern "nepl_gui_web" "video_memory_create_surface" fn gui_web_video_memory_create_surface_raw %impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_acquire_write_slot" fn gui_web_video_memory_acquire_write_slot_raw %impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_write_slot_bytes" fn gui_web_video_memory_write_slot_bytes_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_write_rgba8888_row" fn gui_web_video_memory_write_rgba8888_row_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_fill_rect_rgba8888" fn gui_web_video_memory_fill_rect_rgba8888_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_discard_write_slot" fn gui_web_video_memory_discard_write_slot_raw %impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_publish_slot" fn gui_web_video_memory_publish_slot_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_present_surface" fn gui_web_video_memory_present_surface_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
 #extern "nepl_gui_web" "video_memory_close_surface" fn gui_web_video_memory_close_surface_raw %impure fn i32 i32
@@ -193,6 +195,30 @@ pub fn gui_web_video_memory_write_frame_bytes %impure fn &GuiWebVideoMemorySurfa
     let src_raw %i32 mem_internal::mem_ptr_addr src
     gui_web_video_memory_status_unit gui_web_video_memory_write_slot_bytes_raw raw_surface raw_frame dst_offset src_raw byte_len
 
+//: gui_web_video_memory_write_rgba8888_row: RGBA8888 row payload を write frame へ[書/か]き[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - Mandelbrot などの raster row payload を、stdout protocol ではなく Web video memory slot へ[直接/ちょくせつ][渡/わた]すための row writer です。
+//: - app は byte offset を[計算/けいさん]せず、origin と pixel width だけを[渡/わた]します。
+//:
+//: [契約/けいやく]:
+//: - `width <= 0` は `GuiError::InvalidGeometry` です。
+//: - host は `width * 4` byte を `src` から読み、surface 内の 1 行 region だけを[更新/こうしん]します。
+//: - dirty region、frame epoch、publish / present はこの関数では[更新/こうしん]しません。公開範囲は publish 関数で明示します。
+//: - stdout transport や command frame への fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_write_rgba8888_row %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiPoint impure fn i32 impure fn MemPtr u8 Result unit GuiError \surface\frame\origin\width\src:
+    if le width 0:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            let raw_surface %i32 gui_web_video_memory_surface_raw surface
+            let raw_frame %i32 frame_id_raw &frame
+            let x %i32 gui_point_x &origin
+            let y %i32 gui_point_y &origin
+            let src_raw %i32 mem_internal::mem_ptr_addr src
+            gui_web_video_memory_status_unit gui_web_video_memory_write_rgba8888_row_raw raw_surface raw_frame x y width src_raw
+
 //: gui_web_video_memory_fill_rect_rgba8888: write frame の rect を RGBA で[塗/ぬ]る
 //:
 //: [目的/もくてき]:
@@ -214,6 +240,22 @@ pub fn gui_web_video_memory_fill_rect_rgba8888 %impure fn &GuiWebVideoMemorySurf
     let b %i32 cast rgba8888_b &color
     let a %i32 cast rgba8888_a &color
     gui_web_video_memory_status_unit gui_web_video_memory_fill_rect_rgba8888_raw raw_surface raw_frame x y width height r g b a
+
+//: gui_web_video_memory_discard_write_frame: 未公開の write frame を[破棄/はき]して slot を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - 描画途中の error や app 側の中断で publish しない frame を、surface close に頼らず明示的に[解放/かいほう]します。
+//:
+//: [契約/けいやく]:
+//: - 成功時、host は Writing slot を Free に戻し、dirty metadata を消します。
+//: - frame が存在しない、既に publish / discard 済み、resize generation が古い場合は `Result::Err GuiError` です。
+//: - stdout transport や別 surface への fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_discard_write_frame %impure fn &GuiWebVideoMemorySurface impure fn FrameId Result unit GuiError \surface\frame:
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    let raw_frame %i32 frame_id_raw &frame
+    gui_web_video_memory_status_unit gui_web_video_memory_discard_write_slot_raw raw_surface raw_frame
 
 //: gui_web_video_memory_publish_full: frame を full dirty として[公開/こうかい]する
 //:
