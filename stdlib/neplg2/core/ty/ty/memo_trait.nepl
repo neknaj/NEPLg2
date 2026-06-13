@@ -81,6 +81,8 @@
 //: - `FunctionUnsupported` は function identity の canonicalization と cache namespace が未完成なため拒否した場合です。
 //: - `NamedLayoutUnknown` と `AppliedLayoutUnknown` は field layout と trait evidence を持たない aggregate を推測で受理しないための拒否です。
 //: - `ParameterUnresolved` は generic parameter が concrete type に代入される前に predicate へ来た場合です。
+//: - `*ProofMissing` / `*ProofImpure` / `*ProofUnknown` は aggregate の Copy / Drop / Eq / Hash 証明が `MemoKey` / `MemoValue` の要求を満たさない場合です。
+//: - hazard 系 variant は cache 内部参照、external handle、owner token、public mutable state、unknown hazard を含むため、key または value として安全に memo cache へ置けない場合です。
 pub enum SelfhostMemoTraitRejectKind:
     MissingTypeRecord
     ErrorTypeUnsupported
@@ -93,6 +95,23 @@ pub enum SelfhostMemoTraitRejectKind:
     NamedLayoutUnknown
     AppliedLayoutUnknown
     ParameterUnresolved
+    CopyProofMissing
+    CopyProofImpure
+    CopyProofUnknown
+    DropProofMissing
+    DropProofImpure
+    DropProofUnknown
+    EqProofMissing
+    EqProofImpure
+    EqProofUnknown
+    HashProofMissing
+    HashProofImpure
+    HashProofUnknown
+    CacheReferenceEscape
+    ExternalHandle
+    OwnerToken
+    PublicMutableState
+    HazardUnknown
 
 impl Clone for SelfhostMemoTraitRejectKind:
     fn clone %fn &SelfhostMemoTraitRejectKind SelfhostMemoTraitRejectKind \self:
@@ -190,280 +209,82 @@ pub fn selfhost_memo_trait_result_is_accept %fn Result unit SelfhostMemoTraitRej
         Result::Err _kind:
             false
 
+//: selfhost_memo_trait_reject_kind_code: 拒否理由を比較用 code へ[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - focused test と diagnostic projection が表示文字列ではなく enum variant を比較できるようにします。
+//: - variant ごとの code を 1 箇所に閉じ、`selfhost_memo_trait_reject_kind_eq` が組み合わせ数ではなく variant 数に比例して保守できるようにします。
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。新しい拒否理由を追加した場合、この関数も明示的に更新します。
+fn selfhost_memo_trait_reject_kind_code %fn SelfhostMemoTraitRejectKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitRejectKind::MissingTypeRecord:
+            0
+        SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
+            1
+        SelfhostMemoTraitRejectKind::I64Unsupported:
+            2
+        SelfhostMemoTraitRejectKind::F32KeyUnsupported:
+            3
+        SelfhostMemoTraitRejectKind::F64Unsupported:
+            4
+        SelfhostMemoTraitRejectKind::StrUnsupported:
+            5
+        SelfhostMemoTraitRejectKind::NeverUnsupported:
+            6
+        SelfhostMemoTraitRejectKind::FunctionUnsupported:
+            7
+        SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
+            8
+        SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
+            9
+        SelfhostMemoTraitRejectKind::ParameterUnresolved:
+            10
+        SelfhostMemoTraitRejectKind::CopyProofMissing:
+            11
+        SelfhostMemoTraitRejectKind::CopyProofImpure:
+            12
+        SelfhostMemoTraitRejectKind::CopyProofUnknown:
+            13
+        SelfhostMemoTraitRejectKind::DropProofMissing:
+            14
+        SelfhostMemoTraitRejectKind::DropProofImpure:
+            15
+        SelfhostMemoTraitRejectKind::DropProofUnknown:
+            16
+        SelfhostMemoTraitRejectKind::EqProofMissing:
+            17
+        SelfhostMemoTraitRejectKind::EqProofImpure:
+            18
+        SelfhostMemoTraitRejectKind::EqProofUnknown:
+            19
+        SelfhostMemoTraitRejectKind::HashProofMissing:
+            20
+        SelfhostMemoTraitRejectKind::HashProofImpure:
+            21
+        SelfhostMemoTraitRejectKind::HashProofUnknown:
+            22
+        SelfhostMemoTraitRejectKind::CacheReferenceEscape:
+            23
+        SelfhostMemoTraitRejectKind::ExternalHandle:
+            24
+        SelfhostMemoTraitRejectKind::OwnerToken:
+            25
+        SelfhostMemoTraitRejectKind::PublicMutableState:
+            26
+        SelfhostMemoTraitRejectKind::HazardUnknown:
+            27
+
 //: selfhost_memo_trait_reject_kind_eq: 拒否理由が同じ分類か[返/かえ]す
 //:
 //: [目的/もくてき]:
 //: - focused test と diagnostic projection が表示文字列ではなく enum variant を比較できるようにします。
 //:
 //: [契約/けいやく]:
-//: - wildcard arm は使いません。新しい拒否理由を追加した場合、この比較関数も明示的に更新する必要があります。
+//: - `selfhost_memo_trait_reject_kind_code` が wildcard arm なしで全 variant を明示的に射影するため、この関数は整数比較だけを行います。
 pub fn selfhost_memo_trait_reject_kind_eq %fn SelfhostMemoTraitRejectKind fn SelfhostMemoTraitRejectKind bool \a\b:
-    match a:
-        SelfhostMemoTraitRejectKind::MissingTypeRecord:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    true
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    true
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::I64Unsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    true
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    true
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::F64Unsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    true
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::StrUnsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    true
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::NeverUnsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    true
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::FunctionUnsupported:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    true
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    true
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    true
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    false
-        SelfhostMemoTraitRejectKind::ParameterUnresolved:
-            match b:
-                SelfhostMemoTraitRejectKind::MissingTypeRecord:
-                    false
-                SelfhostMemoTraitRejectKind::ErrorTypeUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::I64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F32KeyUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::F64Unsupported:
-                    false
-                SelfhostMemoTraitRejectKind::StrUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NeverUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::FunctionUnsupported:
-                    false
-                SelfhostMemoTraitRejectKind::NamedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::AppliedLayoutUnknown:
-                    false
-                SelfhostMemoTraitRejectKind::ParameterUnresolved:
-                    true
-
+    eq selfhost_memo_trait_reject_kind_code a selfhost_memo_trait_reject_kind_code b
 //: selfhost_memo_trait_evidence_record_new: aggregate memo trait 証拠 record を[作/つく]る
 //:
 //: [目的/もくてき]:

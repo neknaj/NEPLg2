@@ -50,7 +50,7 @@
   - private record helper は accepted evidence を作らず、operation status record を計算するだけである。
   - child aggregate の layout error や field read error は `Unknown` に潰さず typed error として伝播する。
   - Primitive は既存 policy に従う。`unit` / `bool` / `i32` / `u8` / `char` は all `Proven`、`f32` は Copy / Drop のみ `Proven`、Eq / Hash は `Unknown`。
-  - trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement は未接続であり、推測で accepted status を作らない。
+  - trait impl table、method body purity、Drop なし proofは未接続であり、推測で accepted status を作らない。key/value 別 operation requirement は後続 checkpoint で producer side payload へ接続済みである。
   - proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend、source text、span、path、display name、diagnostic、lexeme はこの boundary の authority にしない。
 - implementation/test:
   - `selfhost_memo_trait_operation_solver_field_record_result` を追加し、Named / Applied だけ recursive record fold へ進めた。
@@ -80,10 +80,10 @@
   - 既存 warning: Node WASI ExperimentalWarning と既存 stdlib / selfhost documentation gap sample は表示されたが、この slice の退行ではない。
   - 今回差分由来 warning: なし。焦点 doctest、source policy、Zenn review gate、documentation contract、issues check は pass。
 - residual:
-  - trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement は未実装である。
+  - trait impl table、method body purity、Drop なし proof は未実装である。
   - re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は未完了である。
   - nested operation fold の重複再帰 memoization は public API / error contract を変えずに後から追加できる最適化として扱う。
-  - 次 slice: trait impl table / method body purity / Drop なし proof / key-value 別 operation requirement、または loader / module graph authority から full public surface normalizer input を作る境界を進める。
+  - 次 slice: trait impl table / method body purity / Drop なし proof、または loader / module graph authority から full public surface normalizer input を作る境界を進める。
 
 # 2026-06-13 Agent selfhost memo trait recursive producer input checkpoint
 
@@ -96,7 +96,7 @@
 - policy/spec:
   - recursive traversal summary は accepted proof ではない。`summary.field_count` は closure 全体の edge 数であり、root direct field range ではないため、producer field evidence には使わない。
   - traversal 成功後、root field evidence は `selfhost_memo_trait_layout_evidence_for_type_result` から再取得する。
-  - operation table の missing / impure / unknown status は補完せず、producer gate の typed rejection へ渡す。
+  - operation table の missing / impure / unknown status は補完せず、producer が作る record の key/value side payload へ typed rejection として渡す。
   - `SelfhostMemoTraitRecursiveProducerErrorKind` は recursive / layout / operation / producer rejection を nested enum payload として保持する。
   - accepted `SelfhostMemoTraitEvidenceRecord` は `selfhost_memo_trait_aggregate_proof_to_record` 経由でだけ作り、consumer evidence table へ直接 push しない。
   - proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend、source text、span、path、display name、diagnostic、lexeme はこの boundary の authority にしない。
@@ -57810,7 +57810,7 @@ MERGE_APPROVED
 
 ### residual
 
-- trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement、nested aggregate の operation status fold は未実装である。
+- trait impl table、method body purity、Drop なし proof、nested aggregate の operation status fold は未実装である。
 - re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は未完了である。
 - recursive aggregate の sibling summary memoization、layout lookup index 化、operation status fold の共有 memoization は、今回の public API / error contract を変えずに後から追加できる最適化として扱う。
 
@@ -57863,3 +57863,50 @@ MERGE_APPROVED
 - Web TypeScript backend / examples はまだ legacy stdout transport を正式 ABI へ移行していない。これは Phase 6 で扱う。
 - Offscreen / headless surface backend と virtual event source の実装は Phase 5 の残作業である。
 - `GuiEffectBatch` / `GuiRuntimeCommandBatch` の capacity 2 は現状 contract として維持した。可変長 effect queue は別 slice で扱う。
+
+## 2026-06-13 selfhost memo trait key/value operation requirement checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-key-value-operation-requirement-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、typed enum error、Result API、pure core / boundary 分離、試作段階でも雑な公開 API を残さないこと、丁寧な doc comment、line count / doc comment length cap 禁止を優先した。
+
+### implementation
+
+- `SelfhostMemoTraitRejectKind` に Copy / Drop / Eq / Hash proof と hazard の typed side rejection variant を追加した。
+- `SelfhostMemoTraitEvidenceProduceRejectKind` は record 全体を作れない構造的な失敗だけに絞った。
+- producer recordization と key/value side acceptance を分離し、`Named` / `Applied` の valid field layout record は operation proof や hazard が失敗していても `Ok(record)` として作るようにした。
+- key side は Copy / Drop / Eq / Hash / hazard-free を要求し、value side は Copy / Drop / hazard-free を要求する。Eq / Hash は value side では要求しない。
+- 既存 `proof.key_result` / `proof.value_result` が `Err` の場合は、その拒否理由を優先し、operation proof requirement で上書きしない。
+- producer / operation proof / recursive producer の stage0 doctest を、operation missing や hazard を producer-level `Err` ではなく side payload として検査する形に更新した。
+- `todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue を更新し、key/value 別 operation requirement を接続済みとして記録した。
+
+### subagent_review
+
+- Lorentz review: Blocker として、既存 `SelfhostMemoTraitRejectKind` が `HashProofUnknown` などの side rejection を表現できない点を指摘した。
+- Required として、producer error は record 生成不能だけに限定すること、key/value side payload は既存 Err を優先し、Copy / Drop は両 side、Eq / Hash は key side、hazard は両 side に適用することを確認した。
+- 対応として `SelfhostMemoTraitRejectKind` を拡張し、producer helper を side-specific result 合成へ変更した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_predicate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_producer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-producer-key-value-requirement.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_proof.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-proof-key-value-requirement.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-recursive-producer-key-value-requirement.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver-key-value-note.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/test_selfhost_documentation_contract.js`。既存 documentation gap sample は表示されるが baseline check は pass。
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 documentation gap sample と Node WASI ExperimentalWarning は表示されたが、この slice の source policy 退行ではない。
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+### residual
+
+- trait impl table、method body purity、Drop なし proof の実計算は未完了である。
+- re-export / import graph / public non-trait declaration を含む full public surface normalizer は未完了である。
+- nested traversal / operation fold の重複削減、layout lookup index 化、stage0 helper の内部整理は public side payload contract を変えずに後からできる最適化として扱う。

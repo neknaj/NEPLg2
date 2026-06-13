@@ -76,8 +76,8 @@ assert.match(
 );
 assert.match(
     source,
-    /Copy \/ Drop \/ Eq \/ Hash proof が missing \/ impure \/ unknown の場合[\s\S]*producer gate の typed rejection へ進めます/,
-    "recursive producer docs must preserve missing or impure operation proof statuses until the producer gate rejects them",
+    /Copy \/ Drop \/ Eq \/ Hash proof が missing \/ impure \/ unknown の場合[\s\S]*producer が作る record の key\/value payload へ typed rejection として進めます/,
+    "recursive producer docs must preserve missing or impure operation proof statuses until the producer stores side payload rejections",
 );
 assert.match(
     source,
@@ -112,8 +112,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostMemoTraitRecursiveProducerStage0Summary:[\s\S]*produced_record[\s\S]*recursive_cycle_rejected[\s\S]*operation_missing_rejected[\s\S]*producer_hazard_rejected/,
-    "stage0 summary must expose accepted, recursive rejection, operation-missing producer rejection, and hazard producer rejection paths",
+    /pub struct SelfhostMemoTraitRecursiveProducerStage0Summary:[\s\S]*produced_record[\s\S]*recursive_cycle_rejected[\s\S]*operation_missing_produced[\s\S]*hazard_produced/,
+    "stage0 summary must expose accepted, recursive rejection, operation-missing produced record, and hazard produced record paths",
 );
 assert.match(
     source,
@@ -157,8 +157,8 @@ assert.doesNotMatch(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_recursive_producer_stage0_after_tables[\s\S]*produced_record[\s\S]*recursive_cycle_rejected[\s\S]*operation_missing_rejected[\s\S]*producer_hazard_rejected/,
-    "stage0 must exercise accepted, recursive rejected, operation missing, and hazard rejected paths through the public boundary",
+    /selfhost_memo_trait_recursive_producer_stage0_after_tables[\s\S]*produced_record[\s\S]*recursive_cycle_rejected[\s\S]*operation_missing_produced[\s\S]*hazard_produced/,
+    "stage0 must exercise accepted, recursive rejected, operation missing, and hazard payload paths through the public boundary",
 );
 assert.match(
     source,
@@ -167,8 +167,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_recursive_producer_record_result_is_accept summary\.produced_record[\s\S]*SelfhostMemoTraitRecursiveProducerErrorKind::RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected[\s\S]*let cycle_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary\.recursive_cycle_rejected[\s\S]*SelfhostMemoTraitRecursiveProducerErrorKind::ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::CopyProofMissing[\s\S]*let operation_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary\.operation_missing_rejected[\s\S]*SelfhostMemoTraitRecursiveProducerErrorKind::ProducerRejected SelfhostMemoTraitEvidenceProduceRejectKind::ExternalHandle[\s\S]*let hazard_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary\.producer_hazard_rejected/,
-    "doctest must check recursive cycle, missing operation proof, and producer hazard rejection payloads",
+    /selfhost_memo_trait_recursive_producer_record_result_is_accept summary\.produced_record[\s\S]*SelfhostMemoTraitRecursiveProducerErrorKind::RecursiveRejected SelfhostMemoTraitRecursiveAggregateErrorKind::CycleDetected[\s\S]*let cycle_actual %SelfhostMemoTraitRecursiveProducerErrorKind unwrap_err summary\.recursive_cycle_rejected[\s\S]*selfhost_memo_trait_recursive_producer_record_result_is_accept summary\.operation_missing_produced[\s\S]*SelfhostMemoTraitRejectKind::CopyProofMissing[\s\S]*selfhost_memo_trait_recursive_producer_record_result_is_accept summary\.hazard_produced[\s\S]*SelfhostMemoTraitRejectKind::ExternalHandle/,
+    "doctest must check recursive cycle, missing operation side payload, and hazard side payload",
 );
 assert.doesNotMatch(
     source,

@@ -84,8 +84,8 @@ assert.match(
 );
 assert.match(
     source,
-    /pub struct SelfhostMemoTraitOperationProofStage0Summary:[\s\S]*produced_record[\s\S]*missing_record_rejected[\s\S]*copy_missing_rejected[\s\S]*eq_impure_rejected[\s\S]*hash_unknown_rejected[\s\S]*duplicate_rejected[\s\S]*fake_type_rejected[\s\S]*direct_missing/,
-    "stage0 summary must expose accepted, missing, copy-missing, eq-impure, hash-unknown, duplicate, fake-type, and direct missing lookup results",
+    /pub struct SelfhostMemoTraitOperationProofStage0Summary:[\s\S]*produced_record[\s\S]*missing_record_produced[\s\S]*copy_missing_produced[\s\S]*eq_impure_produced[\s\S]*hash_unknown_produced[\s\S]*duplicate_rejected[\s\S]*fake_type_rejected[\s\S]*direct_missing/,
+    "stage0 summary must expose accepted, missing, copy-missing, eq-impure, hash-unknown produced records plus duplicate, fake-type, and direct missing lookup results",
 );
 assert.match(
     source,
@@ -144,8 +144,8 @@ assert.match(
 );
 assert.match(
     source,
-    /selfhost_memo_trait_evidence_produce_result_is_accept summary\.produced_record[\s\S]*CopyProofMissing[\s\S]*EqProofImpure[\s\S]*HashProofUnknown[\s\S]*DuplicateRecord[\s\S]*MissingTypeRecord/,
-    "doctest must check the accepted path, operation proof rejections, duplicate rejection, and fake TypeId rejection",
+    /selfhost_memo_trait_evidence_produce_result_is_accept summary\.produced_record[\s\S]*selfhost_memo_trait_evidence_produce_result_is_accept summary\.missing_record_produced[\s\S]*SelfhostMemoTraitRejectKind::CopyProofMissing[\s\S]*selfhost_memo_trait_evidence_produce_result_is_accept summary\.copy_missing_produced[\s\S]*SelfhostMemoTraitRejectKind::EqProofImpure[\s\S]*selfhost_memo_trait_result_is_accept eq_impure_record\.value_result[\s\S]*SelfhostMemoTraitRejectKind::HashProofUnknown[\s\S]*DuplicateRecord[\s\S]*MissingTypeRecord/,
+    "doctest must check the accepted path, operation proof side payloads, duplicate rejection, and fake TypeId rejection",
 );
 assert.doesNotMatch(
     codeOnly,

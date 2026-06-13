@@ -54,13 +54,13 @@ assert.match(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitRejectKind:[\s\S]*MissingTypeRecord[\s\S]*ErrorTypeUnsupported[\s\S]*I64Unsupported[\s\S]*F32KeyUnsupported[\s\S]*F64Unsupported[\s\S]*StrUnsupported[\s\S]*NeverUnsupported[\s\S]*FunctionUnsupported[\s\S]*NamedLayoutUnknown[\s\S]*AppliedLayoutUnknown[\s\S]*ParameterUnresolved/,
-    "memo trait predicate must expose typed reject reasons instead of collapsing failure into bool",
+    /pub enum SelfhostMemoTraitRejectKind:[\s\S]*MissingTypeRecord[\s\S]*ErrorTypeUnsupported[\s\S]*I64Unsupported[\s\S]*F32KeyUnsupported[\s\S]*F64Unsupported[\s\S]*StrUnsupported[\s\S]*NeverUnsupported[\s\S]*FunctionUnsupported[\s\S]*NamedLayoutUnknown[\s\S]*AppliedLayoutUnknown[\s\S]*ParameterUnresolved[\s\S]*CopyProofMissing[\s\S]*CopyProofImpure[\s\S]*CopyProofUnknown[\s\S]*DropProofMissing[\s\S]*DropProofImpure[\s\S]*DropProofUnknown[\s\S]*EqProofMissing[\s\S]*EqProofImpure[\s\S]*EqProofUnknown[\s\S]*HashProofMissing[\s\S]*HashProofImpure[\s\S]*HashProofUnknown[\s\S]*CacheReferenceEscape[\s\S]*ExternalHandle[\s\S]*OwnerToken[\s\S]*PublicMutableState[\s\S]*HazardUnknown/,
+    "memo trait predicate must expose typed primitive, aggregate operation, and hazard reject reasons instead of collapsing failure into bool",
 );
 assert.match(
     source,
-    /wildcard arm は使いません[\s\S]*pub fn selfhost_memo_trait_reject_kind_eq[\s\S]*SelfhostMemoTraitRejectKind::MissingTypeRecord:[\s\S]*SelfhostMemoTraitRejectKind::ParameterUnresolved:/,
-    "memo trait reject-kind equality must be explicit and update-required when variants are added",
+    /wildcard arm は使いません[\s\S]*fn selfhost_memo_trait_reject_kind_code[\s\S]*SelfhostMemoTraitRejectKind::MissingTypeRecord:[\s\S]*SelfhostMemoTraitRejectKind::HazardUnknown:[\s\S]*pub fn selfhost_memo_trait_reject_kind_eq/,
+    "memo trait reject-kind equality must use an explicit exhaustive variant projection",
 );
 assert.match(
     source,
@@ -114,28 +114,28 @@ assert.match(
 );
 assert.match(
     producerSource,
-    /pub enum SelfhostMemoTraitEvidenceProduceRejectKind:[\s\S]*MissingTypeRecord[\s\S]*PrimitiveNotAggregate[\s\S]*FunctionNotAggregate[\s\S]*ParameterUnresolved[\s\S]*MissingFieldLayout[\s\S]*InvalidFieldRange[\s\S]*GenericArgumentUnsubstituted[\s\S]*CycleLimitReached[\s\S]*CopyProofMissing[\s\S]*CopyProofImpure[\s\S]*CopyProofUnknown[\s\S]*DropProofMissing[\s\S]*DropProofImpure[\s\S]*DropProofUnknown[\s\S]*EqProofMissing[\s\S]*EqProofImpure[\s\S]*EqProofUnknown[\s\S]*HashProofMissing[\s\S]*HashProofImpure[\s\S]*HashProofUnknown[\s\S]*CacheReferenceEscape[\s\S]*ExternalHandle[\s\S]*OwnerToken[\s\S]*PublicMutableState[\s\S]*HazardUnknown/,
-    "memo trait producer rejection must use a typed enum domain for variant, layout, proof, and hazard failures",
+    /pub enum SelfhostMemoTraitEvidenceProduceRejectKind:[\s\S]*MissingTypeRecord[\s\S]*PrimitiveNotAggregate[\s\S]*FunctionNotAggregate[\s\S]*ParameterUnresolved[\s\S]*MissingFieldLayout[\s\S]*InvalidFieldRange[\s\S]*GenericArgumentUnsubstituted[\s\S]*CycleLimitReached/,
+    "memo trait producer rejection must use a typed enum domain for record-level variant and layout failures",
 );
 assert.match(
     producerSource,
-    /wildcard arm は使いません[\s\S]*fn selfhost_memo_trait_evidence_produce_reject_kind_code[\s\S]*SelfhostMemoTraitEvidenceProduceRejectKind::MissingTypeRecord:[\s\S]*SelfhostMemoTraitEvidenceProduceRejectKind::HazardUnknown:[\s\S]*pub fn selfhost_memo_trait_evidence_produce_reject_kind_eq/,
+    /wildcard arm は使いません[\s\S]*fn selfhost_memo_trait_evidence_produce_reject_kind_code[\s\S]*SelfhostMemoTraitEvidenceProduceRejectKind::MissingTypeRecord:[\s\S]*SelfhostMemoTraitEvidenceProduceRejectKind::CycleLimitReached:[\s\S]*pub fn selfhost_memo_trait_evidence_produce_reject_kind_eq/,
     "memo trait producer reject-kind equality must be backed by an explicit exhaustive variant projection",
 );
 assert.match(
     producerSource,
-    /fn selfhost_memo_trait_aggregate_proof_reject[\s\S]*selfhost_memo_trait_aggregate_field_evidence_reject proof\.fields[\s\S]*selfhost_memo_trait_copy_proof_status_reject proof\.copy_proof[\s\S]*selfhost_memo_trait_drop_proof_status_reject proof\.drop_proof[\s\S]*selfhost_memo_trait_eq_proof_status_reject proof\.eq_proof[\s\S]*selfhost_memo_trait_hash_proof_status_reject proof\.hash_proof[\s\S]*selfhost_memo_trait_hazard_evidence_reject proof\.hazard/,
-    "memo trait producer must fail closed on missing layout, operation proof, or hazard evidence before record creation",
+    /fn selfhost_memo_trait_aggregate_key_result_with_requirements[\s\S]*copy_proof_status_trait_reject proof\.copy_proof[\s\S]*drop_proof_status_trait_reject proof\.drop_proof[\s\S]*eq_proof_status_trait_reject proof\.eq_proof[\s\S]*hash_proof_status_trait_reject proof\.hash_proof[\s\S]*hazard_evidence_trait_reject proof\.hazard[\s\S]*fn selfhost_memo_trait_aggregate_value_result_with_requirements[\s\S]*copy_proof_status_trait_reject proof\.copy_proof[\s\S]*drop_proof_status_trait_reject proof\.drop_proof[\s\S]*hazard_evidence_trait_reject proof\.hazard[\s\S]*fn selfhost_memo_trait_aggregate_record_reject[\s\S]*selfhost_memo_trait_aggregate_field_evidence_reject proof\.fields/,
+    "memo trait producer must keep record-level rejection separate from key/value side requirements",
 );
 assert.match(
     producerSource,
-    /pub fn selfhost_memo_trait_aggregate_proof_to_record[\s\S]*SelfhostTypeRecord::Primitive _kind:[\s\S]*PrimitiveNotAggregate[\s\S]*SelfhostTypeRecord::Named _named:[\s\S]*selfhost_memo_trait_aggregate_proof_reject proof[\s\S]*Result::Ok selfhost_memo_trait_evidence_record_new proof\.type_id proof\.key_result proof\.value_result[\s\S]*SelfhostTypeRecord::Parameter _parameter:[\s\S]*ParameterUnresolved[\s\S]*SelfhostTypeRecord::Applied _applied:[\s\S]*selfhost_memo_trait_aggregate_proof_reject proof[\s\S]*Result::Ok selfhost_memo_trait_evidence_record_new proof\.type_id proof\.key_result proof\.value_result[\s\S]*SelfhostTypeRecord::Function _function:[\s\S]*FunctionNotAggregate[\s\S]*Option::None:[\s\S]*MissingTypeRecord/,
+    /pub fn selfhost_memo_trait_aggregate_proof_to_record[\s\S]*SelfhostTypeRecord::Primitive _kind:[\s\S]*PrimitiveNotAggregate[\s\S]*SelfhostTypeRecord::Named _named:[\s\S]*selfhost_memo_trait_aggregate_record_reject proof[\s\S]*let key_result %Result unit SelfhostMemoTraitRejectKind selfhost_memo_trait_aggregate_key_result_with_requirements proof[\s\S]*let value_result %Result unit SelfhostMemoTraitRejectKind selfhost_memo_trait_aggregate_value_result_with_requirements proof[\s\S]*Result::Ok selfhost_memo_trait_evidence_record_new proof\.type_id key_result value_result[\s\S]*SelfhostTypeRecord::Parameter _parameter:[\s\S]*ParameterUnresolved[\s\S]*SelfhostTypeRecord::Applied _applied:[\s\S]*selfhost_memo_trait_aggregate_record_reject proof[\s\S]*Result::Ok selfhost_memo_trait_evidence_record_new proof\.type_id key_result value_result[\s\S]*SelfhostTypeRecord::Function _function:[\s\S]*FunctionNotAggregate[\s\S]*Option::None:[\s\S]*MissingTypeRecord/,
     "memo trait producer must convert only named/applied aggregate proof into evidence records",
 );
 assert.match(
     producerSource,
-    /selfhost_memo_trait_evidence_produce_result_is_accept summary\.named_produced[\s\S]*selfhost_memo_trait_evidence_produce_result_is_accept summary\.applied_produced[\s\S]*PrimitiveNotAggregate[\s\S]*MissingTypeRecord[\s\S]*MissingFieldLayout[\s\S]*InvalidFieldRange[\s\S]*ExternalHandle[\s\S]*selfhost_memo_trait_result_is_accept summary\.named_key_with_produced_evidence[\s\S]*selfhost_memo_trait_result_is_accept summary\.applied_key_with_produced_evidence[\s\S]*SelfhostMemoTraitRejectKind::StrUnsupported/,
-    "memo trait producer stage0 must prove named/applied production, primitive/missing rejection, proof-summary rejection, and consumer payload preservation",
+    /selfhost_memo_trait_evidence_produce_result_is_accept summary\.named_produced[\s\S]*selfhost_memo_trait_evidence_produce_result_is_accept summary\.applied_produced[\s\S]*PrimitiveNotAggregate[\s\S]*MissingTypeRecord[\s\S]*MissingFieldLayout[\s\S]*InvalidFieldRange[\s\S]*selfhost_memo_trait_evidence_produce_result_is_accept summary\.hash_unknown_produced[\s\S]*selfhost_memo_trait_evidence_produce_result_is_accept summary\.hazard_produced[\s\S]*SelfhostMemoTraitRejectKind::StrUnsupported[\s\S]*SelfhostMemoTraitRejectKind::HashProofUnknown[\s\S]*selfhost_memo_trait_result_is_accept summary\.hash_unknown_value_result[\s\S]*SelfhostMemoTraitRejectKind::ExternalHandle/,
+    "memo trait producer stage0 must prove named/applied production, primitive/missing/layout rejection, side-specific operation rejection, and hazard payload preservation",
 );
 assert.match(
     source,
