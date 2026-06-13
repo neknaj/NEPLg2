@@ -59283,3 +59283,82 @@ MERGE_APPROVED
 
 - summary から complete surface の method body fact table へ接続する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続は未実装である。
 - HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は、今回固定した summary / error contract を変えずに後からできる最適化として扱う。
+
+## 2026-06-13 GUI font SFNT path command projection checkpoint
+
+### scope
+
+- branch: `gui-font-outline-sink-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を前提に、platform / host / mock text への依存を入れず、enum payload と `match` による明示状態、hidden fallback 禁止、契約と現状実装の分離、ゼロコスト寄りの compact payload を優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4m: SFNT simple glyph path command projection を追加した。
+- F4m は F4l の `GuiSfntSimpleGlyphCurveSegment` から `GuiSfntSimpleGlyphPathCommand` を作る pure projection であり、full outline `Vec`、streaming sink trait、winding / fill rule、rasterizer、render2d command、platform API はまだ作らない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に compact payload の `GuiSfntSimpleGlyphPathMoveTo` / `LineTo` / `QuadraticTo` / `SkipNoSegment` と、payload enum `GuiSfntSimpleGlyphPathCommand` を追加した。
+- payload は full edge / line / quadratic / no-segment value を再保持せず、source contour/edge index、doubled coordinate、no-segment reason だけを持つ。
+- `gui_sfnt_simple_glyph_curve_segment_move_to_command` と `gui_sfnt_simple_glyph_curve_segment_draw_command` を追加した。command index は受け取らず、`Option` / `Result` も返さない。
+- `Line` は move で `MoveTo`、draw で `LineTo` になる。`Quadratic` は move で `MoveTo`、draw で `QuadraticTo` になる。`NoSegment` はどちらも `SkipNoSegment` になる。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` を追加し、typed segment value から line move/draw、implied quadratic draw、no-segment draw を実行 doctest で固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4m の doc / implementation / source policy assertion を追加した。
+
+### subagent_review
+
+- Godel pre-review: Blocker として、F4m を F5 outline/sink に広げないこと、1 segment から indexed command sequence を返す API は hidden current-point state に見えるため、`MoveTo` と draw command を明示的に分けるか `MoveTo` をこの slice から外すことが指摘された。
+- 対応として、当初の `path_command_count` / indexed `path_command -> Option` 設計を破棄し、`move_to_command` と `draw_command` の direct pure conversion に変更した。
+- Godel implementation review: Blocker なし。hidden fallback、text/platform/mock leakage、silent no-op 化は見つからず、F4m を F4l と F5 の間の pure projection として分けた判断は妥当で commit / merge 可能とされた。
+- Required として、`note.n.md` 更新、実装計画内の旧 `Option index contract` 表現修正、`NUL` / `tmp_gui_*.json` を commit 対象から除外することが指摘された。本 checkpoint で note と実装計画は更新済みで、temp/untracked は stage しない。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。F4m / GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、今回の `glyf` 追加に該当する gap は検出されていない。
+- pass: `git diff --check`
+
+### residual
+
+- F4m は 1 curve segment の move/draw command projection までであり、contour-wide streaming sink、full outline assembly、compound glyph、phantom points、hint instruction semantics、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+- 後続 F5 では、F4m の compact command を保持したまま、allocation / owner recovery と no fallback contract を先に固定してから outline/path sink を追加する。
+
+## 2026-06-13 GUI font SFNT path command public lookup checkpoint
+
+### scope
+
+- branch: `gui-font-path-command-lookup-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を前提に、hidden fallback を作らず、`Result` / enum payload / `match` / source policy で byte lookup と path command projection の境界を固定した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4n: SFNT simple glyph path command public lookup を追加した。
+- F4n は SFNT byte input から contour-local edge の `GuiSfntSimpleGlyphPathCommand` を 1 つ取得する public API であり、full outline `Vec`、command list、sink trait、winding、fill rule、rasterizer、render2d command はまだ作らない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_lookup_simple_glyph_move_to_command` と `gui_sfnt_lookup_simple_glyph_draw_command` を追加した。
+- 両関数は `gui_sfnt_lookup_simple_glyph_curve_segment` を呼び、`Result::Err error` は同じ `GuiSfntParseError` として伝播し、`Result::Ok segment` は F4m の move / draw projection に渡して `Result::Ok command` を返す。
+- F4n では `gui_sfnt_parse_metadata`、`*_with_tables` helper、lower point / contour helper、curve classifier の再実装を行わない。source policy でこの合成境界を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の no-segment doctest に move projection も追加し、`NoSegment` が move / draw のどちらでも `SkipNoSegment` の成功値になることを確認した。
+
+### subagent_review
+
+- Godel pre-review: Blocker なし。Required として、F4n を F4l public lookup と F4m projection の薄い合成に限定すること、metadata unwrap / `*_with_tables` / duplicate classification logic を避けること、`NoSegment` を `Result::Ok SkipNoSegment` として保持すること、source policy と note を更新することが指摘された。
+- 実装では doc / implementation / source policy / doctest をその境界に合わせ、byte smoke は重い fixture を増やさず F4l smoke と F4m typed doctest の組み合わせにした。
+- Godel implementation review: Blocker なし。Required は `note.n.md` 更新と `NUL` / `tmp_gui_*.json` を commit に含めないことだけだった。
+- Suggestion として、F4n 本体が lower public lookup を直接呼ばない policy をさらに足せると指摘されたため、`gui_sfnt_lookup_simple_glyph_topology` / point / contour 系 public lookup の bypass 禁止を source policy に追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+- pass: `git diff --check`
+
+### residual
+
+- F4n は single edge の move / draw command lookup までであり、contour-wide streaming path sink、full outline assembly、compound glyph、phantom points、hint instruction semantics、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+- 後続 F5 では F4n の public byte lookup と F4m の compact command を使い、allocation / owner recovery と no fallback contract を保ったまま outline/path sink を追加する。

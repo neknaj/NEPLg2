@@ -763,6 +763,96 @@ gui_sfnt_glyf_simple_contour_point_with_tables
 
 F4l must not allocate `Vec GuiSfntSimpleGlyphCurveSegment`, use integer midpoint division, call platform font APIs, use host text measurement, build full outlines, or rasterize pixels.
 
+### SFNT simple glyph path command projection
+
+F4m is the first sink-facing projection layer above curve segment classification. It still does not allocate a full outline, own a path sink trait, decide winding/fill rules, emit render2d commands, or rasterize pixels. It maps exactly one `GuiSfntSimpleGlyphCurveSegment` to explicit move and draw command values.
+
+The type model uses enum payloads:
+
+```text
+GuiSfntSimpleGlyphPathMoveTo:
+    contour_index i32
+    edge_index i32
+    x2 i32
+    y2 i32
+
+GuiSfntSimpleGlyphPathLineTo:
+    contour_index i32
+    edge_index i32
+    x2 i32
+    y2 i32
+
+GuiSfntSimpleGlyphPathQuadraticTo:
+    contour_index i32
+    edge_index i32
+    control_x2 i32
+    control_y2 i32
+    end_x2 i32
+    end_y2 i32
+    end_is_implied bool
+
+GuiSfntSimpleGlyphPathSkipNoSegment:
+    contour_index i32
+    edge_index i32
+    reason GuiSfntSimpleGlyphCurveNoSegmentReason
+
+GuiSfntSimpleGlyphPathCommand:
+    MoveTo GuiSfntSimpleGlyphPathMoveTo
+    LineTo GuiSfntSimpleGlyphPathLineTo
+    QuadraticTo GuiSfntSimpleGlyphPathQuadraticTo
+    SkipNoSegment GuiSfntSimpleGlyphPathSkipNoSegment
+```
+
+Projection flow:
+
+```text
+gui_sfnt_simple_glyph_curve_segment_move_to_command segment
+    -> Line: MoveTo line.start_x2 line.start_y2
+    -> Quadratic: MoveTo quadratic.start_x2 quadratic.start_y2
+    -> NoSegment: SkipNoSegment no_segment
+
+gui_sfnt_simple_glyph_curve_segment_draw_command segment
+    -> Line: LineTo line.end_x2 line.end_y2
+    -> Quadratic: QuadraticTo control/end doubled coordinates
+    -> NoSegment: SkipNoSegment no_segment
+```
+
+There is no command index in this API. Returning `GuiSfntSimpleGlyphPathCommand` directly keeps the boundary pure while avoiding an invalid-index state that would otherwise need `Option` or `Result`. The caller chooses the move phase or draw phase explicitly.
+
+`SkipNoSegment` is a typed command, not fallback drawing and not silent ignore. A later streaming sink may count, log, or explicitly skip it by matching `GuiSfntSimpleGlyphPathCommand::SkipNoSegment`.
+
+The command payload must be compact. F4m does not copy the whole edge, line segment, quadratic segment, or no-segment value into the command. It projects those values to the source contour/edge index, doubled coordinates, and no-segment reason that a later sink needs. This keeps the abstraction cheap and prevents deeply nested payloads from becoming the path interface.
+
+F4m must not allocate `Vec GuiSfntSimpleGlyphPathCommand`, call `gui_sfnt_parse_metadata`, call platform font APIs, use host text measurement, import render2d/backend modules, build full glyph outlines, or rasterize pixels.
+
+### SFNT simple glyph path command public lookup
+
+F4n is a thin public composition layer over F4l and F4m. It takes the same byte-backed lookup input shape as the existing curve segment public lookup and returns the path command value needed by the next layer.
+
+```text
+gui_sfnt_lookup_simple_glyph_move_to_command bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_simple_glyph_curve_segment_move_to_command segment
+
+gui_sfnt_lookup_simple_glyph_draw_command bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index
+    -> gui_sfnt_simple_glyph_curve_segment_draw_command segment
+```
+
+The implementation must not call `gui_sfnt_parse_metadata`, `gui_sfnt_glyf_simple_curve_segment_with_tables`, lower point/contour table helpers, renderer APIs, rasterizers, host text measurement, or platform APIs. Those responsibilities already belong to earlier lookup layers or later rendering phases.
+
+Error flow is one-to-one with F4l byte-backed lookup:
+
+```text
+Result::Err parse_error
+    -> Result::Err parse_error
+
+Result::Ok segment
+    -> Result::Ok path_command
+```
+
+`NoSegment` remains a successful path command state. Both public F4n helpers map it to `SkipNoSegment`; they do not return `Option::None`, synthesize an empty command, or silently ignore the edge.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

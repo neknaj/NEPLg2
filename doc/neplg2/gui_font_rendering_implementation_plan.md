@@ -559,6 +559,88 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4m: sfnt simple glyph path command projection
+
+目的:
+
+- F4l の `GuiSfntSimpleGlyphCurveSegment` を、後続の outline / path sink が読む明示的な move command / draw command へ写す。
+- full outline `Vec` / streaming sink trait / winding / fill rule / rasterizer / render2d command はまだ作らない。
+- `NoSegment` を parse error や silent no-op にせず、`SkipNoSegment` command として明示的に保持する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathMoveTo`
+  - `GuiSfntSimpleGlyphPathLineTo`
+  - `GuiSfntSimpleGlyphPathQuadraticTo`
+  - `GuiSfntSimpleGlyphPathSkipNoSegment`
+  - `GuiSfntSimpleGlyphPathCommand`
+  - `gui_sfnt_simple_glyph_curve_segment_move_to_command`
+  - `gui_sfnt_simple_glyph_curve_segment_draw_command`
+- `GuiSfntSimpleGlyphPathCommand` は `MoveTo` / `LineTo` / `QuadraticTo` / `SkipNoSegment` の payload 付き enum とし、inactive field を持つ shared struct にはしない。
+- Path command payload は full edge / line / quadratic / no-segment value を再保持せず、source contour/edge index、doubled coordinate、no-segment reason の小さな値へ射影する。
+- `Line` は `move_to_command` で `MoveTo`、`draw_command` で `LineTo` を返す。
+- `Quadratic` は `move_to_command` で `MoveTo`、`draw_command` で `QuadraticTo` を返す。
+- `NoSegment` はどちらの関数でも `SkipNoSegment` を返す。
+- command index を受け取らず、`Option` / `Result` も返さない。
+- `MoveTo`、`LineTo`、`QuadraticTo` は F4l の doubled coordinate をそのまま使い、integer midpoint division や coordinate fallback を行わない。
+- Source policy で path command API、payload enum、no command index / no `Option` / no `Result` contract、`SkipNoSegment`、no `Vec GuiSfntSimpleGlyphPathCommand` allocation、no metadata parse、no render2d/backend/platform import、no rasterizer を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` を追加し、typed value から line / quadratic / no-segment projection を検査する。
+
+完了条件:
+
+- `Line` segment が `MoveTo` と `LineTo` を明示的な関数で返す。
+- `Quadratic` segment が control / end doubled coordinate と `end_is_implied` を保持する `QuadraticTo` を返す。
+- `NoSegment` が `SkipNoSegment` と reason を保持する。
+- path command projection は full outline allocation、`Vec GuiSfntSimpleGlyphPathCommand`、rasterizer、platform API、render2d command、fallback rendering path を使わない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
+## Phase F4n: sfnt simple glyph path command public lookup
+
+目的:
+
+- SFNT byte input から contour-local edge の move / draw path command を public API として取得できるようにする。
+- F4l の byte-backed curve segment lookup と F4m の path command projection を合成するだけに限定する。
+- full outline `Vec` / command list / sink trait / winding / fill rule / rasterizer / render2d command はまだ作らない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `gui_sfnt_lookup_simple_glyph_move_to_command`
+  - `gui_sfnt_lookup_simple_glyph_draw_command`
+- 両関数は `gui_sfnt_lookup_simple_glyph_curve_segment` を呼び、`Result::Err` は同じ `GuiSfntParseError` として伝播する。
+- `Result::Ok segment` の場合、move helper は `gui_sfnt_simple_glyph_curve_segment_move_to_command`、draw helper は `gui_sfnt_simple_glyph_curve_segment_draw_command` を呼び、`Result::Ok GuiSfntSimpleGlyphPathCommand` を返す。
+- F4n では `gui_sfnt_parse_metadata`、`*_with_tables` helper、point / contour table helper、curve classification logic を直接呼ばない。
+- `NoSegment` は `Result::Ok SkipNoSegment` として保持し、`Result::Err`、`Option::None`、empty command、silent no-op、fallback rendering path にしない。
+- Source policy で public signatures、F4l/F4m composition、no metadata unwrap / no table-helper bypass / no `Vec GuiSfntSimpleGlyphPathCommand` / no render2d/backend/platform import を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に `NoSegment -> move_to_command -> SkipNoSegment` の cheap typed doctest assertion を追加する。
+
+完了条件:
+
+- move lookup と draw lookup が `Result GuiSfntSimpleGlyphPathCommand GuiSfntParseError` を返す。
+- move lookup は byte-backed curve segment lookup の成功値を F4m move projection に渡す。
+- draw lookup は byte-backed curve segment lookup の成功値を F4m draw projection に渡す。
+- F4n は full outline allocation、command list、rasterizer、platform API、render2d command、metadata unwrap bypass を使わない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
