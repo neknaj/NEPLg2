@@ -2,6 +2,7 @@ import {
     GuiPreviewCanvasViewport,
     renderGuiPreviewFrameToCanvas,
 } from './canvas-renderer.js';
+import { presentGuiPreviewCanvasBackground } from './bitmap-presenter.js';
 import type { GuiPreviewCommandFrame } from './commands.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
 import type { GuiWebInputEvent, GuiWebKeyboardEventKind } from './input-bridge.js';
@@ -24,6 +25,7 @@ type GuiHostPointerMoveState =
 export type GuiPreviewDebugRecord =
     | { kind: 'waiting-for-frame' }
     | { kind: 'canvas-unavailable'; message: string }
+    | { kind: 'render-error'; windowId: number; errorKind: string }
     | { kind: 'frame-presented'; windowId: number; commandCount: number; inputTargetCount: number }
     | { kind: 'input-queued'; windowId: number; eventKind: GuiWebInputEvent['kind'] }
     | { kind: 'action-queued'; windowId: number; actionId: number }
@@ -115,9 +117,6 @@ export class GuiPreviewPanel {
         const pixelRatio = window.devicePixelRatio || 1;
         this.canvas.width = Math.max(1, Math.floor(width * pixelRatio));
         this.canvas.height = Math.max(1, Math.floor(height * pixelRatio));
-        if (this.contextState.kind === 'ready') {
-            this.contextState.ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-        }
         this.render();
     }
 
@@ -129,14 +128,20 @@ export class GuiPreviewPanel {
             return;
         }
         const ctx = this.contextState.ctx;
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = '#0d1117';
-        ctx.fillRect(0, 0, width, height);
         if (this.hostFrame.kind === 'presented') {
             const rendered = renderGuiPreviewFrameToCanvas(ctx, this.hostFrame.frame, width, height, { fontSize: this.fontSize });
+            if (rendered.kind === 'err') {
+                this.reportDebug({
+                    kind: 'render-error',
+                    windowId: this.hostFrame.windowId,
+                    errorKind: rendered.error.kind,
+                });
+                return;
+            }
             this.viewport = rendered.viewport;
             return;
         }
+        presentGuiPreviewCanvasBackground(ctx);
     }
 
     handleCanvasClick(event: MouseEvent) {

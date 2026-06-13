@@ -15,7 +15,7 @@ function runWebGuiMandelbrotTransportContractRegression() {
     const commandSource = readRepoFile("web", "src", "gui-preview", "commands.ts");
     const stdoutProtocolSource = readRepoFile("web", "src", "gui-preview", "stdout-protocol.ts");
     const hostBridgeSource = readRepoFile("web", "src", "gui-preview", "host-bridge.ts");
-    const canvasRendererSource = readRepoFile("web", "src", "gui-preview", "canvas-renderer.ts");
+    const bitmapRasterizerSource = readRepoFile("web", "src", "gui-preview", "bitmap-rasterizer.ts");
     const specSource = readRepoFile("doc", "neplg2", "gui_standard_library_spec.md");
     const planSource = readRepoFile("doc", "neplg2", "gui_tui_implementation_plan.md");
 
@@ -35,6 +35,7 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(webStdoutSource, /gui_web_stdout_rgba_row_end/);
     assert.match(webStdoutSource, /Result::Err GuiError::InvalidGeometry/);
     assert.doesNotMatch(webStdoutSource, /panic|unreachable/);
+    assert.doesNotMatch(webStdoutSource, /fallback/i);
 
     assert.match(commandSource, /kind: 'rgba-row'/);
     assert.match(commandSource, /pixels: GuiPreviewColor\[\]/);
@@ -43,19 +44,20 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(stdoutProtocolSource, /invalid-rgba-row/);
     assert.match(hostBridgeSource, /decodeGuiWebHostRgbaRow/);
     assert.match(hostBridgeSource, /pixelValues\.value\.length !== sampleWidth\.value/);
-    assert.match(canvasRendererSource, /renderGuiPreviewRgbaRow/);
-    assert.match(canvasRendererSource, /guiPreviewColorEquals/);
+    assert.match(bitmapRasterizerSource, /rasterizeGuiPreviewRgbaRow/);
+    assert.match(bitmapRasterizerSource, /guiPreviewColorEquals/);
     assert.doesNotMatch(commandSource, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
     assert.doesNotMatch(stdoutProtocolSource, /createGuiPreviewScene|JSON\.parse/);
     assert.doesNotMatch(hostBridgeSource, /\bas\b\s*any\b|:\s*any\b|<any>/);
 
     assert.match(specSource, /rgba-row/);
-    assert.match(specSource, /stdout protocol fallback/);
+    assert.match(specSource, /legacy stdout protocol/);
     assert.match(specSource, /formal host import ABI/);
     assert.match(specSource, /まだ NEPLg2 program から `DrawCommand` stream を JS \/ native host へ直接 export する正式 ABI ではない/);
     assert.match(specSource, /presentation の formal host import ABI である/);
     assert.match(planSource, /row payload/);
     assert.match(planSource, /正式 host import ABI/);
+    assert.match(planSource, /legacy transport/);
     assert.match(planSource, /formal host import ABI と native `GuiHost\.present` の HD raster contract はまだ未実装である/);
 
     return {
@@ -63,7 +65,7 @@ function runWebGuiMandelbrotTransportContractRegression() {
         checks: [
             "Mandelbrot HD mode uses 1280x720 logical row payload transport",
             "Mandelbrot source emits typed rgba row payloads from NEPL instead of TS simulation",
-            "Web stdout parser, host bridge, and canvas renderer support rgba-row as a typed command",
+            "Web stdout parser, host bridge, and bitmap rasterizer support rgba-row as a typed command",
             "docs keep stdout row payload distinct from the future formal host import ABI",
         ],
     };

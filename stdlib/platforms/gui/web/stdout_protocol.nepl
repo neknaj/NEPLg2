@@ -14,7 +14,7 @@
 //:
 //: ### [現状/げんじょう]
 //: - この module は正式な Wasm import ABI ではなく、Web Playground の runtime bridge が読む stdout transport です。
-//: - host import ABI が実装された後も、debug や text-only host 用の fallback として残せます。
+//: - host import ABI が実装された後は legacy smoke / debug transport として扱います。正式 backend に接続できない時の代替実行経路としては選びません。
 
 #indent 4
 
@@ -35,7 +35,7 @@ pub enum GuiWebTextAlign:
     Center
     Right
 
-//: GuiWebButtonConfig: stdout fallback で button command を[出力/しゅつりょく]するための typed config
+//: GuiWebButtonConfig: legacy stdout transport で button command を[出力/しゅつりょく]するための typed config
 //:
 //: [目的/もくてき]:
 //: - GUI example が fill rect、label、action hit target をそれぞれ手書きして drift することを避けます。
@@ -73,7 +73,7 @@ pub fn gui_web_text_align_label %fn GuiWebTextAlign str \align:
         GuiWebTextAlign::Right:
             "right"
 
-//: gui_web_button_config: stdout fallback button config を[作/つく]る
+//: gui_web_button_config: legacy stdout transport の button config を[作/つく]る
 //:
 //: [目的/もくてき]:
 //: - example 側では geometry、action、label、色だけを指定し、protocol emission の順序を共通 helper に任せます。
@@ -221,7 +221,7 @@ pub fn gui_web_stdout_fill_rect %impure fn GuiRect impure fn Rgba8888 Result uni
 //: - sample_width、cell_width、cell_height は 1 以上です。
 //: - caller はこの関数の後に `sample_width` 個の `gui_web_stdout_rgba_row_pixel` を出力し、最後に `gui_web_stdout_rgba_row_end` を呼びます。
 //: - 個数の不一致は Web host decoder が `invalid-rgba-row` として拒否します。
-//: - この helper は Web stdout fallback 用であり、`core/gui` / `alloc/gui` の標準 command 型には stdout transport を漏らしません。
+//: - この helper は Web legacy stdout transport 用であり、`core/gui` / `alloc/gui` の標準 command 型には stdout transport を漏らしません。
 pub fn gui_web_stdout_rgba_row_begin %impure fn GuiPoint impure fn i32 impure fn i32 impure fn i32 Result unit GuiError \origin\sample_width\cell_width\cell_height:
     if:
         gui_web_stdout_rgba_row_is_invalid sample_width cell_width cell_height
@@ -417,13 +417,13 @@ fn gui_web_stdout_button_config_is_invalid %fn &GuiWebButtonConfig bool \config:
 //:
 //: [目的/もくてき]:
 //: - GUI examples で繰り返されていた `fill_rect -> text_run -> action_rect` の protocol emission を共通化します。
-//: - example は application model / update / geometry に集中し、stdout fallback の command ordering はこの helper が保持します。
+//: - example は application model / update / geometry に集中し、legacy stdout transport の command ordering はこの helper が保持します。
 //:
 //: [契約/けいやく]:
 //: - `gui_web_stdout_fill_rect`、`gui_web_stdout_text_run`、`gui_web_stdout_action_rect` の順に出力します。
 //: - rect、action id、text_size は stdout へ 1 command も出す前に検証します。
 //: - invalid config は `GuiError::InvalidGeometry` として返し、partial button output を残しません。
-//: - Canvas や DOM には依存せず、Web stdout fallback の line protocol だけを扱います。
+//: - Canvas や DOM には依存せず、Web legacy stdout transport の line protocol だけを扱います。
 pub fn gui_web_stdout_button %impure fn GuiWebButtonConfig Result unit GuiError \config:
     if:
         gui_web_stdout_button_config_is_invalid &config
