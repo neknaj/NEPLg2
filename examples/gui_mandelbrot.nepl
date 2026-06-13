@@ -7,12 +7,18 @@
 //: argv: ["--test-hd-contract"]
 //: stdout: "mandelbrot hd contract ok\n"
 //:
+//: neplg2:test[gui_mandelbrot_video_memory_contract, normalize_newlines]
+//: [目的/もくてき]: formal Web video memory path の有限 surface contract を確認する
+//: argv: ["--test-video-memory-contract"]
+//: stdout: "mandelbrot video memory contract ok\n"
+//:
 //: gui_mandelbrot: Mandelbrot 集合を HD surface 向けの GUI row payload stream として描画する例
 //:
 //: [目的/もくてき]:
 //: - Canvas や DOM に依存せず、NEPL の model から `rgba-row` payload command stream を作ります。
 //: - button は closure ではなく `ActionId` を持ち、update は action と model から次の model を返します。
 //: - HD button は 1280x720 logical surface に 1 logical pixel per sample の row payload を描きます。
+//: - `--video-memory-once` は stdout path へ戻らない formal Web video memory host import の有限検査用 path です。
 //:
 //: [実装/じっそう]:
 //: - fixed point scale 100 の i32 計算で escape iteration を求めます。
@@ -22,12 +28,14 @@
 //:
 //: [注意/ちゅうい]:
 //: - `--once` は CI 向けに軽量 preview mode で有限実行します。
-//: - Web stdout protocol は `platforms/gui/web` の fallback transport であり、正式 host import ABI へ置き換える予定です。
+//: - interactive path は現 checkpoint では legacy stdout smoke transport を使います。
+//: - `--video-memory-once` は独立した opt-in path であり、host import が失敗しても stdout transport へ fallback しません。
 #entry main
 #indent 4
 #target std
 
 #import "alloc/gui/app" as *
+#import "alloc/io" as *
 #import "alloc/string" as *
 #import "core/cast" as *
 #import "core/field" as field
@@ -38,6 +46,7 @@
 #import "core/traits/copy" as *
 #import "platforms/gui/web" as *
 #import "std/env/cliarg" as *
+#import "std/gui" as *
 #import "std/stdio" as *
 
 //: MandelbrotMode: 表示解像度 preset
@@ -255,6 +264,160 @@ fn mandelbrot_color_text %fn void Rgba8888 \void:
     let a %u8 cast 255
     rgba8888_new r g b a
 
+fn mandelbrot_video_memory_slot_count %fn void i32 \void:
+    2
+
+fn mandelbrot_video_memory_window_id %fn void i32 \void:
+    1
+
+fn mandelbrot_video_memory_model %fn void MandelbrotModel \void:
+    mandelbrot_model_new 32 18 1 24 MandelbrotMode::Preview
+
+fn mandelbrot_push_rgba_byte %fn ByteBuilder fn i32 Result ByteBuilder ByteBuilderError \builder\value:
+    byte_builder_push_u8 builder value
+
+fn mandelbrot_video_memory_push_pixel %fn ByteBuilder fn Rgba8888 Result ByteBuilder ByteBuilderError \builder\color:
+    let red %i32 cast rgba8888_r &color
+    let green %i32 cast rgba8888_g &color
+    let blue %i32 cast rgba8888_b &color
+    let alpha %i32 cast rgba8888_a &color
+    match mandelbrot_push_rgba_byte builder red:
+        Result::Ok b1:
+            match mandelbrot_push_rgba_byte b1 green:
+                Result::Ok b2:
+                    match mandelbrot_push_rgba_byte b2 blue:
+                        Result::Ok b3:
+                            mandelbrot_push_rgba_byte b3 alpha
+                        Result::Err err:
+                            Result::Err err
+                Result::Err err:
+                    Result::Err err
+        Result::Err err:
+            Result::Err err
+
+fn mandelbrot_video_memory_push_row_pixels %fn ByteBuilder fn i32 fn i32 fn MandelbrotModel Result ByteBuilder ByteBuilderError \builder\x\y\model:
+    let sample_width %i32 mandelbrot_model_sample_width &model
+    if:
+        ge x sample_width
+        then:
+            Result::Ok builder
+        else:
+            let iter %i32 mandelbrot_cell_iter x y model
+            let limit %i32 mandelbrot_model_iteration_limit &model
+            let color %Rgba8888 mandelbrot_color iter limit
+            match mandelbrot_video_memory_push_pixel builder color:
+                Result::Ok next_builder:
+                    let next_x %i32 add x 1
+                    mandelbrot_video_memory_push_row_pixels next_builder next_x y model
+                Result::Err err:
+                    Result::Err err
+
+fn mandelbrot_video_memory_builder_error %fn ByteBuilderError GuiError \error:
+    byte_builder_error_free error
+    GuiError::ResourceExhausted
+
+fn mandelbrot_video_memory_build_row %fn i32 fn MandelbrotModel Result ByteBuf GuiError \y\model:
+    match byte_builder_new:
+        Result::Err _error:
+            Result::Err GuiError::ResourceExhausted
+        Result::Ok builder:
+            match mandelbrot_video_memory_push_row_pixels builder 0 y model:
+                Result::Err error:
+                    Result::Err mandelbrot_video_memory_builder_error error
+                Result::Ok filled:
+                    match byte_builder_finish filled:
+                        Result::Ok bytes:
+                            Result::Ok bytes
+                        Result::Err error:
+                            Result::Err mandelbrot_video_memory_builder_error error
+
+fn mandelbrot_video_memory_write_row_bytes %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 impure fn i32 impure fn ByteBuf Result unit GuiError \surface\frame\width\y\bytes:
+    match io_bytebuf_ptr_ref &bytes:
+        Option::Some ptr:
+            let origin %GuiPoint gui_point_new 0 y
+            let write_result %Result unit GuiError gui_web_video_memory_write_rgba8888_row surface frame origin width ptr
+            io_bytebuf_free bytes
+            write_result
+        Option::None:
+            io_bytebuf_free bytes
+            Result::Err GuiError::ResourceExhausted
+
+fn mandelbrot_video_memory_write_row %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 impure fn MandelbrotModel Result unit GuiError \surface\frame\y\model:
+    let width %i32 mandelbrot_model_sample_width &model
+    match mandelbrot_video_memory_build_row y model:
+        Result::Ok bytes:
+            mandelbrot_video_memory_write_row_bytes surface frame width y bytes
+        Result::Err error:
+            Result::Err error
+
+fn mandelbrot_video_memory_write_rows %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 impure fn MandelbrotModel Result unit GuiError \surface\frame\y\model:
+    let height %i32 mandelbrot_model_sample_height &model
+    if:
+        ge y height
+        then:
+            Result::Ok unit
+        else:
+            match mandelbrot_video_memory_write_row surface frame y model:
+                Result::Ok _:
+                    let next_y %i32 add y 1
+                    mandelbrot_video_memory_write_rows surface frame next_y model
+                Result::Err error:
+                    Result::Err error
+
+fn mandelbrot_video_memory_close_with_result %impure fn &GuiWebVideoMemorySurface impure fn Result unit GuiError Result unit GuiError \surface\result:
+    match gui_web_video_memory_close_surface surface:
+        Result::Ok _:
+            result
+        Result::Err close_error:
+            match result:
+                Result::Ok _:
+                    Result::Err close_error
+                Result::Err original:
+                    Result::Err original
+
+fn mandelbrot_video_memory_discard_close_error %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiError Result unit GuiError \surface\frame\error:
+    match gui_web_video_memory_discard_write_frame surface frame:
+        Result::Ok _:
+            let failed %Result unit GuiError Result::Err error
+            mandelbrot_video_memory_close_with_result surface failed
+        Result::Err _discard_error:
+            let failed %Result unit GuiError Result::Err error
+            mandelbrot_video_memory_close_with_result surface failed
+
+fn mandelbrot_video_memory_publish_present_close %impure fn &GuiWebVideoMemorySurface impure fn FrameId Result unit GuiError \surface\frame:
+    match gui_web_video_memory_publish_full surface frame:
+        Result::Err error:
+            mandelbrot_video_memory_discard_close_error surface frame error
+        Result::Ok _:
+            match window_id mandelbrot_video_memory_window_id:
+                Result::Err error:
+                    let failed %Result unit GuiError Result::Err error
+                    mandelbrot_video_memory_close_with_result surface failed
+                Result::Ok window:
+                    let present_result %Result unit GuiError gui_web_video_memory_present_surface window "NEPLg2 Mandelbrot Video Memory" surface
+                    mandelbrot_video_memory_close_with_result surface present_result
+
+fn mandelbrot_video_memory_present_surface %impure fn &GuiWebVideoMemorySurface impure fn MandelbrotModel Result unit GuiError \surface\model:
+    match gui_web_video_memory_acquire_write_frame surface:
+        Result::Err error:
+            let failed %Result unit GuiError Result::Err error
+            mandelbrot_video_memory_close_with_result surface failed
+        Result::Ok frame:
+            match mandelbrot_video_memory_write_rows surface frame 0 model:
+                Result::Ok _:
+                    mandelbrot_video_memory_publish_present_close surface frame
+                Result::Err error:
+                    mandelbrot_video_memory_discard_close_error surface frame error
+
+fn mandelbrot_video_memory_present_model %impure fn MandelbrotModel Result unit GuiError \model:
+    let width %i32 mandelbrot_model_sample_width &model
+    let height %i32 mandelbrot_model_sample_height &model
+    match gui_web_video_memory_create_surface width height mandelbrot_video_memory_slot_count:
+        Result::Ok surface:
+            mandelbrot_video_memory_present_surface &surface model
+        Result::Err error:
+            Result::Err error
+
 fn mandelbrot_present_row_pixel %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
     let iter %i32 mandelbrot_cell_iter x y model
     let limit %i32 mandelbrot_model_iteration_limit &model
@@ -432,7 +595,7 @@ fn mandelbrot_update_event %fn MandelbrotModel fn GuiWebEvent MandelbrotModel \m
         Option::None:
             model
 
-fn mandelbrot_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+fn mandelbrot_has_flag_loop %impure fn str impure fn i32 impure fn i32 bool \flag\idx\count:
     if:
         ge idx count
         then:
@@ -441,42 +604,31 @@ fn mandelbrot_has_once_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
             match cliarg_get idx:
                 Option::Some arg:
                     if:
-                        str_eq arg "--once"
+                        str_eq arg flag
                         then:
                             true
                         else:
                             let next_idx %i32 add idx 1
-                            mandelbrot_has_once_flag_loop next_idx count
+                            mandelbrot_has_flag_loop flag next_idx count
                 Option::None:
                     let next_idx %i32 add idx 1
-                    mandelbrot_has_once_flag_loop next_idx count
+                    mandelbrot_has_flag_loop flag next_idx count
+
+fn mandelbrot_has_flag %impure fn str bool \flag:
+    let count %i32 cliarg_count
+    mandelbrot_has_flag_loop flag 1 count
 
 fn mandelbrot_has_once_flag %impure fn void bool \void:
-    let count %i32 cliarg_count
-    mandelbrot_has_once_flag_loop 1 count
+    mandelbrot_has_flag "--once"
 
-fn mandelbrot_has_hd_contract_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
-    if:
-        ge idx count
-        then:
-            false
-        else:
-            match cliarg_get idx:
-                Option::Some arg:
-                    if:
-                        str_eq arg "--test-hd-contract"
-                        then:
-                            true
-                        else:
-                            let next_idx %i32 add idx 1
-                            mandelbrot_has_hd_contract_flag_loop next_idx count
-                Option::None:
-                    let next_idx %i32 add idx 1
-                    mandelbrot_has_hd_contract_flag_loop next_idx count
+fn mandelbrot_has_video_memory_once_flag %impure fn void bool \void:
+    mandelbrot_has_flag "--video-memory-once"
 
 fn mandelbrot_has_hd_contract_flag %impure fn void bool \void:
-    let count %i32 cliarg_count
-    mandelbrot_has_hd_contract_flag_loop 1 count
+    mandelbrot_has_flag "--test-hd-contract"
+
+fn mandelbrot_has_video_memory_contract_flag %impure fn void bool \void:
+    mandelbrot_has_flag "--test-video-memory-contract"
 
 fn mandelbrot_hd_contract_ok %fn void bool \void:
     let model %MandelbrotModel mandelbrot_model_hd
@@ -492,6 +644,18 @@ fn mandelbrot_hd_contract_ok %fn void bool \void:
     let size_and_sample_ok %bool and size_ok sample_ok
     and size_and_sample_ok pixel_ok
 
+fn mandelbrot_video_memory_contract_ok %fn void bool \void:
+    let model %MandelbrotModel mandelbrot_video_memory_model
+    let width_ok %bool eq mandelbrot_model_sample_width &model 32
+    let height_ok %bool eq mandelbrot_model_sample_height &model 18
+    let cell_size_ok %bool eq mandelbrot_model_cell_size &model 1
+    let limit_ok %bool eq mandelbrot_model_iteration_limit &model 24
+    let slot_ok %bool eq mandelbrot_video_memory_slot_count 2
+    let size_ok %bool and width_ok height_ok
+    let render_ok %bool and cell_size_ok limit_ok
+    let shape_ok %bool and size_ok render_ok
+    and shape_ok slot_ok
+
 fn mandelbrot_run_hd_contract_test %impure fn void unit \void:
     if:
         mandelbrot_hd_contract_ok
@@ -499,6 +663,14 @@ fn mandelbrot_run_hd_contract_test %impure fn void unit \void:
             println "mandelbrot hd contract ok"
         else:
             println "mandelbrot hd contract failed"
+
+fn mandelbrot_run_video_memory_contract_test %impure fn void unit \void:
+    if:
+        mandelbrot_video_memory_contract_ok
+        then:
+            println "mandelbrot video memory contract ok"
+        else:
+            println "mandelbrot video memory contract failed"
 
 fn mandelbrot_print_status %impure fn MandelbrotModel unit \model:
     print "mandelbrot commands = "
@@ -520,6 +692,13 @@ fn mandelbrot_run_once %impure fn MandelbrotModel unit \model:
             mandelbrot_print_status model
         Result::Err _:
             println "mandelbrot gui protocol error"
+
+fn mandelbrot_run_video_memory_once %impure fn MandelbrotModel unit \model:
+    match mandelbrot_video_memory_present_model model:
+        Result::Ok _:
+            unit
+        Result::Err _:
+            println "mandelbrot video memory protocol error"
 
 fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
     let mut model %MandelbrotModel initial_model
@@ -545,18 +724,29 @@ fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
 
 fn main %impure fn void unit \void:
     let model0 %MandelbrotModel mandelbrot_model_preview
+    let video_memory_model %MandelbrotModel mandelbrot_video_memory_model
     if:
         mandelbrot_has_hd_contract_flag
         then:
             mandelbrot_run_hd_contract_test
         else:
             if:
-                mandelbrot_has_once_flag
+                mandelbrot_has_video_memory_contract_flag
                 then:
-                    mandelbrot_run_once model0
+                    mandelbrot_run_video_memory_contract_test
                 else:
-                    match mandelbrot_present_frame model0:
-                        Result::Ok _:
-                            mandelbrot_event_loop model0
-                        Result::Err _:
-                            println "mandelbrot gui protocol error"
+                    if:
+                        mandelbrot_has_video_memory_once_flag
+                        then:
+                            mandelbrot_run_video_memory_once video_memory_model
+                        else:
+                            if:
+                                mandelbrot_has_once_flag
+                                then:
+                                    mandelbrot_run_once model0
+                                else:
+                                    match mandelbrot_present_frame model0:
+                                        Result::Ok _:
+                                            mandelbrot_event_loop model0
+                                        Result::Err _:
+                                            println "mandelbrot gui protocol error"

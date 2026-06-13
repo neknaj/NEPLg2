@@ -1,3 +1,36 @@
+# 2026-06-14 Agent2 Mandelbrot finite video memory path checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、platform boundary、NEPL 実行結果を authority にする方針を確認し、Mandelbrot の formal video memory path を stdout / command frame / TS simulation へ戻さない形で進めた。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-mandelbrot-video-memory-once-20260614`
+- classification: Web GUI Mandelbrot finite formal row path / shared fake host harness / responsive high-resolution scope split
+- implementation:
+  - `examples/gui_mandelbrot.nepl` に `--video-memory-once` と `--test-video-memory-contract` を追加した。
+  - `--video-memory-once` は 32x18 preview model から `ByteBuilder` / `ByteBuf` owner で RGBA8888 row bytes を作り、borrowed `MemPtr u8` を `gui_web_video_memory_write_rgba8888_row` へ渡す。
+  - write failure は write frame discard と surface close を通し、surface exit path では `gui_web_video_memory_close_surface` を通す。host import 失敗時に stdout transport や `mandelbrot_present_frame` へ戻らない。
+  - `nodesrc/gui_video_memory_fake_host.js` を shared fake host として追加し、rows example と Mandelbrot example の positive harness が同じ state machine で create / acquire / write-row / publish / present / close、row payload、post-close rejection を検査するようにした。
+  - `nodesrc/test_web_gui_mandelbrot_video_memory_harness.js` を追加し、NEPL/Wasm 実行時の linear memory から row bytes を読み、JS 側の固定小数点 Mandelbrot 計算結果と照合する。
+  - `nodesrc/test_web_gui_video_memory_fake_host_harness.js` は shared fake host helper を使う形へ整理した。
+  - `nodesrc/test_web_gui_mandelbrot_transport_contract.js` と `nodesrc/run_source_policy_regressions.js` を更新し、legacy stdout HD path と finite formal video memory path の両方を検査する。
+  - `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新し、今回の finite path と、後続の resize event loop / surface recreate / true responsive high-resolution を分けた。
+- subagent review:
+  - Boyle: resize/high-DPI 要望を含めて再レビュー。今回を全面 responsive 完了とせず、まず finite formal row path を fake host で固定し、次 slice で `GuiWebEvent::Window Resized` を model update に取り込み surface recreate / redraw loop へ進める判断が妥当とされた。
+- verify:
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1`
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_harness.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_fake_host_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_rows_example_contract.js`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回差分由来の warning は解消済み。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+- residual:
+  - Mandelbrot の window size responsive rendering、progressive rendering、surface recreate、true HD/FHD video memory redraw は未完了。
+  - Life / Paint / Calculator / Breakout など GUI examples 全体の render2d / font / formal video memory host surface への全面移行は後続 slice。
+
 # 2026-06-14 Agent2 Web GUI video memory fake host harness checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、default host stub を成功化しない、fake host を opt-in 検査に閉じる、stdout / command frame / TS simulation へ fallback しない方針で実装した。

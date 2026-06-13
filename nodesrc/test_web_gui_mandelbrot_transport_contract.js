@@ -25,7 +25,20 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(mandelbrotSource, /gui_web_stdout_rgba_row_pixel/);
     assert.match(mandelbrotSource, /gui_web_stdout_rgba_row_end/);
     assert.match(mandelbrotSource, /--test-hd-contract/);
+    assert.match(mandelbrotSource, /--video-memory-once/);
+    assert.match(mandelbrotSource, /--test-video-memory-contract/);
+    assert.match(mandelbrotSource, /fn mandelbrot_video_memory_model[\s\S]*mandelbrot_model_new 32 18 1 24 MandelbrotMode::Preview/);
+    assert.match(mandelbrotSource, /gui_web_video_memory_create_surface/);
+    assert.match(mandelbrotSource, /gui_web_video_memory_write_rgba8888_row/);
+    assert.match(mandelbrotSource, /gui_web_video_memory_publish_full/);
+    assert.match(mandelbrotSource, /gui_web_video_memory_present_surface/);
     assert.match(mandelbrotSource, /let row_command_count_ok %bool eq mandelbrot_command_count &model 658/);
+    const videoMemorySlice = mandelbrotSource.slice(
+        mandelbrotSource.indexOf("fn mandelbrot_video_memory_slot_count"),
+        mandelbrotSource.indexOf("fn mandelbrot_present_row_pixel"),
+    );
+    assert.doesNotMatch(videoMemorySlice, /gui_web_stdout_/);
+    assert.doesNotMatch(videoMemorySlice, /mandelbrot_present_frame/);
     assert.doesNotMatch(mandelbrotSource, /fn mandelbrot_present_cell\b/);
     assert.doesNotMatch(mandelbrotSource, /let cells %i32 mul sample_width sample_height/);
     assert.doesNotMatch(mandelbrotSource, /mandelbrot_model_new 160 90 8/);
@@ -53,18 +66,21 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(specSource, /rgba-row/);
     assert.match(specSource, /legacy stdout protocol/);
     assert.match(specSource, /formal host import ABI/);
+    assert.match(specSource, /`--video-memory-once`/);
     assert.match(specSource, /まだ NEPLg2 program から `DrawCommand` stream や tile \/ bitmap \/ row \/ RLE payload を JS \/ native host へ直接 export する全体正式 ABI ではない/);
     assert.match(specSource, /DrawCommand \/ tile presentation の formal host import ABI/);
     assert.match(planSource, /row payload/);
     assert.match(planSource, /正式 host import ABI/);
+    assert.match(planSource, /`--video-memory-once`/);
     assert.match(planSource, /legacy transport/);
-    assert.match(planSource, /DrawCommand \/ tile formal host import ABI と native `GuiHost\.present` の HD raster contract はまだ未実装である/);
+    assert.match(planSource, /resize event loop \/ surface recreate \/ true responsive high-resolution は後続 slice/);
 
     return {
         ok: true,
         checks: [
             "Mandelbrot HD mode uses 1280x720 logical row payload transport",
             "Mandelbrot source emits typed rgba row payloads from NEPL instead of TS simulation",
+            "Mandelbrot has an opt-in formal video memory path that does not fallback to stdout transport",
             "Web stdout parser, host bridge, and bitmap rasterizer support rgba-row as a typed command",
             "docs keep stdout row payload distinct from the future formal host import ABI",
         ],
