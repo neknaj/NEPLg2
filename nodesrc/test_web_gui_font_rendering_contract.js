@@ -74,10 +74,12 @@ const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
+const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
+    guiFontSfntCurveLookupTests,
 ].join("\n");
 const webFontResourceVfs = read("web/src/gui-font/font-resource-vfs.ts");
 const webMain = read("web/src/main.ts");
@@ -1273,6 +1275,21 @@ for (const glyfCase of [
         `gui font sfnt doctest must cover ${glyfCase}`,
     );
 }
+assertMatch(
+    guiFontSfntCurveLookupTests,
+    /GUI font SFNT glyf curve segment public lookup doctests[\s\S]*neplg2:test\[skip, stdio, normalize_newlines\][\s\S]*gui_sfnt_lookup_simple_glyph_curve_segment[\s\S]*curve lookup implied odd midpoint through public lookup/,
+    "gui font sfnt doctest must preserve skipped byte-level public curve lookup smoke",
+);
+assertMatch(
+    guiFontSfntCurveLookupTests,
+    /curve_lookup_fixture_byte[\s\S]*byte_builder_push_u8[\s\S]*curve_lookup_fixture_bytes[\s\S]*byte_builder_finish/,
+    "gui font sfnt curve lookup smoke must build binary bytes through ByteBuilder, not text conversion",
+);
+assertNoMatch(
+    guiFontSfntCurveLookupTests,
+    /\bio_bytebuf_from_str_result\b/,
+    "gui font sfnt curve lookup smoke must not build binary SFNT data from UTF-8 text",
+);
 
 assertMatch(coreGuiFacade, /#import\s+"\.\/gui\/font"\s+as\s+@merge/, "core/gui facade must export font contract");
 assertMatch(coreGuiFacade, /#import\s+"\.\/gui\/render_style"\s+as\s+@merge/, "core/gui facade must export render style contract");

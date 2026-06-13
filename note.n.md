@@ -58999,14 +58999,14 @@ MERGE_APPROVED
 - Boole pre-review: Required として、implied midpoint を丸め済み `i32` として隠さないこと、全 kind が inactive field を持たない payload であること、midpoint policy を source policy で固定することが指摘された。
 - 実装では doubled coordinate contract、payload enum、source policy の `div_s` / `div_u` 禁止、odd midpoint doctest を同じ slice 内で反映した。
 - Boole implementation review: Blocker / Required なし。pre-review の Required は満たされ、hidden fallback、platform leakage、curve segment `Vec` allocation、integer midpoint division は見つからないため、最終 local check 後の commit / merge が許可された。
-- Suggested として `gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level smoke doctest が挙がった。既存の `tests/stdlib/gui_font_sfnt_glyf.n.md` は 60 秒 timeout に近く、同じ巨大 fixture に追記すると検証基盤を不安定化させるため、この slice では source policy と pure classifier doctest に留め、byte fixture 分割後の次 slice で追加する。
+- Suggested として `gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level smoke doctest が挙がった。既存の `tests/stdlib/gui_font_sfnt_glyf.n.md` は 60 秒 timeout に近く、同じ巨大 fixture に追記すると検証基盤を不安定化させるため、この slice では source policy と pure classifier doctest に留めた。後続の curve lookup smoke slice で専用 fixture file として追加した。
 
 ### residual
 
 - F4l は 1 edge の curve segment classification であり、full outline `Vec`、streaming contour sink、compound glyph、phantom points、hint instruction semantics、outline winding、2D renderer への path emission、rasterization は未実装である。
 - 次 slice は F4l の enum state を streaming outline/path sink へ渡す境界を設計する。allocation failure / owner recovery と no fallback contract を先に固定してから実装する。
 - `tests/stdlib/gui_font_sfnt_glyf.n.md` は既に重いため、今後の curve/path/raster test は責務ごとに別ファイルへ分ける。
-- `gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level public lookup smoke は、既存 glyf byte fixture helper を小さな共有 fixture に分けた後に追加する。
+- `gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level public lookup smoke は、後続の dedicated smoke file と source policy gate で追加した。現行 compiler の 60 秒制限では通常実行が重いため、実行可能な通常 doctest 化は resource static check の軽量化後に行う。
 
 ## 2026-06-13 selfhost Drop impl resolver checkpoint
 
@@ -59074,3 +59074,39 @@ MERGE_APPROVED
 
 - `doc/neplg2/self_host_neplg21_compiler_design.md` に「stage 進行と性能最適化の分類」を追加した。
 - `todo.md` に、selfhost MemoKey / MemoValue stage ではこの分類に従い、contract を保てる内部最適化で semantic stage を止めないことを追記した。
+
+## 2026-06-13 GUI font SFNT curve public lookup smoke checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-curve-lookup-smoke-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: hidden fallback を避け、binary fixture は UTF-8 text conversion へ逃がさず、`Result` / enum payload / source policy による静的検査で境界を固定した。
+
+### implementation
+
+- `tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md` を追加し、public `gui_sfnt_lookup_simple_glyph_curve_segment` が最小 SFNT byte fixture から odd implied midpoint の `Quadratic` へ到達する smoke を仕様化した。
+- `io_bytebuf_from_str_result` で `\x90` などの high byte を渡すと UTF-8 bytes に展開され、binary fixture が壊れることを切り分けた。
+- fixture は `curve_lookup_fixture_byte` と `ByteBuilder` で組み立てる形にし、UTF-8 text conversion を使わない。
+- 現在の compiler では `alloc/gui/font/sfnt/glyf` import の resource static check が 60 秒制限を超えるため、CI の通常 doctest は `skip` とし、source policy で public lookup 呼び出し、label、binary fixture construction、`io_bytebuf_from_str_result` 禁止を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に新しい smoke ファイルを登録し、`gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level public lookup 契約を regression gate に追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` の F4l 検証計画へ curve lookup smoke を反映した。
+
+### verification_current
+
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve_lookup.json -j 1`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass_with_extended_timeout: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve_lookup_long.json -j 1; Remove-Item Env:NEPL_TEST_CASE_TIMEOUT_MS`
+
+### subagent_review
+
+- Godel pre-review: Blocker なし。
+- Required として、既存の重い `tests/stdlib/gui_font_sfnt_glyf.n.md` へ追記しないこと、最小 short-loca fixture にすること、source policy に新規 smoke file と public lookup label を登録すること、`note.n.md` と実装計画を更新すること、`NUL` と `tmp_gui_*` を commit に含めないことが指摘された。
+- 実装では新規 dedicated smoke file、最小 one-contour / three-point fixture、source policy gate、doc / note 更新を反映した。
+- Godel implementation review: Blocker なし。Required として、temp/untracked を commit に含めないこと、`doc/neplg2/gui_font_rendering_implementation_plan.md` の検証コマンドが skip policy check と extended executable check を区別するよう明記することが指摘された。
+- 対応として、実装計画の検証欄に skip policy check と extended timeout 実行検証を分けて記述し、source policy は新規 smoke file 単体に対する assertion へ強めた。
+
+### residual
+
+- public lookup smoke は現行 compiler の 60 秒 doctest 制限により `skip` 付きである。通常 CI で実行可能にするには、`alloc/gui/font/sfnt/glyf` import の resource static check 時間を下げるか、テスト用 binary fixture を shared helper 化して compile surface をさらに小さくする必要がある。
+- F4l 後続の streaming outline/path sink、compound glyph、phantom points、hint instruction semantics、outline winding、2D renderer への path emission、rasterization は未実装である。
