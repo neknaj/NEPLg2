@@ -59,6 +59,9 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.match(source, /presenter-unavailable/);
     assert.match(source, /stale-resize-generation/);
     assert.match(source, /invalid-surface-config/);
+    assert.match(source, /resource-exhausted/);
+    assert.match(source, /GUI_VIDEO_MEMORY_MAX_BUFFER_BYTES/);
+    assert.match(source, /Number\.isSafeInteger/);
     assert.match(source, /invalid-buffer-length/);
     assert.match(source, /shared-buffer-unavailable/);
     assert.match(source, /unsupported-header-version/);
@@ -101,6 +104,9 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     const invalidSlotConfig = videoMemory.createGuiVideoMemorySurface(1, 1, 1);
     assert.equal(invalidSlotConfig.kind, "err");
     assert.equal(invalidSlotConfig.error.kind, "invalid-surface-config");
+    const impossibleSurface = videoMemory.createGuiVideoMemorySurface(65536, 65536, 2);
+    assert.equal(impossibleSurface.kind, "err");
+    assert.equal(impossibleSurface.error.kind, "resource-exhausted");
 
     const shortOpen = videoMemory.openGuiVideoMemorySurface(new SharedArrayBuffer(4));
     assert.equal(shortOpen.kind, "err");

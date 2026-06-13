@@ -582,6 +582,8 @@ function guiVideoMemoryErrorActual(error: GuiVideoMemoryError): string {
             return `${error.kind}:${error.x},${error.y},${error.width},${error.height}:surface=${error.surfaceWidth}x${error.surfaceHeight}`;
         case 'unsupported-stride':
             return `${error.kind}:stride=${error.strideBytes}:expected=${error.expectedStrideBytes}`;
+        case 'resource-exhausted':
+            return `${error.kind}:bytes=${error.byteLength}`;
         case 'unsupported-command':
             return `${error.kind}:${error.commandKind}`;
     }

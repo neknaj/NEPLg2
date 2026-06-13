@@ -1,3 +1,47 @@
+# 2026-06-14 Agent2 Web GUI video memory host import checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、今回の slice では Web worker から main thread presenter へ直接 DOM / Canvas authority を持ち込まず、Web-only scalar host import、opaque positive id、`Result` に写される negative status、ack `SharedArrayBuffer` による typed request / response を使う。stdout / command-frame fallback、ArrayBuffer transfer fallback、string handle、JS object handle、silent success は入れない。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-video-memory-host-import-20260614`
+- classification: Web GUI video memory host import ABI / worker-main-thread typed ack bridge / stdlib Web wrapper
+- design:
+  - `nepl_gui_web` に `video_memory_create_surface`、`video_memory_acquire_write_slot`、`video_memory_write_slot_bytes`、`video_memory_fill_rect_rgba8888`、`video_memory_publish_slot`、`video_memory_present_surface`、`video_memory_close_surface` を追加する。
+  - `surface_id` と `frame_id` は worker-local opaque positive integer とし、NEPL/Wasm へ `SharedArrayBuffer`、DOM handle、Canvas handle、ArrayBuffer transfer object、JS object handle、string handle を返さない。
+  - `publish_slot` は `Writing -> Published` だけを行い、`present_surface` が typed `gui_video_memory_present` worker message と ack `SharedArrayBuffer` で main thread presenter の実結果を待ってから status を返す。
+  - `title_ptr` / `title_len` は Wasm linear memory の UTF-8 byte slice とし、不正 pointer、length、UTF-8 は `InvalidArgument` status へ写す。
+  - `platforms/gui/web/surface.nepl` は raw negative status を module private helper で `GuiError` へ写し、public wrapper は `Result` だけを返す。
+- implementation:
+  - `web/src/gui-preview/video-memory-host-abi.ts` を追加し、ack buffer の作成、resolve、wait と host status constants を定義した。
+  - `web/src/runtime/worker.ts` に Web-only video memory host imports を追加し、`video-memory-surface.ts` の ownership API だけで surface / write frame / publish を扱うようにした。
+  - `web/src/terminal/shell.ts` に `gui_video_memory_present` worker message handler を追加し、`presentGuiWebRuntimeVideoMemory` の結果を ack status に戻す。
+  - `stdlib/platforms/gui/web/surface.nepl` に Web video memory wrapper を追加し、`Result GuiError` 境界と title string pointer boundary を platform module 内に閉じた。
+  - `nodesrc/test_web_gui_video_memory_host_import.js` を追加し、Worker host import path が stdout / command frame / DOM / Canvas fallback を持たないこと、publish と present が分かれていること、Shell が typed ack を返すことを固定した。
+  - `doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新した。
+- subagent review:
+  - Godel: plan review で、present import が fire-and-forget ではなく actual presenter result を返す ack/control cell を持つこと、surface 作成 / write slot / byte write / publish / present を分離すること、Worker に DOM / Canvas / presenter authority を入れないこと、Shell が typed message から `presentGuiWebRuntimeVideoMemory` を呼ぶことを要求。ack boundary と import 責務分離を反映済み。
+  - Godel: implementation review で、finite timeout により worker が失敗を返した後に main thread が後から present し得る競合、巨大 surface 作成が JS exception になり得る allocation / overflow 境界を blocker として指摘。`waitGuiVideoMemoryHostAck` を production present path では timeout なしにし、surface size の safe integer / max byte guard と `SharedArrayBuffer` allocation catch を追加して `resource-exhausted` typed error へ写した。
+  - Godel: follow-up review で blockers cleared。Required は Mandelbrot transport contract の再実行のみで、実行済み。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_video_memory_host_import.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_surface.js`
+  - pass: `node nodesrc/test_web_gui_runtime_bridge.js`
+  - pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+  - pass: `node nodesrc/test_web_gui_same_app_code_contract.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_floating_window_source.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp_gui_std_video_host_import.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core_video_host_import.json -j 1 --dist web/dist --assert-io`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。今回差分由来の warning はなし。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+- residual:
+  - DrawCommand stream、tile / bitmap / row / RLE payload を正式 host import ABI として渡す経路は後続 slice。
+  - Examples の stdout command frame 出力から video memory / formal transport への移行は後続 slice。
+  - Native / bare / headless の formal framebuffer presenter と screenshot hash authority は後続 slice。
+
 # 2026-06-13 Agent2 Web GUI video memory runtime bridge checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、今回の slice では `SharedArrayBuffer` video memory surface を Web runtime bridge へ接続する。`null` / `undefined` authority、silent fallback、ArrayBuffer transfer fallback、DOM drawing primitive、CSS scale / Canvas transform による content stretching は入れない。

@@ -7,6 +7,7 @@ export const GUI_VIDEO_MEMORY_FORMAT_RGBA8888 = 1;
 const GUI_VIDEO_MEMORY_HEADER_WORDS = 16;
 const GUI_VIDEO_MEMORY_SLOT_WORDS = 8;
 const GUI_VIDEO_MEMORY_WORD_BYTES = 4;
+const GUI_VIDEO_MEMORY_MAX_BUFFER_BYTES = 512 * 1024 * 1024;
 
 const HEADER_MAGIC = 0;
 const HEADER_VERSION = 1;
@@ -50,6 +51,7 @@ export type GuiVideoMemorySlotCleanupStatus =
 export type GuiVideoMemoryError =
     | { kind: 'shared-buffer-unavailable' }
     | { kind: 'invalid-surface-config'; width: number; height: number; slotCount: number }
+    | { kind: 'resource-exhausted'; byteLength: number }
     | { kind: 'invalid-buffer-length'; actual: number; minimum: number }
     | { kind: 'invalid-header-magic'; actual: number }
     | { kind: 'unsupported-header-version'; actual: number }
@@ -147,12 +149,27 @@ export function createGuiVideoMemorySurface(
     ) {
         return guiVideoMemoryErr({ kind: 'invalid-surface-config', width, height, slotCount });
     }
-    const strideBytes = width * GUI_VIDEO_MEMORY_BYTES_PER_PIXEL;
-    const pixelByteLength = strideBytes * height;
     const headerBytes = GUI_VIDEO_MEMORY_HEADER_WORDS * GUI_VIDEO_MEMORY_WORD_BYTES;
     const slotHeaderBytes = slotCount * GUI_VIDEO_MEMORY_SLOT_WORDS * GUI_VIDEO_MEMORY_WORD_BYTES;
+    const strideBytes = width * GUI_VIDEO_MEMORY_BYTES_PER_PIXEL;
+    const pixelByteLength = strideBytes * height;
     const pixelPlaneByteOffset = headerBytes + slotHeaderBytes;
-    const buffer = new SharedArrayBuffer(pixelPlaneByteOffset + pixelByteLength * slotCount);
+    const totalByteLength = pixelPlaneByteOffset + pixelByteLength * slotCount;
+    if (
+        !Number.isSafeInteger(strideBytes)
+        || !Number.isSafeInteger(pixelByteLength)
+        || !Number.isSafeInteger(pixelPlaneByteOffset)
+        || !Number.isSafeInteger(totalByteLength)
+        || totalByteLength > GUI_VIDEO_MEMORY_MAX_BUFFER_BYTES
+    ) {
+        return guiVideoMemoryErr({ kind: 'resource-exhausted', byteLength: totalByteLength });
+    }
+    let buffer: SharedArrayBuffer;
+    try {
+        buffer = new SharedArrayBuffer(totalByteLength);
+    } catch {
+        return guiVideoMemoryErr({ kind: 'resource-exhausted', byteLength: totalByteLength });
+    }
     const header = new Int32Array(buffer, 0, GUI_VIDEO_MEMORY_HEADER_WORDS);
     const slots = new Int32Array(buffer, headerBytes, slotCount * GUI_VIDEO_MEMORY_SLOT_WORDS);
     Atomics.store(header, HEADER_MAGIC, GUI_VIDEO_MEMORY_MAGIC);

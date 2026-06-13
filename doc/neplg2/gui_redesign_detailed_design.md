@@ -337,6 +337,42 @@ Panel は同じ `SharedArrayBuffer` identity の video memory surface を再利�
 
 Surface size と drawable surface size が異なる場合、presenter は CSS scale や Canvas transform で引き伸ばさない。初期実装では pixel buffer を top-left に 1:1 で提示し、window resize event により application が新しい surface / frame を生成する。Hidden stretch、row-copy fallback、`drawImage` 拡大縮小は禁止する。
 
+## Web video memory host import ABI
+
+Web worker runtime は Web-only import module `nepl_gui_web` に video memory host import ABI を持つ。この ABI は `core/gui`、`alloc/gui`、`std/gui` の public contract ではなく、`platforms/gui/web` が Web backend に接続するための platform boundary である。
+
+現在の scalar import は次である。
+
+```text
+video_memory_create_surface width height slot_count -> surface_id_or_negative_status
+video_memory_acquire_write_slot surface_id -> frame_id_or_negative_status
+video_memory_write_slot_bytes surface_id frame_id dst_offset src_ptr byte_len -> status
+video_memory_fill_rect_rgba8888 surface_id frame_id x y width height r g b a -> status
+video_memory_publish_slot surface_id frame_id dirty_kind x y width height -> status
+video_memory_present_surface window_id title_ptr title_len surface_id -> status
+video_memory_close_surface surface_id -> status
+```
+
+`surface_id` と `frame_id` は worker-local opaque positive integer である。NEPL/Wasm code は `SharedArrayBuffer`、DOM handle、Canvas handle、JS object handle、ArrayBuffer transfer object、string handle を受け取らない。`SharedArrayBuffer remains a Web backend detail` であり、Worker は `video-memory-surface.ts` の ownership API だけで surface / slot を扱う。
+
+Negative status は Web platform module 内で `Result` と `GuiError` へ写す。Raw sentinel は public wrapper から漏らさない。
+
+```text
+0  Ok
+-1 Unsupported
+-2 InvalidArgument
+-3 ResourceExhausted
+-4 NoWritableSlot
+-5 BackendFailure
+-6 StaleFrame
+```
+
+`publish_slot` は `Writing -> Published` の状態遷移だけを行う。Visible window への提示は `present_surface` が別に行い、Worker から main thread へ typed `gui_video_memory_present` message を送る。main thread の Shell は `presentGuiWebRuntimeVideoMemory` を呼び、その結果を ack 用 `SharedArrayBuffer` へ書いて `Atomics.notify` する。Worker import は ack を `Atomics.wait` してから status を返すため、message queued を success として扱わない。
+
+`title_ptr` と `title_len` は Wasm linear memory 内の UTF-8 byte slice である。Worker は bounds と UTF-8 validity を検査し、不正な pointer、length、UTF-8 は `InvalidArgument` として返す。Platform boundary は JavaScript exception message や browser string handle を branch authority にしない。
+
+この host import ABI は stdout protocol や command frame stream への fallback を持たない。Worker import path は `presentGuiWebRuntimeVideoMemory` を直接呼ばず、main thread handler だけが runtime presenter を呼ぶ。これにより Web Worker と DOM / Canvas authority の境界を保ち、NEPL/Wasm import の戻り値は actual presenter result を反映する。
+
 ## Frame publish protocol
 
 Slot state:
