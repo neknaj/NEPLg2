@@ -393,6 +393,38 @@ fn mandelbrot_video_memory_write_rows %impure fn &GuiWebVideoMemorySurface impur
                 Result::Err error:
                     Result::Err error
 
+fn mandelbrot_video_memory_present_window %impure fn &GuiWebVideoMemorySurface Result unit GuiError \surface:
+    match window_id mandelbrot_video_memory_window_id:
+        Result::Err error:
+            Result::Err error
+        Result::Ok window:
+            gui_web_video_memory_present_surface window "NEPLg2 Mandelbrot Video Memory" surface
+
+fn mandelbrot_video_memory_discard_error %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiError Result unit GuiError \surface\frame\error:
+    match gui_web_video_memory_discard_write_frame surface frame:
+        Result::Ok _:
+            Result::Err error
+        Result::Err _discard_error:
+            Result::Err error
+
+fn mandelbrot_video_memory_publish_present %impure fn &GuiWebVideoMemorySurface impure fn FrameId Result unit GuiError \surface\frame:
+    match gui_web_video_memory_publish_full surface frame:
+        Result::Err error:
+            mandelbrot_video_memory_discard_error surface frame error
+        Result::Ok _:
+            mandelbrot_video_memory_present_window surface
+
+fn mandelbrot_video_memory_render_present_surface %impure fn &GuiWebVideoMemorySurface impure fn MandelbrotModel Result unit GuiError \surface\model:
+    match gui_web_video_memory_acquire_write_frame surface:
+        Result::Err error:
+            Result::Err error
+        Result::Ok frame:
+            match mandelbrot_video_memory_write_rows surface frame 0 model:
+                Result::Ok _:
+                    mandelbrot_video_memory_publish_present surface frame
+                Result::Err error:
+                    mandelbrot_video_memory_discard_error surface frame error
+
 fn mandelbrot_video_memory_close_with_result %impure fn &GuiWebVideoMemorySurface impure fn Result unit GuiError Result unit GuiError \surface\result:
     match gui_web_video_memory_close_surface surface:
         Result::Ok _:
@@ -405,47 +437,89 @@ fn mandelbrot_video_memory_close_with_result %impure fn &GuiWebVideoMemorySurfac
                     Result::Err original
 
 fn mandelbrot_video_memory_discard_close_error %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiError Result unit GuiError \surface\frame\error:
-    match gui_web_video_memory_discard_write_frame surface frame:
-        Result::Ok _:
-            let failed %Result unit GuiError Result::Err error
-            mandelbrot_video_memory_close_with_result surface failed
-        Result::Err _discard_error:
-            let failed %Result unit GuiError Result::Err error
-            mandelbrot_video_memory_close_with_result surface failed
+    let failed %Result unit GuiError mandelbrot_video_memory_discard_error surface frame error
+    mandelbrot_video_memory_close_with_result surface failed
 
 fn mandelbrot_video_memory_publish_present_close %impure fn &GuiWebVideoMemorySurface impure fn FrameId Result unit GuiError \surface\frame:
-    match gui_web_video_memory_publish_full surface frame:
-        Result::Err error:
-            mandelbrot_video_memory_discard_close_error surface frame error
-        Result::Ok _:
-            match window_id mandelbrot_video_memory_window_id:
-                Result::Err error:
-                    let failed %Result unit GuiError Result::Err error
-                    mandelbrot_video_memory_close_with_result surface failed
-                Result::Ok window:
-                    let present_result %Result unit GuiError gui_web_video_memory_present_surface window "NEPLg2 Mandelbrot Video Memory" surface
-                    mandelbrot_video_memory_close_with_result surface present_result
+    let present_result %Result unit GuiError mandelbrot_video_memory_publish_present surface frame
+    mandelbrot_video_memory_close_with_result surface present_result
 
 fn mandelbrot_video_memory_present_surface %impure fn &GuiWebVideoMemorySurface impure fn MandelbrotModel Result unit GuiError \surface\model:
-    match gui_web_video_memory_acquire_write_frame surface:
-        Result::Err error:
-            let failed %Result unit GuiError Result::Err error
-            mandelbrot_video_memory_close_with_result surface failed
-        Result::Ok frame:
-            match mandelbrot_video_memory_write_rows surface frame 0 model:
-                Result::Ok _:
-                    mandelbrot_video_memory_publish_present_close surface frame
-                Result::Err error:
-                    mandelbrot_video_memory_discard_close_error surface frame error
+    let render_result %Result unit GuiError mandelbrot_video_memory_render_present_surface surface model
+    mandelbrot_video_memory_close_with_result surface render_result
 
-fn mandelbrot_video_memory_present_model %impure fn MandelbrotModel Result unit GuiError \model:
+fn mandelbrot_video_memory_open_rendered_surface %impure fn MandelbrotModel Result GuiWebVideoMemorySurface GuiError \model:
     let width %i32 mandelbrot_model_sample_width &model
     let height %i32 mandelbrot_model_sample_height &model
     match gui_web_video_memory_create_surface width height mandelbrot_video_memory_slot_count:
         Result::Ok surface:
-            mandelbrot_video_memory_present_surface &surface model
+            match mandelbrot_video_memory_render_present_surface &surface model:
+                Result::Ok _:
+                    Result::Ok surface
+                Result::Err error:
+                    let failed %Result unit GuiError Result::Err error
+                    match mandelbrot_video_memory_close_with_result &surface failed:
+                        Result::Ok _:
+                            Result::Err error
+                        Result::Err final_error:
+                            Result::Err final_error
         Result::Err error:
             Result::Err error
+
+fn mandelbrot_video_memory_present_model %impure fn MandelbrotModel Result unit GuiError \model:
+    match mandelbrot_video_memory_open_rendered_surface model:
+        Result::Ok surface:
+            let ok %Result unit GuiError Result::Ok unit
+            mandelbrot_video_memory_close_with_result &surface ok
+        Result::Err error:
+            Result::Err error
+
+fn mandelbrot_video_memory_close_open_surface %impure fn GuiWebVideoMemorySurface Result unit GuiError \surface:
+    let ok %Result unit GuiError Result::Ok unit
+    mandelbrot_video_memory_close_with_result &surface ok
+
+fn mandelbrot_video_memory_close_and_open_next %impure fn &GuiWebVideoMemorySurface impure fn MandelbrotModel Result GuiWebVideoMemorySurface GuiError \surface\next_model:
+    match gui_web_video_memory_close_surface surface:
+        Result::Ok _:
+            mandelbrot_video_memory_open_rendered_surface next_model
+        Result::Err error:
+            Result::Err error
+
+fn mandelbrot_video_memory_resize_once_event %impure fn GuiWebVideoMemorySurface impure fn MandelbrotModel impure fn GuiWebEvent Result unit GuiError \surface\model\web_event:
+    match gui_web_event_window &web_event:
+        Option::Some window:
+            match window_event_kind &window:
+                WindowEventKind::Resized:
+                    let next_model %MandelbrotModel mandelbrot_update_window model window
+                    match mandelbrot_video_memory_close_and_open_next &surface next_model:
+                        Result::Ok next_surface:
+                            mandelbrot_video_memory_close_open_surface next_surface
+                        Result::Err error:
+                            Result::Err error
+                WindowEventKind::Focused:
+                    mandelbrot_video_memory_close_open_surface surface
+                WindowEventKind::Unfocused:
+                    mandelbrot_video_memory_close_open_surface surface
+                WindowEventKind::CloseRequested:
+                    mandelbrot_video_memory_close_open_surface surface
+        Option::None:
+            mandelbrot_video_memory_close_open_surface surface
+
+fn mandelbrot_video_memory_resize_once %impure fn MandelbrotModel Result unit GuiError \initial_model:
+    match mandelbrot_video_memory_open_rendered_surface initial_model:
+        Result::Err error:
+            Result::Err error
+        Result::Ok surface:
+            match gui_web_wait_event_result 60000:
+                Result::Err error:
+                    let failed %Result unit GuiError Result::Err error
+                    mandelbrot_video_memory_close_with_result &surface failed
+                Result::Ok event_result:
+                    match event_result:
+                        Option::Some web_event:
+                            mandelbrot_video_memory_resize_once_event surface initial_model web_event
+                        Option::None:
+                            mandelbrot_video_memory_close_open_surface surface
 
 fn mandelbrot_present_row_pixel %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
     let iter %i32 mandelbrot_cell_iter x y model
@@ -671,6 +745,9 @@ fn mandelbrot_has_once_flag %impure fn void bool \void:
 fn mandelbrot_has_video_memory_once_flag %impure fn void bool \void:
     mandelbrot_has_flag "--video-memory-once"
 
+fn mandelbrot_has_video_memory_resize_once_flag %impure fn void bool \void:
+    mandelbrot_has_flag "--video-memory-resize-once"
+
 fn mandelbrot_has_hd_contract_flag %impure fn void bool \void:
     mandelbrot_has_flag "--test-hd-contract"
 
@@ -814,6 +891,13 @@ fn mandelbrot_run_video_memory_once %impure fn MandelbrotModel unit \model:
         Result::Err _:
             println "mandelbrot video memory protocol error"
 
+fn mandelbrot_run_video_memory_resize_once %impure fn MandelbrotModel unit \model:
+    match mandelbrot_video_memory_resize_once model:
+        Result::Ok _:
+            unit
+        Result::Err _:
+            println "mandelbrot video memory resize protocol error"
+
 fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
     let mut model %MandelbrotModel initial_model
     let mut running %bool true
@@ -855,17 +939,22 @@ fn main %impure fn void unit \void:
                             mandelbrot_run_video_memory_contract_test
                         else:
                             if:
-                                mandelbrot_has_video_memory_once_flag
+                                mandelbrot_has_video_memory_resize_once_flag
                                 then:
-                                    mandelbrot_run_video_memory_once video_memory_model
+                                    mandelbrot_run_video_memory_resize_once video_memory_model
                                 else:
                                     if:
-                                        mandelbrot_has_once_flag
+                                        mandelbrot_has_video_memory_once_flag
                                         then:
-                                            mandelbrot_run_once model0
+                                            mandelbrot_run_video_memory_once video_memory_model
                                         else:
-                                            match mandelbrot_present_frame model0:
-                                                Result::Ok _:
-                                                    mandelbrot_event_loop model0
-                                                Result::Err _:
-                                                    println "mandelbrot gui protocol error"
+                                            if:
+                                                mandelbrot_has_once_flag
+                                                then:
+                                                    mandelbrot_run_once model0
+                                                else:
+                                                    match mandelbrot_present_frame model0:
+                                                        Result::Ok _:
+                                                            mandelbrot_event_loop model0
+                                                        Result::Err _:
+                                                            println "mandelbrot gui protocol error"

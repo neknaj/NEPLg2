@@ -1,3 +1,33 @@
+# 2026-06-14 Agent2 Mandelbrot formal video memory resize checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed host boundary、application update が event を解釈する方針を確認し、Mandelbrot の formal video memory path を finite resize/recreate checkpoint へ進めた。
+- 対象 branch: `web-gui-mandelbrot-video-memory-resize-20260614`
+- classification: Web GUI Mandelbrot formal video memory finite resize / surface ownership split / fake host event harness
+- 実装内容:
+  - `examples/gui_mandelbrot.nepl` に `--video-memory-resize-once` を追加した。
+  - `mandelbrot_video_memory_open_rendered_surface` は surface を create / render / present し、close は caller に任せる。既存 `--video-memory-once` は open helper を使いつつ、従来通り最後に close して終了する。
+  - `mandelbrot_video_memory_resize_once` は初期 32x18 surface を present し、`gui_web_wait_event_result` で typed event を 1 件待つ。`WindowEventKind::Resized` なら existing model update で next model を作り、old surface を close して resized surface を create / render / present / close する。
+  - `Focused`、`Unfocused`、`CloseRequested`、non-window event、timeout は explicit no-op / close path として扱い、stdout / command-frame / TS simulation へ戻らない。
+  - `nodesrc/gui_video_memory_fake_host.js` を複数 surface sequence と window resize event import に対応させた。
+  - `nodesrc/test_web_gui_mandelbrot_video_memory_resize_harness.js` を追加し、initial surface と resized surface の row payload、surface1 close before surface2 create、`write_slot_bytes` / stdout / command-frame 不使用を検査する。
+  - `nodesrc/test_web_gui_mandelbrot_transport_contract.js`、`nodesrc/run_source_policy_regressions.js`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新した。
+- subagent review:
+  - Boyle: 事前レビューで separate flag、open surface ownership helper、error path close、explicit event handling、two-surface lifecycle harness、no stdout / command-frame fallback、docs の過大表現禁止を要求した。
+- subagent implementation review:
+  - Boyle: `IMPLEMENTATION_REVIEW_APPROVED`。`--video-memory-once` 互換、resize path の formal video memory host import 維持、explicit event handling、surface ownership、multi-surface fake host、docs の未実装範囲分離に blocker なし。
+- 検証:
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_resize_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は既存 stdlib documentation gap `153 > 108` を警告した。今回追加の GUI / Mandelbrot source policy は pass。
+- 残件:
+  - long-running formal video memory event loop、full-resolution redraw scheduler、progressive rendering、FHD 60fps 実測、formal tiled transport は未完了。
+
 # 2026-06-14 Agent2 Mandelbrot responsive resize model checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed enum / `Result`、host event を app update へ渡す方針を確認し、Mandelbrot の resize 追従を TS simulation や DOM / Canvas scale に寄せず NEPL 側の model/update contract として進めた。
