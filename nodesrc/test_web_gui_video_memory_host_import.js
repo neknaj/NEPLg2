@@ -15,11 +15,18 @@ async function loadHostAbiModule() {
     return import(pathToFileURL(modulePath).href);
 }
 
+async function loadTimerHostAbiModule() {
+    const modulePath = path.resolve(__dirname, "..", "web", "dist_ts", "gui-preview", "timer-host-abi.js");
+    return import(pathToFileURL(modulePath).href);
+}
+
 async function runWebGuiVideoMemoryHostImportRegression() {
     const abi = await loadHostAbiModule();
+    const timerAbi = await loadTimerHostAbiModule();
     const workerSource = readRepoFile("web", "src", "runtime", "worker.ts");
     const shellSource = readRepoFile("web", "src", "terminal", "shell.ts");
     const surfaceSource = readRepoFile("stdlib", "platforms", "gui", "web", "surface.nepl");
+    const timerSource = readRepoFile("stdlib", "platforms", "gui", "web", "timer.nepl");
     const surfaceCode = stripNeplLineComments(surfaceSource);
     const runTestSource = readRepoFile("nodesrc", "run_test.js");
     const designSource = readRepoFile("doc", "neplg2", "gui_redesign_detailed_design.md");
@@ -32,6 +39,13 @@ async function runWebGuiVideoMemoryHostImportRegression() {
         abi.waitGuiVideoMemoryHostAck(ack.value, 0),
         abi.GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT,
     );
+    const timerAck = timerAbi.createGuiTimerHostAckBuffer();
+    assert.equal(timerAck.kind, "ok");
+    timerAbi.resolveGuiTimerHostAck(timerAck.value, timerAbi.GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT);
+    assert.equal(
+        timerAbi.waitGuiTimerHostAck(timerAck.value, 0),
+        timerAbi.GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT,
+    );
 
     assert.match(workerSource, /video_memory_create_surface: this\.nepl_gui_web_video_memory_create_surface\.bind\(this\)/);
     assert.match(workerSource, /video_memory_acquire_write_slot: this\.nepl_gui_web_video_memory_acquire_write_slot\.bind\(this\)/);
@@ -41,6 +55,7 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(workerSource, /video_memory_publish_slot: this\.nepl_gui_web_video_memory_publish_slot\.bind\(this\)/);
     assert.match(workerSource, /video_memory_present_surface: this\.nepl_gui_web_video_memory_present_surface\.bind\(this\)/);
     assert.match(workerSource, /video_memory_close_surface: this\.nepl_gui_web_video_memory_close_surface\.bind\(this\)/);
+    assert.match(workerSource, /request_timer: this\.nepl_gui_web_request_timer\.bind\(this\)/);
     assert.doesNotMatch(workerSource, /video_memory_open_surface:/);
     assert.doesNotMatch(workerSource, /video_memory_acquire_frame:/);
     assert.doesNotMatch(workerSource, /video_memory_copy_rgba8888:/);
@@ -133,6 +148,26 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.doesNotMatch(privatePresentBridge, /waitGuiVideoMemoryHostAck\(ack\.value,\s*\d+/);
     assert.doesNotMatch(privatePresentBridge, /presentGuiWebRuntimeVideoMemory/);
 
+    const workerTimerImportPath = extractClassSlice(
+        workerSource,
+        "nepl_gui_web_request_timer",
+        "private storeGuiWebInputEventTakeResult",
+    );
+    assert.match(workerTimerImportPath, /repeatingRaw !== 1/);
+    assert.match(workerTimerImportPath, /this\.requestGuiRuntimeTimer\(windowId, timerId, intervalMs, true\)/);
+    assert.doesNotMatch(workerTimerImportPath, /stdout|GuiWebStdoutProtocol|parse/);
+    assert.doesNotMatch(workerTimerImportPath, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
+
+    const privateTimerBridge = extractClassSlice(
+        workerSource,
+        "private requestGuiRuntimeTimer",
+        "private findGuiVideoMemorySurface",
+    );
+    assert.match(privateTimerBridge, /createGuiTimerHostAckBuffer/);
+    assert.match(privateTimerBridge, /postWorkerMessage\(\{[\s\S]*type: 'gui_timer_request'/);
+    assert.match(privateTimerBridge, /waitGuiTimerHostAck\(ack\.value\)/);
+    assert.doesNotMatch(privateTimerBridge, /GuiWebStdoutProtocol|presentGuiWebRuntimeVideoMemory|presentGuiWebRuntimeFrame/);
+
     assert.match(workerSource, /private decodeGuiVideoMemoryTitle\(ptr: number, len: number\): string \| number/);
     assert.match(workerSource, /this\.memoryBytes\(ptr, len\)/);
     assert.match(workerSource, /TextDecoder\('utf-8', \{ fatal: true \}\)/);
@@ -147,6 +182,26 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(shellHandler, /guiVideoMemoryHostStatusFromRuntimeError/);
     assert.match(shellHandler, /this\.guiRuntimeInputWindowIds\.add\(message\.windowId\)/);
     assert.doesNotMatch(shellHandler, /handleGuiStdoutProtocolEvents|presentGuiWebRuntimeFrame|presentCommands|beginFrame/);
+
+    const formalTimerHandler = extractClassSlice(
+        shellSource,
+        "private handleGuiTimerRequestMessage",
+        "private configureGuiRuntimeTimer",
+    );
+    assert.match(formalTimerHandler, /this\.applyGuiRuntimeTimerRequest/);
+    assert.match(formalTimerHandler, /resolveGuiTimerHostAck\(message\.ack, status\)/);
+    assert.doesNotMatch(formalTimerHandler, /GuiWebStdoutProtocolEvent|NEPLG2_GUI_ANIMATE_MS|handleGuiStdoutProtocolEvents/);
+
+    const timerRequestHelper = extractClassSlice(
+        shellSource,
+        "private applyGuiRuntimeTimerRequest",
+        "private queueGuiRuntimeTimerTick",
+    );
+    assert.match(timerRequestHelper, /this\.guiRuntimeInputWindowIds\.has\(request\.windowId\)/);
+    assert.match(timerRequestHelper, /!request\.repeating/);
+    assert.match(timerRequestHelper, /request\.intervalMs === 0/);
+    assert.match(timerRequestHelper, /setInterval\(\(\) => this\.queueGuiRuntimeTimerTick\(key\), request\.intervalMs\)/);
+    assert.doesNotMatch(timerRequestHelper, /GuiWebStdoutProtocolEvent|NEPLG2_GUI_ANIMATE_MS|stdout/);
 
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_create_surface"/);
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_acquire_write_slot"/);
@@ -164,7 +219,16 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.doesNotMatch(surfaceSource, /pub fn gui_web_video_memory_status_error/);
     assert.doesNotMatch(surfaceSource, /video_memory_open_surface|video_memory_acquire_frame|video_memory_copy_rgba8888|video_memory_publish_frame/);
     assert.doesNotMatch(surfaceCode, /stdout_protocol|gui_web_stdout|presentCommands|beginFrame|fallback/);
+    assert.match(timerSource, /#extern "nepl_gui_web" "request_timer"/);
+    assert.match(timerSource, /pub fn gui_web_request_timer[\s\S]*Result unit GuiError/);
+    assert.match(timerSource, /timer_request_window/);
+    assert.match(timerSource, /timer_request_timer/);
+    assert.match(timerSource, /timer_request_interval_ms/);
+    assert.match(timerSource, /timer_request_repeating/);
+    assert.match(timerSource, /not repeating/);
+    assert.doesNotMatch(stripNeplLineComments(timerSource), /stdout_protocol|gui_web_stdout|presentCommands|beginFrame|fallback/);
 
+    assert.match(runTestSource, /request_timer: \(\) => -1/);
     assert.match(runTestSource, /video_memory_create_surface: \(\) => -1/);
     assert.match(runTestSource, /video_memory_acquire_write_slot: \(\) => -1/);
     assert.match(runTestSource, /video_memory_write_slot_bytes: \(\) => -2/);
@@ -188,6 +252,7 @@ async function runWebGuiVideoMemoryHostImportRegression() {
             "discard import releases unpublished write slots without publish or present side effects",
             "publish and present are separate state transitions",
             "present import waits for the main-thread presenter ack before returning status",
+            "formal timer request import uses typed ack and the same runtime timer map without stdout protocol fallback",
             "worker host import path does not use stdout, command-frame, DOM, or Canvas drawing fallback",
             "stdlib Web wrappers map raw negative statuses to Result GuiError",
         ],

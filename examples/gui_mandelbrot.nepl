@@ -27,7 +27,7 @@
 //: - `--video-memory-once` は stdout path へ戻らない formal Web video memory host import の有限検査用 path です。
 //: - `--video-memory-loop` は formal Web video memory surface を開いたまま typed window event を待ち、resize で surface を作り直します。
 //: - `--video-memory-progressive-once` は row batch ごとに dirty rect を publish し、formal video memory surface を段階的に更新します。
-//: - `--video-memory-progressive-loop-test` は timer event ごとに 1 row batch だけ進める有限検査用 path です。
+//: - `--video-memory-progressive-loop-test` は formal timer request 後、timer event ごとに 1 row batch だけ進める有限検査用 path です。
 //:
 //: [実装/じっそう]:
 //: - fixed point scale 100 の i32 計算で escape iteration を求めます。
@@ -41,7 +41,7 @@
 //: - `--video-memory-once` は独立した opt-in path であり、host import が失敗しても stdout transport へ fallback しません。
 //: - `--video-memory-loop-test` の wait 回数上限は CI の停止条件であり、実際の scheduler policy ではありません。
 //: - progressive path は row-batch contract の有限 checkpoint であり、FHD 60 fps の実測や real scheduler policy ではありません。
-//: - progressive loop path は既存 `GuiEvent::Timer` の有限検査であり、正式な timer 登録 ABI は後続の scheduler 実装で扱います。
+//: - progressive loop path は formal timer request host import の最小 checkpoint であり、one-shot timer や full scheduler policy は後続で扱います。
 #entry main
 #indent 4
 #target std
@@ -609,8 +609,11 @@ fn mandelbrot_video_memory_loop_interactive_wait_count %fn void i32 \void:
 fn mandelbrot_video_memory_progressive_timer_id %fn void i32 \void:
     1
 
+fn mandelbrot_video_memory_progressive_timer_interval_ms %fn void i32 \void:
+    16
+
 fn mandelbrot_video_memory_progressive_loop_test_wait_count %fn void i32 \void:
-    9
+    8
 
 fn mandelbrot_video_memory_loop_finish_ok %impure fn &GuiWebVideoMemorySurface Result unit GuiError \surface:
     let ok %Result unit GuiError Result::Ok unit
@@ -619,6 +622,30 @@ fn mandelbrot_video_memory_loop_finish_ok %impure fn &GuiWebVideoMemorySurface R
 fn mandelbrot_video_memory_loop_finish_error %impure fn &GuiWebVideoMemorySurface impure fn GuiError Result unit GuiError \surface\error:
     let failed %Result unit GuiError Result::Err error
     mandelbrot_video_memory_close_with_result surface failed
+
+fn mandelbrot_video_memory_progressive_request_timer %impure fn i32 Result unit GuiError \interval_ms:
+    match window_id mandelbrot_video_memory_window_id:
+        Result::Err error:
+            Result::Err error
+        Result::Ok window:
+            let timer %TimerId timer_id mandelbrot_video_memory_progressive_timer_id
+            let request %TimerRequest timer_request window timer interval_ms true
+            gui_web_request_timer &request
+
+fn mandelbrot_video_memory_progressive_finish_ok %impure fn &GuiWebVideoMemorySurface Result unit GuiError \surface:
+    match mandelbrot_video_memory_progressive_request_timer 0:
+        Result::Ok _:
+            mandelbrot_video_memory_loop_finish_ok surface
+        Result::Err error:
+            let failed %Result unit GuiError Result::Err error
+            mandelbrot_video_memory_close_with_result surface failed
+
+fn mandelbrot_video_memory_progressive_finish_error %impure fn &GuiWebVideoMemorySurface impure fn GuiError Result unit GuiError \surface\error:
+    match mandelbrot_video_memory_progressive_request_timer 0:
+        Result::Ok _:
+            mandelbrot_video_memory_loop_finish_error surface error
+        Result::Err _clear_error:
+            mandelbrot_video_memory_loop_finish_error surface error
 
 fn mandelbrot_video_memory_progressive_event_is_tick %fn &GuiWebEvent bool \web_event:
     match gui_web_event_timer web_event:
@@ -716,58 +743,67 @@ fn mandelbrot_video_memory_progressive_loop_with_limit %impure fn MandelbrotMode
             Result::Err error
         Result::Ok initial_surface:
             let mut surface %GuiWebVideoMemorySurface initial_surface
-            let mut start_y %i32 0
-            let mut remaining %i32 max_wait_count
-            let mut running %bool true
-            let mut loop_result %Result unit GuiError Result::Ok unit
-            while running:
-                do:
-                    if:
-                        ge start_y height
-                        then:
-                            let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_ok &surface
-                            set loop_result close_result;
-                            set running false
-                        else:
-                            if:
-                                le remaining 0
-                                then:
-                                    let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_ok &surface
-                                    set loop_result close_result;
-                                    set running false
-                                else:
-                                    set remaining sub remaining 1;
-                                    match gui_web_wait_event_result mandelbrot_video_memory_loop_wait_ms:
-                                        Result::Err error:
-                                            let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_error &surface error
+            let first_end_y %i32 mandelbrot_video_memory_progressive_next_y model 0
+            match mandelbrot_video_memory_render_batch_present &surface model 0 first_end_y:
+                Result::Err error:
+                    mandelbrot_video_memory_loop_finish_error &surface error
+                Result::Ok _:
+                    match mandelbrot_video_memory_progressive_request_timer mandelbrot_video_memory_progressive_timer_interval_ms:
+                        Result::Err error:
+                            mandelbrot_video_memory_loop_finish_error &surface error
+                        Result::Ok _:
+                            let mut start_y %i32 first_end_y
+                            let mut remaining %i32 max_wait_count
+                            let mut running %bool true
+                            let mut loop_result %Result unit GuiError Result::Ok unit
+                            while running:
+                                do:
+                                    if:
+                                        ge start_y height
+                                        then:
+                                            let close_result %Result unit GuiError mandelbrot_video_memory_progressive_finish_ok &surface
                                             set loop_result close_result;
                                             set running false
-                                        Result::Ok event_result:
-                                            match event_result:
-                                                Option::Some web_event:
-                                                    if:
-                                                        mandelbrot_video_memory_progressive_event_is_tick &web_event
-                                                        then:
-                                                            let end_y %i32 mandelbrot_video_memory_progressive_next_y model start_y
-                                                            match mandelbrot_video_memory_render_batch_present &surface model start_y end_y:
-                                                                Result::Ok _:
-                                                                    set start_y end_y
-                                                                Result::Err error:
-                                                                    let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_error &surface error
-                                                                    set loop_result close_result;
-                                                                    set running false
-                                                        else:
-                                                            if:
-                                                                mandelbrot_video_memory_progressive_event_requests_close &web_event
-                                                                then:
-                                                                    let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_ok &surface
-                                                                    set loop_result close_result;
-                                                                    set running false
-                                                                else:
+                                        else:
+                                            if:
+                                                le remaining 0
+                                                then:
+                                                    let close_result %Result unit GuiError mandelbrot_video_memory_progressive_finish_ok &surface
+                                                    set loop_result close_result;
+                                                    set running false
+                                                else:
+                                                    set remaining sub remaining 1;
+                                                    match gui_web_wait_event_result mandelbrot_video_memory_loop_wait_ms:
+                                                        Result::Err error:
+                                                            let close_result %Result unit GuiError mandelbrot_video_memory_progressive_finish_error &surface error
+                                                            set loop_result close_result;
+                                                            set running false
+                                                        Result::Ok event_result:
+                                                            match event_result:
+                                                                Option::Some web_event:
+                                                                    if:
+                                                                        mandelbrot_video_memory_progressive_event_is_tick &web_event
+                                                                        then:
+                                                                            let end_y %i32 mandelbrot_video_memory_progressive_next_y model start_y
+                                                                            match mandelbrot_video_memory_render_batch_present &surface model start_y end_y:
+                                                                                Result::Ok _:
+                                                                                    set start_y end_y
+                                                                                Result::Err error:
+                                                                                    let close_result %Result unit GuiError mandelbrot_video_memory_progressive_finish_error &surface error
+                                                                                    set loop_result close_result;
+                                                                                    set running false
+                                                                        else:
+                                                                            if:
+                                                                                mandelbrot_video_memory_progressive_event_requests_close &web_event
+                                                                                then:
+                                                                                    let close_result %Result unit GuiError mandelbrot_video_memory_progressive_finish_ok &surface
+                                                                                    set loop_result close_result;
+                                                                                    set running false
+                                                                                else:
+                                                                                    unit
+                                                                Option::None:
                                                                     unit
-                                                Option::None:
-                                                    unit
-            loop_result
+                            loop_result
 
 fn mandelbrot_video_memory_progressive_loop_test %impure fn MandelbrotModel Result unit GuiError \model:
     mandelbrot_video_memory_progressive_loop_with_limit model mandelbrot_video_memory_progressive_loop_test_wait_count

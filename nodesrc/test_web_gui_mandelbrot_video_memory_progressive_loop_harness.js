@@ -52,6 +52,7 @@ async function runWebGuiMandelbrotVideoMemoryProgressiveLoopHarnessRegression() 
     const source = readRepoFile("examples", "gui_mandelbrot.nepl");
     assert.match(source, /--video-memory-progressive-loop-test/);
     assert.match(source, /fn mandelbrot_video_memory_progressive_event_is_tick[\s\S]*gui_web_event_timer[\s\S]*timer_event_timer_id/);
+    assert.match(source, /fn mandelbrot_video_memory_progressive_request_timer[\s\S]*timer_request[\s\S]*gui_web_request_timer/);
     assert.match(source, /fn mandelbrot_video_memory_progressive_loop_with_limit[\s\S]*gui_web_wait_event_result[\s\S]*mandelbrot_video_memory_render_batch_present/);
     assert.match(source, /fn mandelbrot_video_memory_progressive_loop_with_limit[\s\S]*mandelbrot_video_memory_progressive_event_requests_close/);
 
@@ -62,6 +63,7 @@ async function runWebGuiMandelbrotVideoMemoryProgressiveLoopHarnessRegression() 
     );
     assert.match(progressiveLoopSlice, /gui_web_event_timer/);
     assert.match(progressiveLoopSlice, /timer_event_timer_id/);
+    assert.match(progressiveLoopSlice, /mandelbrot_video_memory_progressive_request_timer/);
     assert.match(progressiveLoopSlice, /WindowEventKind::CloseRequested/);
     assert.doesNotMatch(progressiveLoopSlice, /gui_web_stdout_|mandelbrot_present_frame|presentCommands|command-frame/);
     assert.doesNotMatch(progressiveLoopSlice, /gui_web_video_memory_write_frame_bytes|gui_web_video_memory_fill_rect_rgba8888/);
@@ -69,7 +71,11 @@ async function runWebGuiMandelbrotVideoMemoryProgressiveLoopHarnessRegression() 
     const fakeHost = createGuiVideoMemoryFakeHost({
         windowId: 1,
         title: "NEPLg2 Mandelbrot Video Memory",
-        expectedEventCalls: Array.from({ length: 9 }, () => ({ name: "wait", args: [60000] })),
+        expectedEventCalls: Array.from({ length: 8 }, () => ({ name: "wait", args: [60000] })),
+        expectedTimerRequests: [
+            { windowId: 1, timerId: TIMER_ID, intervalMs: 16, repeatingRaw: 1, afterVideoCalls: 8, afterEventCalls: 0 },
+            { windowId: 1, timerId: TIMER_ID, intervalMs: 0, repeatingRaw: 1, afterVideoCalls: 34, afterEventCalls: 8 },
+        ],
         surfaces: [
             {
                 width: MANDELBROT_WIDTH,
@@ -95,7 +101,6 @@ async function runWebGuiMandelbrotVideoMemoryProgressiveLoopHarnessRegression() 
             { kind: "timer", timerId: TIMER_ID, tick: 2 },
             { kind: "timer", timerId: TIMER_ID, tick: 3 },
             { kind: "timer", timerId: TIMER_ID, tick: 4 },
-            { kind: "timer", timerId: TIMER_ID, tick: 5 },
         ],
     });
     const result = await runSingle({
@@ -112,7 +117,9 @@ async function runWebGuiMandelbrotVideoMemoryProgressiveLoopHarnessRegression() 
     return {
         ok: true,
         checks: [
-            "Mandelbrot progressive loop advances one row batch per matching timer event",
+            "Mandelbrot progressive loop presents the first row batch before requesting a formal repeating timer",
+            "Mandelbrot progressive loop advances subsequent row batches only for matching timer events",
+            "Mandelbrot progressive loop clears the formal timer before closing the surface",
             "timer id mismatch, empty event, focused event, and resized event do not advance the row batch",
             "progressive loop closes the surface immediately after the last batch is presented",
             "progressive loop keeps formal video memory presentation separate from stdout and command-frame paths",

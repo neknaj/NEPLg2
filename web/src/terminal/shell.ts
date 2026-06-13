@@ -15,6 +15,12 @@ import {
     GUI_VIDEO_MEMORY_HOST_STATUS_UNSUPPORTED,
     resolveGuiVideoMemoryHostAck,
 } from '../gui-preview/video-memory-host-abi.js';
+import {
+    GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT,
+    GUI_TIMER_HOST_STATUS_OK,
+    GUI_TIMER_HOST_STATUS_UNSUPPORTED,
+    resolveGuiTimerHostAck,
+} from '../gui-preview/timer-host-abi.js';
 
 type WorkerStdoutMessage = {
     type: 'stdout';
@@ -48,12 +54,23 @@ type WorkerGuiVideoMemoryPresentMessage = {
     buffer: SharedArrayBuffer;
 };
 
+type WorkerGuiTimerRequestMessage = {
+    type: 'gui_timer_request';
+    requestId: number;
+    ack: SharedArrayBuffer;
+    windowId: number;
+    timerId: number;
+    intervalMs: number;
+    repeating: boolean;
+};
+
 type WorkerMessage =
     | WorkerStdoutMessage
     | WorkerCompileResultMessage
     | WorkerExitMessage
     | WorkerErrorMessage
     | WorkerGuiVideoMemoryPresentMessage
+    | WorkerGuiTimerRequestMessage
     | { type: 'stdin_request' };
 
 type RunWasmWorkerRequest = {
@@ -107,6 +124,13 @@ type GuiRuntimeTimerState = {
     timerId: number;
     intervalMs: number;
     tick: number;
+};
+
+type GuiRuntimeTimerRequest = {
+    windowId: number;
+    timerId: number;
+    intervalMs: number;
+    repeating: boolean;
 };
 
 const GUI_RUNTIME_TIMER_MAX_TICK = 2147483647;
@@ -678,6 +702,9 @@ export class Shell {
                     case 'gui_video_memory_present':
                         this.handleGuiVideoMemoryPresentMessage(message);
                         break;
+                    case 'gui_timer_request':
+                        this.handleGuiTimerRequestMessage(message);
+                        break;
                 }
             };
 
@@ -734,34 +761,73 @@ export class Shell {
         resolveGuiVideoMemoryHostAck(message.ack, guiVideoMemoryHostStatusFromRuntimeError(presented.error.kind));
     }
 
+    private handleGuiTimerRequestMessage(message: WorkerGuiTimerRequestMessage) {
+        const status = this.applyGuiRuntimeTimerRequest({
+            windowId: message.windowId,
+            timerId: message.timerId,
+            intervalMs: message.intervalMs,
+            repeating: message.repeating,
+        });
+        if (status !== GUI_TIMER_HOST_STATUS_OK && status !== GUI_TIMER_HOST_STATUS_UNSUPPORTED) {
+            this.printGuiProtocolError(`GUI timer request rejected: window=${message.windowId} timer=${message.timerId} interval=${message.intervalMs}`);
+        }
+        resolveGuiTimerHostAck(message.ack, status);
+    }
+
     private configureGuiRuntimeTimer(event: Extract<GuiWebStdoutProtocolEvent, { kind: 'animation-timer' }>) {
-        const key = this.guiRuntimeTimerKey(event.windowId, event.timerId);
-        if (!this.guiRuntimeInputActive) {
-            this.clearGuiRuntimeTimer(key);
-            return;
-        }
-        if (!this.guiRuntimeInputWindowIds.has(event.windowId)) {
-            this.printGuiProtocolError(`GUI timer rejected: window ${event.windowId} is not active`);
-            this.clearGuiRuntimeTimer(key);
-            return;
-        }
-        if (event.intervalMs === 0) {
-            this.clearGuiRuntimeTimer(key);
-            return;
-        }
-        const existing = this.guiRuntimeTimers.get(key);
-        if (existing && existing.intervalMs === event.intervalMs) {
-            return;
-        }
-        this.clearGuiRuntimeTimer(key);
-        const handle = setInterval(() => this.queueGuiRuntimeTimerTick(key), event.intervalMs);
-        this.guiRuntimeTimers.set(key, {
-            handle,
+        const status = this.applyGuiRuntimeTimerRequest({
             windowId: event.windowId,
             timerId: event.timerId,
             intervalMs: event.intervalMs,
+            repeating: true,
+        });
+        if (status !== GUI_TIMER_HOST_STATUS_OK && status !== GUI_TIMER_HOST_STATUS_UNSUPPORTED) {
+            this.printGuiProtocolError(`GUI timer rejected: window ${event.windowId} is not active`);
+        }
+    }
+
+    private applyGuiRuntimeTimerRequest(request: GuiRuntimeTimerRequest): number {
+        if (
+            !Number.isInteger(request.windowId)
+            || request.windowId <= 0
+            || !Number.isInteger(request.timerId)
+            || request.timerId <= 0
+            || !Number.isInteger(request.intervalMs)
+            || request.intervalMs < 0
+        ) {
+            return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const key = this.guiRuntimeTimerKey(request.windowId, request.timerId);
+        if (!this.guiRuntimeInputActive) {
+            this.clearGuiRuntimeTimer(key);
+            return GUI_TIMER_HOST_STATUS_UNSUPPORTED;
+        }
+        if (!this.guiRuntimeInputWindowIds.has(request.windowId)) {
+            this.clearGuiRuntimeTimer(key);
+            return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        if (!request.repeating) {
+            this.clearGuiRuntimeTimer(key);
+            return GUI_TIMER_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        if (request.intervalMs === 0) {
+            this.clearGuiRuntimeTimer(key);
+            return GUI_TIMER_HOST_STATUS_OK;
+        }
+        const existing = this.guiRuntimeTimers.get(key);
+        if (existing && existing.intervalMs === request.intervalMs) {
+            return GUI_TIMER_HOST_STATUS_OK;
+        }
+        this.clearGuiRuntimeTimer(key);
+        const handle = setInterval(() => this.queueGuiRuntimeTimerTick(key), request.intervalMs);
+        this.guiRuntimeTimers.set(key, {
+            handle,
+            windowId: request.windowId,
+            timerId: request.timerId,
+            intervalMs: request.intervalMs,
             tick: 0,
         });
+        return GUI_TIMER_HOST_STATUS_OK;
     }
 
     private queueGuiRuntimeTimerTick(key: string) {

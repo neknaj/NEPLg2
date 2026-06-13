@@ -1,0 +1,91 @@
+//: # platforms/gui/web/timer
+//: Web backend の formal timer request host boundary
+//:
+//: ### [目的/もくてき]
+//: - Web Playground の animation timer 要求を stdout line protocol ではなく `nepl_gui_web` host import へ[渡/わた]します。
+//: - raw sentinel はこの module で `Result unit GuiError` へ[写/うつ]し、application code へ漏らしません。
+//:
+//: ### [契約/けいやく]
+//: - window id と timer id は 1 以上です。
+//: - `interval_ms == 0` は timer clear request です。
+//: - 初期 checkpoint では repeating timer だけを[受/う]けます。one-shot timer は後続 scheduler slice で扱います。
+//: - stdout protocol、command frame、polling loop へ fallback しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #target std
+//:| #import "platforms/gui/web/timer" as *
+//: ```
+
+#indent 4
+
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "std/gui" as *
+
+#extern "nepl_gui_web" "request_timer" fn gui_web_request_timer_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+
+fn gui_web_timer_status_error %fn i32 GuiError \status:
+    if eq status -1:
+        then GuiError::Unsupported
+        else:
+            if eq status -2:
+                then GuiError::InvalidCommand
+                else:
+                    if eq status -3:
+                        then GuiError::ResourceExhausted
+                        else GuiError::BackendFailure
+
+fn gui_web_timer_status_unit %fn i32 Result unit GuiError \status:
+    if eq status 0:
+        then Result::Ok unit
+        else Result::Err gui_web_timer_status_error status
+
+fn gui_web_timer_repeating_raw %fn bool i32 \repeating:
+    if repeating:
+        then 1
+        else 0
+
+fn gui_web_timer_request_is_invalid %fn &TimerRequest bool \request:
+    let window %WindowId timer_request_window request
+    let timer %TimerId timer_request_timer request
+    let window_raw %i32 window_id_raw &window
+    let timer_raw %i32 timer_id_raw &timer
+    let interval_ms %i32 timer_request_interval_ms request
+    let repeating %bool timer_request_repeating request
+    if le window_raw 0:
+        then true
+        else:
+            if le timer_raw 0:
+                then true
+                else:
+                    if lt interval_ms 0:
+                        then true
+                        else not repeating
+
+//: gui_web_request_timer: Web host へ formal timer request を[送/おく]る
+//:
+//: [目的/もくてき]:
+//: - `TimerRequest` を Web runtime の timer scheduler へ渡し、発火時は `GuiEvent::Timer` として input queue へ戻します。
+//:
+//: [契約/けいやく]:
+//: - timer は既に formal video memory presenter へ提示済みの window にだけ登録できます。
+//: - `interval_ms == 0` は同じ window / timer id の timer を停止します。
+//: - repeating が false の one-shot timer はこの checkpoint では `GuiError::InvalidCommand` です。
+//: - host が timer runtime を持たない場合は `GuiError::Unsupported` です。
+//: - 不正値、未提示 window、invalid state は `GuiError::InvalidCommand` です。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_request_timer %impure fn &TimerRequest Result unit GuiError \request:
+    if gui_web_timer_request_is_invalid request:
+        then Result::Err GuiError::InvalidCommand
+        else:
+            let window %WindowId timer_request_window request
+            let timer %TimerId timer_request_timer request
+            let window_raw %i32 window_id_raw &window
+            let timer_raw %i32 timer_id_raw &timer
+            let interval_ms %i32 timer_request_interval_ms request
+            let repeating %bool timer_request_repeating request
+            let repeating_raw %i32 gui_web_timer_repeating_raw repeating
+            gui_web_timer_status_unit gui_web_request_timer_raw window_raw timer_raw interval_ms repeating_raw

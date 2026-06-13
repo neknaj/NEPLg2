@@ -359,6 +359,41 @@
   - actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
   - method body fact table lookup の sorted index 化は public API / error contract を保ったまま後からできる最適化として扱う。
   - 次 slice: actual expression method body checker または Drop body effect checker / Resource IR escape proof を、同じ typed effect summary / no-escape proof boundary へ接続する。
+# 2026-06-14 Agent2 Web GUI formal timer request checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の fallback 禁止、typed `Result`、host boundary、契約と現状実装の分離を確認し、stdout timer line protocol に残っていた timer request を Web formal host import の最小 checkpoint へ移した。
+- 対象 branch: `web-gui-formal-timer-request-20260614`
+- classification: Web GUI formal timer request host import / Mandelbrot progressive row-batch timer registration / typed ack boundary
+- 実装内容:
+  - `stdlib/std/gui/timer.nepl` に `TimerRequest` の window / timer accessor を追加した。
+  - `stdlib/platforms/gui/web/timer.nepl` を追加し、`nepl_gui_web.request_timer` を `Result unit GuiError` へ写す Web platform wrapper を実装した。
+  - `request_timer` は window id / timer id / interval / repeating を検査し、`interval_ms == 0` を clear、`repeating == false` をこの checkpoint では `InvalidCommand` とする。stdout protocol や polling loop へ fallback しない。
+  - `web/src/gui-preview/timer-host-abi.ts` を追加し、timer 専用の `SharedArrayBuffer` ack / status ABI を持たせた。
+  - `web/src/runtime/worker.ts` に `request_timer` import と typed `gui_timer_request` message を追加した。
+  - `web/src/terminal/shell.ts` に formal timer request handler と `applyGuiRuntimeTimerRequest` を追加し、提示済み active window だけ timer 登録を許可するようにした。legacy stdout timer path は同じ helper へ委譲するが、formal message type は流用しない。
+  - `nodesrc/run_test.js` の default `nepl_gui_web` import は `request_timer` を unsupported stub にした。
+  - `nodesrc/gui_video_memory_fake_host.js` に `expectedTimerRequests` を追加し、video-memory calls / event calls と分離して request 順序を検査できるようにした。
+  - `examples/gui_mandelbrot.nepl` の progressive loop は first batch を present して window を active 化してから formal repeating timer を request し、終了時は `interval_ms = 0` の clear を行ってから surface を close する。
+  - `doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`todo.md` を更新し、minimal formal repeating timer request と one-shot / timeslice / real scheduler / FHD60 / formal tiled transport の残件を分離した。
+- subagent review:
+  - Boyle: 計画レビュー `PLAN_APPROVED`。active window は present 済み window のみ許可、`interval_ms == 0` は clear、`repeating=false` は今回 invalid、formal request 型と stdout event 型を混ぜない、timer 専用 status/ack を持つことを required として指摘した。
+  - 実装では required を反映した。
+  - Boyle: 実装レビュー `IMPLEMENTATION_REVIEW_APPROVED`。Blocker なし。typed `Result` boundary、active-window invariant、timer cleanup order、fake host の request 分離、docs の未完了範囲分離が確認された。
+- 検証:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_video_memory_host_import.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_progressive_loop_harness.js`
+  - pass: `node nodesrc/test_web_gui_shared_event_queue.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1`
+  - pass: `trunk build`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存の `stdlib declaration doc gaps increased: 153 > 108` の warning のみ。
+- residual:
+  - one-shot timer、timeslice budget、virtual scheduler / real scheduler common contract、native / headless scheduler backend、FHD 60fps 実測、formal tiled transport は未実装である。
+  - `NUL` と `tmp_gui_*.json` は既存の未追跡一時ファイルであり commit 対象外のままにする。
+
 # 2026-06-14 Agent2 Mandelbrot progressive video memory timer-loop checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、host boundary、契約と現状実装の分離を確認し、Mandelbrot の progressive row-batch path を既存 `GuiEvent::Timer` で進める有限 checkpoint へ拡張した。
