@@ -226,6 +226,44 @@ Validation rules:
 - the computed glyph array address must remain inside the subtable.
 - raw glyph 0, computed glyph 0, and no matching segment are `MissingGlyphMapping`.
 
+## SFNT horizontal metrics table
+
+F4d は `alloc/gui/font/sfnt/hmtx.nepl` が所有する。`gui_sfnt_parse_metadata` は `hmtx` table の有無を directory summary に記録するだけで、horizontal metric lookup を行わない。`gui_sfnt_lookup_horizontal_metric` は別 API として font bytes、face index、checked `GuiGlyphId` を受け取り、`GuiSfntHorizontalMetric` を返す。
+
+```text
+GuiSfntHorizontalMetric:
+    glyph GuiGlyphId
+    advance_width i32
+    left_side_bearing i32
+```
+
+`numberOfHMetrics` は `hhea` table offset 34 の u16 である。F4a metadata parser は line metrics のために `hhea.length >= 10` だけを要求するが、F4d metric lookup は `numberOfHMetrics` を読むので `hhea.length >= 36` を要求する。
+
+Validation rules:
+
+- `hmtx` table must exist; otherwise `MissingTable`.
+- `hhea.length >= 36` must hold for this lookup; otherwise `MalformedHmtxRecord`.
+- `numberOfHMetrics > 0`.
+- `numberOfHMetrics <= maxp.numGlyphs`.
+- valid public metric lookup range is `1 <= glyphRaw < numGlyphs`; glyph 0 is not a successful renderable glyph in the GUI font contract.
+- required declared `hmtx.length` is `numberOfHMetrics * 4 + (numGlyphs - numberOfHMetrics) * 2`.
+- all reads use `hmtx.offset + table_relative_offset`, and each relative range must stay inside declared `hmtx.length`.
+
+Lookup layout:
+
+```text
+longHorMetric[numberOfHMetrics]:
+    advanceWidth u16
+    leftSideBearing i16
+
+leftSideBearing[numGlyphs - numberOfHMetrics]:
+    i16
+```
+
+If `glyphRaw < numberOfHMetrics`, the metric offset is `glyphRaw * 4`. If `glyphRaw >= numberOfHMetrics`, advance width is read from `(numberOfHMetrics - 1) * 4`, and left side bearing is read from `numberOfHMetrics * 4 + (glyphRaw - numberOfHMetrics) * 2`.
+
+`hmtx` does not provide ink bounds or outline geometry. F4d therefore returns `GuiSfntHorizontalMetric` rather than pretending to produce full `GuiGlyphMetrics`. Conversion to `GuiGlyphMetrics` happens after outline / bitmap bounds are available.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

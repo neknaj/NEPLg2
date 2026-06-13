@@ -105,6 +105,39 @@ Subtable selection は deterministic である。
 
 Format 4 parser は `cmap` table header が declared table length 内に収まること、選択 subtable offset が encoding record array より後ろを指すこと、`length` が `cmap` table record 内に収まること、`segCountX2` が 0 でなく偶数であること、`reservedPad` が 0 であること、endCode / startCode / idDelta / idRangeOffset の各 array が subtable 内に収まること、idRangeOffset の指す glyphIdArray entry がその idRangeOffset word の位置から計算して subtable 内に収まることを検査する。不正な範囲は `MalformedCmapRecord` として返す。
 
+### SFNT horizontal metrics
+
+SFNT `hmtx` table から得る horizontal metrics は、font bytes 内の `hhea` / `maxp` / `hmtx` table だけを authority とする。Host text measurement、browser text API、fixed-cell test utility、glyph name、family name、path suffix は使わない。
+
+初期 slice は horizontal writing の glyph advance と left side bearing だけを扱う。
+
+```text
+GuiSfntHorizontalMetric:
+    glyph GuiGlyphId
+    advance_width i32
+    left_side_bearing i32
+
+gui_sfnt_lookup_horizontal_metric:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    -> Result GuiSfntHorizontalMetric GuiSfntParseError
+```
+
+`GuiGlyphId` の public constructor は 1 以上の raw value だけを成功にする。SFNT metric lookup ではさらに `maxp.numGlyphs` に対して `1 <= glyphRaw < numGlyphs` を要求する。この project contract では glyph 0 を renderable glyph として成功させないため、glyph 0 や `glyphRaw >= numGlyphs` は `MissingGlyphMetric` である。防御的に forged value が 0 以下として渡された場合も `MissingGlyphMetric` とする。
+
+`gui_sfnt_parse_metadata` は `hmtx` table record を directory summary に記録してよいが、`hmtx` decode を成功条件にしてはならない。F4a metadata の `hhea` 最小長は line metrics 用の 10 byte のままである。`hhea.numberOfHMetrics` を読むための `hhea.length >= 36` は `gui_sfnt_lookup_horizontal_metric` だけの契約である。
+
+`hmtx` validation は declared table length に対して table-relative に行う。
+
+- `hmtx` table がなければ `MissingTable`。
+- `hhea.length < 36`、`numberOfHMetrics <= 0`、`numberOfHMetrics > numGlyphs` は `MalformedHmtxRecord`。
+- 必要な `hmtx` declared length は `numberOfHMetrics * 4 + (numGlyphs - numberOfHMetrics) * 2` である。これを満たさない場合は `MalformedHmtxRecord`。
+- `glyphRaw < numberOfHMetrics` の場合は `longHorMetric[glyphRaw]` から `advanceWidth u16` と `lsb i16` を読む。
+- `glyphRaw >= numberOfHMetrics` の場合は最後の `longHorMetric` の `advanceWidth` と、後続 leftSideBearing array の `glyphRaw - numberOfHMetrics` 番目を読む。
+
+File 末尾に余分な byte があっても、declared `hmtx.length` が不足している場合は成功にしてはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
