@@ -463,6 +463,291 @@ pub fn gui_sfnt_simple_glyph_contour_edge_index %fn &GuiSfntSimpleGlyphContourEd
 pub fn gui_sfnt_simple_glyph_contour_edge_next_local_index %fn &GuiSfntSimpleGlyphContourEdge i32 \edge:
     *field::get_ref edge "next_contour_point_index"
 
+//: GuiSfntSimpleGlyphCurveNoSegmentReason: topology edge が drawable segment を[持/も]たない理由
+//:
+//: [目的/もくてき]:
+//: - valid な outline topology と byte parse error を[分離/ぶんり]します。
+//: - 1 point contour や off-curve start は壊れた font とは限らないため、typed state として caller が `match` します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphCurveNoSegmentReason:
+    SinglePointContour
+    OffCurveStart
+    MissingLookahead
+
+impl Clone for GuiSfntSimpleGlyphCurveNoSegmentReason:
+    fn clone %fn &GuiSfntSimpleGlyphCurveNoSegmentReason GuiSfntSimpleGlyphCurveNoSegmentReason \reason:
+        *reason
+
+impl Copy for GuiSfntSimpleGlyphCurveNoSegmentReason:
+    fn copy_mark %fn GuiSfntSimpleGlyphCurveNoSegmentReason GuiSfntSimpleGlyphCurveNoSegmentReason \reason:
+        reason
+
+//: GuiSfntSimpleGlyphCurveNoSegment: drawable segment を[生成/せいせい]しない checked topology
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphCurveNoSegment:
+    edge %GuiSfntSimpleGlyphContourEdge
+    reason %GuiSfntSimpleGlyphCurveNoSegmentReason
+
+impl Clone for GuiSfntSimpleGlyphCurveNoSegment:
+    fn clone %fn &GuiSfntSimpleGlyphCurveNoSegment GuiSfntSimpleGlyphCurveNoSegment \segment:
+        *segment
+
+impl Copy for GuiSfntSimpleGlyphCurveNoSegment:
+    fn copy_mark %fn GuiSfntSimpleGlyphCurveNoSegment GuiSfntSimpleGlyphCurveNoSegment \segment:
+        segment
+
+//: gui_sfnt_simple_glyph_curve_no_segment: no-segment value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_curve_no_segment %fn GuiSfntSimpleGlyphContourEdge fn GuiSfntSimpleGlyphCurveNoSegmentReason GuiSfntSimpleGlyphCurveNoSegment \edge\reason:
+    GuiSfntSimpleGlyphCurveNoSegment edge reason
+
+//: gui_sfnt_simple_glyph_curve_no_segment_edge: no-segment の source edge を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_curve_no_segment_edge %fn &GuiSfntSimpleGlyphCurveNoSegment GuiSfntSimpleGlyphContourEdge \segment:
+    *field::get_ref segment "edge"
+
+//: gui_sfnt_simple_glyph_curve_no_segment_reason: no-segment reason を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_curve_no_segment_reason %fn &GuiSfntSimpleGlyphCurveNoSegment GuiSfntSimpleGlyphCurveNoSegmentReason \segment:
+    *field::get_ref segment "reason"
+
+//: GuiSfntSimpleGlyphLineSegment: on-curve 2 点からなる line segment
+//:
+//: [目的/もくてき]:
+//: - `start_x2` などの coordinate は font unit の 2 倍です。通常の on-curve point は `x * 2` として保持します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphLineSegment:
+    edge %GuiSfntSimpleGlyphContourEdge
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+
+impl Clone for GuiSfntSimpleGlyphLineSegment:
+    fn clone %fn &GuiSfntSimpleGlyphLineSegment GuiSfntSimpleGlyphLineSegment \segment:
+        *segment
+
+impl Copy for GuiSfntSimpleGlyphLineSegment:
+    fn copy_mark %fn GuiSfntSimpleGlyphLineSegment GuiSfntSimpleGlyphLineSegment \segment:
+        segment
+
+//: gui_sfnt_simple_glyph_line_segment: line segment value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_line_segment %fn GuiSfntSimpleGlyphContourEdge fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphLineSegment \edge\start_x2\start_y2\end_x2\end_y2:
+    GuiSfntSimpleGlyphLineSegment edge start_x2 start_y2 end_x2 end_y2
+
+//: gui_sfnt_simple_glyph_line_segment_edge: line segment の source edge を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_line_segment_edge %fn &GuiSfntSimpleGlyphLineSegment GuiSfntSimpleGlyphContourEdge \segment:
+    *field::get_ref segment "edge"
+
+//: gui_sfnt_simple_glyph_line_segment_start_x2: start x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_line_segment_start_x2 %fn &GuiSfntSimpleGlyphLineSegment i32 \segment:
+    *field::get_ref segment "start_x2"
+
+//: gui_sfnt_simple_glyph_line_segment_start_y2: start y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_line_segment_start_y2 %fn &GuiSfntSimpleGlyphLineSegment i32 \segment:
+    *field::get_ref segment "start_y2"
+
+//: gui_sfnt_simple_glyph_line_segment_end_x2: end x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_line_segment_end_x2 %fn &GuiSfntSimpleGlyphLineSegment i32 \segment:
+    *field::get_ref segment "end_x2"
+
+//: gui_sfnt_simple_glyph_line_segment_end_y2: end y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_line_segment_end_y2 %fn &GuiSfntSimpleGlyphLineSegment i32 \segment:
+    *field::get_ref segment "end_y2"
+
+//: GuiSfntSimpleGlyphQuadraticSegment: TrueType quadratic curve segment
+//:
+//: [目的/もくてき]:
+//: - start は edge.start、control は off-curve の edge.end です。
+//: - `end_is_implied` が true の場合、end は control と lookahead off-curve point の midpoint です。
+//: - `*_x2` / `*_y2` は font unit の 2 倍なので、奇数 midpoint でも丸めずに[保持/ほじ]できます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphQuadraticSegment:
+    edge %GuiSfntSimpleGlyphContourEdge
+    lookahead %GuiSfntSimpleGlyphContourPoint
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    end_is_implied %bool
+
+impl Clone for GuiSfntSimpleGlyphQuadraticSegment:
+    fn clone %fn &GuiSfntSimpleGlyphQuadraticSegment GuiSfntSimpleGlyphQuadraticSegment \segment:
+        *segment
+
+impl Copy for GuiSfntSimpleGlyphQuadraticSegment:
+    fn copy_mark %fn GuiSfntSimpleGlyphQuadraticSegment GuiSfntSimpleGlyphQuadraticSegment \segment:
+        segment
+
+//: gui_sfnt_simple_glyph_quadratic_segment: quadratic segment value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment %fn GuiSfntSimpleGlyphContourEdge fn GuiSfntSimpleGlyphContourPoint fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn bool GuiSfntSimpleGlyphQuadraticSegment \edge\lookahead\start_x2\start_y2\control_x2\control_y2\end_x2\end_y2\end_is_implied:
+    GuiSfntSimpleGlyphQuadraticSegment edge lookahead start_x2 start_y2 control_x2 control_y2 end_x2 end_y2 end_is_implied
+
+//: gui_sfnt_simple_glyph_quadratic_segment_edge: quadratic segment の source edge を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_edge %fn &GuiSfntSimpleGlyphQuadraticSegment GuiSfntSimpleGlyphContourEdge \segment:
+    *field::get_ref segment "edge"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_lookahead: curve end 判定に使った lookahead point を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_lookahead %fn &GuiSfntSimpleGlyphQuadraticSegment GuiSfntSimpleGlyphContourPoint \segment:
+    *field::get_ref segment "lookahead"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_start_x2: start x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_start_x2 %fn &GuiSfntSimpleGlyphQuadraticSegment i32 \segment:
+    *field::get_ref segment "start_x2"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_start_y2: start y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_start_y2 %fn &GuiSfntSimpleGlyphQuadraticSegment i32 \segment:
+    *field::get_ref segment "start_y2"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_control_x2: control x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_control_x2 %fn &GuiSfntSimpleGlyphQuadraticSegment i32 \segment:
+    *field::get_ref segment "control_x2"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_control_y2: control y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_control_y2 %fn &GuiSfntSimpleGlyphQuadraticSegment i32 \segment:
+    *field::get_ref segment "control_y2"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_end_x2: end x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_end_x2 %fn &GuiSfntSimpleGlyphQuadraticSegment i32 \segment:
+    *field::get_ref segment "end_x2"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_end_y2: end y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_end_y2 %fn &GuiSfntSimpleGlyphQuadraticSegment i32 \segment:
+    *field::get_ref segment "end_y2"
+
+//: gui_sfnt_simple_glyph_quadratic_segment_end_is_implied: end が implied midpoint かを[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_quadratic_segment_end_is_implied %fn &GuiSfntSimpleGlyphQuadraticSegment bool \segment:
+    *field::get_ref segment "end_is_implied"
+
+//: GuiSfntSimpleGlyphCurveSegment: topology edge から分類した drawable / non-drawable segment
+//:
+//: [目的/もくてき]:
+//: - line、quadratic、no-segment を enum payload として[分/わ]け、caller が `match` で網羅的に扱えるようにします。
+//: - implied midpoint は doubled coordinate contract で表し、整数除算による丸めを行いません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphCurveSegment:
+    NoSegment %GuiSfntSimpleGlyphCurveNoSegment
+    Line %GuiSfntSimpleGlyphLineSegment
+    Quadratic %GuiSfntSimpleGlyphQuadraticSegment
+
+impl Clone for GuiSfntSimpleGlyphCurveSegment:
+    fn clone %fn &GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphCurveSegment \segment:
+        *segment
+
+impl Copy for GuiSfntSimpleGlyphCurveSegment:
+    fn copy_mark %fn GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphCurveSegment \segment:
+        segment
+
+//: gui_sfnt_classify_simple_glyph_curve_segment: contour edge を line / quadratic / no-segment に[分類/ぶんるい]する
+//:
+//: [目的/もくてき]:
+//: - 既に復元済みの contour edge を、TrueType simple glyph の on-curve / off-curve 規則で 1 segment へ[分類/ぶんるい]します。
+//: - `edge.end` が off-curve の場合、caller は次の contour point を `lookahead` として渡します。
+//:
+//: [注意/ちゅうい]:
+//: - `lookahead` が必要なのに `Option::None` の場合は `MissingLookahead` の `NoSegment` になります。
+//: - implied midpoint は doubled coordinate として保持し、除算で丸めません。
+//: - この関数は allocation、outline builder、rasterizer、platform font API を使いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_classify_simple_glyph_curve_segment %fn GuiSfntSimpleGlyphContourEdge fn Option GuiSfntSimpleGlyphContourPoint GuiSfntSimpleGlyphCurveSegment \edge\lookahead:
+    let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start &edge
+    let end %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_end &edge
+    let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start
+    let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+    let start_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &start
+    let end_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &end
+    let start_x %i32 gui_sfnt_simple_glyph_point_x &start_point
+    let start_y %i32 gui_sfnt_simple_glyph_point_y &start_point
+    let end_x %i32 gui_sfnt_simple_glyph_point_x &end_point
+    let end_y %i32 gui_sfnt_simple_glyph_point_y &end_point
+    let start_x2 %i32 mul start_x 2
+    let start_y2 %i32 mul start_y 2
+    let end_x2_from_edge %i32 mul end_x 2
+    let end_y2_from_edge %i32 mul end_y 2
+    let start_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &start_point
+    let end_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &end_point
+    if:
+        eq span_point_count 1
+        then:
+            GuiSfntSimpleGlyphCurveSegment::NoSegment gui_sfnt_simple_glyph_curve_no_segment edge GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour
+        else:
+            if:
+                not start_on_curve
+                then:
+                    GuiSfntSimpleGlyphCurveSegment::NoSegment gui_sfnt_simple_glyph_curve_no_segment edge GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart
+                else:
+                    if:
+                        end_on_curve
+                        then:
+                            let line %GuiSfntSimpleGlyphLineSegment gui_sfnt_simple_glyph_line_segment edge start_x2 start_y2 end_x2_from_edge end_y2_from_edge
+                            GuiSfntSimpleGlyphCurveSegment::Line line
+                        else:
+                            match lookahead:
+                                Option::None:
+                                    GuiSfntSimpleGlyphCurveSegment::NoSegment gui_sfnt_simple_glyph_curve_no_segment edge GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead
+                                Option::Some curve_end:
+                                    let lookahead_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &curve_end
+                                    let end_is_implied %bool not gui_sfnt_simple_glyph_point_on_curve &lookahead_point
+                                    let lookahead_x %i32 gui_sfnt_simple_glyph_point_x &lookahead_point
+                                    let lookahead_y %i32 gui_sfnt_simple_glyph_point_y &lookahead_point
+                                    let end_x2 %i32 if:
+                                        end_is_implied
+                                        then:
+                                            add end_x lookahead_x
+                                        else:
+                                            mul lookahead_x 2
+                                    let end_y2 %i32 if:
+                                        end_is_implied
+                                        then:
+                                            add end_y lookahead_y
+                                        else:
+                                            mul lookahead_y 2
+                                    let quadratic %GuiSfntSimpleGlyphQuadraticSegment gui_sfnt_simple_glyph_quadratic_segment edge curve_end start_x2 start_y2 end_x2_from_edge end_y2_from_edge end_x2 end_y2 end_is_implied
+                                    GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
@@ -1553,6 +1838,46 @@ fn gui_sfnt_glyf_simple_contour_edge_with_tables %fn &ByteBuf fn GuiSfntTableRec
                                 Result::Ok end:
                                     Result::Ok gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index
 
+//: gui_sfnt_glyf_simple_curve_segment_with_tables: metadata 済み table から curve segment 分類を[引/ひ]く
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_simple_curve_segment_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph\contour_index\edge_index:
+    match gui_sfnt_glyf_simple_contour_edge_with_tables bytes head loca glyf metrics glyph contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok edge:
+            let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start &edge
+            let end %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_end &edge
+            let start_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &start
+            let end_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &end
+            let start_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &start_point
+            let end_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &end_point
+            let needs_lookahead %bool if:
+                start_on_curve
+                then:
+                    not end_on_curve
+                else:
+                    false
+            if:
+                needs_lookahead
+                then:
+                    let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start
+                    let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+                    let next_contour_point_index %i32 gui_sfnt_simple_glyph_contour_edge_next_local_index &edge
+                    let lookahead_contour_point_index %i32 if:
+                        eq add next_contour_point_index 1 span_point_count
+                        then:
+                            0
+                        else:
+                            add next_contour_point_index 1
+                    match gui_sfnt_glyf_simple_contour_point_with_tables bytes head loca glyf metrics glyph contour_index lookahead_contour_point_index:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok lookahead:
+                            Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead
+                else:
+                    Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::None
+
 //: gui_sfnt_lookup_glyph_bounds: SFNT glyf から glyph header bounds を[読/よ]む
 //:
 //: [目的/もくてき]:
@@ -1774,3 +2099,36 @@ pub fn gui_sfnt_lookup_simple_glyph_contour_edge %fn &ByteBuf fn Option i32 fn G
                                     Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
                                 Option::Some glyf:
                                     gui_sfnt_glyf_simple_contour_edge_with_tables bytes head loca glyf metrics glyph contour_index edge_index
+
+//: gui_sfnt_lookup_simple_glyph_curve_segment: SFNT glyf から simple glyph の curve segment 分類を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - contour-local edge index から、line / quadratic / no-segment の typed enum を[返/かえ]します。
+//: - implied on-curve midpoint は doubled coordinate で保持し、整数除算で丸めません。
+//:
+//: [注意/ちゅうい]:
+//: - 1 point contour と off-curve start は `NoSegment` の成功値です。
+//: - `edge.end` が off-curve の場合だけ lookahead point を読みます。
+//: - full outline allocation、rasterization、platform font substitution はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_curve_segment %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntParseError \bytes\face_index\glyph\contour_index\edge_index:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+            match gui_sfnt_directory_head &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some head:
+                    match gui_sfnt_directory_loca &directory:
+                        Option::None:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                        Option::Some loca:
+                            match gui_sfnt_directory_glyf &directory:
+                                Option::None:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                                Option::Some glyf:
+                                    gui_sfnt_glyf_simple_curve_segment_with_tables bytes head loca glyf metrics glyph contour_index edge_index

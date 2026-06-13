@@ -501,6 +501,57 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4l: sfnt simple glyph curve segment classification
+
+目的:
+
+- F4k の contour topology edge から、line / quadratic / no-segment を enum payload として 1 つだけ分類する。
+- TrueType simple glyph の implied on-curve midpoint を exact に表すため、coordinate は font unit の 2 倍である `x2` / `y2` として保持する。
+- full segment `Vec` / full outline `Vec` / streaming contour sink / rasterizer は作らず、allocation なしの classifier boundary を提供する。
+- valid topology だが現在 edge start から drawable segment を出さない状態を `NoSegment` の成功値として返し、parse error と混同しない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphCurveNoSegmentReason`
+  - `GuiSfntSimpleGlyphCurveNoSegment`
+  - `GuiSfntSimpleGlyphLineSegment`
+  - `GuiSfntSimpleGlyphQuadraticSegment`
+  - `GuiSfntSimpleGlyphCurveSegment`
+  - `gui_sfnt_classify_simple_glyph_curve_segment`
+  - `gui_sfnt_lookup_simple_glyph_curve_segment`
+- `GuiSfntSimpleGlyphCurveSegment` は `NoSegment` / `Line` / `Quadratic` の payload 付き enum とし、inactive field を持つ shared struct にはしない。
+- `Line` は edge.start / edge.end が両方 on-curve の場合だけ返す。
+- `Quadratic` は edge.start が on-curve、edge.end が off-curve の場合だけ返す。edge.end は control point とする。
+- quadratic end が explicit on-curve の場合、`end_x2 = lookahead.x * 2`、`end_y2 = lookahead.y * 2` とする。
+- quadratic end が implied midpoint の場合、`end_x2 = control.x + lookahead.x`、`end_y2 = control.y + lookahead.y` とする。`div_s ... 2` や丸めは使わない。
+- `span.point_count == 1` は `NoSegment SinglePointContour` の成功値とする。
+- edge.start が off-curve の場合は `NoSegment OffCurveStart` の成功値とする。F4l は implied contour start を合成しない。
+- pure classifier で off-curve end に `lookahead = None` が渡された場合は `NoSegment MissingLookahead` とし、byte lookup 側ではこの状態を出さないように必要な時だけ lookahead を読む。
+- `gui_sfnt_glyf_simple_curve_segment_with_tables` は public wrapper ではなく `gui_sfnt_glyf_simple_contour_edge_with_tables` と `gui_sfnt_glyf_simple_contour_point_with_tables` を通る。
+- Source policy で curve segment API、payload enum、doubled coordinate field、no integer midpoint division、conditional lookahead decode、internal helper reuse、metadata 非依存、no curve segment `Vec` allocation を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_curve.n.md` を追加し、巨大化した `tests/stdlib/gui_font_sfnt_glyf.n.md` とは別に分類規則の doctest を保持する。
+
+完了条件:
+
+- on-curve -> on-curve edge が `Line` になり、start/end doubled coordinate を返す。
+- on-curve -> off-curve -> on-curve が `Quadratic` になり、control doubled coordinate と explicit end doubled coordinate を返す。
+- on-curve -> off-curve -> off-curve が `Quadratic` になり、`end_is_implied = true`、odd midpoint を `end_x2` / `end_y2` で丸めず返す。
+- 1 point contour が `Result::Ok (NoSegment SinglePointContour)` 相当の typed success になる。
+- off-curve start が `NoSegment OffCurveStart` の typed success になる。
+- `edge_index` 範囲外や malformed bytes は引き続き `Result::Err GuiSfntParseError` になる。
+- classifier helper と byte lookup helper は full outline allocation、`Vec GuiSfntSimpleGlyphCurveSegment`、rasterizer、platform API、fallback rendering path を使わない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

@@ -659,6 +659,110 @@ gui_sfnt_glyf_simple_contour_point_with_tables
 
 F4k must not allocate `Vec GuiSfntSimpleGlyphContourEdge`, call platform font APIs, use host text measurement, build full outlines, or substitute another rendering path.
 
+### SFNT simple glyph curve segment classification
+
+F4l is the first drawable-shape classification layer above contour topology. It still does not own an outline, allocate a segment list, decide winding, rasterize masks, or call platform text APIs. It classifies exactly one edge start.
+
+The type model uses enum payloads instead of a shared struct with inactive fields:
+
+```text
+GuiSfntSimpleGlyphCurveNoSegmentReason:
+    SinglePointContour
+    OffCurveStart
+    MissingLookahead
+
+GuiSfntSimpleGlyphCurveNoSegment:
+    edge GuiSfntSimpleGlyphContourEdge
+    reason GuiSfntSimpleGlyphCurveNoSegmentReason
+
+GuiSfntSimpleGlyphLineSegment:
+    edge GuiSfntSimpleGlyphContourEdge
+    start_x2 i32
+    start_y2 i32
+    end_x2 i32
+    end_y2 i32
+
+GuiSfntSimpleGlyphQuadraticSegment:
+    edge GuiSfntSimpleGlyphContourEdge
+    lookahead GuiSfntSimpleGlyphContourPoint
+    start_x2 i32
+    start_y2 i32
+    control_x2 i32
+    control_y2 i32
+    end_x2 i32
+    end_y2 i32
+    end_is_implied bool
+
+GuiSfntSimpleGlyphCurveSegment:
+    NoSegment GuiSfntSimpleGlyphCurveNoSegment
+    Line GuiSfntSimpleGlyphLineSegment
+    Quadratic GuiSfntSimpleGlyphQuadraticSegment
+```
+
+Coordinate fields are doubled font units:
+
+```text
+point coordinate:
+    x2 = x * 2
+
+explicit quadratic end:
+    end_x2 = lookahead.x * 2
+    end_y2 = lookahead.y * 2
+
+implied quadratic end:
+    end_x2 = control.x + lookahead.x
+    end_y2 = control.y + lookahead.y
+```
+
+The implementation must not compute implied midpoint with integer division. A midpoint such as `(1 + 2) / 2` is representable as `end_x2 = 3`, not rounded to `1` or `2`.
+
+Pure classifier flow:
+
+```text
+gui_sfnt_classify_simple_glyph_curve_segment edge lookahead
+    -> read start/end/span from edge
+    -> if span.point_count == 1
+        return NoSegment SinglePointContour
+    -> if start is off-curve
+        return NoSegment OffCurveStart
+    -> if end is on-curve
+        return Line with doubled start/end coordinates
+    -> if lookahead is None
+        return NoSegment MissingLookahead
+    -> if lookahead is on-curve
+        return Quadratic with explicit doubled lookahead end
+    -> otherwise
+        return Quadratic with implied doubled midpoint end
+```
+
+Byte lookup flow:
+
+```text
+parse metadata
+    -> unwrap head / loca / glyf
+    -> gui_sfnt_glyf_simple_contour_edge_with_tables
+    -> read start/end point flags from edge
+    -> if start is on-curve and end is off-curve
+        -> compute lookahead_contour_point_index = wrap(edge.next_contour_point_index + 1)
+        -> gui_sfnt_glyf_simple_contour_point_with_tables for lookahead
+        -> gui_sfnt_classify_simple_glyph_curve_segment edge (Some lookahead)
+    -> otherwise
+        -> gui_sfnt_classify_simple_glyph_curve_segment edge None
+```
+
+This deliberate conditional lookahead avoids surfacing unrelated later coordinate corruption for an edge that is already a line, a one-point no-segment, or an off-curve-start no-segment.
+
+`NoSegment` is a successful classification state. Out-of-range `contour_index` / `edge_index` and malformed bytes remain `Result::Err GuiSfntParseError`. The classifier must not convert unsupported shape semantics into silent fallback drawing.
+
+F4l uses internal table helpers, not public wrappers, after metadata is parsed:
+
+```text
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+```
+
+F4l must not allocate `Vec GuiSfntSimpleGlyphCurveSegment`, use integer midpoint division, call platform font APIs, use host text measurement, build full outlines, or rasterize pixels.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
