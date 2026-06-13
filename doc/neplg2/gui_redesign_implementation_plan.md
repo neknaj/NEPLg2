@@ -229,16 +229,24 @@ Subagent review:
 - `plan.md` は変更しない。
 - `note.n.md` には現在の実装状況、plan.md との差異、verification を記録する。
 
-## Initial implementation target
+## Resumed implementation target
 
-最初の実装 target は Phase 2 と Phase 3 の最小縦 slice である。
+Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 
 - Web visible canvas direct drawing を廃止する。
 - pixel buffer renderer を通す。
 - video memory surface module と tests を追加する。
-- stdlib contract の大規模変更は次 commit へ分ける。
+
+再開 target は Phase 3.5 の same app code host surface gate である。
+
+- Web-only stdout helper を正式 application contract から外す。
+- `std/gui` に platform 非依存の host surface / pixel frame present value を置く。
+- `platforms/gui/web` は Web backend の formal surface descriptor を持つが、application model へ Web-specific import を要求しない。
+- stdout protocol は legacy smoke/debug transport として隔離し、正式 ABI の代替として扱わない。
+- `nodesrc/test_web_gui_same_app_code_contract.js` と `nodesrc/test_stdlib_gui_layering_policy.js` で regression を固定する。
 
 理由:
 
-- 現在の最大の仕様違反は Web visible canvas が `fillRect` / `fillText` を直接呼んでいることである。
-- ここを先に直すと、以後の stdlib surface contract と example migration の検査基準が明確になる。
+- Phase 2 / 3 により Web visible canvas direct drawing と single-buffer presentation risk は解消済みである。
+- 次の根本課題は、同じ NEPL app code が Web / native / bare / headless の host surface ABI へ接続できる境界を stdlib 側に固定することである。
+- stdout transport を正式経路として残すと、Web 専用 transport が application contract に混入し、platform boundary と no fallback 方針が崩れる。

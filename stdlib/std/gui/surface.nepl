@@ -1,0 +1,192 @@
+//: # std/gui/surface
+//: GUI host surface と pixel frame present の typed contract
+//:
+//: ### [目的/もくてき]
+//: - Web、native、bare、offscreen の backend が[共有/きょうゆう]できる pixel surface frame を、platform handle なしの value として[表/あらわ]します。
+//: - application model は Web 専用 stdout transport を[直接/ちょくせつ][要求/ようきゅう]せず、runtime / host [境界/きょうかい]へ `GuiSurfacePresentCommand` を[渡/わた]します。
+//:
+//: ### [契約/けいやく]
+//: - pixel frame は `SurfaceId`、`FrameId`、size、stride、`ColorFormat`、`DirtyRegion` だけで[表/あらわ]します。
+//: - width / height は 1 以上、stride は 1 row の byte 数であり、`Rgba8888` では `width * 4` 以上かつ 4 byte 境界でなければなりません。
+//: - 不正な geometry や stride は panic、silent no-op、別 transport への代替ではなく `GuiError::InvalidGeometry` を[返/かえ]します。
+//: - `GuiSurfacePresentCommand` は data contract であり、DOM、Canvas、OS window handle、terminal fd は[含/ふく]みません。
+//:
+//: ### [現在/げんざい]の[実装/じっそう]
+//: - 初期 contract は `Rgba8888` pixel frame だけを正式に検査します。
+//: - 他の format は backend capability と後続 renderer contract が[揃/そろ]うまで `GuiError::Unsupported` とします。
+//:
+//: ### [計算量/けいさんりょう]
+//: - constructor と accessor は O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/surface" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/window" as *
+
+//: GuiPixelBufferDescriptor: host surface に[渡/わた]す pixel buffer の[形状/けいじょう]
+//:
+//: neplg2:test[skip]
+pub struct GuiPixelBufferDescriptor:
+    surface %SurfaceId
+    width %i32
+    height %i32
+    stride_bytes %i32
+    format %ColorFormat
+
+impl Clone for GuiPixelBufferDescriptor:
+    fn clone %fn &GuiPixelBufferDescriptor GuiPixelBufferDescriptor \descriptor:
+        *descriptor
+
+impl Copy for GuiPixelBufferDescriptor:
+    fn copy_mark %fn GuiPixelBufferDescriptor GuiPixelBufferDescriptor \descriptor:
+        descriptor
+
+//: GuiSurfaceFrame: 1 frame 分の present 対象
+//:
+//: neplg2:test[skip]
+pub struct GuiSurfaceFrame:
+    frame %FrameId
+    descriptor %GuiPixelBufferDescriptor
+    dirty %DirtyRegion
+
+impl Clone for GuiSurfaceFrame:
+    fn clone %fn &GuiSurfaceFrame GuiSurfaceFrame \frame:
+        *frame
+
+impl Copy for GuiSurfaceFrame:
+    fn copy_mark %fn GuiSurfaceFrame GuiSurfaceFrame \frame:
+        frame
+
+//: GuiSurfacePresentCommand: platform host が[解釈/かいしゃく]する surface command
+//:
+//: neplg2:test[skip]
+pub enum GuiSurfacePresentCommand:
+    PresentPixelFrame %GuiSurfaceFrame
+
+impl Clone for GuiSurfacePresentCommand:
+    fn clone %fn &GuiSurfacePresentCommand GuiSurfacePresentCommand \command:
+        *command
+
+impl Copy for GuiSurfacePresentCommand:
+    fn copy_mark %fn GuiSurfacePresentCommand GuiSurfacePresentCommand \command:
+        command
+
+//: gui_rgba8888_stride_is_valid: Rgba8888 の stride contract を[満/み]たすか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_rgba8888_stride_is_valid %fn i32 fn i32 bool \width\stride_bytes:
+    and:
+        ge stride_bytes mul width 4
+        gui_stride_is_word_aligned stride_bytes
+
+//: gui_stride_is_word_aligned: stride が 4 byte 境界に[揃/そろ]うか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_stride_is_word_aligned %fn i32 bool \stride_bytes:
+    eq 0 rem_s stride_bytes 4
+
+//: gui_pixel_buffer_descriptor_is_valid_size: pixel buffer の size が[有効/ゆうこう]か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_pixel_buffer_descriptor_is_valid_size %fn i32 fn i32 bool \width\height:
+    and gt width 0 gt height 0
+
+//: gui_pixel_buffer_descriptor: Rgba8888 pixel buffer descriptor を[検査/けんさ]して[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - host surface ABI に[渡/わた]す buffer shape を、raw integer の[集/あつ]まりではなく typed descriptor にします。
+//:
+//: [契約/けいやく]:
+//: - width / height が 0 以下なら `GuiError::InvalidGeometry` です。
+//: - `ColorFormat::FormatRgba8888` 以外は初期 contract では `GuiError::Unsupported` です。
+//: - stride が `width * 4` 未満、または 4 byte 境界に[揃/そろ]わないなら `GuiError::InvalidGeometry` です。
+//:
+//: neplg2:test[skip]
+pub fn gui_pixel_buffer_descriptor %fn SurfaceId fn i32 fn i32 fn i32 fn ColorFormat Result GuiPixelBufferDescriptor GuiError \surface\width\height\stride_bytes\format:
+    if not gui_pixel_buffer_descriptor_is_valid_size width height:
+        then Result::Err GuiError::InvalidGeometry
+        else:
+            match format:
+                ColorFormat::FormatRgba8888:
+                    if gui_rgba8888_stride_is_valid width stride_bytes:
+                        then Result::Ok GuiPixelBufferDescriptor surface width height stride_bytes format
+                        else Result::Err GuiError::InvalidGeometry
+                _:
+                    Result::Err GuiError::Unsupported
+
+//: gui_surface_frame: 検査済み pixel buffer descriptor から frame value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_surface_frame %fn FrameId fn GuiPixelBufferDescriptor fn DirtyRegion GuiSurfaceFrame \frame\descriptor\dirty:
+    GuiSurfaceFrame frame descriptor dirty
+
+//: gui_surface_present_pixel_frame: pixel frame present command を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_surface_present_pixel_frame %fn GuiSurfaceFrame GuiSurfacePresentCommand \frame:
+    GuiSurfacePresentCommand::PresentPixelFrame frame
+
+//: gui_pixel_buffer_surface: descriptor の surface id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_pixel_buffer_surface %fn &GuiPixelBufferDescriptor SurfaceId \descriptor:
+    *field::get_ref descriptor "surface"
+
+//: gui_pixel_buffer_width: descriptor の width を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_pixel_buffer_width %fn &GuiPixelBufferDescriptor i32 \descriptor:
+    *field::get_ref descriptor "width"
+
+//: gui_pixel_buffer_height: descriptor の height を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_pixel_buffer_height %fn &GuiPixelBufferDescriptor i32 \descriptor:
+    *field::get_ref descriptor "height"
+
+//: gui_pixel_buffer_stride_bytes: descriptor の stride bytes を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_pixel_buffer_stride_bytes %fn &GuiPixelBufferDescriptor i32 \descriptor:
+    *field::get_ref descriptor "stride_bytes"
+
+//: gui_pixel_buffer_format: descriptor の color format を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_pixel_buffer_format %fn &GuiPixelBufferDescriptor ColorFormat \descriptor:
+    *field::get_ref descriptor "format"
+
+//: gui_surface_frame_id: surface frame の frame id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_surface_frame_id %fn &GuiSurfaceFrame FrameId \surface_frame:
+    *field::get_ref surface_frame "frame"
+
+//: gui_surface_frame_descriptor: surface frame の descriptor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_surface_frame_descriptor %fn &GuiSurfaceFrame GuiPixelBufferDescriptor \surface_frame:
+    *field::get_ref surface_frame "descriptor"
+
+//: gui_surface_frame_dirty: surface frame の dirty region を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_surface_frame_dirty %fn &GuiSurfaceFrame DirtyRegion \surface_frame:
+    *field::get_ref surface_frame "dirty"
+
+//: gui_surface_present_command_is_pixel_frame: present command が pixel frame か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn gui_surface_present_command_is_pixel_frame %fn GuiSurfacePresentCommand bool \command:
+    match command:
+        GuiSurfacePresentCommand::PresentPixelFrame _frame:
+            true

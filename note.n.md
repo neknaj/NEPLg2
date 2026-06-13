@@ -57584,3 +57584,53 @@ MERGE_APPROVED
 - recursive aggregate summary はまだ producer gate の実入力に接続していない。
 - Copy / Drop / Eq / Hash pure evidence の実計算は未実装である。
 - full public surface hash、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation identity の HIR / monomorphize / artifact 接続は未完了である。
+
+## 2026-06-13 Agent GUI same app code host surface checkpoint
+
+### scope
+
+- branch: `gui-doc-implementation-gate-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、platform boundary、typed enum / Result error、hidden fallback 禁止、doc/test gate を優先した。
+
+### subagent_review_gate
+
+- Aristotle に `plan.md`、GUI redesign 3 文書、font / 2D rendering design、standard GUI spec、GUI/TUI implementation plan、Zenn 方針の確認を依頼した。
+- review 結果は Blocker なし、Required なし、`implementation may start`。
+- Suggested として、Phase 2 / 3 完了後の再開 target を Phase 3.5 と明記することが挙がったため、`doc/neplg2/gui_redesign_implementation_plan.md` を更新した。
+
+### implementation
+
+- `SurfaceKind::Pixel` / `SurfaceKind::Command` を廃止し、`WindowPixel` / `OffscreenPixel` / `DevicePixel` / `TextGrid` / `Headless` に分けた。
+- `gui_capabilities_window_pixel`、`gui_capabilities_offscreen_pixel`、`gui_capabilities_device_pixel` と pixel surface 判定 helper を追加した。
+- `stdlib/std/gui/surface.nepl` を追加し、platform 非依存の `GuiPixelBufferDescriptor`、`GuiSurfaceFrame`、`GuiSurfacePresentCommand` を定義した。
+- `GuiPixelBufferDescriptor` は `Rgba8888`、正の幅・高さ、`width * 4` 以上の stride、4 byte alignment を contract として検査する。
+- `stdlib/platforms/gui/web/surface.nepl` を追加し、Web video memory surface が標準 pixel buffer descriptor を包み、2 slot 以上を要求する contract を定義した。
+- `platforms/gui/web` facade は formal `web/surface` を stdout protocol より前に公開し、stdout protocol を legacy smoke/debug transport に隔離した。
+- `nodesrc/test_web_gui_same_app_code_contract.js` と `nodesrc/test_stdlib_gui_layering_policy.js` で std/gui surface contract、Web surface contract、legacy stdout quarantine、SurfaceKind 移行を固定した。
+
+### subagent_implementation_review
+
+- Aristotle 初回実装 review: Blocker なし。Required として、`GuiPixelBufferDescriptor` の stride 検査が `width * 4` 以上だけでなく 4 byte alignment も要求するように修正することを求めた。
+- Required 対応として、`gui_stride_is_word_aligned` を追加し、`stride_bytes = 9` / `width = 2` を拒否する doctest と source policy check を追加した。
+- Aristotle 追レビュー: Blocker / Required なし。stride 下限と 4 byte alignment、contract comment、runtime coverage、source policy coverage を確認し、`commit allowed` と判定した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_same_app_code_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: `node nodesrc/test_stdlib_gui_opaque_id_contract.js`
+- pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -j 1 --dist web/dist --assert-io -o tmp/gui-core-surface-kind.json`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -j 1 --dist web/dist --assert-io -o tmp/gui-std-surface-contract.json`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_web_input.n.md --no-tree -j 1 --dist web/dist --assert-io -o tmp/gui-web-surface-contract.json`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存 gap sample は表示されるが baseline check は pass。
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の policy 退行はない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+### residual
+
+- runtime command に `GuiSurfacePresentCommand` を接続する処理は未完了である。
+- Web app examples はまだ legacy stdout transport を使うものが残る。正式 ABI への移行は Phase 6 で行う。
+- offscreen/headless surface backend と virtual event source の実装は Phase 5 の残作業である。
