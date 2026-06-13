@@ -1,0 +1,242 @@
+//: neplg2:test[gui_video_memory_rows_contract, normalize_newlines]
+//: [目的/もくてき]: Web video memory row example が formal row host import 用の寸法 contract を保つことを確認する
+//: argv: ["--contract"]
+//: stdout: "video memory rows contract ok\n"
+//:
+//: gui_video_memory_rows: Web video memory row writer を使う最小 GUI example
+//:
+//: [目的/もくてき]:
+//: - stdout `rgba-row` transport ではなく、Web video memory surface の row host import を使います。
+//: - row payload は `ByteBuilder` / `ByteBuf` owner で構築し、借用 `MemPtr u8` だけを host import へ渡します。
+//: - host import の失敗は `Result` と `GuiError` で扱い、途中失敗では write frame を discard します。
+//:
+//: [注意/ちゅうい]:
+//: - `--contract` は CI 向けの有限テストであり、Web host import の happy path は実行しません。
+//: - 通常実行は Web Playground の `nepl_gui_web` host import がある環境を想定します。
+#entry main
+#indent 4
+#target std
+
+#import "alloc/io" as *
+#import "alloc/string" as *
+#import "core/cast" as *
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "platforms/gui/web" as *
+#import "std/env/cliarg" as *
+#import "std/gui" as *
+#import "std/stdio" as *
+
+fn vm_rows_width %fn void i32 \void:
+    8
+
+fn vm_rows_height %fn void i32 \void:
+    2
+
+fn vm_rows_slot_count %fn void i32 \void:
+    2
+
+fn vm_rows_window_id %fn void i32 \void:
+    1
+
+fn vm_rows_row_byte_len %fn void i32 \void:
+    mul vm_rows_width 4
+
+fn vm_rows_color %fn i32 fn i32 Rgba8888 \x\y:
+    let red_i32 %i32 add 24 mul x 18
+    let green_i32 %i32 add 72 mul y 80
+    let blue_i32 %i32 add 120 mul x 7
+    let red %u8 cast red_i32
+    let green %u8 cast green_i32
+    let blue %u8 cast blue_i32
+    let alpha %u8 cast 255
+    rgba8888_new red green blue alpha
+
+fn vm_rows_push_pixel %fn ByteBuilder fn Rgba8888 Result ByteBuilder ByteBuilderError \builder\color:
+    let red %i32 cast rgba8888_r &color
+    let green %i32 cast rgba8888_g &color
+    let blue %i32 cast rgba8888_b &color
+    let alpha %i32 cast rgba8888_a &color
+    match byte_builder_push_u8 builder red:
+        Result::Ok b1:
+            match byte_builder_push_u8 b1 green:
+                Result::Ok b2:
+                    match byte_builder_push_u8 b2 blue:
+                        Result::Ok b3:
+                            byte_builder_push_u8 b3 alpha
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+fn vm_rows_push_pixels %fn ByteBuilder fn i32 fn i32 Result ByteBuilder ByteBuilderError \builder\x\y:
+    if:
+        ge x vm_rows_width
+        then:
+            Result::Ok builder
+        else:
+            let color %Rgba8888 vm_rows_color x y
+            match vm_rows_push_pixel builder color:
+                Result::Ok next_builder:
+                    let next_x %i32 add x 1
+                    vm_rows_push_pixels next_builder next_x y
+                Result::Err e:
+                    Result::Err e
+
+fn vm_rows_builder_error %fn ByteBuilderError GuiError \error:
+    byte_builder_error_free error
+    GuiError::ResourceExhausted
+
+fn vm_rows_build_row %fn i32 Result ByteBuf GuiError \y:
+    match byte_builder_new:
+        Result::Err _error:
+            Result::Err GuiError::ResourceExhausted
+        Result::Ok builder:
+            match vm_rows_push_pixels builder 0 y:
+                Result::Err error:
+                    Result::Err vm_rows_builder_error error
+                Result::Ok filled:
+                    match byte_builder_finish filled:
+                        Result::Ok bytes:
+                            Result::Ok bytes
+                        Result::Err error:
+                            Result::Err vm_rows_builder_error error
+
+fn vm_rows_write_row_bytes %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 impure fn ByteBuf Result unit GuiError \surface\frame\y\bytes:
+    match io_bytebuf_ptr_ref &bytes:
+        Option::Some ptr:
+            let origin %GuiPoint gui_point_new 0 y
+            let write_result %Result unit GuiError gui_web_video_memory_write_rgba8888_row surface frame origin vm_rows_width ptr
+            io_bytebuf_free bytes
+            write_result
+        Option::None:
+            io_bytebuf_free bytes
+            Result::Err GuiError::ResourceExhausted
+
+fn vm_rows_write_row %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 Result unit GuiError \surface\frame\y:
+    match vm_rows_build_row y:
+        Result::Ok bytes:
+            vm_rows_write_row_bytes surface frame y bytes
+        Result::Err error:
+            Result::Err error
+
+fn vm_rows_write_all_rows %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 Result unit GuiError \surface\frame\y:
+    if:
+        ge y vm_rows_height
+        then:
+            Result::Ok unit
+        else:
+            match vm_rows_write_row surface frame y:
+                Result::Ok _:
+                    vm_rows_write_all_rows surface frame add y 1
+                Result::Err error:
+                    Result::Err error
+
+fn vm_rows_close_with_result %impure fn &GuiWebVideoMemorySurface impure fn Result unit GuiError Result unit GuiError \surface\result:
+    match gui_web_video_memory_close_surface surface:
+        Result::Ok _:
+            result
+        Result::Err close_error:
+            match result:
+                Result::Ok _:
+                    Result::Err close_error
+                Result::Err original:
+                    Result::Err original
+
+fn vm_rows_discard_close_error %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiError Result unit GuiError \surface\frame\error:
+    match gui_web_video_memory_discard_write_frame surface frame:
+        Result::Ok _:
+            let failed %Result unit GuiError Result::Err error
+            vm_rows_close_with_result surface failed
+        Result::Err _discard_error:
+            let failed %Result unit GuiError Result::Err error
+            vm_rows_close_with_result surface failed
+
+fn vm_rows_publish_present_close %impure fn &GuiWebVideoMemorySurface impure fn FrameId Result unit GuiError \surface\frame:
+    match gui_web_video_memory_publish_full surface frame:
+        Result::Err error:
+            vm_rows_discard_close_error surface frame error
+        Result::Ok _:
+            match window_id vm_rows_window_id:
+                Result::Err error:
+                    let failed %Result unit GuiError Result::Err error
+                    vm_rows_close_with_result surface failed
+                Result::Ok window:
+                    let present_result %Result unit GuiError gui_web_video_memory_present_surface window "NEPLg2 Video Memory Rows" surface
+                    vm_rows_close_with_result surface present_result
+
+fn vm_rows_present_surface %impure fn &GuiWebVideoMemorySurface Result unit GuiError \surface:
+    match gui_web_video_memory_acquire_write_frame surface:
+        Result::Err error:
+            let failed %Result unit GuiError Result::Err error
+            vm_rows_close_with_result surface failed
+        Result::Ok frame:
+            match vm_rows_write_all_rows surface frame 0:
+                Result::Ok _:
+                    vm_rows_publish_present_close surface frame
+                Result::Err error:
+                    vm_rows_discard_close_error surface frame error
+
+fn vm_rows_present_example %impure fn void Result unit GuiError \void:
+    match gui_web_video_memory_create_surface vm_rows_width vm_rows_height vm_rows_slot_count:
+        Result::Ok surface:
+            vm_rows_present_surface &surface
+        Result::Err error:
+            Result::Err error
+
+fn vm_rows_contract_ok %fn void bool \void:
+    let byte_len_ok %bool eq vm_rows_row_byte_len 32
+    let width_ok %bool eq vm_rows_width 8
+    let height_ok %bool eq vm_rows_height 2
+    let slot_ok %bool eq vm_rows_slot_count 2
+    let size_ok %bool and byte_len_ok width_ok
+    let shape_ok %bool and height_ok slot_ok
+    and size_ok shape_ok
+
+fn vm_rows_has_contract_flag_loop %impure fn i32 impure fn i32 bool \idx\count:
+    if:
+        ge idx count
+        then:
+            false
+        else:
+            match cliarg_get idx:
+                Option::Some arg:
+                    if:
+                        str_eq arg "--contract"
+                        then:
+                            true
+                        else:
+                            let next_idx %i32 add idx 1
+                            vm_rows_has_contract_flag_loop next_idx count
+                Option::None:
+                    let next_idx %i32 add idx 1
+                    vm_rows_has_contract_flag_loop next_idx count
+
+fn vm_rows_has_contract_flag %impure fn void bool \void:
+    vm_rows_has_contract_flag_loop 1 cliarg_count
+
+fn vm_rows_run_contract %impure fn void i32 \void:
+    if:
+        vm_rows_contract_ok
+        then:
+            println "video memory rows contract ok"
+            0
+        else:
+            println "video memory rows contract failed"
+            1
+
+fn main %impure fn void i32 \void:
+    if:
+        vm_rows_has_contract_flag
+        then:
+            vm_rows_run_contract
+        else:
+            match vm_rows_present_example:
+                Result::Ok _:
+                    0
+                Result::Err _error:
+                    1
