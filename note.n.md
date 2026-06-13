@@ -57540,3 +57540,48 @@ MERGE_APPROVED
 - recursive aggregate summary はまだ producer gate の実入力に接続していない。
 - Copy / Drop / Eq / Hash pure evidence の実計算は未実装である。
 - full public surface hash、`.neplproof` reader / serializer、永続 artifact 用 stable map / serialized index、generic instantiation identity の HIR / monomorphize / artifact 接続は未完了である。
+
+## 2026-06-13 Agent selfhost memo trait public surface hash typed input checkpoint
+
+### scope
+
+- branch: `selfhost/memo-trait-public-surface-hash-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、typed enum error、Result API、pure core / platform boundary 分離、DAG、探索範囲削減、丁寧な doc comment、行数制限や doc comment 長制限による品質抑制禁止を優先した。
+
+### implementation
+
+- `memo_trait_public_surface_hash.nepl` に full public surface hash 用の ordered typed input boundary を追加した。
+- `SelfhostMemoTraitPublicSurfaceHashInputKind` は local `MemoKey` / `MemoValue` trait declaration を `LocalMemoTrait(kind)` として保持し、後続 full surface normalizer が渡す `DependencyModule`、`ReExport`、`PublicFunction`、`PublicStruct`、`PublicEnum`、`PublicImpl` を同じ enum 上に予約する。
+- `SelfhostMemoTraitPublicSurfaceHashInputItem` は `kind`、ordered `ordinal`、`visibility`、stable `payload_hash`、caller supplied `dependency_public_surface_hash` だけを authority とする。source text、span、syntax range、lexeme、path suffix、display name、diagnostic text は hash material にしない。
+- `SelfhostMemoTraitPublicSurfaceHashInputTable` は Phase 1 では local memo trait pair 用の fixed 2 slot table である。後続で可変長 full public surface table へ置換しても、item schema と folding contract は維持する。
+- `selfhost_memo_trait_public_surface_hash_from_seed_table_result` は seed table を直接 hash せず、`selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result` で ordered input table へ変換してから `selfhost_memo_trait_public_surface_hash_input_table_result` を呼ぶ。
+- 旧 seed 直結 helper、旧 seed 直結 domain code、旧 derived placeholder error variant を削除した。hash schema は full input schema `212203` に集約し、旧経路の復活は source policy で拒否する。
+- `todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、issue checkpoint を現在の typed input boundary に合わせて更新した。
+
+### subagent_review
+
+- Bohr 設計 review: Blocker なし。Required として、checker module が import / re-export を自力解決せず、loader / module graph 由来の typed input を後続 slice で受ける形に限定すること、seed table を膨らませず input item schema を固定すること、source-derived authority と proof / HIR / Resource / backend 逆依存を禁止することを確認した。
+- Bohr 初回実装 review: Blocker なし。Required として、旧 direct seed hash helper と旧 domain code を残さないこと、module doc を seed table authority から input table authority へ直すこと、source policy で旧 helper と proof / HIR / Resource / backend 逆依存禁止を強めることを求めた。
+- Required 対応として、旧 helper / schema / domain code / derived placeholder variant を削除し、contract test に旧 helper、旧 domain code、旧 schema literal の退行検出を追加した。
+- Bohr 再レビュー: Blocker / Required なしで Approve。Non-blocker として、full public surface normalizer へ進むときは field 別 placeholder error を追加すると診断が強くなると確認した。
+
+### verification
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_hash_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-public-surface-hash-input.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の stdlib / selfhost documentation gap sample と Node WASI ExperimentalWarning が表示されたが、この slice の source policy 退行ではない。
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+### residual
+
+- re-export / import graph / public non-trait declaration の stable normalizer は未実装である。loader / module graph authority から typed input table へ渡す境界として次 stage で扱う。
+- Copy / Drop / Eq / Hash pure evidence の実計算は未実装である。operation proof table の session-local status を実際の trait impl / method body purity / Drop proof solver から供給する必要がある。
+- full public surface input table の可変長化、persistent stable map / serialized index、generic instantiation artifact 接続は未完了である。
+- fixed 2 slot input table と field 別 placeholder error の細分化は、public input item contract を変えずに後から置換できる最適化 / 診断強化として扱う。

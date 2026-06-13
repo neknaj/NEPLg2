@@ -1306,6 +1306,16 @@ stage0 smoke は accepted root->primitive、nested accepted root->child->primiti
 
 stage0 smoke は accepted root、self-cycle、operation proof missing、hazard rejection を public boundary 経由で確認する。source policy は、summary counter を producer field range に流用しないこと、producer gate を迂回しないこと、source text / span / path / display name / diagnostic / lexeme を authority にしないこと、行数 / doc comment 長制限を追加しないことを固定した。この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は後続 slice として残る。
 
+2026-06-13 MemoKey / MemoValue public surface hash typed input checkpoint では、`stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` に full public surface hash 用の ordered typed input boundary を追加した。
+
+`SelfhostMemoTraitPublicSurfaceHashInputKind` は、現在受理できる local memo trait pair を `LocalMemoTrait(kind)` として保持し、後続 slice が渡す `DependencyModule`、`ReExport`、`PublicFunction`、`PublicStruct`、`PublicEnum`、`PublicImpl` を同じ enum 上に予約する。checker module はこれらを source path、lexeme、span から自分で解決しない。import graph、re-export projection、dependency public surface hash は loader / module graph の authority であり、この module は caller supplied typed input を fold するだけである。
+
+`SelfhostMemoTraitPublicSurfaceHashInputItem` は `kind`、ordered `ordinal`、`visibility`、stable `payload_hash`、caller supplied `dependency_public_surface_hash` に authority を限定する。source text、syntax range、lexeme、path suffix、display name、diagnostic text は hash material ではない。`SelfhostMemoTraitPublicSurfaceHashInputTable` は Phase 1 では local `MemoKey` / `MemoValue` pair の fixed 2 slot table だが、後続の full public surface normalizer は同じ item schema を可変長 table に広げる。
+
+既存の seed table folding は、seed table を直接 fold するのをやめ、`selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result` で ordered input table に変換してから `selfhost_memo_trait_public_surface_hash_input_table_result` を呼ぶ。full input schema code は `212203` に固定し、旧 seed 直結 helper と旧 seed 直結 domain code は残さない。
+
+この checkpoint は full public surface normalizer ではない。public function / struct / enum / impl signature、dependency module identity、re-export chain、stable nominal key、serialized `.neplmeta` 入力は後続 slice の責務である。今回固定したのは、後続 normalizer が stable input を渡すための受け口と、source-derived authority へ戻らない hash folding contract である。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

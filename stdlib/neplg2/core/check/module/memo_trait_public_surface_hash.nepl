@@ -4,26 +4,27 @@
 //: `MemoKey` / `MemoValue` の stable source evidence に渡す module public surface hash を、typed seed から[作/つく]る接続層です。
 //:
 //: [目的/もくてき]:
-//: - `SelfhostModuleAst` の local public memo trait declaration から seed table を作り、その seed table の typed field だけを public surface hash へ fold します。
-//: - source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず、kind、visibility、declaration ordinal、normalized signature seed を使います。
+//: - `SelfhostModuleAst` の local public memo trait declaration から seed table を作り、その seed table を full public surface hash 用の ordered typed input table へ変換してから fold します。
+//: - source text、span、display name、path suffix、diagnostic text を accepted fingerprint authority にせず、kind、visibility、declaration ordinal、normalized signature seed、caller supplied dependency public surface hash だけを input field として使います。
 //: - scanner candidate、public surface hash materializer、stable evidence producer、fingerprint gate、trusted registry validator を順に通し、途中の未正規化 surface を成功扱いしないようにします。
 //:
 //: [契約/けいやく]:
 //: - `module_identity_hash` は caller が作った typed fingerprint です。`none` と `some 0` は typed error で拒否します。
 //: - token-aware API が計算する public surface hash は、local `MemoKey` / `MemoValue` marker trait pair と method-bearing trait pair に対応します。AST-only 互換 API は token authority がないため marker trait pair だけに限定されます。
 //: - import / use / prelude / public non-trait declaration は、full module public surface の正規化が未接続なので拒否します。
-//: - public surface hash は seed table の field を deterministic に fold した nonzero fingerprint です。source spelling や byte range は hash material に入りません。
+//: - public surface hash は ordered typed input item を deterministic に fold した nonzero fingerprint です。source spelling や byte range は hash material に入りません。
 //: - 成功時も registry を直接構築しません。既存 seed evidence producer と stable source registry gate へ委譲します。
 //:
 //: [現状/げんじょう]:
-//: - これは full public surface materializer ではありません。re-export、import graph、public function / struct / enum / impl signature、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
+//: - これは full public surface normalizer ではありません。re-export、import graph、public function / struct / enum / impl signature、stable nominal key、serialized `.neplmeta` / `.neplproof` 入力は後続 slice の責務です。
+//: - この slice では full public surface hash の input item schema を先に固定し、local `MemoKey` / `MemoValue` seed をその input table へ接続します。後続 normalizer は同じ item schema へ stable input を追加します。
 //: - 実 stdlib の method 付き `MemoKey` / `MemoValue` に接続する経路は token-aware API を使います。AST-only API は marker trait smoke と互換確認のために残します。
 //:
 //: [計算量/けいさんりょう]:
 //: - materialize は hash module 内の scan loop が unsupported public surface の fail-closed 判定、`MemoKey` / `MemoValue` seed accumulation、seed table complete check を同じ pass で行うため、module item stream を 1 回走査します。
 //: - token-aware materialize も hash module 内の loop が module item stream を 1 回走査します。method-bearing trait の正規化だけは trait body token 数 k に比例するため、全体は O(n + k) です。
 //: - registry convenience path は candidate table と seed table を同じ item loop で作るため、module item stream を 1 回だけ走査し、token-aware method 正規化を含めても全体は O(n + k) です。既存の scanner API と materialize API は単体検査と互換のため残します。
-//: - seed table と hash materialization payload は固定 2 slot なので O(1) 追加空間です。
+//: - 現 checkpoint の input table は local memo trait pair 用の固定 2 slot なので O(1) 追加空間です。full public surface normalizer が入る後続 slice では、同じ item schema を可変長 table へ広げます。
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
@@ -97,7 +98,7 @@ pub struct SelfhostMemoTraitPublicSurfaceHashMaterialization:
 //:
 //: [契約/けいやく]:
 //: - `candidates` は source spelling から分類した未trusted candidate table です。signature authority はまだ持たず、registry validator が `SignatureMissing` などを typed error として返します。
-//: - `materialization` は同じ pass で作った seed table と、その seed table から導出した public surface hash を保持します。
+//: - `materialization` は同じ pass で作った seed table と、その seed table を ordered input table へ変換して導出した public surface hash を保持します。
 //: - この struct 自体は trusted registry ではありません。必ず `selfhost_memo_trait_trusted_source_registry_from_seed_evidence_result` を通します。
 pub struct SelfhostMemoTraitPublicSurfaceHashRegistryMaterialization:
     candidates %SelfhostMemoTraitDefinitionSourceTable
@@ -116,10 +117,56 @@ struct SelfhostMemoTraitPublicSurfaceHashRegistryScanState:
     candidates %SelfhostMemoTraitDefinitionSourceTable
     seed_table %SelfhostMemoTraitStableSourceSeedTable
 
+//: SelfhostMemoTraitPublicSurfaceHashInputKind: full public surface hash の ordered input item 種別
+//:
+//: [目的/もくてき]:
+//: - public surface hash の hash material を、source spelling ではなく typed item kind として分類します。
+//:
+//: [契約/けいやく]:
+//: - `LocalMemoTrait(kind)` は、この module が現在受理する local `MemoKey` / `MemoValue` trait declaration を表します。
+//: - `DependencyModule`、`ReExport`、`PublicFunction`、`PublicStruct`、`PublicEnum`、`PublicImpl` は full public surface normalizer が後続 slice で渡す typed input の予約済み種別です。この module で source path や lexeme から解決してはいけません。
+//: - どの variant も proof store、HIR、Resource IR、backend の acceptance authority ではありません。hash input を分類するだけです。
+pub enum SelfhostMemoTraitPublicSurfaceHashInputKind:
+    LocalMemoTrait %SelfhostMemoTraitSourceKind
+    DependencyModule
+    ReExport
+    PublicFunction
+    PublicStruct
+    PublicEnum
+    PublicImpl
+
+//: SelfhostMemoTraitPublicSurfaceHashInputItem: public surface hash に fold する 1 item
+//:
+//: [目的/もくてき]:
+//: - full public surface hash の材料を、順序、種別、visibility、stable payload hash、dependency public surface hash に分けて保持します。
+//:
+//: [契約/けいやく]:
+//: - `ordinal` は caller が正規化した ordered input table 上の 1-origin ordinal です。source byte position ではありません。
+//: - `payload_hash` は trait signature、function signature、struct layout header など、各 normalizer が作る stable nonzero hash です。source text や display name を直接入れてはいけません。
+//: - `dependency_public_surface_hash` は import graph / re-export normalizer が caller supplied typed dependency hash を渡す場所です。local memo trait item では `none` です。
+pub struct SelfhostMemoTraitPublicSurfaceHashInputItem:
+    kind %SelfhostMemoTraitPublicSurfaceHashInputKind
+    ordinal %i32
+    visibility %SelfhostModuleDeclarationVisibility
+    payload_hash %i32
+    dependency_public_surface_hash %Option i32
+
+//: SelfhostMemoTraitPublicSurfaceHashInputTable: Phase 1 public surface hash input table
+//:
+//: [目的/もくてき]:
+//: - 現在の local `MemoKey` / `MemoValue` pair を、full public surface hash と同じ ordered input boundary へ載せます。
+//:
+//: [契約/けいやく]:
+//: - `first` と `second` は ordered input item です。Phase 1 では `MemoKey`、`MemoValue` の順だけを受理します。
+//: - この fixed 2 slot table は full public surface の最終データ構造ではありません。後続 slice で可変長 table へ置換しても、item schema と folding contract は維持します。
+pub struct SelfhostMemoTraitPublicSurfaceHashInputTable:
+    first %SelfhostMemoTraitPublicSurfaceHashInputItem
+    second %SelfhostMemoTraitPublicSurfaceHashInputItem
+
 //: SelfhostMemoTraitPublicSurfaceHashErrorKind: public surface hash materialization の拒否理由
 //:
 //: [目的/もくてき]:
-//: - module identity、未正規化 public surface、seed scan、seed table field、derived hash のどこで拒否したかを enum で保持します。
+//: - module identity、未正規化 public surface、seed scan、input adapter、derived hash のどこで拒否したかを enum で保持します。
 pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:
     ModuleIdentityFingerprintMissing
     ModuleIdentityFingerprintPlaceholder
@@ -149,8 +196,6 @@ pub enum SelfhostMemoTraitPublicSurfaceHashErrorKind:
     MemoValueNormalizedSignatureMissing
     MemoKeyNormalizedSignaturePlaceholder
     MemoValueNormalizedSignaturePlaceholder
-    MemoKeyDerivedSurfaceHashPlaceholder
-    MemoValueDerivedSurfaceHashPlaceholder
     PublicSurfaceHashPlaceholder
 
 //: SelfhostMemoTraitPublicSurfaceHashRegistryErrorKind: hash materializer から registry までの拒否理由
@@ -198,6 +243,30 @@ impl Copy for SelfhostMemoTraitPublicSurfaceHashRegistryScanState:
     fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState SelfhostMemoTraitPublicSurfaceHashRegistryScanState \self:
         self
 
+impl Clone for SelfhostMemoTraitPublicSurfaceHashInputKind:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashInputKind SelfhostMemoTraitPublicSurfaceHashInputKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashInputKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashInputKind SelfhostMemoTraitPublicSurfaceHashInputKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashInputItem:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashInputItem \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashInputItem:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashInputItem \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicSurfaceHashInputTable:
+    fn clone %fn &SelfhostMemoTraitPublicSurfaceHashInputTable SelfhostMemoTraitPublicSurfaceHashInputTable \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicSurfaceHashInputTable:
+    fn copy_mark %fn SelfhostMemoTraitPublicSurfaceHashInputTable SelfhostMemoTraitPublicSurfaceHashInputTable \self:
+        self
+
 impl Clone for SelfhostMemoTraitPublicSurfaceHashErrorKind:
     fn clone %fn &SelfhostMemoTraitPublicSurfaceHashErrorKind SelfhostMemoTraitPublicSurfaceHashErrorKind \self:
         *self
@@ -237,6 +306,17 @@ fn selfhost_memo_trait_public_surface_hash_registry_scan_state_new %fn SelfhostM
 //: selfhost_memo_trait_public_surface_hash_registry_scan_state_empty: combined scan state の初期値を[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_registry_scan_state_empty %fn void SelfhostMemoTraitPublicSurfaceHashRegistryScanState \void:
     selfhost_memo_trait_public_surface_hash_registry_scan_state_new selfhost_memo_trait_definition_source_table_empty selfhost_memo_trait_stable_source_seed_table_empty
+
+//: selfhost_memo_trait_public_surface_hash_input_item_new: public surface hash input item を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は typed field をまとめるだけです。ordinal、payload hash、dependency hash の nonzero 検査は、それぞれの normalizer または hash folding 境界で行います。
+fn selfhost_memo_trait_public_surface_hash_input_item_new %fn SelfhostMemoTraitPublicSurfaceHashInputKind fn i32 fn SelfhostModuleDeclarationVisibility fn i32 fn Option i32 SelfhostMemoTraitPublicSurfaceHashInputItem \kind\ordinal\visibility\payload_hash\dependency_public_surface_hash:
+    SelfhostMemoTraitPublicSurfaceHashInputItem kind ordinal visibility payload_hash dependency_public_surface_hash
+
+//: selfhost_memo_trait_public_surface_hash_input_table_new: ordered input table を[作/つく]る
+fn selfhost_memo_trait_public_surface_hash_input_table_new %fn SelfhostMemoTraitPublicSurfaceHashInputItem fn SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashInputTable \first\second:
+    SelfhostMemoTraitPublicSurfaceHashInputTable first second
 
 //: selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table: seed table 更新済み state を[作/つく]る
 fn selfhost_memo_trait_public_surface_hash_registry_scan_state_with_seed_table %fn SelfhostMemoTraitPublicSurfaceHashRegistryScanState fn SelfhostMemoTraitStableSourceSeedTable SelfhostMemoTraitPublicSurfaceHashRegistryScanState \state\seed_table:
@@ -315,12 +395,8 @@ fn selfhost_memo_trait_public_surface_hash_error_kind_code %fn SelfhostMemoTrait
             27
         SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
             28
-        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder:
-            29
-        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder:
-            30
         SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
-            31
+            29
 
 //: selfhost_memo_trait_public_surface_hash_error_kind_eq: public surface hash error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTraitPublicSurfaceHashErrorKind fn SelfhostMemoTraitPublicSurfaceHashErrorKind bool \a\b:
@@ -382,10 +458,6 @@ pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTra
                 SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignaturePlaceholder:
                     false
                 SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
-                    false
-                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder:
-                    false
-                SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder:
                     false
                 SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
                     false
@@ -497,14 +569,6 @@ pub fn selfhost_memo_trait_public_surface_hash_error_kind_eq %fn SelfhostMemoTra
             eq:
                 selfhost_memo_trait_public_surface_hash_error_kind_code a
                 selfhost_memo_trait_public_surface_hash_error_kind_code b
-        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder:
-            eq:
-                selfhost_memo_trait_public_surface_hash_error_kind_code a
-                selfhost_memo_trait_public_surface_hash_error_kind_code b
-        SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder:
-            eq:
-                selfhost_memo_trait_public_surface_hash_error_kind_code a
-                selfhost_memo_trait_public_surface_hash_error_kind_code b
         SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
             eq:
                 selfhost_memo_trait_public_surface_hash_error_kind_code a
@@ -584,15 +648,87 @@ fn selfhost_memo_trait_public_surface_hash_visibility_code %fn SelfhostModuleDec
         SelfhostModuleDeclarationVisibility::Private:
             1402
 
-//: selfhost_memo_trait_public_surface_hash_schema_code: marker / method-bearing public surface hash schema の domain code を[返/かえ]す
+//: selfhost_memo_trait_public_surface_hash_input_schema_code: full public surface input schema の domain code を[返/かえ]す
 //:
 //: [契約/けいやく]:
-//: - public surface hash の folding domain を固定します。hash 材料の構造を変える場合は、この schema code も更新して、別 schema の payload と衝突しないようにします。
-fn selfhost_memo_trait_public_surface_hash_schema_code %fn void i32 \void:
-    212103
+//: - ordered input item table を fold する schema です。hash material の構造が変わる場合はこの schema code を更新し、別 schema の payload と衝突しないようにします。
+fn selfhost_memo_trait_public_surface_hash_input_schema_code %fn void i32 \void:
+    212203
 
-//: selfhost_memo_trait_public_surface_hash_key_seed_result: MemoKey seed を surface hash part へ[変換/へんかん]する
-fn selfhost_memo_trait_public_surface_hash_key_seed_result %fn SelfhostMemoTraitStableSourceTraitSeed Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
+//: selfhost_memo_trait_public_surface_hash_input_kind_code: input item kind を hash domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_surface_hash_input_kind_code %fn SelfhostMemoTraitPublicSurfaceHashInputKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait source_kind:
+            selfhost_memo_trait_public_surface_hash_mix2 232001 selfhost_memo_trait_public_surface_hash_kind_code source_kind
+        SelfhostMemoTraitPublicSurfaceHashInputKind::DependencyModule:
+            232002
+        SelfhostMemoTraitPublicSurfaceHashInputKind::ReExport:
+            232003
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicFunction:
+            232004
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicStruct:
+            232005
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicEnum:
+            232006
+        SelfhostMemoTraitPublicSurfaceHashInputKind::PublicImpl:
+            232007
+
+//: selfhost_memo_trait_public_surface_hash_dependency_part_result: dependency public surface hash を fold 用 seed へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - local declaration item では dependency hash が無いので `none` を 0 seed として fold します。
+//: - import graph / re-export item で `some 0` が渡された場合は placeholder として拒否します。dependency hash を caller supplied typed input として扱い、path 文字列から作りません。
+fn selfhost_memo_trait_public_surface_hash_dependency_part_result %fn Option i32 Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \dependency_public_surface_hash:
+    match dependency_public_surface_hash:
+        Option::Some dependency_hash:
+            selfhost_memo_trait_public_surface_hash_nonzero_result dependency_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+        Option::None:
+            Result::Ok 0
+
+//: selfhost_memo_trait_public_surface_hash_input_item_result: input item 1 件を hash part へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - ordinal と payload hash は nonzero である必要があります。
+//: - source text、span、name、path、display、diagnostic は引数に取らず、typed input item の field だけを fold します。
+fn selfhost_memo_trait_public_surface_hash_input_item_result %fn SelfhostMemoTraitPublicSurfaceHashInputItem Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \item:
+    match selfhost_memo_trait_public_surface_hash_nonzero_result item.ordinal SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+        Result::Ok ordinal:
+            match selfhost_memo_trait_public_surface_hash_nonzero_result item.payload_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder:
+                Result::Ok payload_hash:
+                    match selfhost_memo_trait_public_surface_hash_dependency_part_result item.dependency_public_surface_hash:
+                        Result::Ok dependency_hash:
+                            let kind_hash %i32 selfhost_memo_trait_public_surface_hash_input_kind_code item.kind
+                            let visibility_hash %i32 selfhost_memo_trait_public_surface_hash_visibility_code item.visibility
+                            let header_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 kind_hash visibility_hash ordinal
+                            let body_hash %i32 selfhost_memo_trait_public_surface_hash_mix2 payload_hash dependency_hash
+                            let item_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 232101 header_hash body_hash
+                            selfhost_memo_trait_public_surface_hash_nonzero_result item_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+                        Result::Err dependency_error:
+                            Result::Err dependency_error
+                Result::Err payload_error:
+                    Result::Err payload_error
+        Result::Err ordinal_error:
+            Result::Err ordinal_error
+
+//: selfhost_memo_trait_public_surface_hash_input_table_result: ordered input table から public surface hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - item 順序は public surface hash の一部です。同じ item でも順序が違えば別の hash になります。
+//: - この関数は full public surface input schema だけを使い、seed table を別 schema で直接 fold しません。
+fn selfhost_memo_trait_public_surface_hash_input_table_result %fn SelfhostMemoTraitPublicSurfaceHashInputTable Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \table:
+    match selfhost_memo_trait_public_surface_hash_input_item_result table.first:
+        Result::Ok first_hash:
+            match selfhost_memo_trait_public_surface_hash_input_item_result table.second:
+                Result::Ok second_hash:
+                    let public_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 selfhost_memo_trait_public_surface_hash_input_schema_code first_hash second_hash
+                    selfhost_memo_trait_public_surface_hash_nonzero_result public_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+                Result::Err second_error:
+                    Result::Err second_error
+        Result::Err first_error:
+            Result::Err first_error
+
+//: selfhost_memo_trait_public_surface_hash_key_input_item_result: MemoKey seed を input item へ[変換/へんかん]する
+fn selfhost_memo_trait_public_surface_hash_key_input_item_result %fn SelfhostMemoTraitStableSourceTraitSeed Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
     if:
         selfhost_memo_trait_source_kind_eq seed.kind SelfhostMemoTraitSourceKind::MemoKeyTrait
         then:
@@ -602,11 +738,12 @@ fn selfhost_memo_trait_public_surface_hash_key_seed_result %fn SelfhostMemoTrait
                         Result::Ok declaration_ordinal:
                             match selfhost_memo_trait_public_surface_hash_option_result seed.normalized_signature_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignatureMissing SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyNormalizedSignaturePlaceholder:
                                 Result::Ok normalized_signature_hash:
-                                    let kind_hash %i32 selfhost_memo_trait_public_surface_hash_kind_code seed.kind
-                                    let visibility_hash %i32 selfhost_memo_trait_public_surface_hash_visibility_code seed.visibility
-                                    let header_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 kind_hash visibility_hash declaration_ordinal
-                                    let surface_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 211001 header_hash normalized_signature_hash
-                                    selfhost_memo_trait_public_surface_hash_nonzero_result surface_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeyDerivedSurfaceHashPlaceholder
+                                    Result::Ok selfhost_memo_trait_public_surface_hash_input_item_new:
+                                        SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait seed.kind
+                                        declaration_ordinal
+                                        seed.visibility
+                                        normalized_signature_hash
+                                        Option::None
                                 Result::Err signature_error:
                                     Result::Err signature_error
                         Result::Err ordinal_error:
@@ -616,8 +753,8 @@ fn selfhost_memo_trait_public_surface_hash_key_seed_result %fn SelfhostMemoTrait
         else:
             Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedKindMismatch
 
-//: selfhost_memo_trait_public_surface_hash_value_seed_result: MemoValue seed を surface hash part へ[変換/へんかん]する
-fn selfhost_memo_trait_public_surface_hash_value_seed_result %fn SelfhostMemoTraitStableSourceTraitSeed Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
+//: selfhost_memo_trait_public_surface_hash_value_input_item_result: MemoValue seed を input item へ[変換/へんかん]する
+fn selfhost_memo_trait_public_surface_hash_value_input_item_result %fn SelfhostMemoTraitStableSourceTraitSeed Result SelfhostMemoTraitPublicSurfaceHashInputItem SelfhostMemoTraitPublicSurfaceHashErrorKind \seed:
     if:
         selfhost_memo_trait_source_kind_eq seed.kind SelfhostMemoTraitSourceKind::MemoValueTrait
         then:
@@ -627,11 +764,12 @@ fn selfhost_memo_trait_public_surface_hash_value_seed_result %fn SelfhostMemoTra
                         Result::Ok declaration_ordinal:
                             match selfhost_memo_trait_public_surface_hash_option_result seed.normalized_signature_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignatureMissing SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueNormalizedSignaturePlaceholder:
                                 Result::Ok normalized_signature_hash:
-                                    let kind_hash %i32 selfhost_memo_trait_public_surface_hash_kind_code seed.kind
-                                    let visibility_hash %i32 selfhost_memo_trait_public_surface_hash_visibility_code seed.visibility
-                                    let header_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 kind_hash visibility_hash declaration_ordinal
-                                    let surface_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 211002 header_hash normalized_signature_hash
-                                    selfhost_memo_trait_public_surface_hash_nonzero_result surface_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueDerivedSurfaceHashPlaceholder
+                                    Result::Ok selfhost_memo_trait_public_surface_hash_input_item_new:
+                                        SelfhostMemoTraitPublicSurfaceHashInputKind::LocalMemoTrait seed.kind
+                                        declaration_ordinal
+                                        seed.visibility
+                                        normalized_signature_hash
+                                        Option::None
                                 Result::Err signature_error:
                                     Result::Err signature_error
                         Result::Err ordinal_error:
@@ -641,11 +779,12 @@ fn selfhost_memo_trait_public_surface_hash_value_seed_result %fn SelfhostMemoTra
         else:
             Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedKindMismatch
 
-//: selfhost_memo_trait_public_surface_hash_from_seed_table_result: seed table から public surface hash を[作/つく]る
+//: selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result: seed table を ordered input table へ[変換/へんかん]する
 //:
 //: [契約/けいやく]:
-//: - source text と span は引数に取りません。この関数の hash authority は seed table の typed field だけです。
-fn selfhost_memo_trait_public_surface_hash_from_seed_table_result %fn SelfhostMemoTraitStableSourceSeedTable Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed_table:
+//: - seed table の欠落・重複・kind mismatch は、旧 API と同じ typed error で返します。
+//: - 変換後の accepted payload は seed table ではなく ordered input table です。full public surface normalizer の後続 item もこの境界に接続します。
+fn selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result %fn SelfhostMemoTraitStableSourceSeedTable Result SelfhostMemoTraitPublicSurfaceHashInputTable SelfhostMemoTraitPublicSurfaceHashErrorKind \seed_table:
     if:
         seed_table.duplicate_memo_key
         then:
@@ -660,12 +799,11 @@ fn selfhost_memo_trait_public_surface_hash_from_seed_table_result %fn SelfhostMe
                         Option::Some key_seed:
                             match seed_table.memo_value:
                                 Option::Some value_seed:
-                                    match selfhost_memo_trait_public_surface_hash_key_seed_result key_seed:
-                                        Result::Ok key_hash:
-                                            match selfhost_memo_trait_public_surface_hash_value_seed_result value_seed:
-                                                Result::Ok value_hash:
-                                                    let public_hash %i32 selfhost_memo_trait_public_surface_hash_mix3 selfhost_memo_trait_public_surface_hash_schema_code key_hash value_hash
-                                                    selfhost_memo_trait_public_surface_hash_nonzero_result public_hash SelfhostMemoTraitPublicSurfaceHashErrorKind::PublicSurfaceHashPlaceholder
+                                    match selfhost_memo_trait_public_surface_hash_key_input_item_result key_seed:
+                                        Result::Ok key_item:
+                                            match selfhost_memo_trait_public_surface_hash_value_input_item_result value_seed:
+                                                Result::Ok value_item:
+                                                    Result::Ok selfhost_memo_trait_public_surface_hash_input_table_new key_item value_item
                                                 Result::Err value_error:
                                                     Result::Err value_error
                                         Result::Err key_error:
@@ -674,6 +812,17 @@ fn selfhost_memo_trait_public_surface_hash_from_seed_table_result %fn SelfhostMe
                                     Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoValueSeedMissing
                         Option::None:
                             Result::Err SelfhostMemoTraitPublicSurfaceHashErrorKind::MemoKeySeedMissing
+
+//: selfhost_memo_trait_public_surface_hash_from_seed_table_result: seed table から public surface hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - source text と span は引数に取りません。この関数は seed table を ordered full-surface input table へ変換し、その typed field だけを hash authority にします。
+fn selfhost_memo_trait_public_surface_hash_from_seed_table_result %fn SelfhostMemoTraitStableSourceSeedTable Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \seed_table:
+    match selfhost_memo_trait_public_surface_hash_input_table_from_seed_table_result seed_table:
+        Result::Ok input_table:
+            selfhost_memo_trait_public_surface_hash_input_table_result input_table
+        Result::Err input_error:
+            Result::Err input_error
 
 //: selfhost_memo_trait_public_surface_hash_validate_module_identity_result: caller supplied module identity を[検査/けんさ]する
 fn selfhost_memo_trait_public_surface_hash_validate_module_identity_result %fn Option i32 Result i32 SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity_hash:
@@ -1399,10 +1548,10 @@ fn selfhost_memo_trait_public_surface_hash_registry_materialize_with_tokens_resu
 //: selfhost_memo_trait_public_surface_hash_materialize_result: AST から module seed と seed table を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - caller supplied module identity、hash module 内部の single-pass marker trait seed scan、typed seed table folding を結合します。
+//: - caller supplied module identity、hash module 内部の single-pass marker trait seed scan、ordered input table folding を結合します。
 //:
 //: [契約/けいやく]:
-//: - `source` は trait head name を `MemoKey` / `MemoValue` に分類するためだけに渡します。public surface hash authority は `selfhost_memo_trait_public_surface_hash_from_seed_table_result` の seed table field です。
+//: - `source` は trait head name を `MemoKey` / `MemoValue` に分類するためだけに渡します。public surface hash authority は `selfhost_memo_trait_public_surface_hash_from_seed_table_result` が作る ordered input table field です。
 pub fn selfhost_memo_trait_public_surface_hash_materialize_result %fn Option i32 fn str fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity_hash\source\ast:
     match selfhost_memo_trait_public_surface_hash_validate_module_identity_result module_identity_hash:
         Result::Ok accepted_module_identity:
@@ -1424,11 +1573,11 @@ pub fn selfhost_memo_trait_public_surface_hash_materialize_result %fn Option i32
 //: selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result: token-aware AST から module seed と seed table を[作/つく]る
 //:
 //: [目的/もくてき]:
-//: - caller supplied module identity、hash module 内部の single-pass token-aware seed scan、typed seed table folding を結合します。
+//: - caller supplied module identity、hash module 内部の single-pass token-aware seed scan、ordered input table folding を結合します。
 //:
 //: [契約/けいやく]:
 //: - `tokens` は `ast` と同じ parser input から来ている必要があります。この関数は source を再 lex しません。
-//: - hash folding は従来通り seed table の typed field だけを読み、source text や span を hash authority にしません。
+//: - hash folding は seed table を ordered input table へ変換してから行い、source text や span を hash authority にしません。
 fn selfhost_memo_trait_public_surface_hash_materialize_with_tokens_result %impure fn Option i32 impure fn str impure fn &Vec SelfhostToken impure fn &SelfhostModuleAst Result SelfhostMemoTraitPublicSurfaceHashMaterialization SelfhostMemoTraitPublicSurfaceHashErrorKind \module_identity_hash\source\tokens\ast:
     match selfhost_memo_trait_public_surface_hash_validate_module_identity_result module_identity_hash:
         Result::Ok accepted_module_identity:
