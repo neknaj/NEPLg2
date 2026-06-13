@@ -303,6 +303,33 @@ Subagent review:
 
 - cleanup 後に no fallback、platform boundary、same app code contract が崩れていないか確認させる。
 
+## Phase 7: font and 2D renderer contract slice
+
+目的:
+
+- Bitmap surface / offscreen / headless の formal contract の上に、本格 font rendering と 2D renderer の typed boundary を追加する。
+- `MockTextMeasurer` と fixed bitmap font は test utility として残し、formal font renderer の代替にしない。
+
+関連文書:
+
+- `doc/neplg2/gui_font_rendering_spec.md`
+- `doc/neplg2/gui_font_rendering_detailed_design.md`
+- `doc/neplg2/gui_font_rendering_implementation_plan.md`
+- `doc/neplg2/gui_font_rendering_design.md`
+- `doc/neplg2/gui_2d_rendering_design.md`
+
+実装順:
+
+1. `core/gui/font` と `core/gui/render_style` に no_alloc contract を追加する。multi-shadow は `GuiShadowRef` で表し、core は `Vec` を持たない。
+2. `std/gui/font_resource` に typed resource request を追加する。resource hash と path は専用 value で表し、display name や path suffix を authority にしない。
+3. Web VFS / native resource root / bare embedded blob の resource provider contract を接続する。
+4. alloc layer に sfnt metadata parser、metrics、glyph outline、shaping、ruby、vertical、math bridge を段階実装する。
+
+Gate:
+
+- Phase F1/F2 は subagent が font/2D 文書と Zenn 方針を確認し、implementation may start を返してから実装する。
+- 実装中も core/alloc/std/platform の dependency direction、fallback 禁止、typed error、doctest と source policy を review させる。
+
 ## Checkpoint commit policy
 
 - Phase ごとに focused verification を通して commit する。

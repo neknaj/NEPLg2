@@ -1,0 +1,225 @@
+//: # core/gui/render_style
+//: 2D renderer と font renderer が[共有/きょうゆう]する paint style contract
+//:
+//: ### [目的/もくてき]
+//: - glyph、path、UI skin が同じ fill / stroke / shadow / blend model を[使/つか]えるようにします。
+//: - no_alloc core では multi-shadow の実体を持たず、`GuiShadowRef` で single shadow または alloc-owned shadow run を[参照/さんしょう]します。
+//:
+//: ### [契約/けいやく]
+//: - fill と stroke がどちらも `Option::None` の glyph paint は invalid command です。
+//: - shadow blur / spread は 0 以上です。負値は `GuiError::InvalidCommand` です。
+//: - DOM、Canvas、SVG renderer、OS brush handle はこの module に[入/い]れません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/render_style" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/gui/render_command" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiRenderStyleOpaqueIdProof: checked constructor を通った render style id の module-private proof
+//:
+//: neplg2:test[skip]
+struct GuiRenderStyleOpaqueIdProof:
+    raw %i32
+
+//: gui_render_style_opaque_id_proof: style id constructor へ[渡/わた]す proof value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_render_style_opaque_id_proof %fn i32 GuiRenderStyleOpaqueIdProof \raw:
+    GuiRenderStyleOpaqueIdProof raw
+
+//: GuiBlendMode: pixel 合成の基本 mode
+//:
+//: neplg2:test[skip]
+pub enum GuiBlendMode:
+    SourceOver
+    Copy
+    Multiply
+    Screen
+
+impl Clone for GuiBlendMode:
+    fn clone %fn &GuiBlendMode GuiBlendMode \mode:
+        *mode
+
+impl Copy for GuiBlendMode:
+    fn copy_mark %fn GuiBlendMode GuiBlendMode \mode:
+        mode
+
+//: GuiShadowRunId: alloc layer が owns する multi-shadow run を[参照/さんしょう]する id
+//:
+//: neplg2:test[skip]
+pub struct GuiShadowRunId:
+    raw %i32
+    proof %GuiRenderStyleOpaqueIdProof
+
+impl Clone for GuiShadowRunId:
+    fn clone %fn &GuiShadowRunId GuiShadowRunId \id:
+        let raw %i32 *field::get_ref id "raw"
+        GuiShadowRunId raw gui_render_style_opaque_id_proof raw
+
+impl Copy for GuiShadowRunId:
+    fn copy_mark %fn GuiShadowRunId GuiShadowRunId \id:
+        let raw %i32 *field::get_ref &id "raw"
+        GuiShadowRunId raw gui_render_style_opaque_id_proof raw
+
+//: GuiShadow: single shadow の no_alloc value
+//:
+//: neplg2:test[skip]
+pub struct GuiShadow:
+    offset %GuiPoint
+    blur_radius %i32
+    spread %i32
+    paint %GuiPaint
+
+impl Clone for GuiShadow:
+    fn clone %fn &GuiShadow GuiShadow \shadow:
+        *shadow
+
+impl Copy for GuiShadow:
+    fn copy_mark %fn GuiShadow GuiShadow \shadow:
+        shadow
+
+//: GuiShadowRef: no_alloc core と alloc-backed multi-shadow の[接点/せってん]
+//:
+//: neplg2:test[skip]
+pub enum GuiShadowRef:
+    NoShadow
+    SingleShadow %GuiShadow
+    ShadowRun %GuiShadowRunId
+
+impl Clone for GuiShadowRef:
+    fn clone %fn &GuiShadowRef GuiShadowRef \ref:
+        *ref
+
+impl Copy for GuiShadowRef:
+    fn copy_mark %fn GuiShadowRef GuiShadowRef \ref:
+        ref
+
+//: GuiGlyphPaint: glyph rendering 用 paint contract
+//:
+//: neplg2:test[skip]
+pub struct GuiGlyphPaint:
+    fill %Option GuiPaint
+    stroke %Option GuiStroke
+    shadows %GuiShadowRef
+    blend %GuiBlendMode
+
+impl Clone for GuiGlyphPaint:
+    fn clone %fn &GuiGlyphPaint GuiGlyphPaint \paint:
+        *paint
+
+impl Copy for GuiGlyphPaint:
+    fn copy_mark %fn GuiGlyphPaint GuiGlyphPaint \paint:
+        paint
+
+//: gui_shadow_run_id_unchecked: module-private proof と raw id から shadow run id を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_shadow_run_id_unchecked %fn i32 GuiShadowRunId \raw:
+    GuiShadowRunId raw gui_render_style_opaque_id_proof raw
+
+//: gui_shadow_run_id_result: raw id を[検査/けんさ]して shadow run id を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_run_id_result %fn i32 Result GuiShadowRunId GuiError \raw:
+    if gt raw 0:
+        then Result::Ok gui_shadow_run_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_shadow_run_id_raw: shadow run id の raw value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_run_id_raw %fn &GuiShadowRunId i32 \id:
+    *field::get_ref id "raw"
+
+//: gui_shadow_result: single shadow を[検査/けんさ]して[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_result %fn GuiPoint fn i32 fn i32 fn GuiPaint Result GuiShadow GuiError \offset\blur_radius\spread\paint:
+    if or lt blur_radius 0 lt spread 0:
+        then Result::Err GuiError::InvalidCommand
+        else Result::Ok GuiShadow offset blur_radius spread paint
+
+//: gui_shadow_offset: shadow offset を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_offset %fn &GuiShadow GuiPoint \shadow:
+    *field::get_ref shadow "offset"
+
+//: gui_shadow_blur_radius: shadow blur radius を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_blur_radius %fn &GuiShadow i32 \shadow:
+    *field::get_ref shadow "blur_radius"
+
+//: gui_shadow_spread: shadow spread を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_spread %fn &GuiShadow i32 \shadow:
+    *field::get_ref shadow "spread"
+
+//: gui_shadow_paint: shadow paint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_paint %fn &GuiShadow GuiPaint \shadow:
+    *field::get_ref shadow "paint"
+
+//: gui_shadow_ref_none: shadow なしの reference を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_ref_none %fn void GuiShadowRef \void:
+    GuiShadowRef::NoShadow
+
+//: gui_shadow_ref_single: single shadow reference を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_ref_single %fn GuiShadow GuiShadowRef \shadow:
+    GuiShadowRef::SingleShadow shadow
+
+//: gui_shadow_ref_run: alloc-owned shadow run reference を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_shadow_ref_run %fn GuiShadowRunId GuiShadowRef \id:
+    GuiShadowRef::ShadowRun id
+
+//: gui_glyph_paint_result: glyph paint を[検査/けんさ]して[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_paint_result %fn Option GuiPaint fn Option GuiStroke fn GuiShadowRef fn GuiBlendMode Result GuiGlyphPaint GuiError \fill\stroke\shadows\blend:
+    if and is_none fill is_none stroke:
+        then Result::Err GuiError::InvalidCommand
+        else Result::Ok GuiGlyphPaint fill stroke shadows blend
+
+//: gui_glyph_paint_fill: glyph paint の fill を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_paint_fill %fn &GuiGlyphPaint Option GuiPaint \paint:
+    *field::get_ref paint "fill"
+
+//: gui_glyph_paint_stroke: glyph paint の stroke を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_paint_stroke %fn &GuiGlyphPaint Option GuiStroke \paint:
+    *field::get_ref paint "stroke"
+
+//: gui_glyph_paint_shadows: glyph paint の shadow reference を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_paint_shadows %fn &GuiGlyphPaint GuiShadowRef \paint:
+    *field::get_ref paint "shadows"
+
+//: gui_glyph_paint_blend: glyph paint の blend mode を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_paint_blend %fn &GuiGlyphPaint GuiBlendMode \paint:
+    *field::get_ref paint "blend"

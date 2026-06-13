@@ -1,0 +1,221 @@
+//: # std/gui/font_resource
+//: formal font renderer に font resource request を[渡/わた]す std layer contract
+//:
+//: ### [目的/もくてき]
+//: - Web VFS、native filesystem、bare embedded blob の[差/さ]を platform backend へ[閉/と]じ、standard API には typed request だけを[公開/こうかい]します。
+//: - `fonts/HackGenConsoleNF-Regular.ttf` は最初の fixture ですが、この module は HackGen 専用 API を[持/も]ちません。
+//:
+//: ### [契約/けいやく]
+//: - path は `GuiFontResourcePath` として保持し、display name や family name の authority にしません。
+//: - `face_index` が `Some n` で `n < 0` の[場合/ばあい]は `GuiError::InvalidCommand` です。
+//: - collection face count を必要とする検査は font bytes を[読/よ]める parser / registry phase で[行/おこな]います。
+//: - DOM、Canvas、FontFace、CoreText、DirectWrite、fontconfig handle はこの module の public value に[入/い]れません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/font_resource" as *
+//: ```
+
+#indent 4
+
+#import "alloc/string" as *
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontResourceOpaqueIdProof: checked constructor を通った resource id の module-private proof
+//:
+//: neplg2:test[skip]
+struct GuiFontResourceOpaqueIdProof:
+    raw %i32
+
+//: gui_font_resource_opaque_id_proof: resource id constructor へ[渡/わた]す proof value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_resource_opaque_id_proof %fn i32 GuiFontResourceOpaqueIdProof \raw:
+    GuiFontResourceOpaqueIdProof raw
+
+//: GuiFontDecodePolicy: font container decode の[許可/きょか][範囲/はんい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontDecodePolicy:
+    SfntOnly
+    SfntAndWoff
+    AllSupportedContainers
+
+impl Clone for GuiFontDecodePolicy:
+    fn clone %fn &GuiFontDecodePolicy GuiFontDecodePolicy \policy:
+        *policy
+
+impl Copy for GuiFontDecodePolicy:
+    fn copy_mark %fn GuiFontDecodePolicy GuiFontDecodePolicy \policy:
+        policy
+
+//: GuiFontResourceSource: host resource provider の[種類/しゅるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontResourceSource:
+    Vfs
+    FileSystem
+    EmbeddedBlob
+
+impl Clone for GuiFontResourceSource:
+    fn clone %fn &GuiFontResourceSource GuiFontResourceSource \source:
+        *source
+
+impl Copy for GuiFontResourceSource:
+    fn copy_mark %fn GuiFontResourceSource GuiFontResourceSource \source:
+        source
+
+//: GuiFontResourceId: 登録済み font resource を[参照/さんしょう]する opaque id
+//:
+//: neplg2:test[skip]
+pub struct GuiFontResourceId:
+    raw %i32
+    proof %GuiFontResourceOpaqueIdProof
+
+impl Clone for GuiFontResourceId:
+    fn clone %fn &GuiFontResourceId GuiFontResourceId \id:
+        let raw %i32 *field::get_ref id "raw"
+        GuiFontResourceId raw gui_font_resource_opaque_id_proof raw
+
+impl Copy for GuiFontResourceId:
+    fn copy_mark %fn GuiFontResourceId GuiFontResourceId \id:
+        let raw %i32 *field::get_ref &id "raw"
+        GuiFontResourceId raw gui_font_resource_opaque_id_proof raw
+
+//: GuiResourceHash: resource bytes の opaque hash
+//:
+//: neplg2:test[skip]
+pub struct GuiResourceHash:
+    raw %i32
+
+impl Clone for GuiResourceHash:
+    fn clone %fn &GuiResourceHash GuiResourceHash \hash:
+        *hash
+
+impl Copy for GuiResourceHash:
+    fn copy_mark %fn GuiResourceHash GuiResourceHash \hash:
+        hash
+
+//: GuiFontResourcePath: font resource path の typed wrapper
+//:
+//: neplg2:test[skip]
+pub struct GuiFontResourcePath:
+    path %str
+
+impl Clone for GuiFontResourcePath:
+    fn clone %fn &GuiFontResourcePath GuiFontResourcePath \path:
+        *path
+
+impl Copy for GuiFontResourcePath:
+    fn copy_mark %fn GuiFontResourcePath GuiFontResourcePath \path:
+        path
+
+//: GuiFontResourceRequest: font bytes decode の request value
+//:
+//: neplg2:test[skip]
+pub struct GuiFontResourceRequest:
+    path %GuiFontResourcePath
+    face_index %Option i32
+    expected_hash %Option GuiResourceHash
+    decode_policy %GuiFontDecodePolicy
+
+impl Clone for GuiFontResourceRequest:
+    fn clone %fn &GuiFontResourceRequest GuiFontResourceRequest \request:
+        *request
+
+impl Copy for GuiFontResourceRequest:
+    fn copy_mark %fn GuiFontResourceRequest GuiFontResourceRequest \request:
+        request
+
+//: gui_font_resource_id_unchecked: module-private proof と raw id から resource id を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_font_resource_id_unchecked %fn i32 GuiFontResourceId \raw:
+    GuiFontResourceId raw gui_font_resource_opaque_id_proof raw
+
+//: gui_font_resource_id_result: raw id を[検査/けんさ]して resource id を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_id_result %fn i32 Result GuiFontResourceId GuiError \raw:
+    if gt raw 0:
+        then Result::Ok gui_font_resource_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_font_resource_id_raw: resource id の raw value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_id_raw %fn &GuiFontResourceId i32 \id:
+    *field::get_ref id "raw"
+
+//: gui_resource_hash: opaque resource hash value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_resource_hash %fn i32 GuiResourceHash \raw:
+    GuiResourceHash raw
+
+//: gui_resource_hash_raw: resource hash の raw value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_resource_hash_raw %fn &GuiResourceHash i32 \hash:
+    *field::get_ref hash "raw"
+
+//: gui_font_resource_path_result: font resource path を[検査/けんさ]して[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_path_result %fn str Result GuiFontResourcePath GuiError \path:
+    if gt len path 0:
+        then Result::Ok GuiFontResourcePath path
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_font_resource_path_value: resource path string を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_path_value %fn &GuiFontResourcePath str \path:
+    *field::get_ref path "path"
+
+//: gui_font_face_index_is_valid: request shape としての face index を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_font_face_index_is_valid %fn Option i32 bool \face_index:
+    match face_index:
+        Option::Some index:
+            ge index 0
+        Option::None:
+            true
+
+//: gui_font_resource_request: font resource request を[検査/けんさ]して[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_request %fn GuiFontResourcePath fn Option i32 fn Option GuiResourceHash fn GuiFontDecodePolicy Result GuiFontResourceRequest GuiError \path\face_index\expected_hash\decode_policy:
+    if gui_font_face_index_is_valid face_index:
+        then Result::Ok GuiFontResourceRequest path face_index expected_hash decode_policy
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_font_resource_request_path: request の typed path を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_request_path %fn &GuiFontResourceRequest GuiFontResourcePath \request:
+    *field::get_ref request "path"
+
+//: gui_font_resource_request_face_index: request の optional face index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_request_face_index %fn &GuiFontResourceRequest Option i32 \request:
+    *field::get_ref request "face_index"
+
+//: gui_font_resource_request_expected_hash: request の optional expected hash を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_request_expected_hash %fn &GuiFontResourceRequest Option GuiResourceHash \request:
+    *field::get_ref request "expected_hash"
+
+//: gui_font_resource_request_decode_policy: request の decode policy を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_resource_request_decode_policy %fn &GuiFontResourceRequest GuiFontDecodePolicy \request:
+    *field::get_ref request "decode_policy"

@@ -1,0 +1,338 @@
+//: # core/gui/font
+//: GUI font rendering の no_alloc contract
+//:
+//: ### [目的/もくてき]
+//: - font face、glyph、writing mode、metrics を DOM、Canvas、OS font handle、allocator に[依存/いぞん]しない value として[定義/ていぎ]します。
+//: - formal font renderer と layout engine が、fixed-cell fallback ではなく同じ metrics contract を[共有/きょうゆう]できるようにします。
+//:
+//: ### [契約/けいやく]
+//: - raw id は checked constructor で 1 以上だけを[許可/きょか]します。
+//: - font size denominator が 0 以下の[場合/ばあい]は `GuiError::InvalidCommand` を[返/かえ]します。
+//: - `GuiFontErrorKind` は display string ではなく、後続 diagnostic payload へ[接続/せつぞく]する typed category です。
+//:
+//: ### [現状/げんじょう]
+//: - この checkpoint は metrics value と validation helper だけを[提供/ていきょう]します。TTF/OTF parser、glyph outline、rasterizer は alloc/gui/font の後続 phase で[実装/じっそう]します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "core/gui/font" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/gui/geometry" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiFontOpaqueIdProof: checked constructor を通った raw id であることを[示/しめ]す module-private proof
+//:
+//: neplg2:test[skip]
+struct GuiFontOpaqueIdProof:
+    raw %i32
+
+//: gui_font_opaque_id_proof: opaque id constructor へ[渡/わた]す proof value を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_font_opaque_id_proof %fn i32 GuiFontOpaqueIdProof \raw:
+    GuiFontOpaqueIdProof raw
+
+//: GuiFontFaceId: 登録済み font face を[参照/さんしょう]する opaque id
+//:
+//: neplg2:test[skip]
+pub struct GuiFontFaceId:
+    raw %i32
+    proof %GuiFontOpaqueIdProof
+
+impl Clone for GuiFontFaceId:
+    fn clone %fn &GuiFontFaceId GuiFontFaceId \id:
+        let raw %i32 *field::get_ref id "raw"
+        GuiFontFaceId raw gui_font_opaque_id_proof raw
+
+impl Copy for GuiFontFaceId:
+    fn copy_mark %fn GuiFontFaceId GuiFontFaceId \id:
+        let raw %i32 *field::get_ref &id "raw"
+        GuiFontFaceId raw gui_font_opaque_id_proof raw
+
+//: GuiGlyphId: font face 内の glyph を[参照/さんしょう]する opaque id
+//:
+//: neplg2:test[skip]
+pub struct GuiGlyphId:
+    raw %i32
+    proof %GuiFontOpaqueIdProof
+
+impl Clone for GuiGlyphId:
+    fn clone %fn &GuiGlyphId GuiGlyphId \id:
+        let raw %i32 *field::get_ref id "raw"
+        GuiGlyphId raw gui_font_opaque_id_proof raw
+
+impl Copy for GuiGlyphId:
+    fn copy_mark %fn GuiGlyphId GuiGlyphId \id:
+        let raw %i32 *field::get_ref &id "raw"
+        GuiGlyphId raw gui_font_opaque_id_proof raw
+
+//: GuiWritingMode: text progression と glyph placement の[方向/ほうこう]
+//:
+//: neplg2:test[skip]
+pub enum GuiWritingMode:
+    HorizontalLtr
+    HorizontalRtl
+    VerticalRl
+    VerticalLr
+
+impl Clone for GuiWritingMode:
+    fn clone %fn &GuiWritingMode GuiWritingMode \mode:
+        *mode
+
+impl Copy for GuiWritingMode:
+    fn copy_mark %fn GuiWritingMode GuiWritingMode \mode:
+        mode
+
+//: GuiFontErrorKind: font contract 固有の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiFontErrorKind:
+    InvalidFontSize
+    InvalidFaceIndex
+    FaceIndexRequired
+    MissingFontResource
+    UnsupportedFontContainer
+    MissingGlyph
+    InvalidGlyphPaint
+
+impl Clone for GuiFontErrorKind:
+    fn clone %fn &GuiFontErrorKind GuiFontErrorKind \kind:
+        *kind
+
+impl Copy for GuiFontErrorKind:
+    fn copy_mark %fn GuiFontErrorKind GuiFontErrorKind \kind:
+        kind
+
+//: GuiFontSize: font size の fixed-point value
+//:
+//: neplg2:test[skip]
+pub struct GuiFontSize:
+    px_num %i32
+    px_den %i32
+
+impl Clone for GuiFontSize:
+    fn clone %fn &GuiFontSize GuiFontSize \size:
+        *size
+
+impl Copy for GuiFontSize:
+    fn copy_mark %fn GuiFontSize GuiFontSize \size:
+        size
+
+//: GuiFontMetrics: face/size/writing mode から[得/え]る line metrics
+//:
+//: neplg2:test[skip]
+pub struct GuiFontMetrics:
+    ascent %i32
+    descent %i32
+    line_gap %i32
+    em_size %i32
+
+impl Clone for GuiFontMetrics:
+    fn clone %fn &GuiFontMetrics GuiFontMetrics \metrics:
+        *metrics
+
+impl Copy for GuiFontMetrics:
+    fn copy_mark %fn GuiFontMetrics GuiFontMetrics \metrics:
+        metrics
+
+//: GuiGlyphMetrics: glyph 1 個の advance と描画 bounds
+//:
+//: neplg2:test[skip]
+pub struct GuiGlyphMetrics:
+    glyph %GuiGlyphId
+    advance_x %i32
+    advance_y %i32
+    ink_bounds %GuiRect
+    allocation_bounds %GuiRect
+
+impl Clone for GuiGlyphMetrics:
+    fn clone %fn &GuiGlyphMetrics GuiGlyphMetrics \metrics:
+        *metrics
+
+impl Copy for GuiGlyphMetrics:
+    fn copy_mark %fn GuiGlyphMetrics GuiGlyphMetrics \metrics:
+        metrics
+
+//: GuiRenderedTextMetrics: layout と rendering が[共有/きょうゆう]する text bounds
+//:
+//: neplg2:test[skip]
+pub struct GuiRenderedTextMetrics:
+    logical_bounds %GuiRect
+    ink_bounds %GuiRect
+    allocation_bounds %GuiRect
+    baseline %i32
+
+impl Clone for GuiRenderedTextMetrics:
+    fn clone %fn &GuiRenderedTextMetrics GuiRenderedTextMetrics \metrics:
+        *metrics
+
+impl Copy for GuiRenderedTextMetrics:
+    fn copy_mark %fn GuiRenderedTextMetrics GuiRenderedTextMetrics \metrics:
+        metrics
+
+//: gui_font_face_id_unchecked: module-private proof と raw id から face id を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_font_face_id_unchecked %fn i32 GuiFontFaceId \raw:
+    GuiFontFaceId raw gui_font_opaque_id_proof raw
+
+//: gui_glyph_id_unchecked: module-private proof と raw id から glyph id を[組/く]み[立/た]てる
+//:
+//: neplg2:test[skip]
+fn gui_glyph_id_unchecked %fn i32 GuiGlyphId \raw:
+    GuiGlyphId raw gui_font_opaque_id_proof raw
+
+//: gui_font_face_id_result: raw id を[検査/けんさ]して font face id を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_face_id_result %fn i32 Result GuiFontFaceId GuiError \raw:
+    if gt raw 0:
+        then Result::Ok gui_font_face_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_glyph_id_result: raw id を[検査/けんさ]して glyph id を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_id_result %fn i32 Result GuiGlyphId GuiError \raw:
+    if gt raw 0:
+        then Result::Ok gui_glyph_id_unchecked raw
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_font_face_id_raw: font face id の raw value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_face_id_raw %fn &GuiFontFaceId i32 \id:
+    *field::get_ref id "raw"
+
+//: gui_glyph_id_raw: glyph id の raw value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_id_raw %fn &GuiGlyphId i32 \id:
+    *field::get_ref id "raw"
+
+//: gui_font_size_result: font size を[検査/けんさ]して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - denominator は 1 以上でなければなりません。
+//: - numerator の単位や fixed-point scale は renderer/layout contract が[決/き]めます。
+//:
+//: neplg2:test[skip]
+pub fn gui_font_size_result %fn i32 fn i32 Result GuiFontSize GuiError \px_num\px_den:
+    if gt px_den 0:
+        then Result::Ok GuiFontSize px_num px_den
+        else Result::Err GuiError::InvalidCommand
+
+//: gui_font_size_px_num: font size numerator を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_size_px_num %fn &GuiFontSize i32 \size:
+    *field::get_ref size "px_num"
+
+//: gui_font_size_px_den: font size denominator を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_size_px_den %fn &GuiFontSize i32 \size:
+    *field::get_ref size "px_den"
+
+//: gui_font_metrics: line metrics value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_font_metrics %fn i32 fn i32 fn i32 fn i32 GuiFontMetrics \ascent\descent\line_gap\em_size:
+    GuiFontMetrics ascent descent line_gap em_size
+
+//: gui_font_metrics_ascent: baseline より上側の ascent を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_metrics_ascent %fn &GuiFontMetrics i32 \metrics:
+    *field::get_ref metrics "ascent"
+
+//: gui_font_metrics_descent: baseline より下側の descent を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_metrics_descent %fn &GuiFontMetrics i32 \metrics:
+    *field::get_ref metrics "descent"
+
+//: gui_font_metrics_line_gap: line gap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_metrics_line_gap %fn &GuiFontMetrics i32 \metrics:
+    *field::get_ref metrics "line_gap"
+
+//: gui_font_metrics_em_size: em size を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_font_metrics_em_size %fn &GuiFontMetrics i32 \metrics:
+    *field::get_ref metrics "em_size"
+
+//: gui_glyph_metrics: glyph metrics value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_metrics %fn GuiGlyphId fn i32 fn i32 fn GuiRect fn GuiRect GuiGlyphMetrics \glyph\advance_x\advance_y\ink_bounds\allocation_bounds:
+    GuiGlyphMetrics glyph advance_x advance_y ink_bounds allocation_bounds
+
+//: gui_glyph_metrics_glyph: metrics が[対象/たいしょう]にする glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_metrics_glyph %fn &GuiGlyphMetrics GuiGlyphId \metrics:
+    *field::get_ref metrics "glyph"
+
+//: gui_glyph_metrics_advance_x: horizontal advance を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_metrics_advance_x %fn &GuiGlyphMetrics i32 \metrics:
+    *field::get_ref metrics "advance_x"
+
+//: gui_glyph_metrics_advance_y: vertical advance を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_metrics_advance_y %fn &GuiGlyphMetrics i32 \metrics:
+    *field::get_ref metrics "advance_y"
+
+//: gui_glyph_metrics_ink_bounds: glyph ink bounds を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_metrics_ink_bounds %fn &GuiGlyphMetrics GuiRect \metrics:
+    *field::get_ref metrics "ink_bounds"
+
+//: gui_glyph_metrics_allocation_bounds: glyph allocation bounds を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_glyph_metrics_allocation_bounds %fn &GuiGlyphMetrics GuiRect \metrics:
+    *field::get_ref metrics "allocation_bounds"
+
+//: gui_rendered_text_metrics: rendered text metrics value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_rendered_text_metrics %fn GuiRect fn GuiRect fn GuiRect fn i32 GuiRenderedTextMetrics \logical_bounds\ink_bounds\allocation_bounds\baseline:
+    GuiRenderedTextMetrics logical_bounds ink_bounds allocation_bounds baseline
+
+//: gui_rendered_text_metrics_logical_bounds: layout logical bounds を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_rendered_text_metrics_logical_bounds %fn &GuiRenderedTextMetrics GuiRect \metrics:
+    *field::get_ref metrics "logical_bounds"
+
+//: gui_rendered_text_metrics_ink_bounds: rendered ink bounds を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_rendered_text_metrics_ink_bounds %fn &GuiRenderedTextMetrics GuiRect \metrics:
+    *field::get_ref metrics "ink_bounds"
+
+//: gui_rendered_text_metrics_allocation_bounds: renderer allocation bounds を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_rendered_text_metrics_allocation_bounds %fn &GuiRenderedTextMetrics GuiRect \metrics:
+    *field::get_ref metrics "allocation_bounds"
+
+//: gui_rendered_text_metrics_baseline: rendered text baseline を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_rendered_text_metrics_baseline %fn &GuiRenderedTextMetrics i32 \metrics:
+    *field::get_ref metrics "baseline"

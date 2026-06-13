@@ -1,3 +1,41 @@
+# 2026-06-13 Agent GUI formal font / render style stdlib checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、platform detail の表層化、hidden fallback 禁止、`Option` / `Result` と enum error、`match` による静的検査、contract と現状実装の分離、doc test と source policy を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。
+- 対象 branch: `gui-font-render-plan-20260613`
+- classification: GUI font rendering / 2D rendering contract stdlib slice
+- design:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` を追加した。
+  - TTF / OTF / TTC / OTC / WOFF / WOFF2、font family、明示的 font fallback policy、fallback 不可時の typed `Result`、variable font、右横書き、縦書き、ruby / furigana、math layout 連携、rendered metrics、fill / stroke / shadow を formal design に含めた。
+  - `GuiShadowRef` は no_alloc core で `NoShadow` / `SingleShadow` / `ShadowRun` だけを持ち、multi-shadow の `Vec` owner は alloc layer へ置く。
+  - `web/src/fonts/HackGenConsoleNF-Regular.ttf` は initial fixture であり、HackGen 専用 API にはしない。
+  - fixed-cell `HostTextMeasurer` / `MockTextMeasurer` は legacy smoke / terminal / layout test に限定し、formal font renderer の fallback にしない。
+- implementation:
+  - `stdlib/core/gui/font.nepl` を追加し、`GuiFontFaceId`、`GuiGlyphId`、`GuiWritingMode`、`GuiFontErrorKind`、`GuiFontSize`、`GuiFontMetrics`、`GuiGlyphMetrics`、`GuiRenderedTextMetrics` を no_alloc value として定義した。
+  - `stdlib/core/gui/render_style.nepl` を追加し、2D renderer と font renderer で共有する `GuiBlendMode`、`GuiShadowRunId`、`GuiShadow`、`GuiShadowRef`、`GuiGlyphPaint` を定義した。
+  - `stdlib/std/gui/font_resource.nepl` を追加し、typed `GuiFontResourcePath`、`GuiResourceHash`、`GuiFontResourceRequest`、decode policy、resource id を std layer に置いた。path length 検査のため `alloc/string` を import するが、DOM / Canvas / FontFace / CoreText / DirectWrite / fontconfig handle は公開値に入れない。
+  - `stdlib/core/gui.nepl`、`stdlib/core/gui/prelude.nepl`、`stdlib/std/gui.nepl` の re-export を更新した。
+  - `tests/stdlib/gui_core.n.md` と `tests/stdlib/gui_std.n.md` に focused doctest を追加した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` を追加し、doc / stdlib / facade / doctest 契約を source policy に登録した。
+- subagent review:
+  - 初回 design review では `GuiGlyphPaint` の `shadow Option GuiShadow` と既存 `Vec Shadow` 方針の不整合、fixed-cell measurer の fallback 誤読、id / path / hash 命名の不統一、F2 validation scope、error category の未整理が blocker として出た。
+  - Required 対応として、`GuiShadowRef`、typed `GuiFontResourcePath` / `GuiResourceHash`、F2 は request shape validation のみ、`GuiFontErrorKind`、fixed-cell measurer quarantine を doc に反映した。
+  - re-review で implementation may start と判断された。
+  - 実装後 review では documentation contract の doc gap 増加が blocker として出たため、新規 declaration へ日本語 doc comment と doctest marker を追加した。
+  - 修正後 re-review で Blockers / Required なし。tmp JSON を commit しない条件で May commit / continue implementation: yes と判断された。
+- verify:
+  - pass: `node nodesrc/test_stdlib_documentation_contract.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core_font.json -j 1`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp_gui_std_font.json -j 1`
+  - pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+  - 既存 warning: Git の LF / CRLF working-copy warning、Node WASI ExperimentalWarning、既存 documentation sample gap は確認済み。今回差分由来の failure はない。
+- residual:
+  - TTF / OTF parser、font registry、glyph outline、rasterizer、font family fallback resolver、ruby / vertical layout engine、math layout 連携は後続 phase で実装する。
+  - Formal host import ABI で font resource provider と pixel/frame transport を stdout debug transport から分離する。
+
 # 2026-06-13 Agent GUI offscreen snapshot / virtual event checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、hidden fallback 禁止、`Option` / `Result` と enum error、platform detail の表層化、match による分岐、doc/test 分離、実装前後の subagent review を守る。

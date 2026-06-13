@@ -42,6 +42,97 @@ fn main %impure fn void i32 \void:
     test_report_exit_code shown
 ```
 
+## gui_font_resource_request_is_typed_boundary
+
+[目的/もくてき]:
+- font resource path と hash を typed value として保持し、empty path と negative face index を `GuiError::InvalidCommand` で拒否することを確認します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_font_resource_request_is_typed_boundary\" count=6 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"resource id\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=1 status=ok kind=str_eq label=\"path\" expected=\"fonts/HackGenConsoleNF-Regular.ttf\" actual=\"fonts/HackGenConsoleNF-Regular.ttf\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"face index\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"hash\" expected=\"-1\" actual=\"-1\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"empty path rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"negative face rejected\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn empty_path_rejected %fn void bool \void:
+    match gui_font_resource_path_result "":
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _path:
+            false
+
+fn negative_face_rejected %fn GuiFontResourcePath bool \path:
+    let no_hash %Option GuiResourceHash none
+    let negative %i32 sub 0 1
+    let bad_face %Option i32 some negative
+    match gui_font_resource_request path bad_face no_hash GuiFontDecodePolicy::SfntOnly:
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+        Result::Ok _request:
+            false
+
+fn face_index_value %fn &GuiFontResourceRequest i32 \request:
+    match gui_font_resource_request_face_index request:
+        Option::Some index:
+            index
+        Option::None:
+            sub 0 1
+
+fn hash_value %fn &GuiFontResourceRequest i32 \request:
+    match gui_font_resource_request_expected_hash request:
+        Option::Some hash:
+            gui_resource_hash_raw &hash
+        Option::None:
+            0
+
+fn main %impure fn void i32 \void:
+    let resource_id %GuiFontResourceId unwrap_ok gui_font_resource_id_result 5
+    let path %GuiFontResourcePath unwrap_ok gui_font_resource_path_result "fonts/HackGenConsoleNF-Regular.ttf"
+    let negative %i32 sub 0 1
+    let hash %GuiResourceHash gui_resource_hash negative
+    let face_zero %Option i32 some 0
+    let expected_hash %Option GuiResourceHash some hash
+    let request %GuiFontResourceRequest unwrap_ok gui_font_resource_request path face_zero expected_hash GuiFontDecodePolicy::SfntOnly
+    let request_path %GuiFontResourcePath gui_font_resource_request_path &request
+    let resource_id_value %i32 gui_font_resource_id_raw &resource_id
+    let request_path_value %str gui_font_resource_path_value &request_path
+    let face_index_actual %i32 face_index_value &request
+    let hash_actual %i32 hash_value &request
+    let empty_path_ok %bool empty_path_rejected
+    let negative_face_ok %bool negative_face_rejected path
+    let check0 assert_eq_i32 "resource id" 5 resource_id_value
+    let check1 assert_str_eq "path" "fonts/HackGenConsoleNF-Regular.ttf" request_path_value
+    let check2 assert_eq_i32 "face index" 0 face_index_actual
+    let check3 assert_eq_i32 "hash" negative hash_actual
+    let check4 assert "empty path rejected" empty_path_ok
+    let check5 assert "negative face rejected" negative_face_ok
+    let checks:
+        test_report_new "gui_font_resource_request_is_typed_boundary"
+        |> test_report_push check0
+        |> test_report_push check1
+        |> test_report_push check2
+        |> test_report_push check3
+        |> test_report_push check4
+        |> test_report_push check5
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
 ## gui_offscreen_snapshot_requires_offscreen_present_command
 
 [目的/もくてき]:
