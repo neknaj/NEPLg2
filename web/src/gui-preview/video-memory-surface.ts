@@ -43,6 +43,10 @@ export const GUI_VIDEO_MEMORY_SLOT_PUBLISHED = 3;
 export const GUI_VIDEO_MEMORY_SLOT_READING = 4;
 export const GUI_VIDEO_MEMORY_SLOT_CLOSED = 5;
 
+export type GuiVideoMemorySlotCleanupStatus =
+    | { kind: 'discarded' }
+    | { kind: 'cleanup-failed'; error: GuiVideoMemoryError };
+
 export type GuiVideoMemoryError =
     | { kind: 'shared-buffer-unavailable' }
     | { kind: 'invalid-surface-config'; width: number; height: number; slotCount: number }
@@ -61,10 +65,27 @@ export type GuiVideoMemoryError =
     | { kind: 'no-writable-slot' }
     | { kind: 'no-published-slot' }
     | { kind: 'stale-resize-generation'; expected: number; actual: number }
+    | {
+        kind: 'invalid-dirty-region';
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+        surfaceWidth: number;
+        surfaceHeight: number;
+        cleanup: GuiVideoMemorySlotCleanupStatus;
+    }
     | { kind: 'presenter-unavailable' }
+    | { kind: 'present-failed'; cleanup: GuiVideoMemorySlotCleanupStatus }
     | { kind: 'writer-closed' }
     | { kind: 'wait-unavailable' }
     | { kind: 'unsupported-pixel-format'; actual: number }
+    | {
+        kind: 'unsupported-stride';
+        strideBytes: number;
+        expectedStrideBytes: number;
+        cleanup: GuiVideoMemorySlotCleanupStatus;
+    }
     | { kind: 'unsupported-command'; commandKind: string };
 
 export type GuiVideoMemoryResult<T> =
@@ -408,6 +429,35 @@ export function releaseGuiVideoMemoryReadSlot(
         });
     }
     Atomics.store(slot.surface.header, HEADER_PRESENTED_EPOCH, slot.epoch);
+    Atomics.notify(slot.surface.slots, stateIndex, 1);
+    return guiVideoMemoryOk(undefined);
+}
+
+export function discardGuiVideoMemoryReadSlot(
+    slot: GuiVideoMemoryReadSlot,
+): GuiVideoMemoryResult<void> {
+    const currentGeneration = Atomics.load(slot.surface.header, HEADER_GENERATION);
+    if (slot.generation !== currentGeneration) {
+        return guiVideoMemoryErr({
+            kind: 'stale-resize-generation',
+            expected: currentGeneration,
+            actual: slot.generation,
+        });
+    }
+    const stateIndex = guiVideoMemorySlotWord(slot.slotIndex, SLOT_STATE);
+    const previous = Atomics.compareExchange(
+        slot.surface.slots,
+        stateIndex,
+        GUI_VIDEO_MEMORY_SLOT_READING,
+        GUI_VIDEO_MEMORY_SLOT_FREE,
+    );
+    if (previous !== GUI_VIDEO_MEMORY_SLOT_READING) {
+        return guiVideoMemoryErr({
+            kind: 'invalid-slot-state',
+            slotIndex: slot.slotIndex,
+            actual: previous,
+        });
+    }
     Atomics.notify(slot.surface.slots, stateIndex, 1);
     return guiVideoMemoryOk(undefined);
 }
