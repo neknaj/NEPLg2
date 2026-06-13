@@ -101,6 +101,10 @@ Subagent review:
 - header layout、2 slot 以上の pixel plane、epoch、dirty region、surface state、slot ownership state を実装する。
 - writer は `Free -> Writing -> Published`、presenter は `Published -> Reading -> Free` を `Atomics.compareExchange` / `Atomics.store` / `Atomics.notify` で進める。
 - presenter が `putImageData` を完了するまで slot を `Reading` として保持し、writer が同じ plane を上書きできないようにする。
+- Web presenter は `ImageData` を `SharedArrayBuffer` と slot index ごとに cache し、same-size frame の hot path で `ImageData` を再生成しない。
+- Dirty region は integer / non-negative / surface 内に収まることを検査し、範囲外なら typed error にする。Clamp しない。
+- Zero-size dirty region は valid no-op present とし、`putImageData` は呼ばず release して presented epoch を進める。
+- Canvas `putImageData` failure や invalid dirty region は slot を discard して writer を詰まらせない。ただし表示済みではないため presented epoch は進めない。
 - SAB unavailable は typed error にする。
 - invalid header、unsupported version、stale resize generation、presenter unavailable、writer closed、unsupported command も typed error にする。
 - `nodesrc/test_web_gui_video_memory_surface.js` を追加する。

@@ -16,9 +16,16 @@ async function loadVideoMemorySurfaceModule() {
     return import(pathToFileURL(modulePath).href);
 }
 
+async function loadVideoMemoryPresenterModule() {
+    const modulePath = path.resolve(__dirname, "..", "web", "dist_ts", "gui-preview", "video-memory-presenter.js");
+    return import(pathToFileURL(modulePath).href);
+}
+
 async function runWebGuiVideoMemorySurfaceRegression() {
     const videoMemory = await loadVideoMemorySurfaceModule();
+    const presenter = await loadVideoMemoryPresenterModule();
     const source = readRepoFile("web", "src", "gui-preview", "video-memory-surface.ts");
+    const presenterSource = readRepoFile("web", "src", "gui-preview", "video-memory-presenter.ts");
     const specSource = readRepoFile("doc", "neplg2", "gui_redesign_spec.md");
     const designSource = readRepoFile("doc", "neplg2", "gui_redesign_detailed_design.md");
     const planSource = readRepoFile("doc", "neplg2", "gui_redesign_implementation_plan.md");
@@ -57,14 +64,36 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.match(source, /unsupported-header-version/);
     assert.match(source, /invalid-header-layout/);
     assert.match(source, /wait-unavailable/);
+    assert.match(source, /invalid-dirty-region/);
+    assert.match(source, /present-failed/);
+    assert.match(source, /discardGuiVideoMemoryReadSlot/);
+    assert.match(source, /unsupported-stride/);
     assert.match(source, /unsupported-command/);
     assert.match(source, /const beforeWait = acquireGuiVideoMemoryReadSlot/);
     assert.doesNotMatch(source, /fallback/i);
 
+    assert.match(presenterSource, /putImageData/);
+    assert.match(presenterSource, /WeakMap<SharedArrayBuffer, Map<number, ImageData>>/);
+    assert.match(presenterSource, /discardGuiVideoMemoryReadSlot/);
+    assert.match(presenterSource, /releaseGuiVideoMemoryReadSlot/);
+    assert.match(presenterSource, /invalid-dirty-region/);
+    assert.match(presenterSource, /present-failed/);
+    assert.match(presenterSource, /unsupported-stride/);
+    assert.doesNotMatch(presenterSource, /\b(?:drawImage|fillRect|clearRect|scale|setTransform)\b/);
+    assert.doesNotMatch(presenterSource, /\b(?:Atomics\.store|Atomics\.compareExchange)\b/);
+    assert.doesNotMatch(presenterSource, /\b(?:postMessage|stdout|CSSStyleDeclaration)\b/);
+    assert.doesNotMatch(presenterSource, /\b(?:clamp|fallback)\b/i);
+
     assert.match(specSource, /2 個以上/);
     assert.match(designSource, /Free[\s\S]*Writing[\s\S]*Published/);
     assert.match(designSource, /Published[\s\S]*Reading[\s\S]*Free/);
+    assert.match(designSource, /Web Canvas video memory presenter/);
+    assert.match(designSource, /InvalidDirtyRegion/);
+    assert.match(designSource, /reject \/ failure[\s\S]*discard[\s\S]*presented_epoch は変更しない/);
+    assert.match(designSource, /SharedArrayBuffer[\s\S]*slot index[\s\S]*ImageData/);
     assert.match(planSource, /単一 buffer の共有読み書きは禁止/);
+    assert.match(planSource, /Dirty region[\s\S]*Clamp しない/);
+    assert.match(planSource, /Canvas `putImageData` failure[\s\S]*presented epoch は進めない/);
 
     const invalidSurfaceConfig = videoMemory.createGuiVideoMemorySurface(0, 2, 2);
     assert.equal(invalidSurfaceConfig.kind, "err");
@@ -133,6 +162,18 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.equal(released.kind, "ok");
     assert.equal(header[9], waited.value.slot.epoch);
 
+    const presenterResult = exerciseVideoMemoryCanvasPresenter(videoMemory, presenter);
+    assert.equal(presenterResult.imageDataConstructed, 2);
+    assert.equal(presenterResult.reusedImageData, true);
+    assert.equal(presenterResult.throwCleanupFreedSlot, true);
+    assert.equal(presenterResult.constructorThrowFreedSlot, true);
+    assert.equal(presenterResult.invalidDirtyFreedSlot, true);
+    assert.equal(presenterResult.unsupportedStrideFreedSlot, true);
+    assert.equal(presenterResult.failureDidNotAdvancePresentedEpoch, true);
+    assert.equal(presenterResult.constructorThrowDidNotAdvancePresentedEpoch, true);
+    assert.equal(presenterResult.invalidDirtyDidNotAdvancePresentedEpoch, true);
+    assert.equal(presenterResult.unsupportedStrideDidNotAdvancePresentedEpoch, true);
+
     const waitedFromWorker = await waitForWorkerPublishedSlot(videoMemory, path.resolve(__dirname, "..", "web", "dist_ts", "gui-preview", "video-memory-surface.js"));
     assert.equal(waitedFromWorker.pixel0, 44);
     assert.equal(waitedFromWorker.presentedEpoch, waitedFromWorker.epoch);
@@ -148,7 +189,163 @@ async function runWebGuiVideoMemorySurfaceRegression() {
             "implementation header ABI matches the documented video memory layout",
             "wait path receives a frame published from another worker thread",
             "docs and implementation agree that one shared pixel plane is forbidden",
+            "video memory presenter uses ImageData plus putImageData without Canvas primitive drawing",
+            "video memory presenter reuses ImageData for same SharedArrayBuffer slot",
+            "video memory presenter validates dirty regions without silent clamping",
+            "video memory presenter frees Reading slots after reject or Canvas presentation failure",
         ],
+    };
+}
+
+function exerciseVideoMemoryCanvasPresenter(videoMemory, presenter) {
+    const originalImageData = globalThis.ImageData;
+    let imageDataConstructed = 0;
+    globalThis.ImageData = class FakeImageData {
+        constructor(data, width, height) {
+            this.data = data;
+            this.width = width;
+            this.height = height;
+            imageDataConstructed += 1;
+        }
+    };
+    try {
+        const surface = createSurfaceOrThrow(videoMemory, 2, 2);
+        const context = createRecordingCanvasContext();
+
+        publishSinglePixelOrThrow(videoMemory, surface, 10, { kind: "full" });
+        const first = presenter.presentNewestGuiVideoMemoryFrameToCanvas(context.ctx, surface);
+        assert.equal(first.kind, "ok");
+        assert.equal(first.value.kind, "presented");
+        assert.equal(context.calls.length, 1);
+        assert.equal(context.calls[0].length, 3);
+        assert.equal(context.calls[0][0].data[0], 10);
+        const firstImageData = context.calls[0][0];
+
+        publishSinglePixelOrThrow(videoMemory, surface, 99, { kind: "full" });
+        const second = presenter.presentNewestGuiVideoMemoryFrameToCanvas(context.ctx, surface);
+        assert.equal(second.kind, "ok");
+        assert.equal(second.value.kind, "presented");
+        assert.equal(context.calls.length, 2);
+        assert.equal(context.calls[1][0], firstImageData);
+        assert.equal(context.calls[1][0].data[0], 99);
+
+        publishSinglePixelOrThrow(videoMemory, surface, 22, { kind: "rect", x: 1, y: 0, width: 1, height: 2 });
+        const dirty = presenter.presentNewestGuiVideoMemoryFrameToCanvas(context.ctx, surface);
+        assert.equal(dirty.kind, "ok");
+        assert.equal(dirty.value.kind, "presented");
+        assert.equal(context.calls.length, 3);
+        assert.deepEqual(context.calls[2].slice(3), [1, 0, 1, 2]);
+
+        publishSinglePixelOrThrow(videoMemory, surface, 33, { kind: "rect", x: 1, y: 1, width: 0, height: 1 });
+        const zero = presenter.presentNewestGuiVideoMemoryFrameToCanvas(context.ctx, surface);
+        assert.equal(zero.kind, "ok");
+        assert.equal(zero.value.kind, "zero-dirty-region");
+        assert.equal(context.calls.length, 3);
+        assert.equal(new Int32Array(surface.buffer, 0, 16)[9], zero.value.epoch);
+
+        const throwSurface = createSurfaceOrThrow(videoMemory, 2, 2);
+        publishSinglePixelOrThrow(videoMemory, throwSurface, 44, { kind: "full" });
+        const throwingContext = createRecordingCanvasContext({ throwOnPut: true });
+        const thrown = presenter.presentNewestGuiVideoMemoryFrameToCanvas(throwingContext.ctx, throwSurface);
+        assert.equal(thrown.kind, "err");
+        assert.equal(thrown.error.kind, "present-failed");
+        assert.equal(thrown.error.cleanup.kind, "discarded");
+        assert.equal(new Int32Array(throwSurface.buffer, 0, 16)[9], 0);
+        const writeAfterThrow = videoMemory.acquireGuiVideoMemoryWriteSlot(throwSurface);
+        assert.equal(writeAfterThrow.kind, "ok");
+
+        const constructorThrowSurface = createSurfaceOrThrow(videoMemory, 2, 2);
+        publishSinglePixelOrThrow(videoMemory, constructorThrowSurface, 45, { kind: "full" });
+        const workingImageData = globalThis.ImageData;
+        globalThis.ImageData = class ThrowingImageData {
+            constructor() {
+                throw new Error("ImageData constructor failed");
+            }
+        };
+        const constructorThrown = presenter.presentNewestGuiVideoMemoryFrameToCanvas(context.ctx, constructorThrowSurface);
+        globalThis.ImageData = workingImageData;
+        assert.equal(constructorThrown.kind, "err");
+        assert.equal(constructorThrown.error.kind, "present-failed");
+        assert.equal(constructorThrown.error.cleanup.kind, "discarded");
+        assert.equal(new Int32Array(constructorThrowSurface.buffer, 0, 16)[9], 0);
+        const writeAfterConstructorThrow = videoMemory.acquireGuiVideoMemoryWriteSlot(constructorThrowSurface);
+        assert.equal(writeAfterConstructorThrow.kind, "ok");
+
+        const invalidSurface = createSurfaceOrThrow(videoMemory, 2, 2);
+        publishSinglePixelOrThrow(videoMemory, invalidSurface, 55, { kind: "rect", x: -1, y: 0, width: 1, height: 1 });
+        const invalidContext = createRecordingCanvasContext();
+        const invalid = presenter.presentNewestGuiVideoMemoryFrameToCanvas(invalidContext.ctx, invalidSurface);
+        assert.equal(invalid.kind, "err");
+        assert.equal(invalid.error.kind, "invalid-dirty-region");
+        assert.equal(invalid.error.cleanup.kind, "discarded");
+        assert.equal(invalidContext.calls.length, 0);
+        assert.equal(new Int32Array(invalidSurface.buffer, 0, 16)[9], 0);
+        const writeAfterInvalid = videoMemory.acquireGuiVideoMemoryWriteSlot(invalidSurface);
+        assert.equal(writeAfterInvalid.kind, "ok");
+
+        const unsupportedStrideSurface = createSurfaceOrThrow(videoMemory, 2, 2);
+        publishSinglePixelOrThrow(videoMemory, unsupportedStrideSurface, 66, { kind: "full" });
+        const unsupportedStride = presenter.presentNewestGuiVideoMemoryFrameToCanvas(context.ctx, {
+            ...unsupportedStrideSurface,
+            strideBytes: unsupportedStrideSurface.strideBytes + 4,
+        });
+        assert.equal(unsupportedStride.kind, "err");
+        assert.equal(unsupportedStride.error.kind, "unsupported-stride");
+        assert.equal(unsupportedStride.error.cleanup.kind, "discarded");
+        assert.equal(new Int32Array(unsupportedStrideSurface.buffer, 0, 16)[9], 0);
+        const writeAfterUnsupportedStride = videoMemory.acquireGuiVideoMemoryWriteSlot(unsupportedStrideSurface);
+        assert.equal(writeAfterUnsupportedStride.kind, "ok");
+
+        return {
+            imageDataConstructed,
+            reusedImageData: context.calls[1][0] === firstImageData,
+            throwCleanupFreedSlot: writeAfterThrow.kind === "ok",
+            constructorThrowFreedSlot: writeAfterConstructorThrow.kind === "ok",
+            invalidDirtyFreedSlot: writeAfterInvalid.kind === "ok",
+            unsupportedStrideFreedSlot: writeAfterUnsupportedStride.kind === "ok",
+            failureDidNotAdvancePresentedEpoch: new Int32Array(throwSurface.buffer, 0, 16)[9] === 0,
+            constructorThrowDidNotAdvancePresentedEpoch: new Int32Array(constructorThrowSurface.buffer, 0, 16)[9] === 0,
+            invalidDirtyDidNotAdvancePresentedEpoch: new Int32Array(invalidSurface.buffer, 0, 16)[9] === 0,
+            unsupportedStrideDidNotAdvancePresentedEpoch: new Int32Array(unsupportedStrideSurface.buffer, 0, 16)[9] === 0,
+        };
+    } finally {
+        if (typeof originalImageData === "undefined") {
+            delete globalThis.ImageData;
+        } else {
+            globalThis.ImageData = originalImageData;
+        }
+    }
+}
+
+function createSurfaceOrThrow(videoMemory, width, height) {
+    const created = videoMemory.createGuiVideoMemorySurface(width, height, 2);
+    assert.equal(created.kind, "ok");
+    return created.value;
+}
+
+function publishSinglePixelOrThrow(videoMemory, surface, red, dirty) {
+    const write = videoMemory.acquireGuiVideoMemoryWriteSlot(surface);
+    assert.equal(write.kind, "ok");
+    write.value.pixels[0] = red;
+    write.value.pixels[1] = 0;
+    write.value.pixels[2] = 0;
+    write.value.pixels[3] = 255;
+    const published = videoMemory.publishGuiVideoMemoryWriteSlot(write.value, dirty);
+    assert.equal(published.kind, "ok");
+}
+
+function createRecordingCanvasContext(options = {}) {
+    const calls = [];
+    return {
+        calls,
+        ctx: {
+            putImageData: (...args) => {
+                calls.push(args);
+                if (options.throwOnPut) {
+                    throw new Error("putImageData failed");
+                }
+            },
+        },
     };
 }
 

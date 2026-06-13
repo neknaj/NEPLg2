@@ -1,3 +1,36 @@
+# 2026-06-13 Agent2 Web GUI video memory presenter checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、今回の slice では hidden fallback、silent clamp、DOM widget 表現、Canvas primitive drawing を正式 GUI presentation path に入れない。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-video-memory-presenter-20260613`
+- classification: Web GUI video memory surface / Canvas ImageData presenter / slot ownership cleanup
+- design:
+  - Web の正式 presenter は `SharedArrayBuffer` video memory surface の published slot を `ImageData` + `putImageData` だけで visible canvas へ出す。
+  - `ImageData` は `SharedArrayBuffer` と slot index ごとに cache し、same slot の frame では再生成しない。
+  - Dirty region は integer、non-negative、surface 内に収まることを検査し、範囲外は typed `invalid-dirty-region` とする。Clamp は行わない。
+  - Zero-size dirty region は valid no-op present とし、`putImageData` は呼ばず `release` して presented epoch を進める。
+  - `ImageData` constructor / `putImageData` failure、invalid dirty region、unsupported stride は表示済みではないため `discard` で `Reading -> Free` に戻し、presented epoch は進めない。
+- implementation:
+  - `web/src/gui-preview/video-memory-presenter.ts` を追加した。
+  - `web/src/gui-preview/video-memory-surface.ts` に `discardGuiVideoMemoryReadSlot`、`GuiVideoMemorySlotCleanupStatus`、`invalid-dirty-region`、`present-failed`、`unsupported-stride` を追加した。
+  - `nodesrc/test_web_gui_video_memory_surface.js` に presenter source policy と behavior test を追加した。`drawImage` / `fillRect` / `clearRect` / `scale` / `setTransform`、direct `Atomics.store` / `compareExchange`、stdout transport、fallback / clamp を presenter module で禁止する。
+  - `doc/neplg2/gui_redesign_detailed_design.md` と `doc/neplg2/gui_redesign_implementation_plan.md` に presenter contract、dirty region validation、discard / release の使い分け、`ImageData` cache を追記した。
+- subagent review:
+  - Godel: pre-review で implementation may start。Required として dirty rect validation、zero-size no-op present、failure / reject 後の slot cleanup、typed present failure、source policy 禁止事項を要求。反映済み。
+  - Godel: implementation review で、`ImageData` constructor が `try` 外にあり throw 時に slot が `Reading` のまま残る blocker、`unsupported-stride` に cleanup payload がない required を指摘。`ImageData` 作成を typed failure 境界内へ移し、`unsupported-stride` に cleanup status を追加した。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_video_memory_surface.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+- residual:
+  - `GuiWebRuntimeBridge` / worker host import から video memory surface presenter へ接続する runtime ABI は後続 slice。
+  - Native / bare / headless の formal pixel framebuffer presenter と screenshot hash authority は後続 slice。
+
 # 2026-06-13 Agent2 Web GUI pixel-resize checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs を再確認した。今回の slice では、Web の CSS / Canvas viewport scaling を GUI content authority にせず、pixel buffer presentation、typed resize event、`Result` / enum error、hidden fallback 禁止、platform detail の Web frontend 閉じ込めを守る。
