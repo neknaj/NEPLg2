@@ -1,9 +1,15 @@
-import type {
-    GuiPreviewColor,
-    GuiPreviewCommandFrame,
-    GuiPreviewDrawCommand,
-    GuiPreviewTextAlign,
-} from './commands.js';
+import {
+    createGuiPreviewBitmapBuffer,
+    fillGuiPreviewBitmapRect,
+} from './bitmap-buffer.js';
+import { presentGuiPreviewBitmapToCanvas } from './bitmap-presenter.js';
+import {
+    rasterizeGuiPreviewCommand,
+    type GuiPreviewBitmapViewport,
+    type GuiPreviewRasterizeError,
+} from './bitmap-rasterizer.js';
+import { guiPreviewRgb } from './commands.js';
+import type { GuiPreviewCommandFrame } from './commands.js';
 
 export type GuiPreviewCanvasViewport = {
     left: number;
@@ -16,7 +22,12 @@ export type GuiPreviewCanvasRenderOptions = {
 };
 
 export type GuiPreviewCanvasRenderResult = {
+    kind: 'ok';
     viewport: GuiPreviewCanvasViewport;
+} | {
+    kind: 'err';
+    viewport: GuiPreviewCanvasViewport;
+    error: GuiPreviewRasterizeError;
 };
 
 export function renderGuiPreviewFrameToCanvas(
@@ -26,102 +37,73 @@ export function renderGuiPreviewFrameToCanvas(
     height: number,
     options: GuiPreviewCanvasRenderOptions,
 ): GuiPreviewCanvasRenderResult {
+    const viewport = calculateGuiPreviewCanvasViewport(frame, width, height);
+    const pixelRatio = calculateGuiPreviewCanvasPixelRatio(ctx, width, height);
+    const pixelViewport = scaleGuiPreviewCanvasViewport(viewport, pixelRatio);
+    const buffer = createGuiPreviewBitmapBuffer(
+        Math.max(1, ctx.canvas.width),
+        Math.max(1, ctx.canvas.height),
+        guiPreviewRgb(13, 17, 23),
+    );
+    fillGuiPreviewBitmapRect(
+        buffer,
+        pixelViewport.left - pixelRatio,
+        pixelViewport.top - pixelRatio,
+        frame.width * pixelViewport.scale + pixelRatio * 2,
+        frame.height * pixelViewport.scale + pixelRatio * 2,
+        guiPreviewRgb(16, 24, 32),
+    );
+    for (const command of frame.commands) {
+        const rasterized = rasterizeGuiPreviewCommand(buffer, command, pixelViewport);
+        if (rasterized.kind === 'err') {
+            return { kind: 'err', viewport, error: rasterized.error };
+        }
+    }
+    presentGuiPreviewBitmapToCanvas(ctx, buffer);
+    return { kind: 'ok', viewport };
+}
+
+function calculateGuiPreviewCanvasViewport(
+    frame: GuiPreviewCommandFrame,
+    width: number,
+    height: number,
+): GuiPreviewCanvasViewport {
     const padding = 18;
-    const availableWidth = Math.max(1, width - padding * 2);
-    const availableHeight = Math.max(1, height - padding * 2);
+    const cssWidth = Math.max(1, width);
+    const cssHeight = Math.max(1, height);
+    const availableWidth = Math.max(1, cssWidth - padding * 2);
+    const availableHeight = Math.max(1, cssHeight - padding * 2);
     const scale = Math.min(availableWidth / frame.width, availableHeight / frame.height);
     const sceneWidth = frame.width * scale;
     const sceneHeight = frame.height * scale;
-    const left = Math.floor((width - sceneWidth) / 2);
-    const top = Math.floor((height - sceneHeight) / 2);
-    const viewport = { left, top, scale };
-
-    ctx.fillStyle = '#101820';
-    ctx.fillRect(left - 1, top - 1, sceneWidth + 2, sceneHeight + 2);
-    ctx.textBaseline = 'top';
-
-    for (const command of frame.commands) {
-        renderGuiPreviewCommand(ctx, command, viewport);
-    }
-
-    return { viewport };
+    return {
+        left: Math.floor((cssWidth - sceneWidth) / 2),
+        top: Math.floor((cssHeight - sceneHeight) / 2),
+        scale,
+    };
 }
 
-function renderGuiPreviewCommand(
+function calculateGuiPreviewCanvasPixelRatio(
     ctx: CanvasRenderingContext2D,
-    command: GuiPreviewDrawCommand,
+    width: number,
+    height: number,
+): number {
+    const scaleX = ctx.canvas.width / Math.max(1, width);
+    const scaleY = ctx.canvas.height / Math.max(1, height);
+    const scale = Math.min(scaleX, scaleY);
+    if (!Number.isFinite(scale) || scale <= 0) {
+        return 1;
+    }
+    return scale;
+}
+
+function scaleGuiPreviewCanvasViewport(
     viewport: GuiPreviewCanvasViewport,
-) {
-    if (command.kind === 'fill-rect') {
-        ctx.fillStyle = guiPreviewCanvasColor(command.color);
-        ctx.fillRect(
-            viewport.left + command.rect.x * viewport.scale,
-            viewport.top + command.rect.y * viewport.scale,
-            Math.max(1, command.rect.width * viewport.scale),
-            Math.max(1, command.rect.height * viewport.scale),
-        );
-        return;
-    }
-    if (command.kind === 'rgba-row') {
-        renderGuiPreviewRgbaRow(ctx, command, viewport);
-        return;
-    }
-
-    ctx.fillStyle = guiPreviewCanvasColor(command.color);
-    ctx.font = `${Math.max(8, command.size * viewport.scale)}px "HackGenConsoleNF", "JetBrains Mono", Consolas, monospace`;
-    ctx.textAlign = guiPreviewCanvasTextAlign(command.align);
-    ctx.fillText(
-        command.text,
-        viewport.left + command.origin.x * viewport.scale,
-        viewport.top + command.origin.y * viewport.scale,
-    );
-}
-
-function renderGuiPreviewRgbaRow(
-    ctx: CanvasRenderingContext2D,
-    command: Extract<GuiPreviewDrawCommand, { kind: 'rgba-row' }>,
-    viewport: GuiPreviewCanvasViewport,
-) {
-    let runStart = 0;
-    while (runStart < command.pixels.length) {
-        const color = command.pixels[runStart];
-        let runEnd = runStart + 1;
-        while (runEnd < command.pixels.length && guiPreviewColorEquals(color, command.pixels[runEnd])) {
-            runEnd += 1;
-        }
-        ctx.fillStyle = guiPreviewCanvasColor(color);
-        ctx.fillRect(
-            viewport.left + (command.origin.x + runStart * command.cellWidth) * viewport.scale,
-            viewport.top + command.origin.y * viewport.scale,
-            Math.max(1, (runEnd - runStart) * command.cellWidth * viewport.scale),
-            Math.max(1, command.cellHeight * viewport.scale),
-        );
-        runStart = runEnd;
-    }
-}
-
-function guiPreviewCanvasColor(color: GuiPreviewColor): string {
-    const alpha = Math.max(0, Math.min(1, color.alpha / 255));
-    return `rgba(${color.red}, ${color.green}, ${color.blue}, ${alpha})`;
-}
-
-function guiPreviewColorEquals(left: GuiPreviewColor, right: GuiPreviewColor): boolean {
-    return left.red === right.red
-        && left.green === right.green
-        && left.blue === right.blue
-        && left.alpha === right.alpha;
-}
-
-function guiPreviewCanvasTextAlign(align: GuiPreviewTextAlign): CanvasTextAlign {
-    if (align === 'left') {
-        return 'left';
-    }
-    if (align === 'center') {
-        return 'center';
-    }
-    if (align === 'right') {
-        return 'right';
-    }
-    const neverAlign: never = align;
-    return neverAlign;
+    pixelRatio: number,
+): GuiPreviewBitmapViewport {
+    return {
+        left: viewport.left * pixelRatio,
+        top: viewport.top * pixelRatio,
+        scale: viewport.scale * pixelRatio,
+    };
 }

@@ -708,6 +708,8 @@ class GuiWindowDebugPanel {
                 return 'host frame waiting';
             case 'canvas-unavailable':
                 return `canvas unavailable: ${record.message}`;
+            case 'render-error':
+                return `window ${record.windowId}: render error ${record.errorKind}`;
             case 'frame-presented':
                 return `window ${record.windowId}: frame commands ${record.commandCount}, targets ${record.inputTargetCount}`;
             case 'input-queued':

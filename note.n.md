@@ -50,6 +50,50 @@
   - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
   - pass: `git diff --check`
 - 次 slice: re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算を継続する。
+# 2026-06-13 Agent GUI bitmap surface / font / 2D rendering design checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、hidden fallback を作らない、unsupported を typed `Result` / enum error で返す、platform detail を表層へ閉じる、documented contract と現実装を分ける、subagent review で実装前後の判断を得る方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。
+- 対象 branch: `gui/bitmap-video-memory-redesign-20260613`
+- classification: GUI design / Web bitmap surface implementation slice
+- design:
+  - `doc/neplg2/gui_redesign_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md` を追加し、visible Web canvas は bitmap buffer を `putImageData` で表示するだけ、DOM / Canvas2D primitive は GUI content authority にしない方針を固定した。
+  - `doc/neplg2/gui_font_rendering_design.md` を追加し、`web/src/fonts/HackGenConsoleNF-Regular.ttf` を `fonts/HackGenConsoleNF-Regular.ttf` resource として扱う初期 fixture としつつ、TTF / OTF / TTC / OTC / WOFF / WOFF2、font family、明示的 font substitution policy、disabled substitution の typed error、variable font、右横書き、縦書き、ruby / furigana、math layout、rendered metrics、glyph fill / stroke / shadow を formal design に含めた。
+  - `doc/neplg2/gui_2d_rendering_design.md` を追加し、2D renderer と font renderer が `Paint`、`Stroke`、`Shadow`、`BlendMode`、`Clip`、`Transform2d` を共有し、Path / SVG / image / widget skin / glyph mask / ruby / math glyph を同じ compositing model へ載せる方針を固定した。
+  - `doc/neplg2/gui_standard_library_spec.md` と `doc/neplg2/gui_tui_implementation_plan.md` を更新し、SurfaceKind、legacy stdout transport、formal host import ABI、font measurement authority、2D renderer / font renderer relation を新設文書と揃えた。
+- implementation:
+  - `web/src/gui-preview/bitmap-buffer.ts`、`bitmap-presenter.ts`、`bitmap-rasterizer.ts` を追加し、Web GUI command frame を software bitmap buffer へ rasterize して `ImageData` / `putImageData` で表示する経路を作った。
+  - `web/src/gui-preview/canvas-renderer.ts` は compatibility facade として残し、Canvas2D の `fillRect` / `fillText` / `stroke` / `drawImage` / `clearRect` を GUI content path から外した。
+  - `web/src/gui-preview/panel.ts` は background も pixel buffer 経由にし、stale `ctx.setTransform` を削除した。Unsupported text scalar などの rasterize error は frame を publish せず `render-error` として debug sink へ渡す。
+  - `web/src/gui-preview/video-memory-surface.ts` を追加し、2 slot 以上の `SharedArrayBuffer` video memory surface、documented header ABI、`Free -> Writing -> Published -> Reading -> Free` ownership、`InvalidSurfaceConfig` / `InvalidBufferLength` / `UnsupportedPixelFormat` / `WaitUnavailable` などの typed error を実装した。Invalid width / height / slot count は clamping せず typed error とする。
+  - `stdlib/platforms/gui/web/stdout_protocol.nepl` の GUI transport wording を legacy smoke / debug transport へ寄せ、正式 backend が使えない時の代替実行経路として扱わないことを明記した。
+- subagent review:
+  - Sartre: 初回 design review で single SAB plane、SurfaceKind conflict、stdout / canvas formal path の矛盾を指摘。修正後に implementation may start。
+  - Anscombe: font design 初回 review で HackGen 固定、font substitution、variable font、metrics、paint integration の不備を指摘。修正後に blockers fixed。
+  - Lagrange: font design re-review で approved。
+  - Hubble: 初回 implementation review で unsupported scalar の `?` fallback、short SharedArrayBuffer の JS exception、header ABI 不一致、lost wakeup、stale transform、regex-only test を指摘。修正した。
+  - Hypatia: re-review で width / height / slotCount clamping、zero-size rect painting、wait / canvas runtime test 不足、stdout fallback wording を Required として指摘。修正した。
+  - Aristotle: final re-review で Blockers / Required なし、`implementation approved`。
+- source_policy:
+  - `nodesrc/test_web_gui_preview_renderer.js` を強化し、unsupported scalar が typed error、zero-size fill rect が no-draw、invalid geometry が typed error、fake canvas runtime が `putImageData` only であることを検査する。
+  - `nodesrc/test_web_gui_video_memory_surface.js` を強化し、short SharedArrayBuffer が typed error、invalid surface config が typed error、documented header ABI、worker thread publish 後の wait path、presented epoch update を検査する。
+  - `nodesrc/test_web_gui_mandelbrot_transport_contract.js` を更新し、GUI stdout protocol を fallback と呼び戻さないことを固定した。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_video_memory_surface.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_host_bridge.js`
+  - pass: `node nodesrc/test_web_gui_stdout_protocol.js`
+  - pass: `node nodesrc/test_web_gui_runtime_bridge.js`
+  - pass: `node nodesrc/test_web_gui_floating_window_source.js`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+  - 既存 warning: Git の LF / CRLF working-copy warning、Node WASI ExperimentalWarning、既存 stdlib / selfhost documentation gap sample は確認済み。今回差分由来の failure はない。
+- next:
+  - Formal host import ABI で `DrawCommand` / bitmap row / tile / RLE payload を stdout transport から分離する。
+  - `core/gui` / `alloc/gui` 側へ shared `Paint` / `Stroke` / `RenderStyle` / `Render2dCommand` / font resource contract を段階的に実装する。
+  - Web VFS / native filesystem / bare linked blob の font resource provider と、HackGen fixture を使う initial SFNT parser / metrics slice へ進む。
 
 # 2026-06-13 Agent selfhost memo trait `.neplproof` serialized index codec checkpoint
 
