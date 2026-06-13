@@ -1,3 +1,74 @@
+# 2026-06-14 Agent selfhost public impl Drop fact orchestrator checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査境界、source-derived authority 排除、DAG、fail-closed、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / typed public impl materializer records から Drop impl fact table owner を作る orchestration boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl body root orchestration
+- policy/spec:
+  - existing `memo_trait_operation_public_impl_materializer` は candidate builder input / candidate table の boundary に留め、Drop fact table construction は別 checker-layer module に分ける。
+  - operation kind は `record.trait_source.operation` を直接信用せず、record 由来の `SelfhostMemoTraitOperationTraitApplicationInput` を trusted classifier に通した classifier evidence から読む。
+  - non-Drop record は skip する。Eq / Hash record が method body root を持つことは正常なので、Drop 専用 projection が non-Drop root を Drop body root として扱わない。
+  - classifier-confirmed Drop record の `method_body_root = none` は `RequiredDropBodyRootMissing(index)` として fail-closed にし、`DropImplAbsent`、`NoDropRequired`、`PureDrop` を合成しない。
+  - Resource IR no-escape proof、pure Drop evidence gate、generic impl binder、PrivateCache / PrivateState masking、prechecked artifact は後続 slice に残す。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl` を追加した。
+  - public API は `&SelfhostHirModule` と `&SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` を borrow し、fresh な `SelfhostMemoTraitOperationDropImplTable` owner を返す。
+  - Drop record は既存 `selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result` に委譲する。builder rejection 後は builder / resolver push boundary が owner cleanup を担当するため、この module は二重解放しない。
+  - source read failure、classifier rejection、Drop root 欠落では未消費 Drop impl table owner をこの module が閉じる。
+  - `SelfhostMemoTraitOperationPublicImplMaterializerRecord.method_body_root` の doc を operation-specific body root に改め、Eq / Hash method root と Drop impl body root を後続専用 boundary が区別して扱うことを明記した。
+- implementation/test:
+  - focused doctest は Drop record + Eq record 混在 source から Drop fact 1 件だけを作り、resolver 経由で Pure / NotApplicable を確認する。
+  - Drop root 欠落、untrusted Drop source の classifier rejection、存在しない HIR root の builder rejection を typed error として確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - source_policy は facade private、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / public surface / evidence producer / operation impl table / purity gate / body-check resolver / candidate builder / scanner import 禁止、classifier evidence authority、non-Drop skip、Drop root 必須、builder rejection no double-free、accepted table の resolver 経由確認、Drop proof 合成禁止、行数制限 / doc comment 長制限禁止を確認する。
+- subagent review:
+  - files_read: `memo_trait_operation_public_impl_materializer.nepl`; `memo_trait_operation_drop_impl_fact_table_builder.nepl`; `memo_trait_operation_classifier.nepl`; `memo_trait_operation_drop_impl_resolver.nepl`; `memo_trait_operation_impl_candidate_builder.nepl`; related contract tests; `todo.md`; target issue/design references.
+  - not_reviewed: なし。
+  - base: HEAD before current public impl Drop fact orchestrator diff
+  - head: working tree after public impl Drop fact orchestrator diff
+  - subagent_review_ids: `019ec247-0ee7-7421-ab71-c7bc1e596707`, `019ec247-808f-71c1-901d-a53aba588e80`
+  - subagent_review_count: 2
+  - subagent_review_rounds: 1
+  - Plato review:
+    - Blocker: existing public impl materializer に直接 Drop fact-table construction を入れてはいけない。別 checker-layer module が必要。
+    - Blocker: source spelling、trait name、method name、span、declaration order、record presence から Drop impl を推測してはいけない。classifier-confirmed Drop record、typed TypeId、body root、fuel、HIR borrow だけを受けること。
+    - Blocker: classifier-confirmed Drop record の root 欠落は fail-closed にし、DropImplAbsent / Unknown / NoDropRequired / PureDrop にしないこと。
+    - Required checks: new contract、Resource/backend/proof import 禁止、Drop proof 合成禁止、non-Drop skip、classifier rejection、missing root、owner cleanup。
+  - Heisenberg review:
+    - Blocker: current materializer record shape の `method_body_root` doc が Eq / Hash 寄りで、Drop body root に再利用すると authority が曖昧になる。
+    - Required: dedicated field/table または neutral op-specific body-root record として docs/tests で Eq / Hash root と Drop root を混同しないことを固定する。
+    - Required: non-Drop record は mixed public surface input では skip が妥当。classifier failure は typed error にすること。
+  - review response:
+    - 直接 materializer を変更せず、別 module として実装した。
+    - `method_body_root` doc を operation-specific body root へ修正し、Drop orchestrator 側で classifier-confirmed Drop の場合だけ読むようにした。
+    - non-Drop skip、classifier rejection、missing root、builder rejection owner cleanup、forbidden imports、Drop proof 合成禁止を source policy と doctest で固定した。
+    - duplicate Drop record の rejection は public API ではなく既存 Drop impl resolver の lookup-time duplicate contract に属するため、今回の orchestrator error contract へは入れない判断にした。
+  - decision: MERGE_APPROVED after focused verification and source policy rerun.
+- verify:
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl --no-tree -o tmp/selfhost-public-impl-drop-fact-orchestrator-final-focused.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した public impl Drop fact orchestrator contract は pass。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass_with_git_warning: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - existing_warnings: Node WASI ExperimentalWarning; CRLF warning; stdlib declaration doc gaps increased: 153 > 108 baseline.
+  - 今回差分由来 warning: なし。
+  - new_warnings: なし
+  - blockers: なし
+  - questions: なし
+  - approve: approved
+  - residual_risk: なし
+  - unexecuted_verification: なし
+- residual:
+  - Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
+  - Drop materializer record table の operation bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した authority / owner / error contract を保って後からできる最適化として扱う。
+
 # 2026-06-14 Agent selfhost public impl operation evidence connector checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、DAG、source authority 排除、純粋 core boundary、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。

@@ -88,13 +88,13 @@
 //: SelfhostMemoTraitOperationPublicImplMaterializerRecord: actual public impl materializer が渡す typed operation impl record
 //:
 //: [目的/もくてき]:
-//: - public impl header と trait application identity、method body root を 1 つに束ね、candidate builder input へ安全に変換できる最小 payload にします。
+//: - public impl header、trait application identity、operation-specific body root を 1 つに束ね、candidate builder input や Drop fact projection へ安全に変換できる最小 payload にします。
 //:
 //: [契約/けいやく]:
 //: - `type_id` は operation proof を求める対象型です。session-local id であり、永続 artifact identity ではありません。
 //: - `module_fingerprint`、`declaration_ordinal`、`visibility`、`impl_kind`、`target_type_shape_hash`、`trait_application_shape_hash`、`type_parameter_count`、`type_parameter_bound_count` は `SelfhostMemoTraitPublicImplHeaderInput` へそのまま写します。
 //: - `trait_source` と `trait_type_argument_count` は classifier input へ渡します。operation kind はここから classifier が導出します。
-//: - `method_body_root` は Eq / Hash など method body を必要とする operation の HIR root です。この module は root の有無を operation matrix として検査せず、candidate builder の method fact scan に任せます。
+//: - `method_body_root` は operation-specific body root です。Eq / Hash では method body root、Drop では Drop impl body root を表します。Copy では通常 `none` です。この materializer の candidate-table path は root の有無を operation matrix として検査せず、candidate builder / Drop fact orchestrator など後続の専用 boundary に任せます。
 //: - `fuel` は HIR traversal 上限です。0 以下や過大値の意味付けは method body checker / builder 側の責務です。
 pub struct SelfhostMemoTraitOperationPublicImplMaterializerRecord:
     type_id %SelfhostTypeId

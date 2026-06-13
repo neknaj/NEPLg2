@@ -272,6 +272,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_tab
 
 この checkpoint 後の残件は、actual public impl scanner / materializer 由来の Drop impl body root input をこの builder へ渡す orchestration、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop impl fact table lookup の sorted index 化、HIR traversal explicit stack 化、subtree memoization は今回固定した contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 selfhost public impl Drop fact orchestrator checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl` を追加し、typed public impl materializer record table から Drop impl fact table owner を作る checker-layer orchestration boundary を接続した。
+
+この orchestrator は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` と HIR module borrow を入力にし、fresh な `SelfhostMemoTraitOperationDropImplTable` owner を作る。operation kind は caller supplied な `record.trait_source.operation` ではなく、record から作った `SelfhostMemoTraitOperationTraitApplicationInput` を trusted operation classifier に通した classifier evidence から採用する。classifier evidence が Drop の record だけ `method_body_root` を Drop body root として読み、Eq / Hash / Copy などの non-Drop record は skip する。non-Drop record が method root を持っていても、それは method body fact pipeline の責務なので、この boundary は Drop root として扱わない。
+
+owner 契約として、source read failure、classifier rejection、Drop body root 欠落では未消費 Drop impl table owner を orchestrator が閉じる。Drop record を builder へ渡した後の builder rejection は既存 builder / resolver push boundary が cleanup を担当するため、orchestrator は二重解放しない。`source` record table と HIR module は borrow であり、success / failure のどちらでも caller 側が管理する。
+
+この checkpoint では Drop evidence、operation evidence record、aggregate proof status、Resource IR no-escape proof、PrivateCache / PrivateState masking、backend artifact、proof store、public surface hash を作らない。Drop root 欠落は `RequiredDropBodyRootMissing(index)` として fail-closed にし、`DropImplAbsent` / `NoDropRequired` / `PureDrop` を合成しない。`InternalAlloc` などの effect は Drop fact builder の summary contract に従って保持され、Resource IR proof なしに pure Drop evidence へ昇格しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js` を追加して固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import、classifier evidence authority、non-Drop skip、Drop root 必須、builder rejection no double-free、accepted table の resolver 経由確認、Drop proof 合成禁止、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した typed authority / owner / error contract を保って後からできる最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

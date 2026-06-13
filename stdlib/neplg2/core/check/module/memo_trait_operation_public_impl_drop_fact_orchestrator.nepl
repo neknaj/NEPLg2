@@ -1,0 +1,673 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_public_impl_drop_fact_orchestrator
+//: public impl materializer record から Drop impl fact table を[構築/こうちく]する checker-layer orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_public_impl_materializer` が作る typed public impl record table には、Copy / Drop / Eq / Hash の operation record が同じ table に混在します。
+//: - この module は、その table を Drop impl fact table 専用の入力として読み、trusted operation classifier で Drop と再確認された record だけを `memo_trait_operation_drop_impl_fact_table_builder` へ渡します。
+//: - Drop impl body root は typed HIR root id として受け取り、source text、method name string、trait name string、span、diagnostic text、module path から Drop body の有無や purity を推測しません。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、`SelfhostHirModule` borrow、trusted operation classifier、Drop impl fact table builder だけです。
+//: - `record.trait_source.operation` は直接信用しません。trait source identity と trait application shape hash を classifier に通し、classifier evidence の operation が Drop の場合だけ Drop body root を読む対象にします。
+//: - non-Drop record は error ではなく skip します。Eq / Hash record が method body root を持つことは正常であり、この Drop 専用 module がそれを Drop body root と誤認してはいけません。
+//: - Drop record に `method_body_root = none` がある場合は `RequiredDropBodyRootMissing(index)` として fail-closed にします。Drop impl fact を欠落扱いにしたり、`NoDropRequired` や `PureDrop` を合成したりしません。
+//: - output `SelfhostMemoTraitOperationDropImplTable` owner はこの module が新規に作ります。success の場合だけ caller に返し、failure の場合はこの module または builder / resolver push boundary が閉じます。
+//: - `source` record table と `module` は borrow です。この module はどちらも閉じません。
+//: - この module は Drop evidence、operation evidence record、aggregate proof status、Resource IR no-escape proof、PrivateCache / PrivateState masking、backend artifact、proof store、public surface hash を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では actual public impl scanner / materializer 由来の Drop body root を Drop impl fact table owner へ流す境界だけを固定します。
+//: - Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState masking、prechecked artifact 接続は後続 stage の責務です。
+//: - facade にはまだ re-export しません。full operation evidence orchestration が Drop impl fact table と Resource proof gate をまとめる段階で公開 API と DAG を再確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - materializer record 数を m、Drop body root から到達する expression 数を n_i、child edge 数を e_i とすると、全体は O(m + Σ(n_i + e_i)) 時間です。
+//: - この module 自体は逐次 scan と owner cleanup だけを持ちます。operation bucket 化、Drop impl fact table の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization は、この contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_classifier" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_impl_resolver" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_effect_checker" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_len_eq summary.accepted 1
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_effect_eq summary.accepted SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_missing_root_error_result_eq summary.missing_root_rejected 0
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_error_result_eq summary.classifier_rejected SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Drop
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_builder_effect_error_result_eq summary.builder_missing_root SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing 9999
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "public impl Drop fact orchestrator stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_drop_impl_fact_table_builder" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind: public impl record から Drop fact table までの拒否理由
+//:
+//: [目的/もくてき]:
+//: - output table allocation、source read、classifier rejection、Drop body root 欠落、builder rejection を typed enum として分けます。
+//: - 後続診断は nested classifier / builder error を読めます。bool、sentinel 値、表示文字列へ失敗理由を潰しません。
+pub enum SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind:
+    OutputTableAllocFailed %StdErrorKind
+    SourceReadFailed %i32
+    ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
+    RequiredDropBodyRootMissing %i32
+    BuilderRejected %SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind
+
+//: SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary: accepted path の代表結果
+//:
+//: [目的/もくてき]:
+//: - stage0 が Drop fact table owner を閉じたあとでも、record 数と resolver 経由で読んだ Drop check を確認できるようにします。
+pub struct SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary:
+    len %i32
+    drop_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind
+
+//: SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary: orchestrator smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted path、Drop root 欠落、存在しない HIR root による builder rejection を 1 つの smoke API で固定します。
+pub struct SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary:
+    accepted %Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind
+    missing_root_rejected %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind
+    classifier_rejected %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind
+    builder_missing_root %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind
+
+//: Clone for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind: owner を[持/も]たない error payload を[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - nested classifier / builder error と index payload だけを複製します。
+//: - Drop impl table owner、materializer record table owner、HIR module owner はこの error に含めてはいけません。
+impl Clone for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind: typed error payload だけを Copy として[扱/あつか]う
+//:
+//: [契約/けいやく]:
+//: - owner-bearing payload が必要になった場合は、この Copy impl を削除して所有権を明示する error transport に分けます。
+impl Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary: accepted smoke の値 payload を[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は table owner を保持しません。len と resolver result だけを持つため、clone は owner duplication ではありません。
+impl Clone for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary: owner を[含/ふく]まない accepted summary を Copy として[扱/あつか]う
+//:
+//: [契約/けいやく]:
+//: - 将来 table owner や borrowed token を summary に追加する場合、この Copy impl は削除します。
+impl Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary: smoke result の値 payload を[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - stage0 summary は observable result だけを保持します。source table owner、Drop impl table owner、HIR module owner を保存しません。
+impl Clone for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary: owner を[含/ふく]まない smoke summary を Copy として[扱/あつか]う
+//:
+//: [契約/けいやく]:
+//: - stage0 helper は owner を閉じてから summary を返します。owner-bearing field を追加する場合、この Copy impl は削除します。
+impl Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_trait_application_input: materializer record から classifier input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - record の trait source / type argument count / shape hash だけを写します。operation kind は classifier result から読むため、ここでは判定しません。
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_trait_application_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationTraitApplicationInput \record:
+    selfhost_memo_trait_operation_trait_application_input_new record.trait_source record.trait_type_argument_count record.trait_application_shape_hash
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result: record の operation classifier evidence を[得/え]る
+//:
+//: [契約/けいやく]:
+//: - classifier rejection は public API の typed error に包んで返します。record にある operation field を直接信用する bypass を作りません。
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \record:
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_trait_application_input record
+    match selfhost_memo_trait_operation_classifier_evidence_result trait_application:
+        Result::Ok classifier:
+            Result::Ok classifier
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is_drop: classifier evidence が Drop か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。operation kind が増えた場合、この matrix を明示的に更新します。
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is_drop %fn SelfhostMemoTraitOperationEvidenceKind bool \operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            true
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            false
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_push_drop_record_result: Drop record 1 件を fact table へ[投入/とうにゅう]する
+//:
+//: [契約/けいやく]:
+//: - `table` はこの関数が消費します。success では builder が返した next owner を返します。
+//: - Drop root 欠落では builder へ進まないため、この関数が table owner を閉じます。
+//: - builder rejection では builder / resolver push boundary が owner cleanup を完了するため、この関数は二重解放しません。
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_push_drop_record_result %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecord impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \table\module\record\index:
+    match record.method_body_root:
+        Option::Some root:
+            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module record.type_id root record.fuel:
+                Result::Ok next_table:
+                    Result::Ok next_table
+                Result::Err builder_error:
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected builder_error
+        Option::None:
+            selfhost_memo_trait_operation_drop_impl_table_free table
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing index
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop: materializer record table を Drop fact table へ[走査/そうさ]する
+//:
+//: [契約/けいやく]:
+//: - classifier が Drop を返した record だけ builder に渡します。
+//: - non-Drop record は同じ table に混在する正常入力なので、その method root の有無に関係なく skip します。
+//: - source read failure と classifier rejection では、この loop が未消費 Drop table owner を閉じます。
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \table\module\source\index:
+    if:
+        ge index selfhost_memo_trait_operation_public_impl_materializer_record_table_len source
+        then:
+            Result::Ok table
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result record:
+                        Result::Ok classifier:
+                            if:
+                                selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is_drop classifier.operation
+                                then:
+                                    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_push_drop_record_result table module record index:
+                                        Result::Ok next_table:
+                                            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop next_table module source add index 1
+                                        Result::Err e:
+                                            Result::Err e
+                                else:
+                                    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop table module source add index 1
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_impl_table_free table
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_drop_impl_table_free table
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_table_from_records_result: public impl materializer records から Drop impl fact table owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module` と `source` は borrow です。この関数は閉じません。
+//: - success の場合だけ caller は output Drop impl fact table owner を受け取ります。
+//: - failure の場合、内部で作った output table owner はこの module または builder / resolver push boundary が閉じています。
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_table_from_records_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\source:
+    match selfhost_memo_trait_operation_drop_impl_table_new:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop table0 module source 0
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_code a selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_kind_eq: orchestrator error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested classifier / builder error は payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality を明示的に更新します。
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_kind_eq %fn SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
+                    false
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed a_read:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed b_read:
+                    eq a_read b_read
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
+                    false
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected a_classifier:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected b_classifier:
+                    selfhost_memo_trait_operation_classifier_error_kind_eq a_classifier b_classifier
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
+                    false
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing a_index:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing b_index:
+                    eq a_index b_index
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
+                    false
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected a_builder:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected b_builder:
+                    selfhost_memo_trait_operation_drop_impl_fact_table_builder_error_kind_eq a_builder b_builder
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_len_eq: accepted summary の len が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_len_eq %fn Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok summary:
+            eq summary.len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_effect_eq: accepted summary の Drop check effect が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_effect_eq %fn Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn SelfhostEffectKind fn SelfhostEffectEscapeState bool \result\expected_effect\expected_escape:
+    match result:
+        Result::Ok summary:
+            match summary.drop_check:
+                Result::Ok check:
+                    and:
+                        selfhost_effect_kind_eq check.effect expected_effect
+                        selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_escape_state_eq check.escape expected_escape
+                Result::Err _resolver_error:
+                    false
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_missing_root_error_result_eq: Drop body root 欠落 error が期待 index か[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_missing_root_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn i32 bool \result\expected_index:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing actual_index:
+                    eq actual_index expected_index
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _builder:
+                    false
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_error_result_eq: classifier error payload が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn SelfhostMemoTraitOperationClassifierErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected classifier_error:
+                    selfhost_memo_trait_operation_classifier_error_kind_eq classifier_error expected
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _builder:
+                    false
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_builder_effect_error_result_eq: builder 内 effect checker error が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_builder_effect_error_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected builder_error:
+                    let nested %Result i32 SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind Result::Err builder_error
+                    selfhost_memo_trait_operation_drop_impl_fact_table_builder_effect_error_result_eq nested expected
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_summary_new %fn Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary \accepted\missing_root_rejected\classifier_rejected\builder_missing_root:
+    SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary accepted missing_root_rejected classifier_rejected builder_missing_root
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_summary_new: accepted summary を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_summary_new %fn i32 fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary \len\drop_check:
+    SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary len drop_check
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_shape_result: operation source から shape hash を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \source:
+    match selfhost_memo_trait_operation_trait_application_shape_hash_result source 0:
+        Result::Ok shape_hash:
+            Result::Ok shape_hash
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_record: stage0 用 public impl materializer record を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 fn i32 fn Option SelfhostHirExprId SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\method_body_root:
+    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 760101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 method_body_root 16
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new: stage0 source record table を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new %impure fn void Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \void:
+    selfhost_memo_trait_operation_public_impl_materializer_record_table_new
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record: stage0 source table へ record を[追加/ついか]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record %impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn i32 impure fn Option SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \table\type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\method_body_root:
+    let record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_record type_id source_identity ordinal target_shape_hash trait_shape_hash method_body_root
+    match selfhost_memo_trait_operation_public_impl_materializer_record_table_push table record:
+        Result::Ok next:
+            Result::Ok next
+        Result::Err _push_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_len_and_free: success table の len を[読/よ]み owner を[閉/と]じる
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_len_and_free %impure fn SelfhostMemoTraitOperationDropImplTable i32 \table:
+    let table_len %i32 selfhost_memo_trait_operation_drop_impl_table_len &table
+    selfhost_memo_trait_operation_drop_impl_table_free table
+    table_len
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_from_table: accepted table owner を summary に[畳/たた]む
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_from_table %impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary \table\type_id:
+    let table_len %i32 selfhost_memo_trait_operation_drop_impl_table_len &table
+    let drop_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &table type_id
+    selfhost_memo_trait_operation_drop_impl_table_free table
+    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_accepted_summary_new table_len drop_check
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_owned_source: source owner を[閉/と]じながら len result を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_owned_source %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable Result Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind StdErrorKind \module\source:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_table_from_records_result module &source:
+        Result::Ok table:
+            let result %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind Result::Ok selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_len_and_free table
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            Result::Ok result
+        Result::Err error:
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            Result::Ok Result::Err error
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_accepted_owned_source: source owner を[閉/と]じながら accepted summary を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_accepted_owned_source %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\source\type_id:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_table_from_records_result module &source:
+        Result::Ok table:
+            let summary %SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_from_table table type_id
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            Result::Ok summary
+        Result::Err error:
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            Result::Err error
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_source: Drop と non-Drop が混在する accepted source を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_source %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \type_id\registry\target_shape_hash\drop_shape_hash\eq_shape_hash\drop_root\eq_root:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record table0 type_id registry.drop_source 1 target_shape_hash drop_shape_hash some drop_root:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record table1 type_id registry.eq_source 2 target_shape_hash eq_shape_hash some eq_root
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted: accepted path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\type_id\registry\target_shape_hash\drop_shape_hash\eq_shape_hash\drop_root\eq_root:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_source type_id registry target_shape_hash drop_shape_hash eq_shape_hash drop_root eq_root:
+        Result::Ok source:
+            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_accepted_owned_source module source type_id
+        Result::Err _setup:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_missing_root_source: Drop root 欠落 source を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_missing_root_source %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \type_id\registry\target_shape_hash\drop_shape_hash:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record table0 type_id registry.drop_source 1 target_shape_hash drop_shape_hash none
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_missing_root: Drop root 欠落 path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_missing_root %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\type_id\registry\target_shape_hash\drop_shape_hash:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_missing_root_source type_id registry target_shape_hash drop_shape_hash:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_owned_source module source:
+                Result::Ok result:
+                    result
+                Result::Err _setup:
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+        Result::Err _setup:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_classifier_source: untrusted Drop source の source table を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_classifier_source %impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \type_id\target_shape_hash\drop_shape_hash\drop_root:
+    let untrusted_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Drop 660101 660102 660103
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record table0 type_id untrusted_source 1 target_shape_hash drop_shape_hash some drop_root
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_classifier: untrusted Drop source が classifier error になる path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_classifier %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\type_id\target_shape_hash\drop_shape_hash\drop_root:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_classifier_source type_id target_shape_hash drop_shape_hash drop_root:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_owned_source module source:
+                Result::Ok result:
+                    result
+                Result::Err _setup:
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+        Result::Err _setup:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_builder_missing_source: HIR root 不在 source を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_builder_missing_source %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \type_id\registry\target_shape_hash\drop_shape_hash:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_push_record table0 type_id registry.drop_source 1 target_shape_hash drop_shape_hash some selfhost_hir_expr_id_new 9999
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_builder_missing: HIR root 不在 path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_builder_missing %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\type_id\registry\target_shape_hash\drop_shape_hash:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_builder_missing_source type_id registry target_shape_hash drop_shape_hash:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_run_owned_source module source:
+                Result::Ok result:
+                    result
+                Result::Err _setup:
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+        Result::Err _setup:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_with_shapes: shape hash が揃った状態で smoke を[実行/じっこう]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\type_id\drop_root\eq_root\registry\target_shape_hash\drop_shape_hash\eq_shape_hash:
+    let accepted %Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorAcceptedSummary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted &module type_id registry target_shape_hash drop_shape_hash eq_shape_hash drop_root eq_root
+    let missing_root_rejected %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_missing_root &module type_id registry target_shape_hash drop_shape_hash
+    let classifier_rejected %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_classifier &module type_id target_shape_hash drop_shape_hash drop_root
+    let builder_missing_root %Result i32 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_builder_missing &module type_id registry target_shape_hash drop_shape_hash
+    selfhost_hir_module_free module
+    Result::Ok selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_summary_new accepted missing_root_rejected classifier_rejected builder_missing_root
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_registry: trusted registry と shape hash を[準備/じゅんび]する
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\type_id\drop_root\eq_root:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_shape_result registry.drop_source:
+                Result::Ok drop_shape_hash:
+                    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_shape_result registry.eq_source:
+                        Result::Ok eq_shape_hash:
+                            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_with_shapes module type_id drop_root eq_root registry 8601 drop_shape_hash eq_shape_hash
+                        Result::Err e:
+                            selfhost_hir_module_free module
+                            Result::Err e
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err classifier_error:
+            selfhost_hir_module_free module
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_eq: non-Drop skip 用 HIR root までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_eq %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \module\drop_root\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "eq" selfhost_def_id_new 7602 type_id SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok eq_alloc:
+            let eq_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &eq_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module eq_alloc
+            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_registry module1 type_id drop_root eq_root
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed e
+
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0: public materializer record から Drop fact table までの smoke API
+//:
+//: [目的/もくてき]:
+//: - accepted path は Drop record 1 件と Eq record 1 件を同じ source table に入れ、Drop fact table には Drop 1 件だけが入ることを確認します。
+//: - Drop root 欠落と存在しない HIR root は別 error として返り、欠落を absent proof や pure proof に畳まないことを確認します。
+pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0 %impure fn void Result SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 10301
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok drop_alloc:
+                    let drop_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &drop_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module drop_alloc
+                    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_eq module1 drop_root type_id span
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed e
