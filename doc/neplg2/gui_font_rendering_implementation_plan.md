@@ -105,22 +105,40 @@ git diff --check
 - `FetchUnavailable`、`InvalidResourcePath`、`NetworkError`、`HttpError`、`InvalidBytes`、`InvalidText`、`VfsWriteFailed` のいずれも typed error として扱われる。
 - Native / Bare / Headless の resource provider contract が doc と source policy で検査される。
 
-## Phase F4: sfnt metadata parser
+## Phase F4a: sfnt directory and numeric metrics parser
 
 目的:
 
-- TTF / OTF / TTC / OTC の table directory と basic metrics を decode する。
+- TTF / OTF / TTC / OTC の table directory と numeric basic metrics を decode する。
 
 変更:
 
 - `alloc/gui/font/sfnt.nepl` と basic table parser を追加する。
-- Invalid table directory、unsupported table、collection face index error を typed error として扱う。
+- Invalid table directory、invalid table offset、unsupported container、collection face index error を typed error として扱う。
+- 未解析の extra table は error にせず無視する。error にするのは unsupported container、必須 numeric table の欠落、範囲外 offset、face selection の不整合だけである。
 - Headless/offscreen tests が explicit fixture bytes を使えるようにする。
 
 完了条件:
 
-- HackGen の face 0 から units per em、ascent、descent、line gap、name table の代表値を取得できる。
-- Missing table や invalid face index は fallback せず error になる。
+- explicit fixture bytes から container kind、face count、face index、units per em、ascent、descent、line gap、num glyphs を取得できる。
+- Missing `head` / `hhea` / `maxp` や invalid face index は代替成功させず error になる。
+
+## Phase F4b: sfnt name table policy
+
+目的:
+
+- font family、subfamily、full name などの代表値を name table から decode するための encoding policy を固定する。
+
+変更:
+
+- name ID、platform ID、encoding ID、language ID の優先順位を仕様化する。
+- UTF-16BE / MacRoman / unsupported encoding の扱いを typed result として定義する。
+- representative value が存在しない場合の error と optional metadata の境界を明文化する。
+
+完了条件:
+
+- HackGen の face 0 から仕様で定義した name table の代表値を取得できる。
+- 未対応 encoding は空文字や別 field への推測変換ではなく typed error または `Option::None` として表される。
 
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 

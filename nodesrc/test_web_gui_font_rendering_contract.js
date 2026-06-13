@@ -42,11 +42,16 @@ const renderStyle = read("stdlib/core/gui/render_style.nepl");
 const renderStyleImpl = withoutComments(renderStyle);
 const fontResource = read("stdlib/std/gui/font_resource.nepl");
 const fontResourceImpl = withoutComments(fontResource);
+const allocGuiFacade = read("stdlib/alloc/gui.nepl");
+const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
+const allocFontSfnt = read("stdlib/alloc/gui/font/sfnt.nepl");
+const allocFontSfntImpl = withoutComments(allocFontSfnt);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
+const guiFontSfntTests = read("tests/stdlib/gui_font_sfnt.n.md");
 const webFontResourceVfs = read("web/src/gui-font/font-resource-vfs.ts");
 const webMain = read("web/src/main.ts");
 const webPanelManager = read("web/src/workspace/panel-manager.ts");
@@ -100,6 +105,11 @@ assertMatch(
     implementationPlan,
     /Phase F3:[\s\S]*canonical resource path `fonts\/HackGenConsoleNF-Regular\.ttf`[\s\S]*`web\/src\/gui-font\/font-resource-vfs\.ts`[\s\S]*HackGen 専用 API[\s\S]*binary\/read-only file の compile overlay 混入を禁止/,
     "font implementation plan must include F3 bundled resource routing and source policy scope",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4a:[\s\S]*numeric basic metrics[\s\S]*Invalid table directory、invalid table offset、unsupported container、collection face index error[\s\S]*未解析の extra table は error にせず無視する[\s\S]*Phase F4b:[\s\S]*name table/,
+    "font implementation plan must split F4a numeric metrics from F4b name-table decoding policy",
 );
 
 assertMatch(
@@ -163,6 +173,116 @@ assertNoMatch(
     fontResourceImpl,
     /\b(?:MockTextMeasurer|HostTextMeasurer|host_text_measurer|host_text_measurer_fixed|measure_text)\b/,
     "std/gui/font_resource must not depend on fixed-cell text measurement fallback",
+);
+
+assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui facade must export font parser facade");
+assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "alloc/gui/font facade must export sfnt parser");
+assertMatch(
+    allocFontSfntImpl,
+    /pub\s+enum\s+GuiSfntContainerKind:[\s\S]*TrueTypeSfnt[\s\S]*OpenTypeSfnt[\s\S]*TrueTypeCollection[\s\S]*OpenTypeCollection/,
+    "alloc/gui/font/sfnt must expose typed container kinds",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired/,
+    "alloc/gui/font/sfnt must expose typed parser errors",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /pub\s+fn\s+gui_sfnt_parse_metadata\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+Result\s+GuiSfntMetadata\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt parser must take borrowed ByteBuf and return typed Result",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /pub\s+struct\s+GuiSfntMetadata:[\s\S]*container_kind\s+%GuiSfntContainerKind[\s\S]*face_index\s+%i32[\s\S]*face_count\s+%i32[\s\S]*directory\s+%GuiSfntDirectory[\s\S]*metrics\s+%GuiSfntMetrics/,
+    "alloc/gui/font/sfnt metadata must carry container kind, face selection, directory, and metrics",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /pub\s+struct\s+GuiSfntMetrics:[\s\S]*units_per_em\s+%i32[\s\S]*ascent\s+%i32[\s\S]*descent\s+%i32[\s\S]*line_gap\s+%i32[\s\S]*num_glyphs\s+%i32/,
+    "alloc/gui/font/sfnt metrics must expose numeric layout values",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /io_bytebuf_byte_at[\s\S]*GuiSfntParseErrorKind::UnexpectedEof/,
+    "alloc/gui/font/sfnt must read explicit bytes and return typed eof errors",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /GuiSfntParseErrorKind::FaceIndexRequired[\s\S]*GuiSfntParseErrorKind::InvalidFaceIndex/,
+    "alloc/gui/font/sfnt must reject invalid collection face selection as typed errors",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /fn\s+gui_sfnt_table_record_bounds_are_valid[\s\S]*le\s+length\s+sub\s+total\s+offset/,
+    "alloc/gui/font/sfnt must check table offsets with bounded ranges",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /fn\s+gui_sfnt_read_u32_i32_be[\s\S]*high_byte_limit\s+%i32\s+add\s+64\s+64[\s\S]*ge\s+b0\s+high_byte_limit[\s\S]*Result::Err\s+gui_sfnt_parse_error\s+kind\s+offset/,
+    "alloc/gui/font/sfnt u32-i32 reader must return the caller supplied typed error kind",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /gui_sfnt_read_u32_i32_be\s+bytes\s+add\s+record_offset\s+8\s+GuiSfntParseErrorKind::InvalidTableOffset[\s\S]*gui_sfnt_read_u32_i32_be\s+bytes\s+add\s+record_offset\s+12\s+GuiSfntParseErrorKind::InvalidTableOffset/,
+    "alloc/gui/font/sfnt table record parser must reject u32 table offsets or lengths outside i32 range",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /table_offset_bytes\s+%i32\s+sub\s+total\s+12[\s\S]*max_face_count\s+%i32\s+div_s\s+table_offset_bytes\s+4[\s\S]*gt\s+face_count\s+max_face_count[\s\S]*GuiSfntParseErrorKind::InvalidTableDirectory/,
+    "alloc/gui/font/sfnt must bound collection face count before multiplying by face-offset entry size",
+);
+assertNoMatch(
+    allocFontSfntImpl,
+    /^\s*#import\s+"(?:std\/fs|std\/gui|platforms\/|web\/)/m,
+    "alloc/gui/font/sfnt must not import resource loading or platform modules",
+);
+assertNoMatch(
+    allocFontSfnt,
+    /\b(?:DOM|Canvas|FontFace|CoreText|DirectWrite|fontconfig|HWND|UIKit|AndroidView|HtmlCanvas)\b/,
+    "alloc/gui/font/sfnt must not mention concrete platform font or surface APIs",
+);
+assertNoMatch(
+    allocFontSfnt,
+    /\b(?:MockTextMeasurer|HostTextMeasurer|host_text_measurer|host_text_measurer_fixed|measure_text)\b/,
+    "alloc/gui/font/sfnt must not depend on host or fixed-cell text measurement",
+);
+assertNoMatch(
+    allocFontSfnt,
+    /\b(?:GuiFontResourcePath|GuiFontResourceRequest|suffix match|display name)\b/,
+    "alloc/gui/font/sfnt must not use path, suffix, or display-name authority",
+);
+assertNoMatch(
+    allocFontSfnt,
+    /\bfallback\b/i,
+    "alloc/gui/font/sfnt implementation must not describe hidden fallback behavior",
+);
+assertMatch(
+    guiFontSfntTests,
+    /ByteBuilder[\s\S]*sfnt_push_u8[\s\S]*sfnt_push_u32_be/,
+    "gui font sfnt doctest must use ByteBuilder explicit byte fixtures",
+);
+for (const sfntCase of [
+    "valid standalone sfnt metrics",
+    "truncated header",
+    "missing maxp",
+    "invalid table offset",
+    "high bit table offset",
+    "ttc face required",
+    "ttc out of range",
+    "ttc oversized face count",
+    "single face rejects one",
+]) {
+    assertMatch(
+        guiFontSfntTests,
+        new RegExp(sfntCase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        `gui font sfnt doctest must cover ${sfntCase}`,
+    );
+}
+assertMatch(
+    guiFontSfntTests,
+    /gui_sfnt_parse_error_kind[\s\S]*GuiSfntParseErrorKind::MissingTable[\s\S]*GuiSfntParseErrorKind::InvalidTableOffset[\s\S]*GuiSfntParseErrorKind::FaceIndexRequired[\s\S]*GuiSfntParseErrorKind::InvalidFaceIndex/,
+    "gui font sfnt doctest must match typed parser error kinds",
 );
 
 assertMatch(coreGuiFacade, /#import\s+"\.\/gui\/font"\s+as\s+@merge/, "core/gui facade must export font contract");

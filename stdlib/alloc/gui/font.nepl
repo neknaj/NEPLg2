@@ -1,0 +1,21 @@
+//: # alloc/gui/font
+//: GUI font parser / layout 準備 layer の public facade
+//:
+//: ### [目的/もくてき]
+//: - font binary resource を platform API ではなく typed data parser として[扱/あつか]う alloc [層/そう]の入口です。
+//: - Web / Native / Bare / Headless の resource provider から得た byte 列を、同じ parser contract へ[渡/わた]せるようにします。
+//:
+//: ### [現状/げんじょう]
+//: - Phase F4 では SFNT container の metadata parser だけを公開します。glyph outline、shaping、rasterizer、font family registry は後続 phase で追加します。
+//:
+//: ### [注意/ちゅうい]
+//: - この facade は DOM、Canvas、OS font handle、filesystem probing を直接[扱/あつか]いません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font" as *
+//: ```
+
+#indent 4
+
+pub #import "alloc/gui/font/sfnt" as *

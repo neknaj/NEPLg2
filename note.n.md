@@ -1,3 +1,35 @@
+# 2026-06-13 Agent2 GUI SFNT numeric metrics parser checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に合わせ、今回の slice では platform API / hidden fallback / raw sentinel を避け、`Option` / `Result` と enum error、前置記法の引数範囲が明確な実装、contract と現状実装の分離を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `gui-font-sfnt-metadata-20260613`
+- classification: GUI font rendering Phase F4a / SFNT directory and numeric metrics parser
+- design:
+  - `doc/neplg2/gui_font_rendering_implementation_plan.md` の F4 を F4a と F4b に分けた。F4a は `head` / `hhea` / `maxp` から数値 metrics を読む範囲に限定し、name table の representative value / encoding policy は F4b に送る。
+  - parser は `&ByteBuf` を読む alloc layer の data parser であり、DOM / Canvas / FontFace / filesystem probing / OS font handle を持たない。
+- implementation:
+  - `stdlib/alloc/gui/font.nepl` facade と `stdlib/alloc/gui/font/sfnt.nepl` を追加した。
+  - `GuiSfntContainerKind`、`GuiSfntParseErrorKind`、`GuiSfntParseError`、`GuiSfntTableRecord`、`GuiSfntDirectory`、`GuiSfntMetrics`、`GuiSfntMetadata` を追加した。
+  - `gui_sfnt_parse_metadata` は standalone SFNT と TTC/OTC を typed container として扱い、missing table、invalid offset、unsupported container、face index error を typed `Result` で返す。
+  - TTC/OTC の `face_count` は `total - 12` から導いた `max_face_count` で先に検査し、`face_count * 4` の前に過大値を reject する。
+  - u32 table offset / length は high byte を検査して i32 範囲外を `InvalidTableOffset` にする。
+- subagent review:
+  - Sagan: F4 full completionを主張せず、F4a/F4b を分割すること、extra table は error にしないこと、typed parse API と test/source policy を要求。反映済み。
+  - Mill: `numFonts` による header size overflow が blocker。`face_count <= (total - 12) / 4` 相当の guard と high-bit u32 offset test を要求。反映済み。
+  - 再レビューで doctest compile crash の根本原因として TTC fixture の off-side indentation 崩れを指摘。修正済み。contract test の high-bit helper / call-site 検査も分離した。
+- verify:
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+  - pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+  - pass: `node nodesrc/test_stdlib_documentation_contract.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core.json -j 1`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp_gui_std.json -j 1`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+  - 既存 warning: Git の LF / CRLF working-copy warning、Node WASI ExperimentalWarning、既存 documentation sample gap は確認済み。今回差分由来の failure はない。
+- residual:
+  - SFNT name table decoding、font family / fallback resolver、glyph outline、CFF/CFF2、GSUB/GPOS、variable font axis、ruby / vertical / math layout、rasterizer は後続 phase。
+
 # 2026-06-13 Agent2 GUI bundled font resource routing checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Web の fetch / VFS 書き込みを playground 表層に閉じ、`core/gui` / `alloc/gui` / `std/gui` の formal font contract へ DOM / Canvas / FontFace / OS handle を混ぜない。失敗は exception や `null` / `undefined` ではなく typed result と enum-like kind で扱う。
