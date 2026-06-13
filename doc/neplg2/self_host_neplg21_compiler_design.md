@@ -1298,6 +1298,14 @@ stage0 smoke は accepted root->primitive、nested accepted root->child->primiti
 
 最適化の扱いは二段階に分ける。今固定したのは、後続 producer gate が依存する traversal contract、typed error taxonomy、cycle / depth / unsupported field の fail-closed 境界であり、これは後から崩すと accepted proof の意味が変わるため今必要な設計である。一方で、layout lookup の indexing、sibling branch の summary memoization、persistent artifact との共有、branch 間再走査の削減は summary と error の public 契約を変えずに後から差し替えられるため、ある程度の時間超過を理由にこの stage を止めず、次は producer gate / Copy-Drop-Eq-Hash pure evidence へ進める。
 
+2026-06-13 MemoKey / MemoValue recursive producer input checkpoint では、`stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl` を追加し、recursive aggregate traversal の成功を producer gate の実入力へ接続した。この boundary は `memo_trait_recursive_aggregate.nepl`、`memo_trait_layout.nepl`、`memo_trait_operation_proof.nepl`、`memo_trait_producer.nepl` を読むが、proof store、artifact reader / serializer、canonical key codec、HIR、Resource IR、backend へ依存しない。
+
+重要な境界は、traversal summary を accepted proof として扱わないことである。`SelfhostMemoTraitRecursiveAggregateSummary` の `field_count` は closure 全体の edge 数であり、producer gate が読む root aggregate の direct field range とは一致しない場合がある。そのため `selfhost_memo_trait_recursive_producer_aggregate_proof_result` は、recursive traversal が `Ok` になった後で root の field evidence を `selfhost_memo_trait_layout_evidence_for_type_result` から再取得し、その field evidence と operation proof table の Copy / Drop / Eq / Hash status を `SelfhostMemoTraitAggregateProof` へ合流する。
+
+`selfhost_memo_trait_recursive_producer_record_result` は最終的に既存 `selfhost_memo_trait_aggregate_proof_to_record` を呼ぶ。accepted `SelfhostMemoTraitEvidenceRecord` を独自生成したり、consumer evidence table へ直接 push したりしない。失敗は `SelfhostMemoTraitRecursiveProducerErrorKind` に閉じ、`RecursiveRejected(SelfhostMemoTraitRecursiveAggregateErrorKind)`、`LayoutRejected(SelfhostMemoTraitLayoutEvidenceErrorKind)`、`OperationRejected(SelfhostMemoTraitOperationProofErrorKind)`、`ProducerRejected(SelfhostMemoTraitEvidenceProduceRejectKind)` を区別する。
+
+stage0 smoke は accepted root、self-cycle、operation proof missing、hazard rejection を public boundary 経由で確認する。source policy は、summary counter を producer field range に流用しないこと、producer gate を迂回しないこと、source text / span / path / display name / diagnostic / lexeme を authority にしないこと、行数 / doc comment 長制限を追加しないことを固定した。この checkpoint 後も、Copy / Drop / Eq / Hash pure evidence の実計算、full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は後続 slice として残る。
+
 ### Phase 11: Backend
 
 - Wasm codegen を完成させる。

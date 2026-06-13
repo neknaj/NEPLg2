@@ -1,3 +1,56 @@
+# 2026-06-13 Agent selfhost memo trait recursive producer input checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、DAG に沿った責務分割、producer gate の authority 分離、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `selfhost/memo-trait-recursive-producer-input-20260613`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / recursive aggregate traversal を producer gate 入力へ接続する boundary
+- classification: selfhost implementation slice review
+- decision: producer module に traversal / operation lookup を混ぜず、`memo_trait_recursive_producer.nepl` を新設した。recursive traversal、root layout evidence 再取得、operation proof table、producer gate を順に通し、accepted record の最終 authority は既存 producer gate に残した。
+- policy/spec:
+  - recursive traversal summary は accepted proof ではない。`summary.field_count` は closure 全体の edge 数であり、root direct field range ではないため、producer field evidence には使わない。
+  - traversal 成功後、root field evidence は `selfhost_memo_trait_layout_evidence_for_type_result` から再取得する。
+  - operation table の missing / impure / unknown status は補完せず、producer gate の typed rejection へ渡す。
+  - `SelfhostMemoTraitRecursiveProducerErrorKind` は recursive / layout / operation / producer rejection を nested enum payload として保持する。
+  - accepted `SelfhostMemoTraitEvidenceRecord` は `selfhost_memo_trait_aggregate_proof_to_record` 経由でだけ作り、consumer evidence table へ直接 push しない。
+  - proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend、source text、span、path、display name、diagnostic、lexeme はこの boundary の authority にしない。
+- implementation/test:
+  - `stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl` を追加した。
+  - `stdlib/neplg2/core/ty/ty.nepl`、`nodesrc/selfhost_ty_sources.js`、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js` を追加し、source order、doc comment、typed error、producer gate経由、summary counter流用禁止、source-derived authority禁止、line count / doc comment length cap 禁止を固定した。
+- subagent review:
+  - subagent_review_ids: `019ebb0d-bd4f-7851-91de-50dd4d16c88b`
+  - subagent_review_count: 1 design review, 1 implementation review
+  - Blocker: summary `field_count` を producer `Known(range.field_count)` に流用する設計なら Blocker と指摘された。実装では summary counter を使わず root layout validator から field evidence を再取得した。
+  - Required: producer module に connector責務を入れず、新 module または operation proof adapter に分けること、accepted record 化は必ず producer gate 経由にすること、recursive / operation / producer rejection を typed enum として保持すること。新 module 分離と typed errorで反映済み。実装レビューで追加 Required はなし。
+  - Non-blocker: summary counter流用禁止 regex は変数名に依存するため、将来さらに堅くするなら nested aggregate accepted path を runtime smoke に追加できる。今回は source policy で direct summary counter 流用を禁止し、reverse dependency 禁止も追加した。
+  - Question: なし。
+  - Approve: 実装レビューでは、実装本体、doc comment、typed error、producer gate authority、owner cleanup、line/comment cap 禁止に問題なしとして approve された。
+  - response_check: `nodesrc/selfhost_zenn_review_response_check.js` の運用方針に沿い、review response の Blocker / Required / Non-blocker / Question / Approve を同じ checkpoint に記録した。
+- source_policy:
+  - source_policy: updated
+  - source_policy_reason: recursive traversal summary を accepted proof に昇格する退行、root direct field range と closure field count の混同、producer gate 迂回、source-derived authority、proof store / artifact 逆依存、line count / doc comment length cap 混入を防ぐため。
+  - 既存 warning: Node WASI ExperimentalWarning は既存の環境警告として確認した。
+  - 今回差分由来 warning: 初回の `node nodesrc/test_selfhost_zenn_review_gate_contract.js` は、最新 checkpoint に `nodesrc/selfhost_zenn_review_response_check.js` と今回差分由来 warning の記録が不足していたため失敗した。同じ checkpoint に response_check とこの warning 経緯を反映した。
+  - 行数制限: 追加していない。
+  - doc comment 長制限: 追加していない。
+- performance:
+  - recursive traversal は到達 aggregate 数 a、field edge 数 e、最大 depth d に比例する。
+  - root layout evidence 再取得は layout record 数 n と root field 数 m に対する O(n + m)。
+  - operation proof lookup は record 数 p に対する O(p)。
+  - この connector は source scan、module graph、proof store lookup、artifact decode、diagnostic rendering、backend codegen を行わない。
+- verify:
+  - 検証済み:
+  - pass: `node nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-recursive-producer.json`
+  - pass: `node nodesrc/test_selfhost_memo_trait_recursive_aggregate_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+  - pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - pass: `git diff --check`
+- 次 slice: re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算を継続する。
+
 # 2026-06-13 Agent selfhost memo trait `.neplproof` serialized index codec checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Result / enum error、DAG に沿った責務分割、artifact schema boundary による静的検査、proof acceptance authority の分離、探索範囲と計算量の明示、丁寧な doc comment、試作段階でも雑設計を残さない方針に従った。

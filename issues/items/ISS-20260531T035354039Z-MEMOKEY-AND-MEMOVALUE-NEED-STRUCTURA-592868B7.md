@@ -399,6 +399,34 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait recursive producer input checkpoint
+
+`stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl` を追加し、recursive aggregate traversal summary を producer gate の実入力へ接続する境界を作った。
+
+この module は、`selfhost_memo_trait_recursive_aggregate_result` で field closure traversal を先に実行し、成功した場合だけ root の field evidence を `selfhost_memo_trait_layout_evidence_for_type_result` から再取得する。その後、`selfhost_memo_trait_aggregate_proof_from_operation_table_result` で Copy / Drop / Eq / Hash status を合流し、最後に `selfhost_memo_trait_aggregate_proof_to_record` を呼ぶ。accepted `SelfhostMemoTraitEvidenceRecord` を独自に構築せず、consumer evidence table へも直接 push しない。
+
+traversal summary の `field_count` は closure 全体の field edge 数であり、producer gate が読む root direct field range ではない。そのため、この checkpoint では summary counter を field range として使わないことを source policy で固定した。nested aggregate で summary が `2/2/1` になっても、producer field evidence は root layout validator の `Known(range)` を authority とする。
+
+失敗は `SelfhostMemoTraitRecursiveProducerErrorKind` として、`RecursiveRejected(SelfhostMemoTraitRecursiveAggregateErrorKind)`、`LayoutRejected(SelfhostMemoTraitLayoutEvidenceErrorKind)`、`OperationRejected(SelfhostMemoTraitOperationProofErrorKind)`、`ProducerRejected(SelfhostMemoTraitEvidenceProduceRejectKind)` に分ける。文字列、diagnostic、source path、span、lexeme、display name は rejection authority にしない。proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend への依存も持たない。
+
+stage0 smoke は accepted root、cycle rejection、operation proof missing 由来の producer rejection、hazard rejection を public boundary 経由で確認する。source policy は facade re-export、source list 登録、`layout < producer < recursive aggregate < operation proof < recursive producer` の順序、producer gate 迂回禁止、summary counter 流用禁止、source-derived authority 禁止、line count / doc comment length cap 禁止を固定した。
+
+subagent review では Tesla が、producer module に traversal / operation lookup を混ぜず薄い connector module に分離する方針、recursive summary counter を field range として扱わない方針、accepted record 化を producer gate に残す方針を Required として確認した。この checkpoint では新 module 分離、root layout evidence 再取得、producer gate 経由、source policy の summary counter 禁止を反映した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-recursive-producer.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_recursive_aggregate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
+
 ## 2026-06-13 selfhost memo trait operation proof table checkpoint
 
 `memo_trait_operation_proof.nepl` を追加し、Copy / Drop / Eq / Hash の operation proof status を session-local table から aggregate proof producer へ渡す境界を固定した。
