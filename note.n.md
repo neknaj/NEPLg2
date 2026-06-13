@@ -58307,6 +58307,51 @@ MERGE_APPROVED
 - F4d は horizontal advance width と left side bearing だけであり、full `GuiGlyphMetrics` に必要な outline / bitmap ink bounds、CFF/CFF2 / glyf outline、format 12 cmap、GSUB/GPOS shaping、ruby / vertical / math bridge は後続 phase で接続する。
 - `metadata` / `name` / `cmap` / `hmtx` の byte reader と table-relative range helper は重複しているため、public contract を変えずに後続で shared internal helper へ整理できる。
 
+## 2026-06-13 GUI font SFNT loca/glyf glyph header bounds checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-glyph-bounds-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: host text measurement、browser text API、path suffix、fixed-cell fallback を glyph bounds authority にせず、font bytes 内の `head` / `maxp` / `loca` / `glyf` と typed `GuiGlyphId`、`Result`、enum error を authority とした。
+
+### implementation
+
+- `gui_font_rendering_spec.md`、`gui_font_rendering_detailed_design.md`、`gui_font_rendering_implementation_plan.md` に F4e の SFNT `loca` / `glyf` glyph header bounds contract を追加した。
+- `GuiSfntDirectory` に optional `loca` / `glyf` table record を追加し、metadata parser は table の存在だけを記録するようにした。
+- `gui_sfnt_directory_head`、`gui_sfnt_directory_loca`、`gui_sfnt_directory_glyf` を公開し、lookup 側が table record を typed value として読むようにした。
+- `GuiSfntParseErrorKind` に `UnsupportedLocaFormat`、`MalformedGlyfRecord`、`MissingGlyphOutline` を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` を追加し、`GuiSfntGlyphBounds` と `gui_sfnt_lookup_glyph_bounds` を実装した。
+- `head.indexToLocFormat` は `head.offset + 50` の i16 として読み、`head.length >= 52` は `glyf` lookup 専用要件にした。F4a metadata parser の `head.length >= 20` 要件は変更していない。
+- `loca` format 0 は short offset を 2 倍し、format 1 は long offset u32 を読む。long offset が i32 範囲外なら `MalformedGlyfRecord` を返す。
+- `loca.length` は format 0 で `(numGlyphs + 1) * 2`、format 1 で `(numGlyphs + 1) * 4` 以上を要求し、declared table length 外の bytes を読まない。
+- `glyphRaw <= 0`、`glyphRaw >= maxp.numGlyphs`、empty glyph range は `MissingGlyphOutline` とし、decreasing offset、`glyf.length` 外 offset、10 byte 未満 header、inverted x/y bounds は `MalformedGlyfRecord` とした。
+- `stdlib/alloc/gui/font/sfnt.nepl` facade から `glyf` を再公開し、source policy で metadata と glyph lookup の独立、platform / host font API / fallback 禁止を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に explicit byte fixture の short loca success、long loca success、missing table、short head、unsupported loca format、long loca high-bit、short declared loca length、decreasing offset、empty glyph、short glyf header、inverted bounds を追加した。
+
+### subagent_review
+
+- 実装前 review では、`UnsupportedLocaFormat` を独立 error にすること、`head.length >= 52` を lookup-only として F4a metadata 要件を増やさないこと、long loca high-bit を `MalformedGlyfRecord` にすること、declared `loca.length` を厳密に見ること、`start <= end <= glyf.length` と empty / short glyph header を分けることが Required とされた。
+- 対応として、doc と実装の両方に F4e の lookup-only requirement、typed error、declared length、table-relative bounds を明記した。
+- 実装後 review では Blocker / Required はなく、merge-ready と判断された。
+- Non-blocker として、F4e 実装計画書の検証コマンドに新規 `gui_font_sfnt_glyf.n.md` と `sfnt/glyf.nepl` の doctest を明記するよう指摘されたため反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only`
+
+`nodesrc/run_source_policy_regressions.js --warn-only` では GUI/font F4e policy を通過したが、既存の `nodesrc/test_stdlib_documentation_contract.js` が `stdlib declaration doc gaps increased: 153 > 108` を報告した。今回触った `stdlib/alloc/gui/font/sfnt/glyf.nepl`、`metadata.nepl`、`sfnt.nepl` と GUI/font docs には source policy gate と focused doctest を追加済みであり、この warning は既存 baseline drift として切り分ける。
+
+### residual
+
+- F4e は glyph header の bbox だけであり、actual outline contour decode、CFF/CFF2、quadratic curve rasterization、hinting、anti-alias mask、GSUB/GPOS shaping、ruby / vertical / math bridge は後続 phase で接続する。
+- `metadata` / `name` / `cmap` / `hmtx` / `glyf` の byte reader と table-relative range helper は重複しているため、public contract を変えずに後続で shared internal helper へ整理できる。
+
 ## 2026-06-13 selfhost stable nominal key and public type layout header checkpoint
 
 ### scope

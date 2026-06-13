@@ -49,18 +49,23 @@ const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
 const allocFontSfntCmap = read("stdlib/alloc/gui/font/sfnt/cmap.nepl");
 const allocFontSfntHmtx = read("stdlib/alloc/gui/font/sfnt/hmtx.nepl");
-const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx].join("\n");
+const allocFontSfntGlyf = read("stdlib/alloc/gui/font/sfnt/glyf.nepl");
+const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap, allocFontSfntHmtx, allocFontSfntGlyf].join("\n");
 const allocFontSfntImpl = withoutComments(allocFontSfnt);
 const allocFontSfntMetadataImpl = withoutComments(allocFontSfntMetadata);
 const allocFontSfntNameImpl = withoutComments(allocFontSfntName);
 const allocFontSfntCmapImpl = withoutComments(allocFontSfntCmap);
 const allocFontSfntHmtxImpl = withoutComments(allocFontSfntHmtx);
+const allocFontSfntGlyfImpl = withoutComments(allocFontSfntGlyf);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
-const guiFontSfntTests = read("tests/stdlib/gui_font_sfnt.n.md");
+const guiFontSfntTests = [
+    read("tests/stdlib/gui_font_sfnt.n.md"),
+    read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
+].join("\n");
 const webFontResourceVfs = read("web/src/gui-font/font-resource-vfs.ts");
 const webMain = read("web/src/main.ts");
 const webPanelManager = read("web/src/workspace/panel-manager.ts");
@@ -146,6 +151,11 @@ assertMatch(
     "font spec must define F4d hmtx lookup as typed horizontal metrics with exact bounds policy",
 );
 assertMatch(
+    spec,
+    /SFNT glyph header bounds[\s\S]*GuiSfntGlyphBounds:[\s\S]*glyph GuiGlyphId[\s\S]*x_min i32[\s\S]*y_min i32[\s\S]*x_max i32[\s\S]*y_max i32[\s\S]*gui_sfnt_lookup_glyph_bounds:[\s\S]*Result GuiSfntGlyphBounds GuiSfntParseError[\s\S]*head\.length >= 52[\s\S]*UnsupportedLocaFormat[\s\S]*MissingGlyphOutline[\s\S]*MalformedGlyfRecord/,
+    "font spec must define F4e loca/glyf lookup as typed glyph bounds with exact bounds policy",
+);
+assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
     "font detailed design must define F4c cmap format-4 lookup and bounds validation",
@@ -156,6 +166,11 @@ assertMatch(
     "font detailed design must define F4d hmtx count, glyph range, and table-relative lookup",
 );
 assertMatch(
+    detailedDesign,
+    /SFNT glyph header bounds[\s\S]*GuiSfntGlyphBounds[\s\S]*indexToLocFormat[\s\S]*head\.length >= 52[\s\S]*UnsupportedLocaFormat[\s\S]*loca\.length[\s\S]*MissingGlyphOutline[\s\S]*glyf glyph header/,
+    "font detailed design must define F4e loca format, declared lengths, and glyf header lookup",
+);
+assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
     "font implementation plan must define F4c cmap parser data types and error kinds",
@@ -164,6 +179,11 @@ assertMatch(
     implementationPlan,
     /Phase F4d:[\s\S]*alloc\/gui\/font\/sfnt\/hmtx\.nepl[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric[\s\S]*GuiSfntHorizontalMetric[\s\S]*Result GuiSfntHorizontalMetric GuiSfntParseError[\s\S]*hhea\.offset \+ 34[\s\S]*declared `hmtx\.length`/,
     "font implementation plan must define F4d hmtx parser data types and error kinds",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4e:[\s\S]*alloc\/gui\/font\/sfnt\/glyf\.nepl[\s\S]*UnsupportedLocaFormat[\s\S]*MalformedGlyfRecord[\s\S]*MissingGlyphOutline[\s\S]*GuiSfntGlyphBounds[\s\S]*Result GuiSfntGlyphBounds GuiSfntParseError[\s\S]*head\.offset \+ 50[\s\S]*declared `loca\.length`/,
+    "font implementation plan must define F4e glyf parser data types and error kinds",
 );
 
 assertMatch(
@@ -235,6 +255,7 @@ assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/metadata"\s+as\s+@merge/,
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/name"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export name parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/cmap"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export cmap parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/hmtx"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export hmtx parser");
+assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/glyf"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export glyf parser");
 assertMatch(
     allocFontSfntImpl,
     /pub\s+enum\s+GuiSfntContainerKind:[\s\S]*TrueTypeSfnt[\s\S]*OpenTypeSfnt[\s\S]*TrueTypeCollection[\s\S]*OpenTypeCollection/,
@@ -242,7 +263,7 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric/,
+    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric[\s\S]*UnsupportedLocaFormat[\s\S]*MalformedGlyfRecord[\s\S]*MissingGlyphOutline/,
     "alloc/gui/font/sfnt must expose typed parser errors",
 );
 assertMatch(
@@ -257,8 +278,8 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord[\s\S]*cmap\s+%Option\s+GuiSfntTableRecord[\s\S]*hmtx\s+%Option\s+GuiSfntTableRecord/,
-    "alloc/gui/font/sfnt directory must track optional name, cmap, and hmtx tables without requiring decoding",
+    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord[\s\S]*cmap\s+%Option\s+GuiSfntTableRecord[\s\S]*hmtx\s+%Option\s+GuiSfntTableRecord[\s\S]*loca\s+%Option\s+GuiSfntTableRecord[\s\S]*glyf\s+%Option\s+GuiSfntTableRecord/,
+    "alloc/gui/font/sfnt directory must track optional name, cmap, hmtx, loca, and glyf tables without requiring decoding",
 );
 assertMatch(
     allocFontSfntImpl,
@@ -405,6 +426,51 @@ assertMatch(
     /lt\s+glyph_raw\s+number_of_hmetrics[\s\S]*gui_sfnt_hmtx_read_long_metric[\s\S]*gui_sfnt_hmtx_read_bearing_array_metric/,
     "alloc/gui/font/sfnt/hmtx must cover longHorMetric and leftSideBearing-array paths",
 );
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntGlyphBounds:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*x_min\s+%i32[\s\S]*y_min\s+%i32[\s\S]*x_max\s+%i32[\s\S]*y_max\s+%i32/,
+    "alloc/gui/font/sfnt/glyf must expose glyph header bounds as typed data",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_glyph_bounds\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+Result\s+GuiSfntGlyphBounds\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf lookup must take borrowed ByteBuf and checked GuiGlyphId",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
+    "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /not\s+or\s+eq\s+format\s+0\s+eq\s+format\s+1[\s\S]*GuiSfntParseErrorKind::UnsupportedLocaFormat/,
+    "alloc/gui/font/sfnt/glyf must reject unsupported loca formats as typed unsupported",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /fn\s+gui_sfnt_glyf_read_u32_i32_be[\s\S]*high_byte_limit\s+%i32\s+add\s+64\s+64[\s\S]*ge\s+b0\s+high_byte_limit[\s\S]*Result::Err\s+gui_sfnt_parse_error\s+kind\s+offset/,
+    "alloc/gui/font/sfnt/glyf must reject long loca offsets outside i32 range",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /entry_count\s+%i32\s+add\s+num_glyphs\s+1[\s\S]*eq\s+format\s+0[\s\S]*mul\s+entry_count\s+2[\s\S]*eq\s+format\s+1[\s\S]*mul\s+entry_count\s+4/,
+    "alloc/gui/font/sfnt/glyf must validate declared loca length for short and long formats",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_checked_glyph_raw[\s\S]*le\s+raw\s+0[\s\S]*ge\s+raw\s+num_glyphs[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline/,
+    "alloc/gui/font/sfnt/glyf must reject glyph 0 and glyphs outside maxp.numGlyphs",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gt\s+start\s+end[\s\S]*gt\s+end\s+gui_sfnt_table_record_length\s+&glyf[\s\S]*eq\s+start\s+end[\s\S]*MissingGlyphOutline[\s\S]*lt\s+sub\s+end\s+start\s+10/,
+    "alloc/gui/font/sfnt/glyf must validate glyf declared bounds and empty/short glyph ranges",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_bounds_from_header[\s\S]*add\s+file_offset\s+2[\s\S]*add\s+file_offset\s+4[\s\S]*add\s+file_offset\s+6[\s\S]*add\s+file_offset\s+8[\s\S]*or\s+gt\s+x_min\s+x_max\s+gt\s+y_min\s+y_max/,
+    "alloc/gui/font/sfnt/glyf must read x/y bounds from the glyf header and reject inverted bounds",
+);
 assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_parse_names\b/,
@@ -421,9 +487,19 @@ assertNoMatch(
     "gui_sfnt_parse_metadata must remain independent from hmtx metric lookup",
 );
 assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_glyph_bounds\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf bounds lookup",
+);
+assertNoMatch(
     allocFontSfntHmtxImpl,
     /\bgui_sfnt_parse_names\b|\bgui_sfnt_lookup_glyph_id\b/,
     "alloc/gui/font/sfnt/hmtx must not use name or cmap parsing as a metric substitute",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /\bgui_sfnt_parse_names\b|\bgui_sfnt_lookup_glyph_id\b|\bgui_sfnt_lookup_horizontal_metric\b/,
+    "alloc/gui/font/sfnt/glyf must not use name, cmap, or hmtx parsing as a bounds substitute",
 );
 assertNoMatch(
     allocFontSfntImpl,
@@ -505,6 +581,27 @@ for (const hmtxCase of [
         guiFontSfntTests,
         new RegExp(hmtxCase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
         `gui font sfnt doctest must cover ${hmtxCase}`,
+    );
+}
+for (const glyfCase of [
+    "glyf glyph1 x min",
+    "glyf glyph1 y max",
+    "glyf long loca x max",
+    "missing loca table",
+    "missing glyf table",
+    "short head for glyf",
+    "unsupported loca format",
+    "long loca high bit",
+    "short loca declared length",
+    "decreasing glyph offset",
+    "empty glyph outline",
+    "short glyf header",
+    "inverted glyph bounds",
+]) {
+    assertMatch(
+        guiFontSfntTests,
+        new RegExp(glyfCase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        `gui font sfnt doctest must cover ${glyfCase}`,
     );
 }
 
