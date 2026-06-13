@@ -44,8 +44,13 @@ const fontResource = read("stdlib/std/gui/font_resource.nepl");
 const fontResourceImpl = withoutComments(fontResource);
 const allocGuiFacade = read("stdlib/alloc/gui.nepl");
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
-const allocFontSfnt = read("stdlib/alloc/gui/font/sfnt.nepl");
+const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
+const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
+const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
+const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName].join("\n");
 const allocFontSfntImpl = withoutComments(allocFontSfnt);
+const allocFontSfntMetadataImpl = withoutComments(allocFontSfntMetadata);
+const allocFontSfntNameImpl = withoutComments(allocFontSfntName);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
@@ -110,6 +115,21 @@ assertMatch(
     implementationPlan,
     /Phase F4a:[\s\S]*numeric basic metrics[\s\S]*Invalid table directory、invalid table offset、unsupported container、collection face index error[\s\S]*未解析の extra table は error にせず無視する[\s\S]*Phase F4b:[\s\S]*name table/,
     "font implementation plan must split F4a numeric metrics from F4b name-table decoding policy",
+);
+assertMatch(
+    spec,
+    /SFNT representative names[\s\S]*nameID 1[\s\S]*nameID 2[\s\S]*nameID 4[\s\S]*platformID 3, encodingID 1, languageID 0x0409[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter/,
+    "font spec must define exact SFNT representative name priority and typed name errors",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT name table[\s\S]*gui_sfnt_parse_metadata[\s\S]*gui_sfnt_parse_names[\s\S]*rank 400[\s\S]*rank 300[\s\S]*rank 200[\s\S]*rank 100/,
+    "font detailed design must separate metadata and name parsers with deterministic name record ranking",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4b:[\s\S]*GuiSfntNameEncodingKind[\s\S]*GuiSfntNameRecord[\s\S]*GuiSfntNameSelection[\s\S]*GuiSfntNames[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter/,
+    "font implementation plan must define F4b name parser data types and error kinds",
 );
 
 assertMatch(
@@ -177,6 +197,8 @@ assertNoMatch(
 
 assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui facade must export font parser facade");
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "alloc/gui/font facade must export sfnt parser");
+assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/metadata"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export metadata parser");
+assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/name"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export name parser");
 assertMatch(
     allocFontSfntImpl,
     /pub\s+enum\s+GuiSfntContainerKind:[\s\S]*TrueTypeSfnt[\s\S]*OpenTypeSfnt[\s\S]*TrueTypeCollection[\s\S]*OpenTypeCollection/,
@@ -184,7 +206,7 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired/,
+    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter/,
     "alloc/gui/font/sfnt must expose typed parser errors",
 );
 assertMatch(
@@ -196,6 +218,11 @@ assertMatch(
     allocFontSfntImpl,
     /pub\s+struct\s+GuiSfntMetadata:[\s\S]*container_kind\s+%GuiSfntContainerKind[\s\S]*face_index\s+%i32[\s\S]*face_count\s+%i32[\s\S]*directory\s+%GuiSfntDirectory[\s\S]*metrics\s+%GuiSfntMetrics/,
     "alloc/gui/font/sfnt metadata must carry container kind, face selection, directory, and metrics",
+);
+assertMatch(
+    allocFontSfntImpl,
+    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord/,
+    "alloc/gui/font/sfnt directory must track optional name table without requiring name decoding",
 );
 assertMatch(
     allocFontSfntImpl,
@@ -231,6 +258,41 @@ assertMatch(
     allocFontSfntImpl,
     /table_offset_bytes\s+%i32\s+sub\s+total\s+12[\s\S]*max_face_count\s+%i32\s+div_s\s+table_offset_bytes\s+4[\s\S]*gt\s+face_count\s+max_face_count[\s\S]*GuiSfntParseErrorKind::InvalidTableDirectory/,
     "alloc/gui/font/sfnt must bound collection face count before multiplying by face-offset entry size",
+);
+assertMatch(
+    allocFontSfntNameImpl,
+    /pub\s+enum\s+GuiSfntNameEncodingKind:[\s\S]*WindowsUnicodeBmpAscii[\s\S]*MacintoshRomanAscii/,
+    "alloc/gui/font/sfnt/name must expose supported representative name encodings as enum values",
+);
+assertMatch(
+    allocFontSfntNameImpl,
+    /pub\s+struct\s+GuiSfntNameRecord:[\s\S]*platform_id\s+%i32[\s\S]*encoding_id\s+%i32[\s\S]*language_id\s+%i32[\s\S]*name_id\s+%i32[\s\S]*length\s+%i32[\s\S]*offset\s+%i32/,
+    "alloc/gui/font/sfnt/name must expose name table records as typed data",
+);
+assertMatch(
+    allocFontSfntNameImpl,
+    /pub\s+struct\s+GuiSfntNames:[\s\S]*family\s+%Option\s+str[\s\S]*subfamily\s+%Option\s+str[\s\S]*full_name\s+%Option\s+str/,
+    "alloc/gui/font/sfnt/name must expose representative names as Option fields",
+);
+assertMatch(
+    allocFontSfntNameImpl,
+    /pub\s+fn\s+gui_sfnt_parse_names\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+Result\s+GuiSfntNames\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/name parser must take borrowed ByteBuf and return typed Result",
+);
+assertMatch(
+    allocFontSfntNameImpl,
+    /platform_id\s+3[\s\S]*encoding_id\s+1[\s\S]*language_id\s+1033[\s\S]*WindowsUnicodeBmpAscii[\s\S]*platform_id\s+1[\s\S]*encoding_id\s+0[\s\S]*language_id\s+0[\s\S]*MacintoshRomanAscii/,
+    "alloc/gui/font/sfnt/name must implement documented initial encoding policy",
+);
+assertMatch(
+    allocFontSfntNameImpl,
+    /records_end\s+%i32\s+add\s+6\s+records_size[\s\S]*lt\s+string_offset\s+records_end[\s\S]*GuiSfntParseErrorKind::MalformedNameRecord/,
+    "alloc/gui/font/sfnt/name must reject name string storage that overlaps the record array",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_parse_names\b/,
+    "gui_sfnt_parse_metadata must remain independent from name table decoding",
 );
 assertNoMatch(
     allocFontSfntImpl,

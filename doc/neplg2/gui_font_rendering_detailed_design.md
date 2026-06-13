@@ -110,6 +110,62 @@ GuiFontFaceSelection:
 
 F2 の `GuiFontResourceRequest` constructor は request shape だけを検査する。つまり path が empty でないこと、`face_index` が `Some n` の場合に `n >= 0` であること、hash value が typed `GuiResourceHash` であること、decode policy が enum value であることを確認する。Collection font の `face_count` を必要とする `FaceIndexRequired` / out-of-range 判定は、F4 の sfnt metadata parser または font registry が font bytes を読める段階で行う。
 
+## SFNT name table
+
+F4b は `alloc/gui/font/sfnt/name.nepl` が所有する。`alloc/gui/font/sfnt.nepl` は facade とし、numeric metadata parser は `alloc/gui/font/sfnt/metadata.nepl` に置く。`gui_sfnt_parse_metadata` は `name` table decode を行わず、`gui_sfnt_parse_names` は別 API として `GuiSfntNames` を返す。
+
+```text
+GuiSfntNames:
+    family Option str
+    subfamily Option str
+    full_name Option str
+
+GuiSfntNameEncodingKind:
+    WindowsUnicodeBmpAscii
+    MacintoshRomanAscii
+```
+
+Representative name selection is deterministic per nameID:
+
+```text
+nameID 1: family
+nameID 2: subfamily
+nameID 4: full name
+
+rank 400:
+    platformID 3
+    encodingID 1
+    languageID 0x0409
+    decode as UTF-16BE ASCII subset
+
+rank 300:
+    platformID 3
+    other encoding or language
+    selected only when rank 400 is absent, then UnsupportedNameEncoding
+
+rank 200:
+    platformID 1
+    encodingID 0
+    languageID 0
+    decode as Roman ASCII subset
+
+rank 100:
+    platformID 1
+    other encoding or language
+    selected only when higher ranks are absent, then UnsupportedNameEncoding
+```
+
+Other platform IDs are not representative candidates in F4b. This is not a substitute-font mechanism; it is a narrow metadata extraction rule. If no candidate exists for a representative nameID, the field is `Option::None`. If a higher-ranked candidate exists but cannot be decoded by the initial engine, parsing returns typed error rather than silently taking a lower-ranked candidate.
+
+Name table validation:
+
+- table format must be 0; otherwise `UnsupportedNameTableFormat`.
+- `count * 12`, record area, and string storage offset must stay inside the `name` table.
+- record string ranges are relative to `stringOffset`, not to the file start.
+- UTF-16BE representative strings must have even byte length.
+- selected representative strings must be non-empty.
+- ASCII subset means all decoded scalar values are in byte range `0..127`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

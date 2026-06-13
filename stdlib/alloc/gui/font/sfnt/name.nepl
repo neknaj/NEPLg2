@@ -1,0 +1,540 @@
+//: # alloc/gui/font/sfnt/name
+//: SFNT name table parser
+//:
+//: ### [目的/もくてき]
+//: - SFNT `name` table から font family、subfamily、full name の代表値を typed value として[読/よ]みます。
+//: - platform font API や host 由来の名称ではなく、resource bytes 内の table だけを authority とします。
+//:
+//: ### [契約/けいやく]
+//: - 現 phase は name table format 0 だけを[扱/あつか]います。
+//: - 対応 encoding は Windows platform 3 / encoding 1 / language 0x0409 の UTF-16BE ASCII subset と、Macintosh platform 1 / encoding 0 / language 0 の Roman ASCII subset です。
+//: - 選択済み record が未対応 encoding または ASCII subset 外の文字を持つ場合は typed error を[返/かえ]します。
+//: - nameID 1 / 2 / 4 が存在しない場合、その field は `Option::None` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - name record scan は record 数 `n` に対して O(n) です。文字列 decode は選択した代表値の byte 数に比例します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/sfnt" as *
+//: ```
+
+#indent 4
+
+#import "alloc/io" as *
+#import "alloc/string/builder" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./metadata" as *
+
+//: GuiSfntNameEncodingKind: F4b が decode できる name record encoding
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntNameEncodingKind:
+    WindowsUnicodeBmpAscii
+    MacintoshRomanAscii
+
+impl Clone for GuiSfntNameEncodingKind:
+    fn clone %fn &GuiSfntNameEncodingKind GuiSfntNameEncodingKind \kind:
+        *kind
+
+impl Copy for GuiSfntNameEncodingKind:
+    fn copy_mark %fn GuiSfntNameEncodingKind GuiSfntNameEncodingKind \kind:
+        kind
+
+//: GuiSfntNameRecord: name table record の typed summary
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntNameRecord:
+    platform_id %i32
+    encoding_id %i32
+    language_id %i32
+    name_id %i32
+    length %i32
+    offset %i32
+
+impl Clone for GuiSfntNameRecord:
+    fn clone %fn &GuiSfntNameRecord GuiSfntNameRecord \record:
+        *record
+
+impl Copy for GuiSfntNameRecord:
+    fn copy_mark %fn GuiSfntNameRecord GuiSfntNameRecord \record:
+        record
+
+//: GuiSfntNameSelection: 代表 name record の選択結果
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntNameSelection:
+    family %Option GuiSfntNameRecord
+    subfamily %Option GuiSfntNameRecord
+    full_name %Option GuiSfntNameRecord
+
+impl Clone for GuiSfntNameSelection:
+    fn clone %fn &GuiSfntNameSelection GuiSfntNameSelection \selection:
+        *selection
+
+impl Copy for GuiSfntNameSelection:
+    fn copy_mark %fn GuiSfntNameSelection GuiSfntNameSelection \selection:
+        selection
+
+//: GuiSfntNames: name table 由来の代表 metadata
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntNames:
+    family %Option str
+    subfamily %Option str
+    full_name %Option str
+
+impl Clone for GuiSfntNames:
+    fn clone %fn &GuiSfntNames GuiSfntNames \names:
+        *names
+
+impl Copy for GuiSfntNames:
+    fn copy_mark %fn GuiSfntNames GuiSfntNames \names:
+        names
+
+//: gui_sfnt_name_record: name table record summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_name_record %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntNameRecord \platform_id\encoding_id\language_id\name_id\length\offset:
+    GuiSfntNameRecord platform_id encoding_id language_id name_id length offset
+
+//: gui_sfnt_name_record_encoding_kind: record の対応 encoding を[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_name_record_encoding_kind %fn &GuiSfntNameRecord Result GuiSfntNameEncodingKind GuiSfntParseError \record:
+    let platform_id %i32 *field::get_ref record "platform_id"
+    let encoding_id %i32 *field::get_ref record "encoding_id"
+    let language_id %i32 *field::get_ref record "language_id"
+    if:
+        and eq platform_id 3 and eq encoding_id 1 eq language_id 1033
+        then:
+            Result::Ok GuiSfntNameEncodingKind::WindowsUnicodeBmpAscii
+        else:
+            if:
+                and eq platform_id 1 and eq encoding_id 0 eq language_id 0
+                then:
+                    Result::Ok GuiSfntNameEncodingKind::MacintoshRomanAscii
+                else:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedNameEncoding 0
+
+//: gui_sfnt_names: representative names value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_names %fn Option str fn Option str fn Option str GuiSfntNames \family\subfamily\full_name:
+    GuiSfntNames family subfamily full_name
+
+//: gui_sfnt_names_family: family name を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_names_family %fn &GuiSfntNames Option str \names:
+    *field::get_ref names "family"
+
+//: gui_sfnt_names_subfamily: subfamily name を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_names_subfamily %fn &GuiSfntNames Option str \names:
+    *field::get_ref names "subfamily"
+
+//: gui_sfnt_names_full_name: full name を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_names_full_name %fn &GuiSfntNames Option str \names:
+    *field::get_ref names "full_name"
+
+fn gui_sfnt_name_id_family %fn void i32 \void:
+    1
+
+fn gui_sfnt_name_id_subfamily %fn void i32 \void:
+    2
+
+fn gui_sfnt_name_id_full_name %fn void i32 \void:
+    4
+
+fn gui_sfnt_name_record_platform_id %fn &GuiSfntNameRecord i32 \record:
+    *field::get_ref record "platform_id"
+
+fn gui_sfnt_name_record_encoding_id %fn &GuiSfntNameRecord i32 \record:
+    *field::get_ref record "encoding_id"
+
+fn gui_sfnt_name_record_language_id %fn &GuiSfntNameRecord i32 \record:
+    *field::get_ref record "language_id"
+
+fn gui_sfnt_name_record_name_id %fn &GuiSfntNameRecord i32 \record:
+    *field::get_ref record "name_id"
+
+fn gui_sfnt_name_record_length %fn &GuiSfntNameRecord i32 \record:
+    *field::get_ref record "length"
+
+fn gui_sfnt_name_record_offset %fn &GuiSfntNameRecord i32 \record:
+    *field::get_ref record "offset"
+
+fn gui_sfnt_name_selection %fn Option GuiSfntNameRecord fn Option GuiSfntNameRecord fn Option GuiSfntNameRecord GuiSfntNameSelection \family\subfamily\full_name:
+    GuiSfntNameSelection family subfamily full_name
+
+fn gui_sfnt_name_selection_empty %fn void GuiSfntNameSelection \void:
+    gui_sfnt_name_selection none none none
+
+fn gui_sfnt_name_checked_range %fn &ByteBuf fn i32 fn i32 fn GuiSfntParseErrorKind Result unit GuiSfntParseError \bytes\offset\size\kind:
+    let total %i32 io_bytebuf_len_ref bytes
+    if:
+        or lt offset 0 lt size 0
+        then:
+            Result::Err gui_sfnt_parse_error kind offset
+        else:
+            if:
+                gt offset total
+                then:
+                    Result::Err gui_sfnt_parse_error kind offset
+                else:
+                    if:
+                        gt size sub total offset
+                        then:
+                            Result::Err gui_sfnt_parse_error kind offset
+                        else:
+                            Result::Ok unit
+
+fn gui_sfnt_name_read_u8 %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_name_checked_range bytes offset 1 kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match io_bytebuf_byte_at bytes offset:
+                Option::Some byte:
+                    Result::Ok byte
+                Option::None:
+                    Result::Err gui_sfnt_parse_error kind offset
+
+fn gui_sfnt_name_read_u16_be %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_name_read_u8 bytes offset kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok hi:
+            match gui_sfnt_name_read_u8 bytes add offset 1 kind:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok lo:
+                    Result::Ok add shl hi 8 lo
+
+fn gui_sfnt_name_record_priority %fn GuiSfntNameRecord i32 \record:
+    let platform_id %i32 gui_sfnt_name_record_platform_id &record
+    let encoding_id %i32 gui_sfnt_name_record_encoding_id &record
+    let language_id %i32 gui_sfnt_name_record_language_id &record
+    if:
+        and eq platform_id 3 and eq encoding_id 1 eq language_id 1033
+        then:
+            400
+        else:
+            if:
+                eq platform_id 3
+                then:
+                    300
+                else:
+                    if:
+                        and eq platform_id 1 and eq encoding_id 0 eq language_id 0
+                        then:
+                            200
+                        else:
+                            if:
+                                eq platform_id 1
+                                then:
+                                    100
+                                else:
+                                    0
+
+fn gui_sfnt_select_name_record %fn Option GuiSfntNameRecord fn GuiSfntNameRecord Option GuiSfntNameRecord \current\candidate:
+    let candidate_priority %i32 gui_sfnt_name_record_priority candidate
+    if:
+        le candidate_priority 0
+        then:
+            current
+        else:
+            match current:
+                Option::None:
+                    some candidate
+                Option::Some selected:
+                    if:
+                        gt candidate_priority gui_sfnt_name_record_priority selected
+                        then:
+                            some candidate
+                        else:
+                            some selected
+
+fn gui_sfnt_name_selection_consider %fn GuiSfntNameSelection fn GuiSfntNameRecord GuiSfntNameSelection \selection\record:
+    let family0 %Option GuiSfntNameRecord *field::get_ref &selection "family"
+    let subfamily0 %Option GuiSfntNameRecord *field::get_ref &selection "subfamily"
+    let full_name0 %Option GuiSfntNameRecord *field::get_ref &selection "full_name"
+    let name_id %i32 gui_sfnt_name_record_name_id &record
+    if:
+        eq name_id gui_sfnt_name_id_family
+        then:
+            gui_sfnt_name_selection gui_sfnt_select_name_record family0 record subfamily0 full_name0
+        else:
+            if:
+                eq name_id gui_sfnt_name_id_subfamily
+                then:
+                    gui_sfnt_name_selection family0 gui_sfnt_select_name_record subfamily0 record full_name0
+                else:
+                    if:
+                        eq name_id gui_sfnt_name_id_full_name
+                        then:
+                            gui_sfnt_name_selection family0 subfamily0 gui_sfnt_select_name_record full_name0 record
+                        else:
+                            selection
+
+fn gui_sfnt_parse_name_record_at %fn &ByteBuf fn i32 Result GuiSfntNameRecord GuiSfntParseError \bytes\record_offset:
+    match gui_sfnt_name_checked_range bytes record_offset 12 GuiSfntParseErrorKind::MalformedNameRecord:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match gui_sfnt_name_read_u16_be bytes record_offset GuiSfntParseErrorKind::MalformedNameRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok platform_id:
+                    match gui_sfnt_name_read_u16_be bytes add record_offset 2 GuiSfntParseErrorKind::MalformedNameRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok encoding_id:
+                            match gui_sfnt_name_read_u16_be bytes add record_offset 4 GuiSfntParseErrorKind::MalformedNameRecord:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok language_id:
+                                    match gui_sfnt_name_read_u16_be bytes add record_offset 6 GuiSfntParseErrorKind::MalformedNameRecord:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok name_id:
+                                            match gui_sfnt_name_read_u16_be bytes add record_offset 8 GuiSfntParseErrorKind::MalformedNameRecord:
+                                                Result::Err error:
+                                                    Result::Err error
+                                                Result::Ok length:
+                                                    match gui_sfnt_name_read_u16_be bytes add record_offset 10 GuiSfntParseErrorKind::MalformedNameRecord:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok offset:
+                                                            Result::Ok gui_sfnt_name_record platform_id encoding_id language_id name_id length offset
+
+fn gui_sfnt_scan_name_records %fn &ByteBuf fn i32 fn i32 fn i32 fn GuiSfntNameSelection Result GuiSfntNameSelection GuiSfntParseError \bytes\records_offset\count\index\selection:
+    if:
+        ge index count
+        then:
+            Result::Ok selection
+        else:
+            let record_offset %i32 add records_offset mul index 12
+            match gui_sfnt_parse_name_record_at bytes record_offset:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok record:
+                    gui_sfnt_scan_name_records bytes records_offset count add index 1 gui_sfnt_name_selection_consider selection record
+
+fn gui_sfnt_name_record_text_range_is_valid %fn GuiSfntTableRecord fn i32 fn GuiSfntNameRecord bool \table\string_offset\record:
+    let table_length %i32 gui_sfnt_table_record_length &table
+    let record_offset %i32 gui_sfnt_name_record_offset &record
+    let record_length %i32 gui_sfnt_name_record_length &record
+    if:
+        or lt string_offset 0 gt string_offset table_length
+        then:
+            false
+        else:
+            let storage_len %i32 sub table_length string_offset
+            if:
+                or lt record_offset 0 lt record_length 0
+                then:
+                    false
+                else:
+                    if:
+                        gt record_offset storage_len
+                        then:
+                            false
+                        else:
+                            le record_length sub storage_len record_offset
+
+fn gui_sfnt_decode_ascii_bytes_loop %fn &ByteBuf fn i32 fn i32 fn i32 fn StringBuilder Result str GuiSfntParseError \bytes\start\length\index\builder:
+    if:
+        ge index length
+        then:
+            match sb_build_result builder:
+                Result::Ok text:
+                    Result::Ok text
+                Result::Err _message:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord start
+        else:
+            match gui_sfnt_name_read_u8 bytes add start index GuiSfntParseErrorKind::MalformedNameRecord:
+                Result::Err error:
+                    string_builder_free builder
+                    Result::Err error
+                Result::Ok byte:
+                    if:
+                        gt byte 127
+                        then:
+                            string_builder_free builder
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedNameCharacter add start index
+                        else:
+                            match sb_append_byte_result builder byte:
+                                Result::Err _message:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord add start index
+                                Result::Ok next:
+                                    gui_sfnt_decode_ascii_bytes_loop bytes start length add index 1 next
+
+fn gui_sfnt_decode_utf16be_ascii_loop %fn &ByteBuf fn i32 fn i32 fn i32 fn StringBuilder Result str GuiSfntParseError \bytes\start\length\index\builder:
+    if:
+        ge index length
+        then:
+            match sb_build_result builder:
+                Result::Ok text:
+                    Result::Ok text
+                Result::Err _message:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord start
+        else:
+            match gui_sfnt_name_read_u8 bytes add start index GuiSfntParseErrorKind::MalformedNameRecord:
+                Result::Err error:
+                    string_builder_free builder
+                    Result::Err error
+                Result::Ok hi:
+                    match gui_sfnt_name_read_u8 bytes add add start index 1 GuiSfntParseErrorKind::MalformedNameRecord:
+                        Result::Err error:
+                            string_builder_free builder
+                            Result::Err error
+                        Result::Ok lo:
+                            if:
+                                not eq hi 0
+                                then:
+                                    string_builder_free builder
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedNameCharacter add start index
+                                else:
+                                    if:
+                                        gt lo 127
+                                        then:
+                                            string_builder_free builder
+                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedNameCharacter add start index
+                                        else:
+                                            match sb_append_byte_result builder lo:
+                                                Result::Err _message:
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord add start index
+                                                Result::Ok next:
+                                                    gui_sfnt_decode_utf16be_ascii_loop bytes start length add index 2 next
+
+fn gui_sfnt_decode_selected_name %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn GuiSfntNameRecord Result str GuiSfntParseError \bytes\table\string_offset\record:
+    let record_length %i32 gui_sfnt_name_record_length &record
+    if:
+        le record_length 0
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord gui_sfnt_table_record_offset &table
+        else:
+            if:
+                not gui_sfnt_name_record_text_range_is_valid table string_offset record
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord gui_sfnt_table_record_offset &table
+                else:
+                    let start %i32 add add gui_sfnt_table_record_offset &table string_offset gui_sfnt_name_record_offset &record
+                    match string_builder_new_result:
+                        Result::Err _message:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord start
+                        Result::Ok builder:
+                            match gui_sfnt_name_record_encoding_kind &record:
+                                Result::Err _error:
+                                    string_builder_free builder
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedNameEncoding start
+                                Result::Ok encoding:
+                                    match encoding:
+                                        GuiSfntNameEncodingKind::WindowsUnicodeBmpAscii:
+                                            if:
+                                                not eq rem_s record_length 2 0
+                                                then:
+                                                    string_builder_free builder
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord start
+                                                else:
+                                                    gui_sfnt_decode_utf16be_ascii_loop bytes start record_length 0 builder
+                                        GuiSfntNameEncodingKind::MacintoshRomanAscii:
+                                            gui_sfnt_decode_ascii_bytes_loop bytes start record_length 0 builder
+
+fn gui_sfnt_decode_optional_name %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn Option GuiSfntNameRecord Result Option str GuiSfntParseError \bytes\table\string_offset\record:
+    match record:
+        Option::None:
+            Result::Ok none
+        Option::Some selected:
+            match gui_sfnt_decode_selected_name bytes table string_offset selected:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok text:
+                    Result::Ok some text
+
+fn gui_sfnt_decode_selected_names %fn &ByteBuf fn GuiSfntTableRecord fn i32 fn GuiSfntNameSelection Result GuiSfntNames GuiSfntParseError \bytes\table\string_offset\selection:
+    let family_record %Option GuiSfntNameRecord *field::get_ref &selection "family"
+    let subfamily_record %Option GuiSfntNameRecord *field::get_ref &selection "subfamily"
+    let full_record %Option GuiSfntNameRecord *field::get_ref &selection "full_name"
+    match gui_sfnt_decode_optional_name bytes table string_offset family_record:
+        Result::Err error:
+            Result::Err error
+        Result::Ok family:
+            match gui_sfnt_decode_optional_name bytes table string_offset subfamily_record:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok subfamily:
+                    match gui_sfnt_decode_optional_name bytes table string_offset full_record:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok full_name:
+                            Result::Ok gui_sfnt_names family subfamily full_name
+
+fn gui_sfnt_parse_name_table %fn &ByteBuf fn GuiSfntTableRecord Result GuiSfntNames GuiSfntParseError \bytes\table:
+    let table_offset %i32 gui_sfnt_table_record_offset &table
+    match gui_sfnt_name_checked_range bytes table_offset 6 GuiSfntParseErrorKind::MalformedNameRecord:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match gui_sfnt_name_read_u16_be bytes table_offset GuiSfntParseErrorKind::MalformedNameRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok format:
+                    if:
+                        not eq format 0
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedNameTableFormat table_offset
+                        else:
+                            match gui_sfnt_name_read_u16_be bytes add table_offset 2 GuiSfntParseErrorKind::MalformedNameRecord:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok count:
+                                    match gui_sfnt_name_read_u16_be bytes add table_offset 4 GuiSfntParseErrorKind::MalformedNameRecord:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok string_offset:
+                                            let table_length %i32 gui_sfnt_table_record_length &table
+                                            let records_size %i32 mul count 12
+                                            let records_end %i32 add 6 records_size
+                                            if:
+                                                or gt records_end table_length or gt string_offset table_length lt string_offset records_end
+                                                then:
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedNameRecord table_offset
+                                                else:
+                                                    match gui_sfnt_scan_name_records bytes add table_offset 6 count 0 gui_sfnt_name_selection_empty:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok selection:
+                                                            gui_sfnt_decode_selected_names bytes table string_offset selection
+
+//: gui_sfnt_parse_names: SFNT byte 列から representative name metadata を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - `name` table の family、subfamily、full name を、platform 非依存の typed value へ[変換/へんかん]します。
+//:
+//: [契約/けいやく]:
+//: - `gui_sfnt_parse_metadata` とは独立した API です。metadata parser は name decode の成功を要求しません。
+//: - `name` table が存在しない場合は `MissingTable` です。
+//: - 対応範囲外の table format、encoding、文字は typed error です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_parse_names %fn &ByteBuf fn Option i32 Result GuiSfntNames GuiSfntParseError \bytes\face_index:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            match gui_sfnt_directory_name &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some table:
+                    gui_sfnt_parse_name_table bytes table
