@@ -58540,3 +58540,47 @@ MERGE_APPROVED
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - generic impl binder / bound detailed evidence、recursive aggregate / cycle boundary、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
 - graph lookup index 化、re-export duplicate ordinal scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えず後から置換できる最適化として扱う。
+
+## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
+
+### scope
+
+- branch: `work/selfhost-trait-evidence-solver`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core / boundary 分離、DAG、計算量と探索範囲の明示、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_operation_evidence.nepl` を追加し、Copy / Drop / Eq / Hash の trait operation evidence を `SelfhostTypeId`、operation kind、`SelfhostMemoTraitAggregateProofStatus` の typed table として運ぶ境界を追加した。
+- operation evidence lookup は TypeId と operation kind の両方を key にし、重複時は `DuplicateRecord` で fail-closed に拒否する。欠落は direct lookup では `RecordMissing` のまま返し、専用 helper だけが `Missing` status へ畳む。
+- `Drop` の `Proven` は上流が Drop なしまたは pure Drop proof を確認済みであることを意味する、と doc comment に明記した。この module は Drop proof を推測で作らない。
+- `memo_trait_operation_solver.nepl` に `selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` を追加した。既存 structural-only API は互換入口として残す。
+- evidence 付き入口は recursive aggregate gate を先に通し、structural field record と root operation evidence record を `Impure > Unknown > Missing > Proven` の順序で merge する。root evidence 欠落は `Missing` として fold されるため、field 構造だけで root type の Copy / Drop / Eq / Hash を証明済みにしない。
+- source text、span、path、display name、diagnostic text、lexeme、HIR、Resource IR、backend、proof store、`.neplproof`、canonical key codec は authority にしない。
+- `nodesrc/test_selfhost_memo_trait_operation_evidence_contract.js` を追加し、runner に登録した。`nodesrc/test_selfhost_memo_trait_operation_solver_contract.js` は operation evidence re-export order、新入口、error equality、禁止依存を固定するよう更新した。
+
+### subagent_review
+
+- Tesla review: Blocker なし。
+- Required として、`SelfhostTypeId + operation kind + status` の typed table、duplicate TypeId / operation の fail-closed、root operation evidence missing の `Missing` fold、field structural proof と root evidence merge の `Impure > Unknown > Missing > Proven` 維持、Drop なし proof の推測禁止、source / HIR / Resource IR / backend / proof store 非依存、producer accepted record を直接作らないことが指摘された。
+- 実装はこの指摘を反映し、ty 層から check/module へ逆依存させず、source scanner / impl parser 接続は次以降の上流 solver slice として残した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_evidence.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-evidence.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver-evidence.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した `test_selfhost_memo_trait_operation_evidence_contract.js` と更新した `test_selfhost_memo_trait_operation_solver_contract.js` は runner 内で pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- 上流の trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- generic impl binder / bound detailed evidence、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続は未完了である。
+- recursive aggregate traversal、nested operation fold の重複計算、graph lookup index、re-export ordinal duplicate scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えず後から置換できる最適化として扱う。

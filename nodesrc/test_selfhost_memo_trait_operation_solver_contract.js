@@ -13,6 +13,7 @@ const {
 const repoRoot = path.resolve(__dirname, "..");
 const relPath = "stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl";
 const layoutPath = "stdlib/neplg2/core/ty/ty/memo_trait_layout.nepl";
+const operationEvidencePath = "stdlib/neplg2/core/ty/ty/memo_trait_operation_evidence.nepl";
 const facade = readRepoFile(repoRoot, TY_FACADE);
 const source = readRepoFile(repoRoot, relPath);
 const layoutSource = readRepoFile(repoRoot, layoutPath);
@@ -35,6 +36,7 @@ function assertOperationSolverOrder(list, label) {
     const producerIndex = list.indexOf("stdlib/neplg2/core/ty/ty/memo_trait_producer.nepl");
     const recursiveAggregateIndex = list.indexOf("stdlib/neplg2/core/ty/ty/memo_trait_recursive_aggregate.nepl");
     const operationProofIndex = list.indexOf("stdlib/neplg2/core/ty/ty/memo_trait_operation_proof.nepl");
+    const operationEvidenceIndex = list.indexOf(operationEvidencePath);
     const operationSolverIndex = list.indexOf(relPath);
     const recursiveProducerIndex = list.indexOf("stdlib/neplg2/core/ty/ty/memo_trait_recursive_producer.nepl");
     assert.ok(
@@ -42,17 +44,19 @@ function assertOperationSolverOrder(list, label) {
             && producerIndex >= 0
             && recursiveAggregateIndex >= 0
             && operationProofIndex >= 0
+            && operationEvidenceIndex >= 0
             && operationSolverIndex >= 0
             && recursiveProducerIndex >= 0,
-        `${label} must include layout, producer, recursive aggregate, operation proof, operation solver, and recursive producer files`,
+        `${label} must include layout, producer, recursive aggregate, operation proof, operation evidence, operation solver, and recursive producer files`,
     );
     assert.ok(
         layoutIndex < producerIndex
             && producerIndex < recursiveAggregateIndex
             && recursiveAggregateIndex < operationProofIndex
-            && operationProofIndex < operationSolverIndex
+            && operationProofIndex < operationEvidenceIndex
+            && operationEvidenceIndex < operationSolverIndex
             && operationSolverIndex < recursiveProducerIndex,
-        `${label} must keep operation solver after operation proof transport and before recursive producer connector`,
+        `${label} must keep operation solver after operation proof/evidence transport and before recursive producer connector`,
     );
 }
 
@@ -65,13 +69,13 @@ assert.match(
 );
 assert.match(
     facade,
-    /pub #import "\.\/ty\/memo_trait_operation_proof" as \*[\s\S]*pub #import "\.\/ty\/memo_trait_operation_solver" as \*[\s\S]*pub #import "\.\/ty\/memo_trait_recursive_producer" as \*/,
-    "ty facade must keep operation proof before operation solver before recursive producer",
+    /pub #import "\.\/ty\/memo_trait_operation_proof" as \*[\s\S]*pub #import "\.\/ty\/memo_trait_operation_evidence" as \*[\s\S]*pub #import "\.\/ty\/memo_trait_operation_solver" as \*[\s\S]*pub #import "\.\/ty\/memo_trait_recursive_producer" as \*/,
+    "ty facade must keep operation proof before operation evidence before operation solver before recursive producer",
 );
 assert.match(
     source,
-    /# ty\/memo_trait_operation_solver[\s\S]*\[目的\/もくてき\]:[\s\S]*nested aggregate field[\s\S]*\[契約\/けいやく\]:[\s\S]*selfhost_memo_trait_recursive_aggregate_result[\s\S]*nested aggregate field[\s\S]*\[現状\/げんじょう\]:[\s\S]*\[計算量\/けいさんりょう\]:[\s\S]*neplg2:test/,
-    "operation solver documentation must record purpose, contract, current limitations, complexity, and a doctest",
+    /# ty\/memo_trait_operation_solver[\s\S]*\[目的\/もくてき\]:[\s\S]*nested aggregate field[\s\S]*root operation evidence[\s\S]*\[契約\/けいやく\]:[\s\S]*selfhost_memo_trait_recursive_aggregate_result[\s\S]*SelfhostMemoTraitOperationEvidenceTable[\s\S]*\[現状\/げんじょう\]:[\s\S]*evidence 付き入口[\s\S]*\[計算量\/けいさんりょう\]:[\s\S]*neplg2:test/,
+    "operation solver documentation must record purpose, evidence input contract, current limitations, complexity, and a doctest",
 );
 assert.match(
     source,
@@ -102,6 +106,11 @@ assert.match(
     source,
     /^#import "\.\/memo_trait_layout" as \*$/m,
     "operation solver must depend on layout evidence instead of reading raw source layout",
+);
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_operation_evidence" as \*$/m,
+    "operation solver must depend on the typed operation evidence table for root trait operation evidence",
 );
 assert.match(
     source,
@@ -145,8 +154,8 @@ assert.doesNotMatch(
 );
 assert.match(
     source,
-    /pub enum SelfhostMemoTraitOperationSolverErrorKind:[\s\S]*RecursiveRejected %SelfhostMemoTraitRecursiveAggregateErrorKind[\s\S]*LayoutRejected %SelfhostMemoTraitLayoutEvidenceErrorKind[\s\S]*FieldReadRejected %SelfhostMemoTraitLayoutEvidenceErrorKind[\s\S]*TableAllocFailed %StdErrorKind[\s\S]*TablePushRejected %SelfhostMemoTraitOperationProofErrorKind/,
-    "operation solver errors must preserve recursive, layout, field read, table allocation, and table push failures as typed payloads",
+    /pub enum SelfhostMemoTraitOperationSolverErrorKind:[\s\S]*RecursiveRejected %SelfhostMemoTraitRecursiveAggregateErrorKind[\s\S]*LayoutRejected %SelfhostMemoTraitLayoutEvidenceErrorKind[\s\S]*FieldReadRejected %SelfhostMemoTraitLayoutEvidenceErrorKind[\s\S]*TableAllocFailed %StdErrorKind[\s\S]*TablePushRejected %SelfhostMemoTraitOperationProofErrorKind[\s\S]*OperationEvidenceRejected %SelfhostMemoTraitOperationEvidenceErrorKind/,
+    "operation solver errors must preserve recursive, layout, field read, table allocation, table push, and operation evidence failures as typed payloads",
 );
 assert.match(
     source,
@@ -180,8 +189,18 @@ assert.match(
 );
 assert.match(
     source,
-    /wildcard arm は使いません[\s\S]*selfhost_memo_trait_operation_solver_error_kind_eq[\s\S]*RecursiveRejected a_recursive:[\s\S]*selfhost_memo_trait_recursive_aggregate_error_kind_eq a_recursive b_recursive[\s\S]*LayoutRejected a_layout:[\s\S]*selfhost_memo_trait_layout_error_kind_eq a_layout b_layout[\s\S]*FieldReadRejected a_field:[\s\S]*selfhost_memo_trait_layout_error_kind_eq a_field b_field[\s\S]*TableAllocFailed a_alloc:[\s\S]*selfhost_memo_trait_operation_solver_std_error_kind_eq a_alloc b_alloc[\s\S]*TablePushRejected a_push:[\s\S]*selfhost_memo_trait_operation_proof_error_kind_eq a_push b_push/,
-    "operation solver error equality must avoid wildcard arms and compare nested typed payloads",
+    /selfhost_memo_trait_operation_solver_record_with_operation_evidence_result[\s\S]*selfhost_memo_trait_operation_solver_record_result types layout_table type_id[\s\S]*selfhost_memo_trait_operation_evidence_record_for_type_or_missing_result evidence_table type_id[\s\S]*selfhost_memo_trait_operation_solver_record_merge structural_record evidence_record[\s\S]*OperationEvidenceRejected evidence_error/,
+    "operation solver must merge root operation evidence through the typed evidence table and preserve duplicate evidence as a solver error",
+);
+assert.match(
+    source,
+    /pub fn selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result[\s\S]*&SelfhostMemoTraitOperationEvidenceTable[\s\S]*selfhost_memo_trait_recursive_aggregate_result types layout_table type_id max_depth[\s\S]*selfhost_memo_trait_operation_solver_record_with_operation_evidence_result types layout_table evidence_table type_id[\s\S]*selfhost_memo_trait_operation_proof_table_push table record[\s\S]*selfhost_memo_trait_operation_proof_table_free table[\s\S]*Result::Err solve_error/,
+    "operation solver must expose an evidence-aware table constructor that runs the recursive gate, folds root evidence, pushes one proof record, and closes partial tables on solver errors",
+);
+assert.match(
+    source,
+    /wildcard arm は使いません[\s\S]*selfhost_memo_trait_operation_solver_error_kind_eq[\s\S]*RecursiveRejected a_recursive:[\s\S]*selfhost_memo_trait_recursive_aggregate_error_kind_eq a_recursive b_recursive[\s\S]*LayoutRejected a_layout:[\s\S]*selfhost_memo_trait_layout_error_kind_eq a_layout b_layout[\s\S]*FieldReadRejected a_field:[\s\S]*selfhost_memo_trait_layout_error_kind_eq a_field b_field[\s\S]*TableAllocFailed a_alloc:[\s\S]*selfhost_memo_trait_operation_solver_std_error_kind_eq a_alloc b_alloc[\s\S]*TablePushRejected a_push:[\s\S]*selfhost_memo_trait_operation_proof_error_kind_eq a_push b_push[\s\S]*OperationEvidenceRejected a_evidence:[\s\S]*selfhost_memo_trait_operation_evidence_error_kind_eq a_evidence b_evidence/,
+    "operation solver error equality must avoid wildcard arms and compare nested typed payloads, including operation evidence errors",
 );
 assert.match(
     source,

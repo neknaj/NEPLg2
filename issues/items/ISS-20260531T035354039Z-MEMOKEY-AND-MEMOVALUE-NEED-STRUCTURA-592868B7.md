@@ -399,6 +399,33 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
+
+`memo_trait_operation_evidence.nepl` を追加し、Copy / Drop / Eq / Hash の trait operation evidence を `SelfhostTypeId`、operation kind、`SelfhostMemoTraitAggregateProofStatus` の typed table として運ぶ境界を固定した。
+
+この table は evidence の生成器ではない。source scanner、trait impl table、method body purity checker、Drop なし proof、generic impl binder / bound solver は上流の責務である。この module は上流が作った typed status だけを保存し、`RecordMissing` を必要な helper でだけ `Missing` status に畳む。`DuplicateRecord` は first-wins にせず fail-closed に拒否する。`Drop` の `Proven` は、上流が Drop なしまたは pure Drop proof を確認済みであることを意味し、この module は推測で Drop proof を作らない。
+
+`memo_trait_operation_solver.nepl` には `selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` を追加した。既存の structural-only API は互換入口として残し、evidence 付き入口だけが root operation evidence table を受け取る。新入口は recursive aggregate gate を先に通し、structural field record と root operation evidence record を `Impure > Unknown > Missing > Proven` の順序で merge する。root evidence 欠落は `Missing` として fold されるため、field 構造だけで root type の Copy / Drop / Eq / Hash を証明済みにしない。
+
+authority は session-local TypeId、operation kind enum、typed proof status に限定する。source text、span、path、display name、diagnostic text、lexeme、HIR、Resource IR、backend、proof store、`.neplproof`、canonical key codec はこの checkpoint の authority にしない。
+
+subagent review では Tesla が、full public surface orchestration より先に trait-operation evidence table を solver input へ接続する slice が最小で根本的だと評価した。Required として、duplicate TypeId / operation の fail-closed、root operation evidence missing の `Missing` fold、field structural proof と root evidence merge の `Impure > Unknown > Missing > Proven` 維持、Drop なし proof の推測禁止、source / HIR / Resource IR / backend / proof store 非依存、producer accepted record の非生成を求めた。実装と source policy はこの指摘を反映した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_proof_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_evidence.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-evidence.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-solver-evidence.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した `test_selfhost_memo_trait_operation_evidence_contract.js` と更新した `test_selfhost_memo_trait_operation_solver_contract.js` は runner 内で pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、上流の trait impl table / method body purity / Drop なし proof / Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、`.neplmeta` / `.neplproof` との prechecked interface 接続である。recursive aggregate traversal、nested operation fold の重複計算、graph lookup index、re-export ordinal duplicate scan の sorted index 化、composer sorted index / merge cursor 化は public evidence / error contract を変えずに後から置換できる最適化として扱う。
+
 ## 2026-06-13 selfhost public impl header producer checkpoint
 
 `memo_trait_public_impl_header.nepl` を追加し、public trait impl header を `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` と `SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` の `Impl` domain へ接続した。

@@ -7,6 +7,7 @@
 //: - `memo_trait_operation_proof.nepl` は operation proof status table の運搬と producer gate への合流だけを担当します。この module は、その table に入れる record を型構造から作ります。
 //: - Phase 1 では、recursive aggregate gate で cycle / depth / unsupported field を先に拒否したうえで、layout validator が受理した product field closure を読み、primitive field と nested aggregate field の operation proof status を root aggregate の status へ fold します。
 //: - function、parameter、または未対応 primitive である場合は、推測で `Proven` にせず `Unknown` status を fold し、producer が作る record の key/value side payload へ typed rejection として進めます。
+//: - trait impl solver や method purity checker が作る root operation evidence は、`memo_trait_operation_evidence.nepl` の table を通じて受け取ります。evidence 付き入口では欠落を `Missing` として structural record に merge し、field 構造だけで root type の Copy / Drop / Eq / Hash を証明済みにしません。
 //:
 //: [契約/けいやく]:
 //: - source text、span、path、display name、diagnostic text、lexeme は proof authority にしません。入力は `SelfhostTypeArena`、`SelfhostMemoTraitLayoutEvidenceTable`、`SelfhostTypeId` だけです。
@@ -15,12 +16,14 @@
 //: - primitive `unit` / `bool` / `i32` / `u8` / `char` は Copy / Drop / Eq / Hash を `Proven` とします。
 //: - `f32` は value としては primitive predicate で受理され得ますが、key hash / equality の仕様が未固定なので Eq / Hash を `Unknown` として fold します。
 //: - nested aggregate field は同じ layout evidence から子 aggregate record を再帰計算して親へ merge します。ただし cycle、depth limit、unsupported field の拒否は public table construction が先に通す recursive aggregate gate の責務です。
-//: - trait impl table、method body purity、Drop なし proof、public mutable state / owner token hazard は後続 slice の責務です。この module はそれらを `Unknown` に畳み、accepted proof へ進めません。
+//: - trait impl table、method body purity、Drop なし proof の実計算は上流 solver の責務です。この module は `SelfhostMemoTraitOperationEvidenceTable` に入った typed status だけを読み、source や method body を直接 authority にしません。
+//: - old structural-only API は互換入口として残します。MemoKey / MemoValue の accepted proof path で root operation evidence を必須にする場合は、`selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` を使います。
 //: - proof store、`.neplproof` artifact、canonical key codec、HIR、Resource IR、backend へ依存しません。
 //:
 //: [現状/げんじょう]:
 //: - primitive field と nested aggregate field を持つ product aggregate の operation proof を計算します。
-//: - recursive aggregate gate が成功した nested aggregate closure だけを fold します。trait impl table と method body purity は未接続なので、operation status の authority は primitive policy と layout evidence に限定されます。
+//: - recursive aggregate gate が成功した nested aggregate closure だけを fold します。
+//: - evidence 付き入口では root type の Copy / Drop / Eq / Hash evidence を structural record に merge します。source scanner、generic impl binder、method body purity checker 自体は未接続です。
 //:
 //: [計算量/けいさんりょう]:
 //: - layout lookup と validation は `memo_trait_layout.nepl` の計算量に従います。
@@ -85,6 +88,7 @@
 #import "./id" as *
 #import "./kind/model" as *
 #import "./memo_trait_layout" as *
+#import "./memo_trait_operation_evidence" as *
 #import "./memo_trait_operation_proof" as *
 #import "./memo_trait_producer" as *
 #import "./memo_trait_recursive_aggregate" as *
@@ -100,6 +104,7 @@ pub enum SelfhostMemoTraitOperationSolverErrorKind:
     FieldReadRejected %SelfhostMemoTraitLayoutEvidenceErrorKind
     TableAllocFailed %StdErrorKind
     TablePushRejected %SelfhostMemoTraitOperationProofErrorKind
+    OperationEvidenceRejected %SelfhostMemoTraitOperationEvidenceErrorKind
 
 //: SelfhostMemoTraitOperationSolverStage0Summary: structural operation solver の代表 smoke
 //:
@@ -295,6 +300,23 @@ fn selfhost_memo_trait_operation_solver_record_result %fn &SelfhostTypeArena fn 
         Result::Err layout_error:
             Result::Err SelfhostMemoTraitOperationSolverErrorKind::LayoutRejected layout_error
 
+//: selfhost_memo_trait_operation_solver_record_with_operation_evidence_result: structural record に root operation evidence を[畳/たた]む
+//:
+//: [契約/けいやく]:
+//: - field layout と nested aggregate field は既存 structural solver で検査します。
+//: - root operation evidence は `SelfhostMemoTraitOperationEvidenceTable` から読みます。欠落は `Missing` status へ畳み、structural field status と `Impure > Unknown > Missing > Proven` の順序で merge します。
+//: - 重複 evidence は `OperationEvidenceRejected(DuplicateRecord)` として拒否し、first-wins にしません。
+fn selfhost_memo_trait_operation_solver_record_with_operation_evidence_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitLayoutEvidenceTable fn &SelfhostMemoTraitOperationEvidenceTable fn SelfhostTypeId Result SelfhostMemoTraitOperationProofRecord SelfhostMemoTraitOperationSolverErrorKind \types\layout_table\evidence_table\type_id:
+    match selfhost_memo_trait_operation_solver_record_result types layout_table type_id:
+        Result::Ok structural_record:
+            match selfhost_memo_trait_operation_evidence_record_for_type_or_missing_result evidence_table type_id:
+                Result::Ok evidence_record:
+                    Result::Ok selfhost_memo_trait_operation_solver_record_merge structural_record evidence_record
+                Result::Err evidence_error:
+                    Result::Err SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected evidence_error
+        Result::Err structural_error:
+            Result::Err structural_error
+
 //: selfhost_memo_trait_operation_solver_table_for_type_result: 型構造から operation proof table を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -307,6 +329,36 @@ pub fn selfhost_memo_trait_operation_solver_table_for_type_result %impure fn &Se
             match selfhost_memo_trait_operation_proof_table_new:
                 Result::Ok table:
                     match selfhost_memo_trait_operation_solver_record_result types layout_table type_id:
+                        Result::Ok record:
+                            match selfhost_memo_trait_operation_proof_table_push table record:
+                                Result::Ok next_table:
+                                    Result::Ok next_table
+                                Result::Err push_error:
+                                    Result::Err SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected push_error
+                        Result::Err solve_error:
+                            selfhost_memo_trait_operation_proof_table_free table
+                            Result::Err solve_error
+                Result::Err alloc_error:
+                    Result::Err SelfhostMemoTraitOperationSolverErrorKind::TableAllocFailed alloc_error
+        Result::Err recursive_error:
+            Result::Err SelfhostMemoTraitOperationSolverErrorKind::RecursiveRejected recursive_error
+
+//: selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result: root operation evidence 付きで operation proof table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - MemoKey / MemoValue の accepted proof path が、field 構造だけではなく root type の Copy / Drop / Eq / Hash evidence も要求できるようにします。
+//:
+//: [契約/けいやく]:
+//: - 成功時は対象 type 1 件分の record を持つ owner table を返します。
+//: - recursive aggregate gate は structural-only API と同じく最初に実行します。
+//: - root evidence が無い operation は `Missing` status として fold します。重複 evidence は `OperationEvidenceRejected` として拒否します。
+//: - 失敗時は作成済み table owner をこの関数内で閉じ、partial table を返しません。
+pub fn selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn &SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitOperationSolverErrorKind \types\layout_table\evidence_table\type_id\max_depth:
+    match selfhost_memo_trait_recursive_aggregate_result types layout_table type_id max_depth:
+        Result::Ok _summary:
+            match selfhost_memo_trait_operation_proof_table_new:
+                Result::Ok table:
+                    match selfhost_memo_trait_operation_solver_record_with_operation_evidence_result types layout_table evidence_table type_id:
                         Result::Ok record:
                             match selfhost_memo_trait_operation_proof_table_push table record:
                                 Result::Ok next_table:
@@ -369,6 +421,8 @@ pub fn selfhost_memo_trait_operation_solver_error_kind_eq %fn SelfhostMemoTraitO
                     false
                 SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected _b_push:
                     false
+                SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected _b_evidence:
+                    false
         SelfhostMemoTraitOperationSolverErrorKind::LayoutRejected a_layout:
             match b:
                 SelfhostMemoTraitOperationSolverErrorKind::RecursiveRejected _b_recursive:
@@ -380,6 +434,8 @@ pub fn selfhost_memo_trait_operation_solver_error_kind_eq %fn SelfhostMemoTraitO
                 SelfhostMemoTraitOperationSolverErrorKind::TableAllocFailed _b_alloc:
                     false
                 SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected _b_evidence:
                     false
         SelfhostMemoTraitOperationSolverErrorKind::FieldReadRejected a_field:
             match b:
@@ -393,6 +449,8 @@ pub fn selfhost_memo_trait_operation_solver_error_kind_eq %fn SelfhostMemoTraitO
                     false
                 SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected _b_push:
                     false
+                SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected _b_evidence:
+                    false
         SelfhostMemoTraitOperationSolverErrorKind::TableAllocFailed a_alloc:
             match b:
                 SelfhostMemoTraitOperationSolverErrorKind::RecursiveRejected _b_recursive:
@@ -404,6 +462,8 @@ pub fn selfhost_memo_trait_operation_solver_error_kind_eq %fn SelfhostMemoTraitO
                 SelfhostMemoTraitOperationSolverErrorKind::TableAllocFailed b_alloc:
                     selfhost_memo_trait_operation_solver_std_error_kind_eq a_alloc b_alloc
                 SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected _b_evidence:
                     false
         SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected a_push:
             match b:
@@ -417,6 +477,22 @@ pub fn selfhost_memo_trait_operation_solver_error_kind_eq %fn SelfhostMemoTraitO
                     false
                 SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected b_push:
                     selfhost_memo_trait_operation_proof_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected _b_evidence:
+                    false
+        SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected a_evidence:
+            match b:
+                SelfhostMemoTraitOperationSolverErrorKind::RecursiveRejected _b_recursive:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::LayoutRejected _b_layout:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::FieldReadRejected _b_field:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::TableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::TablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitOperationSolverErrorKind::OperationEvidenceRejected b_evidence:
+                    selfhost_memo_trait_operation_evidence_error_kind_eq a_evidence b_evidence
 
 //: selfhost_memo_trait_operation_solver_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
 fn selfhost_memo_trait_operation_solver_std_error_kind_code %fn StdErrorKind i32 \kind:

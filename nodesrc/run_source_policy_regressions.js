@@ -221,6 +221,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_type_argument_identity_contract.js",
     "nodesrc/test_selfhost_memo_trait_recursive_aggregate_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_proof_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_evidence_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_solver_contract.js",
     "nodesrc/test_selfhost_memo_trait_recursive_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_artifact_word_codec_contract.js",

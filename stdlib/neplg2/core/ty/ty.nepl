@@ -54,6 +54,7 @@ pub #import "./ty/memo_trait_layout" as *
 pub #import "./ty/memo_trait_producer" as *
 pub #import "./ty/memo_trait_recursive_aggregate" as *
 pub #import "./ty/memo_trait_operation_proof" as *
+pub #import "./ty/memo_trait_operation_evidence" as *
 pub #import "./ty/memo_trait_operation_solver" as *
 pub #import "./ty/memo_trait_recursive_producer" as *
 pub #import "./ty/memo_trait_policy" as *
