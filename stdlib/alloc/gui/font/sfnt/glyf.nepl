@@ -984,6 +984,43 @@ impl Copy for GuiSfntSimpleGlyphPathCommand:
     fn copy_mark %fn GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand \command:
         command
 
+//: GuiSfntSimpleGlyphPathCommandPair: 同じ edge の move / draw command pair
+//:
+//: [目的/もくてき]:
+//: - 1 つの curve segment から得る move phase と draw phase を O(1) value として[運/はこ]びます。
+//: - contour 全体の command list ではなく、current point state や command index は持ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathCommandPair:
+    move_command %GuiSfntSimpleGlyphPathCommand
+    draw_command %GuiSfntSimpleGlyphPathCommand
+
+impl Clone for GuiSfntSimpleGlyphPathCommandPair:
+    fn clone %fn &GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphPathCommandPair \pair:
+        *pair
+
+impl Copy for GuiSfntSimpleGlyphPathCommandPair:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphPathCommandPair \pair:
+        pair
+
+//: gui_sfnt_simple_glyph_path_command_pair: path command pair value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_command_pair %fn GuiSfntSimpleGlyphPathCommand fn GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommandPair \move_command\draw_command:
+    GuiSfntSimpleGlyphPathCommandPair move_command draw_command
+
+//: gui_sfnt_simple_glyph_path_command_pair_move_command: pair の move command を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_command_pair_move_command %fn &GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphPathCommand \pair:
+    *field::get_ref pair "move_command"
+
+//: gui_sfnt_simple_glyph_path_command_pair_draw_command: pair の draw command を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_command_pair_draw_command %fn &GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphPathCommand \pair:
+    *field::get_ref pair "draw_command"
+
 //: gui_sfnt_simple_glyph_contour_edge_source_contour_index: edge が[属/ぞく]する contour index を[読/よ]む
 //:
 //: neplg2:test[skip]
@@ -1062,6 +1099,18 @@ pub fn gui_sfnt_simple_glyph_curve_segment_draw_command %fn &GuiSfntSimpleGlyphC
             let end_is_implied %bool gui_sfnt_simple_glyph_quadratic_segment_end_is_implied &quadratic
             let quadratic_to %GuiSfntSimpleGlyphPathQuadraticTo gui_sfnt_simple_glyph_path_quadratic_to contour_index edge_index control_x2 control_y2 end_x2 end_y2 end_is_implied
             GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to
+
+//: gui_sfnt_simple_glyph_curve_segment_path_command_pair: segment を move / draw pair に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - 同じ segment に F4m の move projection と draw projection を 1 回ずつ[適用/てきよう]します。
+//: - pair は command list ではなく、`NoSegment` も両 command で `SkipNoSegment` として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_curve_segment_path_command_pair %fn &GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphPathCommandPair \segment:
+    let move_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_move_to_command segment
+    let draw_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_draw_command segment
+    gui_sfnt_simple_glyph_path_command_pair move_command draw_command
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
@@ -2487,3 +2536,23 @@ pub fn gui_sfnt_lookup_simple_glyph_draw_command %fn &ByteBuf fn Option i32 fn G
         Result::Ok segment:
             let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_draw_command &segment
             Result::Ok command
+
+//: gui_sfnt_lookup_simple_glyph_path_command_pair: SFNT glyf edge から move / draw command pair を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - byte-backed curve segment lookup を 1 回だけ[行/おこな]い、成功値を pair projection に[渡/わた]します。
+//: - move と draw を別々に public lookup して同じ edge decode を[繰/く]り[返/かえ]すことを[避/さ]けます。
+//:
+//: [注意/ちゅうい]:
+//: - parse error は `GuiSfntParseError` のまま伝播します。
+//: - command index、command list、sink trait、current point state は導入しません。
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_command_pair %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn i32 Result GuiSfntSimpleGlyphPathCommandPair GuiSfntParseError \bytes\face_index\glyph\contour_index\edge_index:
+    match gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok segment:
+            let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment
+            Result::Ok pair

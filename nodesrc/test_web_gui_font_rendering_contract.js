@@ -281,6 +281,22 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4n path command lookup contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path command pair lookup",
+    "GuiSfntSimpleGlyphPathCommandPair:",
+    "move_command GuiSfntSimpleGlyphPathCommand",
+    "draw_command GuiSfntSimpleGlyphPathCommand",
+    "gui_sfnt_simple_glyph_curve_segment_path_command_pair:",
+    "gui_sfnt_lookup_simple_glyph_path_command_pair:",
+    "-> Result GuiSfntSimpleGlyphPathCommandPair GuiSfntParseError",
+    "contour stream、command sequence、full outline、sink trait ではない",
+    "command index、count、next pointer、current point state は導入しない",
+    "`gui_sfnt_lookup_simple_glyph_curve_segment` を 1 回だけ呼び",
+    "`NoSegment` は pair 内の `move_command` と `draw_command` の両方で `SkipNoSegment`",
+    "F4o は `Vec GuiSfntSimpleGlyphPathCommand` を作らない",
+]) {
+    assert(spec.includes(fragment), `font spec F4o path command pair contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -395,6 +411,22 @@ for (const fragment of [
     "`NoSegment` remains a successful path command state",
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4n path command lookup contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "SFNT simple glyph path command pair lookup",
+    "F4o is a single-edge pair boundary",
+    "not a contour stream",
+    "GuiSfntSimpleGlyphPathCommandPair:",
+    "gui_sfnt_simple_glyph_curve_segment_path_command_pair segment",
+    "GuiSfntSimpleGlyphPathCommandPair move draw",
+    "gui_sfnt_lookup_simple_glyph_path_command_pair bytes face_index glyph contour_index edge_index",
+    "must call `gui_sfnt_lookup_simple_glyph_curve_segment` exactly once",
+    "must not call the separate move and draw public lookup helpers",
+    "The pair is not a list",
+    "does not expose `command_index`, `count`, `next`, mutable current point state",
+    "Both `move_command` and `draw_command` are `SkipNoSegment`",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4o path command pair contract must mention ${fragment}`);
 }
 assertMatch(
     implementationPlan,
@@ -515,6 +547,23 @@ for (const fragment of [
     "tests/stdlib/gui_font_sfnt_glyf_path.n.md",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4n path command lookup contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4o:",
+    "sfnt simple glyph path command pair lookup",
+    "GuiSfntSimpleGlyphPathCommandPair",
+    "gui_sfnt_simple_glyph_path_command_pair",
+    "gui_sfnt_simple_glyph_path_command_pair_move_command",
+    "gui_sfnt_simple_glyph_path_command_pair_draw_command",
+    "gui_sfnt_simple_glyph_curve_segment_path_command_pair",
+    "gui_sfnt_lookup_simple_glyph_path_command_pair",
+    "O(1) value",
+    "`gui_sfnt_lookup_simple_glyph_curve_segment` を 1 回だけ呼び",
+    "`NoSegment` は pair 内の move / draw の両方で `SkipNoSegment`",
+    "command index、count、next、current point state",
+    "no list / no sink / no metadata unwrap / no table-helper bypass",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4o path command pair contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -889,6 +938,11 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathCommandPair:[\s\S]*move_command\s+%GuiSfntSimpleGlyphPathCommand[\s\S]*draw_command\s+%GuiSfntSimpleGlyphPathCommand/,
+    "alloc/gui/font/sfnt/glyf must expose path command pair as a compact two-command value",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /pub\s+fn\s+gui_sfnt_simple_glyph_curve_segment_move_to_command\s+%fn\s+&GuiSfntSimpleGlyphCurveSegment\s+GuiSfntSimpleGlyphPathCommand/,
     "alloc/gui/font/sfnt/glyf must expose pure move-to path command projection for one curve segment",
 );
@@ -906,6 +960,16 @@ assertMatch(
     allocFontSfntGlyfImpl,
     /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_draw_command\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphPathCommand\s+GuiSfntParseError/,
     "alloc/gui/font/sfnt/glyf draw command lookup must take borrowed ByteBuf, checked GuiGlyphId, contour index, and contour-local edge index",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_curve_segment_path_command_pair\s+%fn\s+&GuiSfntSimpleGlyphCurveSegment\s+GuiSfntSimpleGlyphPathCommandPair/,
+    "alloc/gui/font/sfnt/glyf must expose pure path command pair projection for one curve segment",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_path_command_pair\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphPathCommandPair\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf path command pair lookup must take borrowed ByteBuf, checked GuiGlyphId, contour index, and contour-local edge index",
 );
 assertMatch(
     allocFontSfntGlyfImpl,
@@ -1096,6 +1160,11 @@ assertNoMatch(
 );
 assertNoMatch(
     allocFontSfntGlyfImpl,
+    /\bVec\s+GuiSfntSimpleGlyphPathCommandPair\b|\bpush\s+.*GuiSfntSimpleGlyphPathCommandPair\b/,
+    "alloc/gui/font/sfnt/glyf F4o must not allocate or build a full path command pair Vec",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
     /pub\s+struct\s+GuiSfntSimpleGlyphPath(?:MoveTo|LineTo|QuadraticTo|SkipNoSegment):\s*\n\s+(?:edge|line|quadratic|no_segment)\s+%GuiSfntSimpleGlyph/,
     "alloc/gui/font/sfnt/glyf F4m path command payloads must stay compact instead of storing full segment values",
 );
@@ -1170,6 +1239,43 @@ assertNoMatch(
     drawCommandLookup,
     /\bgui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_span|contour_point|contour_edge)\b/,
     "alloc/gui/font/sfnt/glyf F4n draw command lookup must not bypass F4l through lower public lookup helpers",
+);
+const pathCommandPairProjection = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_curve_segment_path_command_pair");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_curve_segment_move_to_command segment",
+    "gui_sfnt_simple_glyph_curve_segment_draw_command segment",
+    "gui_sfnt_simple_glyph_path_command_pair move_command draw_command",
+]) {
+    assert(pathCommandPairProjection.includes(fragment), `alloc/gui/font/sfnt/glyf path command pair projection must include ${fragment}`);
+}
+assertNoMatch(
+    pathCommandPairProjection,
+    /\b(?:Option|Result|command_index|count|next|current_point|Vec|push|gui_sfnt_parse_metadata|gui_sfnt_lookup_|RenderCommand|render_command_|RenderTarget|DrawTarget|raster|Raster|platform|Canvas|DOM|FontFace|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4o pure pair projection must stay O(1), direct, and renderer/platform independent",
+);
+const pathCommandPairLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_command_pair");
+for (const fragment of [
+    "gui_sfnt_lookup_simple_glyph_curve_segment bytes face_index glyph contour_index edge_index",
+    "Result::Err error",
+    "Result::Ok segment",
+    "gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment",
+    "Result::Ok pair",
+]) {
+    assert(pathCommandPairLookup.includes(fragment), `alloc/gui/font/sfnt/glyf path command pair lookup must include ${fragment}`);
+}
+assert(
+    (pathCommandPairLookup.match(/\bgui_sfnt_lookup_simple_glyph_curve_segment\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4o pair lookup must call curve segment lookup exactly once",
+);
+assertNoMatch(
+    pathCommandPairLookup,
+    /\b(?:gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_|gui_sfnt_glyf_simple_point_|gui_sfnt_classify_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_move_to_command|gui_sfnt_lookup_simple_glyph_draw_command|RenderCommand|render_command_|RenderTarget|DrawTarget|raster|Raster|platform|Canvas|DOM|FontFace|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4o pair lookup must not decode twice, bypass F4l, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathCommandPairLookup,
+    /\bgui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_span|contour_point|contour_edge)\b/,
+    "alloc/gui/font/sfnt/glyf F4o pair lookup must not bypass F4l through lower public lookup helpers",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
@@ -1303,6 +1409,11 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_simple_glyph_draw_command\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf draw command lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_path_command_pair\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf path command pair lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,
