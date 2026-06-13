@@ -513,6 +513,66 @@ start.on_curve == true and end.on_curve == false and lookahead.on_curve == false
 
 `NoSegment` は parse error ではない。`edge_index` や `contour_index` が範囲外の場合、または必要な byte range が壊れている場合だけ `Result::Err GuiSfntParseError` とする。
 
+### SFNT simple glyph path command projection
+
+F4m は F4l の `GuiSfntSimpleGlyphCurveSegment` を、後続の outline / path sink が読む typed command に写す段階である。この段階でも full outline `Vec`、streaming sink trait、winding、fill rule、rasterization、2D renderer command への変換は行わない。
+
+```text
+GuiSfntSimpleGlyphPathMoveTo:
+    contour_index i32
+    edge_index i32
+    x2 i32
+    y2 i32
+
+GuiSfntSimpleGlyphPathLineTo:
+    contour_index i32
+    edge_index i32
+    x2 i32
+    y2 i32
+
+GuiSfntSimpleGlyphPathQuadraticTo:
+    contour_index i32
+    edge_index i32
+    control_x2 i32
+    control_y2 i32
+    end_x2 i32
+    end_y2 i32
+    end_is_implied bool
+
+GuiSfntSimpleGlyphPathSkipNoSegment:
+    contour_index i32
+    edge_index i32
+    reason GuiSfntSimpleGlyphCurveNoSegmentReason
+
+GuiSfntSimpleGlyphPathCommand:
+    MoveTo GuiSfntSimpleGlyphPathMoveTo
+    LineTo GuiSfntSimpleGlyphPathLineTo
+    QuadraticTo GuiSfntSimpleGlyphPathQuadraticTo
+    SkipNoSegment GuiSfntSimpleGlyphPathSkipNoSegment
+```
+
+Projection API:
+
+```text
+gui_sfnt_simple_glyph_curve_segment_move_to_command:
+    segment &GuiSfntSimpleGlyphCurveSegment
+    -> GuiSfntSimpleGlyphPathCommand
+
+gui_sfnt_simple_glyph_curve_segment_draw_command:
+    segment &GuiSfntSimpleGlyphCurveSegment
+    -> GuiSfntSimpleGlyphPathCommand
+```
+
+`gui_sfnt_simple_glyph_curve_segment_move_to_command` は `Line` / `Quadratic` を segment start の `MoveTo` に写す。`gui_sfnt_simple_glyph_curve_segment_draw_command` は `Line` を `LineTo`、`Quadratic` を `QuadraticTo` に写す。`NoSegment` はどちらの関数でも `SkipNoSegment` に写す。
+
+この API は command index を受け取らず、`Option` や `Result` も返さない。invalid index という状態を API から消し、caller は move phase と draw phase を明示的に選ぶ。これにより「1 segment から暗黙の current point state を持つ command list が出る」ような設計を避ける。
+
+`MoveTo` は current subpath の開始位置を明示する command であり、これ単体では線や mask を描画しない。`LineTo` と `QuadraticTo` は F4l で確定済みの doubled coordinate をそのまま使う。`SkipNoSegment` は fallback drawing ではなく、valid topology だが現在 edge から path command を発行しないことを後続 sink に伝える typed command である。
+
+Path command payload は元の `GuiSfntSimpleGlyphContourEdge` / `GuiSfntSimpleGlyphLineSegment` / `GuiSfntSimpleGlyphQuadraticSegment` 全体を再保持しない。後続 sink に必要な source contour/edge index、doubled coordinate、no-segment reason だけを保持する。これは full topology value の再コピーを避け、projection 層を小さな値の列として扱えるようにするためである。
+
+F4m は `Vec GuiSfntSimpleGlyphPathCommand` を作らない。caller は `move_to_command` と `draw_command` を明示的に呼び分け、必要な command を 1 つずつ取得する。これにより headless / bare / web / native のどの backend でも同じ pure projection を使える。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

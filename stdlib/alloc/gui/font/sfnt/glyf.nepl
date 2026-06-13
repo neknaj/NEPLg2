@@ -748,6 +748,321 @@ pub fn gui_sfnt_classify_simple_glyph_curve_segment %fn GuiSfntSimpleGlyphContou
                                     let quadratic %GuiSfntSimpleGlyphQuadraticSegment gui_sfnt_simple_glyph_quadratic_segment edge curve_end start_x2 start_y2 end_x2_from_edge end_y2_from_edge end_x2 end_y2 end_is_implied
                                     GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic
 
+//: GuiSfntSimpleGlyphPathMoveTo: glyph path の current point を[移動/いどう]する command
+//:
+//: [目的/もくてき]:
+//: - line / quadratic segment の start point を path sink へ明示的に[渡/わた]します。
+//: - `x2` / `y2` は font unit の 2 倍であり、F4l の doubled coordinate contract をそのまま使います。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathMoveTo:
+    contour_index %i32
+    edge_index %i32
+    x2 %i32
+    y2 %i32
+
+impl Clone for GuiSfntSimpleGlyphPathMoveTo:
+    fn clone %fn &GuiSfntSimpleGlyphPathMoveTo GuiSfntSimpleGlyphPathMoveTo \command:
+        *command
+
+impl Copy for GuiSfntSimpleGlyphPathMoveTo:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathMoveTo GuiSfntSimpleGlyphPathMoveTo \command:
+        command
+
+//: gui_sfnt_simple_glyph_path_move_to: move command value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_move_to %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphPathMoveTo \contour_index\edge_index\x2\y2:
+    GuiSfntSimpleGlyphPathMoveTo contour_index edge_index x2 y2
+
+//: gui_sfnt_simple_glyph_path_move_to_contour_index: move command の source contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_move_to_contour_index %fn &GuiSfntSimpleGlyphPathMoveTo i32 \command:
+    *field::get_ref command "contour_index"
+
+//: gui_sfnt_simple_glyph_path_move_to_edge_index: move command の source edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_move_to_edge_index %fn &GuiSfntSimpleGlyphPathMoveTo i32 \command:
+    *field::get_ref command "edge_index"
+
+//: gui_sfnt_simple_glyph_path_move_to_x2: move x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_move_to_x2 %fn &GuiSfntSimpleGlyphPathMoveTo i32 \command:
+    *field::get_ref command "x2"
+
+//: gui_sfnt_simple_glyph_path_move_to_y2: move y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_move_to_y2 %fn &GuiSfntSimpleGlyphPathMoveTo i32 \command:
+    *field::get_ref command "y2"
+
+//: GuiSfntSimpleGlyphPathLineTo: line segment の end point へ[線/せん]を[引/ひ]く command
+//:
+//: [目的/もくてき]:
+//: - F4l で line として分類済みの segment を、path sink が読む 1 command として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathLineTo:
+    contour_index %i32
+    edge_index %i32
+    x2 %i32
+    y2 %i32
+
+impl Clone for GuiSfntSimpleGlyphPathLineTo:
+    fn clone %fn &GuiSfntSimpleGlyphPathLineTo GuiSfntSimpleGlyphPathLineTo \command:
+        *command
+
+impl Copy for GuiSfntSimpleGlyphPathLineTo:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathLineTo GuiSfntSimpleGlyphPathLineTo \command:
+        command
+
+//: gui_sfnt_simple_glyph_path_line_to: line command value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_line_to %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphPathLineTo \contour_index\edge_index\x2\y2:
+    GuiSfntSimpleGlyphPathLineTo contour_index edge_index x2 y2
+
+//: gui_sfnt_simple_glyph_path_line_to_contour_index: line command の source contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_line_to_contour_index %fn &GuiSfntSimpleGlyphPathLineTo i32 \command:
+    *field::get_ref command "contour_index"
+
+//: gui_sfnt_simple_glyph_path_line_to_edge_index: line command の source edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_line_to_edge_index %fn &GuiSfntSimpleGlyphPathLineTo i32 \command:
+    *field::get_ref command "edge_index"
+
+//: gui_sfnt_simple_glyph_path_line_to_x2: line end x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_line_to_x2 %fn &GuiSfntSimpleGlyphPathLineTo i32 \command:
+    *field::get_ref command "x2"
+
+//: gui_sfnt_simple_glyph_path_line_to_y2: line end y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_line_to_y2 %fn &GuiSfntSimpleGlyphPathLineTo i32 \command:
+    *field::get_ref command "y2"
+
+//: GuiSfntSimpleGlyphPathQuadraticTo: quadratic curve command
+//:
+//: [目的/もくてき]:
+//: - control と end を doubled coordinate のまま[運/はこ]び、odd implied midpoint を丸めず path sink へ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathQuadraticTo:
+    contour_index %i32
+    edge_index %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+    end_is_implied %bool
+
+impl Clone for GuiSfntSimpleGlyphPathQuadraticTo:
+    fn clone %fn &GuiSfntSimpleGlyphPathQuadraticTo GuiSfntSimpleGlyphPathQuadraticTo \command:
+        *command
+
+impl Copy for GuiSfntSimpleGlyphPathQuadraticTo:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathQuadraticTo GuiSfntSimpleGlyphPathQuadraticTo \command:
+        command
+
+//: gui_sfnt_simple_glyph_path_quadratic_to: quadratic command value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn bool GuiSfntSimpleGlyphPathQuadraticTo \contour_index\edge_index\control_x2\control_y2\end_x2\end_y2\end_is_implied:
+    GuiSfntSimpleGlyphPathQuadraticTo contour_index edge_index control_x2 control_y2 end_x2 end_y2 end_is_implied
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_contour_index: quadratic command の source contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_contour_index %fn &GuiSfntSimpleGlyphPathQuadraticTo i32 \command:
+    *field::get_ref command "contour_index"
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_edge_index: quadratic command の source edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_edge_index %fn &GuiSfntSimpleGlyphPathQuadraticTo i32 \command:
+    *field::get_ref command "edge_index"
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_control_x2: control x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_control_x2 %fn &GuiSfntSimpleGlyphPathQuadraticTo i32 \command:
+    *field::get_ref command "control_x2"
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_control_y2: control y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_control_y2 %fn &GuiSfntSimpleGlyphPathQuadraticTo i32 \command:
+    *field::get_ref command "control_y2"
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_end_x2: end x の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_end_x2 %fn &GuiSfntSimpleGlyphPathQuadraticTo i32 \command:
+    *field::get_ref command "end_x2"
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_end_y2: end y の doubled coordinate を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_end_y2 %fn &GuiSfntSimpleGlyphPathQuadraticTo i32 \command:
+    *field::get_ref command "end_y2"
+
+//: gui_sfnt_simple_glyph_path_quadratic_to_end_is_implied: end が implied midpoint かを[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_quadratic_to_end_is_implied %fn &GuiSfntSimpleGlyphPathQuadraticTo bool \command:
+    *field::get_ref command "end_is_implied"
+
+//: GuiSfntSimpleGlyphPathSkipNoSegment: path sink に no-segment state を[渡/わた]す command
+//:
+//: [目的/もくてき]:
+//: - `NoSegment` を silent no-op や暗黙の代替描画にせず、caller が `match` で[明示/めいじ]的に扱える command として[運/はこ]びます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSkipNoSegment:
+    contour_index %i32
+    edge_index %i32
+    reason %GuiSfntSimpleGlyphCurveNoSegmentReason
+
+impl Clone for GuiSfntSimpleGlyphPathSkipNoSegment:
+    fn clone %fn &GuiSfntSimpleGlyphPathSkipNoSegment GuiSfntSimpleGlyphPathSkipNoSegment \command:
+        *command
+
+impl Copy for GuiSfntSimpleGlyphPathSkipNoSegment:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSkipNoSegment GuiSfntSimpleGlyphPathSkipNoSegment \command:
+        command
+
+//: gui_sfnt_simple_glyph_path_skip_no_segment: skip command value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_skip_no_segment %fn i32 fn i32 fn GuiSfntSimpleGlyphCurveNoSegmentReason GuiSfntSimpleGlyphPathSkipNoSegment \contour_index\edge_index\reason:
+    GuiSfntSimpleGlyphPathSkipNoSegment contour_index edge_index reason
+
+//: gui_sfnt_simple_glyph_path_skip_no_segment_contour_index: skip command の source contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_skip_no_segment_contour_index %fn &GuiSfntSimpleGlyphPathSkipNoSegment i32 \command:
+    *field::get_ref command "contour_index"
+
+//: gui_sfnt_simple_glyph_path_skip_no_segment_edge_index: skip command の source edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_skip_no_segment_edge_index %fn &GuiSfntSimpleGlyphPathSkipNoSegment i32 \command:
+    *field::get_ref command "edge_index"
+
+//: gui_sfnt_simple_glyph_path_skip_no_segment_reason: skip command の reason を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_skip_no_segment_reason %fn &GuiSfntSimpleGlyphPathSkipNoSegment GuiSfntSimpleGlyphCurveNoSegmentReason \command:
+    *field::get_ref command "reason"
+
+//: GuiSfntSimpleGlyphPathCommand: simple glyph path sink が 1 つずつ[読/よ]む command
+//:
+//: [目的/もくてき]:
+//: - `MoveTo` / `LineTo` / `QuadraticTo` / `SkipNoSegment` を enum payload として[分/わ]け、inactive field を持つ shared struct を[避/さ]けます。
+//: - この command は renderer command ではなく、後続 outline/path sink 用の中間 command です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathCommand:
+    MoveTo %GuiSfntSimpleGlyphPathMoveTo
+    LineTo %GuiSfntSimpleGlyphPathLineTo
+    QuadraticTo %GuiSfntSimpleGlyphPathQuadraticTo
+    SkipNoSegment %GuiSfntSimpleGlyphPathSkipNoSegment
+
+impl Clone for GuiSfntSimpleGlyphPathCommand:
+    fn clone %fn &GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand \command:
+        *command
+
+impl Copy for GuiSfntSimpleGlyphPathCommand:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand \command:
+        command
+
+//: gui_sfnt_simple_glyph_contour_edge_source_contour_index: edge が[属/ぞく]する contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_contour_edge_source_contour_index %fn &GuiSfntSimpleGlyphContourEdge i32 \edge:
+    let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start edge
+    let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start
+    gui_sfnt_simple_glyph_contour_span_index &span
+
+//: gui_sfnt_simple_glyph_curve_segment_move_to_command: segment start を path command に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - line / quadratic は segment start の `MoveTo` を[返/かえ]します。
+//: - no-segment は `SkipNoSegment` を[返/かえ]し、silent no-op にはしません。
+//: - command index、`Option`、`Result` を使わず、caller が move phase を明示的に[選/えら]びます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_curve_segment_move_to_command %fn &GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphPathCommand \segment:
+    match *segment:
+        GuiSfntSimpleGlyphCurveSegment::NoSegment no_segment:
+            let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_curve_no_segment_edge &no_segment
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_edge_source_contour_index &edge
+            let edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+            let reason %GuiSfntSimpleGlyphCurveNoSegmentReason gui_sfnt_simple_glyph_curve_no_segment_reason &no_segment
+            let skip %GuiSfntSimpleGlyphPathSkipNoSegment gui_sfnt_simple_glyph_path_skip_no_segment contour_index edge_index reason
+            GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip
+        GuiSfntSimpleGlyphCurveSegment::Line line:
+            let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_line_segment_edge &line
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_edge_source_contour_index &edge
+            let edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+            let start_x2 %i32 gui_sfnt_simple_glyph_line_segment_start_x2 &line
+            let start_y2 %i32 gui_sfnt_simple_glyph_line_segment_start_y2 &line
+            let move_to %GuiSfntSimpleGlyphPathMoveTo gui_sfnt_simple_glyph_path_move_to contour_index edge_index start_x2 start_y2
+            GuiSfntSimpleGlyphPathCommand::MoveTo move_to
+        GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic:
+            let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_quadratic_segment_edge &quadratic
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_edge_source_contour_index &edge
+            let edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+            let start_x2 %i32 gui_sfnt_simple_glyph_quadratic_segment_start_x2 &quadratic
+            let start_y2 %i32 gui_sfnt_simple_glyph_quadratic_segment_start_y2 &quadratic
+            let move_to %GuiSfntSimpleGlyphPathMoveTo gui_sfnt_simple_glyph_path_move_to contour_index edge_index start_x2 start_y2
+            GuiSfntSimpleGlyphPathCommand::MoveTo move_to
+
+//: gui_sfnt_simple_glyph_curve_segment_draw_command: segment draw を path command に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - line は `LineTo`、quadratic は `QuadraticTo` を[返/かえ]します。
+//: - no-segment は `SkipNoSegment` を[返/かえ]し、silent no-op にはしません。
+//: - この関数は renderer command を[作/つく]らず、path sink 用の typed command だけを[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_curve_segment_draw_command %fn &GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphPathCommand \segment:
+    match *segment:
+        GuiSfntSimpleGlyphCurveSegment::NoSegment no_segment:
+            let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_curve_no_segment_edge &no_segment
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_edge_source_contour_index &edge
+            let edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+            let reason %GuiSfntSimpleGlyphCurveNoSegmentReason gui_sfnt_simple_glyph_curve_no_segment_reason &no_segment
+            let skip %GuiSfntSimpleGlyphPathSkipNoSegment gui_sfnt_simple_glyph_path_skip_no_segment contour_index edge_index reason
+            GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip
+        GuiSfntSimpleGlyphCurveSegment::Line line:
+            let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_line_segment_edge &line
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_edge_source_contour_index &edge
+            let edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+            let end_x2 %i32 gui_sfnt_simple_glyph_line_segment_end_x2 &line
+            let end_y2 %i32 gui_sfnt_simple_glyph_line_segment_end_y2 &line
+            let line_to %GuiSfntSimpleGlyphPathLineTo gui_sfnt_simple_glyph_path_line_to contour_index edge_index end_x2 end_y2
+            GuiSfntSimpleGlyphPathCommand::LineTo line_to
+        GuiSfntSimpleGlyphCurveSegment::Quadratic quadratic:
+            let edge %GuiSfntSimpleGlyphContourEdge gui_sfnt_simple_glyph_quadratic_segment_edge &quadratic
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_edge_source_contour_index &edge
+            let edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+            let control_x2 %i32 gui_sfnt_simple_glyph_quadratic_segment_control_x2 &quadratic
+            let control_y2 %i32 gui_sfnt_simple_glyph_quadratic_segment_control_y2 &quadratic
+            let end_x2 %i32 gui_sfnt_simple_glyph_quadratic_segment_end_x2 &quadratic
+            let end_y2 %i32 gui_sfnt_simple_glyph_quadratic_segment_end_y2 &quadratic
+            let end_is_implied %bool gui_sfnt_simple_glyph_quadratic_segment_end_is_implied &quadratic
+            let quadratic_to %GuiSfntSimpleGlyphPathQuadraticTo gui_sfnt_simple_glyph_path_quadratic_to contour_index edge_index control_x2 control_y2 end_x2 end_y2 end_is_implied
+            GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
