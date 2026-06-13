@@ -310,6 +310,64 @@ pub fn gui_sfnt_simple_glyph_point_on_curve %fn &GuiSfntSimpleGlyphPoint bool \p
 pub fn gui_sfnt_simple_glyph_point_end_of_contour %fn &GuiSfntSimpleGlyphPoint bool \point:
     *field::get_ref point "end_of_contour"
 
+//: GuiSfntSimpleGlyphContourSpan: simple glyph の 1 contour が[参照/さんしょう]する point span
+//:
+//: [目的/もくてき]:
+//: - full outline allocation 前に、endpoint array から contour ごとの logical point range を typed value として[運/はこ]びます。
+//: - `end_point_index` は inclusive endpoint であり、`point_count` は `end_point_index - start_point_index + 1` です。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourSpan:
+    glyph %GuiGlyphId
+    contour_index %i32
+    start_point_index %i32
+    end_point_index %i32
+    point_count %i32
+
+impl Clone for GuiSfntSimpleGlyphContourSpan:
+    fn clone %fn &GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpan \span:
+        *span
+
+impl Copy for GuiSfntSimpleGlyphContourSpan:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphContourSpan \span:
+        span
+
+//: gui_sfnt_simple_glyph_contour_span: contour span value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span %fn GuiGlyphId fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphContourSpan \glyph\contour_index\start_point_index\end_point_index\point_count:
+    GuiSfntSimpleGlyphContourSpan glyph contour_index start_point_index end_point_index point_count
+
+//: gui_sfnt_simple_glyph_contour_span_glyph: contour span の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_glyph %fn &GuiSfntSimpleGlyphContourSpan GuiGlyphId \span:
+    *field::get_ref span "glyph"
+
+//: gui_sfnt_simple_glyph_contour_span_index: contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_index %fn &GuiSfntSimpleGlyphContourSpan i32 \span:
+    *field::get_ref span "contour_index"
+
+//: gui_sfnt_simple_glyph_contour_span_start_point_index: inclusive start point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_start_point_index %fn &GuiSfntSimpleGlyphContourSpan i32 \span:
+    *field::get_ref span "start_point_index"
+
+//: gui_sfnt_simple_glyph_contour_span_end_point_index: inclusive end point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_end_point_index %fn &GuiSfntSimpleGlyphContourSpan i32 \span:
+    *field::get_ref span "end_point_index"
+
+//: gui_sfnt_simple_glyph_contour_span_point_count: contour 内の point 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_span_point_count %fn &GuiSfntSimpleGlyphContourSpan i32 \span:
+    *field::get_ref span "point_count"
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
@@ -1242,6 +1300,55 @@ fn gui_sfnt_glyf_point_is_contour_end %fn &ByteBuf fn GuiSfntTableRecord fn GuiS
     let contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count &topology
     gui_sfnt_glyf_point_is_contour_end_loop bytes glyf endpoint_array_offset contour_count 0 point_index
 
+//: gui_sfnt_glyf_read_contour_endpoint: topology-derived endpoint array から endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_read_contour_endpoint %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphTopology fn i32 Result i32 GuiSfntParseError \bytes\glyf\topology\contour_index:
+    let endpoint_array_offset %i32 gui_sfnt_glyf_topology_endpoint_array_offset &topology
+    let endpoint_offset %i32 add endpoint_array_offset mul contour_index 2
+    if:
+        not gui_sfnt_glyf_table_relative_range_is_valid glyf endpoint_offset 2
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_offset
+        else:
+            gui_sfnt_glyf_read_u16_be bytes add gui_sfnt_table_record_offset &glyf endpoint_offset GuiSfntParseErrorKind::MalformedGlyfRecord
+
+//: gui_sfnt_glyf_contour_span_from_topology: checked topology から 1 contour span を[作/つく]る
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_contour_span_from_topology %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphTopology fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError \bytes\glyf\topology\contour_index:
+    let contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count &topology
+    let endpoint_array_offset %i32 gui_sfnt_glyf_topology_endpoint_array_offset &topology
+    if:
+        or lt contour_index 0 ge contour_index contour_count
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline add gui_sfnt_table_record_offset &glyf endpoint_array_offset
+        else:
+            match gui_sfnt_glyf_read_contour_endpoint bytes glyf topology contour_index:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok end_point_index:
+                    let previous_contour_index %i32 sub contour_index 1
+                    let previous_endpoint_result %Result i32 GuiSfntParseError if:
+                        eq contour_index 0
+                        then:
+                            Result::Ok -1
+                        else:
+                            gui_sfnt_glyf_read_contour_endpoint bytes glyf topology previous_contour_index
+                    match previous_endpoint_result:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok previous_endpoint:
+                            let start_point_index %i32 add previous_endpoint 1
+                            let point_count %i32 add sub end_point_index start_point_index 1
+                            if:
+                                le point_count 0
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf endpoint_array_offset
+                                else:
+                                    let glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+                                    Result::Ok gui_sfnt_simple_glyph_contour_span glyph contour_index start_point_index end_point_index point_count
+
 //: gui_sfnt_glyf_decode_point_from_stream: checked stream から 1 logical point を[復元/ふくげん]する
 //:
 //: neplg2:test[skip]
@@ -1289,6 +1396,16 @@ fn gui_sfnt_glyf_simple_point_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn 
             Result::Err error
         Result::Ok stream:
             gui_sfnt_glyf_decode_point_from_stream bytes glyf stream point_index
+
+//: gui_sfnt_glyf_simple_contour_span_with_tables: metadata 済み table から simple contour span を[引/ひ]く
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_glyf_simple_contour_span_with_tables %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntTableRecord fn GuiSfntMetrics fn GuiGlyphId fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError \bytes\head\loca\glyf\metrics\glyph\contour_index:
+    match gui_sfnt_glyf_simple_topology_with_tables bytes head loca glyf metrics glyph:
+        Result::Err error:
+            Result::Err error
+        Result::Ok topology:
+            gui_sfnt_glyf_contour_span_from_topology bytes glyf topology contour_index
 
 //: gui_sfnt_lookup_glyph_bounds: SFNT glyf から glyph header bounds を[読/よ]む
 //:
@@ -1414,3 +1531,35 @@ pub fn gui_sfnt_lookup_simple_glyph_point %fn &ByteBuf fn Option i32 fn GuiGlyph
                                     Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
                                 Option::Some glyf:
                                     gui_sfnt_glyf_simple_point_with_tables bytes head loca glyf metrics glyph point_index
+
+//: gui_sfnt_lookup_simple_glyph_contour_span: SFNT glyf から simple glyph の contour span を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - F4f の checked topology を通して、指定 contour が参照する inclusive point range を[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - `contour_index` が glyph の contour 数外なら `MissingGlyphOutline` です。
+//: - endpoint byte の破損は `MalformedGlyfRecord` です。
+//: - point stream decode、coordinate decode、full outline allocation はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_contour_span %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 Result GuiSfntSimpleGlyphContourSpan GuiSfntParseError \bytes\face_index\glyph\contour_index:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            let metrics %GuiSfntMetrics gui_sfnt_metadata_metrics &metadata
+            match gui_sfnt_directory_head &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some head:
+                    match gui_sfnt_directory_loca &directory:
+                        Option::None:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                        Option::Some loca:
+                            match gui_sfnt_directory_glyf &directory:
+                                Option::None:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                                Option::Some glyf:
+                                    gui_sfnt_glyf_simple_contour_span_with_tables bytes head loca glyf metrics glyph contour_index
