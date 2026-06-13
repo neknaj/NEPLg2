@@ -156,6 +156,11 @@ assertMatch(
     "font spec must define F4e loca/glyf lookup as typed glyph bounds with exact bounds policy",
 );
 assertMatch(
+    spec,
+    /SFNT simple glyph topology[\s\S]*GuiSfntSimpleGlyphTopology:[\s\S]*contour_count i32[\s\S]*point_count i32[\s\S]*instruction_length i32[\s\S]*point_data_offset i32[\s\S]*point_data_length i32[\s\S]*gui_sfnt_lookup_simple_glyph_topology:[\s\S]*Result GuiSfntSimpleGlyphTopology GuiSfntParseError[\s\S]*point_data_offset[\s\S]*glyf` table-relative[\s\S]*UnsupportedGlyphOutlineFormat[\s\S]*MissingGlyphOutline[\s\S]*MalformedGlyfRecord/,
+    "font spec must define F4f simple glyph topology with table-relative point data ranges and typed errors",
+);
+assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
     "font detailed design must define F4c cmap format-4 lookup and bounds validation",
@@ -171,6 +176,11 @@ assertMatch(
     "font detailed design must define F4e loca format, declared lengths, and glyf header lookup",
 );
 assertMatch(
+    detailedDesign,
+    /SFNT simple glyph topology[\s\S]*GuiSfntSimpleGlyphTopology[\s\S]*point_data_offset[\s\S]*relative to the `glyf` table[\s\S]*endPtsOfContours[\s\S]*instructionLength[\s\S]*UnsupportedGlyphOutlineFormat[\s\S]*point_data_length/,
+    "font detailed design must define F4f simple glyph topology layout and range policy",
+);
+assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
     "font implementation plan must define F4c cmap parser data types and error kinds",
@@ -184,6 +194,11 @@ assertMatch(
     implementationPlan,
     /Phase F4e:[\s\S]*alloc\/gui\/font\/sfnt\/glyf\.nepl[\s\S]*UnsupportedLocaFormat[\s\S]*MalformedGlyfRecord[\s\S]*MissingGlyphOutline[\s\S]*GuiSfntGlyphBounds[\s\S]*Result GuiSfntGlyphBounds GuiSfntParseError[\s\S]*head\.offset \+ 50[\s\S]*declared `loca\.length`/,
     "font implementation plan must define F4e glyf parser data types and error kinds",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4f:[\s\S]*UnsupportedGlyphOutlineFormat[\s\S]*GuiSfntSimpleGlyphTopology[\s\S]*gui_sfnt_lookup_simple_glyph_topology[\s\S]*point_data_offset[\s\S]*`glyf` table-relative[\s\S]*endpoint[\s\S]*instructionLength/,
+    "font implementation plan must define F4f simple topology parser data types and exact range policy",
 );
 
 assertMatch(
@@ -263,7 +278,7 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric[\s\S]*UnsupportedLocaFormat[\s\S]*MalformedGlyfRecord[\s\S]*MissingGlyphOutline/,
+    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*MalformedHmtxRecord[\s\S]*MissingGlyphMetric[\s\S]*UnsupportedLocaFormat[\s\S]*MalformedGlyfRecord[\s\S]*MissingGlyphOutline[\s\S]*UnsupportedGlyphOutlineFormat/,
     "alloc/gui/font/sfnt must expose typed parser errors",
 );
 assertMatch(
@@ -438,6 +453,16 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphTopology:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*bounds\s+%GuiSfntGlyphBounds[\s\S]*contour_count\s+%i32[\s\S]*point_count\s+%i32[\s\S]*instruction_length\s+%i32[\s\S]*point_data_offset\s+%i32[\s\S]*point_data_length\s+%i32/,
+    "alloc/gui/font/sfnt/glyf must expose simple glyph topology as typed data",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_topology\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+Result\s+GuiSfntSimpleGlyphTopology\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf simple topology lookup must take borrowed ByteBuf and checked GuiGlyphId",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
 );
@@ -471,6 +496,21 @@ assertMatch(
     /gui_sfnt_glyf_bounds_from_header[\s\S]*add\s+file_offset\s+2[\s\S]*add\s+file_offset\s+4[\s\S]*add\s+file_offset\s+6[\s\S]*add\s+file_offset\s+8[\s\S]*or\s+gt\s+x_min\s+x_max\s+gt\s+y_min\s+y_max/,
     "alloc/gui/font/sfnt/glyf must read x/y bounds from the glyf header and reject inverted bounds",
 );
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /gui_sfnt_glyf_read_last_endpoint[\s\S]*not\s+gui_sfnt_glyf_glyph_relative_range_is_valid\s+start\s+end\s+endpoint_offset\s+2[\s\S]*le\s+endpoint\s+previous_endpoint/,
+    "alloc/gui/font/sfnt/glyf must validate simple glyph endpoints inside glyph range and strict increasing",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /lt\s+contour_count\s+0[\s\S]*GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat[\s\S]*eq\s+contour_count\s+0[\s\S]*GuiSfntParseErrorKind::MissingGlyphOutline/,
+    "alloc/gui/font/sfnt/glyf must split composite, zero-contour, and malformed simple glyphs into typed errors",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /instruction_length_offset\s+%i32\s+add\s+endpoint_array_offset\s+endpoint_array_length[\s\S]*gui_sfnt_glyf_read_u16_be[\s\S]*instruction_start\s+%i32\s+add\s+instruction_length_offset\s+2[\s\S]*point_data_offset\s+%i32\s+add\s+instruction_start\s+instruction_length[\s\S]*point_data_length\s+%i32\s+sub\s+end\s+point_data_offset[\s\S]*le\s+point_data_length\s+0/,
+    "alloc/gui/font/sfnt/glyf must validate instruction range and non-empty point data range",
+);
 assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_parse_names\b/,
@@ -490,6 +530,11 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_glyph_bounds\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf bounds lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_topology\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf topology lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,
@@ -587,6 +632,11 @@ for (const glyfCase of [
     "glyf glyph1 x min",
     "glyf glyph1 y max",
     "glyf long loca x max",
+    "topology contour count",
+    "topology point count",
+    "topology instruction length",
+    "topology point data offset",
+    "topology point data length",
     "missing loca table",
     "missing glyf table",
     "short head for glyf",
@@ -597,6 +647,13 @@ for (const glyfCase of [
     "empty glyph outline",
     "short glyf header",
     "inverted glyph bounds",
+    "composite glyph unsupported",
+    "zero contour topology",
+    "non increasing endpoint",
+    "short endpoint array",
+    "short instruction length",
+    "instruction overrun",
+    "missing point data",
 ]) {
     assertMatch(
         guiFontSfntTests,

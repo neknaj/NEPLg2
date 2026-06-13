@@ -8,7 +8,7 @@ short / long `loca` から glyph offset を読み、`glyf` header の bounds を
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"gui_sfnt_glyf_reads_header_bounds_and_typed_errors\" count=13 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"glyf glyph1 x min\" expected=\"-10\" actual=\"-10\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"glyf glyph1 y max\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"glyf long loca x max\" expected=\"90\" actual=\"90\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"missing loca table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"missing glyf table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=5 status=ok kind=bool label=\"short head for glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"unsupported loca format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"long loca high bit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"short loca declared length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"decreasing glyph offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"empty glyph outline\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"short glyf header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"inverted glyph bounds\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_sfnt_glyf_reads_header_bounds_and_typed_errors\" count=25 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"glyf glyph1 x min\" expected=\"-10\" actual=\"-10\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"glyf glyph1 y max\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"glyf long loca x max\" expected=\"90\" actual=\"90\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"topology contour count\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"topology point count\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"topology instruction length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"topology point data offset\" expected=\"17\" actual=\"17\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"topology point data length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"missing loca table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"missing glyf table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"short head for glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"unsupported loca format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"long loca high bit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"short loca declared length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"decreasing glyph offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"empty glyph outline\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"short glyf header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"inverted glyph bounds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"composite glyph unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"zero contour topology\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"non increasing endpoint\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"short endpoint array\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"short instruction length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=bool label=\"instruction overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"missing point data\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -227,6 +227,25 @@ fn sfnt_push_short_loca_valid %impure fn ByteBuilder Result ByteBuilder str \bui
                                 Result::Ok b4:
                                     sfnt_push_u16_be b4 10
 
+fn sfnt_push_short_loca_glyph1_end %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\short_end:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 0:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 short_end:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 short_end:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_u16_be b4 short_end
+
 fn sfnt_push_short_loca_decreasing %impure fn ByteBuilder Result ByteBuilder str \builder:
     match sfnt_push_u16_be builder 0:
         Result::Err message:
@@ -333,6 +352,139 @@ fn sfnt_push_short_glyf_header %impure fn ByteBuilder Result ByteBuilder str \bu
         Result::Ok b1:
             sfnt_push_u16_be b1 0
 
+fn sfnt_push_simple_topology_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 2 65526 65516 100 200:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 3:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 1:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_u8 b4 77:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u8 b5 1:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u8 b6 2:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            sfnt_push_u8 b7 3
+
+fn sfnt_push_composite_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 65535 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            sfnt_push_zero_run b1 10
+
+fn sfnt_push_zero_contour_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 0 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            sfnt_push_zero_run b1 10
+
+fn sfnt_push_non_increasing_endpoint_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 2 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 2:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 2:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_zero_run b3 6
+
+fn sfnt_push_short_endpoint_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 2 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            sfnt_push_u16_be b1 1
+
+fn sfnt_push_short_instruction_length_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 1 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            sfnt_push_u16_be b1 0
+
+fn sfnt_push_instruction_overrun_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 1 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 0:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 4:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u8 b3 1:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_u8 b4 2
+
+fn sfnt_push_missing_point_data_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_glyf_header builder 1 0 0 10 10:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 0:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 2:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u8 b3 1:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    sfnt_push_u8 b4 2
+
+fn sfnt_push_topology_payload %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\kind:
+    match kind:
+        0:
+            sfnt_push_simple_topology_glyf builder
+        1:
+            sfnt_push_composite_glyf builder
+        2:
+            sfnt_push_zero_contour_glyf builder
+        3:
+            sfnt_push_non_increasing_endpoint_glyf builder
+        4:
+            sfnt_push_short_endpoint_glyf builder
+        5:
+            sfnt_push_short_instruction_length_glyf builder
+        6:
+            sfnt_push_instruction_overrun_glyf builder
+        7:
+            sfnt_push_missing_point_data_glyf builder
+        _:
+            Result::Err "unknown topology payload"
+
 fn sfnt_finish %impure fn Result ByteBuilder str Result ByteBuf str \builder_result:
     match builder_result:
         Result::Err message:
@@ -344,6 +496,22 @@ fn sfnt_finish %impure fn Result ByteBuilder str Result ByteBuf str \builder_res
                     Result::Err "finish"
                 Result::Ok bytes:
                     Result::Ok bytes
+
+fn build_topology_case_sfnt %impure fn i32 impure fn i32 impure fn i32 Result ByteBuf str \kind\glyf_length\short_end:
+    match byte_builder_with_capacity 220:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_glyf_sfnt_prefix b0 52 0 4 10 glyf_length sfnt_tag4 'l' 'o' 'c' 'a' sfnt_tag4 'g' 'l' 'y' 'f':
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        match sfnt_push_short_loca_glyph1_end b1 short_end:
+                            Result::Err message:
+                                Result::Err message
+                            Result::Ok b2:
+                                sfnt_push_topology_payload b2 kind
 
 fn build_short_loca_glyf_sfnt %impure fn void Result ByteBuf str \void:
     match byte_builder_with_capacity 220:
@@ -549,9 +717,42 @@ fn sfnt_glyf_error_is %fn Result GuiSfntGlyphBounds GuiSfntParseError fn GuiSfnt
                             true
                         _:
                             false
+                GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+                            true
+                        _:
+                            false
                 _:
                     false
         Result::Ok _bounds:
+            false
+
+fn sfnt_glyf_topology_error_is %fn Result GuiSfntSimpleGlyphTopology GuiSfntParseError fn GuiSfntParseErrorKind bool \result\expected:
+    match result:
+        Result::Err error:
+            match expected:
+                GuiSfntParseErrorKind::MalformedGlyfRecord:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MalformedGlyfRecord:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::MissingGlyphOutline:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MissingGlyphOutline:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+                            true
+                        _:
+                            false
+                _:
+                    false
+        Result::Ok _topology:
             false
 
 fn append_success_cases %impure fn TestReport TestReport \report0:
@@ -568,7 +769,7 @@ fn append_success_cases %impure fn TestReport TestReport \report0:
                     test_report_push r1 assert_eq_i32 "glyf glyph1 y max" 200 gui_sfnt_glyph_bounds_y_max &bounds
             io_bytebuf_free bytes
             next_report
-    match build_long_loca_glyf_sfnt:
+    let report2 %TestReport match build_long_loca_glyf_sfnt:
         Result::Err _message:
             test_report_push report1 assert false
         Result::Ok bytes:
@@ -577,6 +778,21 @@ fn append_success_cases %impure fn TestReport TestReport \report0:
                     test_report_push report1 assert false
                 Result::Ok bounds:
                     test_report_push report1 assert_eq_i32 "glyf long loca x max" 90 gui_sfnt_glyph_bounds_x_max &bounds
+            io_bytebuf_free bytes
+            next_report
+    match build_topology_case_sfnt 0 20 10:
+        Result::Err _message:
+            test_report_push report2 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1:
+                Result::Err _error:
+                    test_report_push report2 assert false
+                Result::Ok topology:
+                    let r1 %TestReport test_report_push report2 assert_eq_i32 "topology contour count" 2 gui_sfnt_simple_glyph_topology_contour_count &topology
+                    let r2 %TestReport test_report_push r1 assert_eq_i32 "topology point count" 4 gui_sfnt_simple_glyph_topology_point_count &topology
+                    let r3 %TestReport test_report_push r2 assert_eq_i32 "topology instruction length" 1 gui_sfnt_simple_glyph_topology_instruction_length &topology
+                    let r4 %TestReport test_report_push r3 assert_eq_i32 "topology point data offset" 17 gui_sfnt_simple_glyph_topology_point_data_offset &topology
+                    test_report_push r4 assert_eq_i32 "topology point data length" 3 gui_sfnt_simple_glyph_topology_point_data_length &topology
             io_bytebuf_free bytes
             next_report
 
@@ -646,13 +862,62 @@ fn append_error_cases %impure fn TestReport TestReport \report0:
             let ok %bool sfnt_glyf_error_is gui_sfnt_lookup_glyph_bounds &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
             io_bytebuf_free bytes
             test_report_push report8 assert "short glyf header" ok
-    match build_inverted_bounds_sfnt:
+    let report10 %TestReport match build_inverted_bounds_sfnt:
         Result::Err _message:
             test_report_push report9 assert false
         Result::Ok bytes:
             let ok %bool sfnt_glyf_error_is gui_sfnt_lookup_glyph_bounds &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
             io_bytebuf_free bytes
             test_report_push report9 assert "inverted glyph bounds" ok
+    let report11 %TestReport match build_topology_case_sfnt 1 20 10:
+        Result::Err _message:
+            test_report_push report10 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat
+            io_bytebuf_free bytes
+            test_report_push report10 assert "composite glyph unsupported" ok
+    let report12 %TestReport match build_topology_case_sfnt 2 20 10:
+        Result::Err _message:
+            test_report_push report11 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::MissingGlyphOutline
+            io_bytebuf_free bytes
+            test_report_push report11 assert "zero contour topology" ok
+    let report13 %TestReport match build_topology_case_sfnt 3 20 10:
+        Result::Err _message:
+            test_report_push report12 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report12 assert "non increasing endpoint" ok
+    let report14 %TestReport match build_topology_case_sfnt 4 12 6:
+        Result::Err _message:
+            test_report_push report13 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report13 assert "short endpoint array" ok
+    let report15 %TestReport match build_topology_case_sfnt 5 12 6:
+        Result::Err _message:
+            test_report_push report14 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report14 assert "short instruction length" ok
+    let report16 %TestReport match build_topology_case_sfnt 6 16 8:
+        Result::Err _message:
+            test_report_push report15 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report15 assert "instruction overrun" ok
+    match build_topology_case_sfnt 7 16 8:
+        Result::Err _message:
+            test_report_push report16 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_topology_error_is gui_sfnt_lookup_simple_glyph_topology &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report16 assert "missing point data" ok
 
 fn main %impure fn void i32 \void:
     let report0 %TestReport test_report_new "gui_sfnt_glyf_reads_header_bounds_and_typed_errors"

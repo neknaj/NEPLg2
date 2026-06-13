@@ -78,6 +78,7 @@ pub enum GuiSfntParseErrorKind:
     UnsupportedLocaFormat
     MalformedGlyfRecord
     MissingGlyphOutline
+    UnsupportedGlyphOutlineFormat
 
 impl Clone for GuiSfntParseErrorKind:
     fn clone %fn &GuiSfntParseErrorKind GuiSfntParseErrorKind \kind:

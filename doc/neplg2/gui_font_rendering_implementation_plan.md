@@ -273,6 +273,41 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4f: sfnt simple glyph topology lookup
+
+目的:
+
+- full outline / rasterization の前段として、simple glyph の contour endpoint array、instruction length、point data range を typed value として取得する。
+- 後続の flags / coordinate decode が host font API や fallback に逃げず、font bytes 内の checked topology から始められるようにする。
+
+変更:
+
+- `GuiSfntParseErrorKind` に `UnsupportedGlyphOutlineFormat` を追加する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphTopology` と `gui_sfnt_lookup_simple_glyph_topology` を追加する。
+- `GuiSfntSimpleGlyphTopology` は glyph、bounds、contour_count、point_count、instruction_length、point_data_offset、point_data_length を持つ。
+- `point_data_offset` は file absolute offset ではなく `glyf` table-relative offset とする。
+- `numberOfContours < 0` は composite glyph / unsupported outline format として `UnsupportedGlyphOutlineFormat` を返す。
+- `numberOfContours == 0` は renderable outline がないため `MissingGlyphOutline` を返す。
+- endpoint array 全体、instructionLength、instructions、point data range は selected glyph range 内に閉じる。
+- endpoint は strict increasing とし、`point_count = last_endpoint + 1` とする。overflow や `point_count <= 0` は `MalformedGlyfRecord` とする。
+- `numberOfContours > 0` かつ `point_count > 0` で `point_data_length == 0` なら `MalformedGlyfRecord` とする。
+- Source policy で simple topology API、typed error、declared range validation、metadata / name / cmap / hmtx / platform API 非依存を固定する。
+
+完了条件:
+
+- explicit fixture bytes から glyph 1 の contour count、point count、instruction length、point data offset、point data length を取得できる。
+- composite glyph、zero contour、non-increasing endpoint、short endpoint array、short instruction length、instruction overrun、missing point data は typed error になる。
+- F4e の glyph bounds doctest と `glyf.nepl` module doctest は引き続き通る。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
