@@ -58147,3 +58147,41 @@ MERGE_APPROVED
 - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_surface_normalizer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-surface-normalizer-payload-typed-errors.json`
 
 この checkpoint 後の残件は、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producerを今回の payload input 境界へ接続すること、trait impl table、method body purity、Drop なし proof を operation solver へ接続することである。
+
+## 2026-06-13 GUI font SFNT name table parser checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-name-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: platform resource / host font API を parser authority にせず、Option / Result、enum / match、error value と display の分離、契約と現状実装の分離を優先した。
+
+### implementation
+
+- `gui_font_rendering_spec.md`、`gui_font_rendering_detailed_design.md`、`gui_font_rendering_implementation_plan.md` に F4b の SFNT representative name policy を具体化した。
+- nameID 1 / 2 / 4 を family / subfamily / full name とし、Windows platform 3 encoding 1 language 0x0409、Windows platform 3 その他、Macintosh platform 1 encoding 0 language 0、Macintosh platform 1 その他の順位を固定した。
+- `stdlib/alloc/gui/font/sfnt.nepl` を facade にし、F4a の numeric metadata parser を `stdlib/alloc/gui/font/sfnt/metadata.nepl` へ移した。
+- `metadata.nepl` は `name` table の存在だけを `GuiSfntDirectory` に保持し、`gui_sfnt_parse_metadata` は name decode を要求しない。
+- `stdlib/alloc/gui/font/sfnt/name.nepl` を追加し、`GuiSfntNameEncodingKind`、`GuiSfntNameRecord`、`GuiSfntNameSelection`、`GuiSfntNames`、`gui_sfnt_parse_names` を実装した。
+- F4b parser は name table format 0、Windows UTF-16BE ASCII subset、Macintosh Roman ASCII subset だけを扱い、未対応 table format、malformed record、未対応 encoding、ASCII subset 外文字を typed error として返す。
+- `tests/stdlib/gui_font_sfnt.n.md` に explicit byte fixture の name table 成功ケースと、missing table / unsupported encoding / odd UTF-16BE length / non-ASCII character の typed error case を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4b 文書 gate、facade split、name parser 型、metadata parser と name parser の独立、platform / host font API 禁止を固定した。
+
+### subagent_review
+
+- 実装前 review では、F4b 文書が優先順位と Option / Result 境界を十分に定義していないこと、`sfnt.nepl` にさらに実装を詰め込まず submodule 化すること、name table 用 typed error variant が必要なことを blocker / required として指摘された。
+- 対応として、文書に順位と error boundary を追加し、`sfnt.nepl` を facade、F4a を `metadata.nepl`、F4b を `name.nepl` に分割した。
+- 実装後 review では、`name` table header の `stringOffset` が record 配列内を指す malformed table を拒否していない点が Required として指摘された。
+- 対応として、`string_offset < records_end` を `MalformedNameRecord` として拒否する検査を追加し、`tests/stdlib/gui_font_sfnt.n.md` に record area overlap fixture を追加した。
+- 修正後、source policy と doctest を再実行して通過を確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `git diff --check`
+
+### residual
+
+- F4b は representative name metadata の parser であり、real HackGen face 0 の integration validation、font registry、cmap / glyph outline / shaping / ruby / vertical / math bridge は後続 phase で接続する。
+- SFNT parser の shared byte reader / table helper は F4a/F4b の public contract を変えずに後続で共通 submodule へさらに整理できる。

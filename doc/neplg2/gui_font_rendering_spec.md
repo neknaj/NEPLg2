@@ -56,6 +56,30 @@ GuiFontResourceRequest:
 
 Resource path の normalization は platform boundary で一度だけ行う。空 path、absolute path、backslash、empty segment、`.`、`..` は typed error として拒否し、別 path へ推測変換しない。
 
+### SFNT representative names
+
+SFNT `name` table から得る display 用 metadata は、path suffix、browser-provided display name、OS font family lookup ではなく、font bytes 内の record だけを authority とする。
+
+初期 slice が返す representative name は次に限定する。
+
+```text
+GuiSfntNames:
+    family Option str      nameID 1
+    subfamily Option str   nameID 2
+    full_name Option str   nameID 4
+```
+
+選択順位は nameID ごとに次で固定する。
+
+1. platformID 3, encodingID 1, languageID 0x0409: Windows Unicode BMP, UTF-16BE ASCII subset
+2. platformID 3, any other encoding/language: selected if no rank 1 exists, then `UnsupportedNameEncoding`
+3. platformID 1, encodingID 0, languageID 0: Macintosh Roman ASCII subset
+4. platformID 1, any other encoding/language: selected if no higher rank exists, then `UnsupportedNameEncoding`
+
+その他 platform の record は representative candidate ではない。nameID 1 / 2 / 4 の candidate が存在しない場合、その field は `Option::None` である。
+
+`name` table が存在しない場合は `MissingTable`、format 0 以外は `UnsupportedNameTableFormat`、record range や UTF-16BE 奇数 length は `MalformedNameRecord`、ASCII subset 外の文字は `UnsupportedNameCharacter` で返す。空文字の selected representative は layout / UI display の metadata として不正なので `MalformedNameRecord` とする。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

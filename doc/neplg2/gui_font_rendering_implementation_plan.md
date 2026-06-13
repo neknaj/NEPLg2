@@ -128,17 +128,36 @@ git diff --check
 目的:
 
 - font family、subfamily、full name などの代表値を name table から decode するための encoding policy を固定する。
+- name parser を numeric metrics parser から分け、metadata parse の成功条件に name decode を混ぜない。
 
 変更:
 
-- name ID、platform ID、encoding ID、language ID の優先順位を仕様化する。
-- UTF-16BE / MacRoman / unsupported encoding の扱いを typed result として定義する。
-- representative value が存在しない場合の error と optional metadata の境界を明文化する。
+- `alloc/gui/font/sfnt.nepl` を facade にし、F4a 実装を `alloc/gui/font/sfnt/metadata.nepl` へ置く。
+- `alloc/gui/font/sfnt/name.nepl` を追加する。
+- `GuiSfntNameEncodingKind`、`GuiSfntNameRecord`、`GuiSfntNameSelection`、`GuiSfntNames` を追加する。
+- name ID 1 / 2 / 4 を family / subfamily / full name として扱う。
+- 代表 record の順位は、Windows platform 3 encoding 1 language 0x0409、Windows platform 3 のその他、Macintosh platform 1 encoding 0 language 0、Macintosh platform 1 のその他、の順にする。
+- Windows platform 3 encoding 1 language 0x0409 は UTF-16BE ASCII subset として decode する。
+- Macintosh platform 1 encoding 0 language 0 は Roman ASCII subset として decode する。
+- higher-ranked candidate が未対応 encoding の場合は、lower-ranked candidate へ暗黙に切り替えず `UnsupportedNameEncoding` を返す。
+- `name` table 欠落は `MissingTable`、format 0 以外は `UnsupportedNameTableFormat`、record / string range 不正や empty selected string は `MalformedNameRecord`、ASCII subset 外文字は `UnsupportedNameCharacter` とする。
+- name ID 1 / 2 / 4 の candidate が存在しない場合、その field は `Option::None` とする。
+- Source policy で `gui_sfnt_parse_metadata` が `gui_sfnt_parse_names` を呼ばないこと、SFNT parser が platform / host font API / path display-name authority を持たないことを固定する。
 
 完了条件:
 
-- HackGen の face 0 から仕様で定義した name table の代表値を取得できる。
-- 未対応 encoding は空文字や別 field への推測変換ではなく typed error または `Option::None` として表される。
+- explicit fixture bytes から `Demo` / `Regular` / `Demo Regular` を取得できる。
+- `name` table がない fixture は `MissingTable` になる。
+- unsupported selected record は `UnsupportedNameEncoding`、UTF-16BE の奇数 byte length は `MalformedNameRecord`、ASCII subset 外文字は `UnsupportedNameCharacter` になる。
+- `gui_sfnt_parse_metadata` の existing F4a doctest は name table の有無に依存せず通る。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1
+git diff --check
+```
 
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 

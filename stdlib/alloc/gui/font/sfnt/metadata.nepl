@@ -1,0 +1,842 @@
+//: # alloc/gui/font/sfnt
+//: SFNT font container の metadata parser
+//:
+//: ### [目的/もくてき]
+//: - TTF / OTF / TTC / OTC が共有する SFNT table directory を[読/よ]み、layout engine が必要とする基本 metrics を typed value として[取/と]り[出/だ]します。
+//: - parser は `ByteBuf` の借用 view だけを[読/よ]み、font resource の所有権や platform handle を[保持/ほじ]しません。
+//:
+//: ### [契約/けいやく]
+//: - single-face SFNT は face index 未指定または 0 だけを[受/う]け[入/い]れます。
+//: - collection SFNT は face index を必須にし、範囲外 index は `InvalidFaceIndex` です。
+//: - `head`、`hhea`、`maxp` の必須 table がない場合は代替成功させず `MissingTable` を[返/かえ]します。
+//: - byte 範囲が不足した場合、panic ではなく `UnexpectedEof` を[返/かえ]します。
+//:
+//: ### [現状/げんじょう]
+//: - Phase F4 は table directory と基本 metrics の parser です。glyph outline、CFF/CFF2 charstring、GSUB/GPOS、variable font axis、ruby / vertical layout は後続 phase で追加します。
+//:
+//: ### [計算量/けいさんりょう]
+//: - table directory scan は table 数 `n` に対して O(n) です。metrics table の読み取りは O(1) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/sfnt" as *
+//: ```
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+//: GuiSfntContainerKind: SFNT container の[分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - standalone TrueType / OpenType と collection TrueType / OpenType を、magic number の raw integer ではなく enum として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntContainerKind:
+    TrueTypeSfnt
+    OpenTypeSfnt
+    TrueTypeCollection
+    OpenTypeCollection
+
+impl Clone for GuiSfntContainerKind:
+    fn clone %fn &GuiSfntContainerKind GuiSfntContainerKind \kind:
+        *kind
+
+impl Copy for GuiSfntContainerKind:
+    fn copy_mark %fn GuiSfntContainerKind GuiSfntContainerKind \kind:
+        kind
+
+//: GuiSfntParseErrorKind: SFNT parser 固有の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: [目的/もくてき]:
+//: - invalid binary、unsupported container、face selection error、table 欠落を文字列ではなく enum として[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntParseErrorKind:
+    UnexpectedEof
+    UnsupportedContainer
+    InvalidTableDirectory
+    InvalidTableOffset
+    MissingTable
+    InvalidFaceIndex
+    FaceIndexRequired
+    UnsupportedNameTableFormat
+    MalformedNameRecord
+    UnsupportedNameEncoding
+    UnsupportedNameCharacter
+
+impl Clone for GuiSfntParseErrorKind:
+    fn clone %fn &GuiSfntParseErrorKind GuiSfntParseErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntParseErrorKind:
+    fn copy_mark %fn GuiSfntParseErrorKind GuiSfntParseErrorKind \kind:
+        kind
+
+//: GuiSfntParseError: SFNT parser error の typed payload
+//:
+//: [目的/もくてき]:
+//: - kind と byte offset を[分/わ]け、表示文字列を parser から[分離/ぶんり]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntParseError:
+    kind %GuiSfntParseErrorKind
+    offset %i32
+
+impl Clone for GuiSfntParseError:
+    fn clone %fn &GuiSfntParseError GuiSfntParseError \error:
+        *error
+
+impl Copy for GuiSfntParseError:
+    fn copy_mark %fn GuiSfntParseError GuiSfntParseError \error:
+        error
+
+//: GuiSfntTableRecord: SFNT table directory entry
+//:
+//: [目的/もくてき]:
+//: - tag、offset、length だけを parser の authority として[保持/ほじ]します。checksum は現 phase の metrics 判定には使いません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntTableRecord:
+    tag %i32
+    offset %i32
+    length %i32
+
+impl Clone for GuiSfntTableRecord:
+    fn clone %fn &GuiSfntTableRecord GuiSfntTableRecord \record:
+        *record
+
+impl Copy for GuiSfntTableRecord:
+    fn copy_mark %fn GuiSfntTableRecord GuiSfntTableRecord \record:
+        record
+
+//: GuiSfntDirectory: face の table directory summary
+//:
+//: [目的/もくてき]:
+//: - parser が layout metrics に必要な table を discovery した結果を[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntDirectory:
+    sfnt_version %i32
+    table_count %i32
+    head %Option GuiSfntTableRecord
+    hhea %Option GuiSfntTableRecord
+    maxp %Option GuiSfntTableRecord
+    name %Option GuiSfntTableRecord
+
+impl Clone for GuiSfntDirectory:
+    fn clone %fn &GuiSfntDirectory GuiSfntDirectory \directory:
+        *directory
+
+impl Copy for GuiSfntDirectory:
+    fn copy_mark %fn GuiSfntDirectory GuiSfntDirectory \directory:
+        directory
+
+//: GuiSfntMetrics: layout engine が最初に必要とする font-wide metrics
+//:
+//: [目的/もくてき]:
+//: - `head.unitsPerEm`、`hhea` line metrics、`maxp.numGlyphs` をまとめます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntMetrics:
+    units_per_em %i32
+    ascent %i32
+    descent %i32
+    line_gap %i32
+    num_glyphs %i32
+
+impl Clone for GuiSfntMetrics:
+    fn clone %fn &GuiSfntMetrics GuiSfntMetrics \metrics:
+        *metrics
+
+impl Copy for GuiSfntMetrics:
+    fn copy_mark %fn GuiSfntMetrics GuiSfntMetrics \metrics:
+        metrics
+
+//: GuiSfntMetadata: face selection と metrics を含む parse 結果
+//:
+//: [目的/もくてき]:
+//: - collection 内の face index、face count、table directory、basic metrics を 1 つの value にまとめます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntMetadata:
+    container_kind %GuiSfntContainerKind
+    face_index %i32
+    face_count %i32
+    directory %GuiSfntDirectory
+    metrics %GuiSfntMetrics
+
+impl Clone for GuiSfntMetadata:
+    fn clone %fn &GuiSfntMetadata GuiSfntMetadata \metadata:
+        *metadata
+
+impl Copy for GuiSfntMetadata:
+    fn copy_mark %fn GuiSfntMetadata GuiSfntMetadata \metadata:
+        metadata
+
+//: gui_sfnt_parse_error: SFNT parser error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_parse_error %fn GuiSfntParseErrorKind fn i32 GuiSfntParseError \kind\offset:
+    GuiSfntParseError kind offset
+
+//: gui_sfnt_parse_error_kind: parser error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_parse_error_kind %fn &GuiSfntParseError GuiSfntParseErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_parse_error_offset: parser error byte offset を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_parse_error_offset %fn &GuiSfntParseError i32 \error:
+    *field::get_ref error "offset"
+
+//: gui_sfnt_table_record: table directory entry を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_table_record %fn i32 fn i32 fn i32 GuiSfntTableRecord \tag\offset\length:
+    GuiSfntTableRecord tag offset length
+
+//: gui_sfnt_table_record_tag: table tag を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_table_record_tag %fn &GuiSfntTableRecord i32 \record:
+    *field::get_ref record "tag"
+
+//: gui_sfnt_table_record_offset: table payload offset を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_table_record_offset %fn &GuiSfntTableRecord i32 \record:
+    *field::get_ref record "offset"
+
+//: gui_sfnt_table_record_length: table payload length を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_table_record_length %fn &GuiSfntTableRecord i32 \record:
+    *field::get_ref record "length"
+
+//: gui_sfnt_directory: table directory summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_directory %fn i32 fn i32 fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord fn Option GuiSfntTableRecord GuiSfntDirectory \sfnt_version\table_count\head\hhea\maxp\name:
+    GuiSfntDirectory sfnt_version table_count head hhea maxp name
+
+//: gui_sfnt_directory_table_count: directory の table 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_directory_table_count %fn &GuiSfntDirectory i32 \directory:
+    *field::get_ref directory "table_count"
+
+//: gui_sfnt_directory_name: `name` table record を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_directory_name %fn &GuiSfntDirectory Option GuiSfntTableRecord \directory:
+    *field::get_ref directory "name"
+
+//: gui_sfnt_metrics: basic metrics value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metrics %fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntMetrics \units_per_em\ascent\descent\line_gap\num_glyphs:
+    GuiSfntMetrics units_per_em ascent descent line_gap num_glyphs
+
+//: gui_sfnt_metrics_units_per_em: unitsPerEm を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metrics_units_per_em %fn &GuiSfntMetrics i32 \metrics:
+    *field::get_ref metrics "units_per_em"
+
+//: gui_sfnt_metrics_ascent: hhea ascent を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metrics_ascent %fn &GuiSfntMetrics i32 \metrics:
+    *field::get_ref metrics "ascent"
+
+//: gui_sfnt_metrics_descent: hhea descent を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metrics_descent %fn &GuiSfntMetrics i32 \metrics:
+    *field::get_ref metrics "descent"
+
+//: gui_sfnt_metrics_line_gap: hhea lineGap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metrics_line_gap %fn &GuiSfntMetrics i32 \metrics:
+    *field::get_ref metrics "line_gap"
+
+//: gui_sfnt_metrics_num_glyphs: maxp numGlyphs を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metrics_num_glyphs %fn &GuiSfntMetrics i32 \metrics:
+    *field::get_ref metrics "num_glyphs"
+
+//: gui_sfnt_metadata: parse result value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metadata %fn GuiSfntContainerKind fn i32 fn i32 fn GuiSfntDirectory fn GuiSfntMetrics GuiSfntMetadata \container_kind\face_index\face_count\directory\metrics:
+    GuiSfntMetadata container_kind face_index face_count directory metrics
+
+//: gui_sfnt_metadata_container_kind: container kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metadata_container_kind %fn &GuiSfntMetadata GuiSfntContainerKind \metadata:
+    *field::get_ref metadata "container_kind"
+
+//: gui_sfnt_metadata_face_index: selected face index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metadata_face_index %fn &GuiSfntMetadata i32 \metadata:
+    *field::get_ref metadata "face_index"
+
+//: gui_sfnt_metadata_face_count: collection face count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metadata_face_count %fn &GuiSfntMetadata i32 \metadata:
+    *field::get_ref metadata "face_count"
+
+//: gui_sfnt_metadata_directory: directory summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metadata_directory %fn &GuiSfntMetadata GuiSfntDirectory \metadata:
+    *field::get_ref metadata "directory"
+
+//: gui_sfnt_metadata_metrics: parsed metrics を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_metadata_metrics %fn &GuiSfntMetadata GuiSfntMetrics \metadata:
+    *field::get_ref metadata "metrics"
+
+//: gui_sfnt_tag4: ASCII 4 byte tag を i32 に[畳/たた]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    or or or shl a 24 shl b 16 shl c 8 d
+
+//: gui_sfnt_tag_head: `head` table tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_head %fn void i32 \void:
+    gui_sfnt_tag4 'h' 'e' 'a' 'd'
+
+//: gui_sfnt_tag_hhea: `hhea` table tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_hhea %fn void i32 \void:
+    gui_sfnt_tag4 'h' 'h' 'e' 'a'
+
+//: gui_sfnt_tag_maxp: `maxp` table tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_maxp %fn void i32 \void:
+    gui_sfnt_tag4 'm' 'a' 'x' 'p'
+
+//: gui_sfnt_tag_name: `name` table tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_name %fn void i32 \void:
+    gui_sfnt_tag4 'n' 'a' 'm' 'e'
+
+//: gui_sfnt_tag_ttcf: TrueType/OpenType collection header tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_ttcf %fn void i32 \void:
+    gui_sfnt_tag4 't' 't' 'c' 'f'
+
+//: gui_sfnt_tag_otto: OpenType CFF flavored SFNT version tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_otto %fn void i32 \void:
+    gui_sfnt_tag4 'O' 'T' 'T' 'O'
+
+//: gui_sfnt_tag_true: legacy TrueType SFNT version tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_true %fn void i32 \void:
+    gui_sfnt_tag4 't' 'r' 'u' 'e'
+
+//: gui_sfnt_tag_typ1: legacy Type1 flavored SFNT version tag を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_tag_typ1 %fn void i32 \void:
+    gui_sfnt_tag4 't' 'y' 'p' '1'
+
+//: gui_sfnt_version_truetype: 0x00010000 SFNT version を[返/かえ]す
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_version_truetype %fn void i32 \void:
+    65536
+
+//: gui_sfnt_is_supported_face_version: face offset table の version が解析対象か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_is_supported_face_version %fn i32 bool \version:
+    or eq version gui_sfnt_version_truetype or eq version gui_sfnt_tag_otto or eq version gui_sfnt_tag_true eq version gui_sfnt_tag_typ1
+
+//: gui_sfnt_container_kind_for_version: version と collection flag から container kind を[決/き]める
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_container_kind_for_version %fn i32 fn bool Result GuiSfntContainerKind GuiSfntParseError \version\collection:
+    if:
+        or eq version gui_sfnt_version_truetype or eq version gui_sfnt_tag_true eq version gui_sfnt_tag_typ1
+        then:
+            if:
+                collection
+                then:
+                    Result::Ok GuiSfntContainerKind::TrueTypeCollection
+                else:
+                    Result::Ok GuiSfntContainerKind::TrueTypeSfnt
+        else:
+            if:
+                eq version gui_sfnt_tag_otto
+                then:
+                    if:
+                        collection
+                        then:
+                            Result::Ok GuiSfntContainerKind::OpenTypeCollection
+                        else:
+                            Result::Ok GuiSfntContainerKind::OpenTypeSfnt
+                else:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedContainer 0
+
+//: gui_sfnt_checked_range: `offset + size` を overflow させずに byte 範囲を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_checked_range %fn &ByteBuf fn i32 fn i32 fn GuiSfntParseErrorKind Result unit GuiSfntParseError \bytes\offset\size\kind:
+    let total %i32 io_bytebuf_len_ref bytes
+    if:
+        or lt offset 0 lt size 0
+        then:
+            Result::Err gui_sfnt_parse_error kind offset
+        else:
+            if:
+                gt offset total
+                then:
+                    Result::Err gui_sfnt_parse_error kind offset
+                else:
+                    let remaining %i32 sub total offset
+                    if:
+                        gt size remaining
+                        then:
+                            Result::Err gui_sfnt_parse_error kind offset
+                        else:
+                            Result::Ok unit
+
+//: gui_sfnt_read_u8: 1 byte を範囲検査付きで[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_u8 %fn &ByteBuf fn i32 Result i32 GuiSfntParseError \bytes\offset:
+    match gui_sfnt_checked_range bytes offset 1 GuiSfntParseErrorKind::UnexpectedEof:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match io_bytebuf_byte_at bytes offset:
+                Option::Some byte:
+                    Result::Ok byte
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnexpectedEof offset
+
+//: gui_sfnt_read_u16_be: big-endian u16 を i32 として[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_u16_be %fn &ByteBuf fn i32 Result i32 GuiSfntParseError \bytes\offset:
+    match gui_sfnt_read_u8 bytes offset:
+        Result::Err error:
+            Result::Err error
+        Result::Ok hi:
+            match gui_sfnt_read_u8 bytes add offset 1:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok lo:
+                    Result::Ok add shl hi 8 lo
+
+//: gui_sfnt_read_i16_be: big-endian i16 を符号拡張した i32 として[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_i16_be %fn &ByteBuf fn i32 Result i32 GuiSfntParseError \bytes\offset:
+    match gui_sfnt_read_u16_be bytes offset:
+        Result::Err error:
+            Result::Err error
+        Result::Ok raw:
+            if:
+                ge raw 32768
+                then:
+                    Result::Ok sub raw 65536
+                else:
+                    Result::Ok raw
+
+//: gui_sfnt_read_u32_be: tag や SFNT version 用の big-endian u32 を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_u32_be %fn &ByteBuf fn i32 Result i32 GuiSfntParseError \bytes\offset:
+    match gui_sfnt_read_u8 bytes offset:
+        Result::Err error:
+            Result::Err error
+        Result::Ok b0:
+            match gui_sfnt_read_u8 bytes add offset 1:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok b1:
+                    match gui_sfnt_read_u8 bytes add offset 2:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok b2:
+                            match gui_sfnt_read_u8 bytes add offset 3:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok b3:
+                                    Result::Ok gui_sfnt_tag4 b0 b1 b2 b3
+
+//: gui_sfnt_read_u32_i32_be: offset/length 用 u32 を i32 範囲内に[制限/せいげん]して[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_u32_i32_be %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_read_u8 bytes offset:
+        Result::Err error:
+            Result::Err error
+        Result::Ok b0:
+            let high_byte_limit %i32 add 64 64
+            if:
+                ge b0 high_byte_limit
+                then:
+                    Result::Err gui_sfnt_parse_error kind offset
+                else:
+                    match gui_sfnt_read_u8 bytes add offset 1:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok b1:
+                            match gui_sfnt_read_u8 bytes add offset 2:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok b2:
+                                    match gui_sfnt_read_u8 bytes add offset 3:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok b3:
+                                            Result::Ok gui_sfnt_tag4 b0 b1 b2 b3
+
+//: gui_sfnt_table_record_bounds_are_valid: table payload の offset/length が buffer 内か[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_table_record_bounds_are_valid %fn &ByteBuf fn i32 fn i32 bool \bytes\offset\length:
+    let total %i32 io_bytebuf_len_ref bytes
+    if:
+        or lt offset 0 lt length 0
+        then:
+            false
+        else:
+            if:
+                gt offset total
+                then:
+                    false
+                else:
+                    le length sub total offset
+
+//: gui_sfnt_table_has_min_len: table が必要 byte 数以上か[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_table_has_min_len %fn GuiSfntTableRecord fn i32 bool \record\minimum:
+    and ge gui_sfnt_table_record_length &record minimum ge gui_sfnt_table_record_offset &record 0
+
+//: gui_sfnt_read_table_record: table directory entry 1 件を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_table_record %fn &ByteBuf fn i32 Result GuiSfntTableRecord GuiSfntParseError \bytes\record_offset:
+    match gui_sfnt_checked_range bytes record_offset 16 GuiSfntParseErrorKind::InvalidTableDirectory:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match gui_sfnt_read_u32_be bytes record_offset:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok tag:
+                    match gui_sfnt_read_u32_i32_be bytes add record_offset 8 GuiSfntParseErrorKind::InvalidTableOffset:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok table_offset:
+                            match gui_sfnt_read_u32_i32_be bytes add record_offset 12 GuiSfntParseErrorKind::InvalidTableOffset:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok length:
+                                    if:
+                                        gui_sfnt_table_record_bounds_are_valid bytes table_offset length
+                                        then:
+                                            Result::Ok gui_sfnt_table_record tag table_offset length
+                                        else:
+                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::InvalidTableOffset add record_offset 8
+
+//: gui_sfnt_required_table_found: F4a 必須 table が揃っているか[判定/はんてい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_required_table_found %fn GuiSfntDirectory bool \directory:
+    match *field::get_ref &directory "head":
+        Option::None:
+            false
+        Option::Some _head:
+            match *field::get_ref &directory "hhea":
+                Option::None:
+                    false
+                Option::Some _hhea:
+                    match *field::get_ref &directory "maxp":
+                        Option::None:
+                            false
+                        Option::Some _maxp:
+                            true
+
+//: gui_sfnt_directory_with_record: 関心のある table だけを directory summary に[反映/はんえい]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_directory_with_record %fn GuiSfntDirectory fn GuiSfntTableRecord GuiSfntDirectory \directory\record:
+    let tag %i32 gui_sfnt_table_record_tag &record
+    let head0 %Option GuiSfntTableRecord *field::get_ref &directory "head"
+    let hhea0 %Option GuiSfntTableRecord *field::get_ref &directory "hhea"
+    let maxp0 %Option GuiSfntTableRecord *field::get_ref &directory "maxp"
+    let name0 %Option GuiSfntTableRecord *field::get_ref &directory "name"
+    let version0 %i32 *field::get_ref &directory "sfnt_version"
+    let count0 %i32 *field::get_ref &directory "table_count"
+    if:
+        eq tag gui_sfnt_tag_head
+        then:
+            gui_sfnt_directory version0 count0 some record hhea0 maxp0 name0
+        else:
+            if:
+                eq tag gui_sfnt_tag_hhea
+                then:
+                    gui_sfnt_directory version0 count0 head0 some record maxp0 name0
+                else:
+                    if:
+                        eq tag gui_sfnt_tag_maxp
+                        then:
+                            gui_sfnt_directory version0 count0 head0 hhea0 some record name0
+                        else:
+                            if:
+                                eq tag gui_sfnt_tag_name
+                                then:
+                                    gui_sfnt_directory version0 count0 head0 hhea0 maxp0 some record
+                                else:
+                                    directory
+
+//: gui_sfnt_read_directory_records: table directory を順に scan する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_read_directory_records %fn &ByteBuf fn i32 fn i32 fn i32 fn GuiSfntDirectory Result GuiSfntDirectory GuiSfntParseError \bytes\records_offset\table_count\index\directory:
+    if:
+        ge index table_count
+        then:
+            Result::Ok directory
+        else:
+            let record_offset %i32 add records_offset mul index 16
+            match gui_sfnt_read_table_record bytes record_offset:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok record:
+                    gui_sfnt_read_directory_records bytes records_offset table_count add index 1 gui_sfnt_directory_with_record directory record
+
+//: gui_sfnt_parse_directory_at: face offset から SFNT table directory を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_parse_directory_at %fn &ByteBuf fn i32 Result GuiSfntDirectory GuiSfntParseError \bytes\face_offset:
+    match gui_sfnt_checked_range bytes face_offset 12 GuiSfntParseErrorKind::InvalidTableDirectory:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match gui_sfnt_read_u32_be bytes face_offset:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok version:
+                    if:
+                        not gui_sfnt_is_supported_face_version version
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedContainer face_offset
+                        else:
+                            match gui_sfnt_read_u16_be bytes add face_offset 4:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok table_count:
+                                    let directory_size %i32 add 12 mul table_count 16
+                                    match gui_sfnt_checked_range bytes face_offset directory_size GuiSfntParseErrorKind::InvalidTableDirectory:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok _ok:
+                                            let empty_directory %GuiSfntDirectory gui_sfnt_directory version table_count none none none none
+                                            gui_sfnt_read_directory_records bytes add face_offset 12 table_count 0 empty_directory
+
+//: gui_sfnt_required_table: 必須 table の欠落を typed error に[変換/へんかん]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_required_table %fn Option GuiSfntTableRecord fn i32 Result GuiSfntTableRecord GuiSfntParseError \table\offset:
+    match table:
+        Option::Some record:
+            Result::Ok record
+        Option::None:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable offset
+
+//: gui_sfnt_parse_metrics: `head` / `hhea` / `maxp` から numeric metrics を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_parse_metrics %fn &ByteBuf fn GuiSfntDirectory Result GuiSfntMetrics GuiSfntParseError \bytes\directory:
+    match gui_sfnt_required_table *field::get_ref &directory "head" 0:
+        Result::Err error:
+            Result::Err error
+        Result::Ok head:
+            match gui_sfnt_required_table *field::get_ref &directory "hhea" 0:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok hhea:
+                    match gui_sfnt_required_table *field::get_ref &directory "maxp" 0:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok maxp:
+                            if:
+                                not and gui_sfnt_table_has_min_len head 20 and gui_sfnt_table_has_min_len hhea 10 gui_sfnt_table_has_min_len maxp 6
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::InvalidTableDirectory 0
+                                else:
+                                    let head_offset %i32 gui_sfnt_table_record_offset &head
+                                    let hhea_offset %i32 gui_sfnt_table_record_offset &hhea
+                                    let maxp_offset %i32 gui_sfnt_table_record_offset &maxp
+                                    match gui_sfnt_read_u16_be bytes add head_offset 18:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok units:
+                                            match gui_sfnt_read_i16_be bytes add hhea_offset 4:
+                                                Result::Err error:
+                                                    Result::Err error
+                                                Result::Ok ascent:
+                                                    match gui_sfnt_read_i16_be bytes add hhea_offset 6:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok descent:
+                                                            match gui_sfnt_read_i16_be bytes add hhea_offset 8:
+                                                                Result::Err error:
+                                                                    Result::Err error
+                                                                Result::Ok line_gap:
+                                                                    match gui_sfnt_read_u16_be bytes add maxp_offset 4:
+                                                                        Result::Err error:
+                                                                            Result::Err error
+                                                                        Result::Ok glyphs:
+                                                                            Result::Ok gui_sfnt_metrics units ascent descent line_gap glyphs
+
+//: gui_sfnt_parse_face: 選択済み face offset から metadata を[構築/こうちく]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_parse_face %fn &ByteBuf fn i32 fn i32 fn i32 fn bool Result GuiSfntMetadata GuiSfntParseError \bytes\face_offset\face_index\face_count\collection:
+    match gui_sfnt_parse_directory_at bytes face_offset:
+        Result::Err error:
+            Result::Err error
+        Result::Ok directory:
+            if:
+                not gui_sfnt_required_table_found directory
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable face_offset
+                else:
+                    match gui_sfnt_parse_metrics bytes directory:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok metrics:
+                            match gui_sfnt_container_kind_for_version *field::get_ref &directory "sfnt_version" collection:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok container_kind:
+                                    Result::Ok gui_sfnt_metadata container_kind face_index face_count directory metrics
+
+//: gui_sfnt_select_single_face_index: standalone SFNT の face index を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_select_single_face_index %fn Option i32 Result i32 GuiSfntParseError \face_index:
+    match face_index:
+        Option::None:
+            Result::Ok 0
+        Option::Some index:
+            if:
+                eq index 0
+                then:
+                    Result::Ok 0
+                else:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::InvalidFaceIndex 0
+
+//: gui_sfnt_select_collection_face_index: collection SFNT の face index を[検査/けんさ]する
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_select_collection_face_index %fn Option i32 fn i32 Result i32 GuiSfntParseError \face_index\face_count:
+    match face_index:
+        Option::None:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::FaceIndexRequired 0
+        Option::Some index:
+            if:
+                or lt index 0 ge index face_count
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::InvalidFaceIndex 0
+                else:
+                    Result::Ok index
+
+//: gui_sfnt_parse_collection: TTC/OTC header から選択 face の metadata を[読/よ]む
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_parse_collection %fn &ByteBuf fn Option i32 Result GuiSfntMetadata GuiSfntParseError \bytes\face_index:
+    match gui_sfnt_checked_range bytes 0 12 GuiSfntParseErrorKind::InvalidTableDirectory:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match gui_sfnt_read_u32_i32_be bytes 8 GuiSfntParseErrorKind::InvalidTableDirectory:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok face_count:
+                    if:
+                        le face_count 0
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::InvalidTableDirectory 8
+                        else:
+                            let total %i32 io_bytebuf_len_ref bytes
+                            let table_offset_bytes %i32 sub total 12
+                            let max_face_count %i32 div_s table_offset_bytes 4
+                            if:
+                                gt face_count max_face_count
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::InvalidTableDirectory 8
+                                else:
+                                    let header_size %i32 add 12 mul face_count 4
+                                    match gui_sfnt_checked_range bytes 0 header_size GuiSfntParseErrorKind::InvalidTableDirectory:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok _header_ok:
+                                            match gui_sfnt_select_collection_face_index face_index face_count:
+                                                Result::Err error:
+                                                    Result::Err error
+                                                Result::Ok index:
+                                                    match gui_sfnt_read_u32_i32_be bytes add 12 mul index 4 GuiSfntParseErrorKind::InvalidTableOffset:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok face_offset:
+                                                            gui_sfnt_parse_face bytes face_offset index face_count true
+
+//: gui_sfnt_parse_metadata: SFNT byte 列から basic font metadata を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - resource provider から得た `ByteBuf` を、platform 非依存の metadata value へ[変換/へんかん]します。
+//:
+//: [契約/けいやく]:
+//: - `face_index` が `None` の single-face SFNT は face 0 として[扱/あつか]います。
+//: - TTC / OTC では `face_index` が必須です。未指定や範囲外は typed error です。
+//: - table 欠落や範囲外 offset は代替成功させず `Result::Err` を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_parse_metadata %fn &ByteBuf fn Option i32 Result GuiSfntMetadata GuiSfntParseError \bytes\face_index:
+    match gui_sfnt_read_u32_be bytes 0:
+        Result::Err error:
+            Result::Err error
+        Result::Ok magic:
+            if:
+                eq magic gui_sfnt_tag_ttcf
+                then:
+                    gui_sfnt_parse_collection bytes face_index
+                else:
+                    match gui_sfnt_select_single_face_index face_index:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok index:
+                            gui_sfnt_parse_face bytes 0 index 1 false
