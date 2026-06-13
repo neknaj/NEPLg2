@@ -159,6 +159,42 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_fo
 git diff --check
 ```
 
+## Phase F4c: sfnt cmap glyph lookup
+
+目的:
+
+- Unicode BMP code point から `GuiGlyphId` を取得する最初の `cmap` parser を追加する。
+- glyph mapping を host font API、browser text API、path / family name、暗黙置換に依存させない。
+
+変更:
+
+- `alloc/gui/font/sfnt/cmap.nepl` を追加する。
+- `alloc/gui/font/sfnt.nepl` facade から metadata、name、cmap を再公開する。
+- `GuiSfntDirectory` に optional `cmap` table record を追加し、`gui_sfnt_directory_cmap` を公開する。
+- `GuiSfntParseErrorKind` に `UnsupportedCmapEncoding`、`UnsupportedCmapTableFormat`、`MalformedCmapRecord`、`MissingGlyphMapping` を追加する。
+- `gui_sfnt_lookup_glyph_id` は `Result GuiGlyphId GuiSfntParseError` を返し、raw `i32` を public glyph id として返さない。
+- F4c の subtable selection は platformID 3 / encodingID 1 の最初の record だけを選ぶ。対象 record がなければ `UnsupportedCmapEncoding`、選択 record が format 4 でなければ `UnsupportedCmapTableFormat` とする。
+- BMP 外 code point は `UnsupportedCmapEncoding`、BMP 内で segment がない、glyphIdArray entry が 0、computed glyph id が 0 の場合は `MissingGlyphMapping` とする。
+- Format 4 の declared table header、encoding record array overlap、`length`、`segCountX2`、`reservedPad`、segment array bounds、idRangeOffset target bounds を検査し、不正なら `MalformedCmapRecord` とする。
+- Source policy で `gui_sfnt_parse_metadata` が `gui_sfnt_lookup_glyph_id` を呼ばないこと、SFNT facade が `metadata` / `name` / `cmap` を公開すること、`cmap` parser が platform / host font API / 暗黙置換 / path authority を持たないことを固定する。
+
+完了条件:
+
+- explicit fixture bytes から ASCII `A` の glyph id 36 を `GuiGlyphId` として取得できる。
+- `cmap` table がない fixture は `MissingTable` になる。
+- platformID 3 / encodingID 1 がない fixture は `UnsupportedCmapEncoding` になる。
+- selected record が format 4 以外の場合は `UnsupportedCmapTableFormat` になる。
+- glyph 0、missing segment、壊れた format 4 array、encoding record array を指す selected subtable offset、短い declared table header は typed error になる。
+- unsupported selected record と別の plausible record が同居しても別 record に切り替えない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

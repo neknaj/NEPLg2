@@ -58220,10 +58220,47 @@ MERGE_APPROVED
 - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -o tmp/selfhost-memo-trait-proof-codec-reject-kind.json -j 1 --dist web/dist --assert-io`
 - pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
 - pass: `node nodesrc/issues.js check --dir issues`
-- pass: `git diff --check`
 
 ### residual
 
 - struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producer は未完了である。
 - trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
 - recursive aggregate traversal、nested operation fold の重複計算、proof lookup index 化、composer sorted merge cursor 化は public evidence / payload input / typed error contract を変えずに後から置換できる最適化として扱う。
+
+## 2026-06-13 GUI font SFNT cmap glyph lookup checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-cmap-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: host font API や browser text API を glyph mapping authority にせず、`GuiGlyphId`、`Option`、`Result`、enum error、match による明示分岐を優先した。未対応 encoding や missing glyph は暗黙置換せず typed error として扱う。
+
+### implementation
+
+- `gui_font_rendering_spec.md`、`gui_font_rendering_detailed_design.md`、`gui_font_rendering_implementation_plan.md` に F4c の `cmap` glyph lookup contract を追加した。
+- `GuiSfntDirectory` に optional `cmap` table record を追加し、metadata parser は `cmap` の存在だけを記録するようにした。
+- `GuiSfntParseErrorKind` に `UnsupportedCmapEncoding`、`UnsupportedCmapTableFormat`、`MalformedCmapRecord`、`MissingGlyphMapping` を追加した。
+- `stdlib/alloc/gui/font/sfnt/cmap.nepl` を追加し、platformID 3 / encodingID 1 の最初の subtable、format 4、Unicode BMP の範囲だけを扱う `gui_sfnt_lookup_glyph_id` を実装した。
+- `gui_sfnt_lookup_glyph_id` は raw `i32` ではなく `Result GuiGlyphId GuiSfntParseError` を返し、glyph id 0 は `MissingGlyphMapping` として拒否する。
+- format 4 parser は declared table header、encoding record array overlap、`length`、`segCountX2`、`reservedPad`、segment arrays、idRangeOffset target bounds を検査し、壊れた範囲を `MalformedCmapRecord` として返す。
+- `tests/stdlib/gui_font_sfnt.n.md` に explicit byte fixture の `cmap` 成功ケース、missing table、unsupported encoding、selected non-format-4、glyph 0、malformed segment count、BMP 外 code point、glyphIdArray success、glyphIdArray entry 0、idRangeOffset target out of table、selected subtable overlap、short declared table header、short format-4 header を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4c 文書 gate、facade export、typed `GuiGlyphId` return、metadata と lookup の独立、platform / host font API 禁止を固定した。
+
+### subagent_review
+
+- 実装前 review では、公開 API が raw `i32` glyph id を返さないこと、subtable selection を platformID 3 / encodingID 1 の最初の record に固定すること、BMP 外を `UnsupportedCmapEncoding`、BMP 内 unmapped / glyph 0 を `MissingGlyphMapping` に分けることが Required とされた。
+- 対応として、doc に F4c の selection / error / validation contract を追加し、実装は `GuiGlyphId` を返す形にした。
+- 実装後 review では、declared `cmap` table 長より外側の bytes を読めること、selected subtable offset が encoding record array を指す malformed table を拒否していないこと、`idRangeOffset != 0` 経路の behavior test がないことが Required とされた。
+- 対応として、table length 4 byte 未満の拒否、selected subtable offset の `records_end` 以上検査、format-4 header の table-relative range 検査を追加し、glyphIdArray success / zero entry / target out-of-range / record overlap / short header fixtures を追加した。
+- 修正後 review では Blocker / Required はなく、F4c は一時 artifact を除外すれば merge-ready と判断された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `git diff --check`
+
+### residual
+
+- F4c は BMP format 4 の glyph lookup だけであり、format 12 / variation selector / real HackGen integration、glyph outline / hmtx / shaping / ruby / vertical / math bridge は後続 phase で接続する。
+- SFNT parser の shared byte reader / table helper は F4a/F4b/F4c の public contract を変えずに後続で共通 submodule へ整理できる。

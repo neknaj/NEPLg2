@@ -47,10 +47,12 @@ const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
 const allocFontSfntFacade = read("stdlib/alloc/gui/font/sfnt.nepl");
 const allocFontSfntMetadata = read("stdlib/alloc/gui/font/sfnt/metadata.nepl");
 const allocFontSfntName = read("stdlib/alloc/gui/font/sfnt/name.nepl");
-const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName].join("\n");
+const allocFontSfntCmap = read("stdlib/alloc/gui/font/sfnt/cmap.nepl");
+const allocFontSfnt = [allocFontSfntFacade, allocFontSfntMetadata, allocFontSfntName, allocFontSfntCmap].join("\n");
 const allocFontSfntImpl = withoutComments(allocFontSfnt);
 const allocFontSfntMetadataImpl = withoutComments(allocFontSfntMetadata);
 const allocFontSfntNameImpl = withoutComments(allocFontSfntName);
+const allocFontSfntCmapImpl = withoutComments(allocFontSfntCmap);
 const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
@@ -131,6 +133,21 @@ assertMatch(
     /Phase F4b:[\s\S]*GuiSfntNameEncodingKind[\s\S]*GuiSfntNameRecord[\s\S]*GuiSfntNameSelection[\s\S]*GuiSfntNames[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter/,
     "font implementation plan must define F4b name parser data types and error kinds",
 );
+assertMatch(
+    spec,
+    /SFNT cmap glyph mapping[\s\S]*gui_sfnt_lookup_glyph_id:[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*platformID 3 \/ encodingID 1[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MissingGlyphMapping/,
+    "font spec must define F4c cmap lookup as typed GuiGlyphId with exact error policy",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
+    "font detailed design must define F4c cmap format-4 lookup and bounds validation",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
+    "font implementation plan must define F4c cmap parser data types and error kinds",
+);
 
 assertMatch(
     coreFontImpl,
@@ -199,6 +216,7 @@ assertMatch(allocGuiFacade, /#import\s+"alloc\/gui\/font"\s+as\s+\*/, "alloc/gui
 assertMatch(allocFontFacade, /#import\s+"alloc\/gui\/font\/sfnt"\s+as\s+\*/, "alloc/gui/font facade must export sfnt parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/metadata"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export metadata parser");
 assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/name"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export name parser");
+assertMatch(allocFontSfntFacade, /#import\s+"\.\/sfnt\/cmap"\s+as\s+@merge/, "alloc/gui/font/sfnt facade must re-export cmap parser");
 assertMatch(
     allocFontSfntImpl,
     /pub\s+enum\s+GuiSfntContainerKind:[\s\S]*TrueTypeSfnt[\s\S]*OpenTypeSfnt[\s\S]*TrueTypeCollection[\s\S]*OpenTypeCollection/,
@@ -206,7 +224,7 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter/,
+    /pub\s+enum\s+GuiSfntParseErrorKind:[\s\S]*UnexpectedEof[\s\S]*UnsupportedContainer[\s\S]*InvalidTableDirectory[\s\S]*InvalidTableOffset[\s\S]*MissingTable[\s\S]*InvalidFaceIndex[\s\S]*FaceIndexRequired[\s\S]*UnsupportedNameTableFormat[\s\S]*MalformedNameRecord[\s\S]*UnsupportedNameEncoding[\s\S]*UnsupportedNameCharacter[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping/,
     "alloc/gui/font/sfnt must expose typed parser errors",
 );
 assertMatch(
@@ -221,8 +239,8 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntImpl,
-    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord/,
-    "alloc/gui/font/sfnt directory must track optional name table without requiring name decoding",
+    /pub\s+struct\s+GuiSfntDirectory:[\s\S]*head\s+%Option\s+GuiSfntTableRecord[\s\S]*hhea\s+%Option\s+GuiSfntTableRecord[\s\S]*maxp\s+%Option\s+GuiSfntTableRecord[\s\S]*name\s+%Option\s+GuiSfntTableRecord[\s\S]*cmap\s+%Option\s+GuiSfntTableRecord/,
+    "alloc/gui/font/sfnt directory must track optional name and cmap tables without requiring decoding",
 );
 assertMatch(
     allocFontSfntImpl,
@@ -289,10 +307,60 @@ assertMatch(
     /records_end\s+%i32\s+add\s+6\s+records_size[\s\S]*lt\s+string_offset\s+records_end[\s\S]*GuiSfntParseErrorKind::MalformedNameRecord/,
     "alloc/gui/font/sfnt/name must reject name string storage that overlaps the record array",
 );
+assertMatch(
+    allocFontSfntCmapImpl,
+    /pub\s+enum\s+GuiSfntCmapEncodingKind:[\s\S]*WindowsUnicodeBmpFormat4/,
+    "alloc/gui/font/sfnt/cmap must expose the supported cmap encoding as typed data",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /pub\s+struct\s+GuiSfntCmapSubtableRecord:[\s\S]*platform_id\s+%i32[\s\S]*encoding_id\s+%i32[\s\S]*offset\s+%i32/,
+    "alloc/gui/font/sfnt/cmap must expose cmap subtable records as typed data",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_glyph_id\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+i32\s+Result\s+GuiGlyphId\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/cmap lookup must take borrowed ByteBuf and return typed GuiGlyphId",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /gui_sfnt_cmap_subtable_record_selected[\s\S]*platform_id\s+3[\s\S]*encoding_id\s+1/,
+    "alloc/gui/font/sfnt/cmap must select only Windows Unicode BMP records in F4c",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /not\s+eq\s+subtable_format\s+4[\s\S]*GuiSfntParseErrorKind::UnsupportedCmapTableFormat/,
+    "alloc/gui/font/sfnt/cmap must reject non-format-4 selected records without switching records",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /le\s+raw\s+0[\s\S]*GuiSfntParseErrorKind::MissingGlyphMapping/,
+    "alloc/gui/font/sfnt/cmap must reject glyph id 0 instead of returning it as success",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /id_range_offset_offset[\s\S]*range_offset[\s\S]*mul\s+sub\s+code_point\s+start_code\s+2[\s\S]*gui_sfnt_cmap_file_range_inside_subtable/,
+    "alloc/gui/font/sfnt/cmap must compute idRangeOffset target bounds from the idRangeOffset word",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /table_length\s+%i32\s+gui_sfnt_table_record_length[\s\S]*lt\s+table_length\s+4[\s\S]*GuiSfntParseErrorKind::MalformedCmapRecord/,
+    "alloc/gui/font/sfnt/cmap must reject declared cmap tables shorter than their header",
+);
+assertMatch(
+    allocFontSfntCmapImpl,
+    /records_end[\s\S]*lt\s+record_offset\s+records_end[\s\S]*GuiSfntParseErrorKind::MalformedCmapRecord/,
+    "alloc/gui/font/sfnt/cmap must reject selected subtable offsets that overlap encoding records",
+);
 assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_parse_names\b/,
     "gui_sfnt_parse_metadata must remain independent from name table decoding",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_glyph_id\b/,
+    "gui_sfnt_parse_metadata must remain independent from cmap glyph lookup",
 );
 assertNoMatch(
     allocFontSfntImpl,
@@ -346,6 +414,20 @@ assertMatch(
     /gui_sfnt_parse_error_kind[\s\S]*GuiSfntParseErrorKind::MissingTable[\s\S]*GuiSfntParseErrorKind::InvalidTableOffset[\s\S]*GuiSfntParseErrorKind::FaceIndexRequired[\s\S]*GuiSfntParseErrorKind::InvalidFaceIndex/,
     "gui font sfnt doctest must match typed parser error kinds",
 );
+for (const cmapCase of [
+    "cmap glyph array A",
+    "cmap glyph array zero rejected",
+    "cmap glyph array range malformed",
+    "cmap subtable overlaps records",
+    "short cmap header",
+    "short cmap subtable",
+]) {
+    assertMatch(
+        guiFontSfntTests,
+        new RegExp(cmapCase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+        `gui font sfnt doctest must cover ${cmapCase}`,
+    );
+}
 
 assertMatch(coreGuiFacade, /#import\s+"\.\/gui\/font"\s+as\s+@merge/, "core/gui facade must export font contract");
 assertMatch(coreGuiFacade, /#import\s+"\.\/gui\/render_style"\s+as\s+@merge/, "core/gui facade must export render style contract");

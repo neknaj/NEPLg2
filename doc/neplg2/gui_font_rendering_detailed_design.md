@@ -166,6 +166,66 @@ Name table validation:
 - selected representative strings must be non-empty.
 - ASCII subset means all decoded scalar values are in byte range `0..127`.
 
+## SFNT cmap table
+
+F4c は `alloc/gui/font/sfnt/cmap.nepl` が所有する。`gui_sfnt_parse_metadata` は `cmap` table の有無を directory summary に記録するだけで、glyph lookup を行わない。`gui_sfnt_lookup_glyph_id` は別 API として font bytes、face index、Unicode code point を受け取り、`GuiGlyphId` を返す。
+
+```text
+GuiSfntCmapSubtableRecord:
+    platform_id i32
+    encoding_id i32
+    offset i32
+
+GuiSfntCmapEncodingKind:
+    WindowsUnicodeBmpFormat4
+```
+
+Subtable selection は次だけを許す。
+
+```text
+selected:
+    first record where platformID == 3 and encodingID == 1
+
+absent:
+    UnsupportedCmapEncoding
+
+selected format != 4:
+    UnsupportedCmapTableFormat
+```
+
+Platform 0、platform 3 encoding 10、Macintosh record、後続 record は F4c の代替 candidate ではない。format 4 が対応できない code point は `UnsupportedCmapEncoding`、format 4 の BMP 範囲内だが glyph mapping が存在しない場合は `MissingGlyphMapping` である。
+
+Format 4 lookup は OpenType table layout の byte offsets から直接行う。
+
+```text
+format                  u16 offset 0
+length                  u16 offset 2
+language                u16 offset 4
+segCountX2              u16 offset 6
+searchRange             u16 offset 8
+entrySelector           u16 offset 10
+rangeShift              u16 offset 12
+endCode[segCount]       offset 14
+reservedPad             after endCode
+startCode[segCount]
+idDelta[segCount]
+idRangeOffset[segCount]
+glyphIdArray[]
+```
+
+Validation rules:
+
+- `length` and `language` are readable.
+- `length` is at least `16 + 8 * segCount` and remains inside the selected `cmap` table.
+- selected subtable offset is not inside the encoding record array.
+- `segCountX2` is even and greater than 0.
+- `reservedPad` is 0.
+- every segment array range is inside the subtable.
+- `idRangeOffset == 0` uses `(code_point + idDelta) mod 65536`.
+- `idRangeOffset != 0` computes glyph array address from the address of that idRangeOffset word, then adds `2 * (code_point - startCode)`.
+- the computed glyph array address must remain inside the subtable.
+- raw glyph 0, computed glyph 0, and no matching segment are `MissingGlyphMapping`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

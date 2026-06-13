@@ -1,0 +1,432 @@
+//: # alloc/gui/font/sfnt/cmap
+//: SFNT cmap table glyph lookup
+//:
+//: ### [目的/もくてき]
+//: - SFNT `cmap` table から Unicode BMP code point に対応する glyph id を[読/よ]み、`GuiGlyphId` として[返/かえ]します。
+//: - platform font API や host text API ではなく、resource bytes 内の table だけを authority とします。
+//:
+//: ### [契約/けいやく]
+//: - 現 phase は platformID 3 / encodingID 1 の最初の subtable だけを[選/えら]び、format 4 のみを[扱/あつか]います。
+//: - `cmap` table がない場合は `MissingTable`、対象 encoding がない場合や BMP 外 code point は `UnsupportedCmapEncoding` です。
+//: - 選択 subtable が format 4 でない場合は `UnsupportedCmapTableFormat` です。
+//: - segment がない場合や glyph id 0 は `MissingGlyphMapping` です。
+//:
+//: ### [計算量/けいさんりょう]
+//: - encoding record scan は record 数 `n` に対して O(n) です。format 4 segment scan は segment 数 `m` に対して O(m) です。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/font/sfnt" as *
+//: ```
+
+#indent 4
+
+#import "alloc/io" as *
+#import "core/field" as field
+#import "core/gui/font" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./metadata" as *
+
+//: GuiSfntCmapEncodingKind: F4c が lookup できる cmap encoding
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntCmapEncodingKind:
+    WindowsUnicodeBmpFormat4
+
+impl Clone for GuiSfntCmapEncodingKind:
+    fn clone %fn &GuiSfntCmapEncodingKind GuiSfntCmapEncodingKind \kind:
+        *kind
+
+impl Copy for GuiSfntCmapEncodingKind:
+    fn copy_mark %fn GuiSfntCmapEncodingKind GuiSfntCmapEncodingKind \kind:
+        kind
+
+//: GuiSfntCmapSubtableRecord: cmap encoding record の typed summary
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntCmapSubtableRecord:
+    platform_id %i32
+    encoding_id %i32
+    offset %i32
+
+impl Clone for GuiSfntCmapSubtableRecord:
+    fn clone %fn &GuiSfntCmapSubtableRecord GuiSfntCmapSubtableRecord \record:
+        *record
+
+impl Copy for GuiSfntCmapSubtableRecord:
+    fn copy_mark %fn GuiSfntCmapSubtableRecord GuiSfntCmapSubtableRecord \record:
+        record
+
+//: gui_sfnt_cmap_subtable_record: cmap encoding record summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_cmap_subtable_record %fn i32 fn i32 fn i32 GuiSfntCmapSubtableRecord \platform_id\encoding_id\offset:
+    GuiSfntCmapSubtableRecord platform_id encoding_id offset
+
+fn gui_sfnt_cmap_record_platform_id %fn &GuiSfntCmapSubtableRecord i32 \record:
+    *field::get_ref record "platform_id"
+
+fn gui_sfnt_cmap_record_encoding_id %fn &GuiSfntCmapSubtableRecord i32 \record:
+    *field::get_ref record "encoding_id"
+
+fn gui_sfnt_cmap_record_offset %fn &GuiSfntCmapSubtableRecord i32 \record:
+    *field::get_ref record "offset"
+
+fn gui_sfnt_cmap_checked_range %fn &ByteBuf fn i32 fn i32 fn GuiSfntParseErrorKind Result unit GuiSfntParseError \bytes\offset\size\kind:
+    let total %i32 io_bytebuf_len_ref bytes
+    if:
+        or lt offset 0 lt size 0
+        then:
+            Result::Err gui_sfnt_parse_error kind offset
+        else:
+            if:
+                gt offset total
+                then:
+                    Result::Err gui_sfnt_parse_error kind offset
+                else:
+                    if:
+                        gt size sub total offset
+                        then:
+                            Result::Err gui_sfnt_parse_error kind offset
+                        else:
+                            Result::Ok unit
+
+fn gui_sfnt_cmap_read_u8 %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_cmap_checked_range bytes offset 1 kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match io_bytebuf_byte_at bytes offset:
+                Option::Some byte:
+                    Result::Ok byte
+                Option::None:
+                    Result::Err gui_sfnt_parse_error kind offset
+
+fn gui_sfnt_cmap_read_u16_be %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_cmap_read_u8 bytes offset kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok hi:
+            match gui_sfnt_cmap_read_u8 bytes add offset 1 kind:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok lo:
+                    Result::Ok add shl hi 8 lo
+
+fn gui_sfnt_cmap_read_u32_i32_be %fn &ByteBuf fn i32 fn GuiSfntParseErrorKind Result i32 GuiSfntParseError \bytes\offset\kind:
+    match gui_sfnt_cmap_read_u8 bytes offset kind:
+        Result::Err error:
+            Result::Err error
+        Result::Ok b0:
+            let high_byte_limit %i32 add 64 64
+            if:
+                ge b0 high_byte_limit
+                then:
+                    Result::Err gui_sfnt_parse_error kind offset
+                else:
+                    match gui_sfnt_cmap_read_u8 bytes add offset 1 kind:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok b1:
+                            match gui_sfnt_cmap_read_u8 bytes add offset 2 kind:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok b2:
+                                    match gui_sfnt_cmap_read_u8 bytes add offset 3 kind:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok b3:
+                                            Result::Ok or or or shl b0 24 shl b1 16 shl b2 8 b3
+
+fn gui_sfnt_cmap_subtable_record_selected %fn GuiSfntCmapSubtableRecord bool \record:
+    let platform_id %i32 gui_sfnt_cmap_record_platform_id &record
+    let encoding_id %i32 gui_sfnt_cmap_record_encoding_id &record
+    and eq platform_id 3 eq encoding_id 1
+
+fn gui_sfnt_cmap_parse_record_at %fn &ByteBuf fn i32 Result GuiSfntCmapSubtableRecord GuiSfntParseError \bytes\record_offset:
+    match gui_sfnt_cmap_checked_range bytes record_offset 8 GuiSfntParseErrorKind::MalformedCmapRecord:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            match gui_sfnt_cmap_read_u16_be bytes record_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok platform_id:
+                    match gui_sfnt_cmap_read_u16_be bytes add record_offset 2 GuiSfntParseErrorKind::MalformedCmapRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok encoding_id:
+                            match gui_sfnt_cmap_read_u32_i32_be bytes add record_offset 4 GuiSfntParseErrorKind::MalformedCmapRecord:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok offset:
+                                    Result::Ok gui_sfnt_cmap_subtable_record platform_id encoding_id offset
+
+fn gui_sfnt_cmap_scan_records %fn &ByteBuf fn i32 fn i32 fn i32 Result GuiSfntCmapSubtableRecord GuiSfntParseError \bytes\records_offset\count\index:
+    if:
+        ge index count
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedCmapEncoding records_offset
+        else:
+            let record_offset %i32 add records_offset mul index 8
+            match gui_sfnt_cmap_parse_record_at bytes record_offset:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok record:
+                    if:
+                        gui_sfnt_cmap_subtable_record_selected record
+                        then:
+                            Result::Ok record
+                        else:
+                            gui_sfnt_cmap_scan_records bytes records_offset count add index 1
+
+fn gui_sfnt_cmap_table_relative_range_is_valid %fn GuiSfntTableRecord fn i32 fn i32 bool \table\offset\size:
+    let table_length %i32 gui_sfnt_table_record_length &table
+    if:
+        or lt offset 0 lt size 0
+        then:
+            false
+        else:
+            if:
+                gt offset table_length
+                then:
+                    false
+                else:
+                    le size sub table_length offset
+
+fn gui_sfnt_cmap_file_range_inside_subtable %fn i32 fn i32 fn i32 fn i32 bool \subtable_start\subtable_length\offset\size:
+    let subtable_end %i32 add subtable_start subtable_length
+    if:
+        or lt offset subtable_start lt size 0
+        then:
+            false
+        else:
+            if:
+                gt offset subtable_end
+                then:
+                    false
+                else:
+                    le size sub subtable_end offset
+
+fn gui_sfnt_cmap_finish_glyph_id %fn i32 fn i32 Result GuiGlyphId GuiSfntParseError \raw\offset:
+    if:
+        le raw 0
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphMapping offset
+        else:
+            match gui_glyph_id_result raw:
+                Result::Ok glyph:
+                    Result::Ok glyph
+                Result::Err _error:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphMapping offset
+
+fn gui_sfnt_cmap_mod_u16 %fn i32 i32 \value:
+    rem_s value 65536
+
+fn gui_sfnt_cmap_format4_segment_glyph %fn &ByteBuf fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result GuiGlyphId GuiSfntParseError \bytes\subtable_start\subtable_length\code_point\start_code\id_delta_offset\id_range_offset_offset:
+    match gui_sfnt_cmap_read_u16_be bytes id_delta_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+        Result::Err error:
+            Result::Err error
+        Result::Ok delta_raw:
+            match gui_sfnt_cmap_read_u16_be bytes id_range_offset_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok range_offset:
+                    if:
+                        eq range_offset 0
+                        then:
+                            gui_sfnt_cmap_finish_glyph_id gui_sfnt_cmap_mod_u16 add code_point delta_raw id_delta_offset
+                        else:
+                            let glyph_offset %i32 add add id_range_offset_offset range_offset mul sub code_point start_code 2
+                            if:
+                                not gui_sfnt_cmap_file_range_inside_subtable subtable_start subtable_length glyph_offset 2
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord glyph_offset
+                                else:
+                                    match gui_sfnt_cmap_read_u16_be bytes glyph_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok glyph_raw:
+                                            if:
+                                                eq glyph_raw 0
+                                                then:
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphMapping glyph_offset
+                                                else:
+                                                    gui_sfnt_cmap_finish_glyph_id gui_sfnt_cmap_mod_u16 add glyph_raw delta_raw glyph_offset
+
+fn gui_sfnt_cmap_format4_scan_segments %fn &ByteBuf fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result GuiGlyphId GuiSfntParseError \bytes\subtable_start\subtable_length\code_point\seg_count\index\end_code_start\start_code_start\id_delta_start\id_range_offset_start:
+    if:
+        ge index seg_count
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphMapping subtable_start
+        else:
+            let end_offset %i32 add end_code_start mul index 2
+            let start_offset %i32 add start_code_start mul index 2
+            match gui_sfnt_cmap_read_u16_be bytes end_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok end_code:
+                    match gui_sfnt_cmap_read_u16_be bytes start_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok start_code:
+                            if:
+                                and ge code_point start_code le code_point end_code
+                                then:
+                                    let id_delta_offset %i32 add id_delta_start mul index 2
+                                    let id_range_offset_offset %i32 add id_range_offset_start mul index 2
+                                    gui_sfnt_cmap_format4_segment_glyph bytes subtable_start subtable_length code_point start_code id_delta_offset id_range_offset_offset
+                                else:
+                                    gui_sfnt_cmap_format4_scan_segments bytes subtable_start subtable_length code_point seg_count add index 1 end_code_start start_code_start id_delta_start id_range_offset_start
+
+fn gui_sfnt_cmap_parse_format4 %fn &ByteBuf fn i32 fn i32 fn i32 Result GuiGlyphId GuiSfntParseError \bytes\subtable_start\subtable_length\code_point:
+    match gui_sfnt_cmap_read_u16_be bytes add subtable_start 2 GuiSfntParseErrorKind::MalformedCmapRecord:
+        Result::Err error:
+            Result::Err error
+        Result::Ok length:
+            match gui_sfnt_cmap_read_u16_be bytes add subtable_start 4 GuiSfntParseErrorKind::MalformedCmapRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok _language:
+                    if:
+                        or lt length 16 gt length subtable_length
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord add subtable_start 2
+                        else:
+                            match gui_sfnt_cmap_read_u16_be bytes add subtable_start 6 GuiSfntParseErrorKind::MalformedCmapRecord:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok seg_count_x2:
+                                    if:
+                                        or le seg_count_x2 0 not eq rem_s seg_count_x2 2 0
+                                        then:
+                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord add subtable_start 6
+                                        else:
+                                            let seg_count %i32 div_s seg_count_x2 2
+                                            let minimum_length %i32 add 16 mul seg_count 8
+                                            if:
+                                                gt minimum_length length
+                                                then:
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord add subtable_start 6
+                                                else:
+                                                    let end_code_start %i32 add subtable_start 14
+                                                    let reserved_pad_offset %i32 add end_code_start mul seg_count 2
+                                                    let start_code_start %i32 add reserved_pad_offset 2
+                                                    let id_delta_start %i32 add start_code_start mul seg_count 2
+                                                    let id_range_offset_start %i32 add id_delta_start mul seg_count 2
+                                                    let arrays_ok %bool and gui_sfnt_cmap_file_range_inside_subtable subtable_start length end_code_start mul seg_count 2 and gui_sfnt_cmap_file_range_inside_subtable subtable_start length reserved_pad_offset 2 and gui_sfnt_cmap_file_range_inside_subtable subtable_start length start_code_start mul seg_count 2 and gui_sfnt_cmap_file_range_inside_subtable subtable_start length id_delta_start mul seg_count 2 gui_sfnt_cmap_file_range_inside_subtable subtable_start length id_range_offset_start mul seg_count 2
+                                                    if:
+                                                        not arrays_ok
+                                                        then:
+                                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord subtable_start
+                                                        else:
+                                                            match gui_sfnt_cmap_read_u16_be bytes reserved_pad_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                                                                Result::Err error:
+                                                                    Result::Err error
+                                                                Result::Ok reserved_pad:
+                                                                    if:
+                                                                        not eq reserved_pad 0
+                                                                        then:
+                                                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord reserved_pad_offset
+                                                                        else:
+                                                                            gui_sfnt_cmap_format4_scan_segments bytes subtable_start length code_point seg_count 0 end_code_start start_code_start id_delta_start id_range_offset_start
+
+fn gui_sfnt_cmap_lookup_in_selected_record %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntCmapSubtableRecord fn i32 fn i32 Result GuiGlyphId GuiSfntParseError \bytes\table\record\records_end\code_point:
+    let table_offset %i32 gui_sfnt_table_record_offset &table
+    let record_offset %i32 gui_sfnt_cmap_record_offset &record
+    if:
+        or lt code_point 0 gt code_point 65535
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedCmapEncoding record_offset
+        else:
+            if:
+                lt record_offset records_end
+                then:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord add table_offset record_offset
+                else:
+                    if:
+                        not gui_sfnt_cmap_table_relative_range_is_valid table record_offset 2
+                        then:
+                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord add table_offset record_offset
+                        else:
+                            let subtable_start %i32 add table_offset record_offset
+                            let table_length %i32 gui_sfnt_table_record_length &table
+                            let subtable_length %i32 sub table_length record_offset
+                            match gui_sfnt_cmap_read_u16_be bytes subtable_start GuiSfntParseErrorKind::MalformedCmapRecord:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok subtable_format:
+                                    if:
+                                        not eq subtable_format 4
+                                        then:
+                                            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::UnsupportedCmapTableFormat subtable_start
+                                        else:
+                                            if:
+                                                not gui_sfnt_cmap_table_relative_range_is_valid table record_offset 14
+                                                then:
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord subtable_start
+                                                else:
+                                                    gui_sfnt_cmap_parse_format4 bytes subtable_start subtable_length code_point
+
+fn gui_sfnt_cmap_parse_table %fn &ByteBuf fn GuiSfntTableRecord fn i32 Result GuiGlyphId GuiSfntParseError \bytes\table\code_point:
+    let table_offset %i32 gui_sfnt_table_record_offset &table
+    let table_length %i32 gui_sfnt_table_record_length &table
+    if:
+        lt table_length 4
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord table_offset
+        else:
+            match gui_sfnt_cmap_checked_range bytes table_offset 4 GuiSfntParseErrorKind::MalformedCmapRecord:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok _:
+                    match gui_sfnt_cmap_read_u16_be bytes table_offset GuiSfntParseErrorKind::MalformedCmapRecord:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok version:
+                            if:
+                                not eq version 0
+                                then:
+                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord table_offset
+                                else:
+                                    match gui_sfnt_cmap_read_u16_be bytes add table_offset 2 GuiSfntParseErrorKind::MalformedCmapRecord:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok count:
+                                            let records_size %i32 mul count 8
+                                            let records_end %i32 add 4 records_size
+                                            if:
+                                                gt records_end table_length
+                                                then:
+                                                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedCmapRecord table_offset
+                                                else:
+                                                    match gui_sfnt_cmap_scan_records bytes add table_offset 4 count 0:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok record:
+                                                            gui_sfnt_cmap_lookup_in_selected_record bytes table record records_end code_point
+
+//: gui_sfnt_lookup_glyph_id: SFNT cmap から code point の glyph id を[引/ひ]く
+//:
+//: [目的/もくてき]:
+//: - resource bytes 内の `cmap` table を[読/よ]み、対応 glyph を checked `GuiGlyphId` として[返/かえ]します。
+//:
+//: [契約/けいやく]:
+//: - `gui_sfnt_parse_metadata` とは独立した API です。metadata parser は glyph lookup の成功を要求しません。
+//: - 現 phase は Windows Unicode BMP format 4 のみを扱います。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_glyph_id %fn &ByteBuf fn Option i32 fn i32 Result GuiGlyphId GuiSfntParseError \bytes\face_index\code_point:
+    match gui_sfnt_parse_metadata bytes face_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok metadata:
+            let directory %GuiSfntDirectory gui_sfnt_metadata_directory &metadata
+            match gui_sfnt_directory_cmap &directory:
+                Option::None:
+                    Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingTable 0
+                Option::Some table:
+                    gui_sfnt_cmap_parse_table bytes table code_point

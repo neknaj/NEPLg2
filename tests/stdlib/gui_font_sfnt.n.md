@@ -8,7 +8,7 @@ valid standalone sfnt metrics 用の `head` / `hhea` / `maxp` を持つ最小 SF
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"gui_sfnt_parser_reads_numeric_metrics_and_typed_errors\" count=23 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"ascent\" expected=\"1900\" actual=\"1900\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"descent\" expected=\"-500\" actual=\"-500\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"line gap\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"ttf container\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"truncated header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"missing maxp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"high bit table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"ttc face required\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"ttc out of range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"ttc oversized face count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"single face rejects one\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"family name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"subfamily name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"full name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"missing name table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"unsupported name encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"odd utf16 name length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"non ascii name character\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"name string offset overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_sfnt_parser_reads_numeric_metrics_and_typed_errors\" count=37 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"units per em\" expected=\"2048\" actual=\"2048\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"ascent\" expected=\"1900\" actual=\"1900\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"descent\" expected=\"-500\" actual=\"-500\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"line gap\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"glyph count\" expected=\"321\" actual=\"321\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"face count\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=bool label=\"ttf container\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=7 status=ok kind=bool label=\"truncated header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=8 status=ok kind=bool label=\"missing maxp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=9 status=ok kind=bool label=\"invalid table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=10 status=ok kind=bool label=\"high bit table offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=11 status=ok kind=bool label=\"ttc face required\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=12 status=ok kind=bool label=\"ttc out of range\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=13 status=ok kind=bool label=\"ttc oversized face count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=14 status=ok kind=bool label=\"single face rejects one\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=15 status=ok kind=bool label=\"family name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=16 status=ok kind=bool label=\"subfamily name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=17 status=ok kind=bool label=\"full name\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=18 status=ok kind=bool label=\"missing name table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=19 status=ok kind=bool label=\"unsupported name encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=20 status=ok kind=bool label=\"odd utf16 name length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=21 status=ok kind=bool label=\"non ascii name character\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=22 status=ok kind=bool label=\"name string offset overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=23 status=ok kind=eq_i32 label=\"cmap glyph A\" expected=\"36\" actual=\"36\" message=\"\"\nassertion index=24 status=ok kind=bool label=\"cmap missing glyph\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=25 status=ok kind=bool label=\"cmap outside bmp\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"missing cmap table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"unsupported cmap encoding\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"unsupported selected cmap format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"cmap glyph zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"malformed cmap segment count\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=eq_i32 label=\"cmap glyph array A\" expected=\"36\" actual=\"36\" message=\"\"\nassertion index=32 status=ok kind=bool label=\"cmap glyph array zero rejected\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=33 status=ok kind=bool label=\"cmap glyph array range malformed\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=34 status=ok kind=bool label=\"cmap subtable overlaps records\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=35 status=ok kind=bool label=\"short cmap header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=36 status=ok kind=bool label=\"short cmap subtable\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -404,12 +404,305 @@ fn sfnt_push_overlapping_string_offset_name_table %impure fn ByteBuilder Result 
                                 Result::Ok b4:
                                     sfnt_push_zero_run b4 70
 
+fn sfnt_push_cmap_records %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\cmap_length:
+    match sfnt_push_record builder sfnt_tag4 'h' 'e' 'a' 'd' 76 20:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_record b1 sfnt_tag4 'h' 'h' 'e' 'a' 96 10:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_record b2 sfnt_tag4 'm' 'a' 'x' 'p' 106 6:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_record b3 sfnt_tag4 'c' 'm' 'a' 'p' 112 cmap_length
+
+fn sfnt_push_cmap_record %impure fn ByteBuilder impure fn i32 impure fn i32 impure fn i32 Result ByteBuilder str \builder\platform_id\encoding_id\offset:
+    match sfnt_push_u16_be builder platform_id:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 encoding_id:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    sfnt_push_u32_be b2 offset
+
+fn sfnt_push_format4_a_segment %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\seg_count_x2\delta_raw:
+    match sfnt_push_u16_be builder 4:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 32:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 0:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 seg_count_x2:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_zero_run b4 6:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u16_be b5 'A':
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u16_be b6 65535:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u16_be b7 0:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    match sfnt_push_u16_be b8 'A':
+                                                                        Result::Err message:
+                                                                            Result::Err message
+                                                                        Result::Ok b9:
+                                                                            match sfnt_push_u16_be b9 65535:
+                                                                                Result::Err message:
+                                                                                    Result::Err message
+                                                                                Result::Ok b10:
+                                                                                    match sfnt_push_u16_be b10 delta_raw:
+                                                                                        Result::Err message:
+                                                                                            Result::Err message
+                                                                                        Result::Ok b11:
+                                                                                            match sfnt_push_u16_be b11 1:
+                                                                                                Result::Err message:
+                                                                                                    Result::Err message
+                                                                                                Result::Ok b12:
+                                                                                                    match sfnt_push_u16_be b12 0:
+                                                                                                        Result::Err message:
+                                                                                                            Result::Err message
+                                                                                                        Result::Ok b13:
+                                                                                                            sfnt_push_u16_be b13 0
+
+fn sfnt_push_valid_cmap_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_a_segment b3 4 65507
+
+fn sfnt_push_zero_glyph_cmap_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_a_segment b3 4 65471
+
+fn sfnt_push_unsupported_cmap_encoding_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 0 3 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_a_segment b3 4 65507
+
+fn sfnt_push_format0_subtable %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 6:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    sfnt_push_u16_be b2 0
+
+fn sfnt_push_unsupported_selected_format_cmap_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 2:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 20:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_cmap_record b3 3 10 26:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_format0_subtable b4:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            sfnt_push_format4_a_segment b5 4 65507
+
+fn sfnt_push_malformed_cmap_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_a_segment b3 3 65507
+
+fn sfnt_push_format4_a_glyph_array_segment %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\glyph_raw\range_offset:
+    match sfnt_push_u16_be builder 4:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 34:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 0:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u16_be b3 4:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_zero_run b4 6:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u16_be b5 'A':
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u16_be b6 65535:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u16_be b7 0:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    match sfnt_push_u16_be b8 'A':
+                                                                        Result::Err message:
+                                                                            Result::Err message
+                                                                        Result::Ok b9:
+                                                                            match sfnt_push_u16_be b9 65535:
+                                                                                Result::Err message:
+                                                                                    Result::Err message
+                                                                                Result::Ok b10:
+                                                                                    match sfnt_push_u16_be b10 0:
+                                                                                        Result::Err message:
+                                                                                            Result::Err message
+                                                                                        Result::Ok b11:
+                                                                                            match sfnt_push_u16_be b11 1:
+                                                                                                Result::Err message:
+                                                                                                    Result::Err message
+                                                                                                Result::Ok b12:
+                                                                                                    match sfnt_push_u16_be b12 range_offset:
+                                                                                                        Result::Err message:
+                                                                                                            Result::Err message
+                                                                                                        Result::Ok b13:
+                                                                                                            match sfnt_push_u16_be b13 0:
+                                                                                                                Result::Err message:
+                                                                                                                    Result::Err message
+                                                                                                                Result::Ok b14:
+                                                                                                                    sfnt_push_u16_be b14 glyph_raw
+
+fn sfnt_push_glyph_array_cmap_table %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\glyph_raw\range_offset:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_a_glyph_array_segment b3 glyph_raw range_offset
+
+fn sfnt_push_overlapping_cmap_subtable_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 8:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_format4_a_segment b3 4 65507
+
+fn sfnt_push_short_cmap_header_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    sfnt_push_u16_be builder 0
+
+fn sfnt_push_short_cmap_subtable_table %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_u16_be builder 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_cmap_record b2 3 1 12:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_u16_be b3 4
+
 fn sfnt_push_named_sfnt_prefix %impure fn ByteBuilder Result ByteBuilder str \builder:
     match sfnt_push_header builder 4:
         Result::Err message:
             Result::Err message
         Result::Ok b1:
             match sfnt_push_named_records b1:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    sfnt_push_valid_tables b2
+
+fn sfnt_push_cmap_sfnt_prefix %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\cmap_length:
+    match sfnt_push_header builder 4:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_cmap_records b1 cmap_length:
                 Result::Err message:
                     Result::Err message
                 Result::Ok b2:
@@ -502,6 +795,138 @@ fn build_overlapping_string_offset_name_sfnt %impure fn void Result ByteBuf str 
                         Result::Err message
                     Result::Ok b1:
                         sfnt_push_overlapping_string_offset_name_table b1
+
+fn build_valid_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 156:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 44:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_valid_cmap_table b1
+
+fn build_zero_glyph_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 156:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 44:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_zero_glyph_cmap_table b1
+
+fn build_unsupported_cmap_encoding_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 156:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 44:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_unsupported_cmap_encoding_table b1
+
+fn build_unsupported_selected_format_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 170:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 58:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_unsupported_selected_format_cmap_table b1
+
+fn build_malformed_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 156:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 44:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_malformed_cmap_table b1
+
+fn build_glyph_array_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 158:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 46:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_glyph_array_cmap_table b1 36 4
+
+fn build_zero_glyph_array_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 158:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 46:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_glyph_array_cmap_table b1 0 4
+
+fn build_out_of_range_glyph_array_cmap_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 158:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 46:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_glyph_array_cmap_table b1 36 8
+
+fn build_overlapping_cmap_subtable_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 156:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 44:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_overlapping_cmap_subtable_table b1
+
+fn build_short_cmap_header_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 114:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 2:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_short_cmap_header_table b1
+
+fn build_short_cmap_subtable_sfnt %impure fn void Result ByteBuf str \void:
+    match byte_builder_with_capacity 126:
+        Result::Err _error:
+            Result::Err "alloc"
+        Result::Ok b0:
+            sfnt_finish:
+                match sfnt_push_cmap_sfnt_prefix b0 14:
+                    Result::Err message:
+                        Result::Err message
+                    Result::Ok b1:
+                        sfnt_push_short_cmap_subtable_table b1
 
 fn build_missing_maxp_sfnt %impure fn void Result ByteBuf str \void:
     match byte_builder_with_capacity 74:
@@ -698,6 +1123,45 @@ fn sfnt_name_error_is %fn Result GuiSfntNames GuiSfntParseError fn GuiSfntParseE
         Result::Ok _names:
             false
 
+fn sfnt_cmap_error_is %fn Result GuiGlyphId GuiSfntParseError fn GuiSfntParseErrorKind bool \result\expected:
+    match result:
+        Result::Err error:
+            match expected:
+                GuiSfntParseErrorKind::MissingTable:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MissingTable:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::UnsupportedCmapEncoding:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::UnsupportedCmapEncoding:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::UnsupportedCmapTableFormat:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::UnsupportedCmapTableFormat:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::MalformedCmapRecord:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MalformedCmapRecord:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::MissingGlyphMapping:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MissingGlyphMapping:
+                            true
+                        _:
+                            false
+                _:
+                    false
+        Result::Ok _glyph:
+            false
+
 fn sfnt_option_str_eq %fn Option str fn str bool \value\expected:
     match value:
         Option::None:
@@ -837,10 +1301,108 @@ fn append_name_cases %impure fn TestReport TestReport \report0:
                     io_bytebuf_free bytes2
                     test_report_push report5 assert "name string offset overlaps records" offset_ok
 
+fn append_cmap_cases %impure fn TestReport TestReport \report0:
+    let report1 %TestReport match build_valid_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report0 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_glyph_id &bytes none 'A':
+                Result::Err _error:
+                    test_report_push report0 assert false
+                Result::Ok glyph:
+                    test_report_push report0 assert_eq_i32 "cmap glyph A" 36 gui_glyph_id_raw &glyph
+            let missing_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'B' GuiSfntParseErrorKind::MissingGlyphMapping
+            let outside_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 65536 GuiSfntParseErrorKind::UnsupportedCmapEncoding
+            io_bytebuf_free bytes
+            let r1 %TestReport test_report_push next_report assert "cmap missing glyph" missing_ok
+            test_report_push r1 assert "cmap outside bmp" outside_ok
+    let report2 %TestReport match build_valid_sfnt:
+        Result::Err _message:
+            test_report_push report1 assert false
+        Result::Ok bytes:
+            let missing_table_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MissingTable
+            io_bytebuf_free bytes
+            test_report_push report1 assert "missing cmap table" missing_table_ok
+    let report3 %TestReport match build_unsupported_cmap_encoding_sfnt:
+        Result::Err _message:
+            test_report_push report2 assert false
+        Result::Ok bytes:
+            let unsupported_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::UnsupportedCmapEncoding
+            io_bytebuf_free bytes
+            test_report_push report2 assert "unsupported cmap encoding" unsupported_ok
+    let report4 %TestReport match build_unsupported_selected_format_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report3 assert false
+        Result::Ok bytes:
+            let format_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::UnsupportedCmapTableFormat
+            io_bytebuf_free bytes
+            test_report_push report3 assert "unsupported selected cmap format" format_ok
+    let report5 %TestReport match build_zero_glyph_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report4 assert false
+        Result::Ok bytes:
+            let zero_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MissingGlyphMapping
+            io_bytebuf_free bytes
+            test_report_push report4 assert "cmap glyph zero rejected" zero_ok
+    let report6 %TestReport match build_malformed_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report5 assert false
+        Result::Ok bytes:
+            let malformed_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MalformedCmapRecord
+            io_bytebuf_free bytes
+            test_report_push report5 assert "malformed cmap segment count" malformed_ok
+    let report7 %TestReport match build_glyph_array_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report6 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_glyph_id &bytes none 'A':
+                Result::Err _error:
+                    test_report_push report6 assert false
+                Result::Ok glyph:
+                    test_report_push report6 assert_eq_i32 "cmap glyph array A" 36 gui_glyph_id_raw &glyph
+            io_bytebuf_free bytes
+            next_report
+    let report8 %TestReport match build_zero_glyph_array_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report7 assert false
+        Result::Ok bytes:
+            let zero_entry_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MissingGlyphMapping
+            io_bytebuf_free bytes
+            test_report_push report7 assert "cmap glyph array zero rejected" zero_entry_ok
+    let report9 %TestReport match build_out_of_range_glyph_array_cmap_sfnt:
+        Result::Err _message:
+            test_report_push report8 assert false
+        Result::Ok bytes:
+            let range_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MalformedCmapRecord
+            io_bytebuf_free bytes
+            test_report_push report8 assert "cmap glyph array range malformed" range_ok
+    let report10 %TestReport match build_overlapping_cmap_subtable_sfnt:
+        Result::Err _message:
+            test_report_push report9 assert false
+        Result::Ok bytes:
+            let overlap_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MalformedCmapRecord
+            io_bytebuf_free bytes
+            test_report_push report9 assert "cmap subtable overlaps records" overlap_ok
+    let report11 %TestReport match build_short_cmap_header_sfnt:
+        Result::Err _message:
+            test_report_push report10 assert false
+        Result::Ok bytes:
+            let short_header_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MalformedCmapRecord
+            io_bytebuf_free bytes
+            test_report_push report10 assert "short cmap header" short_header_ok
+    match build_short_cmap_subtable_sfnt:
+        Result::Err _message:
+            test_report_push report11 assert false
+        Result::Ok bytes:
+            let short_subtable_ok %bool sfnt_cmap_error_is gui_sfnt_lookup_glyph_id &bytes none 'A' GuiSfntParseErrorKind::MalformedCmapRecord
+            io_bytebuf_free bytes
+            test_report_push report11 assert "short cmap subtable" short_subtable_ok
+
 fn main %impure fn void i32 \void:
     let report0 %TestReport parse_valid_values
     let report1 %TestReport append_error_cases report0
     let report2 %TestReport append_name_cases report1
-    let shown test_report_print_stdout report2
+    let report3 %TestReport append_cmap_cases report2
+    let shown test_report_print_stdout report3
     test_report_exit_code shown
 ```

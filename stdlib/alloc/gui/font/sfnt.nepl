@@ -2,10 +2,11 @@
 //: SFNT font parser facade
 //:
 //: ### [目的/もくてき]
-//: - SFNT table directory、numeric metrics、name table parser を責務別 submodule から再公開します。
-//: - 実装本体を分割し、metadata parser と name table parser の契約を個別に検査できるようにします。
+//: - SFNT table directory、numeric metrics、name table parser、cmap glyph lookup を責務別 submodule から再公開します。
+//: - 実装本体を分割し、metadata parser、name table parser、cmap parser の契約を個別に検査できるようにします。
 
 #indent 4
 
 pub #import "./sfnt/metadata" as @merge
 pub #import "./sfnt/name" as @merge
+pub #import "./sfnt/cmap" as @merge
