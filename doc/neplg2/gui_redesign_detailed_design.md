@@ -348,6 +348,7 @@ video_memory_create_surface width height slot_count -> surface_id_or_negative_st
 video_memory_acquire_write_slot surface_id -> frame_id_or_negative_status
 video_memory_write_slot_bytes surface_id frame_id dst_offset src_ptr byte_len -> status
 video_memory_fill_rect_rgba8888 surface_id frame_id x y width height r g b a -> status
+video_memory_discard_write_slot surface_id frame_id -> status
 video_memory_publish_slot surface_id frame_id dirty_kind x y width height -> status
 video_memory_present_surface window_id title_ptr title_len surface_id -> status
 video_memory_close_surface surface_id -> status
@@ -366,6 +367,8 @@ Negative status は Web platform module 内で `Result` と `GuiError` へ写す
 -5 BackendFailure
 -6 StaleFrame
 ```
+
+`discard_write_slot` は未公開 write frame の `Writing -> Free` 状態遷移だけを行う。描画途中の error や application 側の中断で publish しない frame は、surface close ではなくこの import で明示的に破棄する。成功時は dirty metadata を消し、published epoch と presented epoch は進めない。frame が存在しない、既に publish / discard 済み、resize generation が古い場合は typed negative status を返し、stdout protocol や別 surface へ fallback しない。
 
 `publish_slot` は `Writing -> Published` の状態遷移だけを行う。Visible window への提示は `present_surface` が別に行い、Worker から main thread へ typed `gui_video_memory_present` message を送る。main thread の Shell は `presentGuiWebRuntimeVideoMemory` を呼び、その結果を ack 用 `SharedArrayBuffer` へ書いて `Atomics.notify` する。Worker import は ack を `Atomics.wait` してから status を返すため、message queued を success として扱わない。
 
@@ -398,12 +401,13 @@ Protocol:
 
 1. writer は slot header を走査し、`Atomics.compareExchange(slot_state, Free, Writing)` に成功した slot だけを取得する。
 2. writer は取得した slot の pixel plane だけを更新する。`Published`、`Reading`、`Closed` の slot へ書いてはいけない。
-3. writer は slot dirty region を書く。
-4. writer は slot epoch を新しい値へ `Atomics.store` する。
-5. writer は `Atomics.store(slot_state, Published)` で publish し、`latest_published_epoch` を更新して `Atomics.notify` する。
-6. presenter は `Atomics.compareExchange(slot_state, Published, Reading)` に成功した slot だけを読む。
-7. presenter は `ImageData` を作り、visible canvas へ `putImageData` する。`putImageData` が完了するまで slot は `Reading` のまま保持する。
-8. presenter は `latest_presented_epoch` を更新し、`Atomics.store(slot_state, Free)` で slot を writer へ返す。
+3. writer が frame を破棄する場合は、dirty metadata を 0 に戻し、`Atomics.compareExchange(slot_state, Writing, Free)` に成功した時だけ frame id の ownership record を消す。published epoch と presented epoch は進めない。
+4. writer が frame を公開する場合は slot dirty region を書く。
+5. writer は slot epoch を新しい値へ `Atomics.store` する。
+6. writer は `Atomics.store(slot_state, Published)` で publish し、`latest_published_epoch` を更新して `Atomics.notify` する。
+7. presenter は `Atomics.compareExchange(slot_state, Published, Reading)` に成功した slot だけを読む。
+8. presenter は `ImageData` を作り、visible canvas へ `putImageData` する。`putImageData` が完了するまで slot は `Reading` のまま保持する。
+9. presenter は `latest_presented_epoch` を更新し、`Atomics.store(slot_state, Free)` で slot を writer へ返す。
 
 Atomics ordering:
 

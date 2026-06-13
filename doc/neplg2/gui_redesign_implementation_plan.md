@@ -135,7 +135,8 @@ Subagent review:
 変更:
 
 - formal Web host import は video memory surface / pixel frame present を持つ。
-- Web video memory host import は `nepl_gui_web` の Web-only scalar ABI として実装する。最初の import set は `video_memory_create_surface`、`video_memory_acquire_write_slot`、`video_memory_write_slot_bytes`、`video_memory_publish_slot`、`video_memory_present_surface`、`video_memory_close_surface` である。`video_memory_fill_rect_rgba8888` は early smoke 用の pixel slot writer であり、Canvas `fillRect` ではない。
+- Web video memory host import は `nepl_gui_web` の Web-only scalar ABI として実装する。最初の import set は `video_memory_create_surface`、`video_memory_acquire_write_slot`、`video_memory_write_slot_bytes`、`video_memory_discard_write_slot`、`video_memory_publish_slot`、`video_memory_present_surface`、`video_memory_close_surface` である。`video_memory_fill_rect_rgba8888` は early smoke 用の pixel slot writer であり、Canvas `fillRect` ではない。
+- `discard_write_slot` は publish しない write frame を `Writing -> Free` に戻す ownership recovery path である。成功時だけ Worker の frame record を削除し、dirty metadata を消し、published / presented epoch は進めない。
 - `publish_slot` と `present_surface` は分離する。`publish_slot` は Worker 所有の slot を `Published` にするだけで、visible window へ表示しない。`present_surface` は Worker から main thread へ typed `gui_video_memory_present` message を送り、ack `SharedArrayBuffer` に書かれた actual presenter status を待ってから戻る。
 - `surface_id` と `frame_id` は Worker-local opaque positive integer とし、NEPL/Wasm は `SharedArrayBuffer`、DOM handle、Canvas handle、ArrayBuffer transfer object、JS object handle、string handle を受け取らない。
 - `title_ptr` と `title_len` は Wasm linear memory の UTF-8 byte slice として検査する。pointer / length / UTF-8 の不正は typed negative status から `GuiError::InvalidCommand` へ写す。

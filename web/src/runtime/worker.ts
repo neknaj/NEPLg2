@@ -25,6 +25,7 @@ import {
     acquireGuiVideoMemoryWriteSlot,
     closeGuiVideoMemorySurface,
     createGuiVideoMemorySurface,
+    discardGuiVideoMemoryWriteSlot,
     publishGuiVideoMemoryWriteSlot,
     type GuiVideoMemoryDirtyRegion,
     type GuiVideoMemoryError,
@@ -189,6 +190,7 @@ class WorkerWASI extends WASI {
             video_memory_acquire_write_slot: this.nepl_gui_web_video_memory_acquire_write_slot.bind(this),
             video_memory_write_slot_bytes: this.nepl_gui_web_video_memory_write_slot_bytes.bind(this),
             video_memory_fill_rect_rgba8888: this.nepl_gui_web_video_memory_fill_rect_rgba8888.bind(this),
+            video_memory_discard_write_slot: this.nepl_gui_web_video_memory_discard_write_slot.bind(this),
             video_memory_publish_slot: this.nepl_gui_web_video_memory_publish_slot.bind(this),
             video_memory_present_surface: this.nepl_gui_web_video_memory_present_surface.bind(this),
             video_memory_close_surface: this.nepl_gui_web_video_memory_close_surface.bind(this),
@@ -550,6 +552,20 @@ class WorkerWASI extends WASI {
                 offset += 4;
             }
         }
+        return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    }
+
+    nepl_gui_web_video_memory_discard_write_slot(surfaceHandle: number, frameId: number): number {
+        const surface = this.findGuiVideoMemorySurface(surfaceHandle);
+        const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
+        if (!surface || !frame) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const discarded = discardGuiVideoMemoryWriteSlot(frame.slot);
+        if (discarded.kind === 'err') {
+            return guiVideoMemoryHostStatusFromError(discarded.error);
+        }
+        surface.frames = surface.frames.filter((candidate) => candidate.frameId !== frameId);
         return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
     }
 

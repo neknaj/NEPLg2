@@ -302,7 +302,7 @@ export function acquireGuiVideoMemoryWriteSlot(
         if (previous !== GUI_VIDEO_MEMORY_SLOT_FREE) {
             continue;
         }
-        Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_KIND), 0);
+        clearGuiVideoMemoryDirtyRegion(surface, slotIndex);
         return guiVideoMemoryOk({
             surface,
             slotIndex,
@@ -339,6 +339,44 @@ export function publishGuiVideoMemoryWriteSlot(
     storeGuiVideoMemoryDirtyRegion(slot.surface, slot.slotIndex, dirty);
     Atomics.store(slot.surface.slots, stateIndex, GUI_VIDEO_MEMORY_SLOT_PUBLISHED);
     Atomics.notify(slot.surface.header, HEADER_PUBLISHED_EPOCH, 1);
+    return guiVideoMemoryOk(undefined);
+}
+
+export function discardGuiVideoMemoryWriteSlot(
+    slot: GuiVideoMemoryWriteSlot,
+): GuiVideoMemoryResult<void> {
+    const currentGeneration = Atomics.load(slot.surface.header, HEADER_GENERATION);
+    if (slot.generation !== currentGeneration) {
+        return guiVideoMemoryErr({
+            kind: 'stale-resize-generation',
+            expected: currentGeneration,
+            actual: slot.generation,
+        });
+    }
+    const stateIndex = guiVideoMemorySlotWord(slot.slotIndex, SLOT_STATE);
+    const currentState = Atomics.load(slot.surface.slots, stateIndex);
+    if (currentState !== GUI_VIDEO_MEMORY_SLOT_WRITING) {
+        return guiVideoMemoryErr({
+            kind: 'invalid-slot-state',
+            slotIndex: slot.slotIndex,
+            actual: currentState,
+        });
+    }
+    clearGuiVideoMemoryDirtyRegion(slot.surface, slot.slotIndex);
+    const previous = Atomics.compareExchange(
+        slot.surface.slots,
+        stateIndex,
+        GUI_VIDEO_MEMORY_SLOT_WRITING,
+        GUI_VIDEO_MEMORY_SLOT_FREE,
+    );
+    if (previous !== GUI_VIDEO_MEMORY_SLOT_WRITING) {
+        return guiVideoMemoryErr({
+            kind: 'invalid-slot-state',
+            slotIndex: slot.slotIndex,
+            actual: previous,
+        });
+    }
+    Atomics.notify(slot.surface.slots, stateIndex, 1);
     return guiVideoMemoryOk(undefined);
 }
 
@@ -544,6 +582,14 @@ function storeGuiVideoMemoryDirtyRegion(
     Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_Y), Math.trunc(dirty.y));
     Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_WIDTH), Math.trunc(dirty.width));
     Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_HEIGHT), Math.trunc(dirty.height));
+}
+
+function clearGuiVideoMemoryDirtyRegion(surface: GuiVideoMemorySurface, slotIndex: number) {
+    Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_KIND), 0);
+    Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_X), 0);
+    Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_Y), 0);
+    Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_WIDTH), 0);
+    Atomics.store(surface.slots, guiVideoMemorySlotWord(slotIndex, SLOT_DIRTY_HEIGHT), 0);
 }
 
 function loadGuiVideoMemoryDirtyRegion(
