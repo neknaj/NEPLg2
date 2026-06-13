@@ -59362,3 +59362,46 @@ MERGE_APPROVED
 
 - F4n は single edge の move / draw command lookup までであり、contour-wide streaming path sink、full outline assembly、compound glyph、phantom points、hint instruction semantics、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
 - 後続 F5 では F4n の public byte lookup と F4m の compact command を使い、allocation / owner recovery と no fallback contract を保ったまま outline/path sink を追加する。
+
+## 2026-06-13 selfhost method body fact producer checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、enum / Result / match による静的検査、責務分割、丁寧な doc comment、試作段階でも雑設計を残さない方針を優先した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_producer.nepl` を追加した。
+- この module は typed HIR method body root または既存 effect summary から `SelfhostMemoTraitOperationMethodBodyFact` を作る。
+- HIR root 経路では `memo_trait_operation_method_body_effect_checker` を呼び、summary 経路では resolver の `selfhost_memo_trait_operation_method_body_fact_new_result` に `SelfhostTypeId`、operation kind、effect、escape を渡す。
+- `Eq` / `Hash` だけが method body fact を必要とする matrix は resolver constructor が持つため、producer 側で source text、span、lexeme、display name、diagnostic text、module path から operation を推測しない。
+- error は `EffectCheckRejected` と `FactRejected` に分け、effect checker error と resolver error の nested payload を保持した。
+- fact table owner、table push、duplicate lookup、surface completeness、operation evidence record、method body evidence、Drop evidence、body check pair、aggregate proof、Resource IR、backend artifact、public surface orchestration はこの module では扱わない。
+- `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_producer_contract.js` を追加し、source policy runner に登録した。
+- source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import、table owner 消費禁止、resolver lookup 禁止、direct fact struct constructor bypass 禁止、table / evidence / proof / body check 構築禁止、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、fact producer を接続済みとして残件を再整理した。
+
+### subagent_review
+
+- Anscombe implementation review: Blocker なし。
+- Required として、source policy が `from_summary_result` の resolver fact constructor 呼び出しを固定していても、別 helper が `SelfhostMemoTraitOperationMethodBodyFact` を直接 struct constructor で作る退行は明示的に落とせないと指摘された。
+- 対応として、非 doc comment のコードに対して direct `SelfhostMemoTraitOperationMethodBodyFact` struct expression を禁止する source policy を追加した。
+- Non-blocker として、Drop rejection も stage0 に追加すると matrix 説明とさらに揃うが、今回の blocker ではないとされた。次の orchestration / resolver 周辺の smoke 拡張候補として残す。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_producer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-method-body-fact-producer.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した fact producer contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+### residual
+
+- fact producer result を complete public surface impl candidate 群から method body fact table へ投入する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続は未実装である。
+- method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は、今回固定した fact producer contract を変えずに後からできる最適化として扱う。

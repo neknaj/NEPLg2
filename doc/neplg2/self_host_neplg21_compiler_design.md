@@ -1525,6 +1525,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_effect
 
 この checkpoint 後の残件は、summary を complete surface の method body fact table へ接続する orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は summary / error contract を保って後からできる最適化として扱う。
 
+### 2026-06-13 MemoKey / MemoValue method body fact producer checkpoint
+
+`memo_trait_operation_method_body_fact_producer.nepl` を追加し、typed HIR method body effect summary と complete surface method body fact table が読む fact constructor を接続する checker-layer 境界を作った。
+
+この producer は fact table owner を消費しない。HIR root から summary を作る場合は `memo_trait_operation_method_body_effect_checker` を呼び、summary から fact を作る場合は `memo_trait_operation_method_body_resolver` の `selfhost_memo_trait_operation_method_body_fact_new_result` へ `SelfhostTypeId`、operation kind、effect、escape をそのまま渡す。operation requirement matrix は resolver constructor が持つため、この producer は `Eq` / `Hash` を文字列や method name から推測しない。
+
+error は `EffectCheckRejected` と `FactRejected` の nested typed payload に分けた。HIR root 欠落、fuel exhaustion、`Error` expression、malformed child range は effect checker 側 error として残り、`Copy` / `Drop` など method body fact を作ってはいけない operation は resolver 側 error として残る。どちらも bool や表示文字列へ潰さない。
+
+この module は operation evidence record、method body evidence、Drop evidence、body check pair、aggregate proof status、Resource IR proof、backend artifact、public surface orchestration を作らない。table 追加、duplicate rejection、surface completeness の判断は既存 table push / resolver lookup と次の full orchestration に残す。これにより、effect checker 失敗時に table owner をどう回収するかという不要な所有権問題を作らず、summary から fact への変換を O(1) の pure boundary として扱える。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_producer_contract.js` で固定した。facade 非公開、`selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、fact table owner 消費禁止、resolver lookup 禁止、table / evidence / proof / body check 構築禁止、nested error payload 比較、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+この checkpoint 後の残件は、fact producer result を complete public surface impl candidate 群から method body fact table へ投入する orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed fact producer contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

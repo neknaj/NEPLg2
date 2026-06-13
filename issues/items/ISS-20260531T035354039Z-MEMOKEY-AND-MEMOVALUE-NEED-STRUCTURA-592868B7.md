@@ -86,6 +86,18 @@ subagent review では Anscombe が、HIR traversal と method body fact 化を�
 
 この checkpoint 後の残件は、summary から complete surface の method body fact table へ接続する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。HIR traversal の explicit stack 化、subtree memoization、child range lookup index 化は summary / error contract を保って後から行える最適化として扱う。
 
+## 2026-06-13 selfhost method body fact producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_producer.nepl` を追加し、typed HIR method body effect summary から complete surface method body fact table に投入できる `SelfhostMemoTraitOperationMethodBodyFact` を作る checker-layer producer 境界を作った。
+
+この producer は fact table owner を消費せず、table push、duplicate lookup、surface completeness の判断を行わない。HIR root から fact を作る経路では effect checker に委譲し、summary から fact を作る経路では resolver の `selfhost_memo_trait_operation_method_body_fact_new_result` へ `SelfhostTypeId`、operation kind、effect、escape をそのまま渡す。`Eq` / `Hash` だけが method body fact を必要とするという matrix は resolver constructor が検査するため、producer 側では source text、span、lexeme、display name、diagnostic text、module path から operation を推測しない。
+
+typed error は `EffectCheckRejected` と `FactRejected` に分けた。HIR root 欠落、child range 不整合、fuel exhaustion、`Error` expression は effect checker 側 error として保持し、`Copy` / `Drop` など method body fact を作ってはいけない operation は resolver 側 error として保持する。nested payload 付き enum のまま返すため、後続 orchestration は失敗理由を表示文字列や bool に潰さずに診断へ運べる。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_producer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、table owner 消費禁止、resolver lookup 禁止、operation evidence / body check / Drop evidence / aggregate proof / Resource IR / backend / proof store 構築禁止、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+この checkpoint 後の残件は、fact producer result を complete public surface impl candidate 群から method body fact table へ投入する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed fact producer contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

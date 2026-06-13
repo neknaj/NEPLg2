@@ -1,0 +1,288 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_method_body_fact_producer
+//: `Eq` / `Hash` method body の HIR root から、complete surface の method body fact table に投入できる fact を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_method_body_effect_checker` が作る effect summary と、`memo_trait_operation_method_body_resolver` が読む fact constructor を接続します。
+//: - HIR traversal、effect summary、fact validation の境界を分けたまま、後続 orchestration が `SelfhostMemoTraitOperationMethodBodyTable` へ追加できる typed fact を作ります。
+//: - method body が必要な operation は `Eq` / `Hash` だけである、という matrix を resolver の public constructor に委譲し、producer 側で文字列や名前から推測しません。
+//:
+//: [契約/けいやく]:
+//: - accepted fact は `SelfhostTypeId`、`SelfhostMemoTraitOperationEvidenceKind`、HIR effect summary の `SelfhostEffectKind` / `SelfhostEffectEscapeState` だけから作ります。
+//: - `Copy` / `Drop` が渡された場合は resolver の `UnexpectedMethodOperation` を `FactRejected` として包み、fake method body fact を作りません。
+//: - HIR root が欠ける、HIR child range が壊れている、fuel が尽きる、`Error` expression が含まれる場合は effect checker の typed error を `EffectCheckRejected` として包みます。
+//: - この module は fact table owner を消費しません。table への追加と duplicate rejection は既存 `selfhost_memo_trait_operation_method_body_table_push` / resolver lookup が担当します。
+//: - operation evidence record、method body evidence、Drop evidence、body check pair、aggregate proof status、Resource IR proof、backend artifact、public surface orchestration は作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では method body HIR root から 1 fact を作る最小 producer です。
+//: - full public surface orchestration が複数 impl candidate から table を組み立てる段階では、この producer の fact result を既存 table push に渡します。
+//: - Drop body effect checker、Resource IR no-escape proof、PrivateCache / PrivateState masking、generic impl binder は後続 stage の責務です。
+//:
+//: [計算量/けいさんりょう]:
+//: - HIR root から到達する expression 数を n、child edge 数を e とすると、effect checker の計算量に従い O(n + e) 時間です。
+//: - summary から fact への変換は O(1) 時間・O(1) 追加空間です。
+//: - table 追加、duplicate lookup、sorted index 化はこの producer の契約を変えずに後続 orchestration 側で扱えます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_fact_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_effect_checker" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_method_body_fact_producer_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_method_body_fact_producer_fact_result_eq summary.pure_eq_fact SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_method_body_fact_producer_fact_result_eq summary.external_hash_fact SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_method_body_fact_producer_fact_error_result_eq summary.copy_rejected SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_method_body_fact_producer_effect_error_result_eq summary.error_expr_rejected SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_method_body_fact_producer_effect_error_result_eq summary.missing_root_rejected SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing 9999
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "method body fact producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/result" as *
+#import "core/math" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_method_body_effect_checker" as *
+#import "./memo_trait_operation_method_body_resolver" as *
+
+//: SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind: method body fact producer の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - HIR effect summary の作成失敗と、summary から fact を作る段階の拒否を分けます。
+//:
+//: [契約/けいやく]:
+//: - `EffectCheckRejected` は HIR arena / root / child / fuel / error expression の問題です。
+//: - `FactRejected` は operation matrix や fact constructor の問題です。
+//: - どちらも表示用文字列へ潰さず、nested typed error payload を保持します。
+pub enum SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind:
+    EffectCheckRejected %SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind
+    FactRejected %SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+
+//: SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary: fact producer smoke の代表結果
+pub struct SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary:
+    pure_eq_fact %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+    external_hash_fact %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+    copy_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+    error_expr_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+    missing_root_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_effect_error: effect checker error を producer error に[包/つつ]む
+fn selfhost_memo_trait_operation_method_body_fact_producer_effect_error %fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind \error:
+    SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected error
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_fact_error: fact constructor error を producer error に[包/つつ]む
+fn selfhost_memo_trait_operation_method_body_fact_producer_fact_error %fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind \error:
+    SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected error
+
+//: selfhost_memo_trait_operation_method_body_fact_from_summary_result: effect summary から method body fact を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - summary の effect / escape payload をそのまま resolver の fact constructor へ渡します。
+//: - operation requirement matrix は resolver constructor が検査します。この producer で operation name や method name string を解釈しません。
+pub fn selfhost_memo_trait_operation_method_body_fact_from_summary_result %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationMethodBodyEffectSummary Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind \type_id\operation\summary:
+    match selfhost_memo_trait_operation_method_body_fact_new_result type_id operation summary.effect summary.escape:
+        Result::Ok fact:
+            Result::Ok fact
+        Result::Err e:
+            Result::Err selfhost_memo_trait_operation_method_body_fact_producer_fact_error e
+
+//: selfhost_memo_trait_operation_method_body_fact_from_hir_root_result: HIR root から method body fact を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module` は borrow として読み、所有しません。
+//: - `root` の effect summary 作成に成功した場合だけ fact constructor へ進みます。
+//: - effect checker の失敗は fact constructor の失敗と混ぜず、`EffectCheckRejected` として返します。
+pub fn selfhost_memo_trait_operation_method_body_fact_from_hir_root_result %fn &SelfhostHirModule fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostHirExprId fn i32 Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind \module\type_id\operation\root\fuel:
+    match selfhost_memo_trait_operation_method_body_effect_check_result module root fuel:
+        Result::Ok summary:
+            selfhost_memo_trait_operation_method_body_fact_from_summary_result type_id operation summary
+        Result::Err e:
+            Result::Err selfhost_memo_trait_operation_method_body_fact_producer_effect_error e
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_fact_producer_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_error_kind_eq: producer error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested error payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_method_body_fact_producer_error_kind_eq %fn SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected a_effect:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected b_effect:
+                    selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq a_effect b_effect
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected _b_fact:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected a_fact:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected _b_effect:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected b_fact:
+                    selfhost_memo_trait_operation_method_body_resolver_error_kind_eq a_fact b_fact
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_fact_result_eq: fact result の effect / escape が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_producer_fact_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn SelfhostEffectKind fn SelfhostEffectEscapeState bool \result\expected_effect\expected_escape:
+    match result:
+        Result::Ok fact:
+            and:
+                selfhost_effect_kind_eq fact.effect expected_effect
+                selfhost_memo_trait_operation_method_body_fact_producer_escape_state_eq fact.escape expected_escape
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_error_result_eq: fact constructor 側 error を期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_producer_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _fact:
+            false
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_fact_producer_error_kind_eq e expected
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_fact_error_result_eq: fact constructor 側 error payload を期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_producer_fact_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _fact:
+            false
+        Result::Err e:
+            match e:
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected _effect_error:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected fact_error:
+                    selfhost_memo_trait_operation_method_body_resolver_error_kind_eq fact_error expected
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_effect_error_result_eq: effect checker 側 error payload を期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_producer_effect_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _fact:
+            false
+        Result::Err e:
+            match e:
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected effect_error:
+                    selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq effect_error expected
+                SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected _fact_error:
+                    false
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_producer_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary \pure_eq_fact\external_hash_fact\copy_rejected\error_expr_rejected\missing_root_rejected:
+    SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary pure_eq_fact external_hash_fact copy_rejected error_expr_rejected missing_root_rejected
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_stage0_finish: 構築済み module で代表 fact 化を[実行/じっこう]する
+fn selfhost_memo_trait_operation_method_body_fact_producer_stage0_finish %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary StdErrorKind \module\pure_id\external_id\error_id\type_id:
+    let pure_eq_fact %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind selfhost_memo_trait_operation_method_body_fact_from_hir_root_result &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq pure_id 16
+    let external_hash_fact %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind selfhost_memo_trait_operation_method_body_fact_from_hir_root_result &module type_id SelfhostMemoTraitOperationEvidenceKind::Hash external_id 16
+    let copy_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind selfhost_memo_trait_operation_method_body_fact_from_hir_root_result &module type_id SelfhostMemoTraitOperationEvidenceKind::Copy pure_id 16
+    let error_expr_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind selfhost_memo_trait_operation_method_body_fact_from_hir_root_result &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq error_id 16
+    let missing_root_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind selfhost_memo_trait_operation_method_body_fact_from_hir_root_result &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq selfhost_hir_expr_id_new 9999 16
+    selfhost_hir_module_free module
+    Result::Ok selfhost_memo_trait_operation_method_body_fact_producer_stage0_summary_new pure_eq_fact external_hash_fact copy_rejected error_expr_rejected missing_root_rejected
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_stage0_error: error expression までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_producer_stage0_error %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary StdErrorKind \module\pure_id\external_id\type_id\span:
+    match selfhost_hir_module_add_expr module selfhost_hir_expr_error type_id span:
+        Result::Ok error_alloc:
+            let error_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &error_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module error_alloc
+            selfhost_memo_trait_operation_method_body_fact_producer_stage0_finish module1 pure_id external_id error_id type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_stage0_external: ExternalIo call expression までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_producer_stage0_external %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary StdErrorKind \module\pure_id\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "read" selfhost_def_id_new 4401 type_id SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok external_alloc:
+            let external_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &external_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module external_alloc
+            selfhost_memo_trait_operation_method_body_fact_producer_stage0_error module1 pure_id external_id type_id span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_producer_stage0: method body fact producer の smoke API
+//:
+//: [目的/もくてき]:
+//: - pure `Eq` fact、ExternalIo `Hash` fact、`Copy` operation rejection、error expression rejection、missing root rejection を小さな HIR module で確認します。
+pub fn selfhost_memo_trait_operation_method_body_fact_producer_stage0 %impure fn void Result SelfhostMemoTraitOperationMethodBodyFactProducerStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9501
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok pure_alloc:
+                    let pure_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &pure_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module pure_alloc
+                    selfhost_memo_trait_operation_method_body_fact_producer_stage0_external module1 pure_id type_id span
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
