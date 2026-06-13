@@ -149,6 +149,19 @@ assertNoMatch(
     "std/gui surface must not expose concrete platform transport details",
 );
 
+const allocApp = read("stdlib/alloc/gui/app/types.nepl");
+const allocAppImpl = withoutComments(allocApp);
+assertMatch(
+    allocAppImpl,
+    /pub\s+struct\s+PresentSurfaceEffect:[\s\S]*surface\s+%i32[\s\S]*frame\s+%i32[\s\S]*format\s+%ColorFormat[\s\S]*dirty\s+%DirtyRegion/,
+    "alloc/gui app must keep present surface as request data built from core types",
+);
+assertNoMatch(
+    allocAppImpl,
+    /\b(?:GuiSurfacePresentCommand|GuiPixelBufferDescriptor|GuiSurfaceFrame)\b/,
+    "alloc/gui app must not depend on std/gui surface command types",
+);
+
 const terminalCapability = read("stdlib/platforms/gui/terminal/capability.nepl");
 assertMatch(
     terminalCapability,

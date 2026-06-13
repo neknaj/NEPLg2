@@ -34,6 +34,8 @@ fn main %impure fn void i32 \void:
                     test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
                 GuiRuntimeCommand::SetTitle _title:
                     test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
+                GuiRuntimeCommand::PresentSurface _present:
+                    test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
         Result::Err _error:
             test_report_push test_report_new "gui_runtime_interprets_effect_as_command" assert false
     let shown test_report_print_stdout checks
@@ -81,6 +83,99 @@ fn main %impure fn void i32 \void:
     let checks2 test_report_push checks1 check1
     let checks3 test_report_push checks2 check2
     let checks test_report_push checks3 check3
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
+## gui_runtime_interprets_present_surface_effect
+
+[目的/もくてき]:
+- app-facing `PresentSurfaceEffect` を runtime が checked `GuiSurfacePresentCommand` に変換することを確認します。
+- `TextGrid` / `Headless` は pixel frame の代替先ではなく、`GuiError::Unsupported` を返すことを固定します。
+- 不正 id と不正 geometry は typed error として分岐します。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_runtime_interprets_present_surface_effect\" count=5 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"frame\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"width\" expected=\"16\" actual=\"16\" message=\"\"\nassertion index=2 status=ok kind=bool label=\"text grid unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=3 status=ok kind=bool label=\"invalid id\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"invalid geometry\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "core/result" as *
+#import "std/gui" as *
+#import "std/test" as *
+
+fn is_unsupported %fn Result GuiRuntimeCommand GuiError bool \result:
+    match result:
+        Result::Ok _command:
+            false
+        Result::Err error:
+            match error:
+                GuiError::Unsupported:
+                    true
+                _:
+                    false
+
+fn is_invalid_command %fn Result GuiRuntimeCommand GuiError bool \result:
+    match result:
+        Result::Ok _command:
+            false
+        Result::Err error:
+            match error:
+                GuiError::InvalidCommand:
+                    true
+                _:
+                    false
+
+fn is_invalid_geometry %fn Result GuiRuntimeCommand GuiError bool \result:
+    match result:
+        Result::Ok _command:
+            false
+        Result::Err error:
+            match error:
+                GuiError::InvalidGeometry:
+                    true
+                _:
+                    false
+
+fn main %impure fn void i32 \void:
+    let win %WindowId unwrap_ok window_id_result 9
+    let window_host %GuiHost gui_host_new_with_window gui_capabilities_window_pixel 1024 1024 win
+    let text_host %GuiHost gui_host_new_with_window gui_capabilities_text_grid win
+    let good_effect %GuiEffect present_surface 2 4 16 8 64 ColorFormat::FormatRgba8888 dirty_region_full
+    let good_result %Result GuiRuntimeCommand GuiError gui_runtime_interpret_effect &window_host good_effect
+    let checks0 match good_result:
+        Result::Ok command:
+            match command:
+                GuiRuntimeCommand::PresentSurface present:
+                    match present:
+                        GuiSurfacePresentCommand::PresentPixelFrame surface_frame:
+                            let frame %FrameId gui_surface_frame_id &surface_frame
+                            let descriptor %GuiPixelBufferDescriptor gui_surface_frame_descriptor &surface_frame
+                            let frame_raw %i32 frame_id_raw &frame
+                            let width %i32 gui_pixel_buffer_width &descriptor
+                            let frame_check assert_eq_i32 "frame" 4 frame_raw
+                            let width_check assert_eq_i32 "width" 16 width
+                            let report0 test_report_new "gui_runtime_interprets_present_surface_effect"
+                            let report1 test_report_push report0 frame_check
+                            test_report_push report1 width_check
+                _:
+                    test_report_push test_report_new "gui_runtime_interprets_present_surface_effect" assert false
+        Result::Err _error:
+            test_report_push test_report_new "gui_runtime_interprets_present_surface_effect" assert false
+    let unsupported_effect %GuiEffect present_surface -1 -1 0 0 1 ColorFormat::FormatRgb888 dirty_region_full
+    let unsupported_result %Result GuiRuntimeCommand GuiError gui_runtime_interpret_effect &text_host unsupported_effect
+    let invalid_id_effect %GuiEffect present_surface 0 4 16 8 64 ColorFormat::FormatRgba8888 dirty_region_full
+    let invalid_id_result %Result GuiRuntimeCommand GuiError gui_runtime_interpret_effect &window_host invalid_id_effect
+    let invalid_geometry_effect %GuiEffect present_surface 2 4 0 8 64 ColorFormat::FormatRgba8888 dirty_region_full
+    let invalid_geometry_result %Result GuiRuntimeCommand GuiError gui_runtime_interpret_effect &window_host invalid_geometry_effect
+    let unsupported_check assert "text grid unsupported" is_unsupported unsupported_result
+    let invalid_id_check assert "invalid id" is_invalid_command invalid_id_result
+    let invalid_geometry_check assert "invalid geometry" is_invalid_geometry invalid_geometry_result
+    let checks1 test_report_push checks0 unsupported_check
+    let checks2 test_report_push checks1 invalid_id_check
+    let checks test_report_push checks2 invalid_geometry_check
     let shown test_report_print_stdout checks
     test_report_exit_code shown
 ```

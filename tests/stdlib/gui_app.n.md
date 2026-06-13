@@ -130,6 +130,52 @@ fn main %impure fn void i32 \void:
             test_report_push test_report_new "gui_app_update_returns_model_and_effect" assert false
         GuiEffect::SetTitle _payload:
             test_report_push test_report_new "gui_app_update_returns_model_and_effect" assert false
+        GuiEffect::PresentSurface _payload:
+            test_report_push test_report_new "gui_app_update_returns_model_and_effect" assert false
+    let shown test_report_print_stdout checks
+    test_report_exit_code shown
+```
+
+## gui_app_present_surface_effect_keeps_request_data
+
+[目的/もくてき]:
+- `alloc/gui/app` は `std/gui/surface` の checked command を持たず、present request data だけを保持します。
+- runtime 前の app layer は platform host や Web stdout helper を呼びません。
+
+neplg2:test[stdio, normalize_newlines]
+stdout: "test_report name=\"gui_app_present_surface_effect_keeps_request_data\" count=5 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"surface\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"frame\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"width\" expected=\"64\" actual=\"64\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"stride\" expected=\"256\" actual=\"256\" message=\"\"\nassertion index=4 status=ok kind=bool label=\"dirty full\" expected=\"true\" actual=\"true\" message=\"\"\n"
+exit_code: 0
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui" as *
+#import "core/gui" as *
+#import "std/test" as *
+
+fn main %impure fn void i32 \void:
+    let effect %GuiEffect present_surface 3 4 64 32 256 ColorFormat::FormatRgba8888 dirty_region_full
+    let checks match effect:
+        GuiEffect::PresentSurface payload:
+            let surface_raw %i32 present_surface_effect_surface &payload
+            let frame_raw %i32 present_surface_effect_frame &payload
+            let width %i32 present_surface_effect_width &payload
+            let stride_bytes %i32 present_surface_effect_stride_bytes &payload
+            let dirty %DirtyRegion present_surface_effect_dirty &payload
+            let surface_check assert_eq_i32 "surface" 3 surface_raw
+            let frame_check assert_eq_i32 "frame" 4 frame_raw
+            let width_check assert_eq_i32 "width" 64 width
+            let stride_check assert_eq_i32 "stride" 256 stride_bytes
+            let dirty_check assert "dirty full" dirty_region_is_full dirty
+            let report0 test_report_new "gui_app_present_surface_effect_keeps_request_data"
+            let report1 test_report_push report0 surface_check
+            let report2 test_report_push report1 frame_check
+            let report3 test_report_push report2 width_check
+            let report4 test_report_push report3 stride_check
+            test_report_push report4 dirty_check
+        _:
+            test_report_push test_report_new "gui_app_present_surface_effect_keeps_request_data" assert false
     let shown test_report_print_stdout checks
     test_report_exit_code shown
 ```

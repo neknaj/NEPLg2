@@ -57726,3 +57726,53 @@ MERGE_APPROVED
 - trait impl table、method body purity、Drop なし proof、key/value 別 operation requirement、nested aggregate の operation status fold は未実装である。
 - re-export / import graph / public non-trait declaration を含む full public surface hash、persistent stable map / serialized index、generic instantiation artifact 接続は未完了である。
 - recursive aggregate の sibling summary memoization、layout lookup index 化、operation status fold の共有 memoization は、今回の public API / error contract を変えずに後から追加できる最適化として扱う。
+
+## 2026-06-13 Agent GUI PresentSurface effect/runtime bridge checkpoint
+
+### scope
+
+- branch: `gui-runtime-host-surface-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、platform boundary、Result / enum error、match による静的検査、hidden fallback 禁止、DAG layering、doc comment / doctest baseline を優先した。
+
+### design_gate
+
+- `doc/neplg2/gui_redesign_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md` に Phase 4.1 の `PresentSurfaceEffect -> GuiRuntimeCommand::PresentSurface` bridge を追記した。
+- 初回 subagent review は Blocker / Required なしで `implementation may start` だった。
+- main agent 側で、`alloc/gui/app` に `GuiSurfacePresentCommand` を持たせると `alloc -> std` 逆依存になる設計不備を検出したため、実装前に doc を修正した。
+- 再 review では Blocker / Required なしで、`PresentSurfaceEffect` は core 型と検査前 request data のみを持ち、checked command は `std/gui/runtime` が生成する方針で `implementation may start` と確認された。
+
+### implementation
+
+- `stdlib/alloc/gui/app/types.nepl` に `PresentSurfaceEffect`、`GuiEffect::PresentSurface`、`present_surface`、各 field accessor を追加した。
+- `PresentSurfaceEffect` は `surface`、`frame`、`width`、`height`、`stride_bytes`、`format`、`dirty` だけを持つ request data であり、`std/gui/surface` の checked command 型を持たない。
+- `stdlib/std/gui/runtime.nepl` に `GuiRuntimeCommand::PresentSurface` と runtime-side conversion helper を追加した。
+- runtime は `surface_id_result`、`frame_id_result`、`gui_pixel_buffer_descriptor` を通し、不正 id は `GuiError::InvalidCommand`、不正 geometry は `GuiError::InvalidGeometry`、未対応 surface kind は `GuiError::Unsupported` として返す。
+- `SurfaceKind::WindowPixel`、`OffscreenPixel`、`DevicePixel` だけを present 可能にし、`TextGrid` / `Headless` では pixel-to-text / no-surface fallback を行わない。
+- 追加宣言の doc comment に doctest marker を付け、実行検査は `tests/stdlib/gui_app.n.md` と `tests/stdlib/gui_std.n.md` に追加した。
+- source policy は `nodesrc/test_web_gui_same_app_code_contract.js` と `nodesrc/test_stdlib_gui_layering_policy.js` で、`alloc/gui/app` が std surface command 型を持たないことと、runtime が checked command を作ることを固定した。
+
+### subagent_implementation_review
+
+- Copernicus 実装 review: Blocker なし、Required なし、Question なし。
+- Non-blocker: `git diff --check` の CRLF working-copy warning は whitespace error ではない。
+- Approve: yes。
+- Commit allowed: yes。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_same_app_code_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+- pass: `node nodesrc/test_stdlib_gui_opaque_id_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-present-surface.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp/gui-std-present-surface.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_stdlib_documentation_contract.js`。既存 gap sample は表示されるが baseline check は pass。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warnings: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存の documentation gap sample と Node WASI ExperimentalWarning は表示されたが、この slice の source policy 退行はない。
+- pass: `git diff --check`。CRLF working-copy warning は表示されたが whitespace error はない。
+
+### residual
+
+- Web TypeScript backend / examples はまだ legacy stdout transport を正式 ABI へ移行していない。これは Phase 6 で扱う。
+- Offscreen / headless surface backend と virtual event source の実装は Phase 5 の残作業である。
+- `GuiEffectBatch` / `GuiRuntimeCommandBatch` の capacity 2 は現状 contract として維持した。可変長 effect queue は別 slice で扱う。

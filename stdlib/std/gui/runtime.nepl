@@ -23,6 +23,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "std/gui/host" as *
+#import "std/gui/surface" as *
 #import "std/gui/window" as *
 
 //: WindowTitleUpdate: title change request の typed payload
@@ -43,6 +44,7 @@ pub enum GuiRuntimeCommand:
     Noop
     RequestRedraw %WindowId
     SetTitle %WindowTitleUpdate
+    PresentSurface %GuiSurfacePresentCommand
 
 impl Clone for GuiRuntimeCommand:
     fn clone %fn &GuiRuntimeCommand GuiRuntimeCommand \command:
@@ -133,6 +135,50 @@ fn gui_runtime_can_set_title %fn &GuiHost bool \host:
     let capabilities %GuiCapabilities gui_host_capabilities host
     gui_capabilities_has_windowing &capabilities
 
+//: gui_runtime_can_present_surface: host が pixel surface present を[受/う]けられるか[確認/かくにん]する
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/runtime" as *
+//: ```
+fn gui_runtime_can_present_surface %fn &GuiHost bool \host:
+    let capabilities %GuiCapabilities gui_host_capabilities host
+    surface_kind_has_pixel_buffer gui_capabilities_surface_kind &capabilities
+
+//: gui_runtime_present_command_from_effect: present request を checked surface command へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - id は checked constructor で検査し、不正なら `GuiError::InvalidCommand` を返します。
+//: - pixel buffer geometry / stride / format は `gui_pixel_buffer_descriptor` で検査します。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/runtime" as *
+//: ```
+fn gui_runtime_present_command_from_effect %fn PresentSurfaceEffect Result GuiRuntimeCommand GuiError \payload:
+    let surface_raw %i32 present_surface_effect_surface &payload
+    match surface_id_result surface_raw:
+        Result::Ok surface:
+            let frame_raw %i32 present_surface_effect_frame &payload
+            match frame_id_result frame_raw:
+                Result::Ok frame:
+                    let width %i32 present_surface_effect_width &payload
+                    let height %i32 present_surface_effect_height &payload
+                    let stride_bytes %i32 present_surface_effect_stride_bytes &payload
+                    let format %ColorFormat present_surface_effect_format &payload
+                    match gui_pixel_buffer_descriptor surface width height stride_bytes format:
+                        Result::Ok descriptor:
+                            let dirty %DirtyRegion present_surface_effect_dirty &payload
+                            let surface_frame %GuiSurfaceFrame gui_surface_frame frame descriptor dirty
+                            let present %GuiSurfacePresentCommand gui_surface_present_pixel_frame surface_frame
+                            gui_ok GuiRuntimeCommand::PresentSurface present
+                        Result::Err error:
+                            Result::Err error
+                Result::Err _:
+                    Result::Err GuiError::InvalidCommand
+        Result::Err _:
+            Result::Err GuiError::InvalidCommand
+
 //: gui_runtime_interpret_effect: GuiEffect を runtime command に[変換/へんかん]する
 pub fn gui_runtime_interpret_effect %fn &GuiHost fn GuiEffect Result GuiRuntimeCommand GuiError \host\effect:
     match effect:
@@ -158,6 +204,10 @@ pub fn gui_runtime_interpret_effect %fn &GuiHost fn GuiEffect Result GuiRuntimeC
                             gui_ok GuiRuntimeCommand::SetTitle window_title_update window title
                         Result::Err _:
                             Result::Err GuiError::InvalidCommand
+                else Result::Err GuiError::Unsupported
+        GuiEffect::PresentSurface payload:
+            if gui_runtime_can_present_surface host:
+                then gui_runtime_present_command_from_effect payload
                 else Result::Err GuiError::Unsupported
 
 //: gui_runtime_interpret_second_effect: 2 個目の effect を command batch に[反映/はんえい]する

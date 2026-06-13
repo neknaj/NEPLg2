@@ -139,6 +139,37 @@ impl Copy for SetTitleEffect:
     fn copy_mark %fn SetTitleEffect SetTitleEffect \effect:
         effect
 
+//: PresentSurfaceEffect: pixel surface present request の payload
+//:
+//: [目的/もくてき]:
+//: - application が platform host を直接呼ばず、pixel frame の present request を data として返せるようにします。
+//:
+//: [契約/けいやく]:
+//: - `surface` と `frame` は platform handle ではなく、runtime が checked constructor に渡す request id です。
+//: - geometry、stride、format は `std/gui/runtime` が checked `GuiSurfacePresentCommand` へ変換するときに検査します。
+//: - この型は `std/gui/surface` の型を持ちません。`alloc/gui` から `std/gui` へ依存しないためです。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub struct PresentSurfaceEffect:
+    surface %i32
+    frame %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    format %ColorFormat
+    dirty %DirtyRegion
+
+impl Clone for PresentSurfaceEffect:
+    fn clone %fn &PresentSurfaceEffect PresentSurfaceEffect \effect:
+        *effect
+
+impl Copy for PresentSurfaceEffect:
+    fn copy_mark %fn PresentSurfaceEffect PresentSurfaceEffect \effect:
+        effect
+
 //: GuiEffect: runtime が解釈する host effect request
 //:
 //: [目的/もくてき]:
@@ -148,6 +179,7 @@ pub enum GuiEffect:
     None
     RequestRedraw %RequestRedrawEffect
     SetTitle %SetTitleEffect
+    PresentSurface %PresentSurfaceEffect
 
 impl Clone for GuiEffect:
     fn clone %fn &GuiEffect GuiEffect \effect:
@@ -188,6 +220,85 @@ pub fn request_redraw %fn i32 GuiEffect \target:
 //: set_title: title request effect を作る
 pub fn set_title %fn i32 fn str GuiEffect \target\title:
     GuiEffect::SetTitle SetTitleEffect target title
+
+//: present_surface: pixel surface present request effect を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - app-facing layer では platform host や Web stdout helper を呼ばず、present request を data として返します。
+//:
+//: [契約/けいやく]:
+//: - raw id と buffer shape の検査は `std/gui/runtime` の責務です。
+//: - 不正値は runtime 解釈時に `GuiError` として返ります。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface %fn i32 fn i32 fn i32 fn i32 fn i32 fn ColorFormat fn DirtyRegion GuiEffect \surface\frame\width\height\stride_bytes\format\dirty:
+    GuiEffect::PresentSurface PresentSurfaceEffect surface frame width height stride_bytes format dirty
+
+//: present_surface_effect_surface: present request の surface request id を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_surface %fn &PresentSurfaceEffect i32 \effect:
+    *field::get_ref effect "surface"
+
+//: present_surface_effect_frame: present request の frame request id を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_frame %fn &PresentSurfaceEffect i32 \effect:
+    *field::get_ref effect "frame"
+
+//: present_surface_effect_width: present request の width を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_width %fn &PresentSurfaceEffect i32 \effect:
+    *field::get_ref effect "width"
+
+//: present_surface_effect_height: present request の height を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_height %fn &PresentSurfaceEffect i32 \effect:
+    *field::get_ref effect "height"
+
+//: present_surface_effect_stride_bytes: present request の stride bytes を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_stride_bytes %fn &PresentSurfaceEffect i32 \effect:
+    *field::get_ref effect "stride_bytes"
+
+//: present_surface_effect_format: present request の color format を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_format %fn &PresentSurfaceEffect ColorFormat \effect:
+    *field::get_ref effect "format"
+
+//: present_surface_effect_dirty: present request の dirty region を[読/よ]む
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/app/types" as *
+//: ```
+pub fn present_surface_effect_dirty %fn &PresentSurfaceEffect DirtyRegion \effect:
+    *field::get_ref effect "dirty"
 
 //: gui_effect_batch_empty: 空 effect batch を[作/つく]る
 pub fn gui_effect_batch_empty %fn void GuiEffectBatch \void:

@@ -167,6 +167,44 @@ Subagent review:
 
 - core / alloc / std に platform detail が漏れていないか確認させる。
 
+## Phase 4.1: surface present effect/runtime bridge
+
+目的:
+
+- `PresentSurfaceEffect` を application-facing effect とし、runtime が checked `GuiSurfacePresentCommand` を生成する。
+- app code が Web stdout helper を import せず、`GuiEffect` だけで host surface presentation を要求できるようにする。
+- `std/gui/runtime` が capability gate を持ち、pixel surface を持たない backend では `GuiError::Unsupported` を返す。
+
+変更:
+
+- `alloc/gui/app/types.nepl` に `PresentSurfaceEffect` と `GuiEffect::PresentSurface` を追加する。
+- `PresentSurfaceEffect` は `surface`、`frame`、`width`、`height`、`stride_bytes`、`format`、`dirty` を持つ request data とし、`std/gui/surface` の型を持たない。
+- `present_surface` helper は app-facing request data を作るだけで、Web stdout helper、platform host、`GuiSurfacePresentCommand` を直接要求しない。
+- `alloc/gui/app/types.nepl` は `std/gui` や `platforms/gui` を import しないことを source policy で固定する。
+- `stdlib/std/gui/runtime.nepl` に `GuiRuntimeCommand::PresentSurface` を追加する。
+- `gui_runtime_interpret_effect` は `surface_id_result`、`frame_id_result`、`gui_pixel_buffer_descriptor` で request data を検査し、checked `GuiSurfacePresentCommand` を作る。
+- `gui_runtime_interpret_effect` は `SurfaceKind::WindowPixel`、`OffscreenPixel`、`DevicePixel` だけで present を許可する。
+- `SurfaceKind::TextGrid` と `SurfaceKind::Headless` は `GuiError::Unsupported` を返す。pixel frame を text grid や no-surface backend に暗黙変換しない。
+- `GuiRuntimeCommandBatch` の bounded capacity 2 はこの slice では維持する。capacity を超える場合は既存通り `GuiError::ResourceExhausted` とする。
+- `tests/stdlib/gui_app.n.md` と `tests/stdlib/gui_std.n.md` に present effect / runtime command / unsupported gate の doctest を追加する。
+- `nodesrc/test_web_gui_same_app_code_contract.js` または新規 source policy で、stdout helper ではなく `PresentSurfaceEffect -> GuiEffect::PresentSurface -> GuiRuntimeCommand::PresentSurface` へ繋がることを固定する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_same_app_code_contract.js
+node nodesrc/test_stdlib_gui_layering_policy.js
+node nodesrc/tests.js -i tests/stdlib/gui_app.n.md --no-tree -o tmp/gui-app-present-surface.json -j 1 --dist web/dist --assert-io
+node nodesrc/tests.js -i tests/stdlib/gui_std.n.md --no-tree -o tmp/gui-std-present-surface.json -j 1 --dist web/dist --assert-io
+node nodesrc/test_stdlib_documentation_contract.js
+git diff --check
+```
+
+Subagent review:
+
+- 実装開始前に、3 文書と Zenn 方針を読ませ、`PresentSurface` effect / runtime command の方針に `implementation may start` が出るまで実装しない。
+- 実装後に、platform detail が `alloc/gui` / `std/gui` へ漏れていないこと、headless / text grid が hidden fallback になっていないこと、unsupported が typed error で返ることを確認させる。
+
 ## Phase 5: offscreen and headless slice
 
 目的:
@@ -250,3 +288,13 @@ Phase 2 と Phase 3 の最小縦 slice は完了済みである。
 - Phase 2 / 3 により Web visible canvas direct drawing と single-buffer presentation risk は解消済みである。
 - 次の根本課題は、同じ NEPL app code が Web / native / bare / headless の host surface ABI へ接続できる境界を stdlib 側に固定することである。
 - stdout transport を正式経路として残すと、Web 専用 transport が application contract に混入し、platform boundary と no fallback 方針が崩れる。
+
+## Current implementation target
+
+Phase 3.5 の typed surface value は完了済みである。現在の再開 target は Phase 4.1 である。
+
+- `GuiSurfacePresentCommand` は存在するが、まだ `GuiEffect` と `GuiRuntimeCommand` に接続されていない。
+- `alloc/gui/app` は std 型を持たない present request data を返せる必要がある。
+- `std/gui/runtime` は present request を checked `GuiSurfacePresentCommand` と platform-neutral runtime command へ変換し、host capability によって許可 / unsupported を決める必要がある。
+- この slice では Web TypeScript backend や example migration は行わない。stdout legacy smoke transport の削除は Phase 6 で扱う。
+- 実装開始前に subagent review を通し、Required がある場合は doc を修正して再 review する。
