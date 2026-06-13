@@ -58719,3 +58719,50 @@ MERGE_APPROVED
 - F4i は contour span lookup であり、full outline `Vec`、streaming contour sink、quadratic curve segment builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
 - 次 slice では allocation failure / owner recovery と streaming sink の contract を固めたうえで、simple glyph outline builder へ進む。
 - `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。
+
+## 2026-06-13 GUI font SFNT simple glyph contour point checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-contour-point-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に沿って、Result / enum error、platform boundary 分離、doc contract と current implementation の分離、静的検査に掛かる typed value、hidden fallback なしを優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F4j `GuiSfntSimpleGlyphContourPoint` の仕様、詳細設計、実装計画を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphContourPoint` と `gui_sfnt_lookup_simple_glyph_contour_point` を追加した。
+- `GuiSfntSimpleGlyphContourPoint` は `span GuiSfntSimpleGlyphContourSpan`、`contour_point_index i32`、`point GuiSfntSimpleGlyphPoint` を持つ nested typed value とした。
+- `contour_point_index` は contour-local index、nested `point.point_index` は glyph absolute point index として固定した。
+- `absolute_point_index = span.start_point_index + contour_point_index` を仕様、source policy、doctest で固定した。
+- `gui_sfnt_glyf_simple_contour_point_with_tables` は `gui_sfnt_glyf_simple_contour_span_with_tables` の後に local range validation を行い、absolute index を計算してから `gui_sfnt_glyf_simple_point_with_tables` を呼ぶ。
+- local index validation は point decode より先に行う。`contour_point_index < 0` または `contour_point_index >= span.point_count` は `MissingGlyphOutline` として返す。
+- F4i / F4h 由来の `MalformedGlyfRecord` などは typed error として伝播する。
+- full point `Vec`、full contour `Vec`、curve segment builder、rasterization、platform font substitution には接続しない。
+
+### tests
+
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` に two-contour の contour 0 local 0、contour 1 local 1、one-contour signed fixture local 1、negative local index、span.point_count local index、coordinate overrun の explicit byte fixture を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4j doc / implementation / doctest label / metadata independence / no full contour point Vec の source policy を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt --no-tree -o tmp_gui_font_sfnt_dir.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した `nodesrc/test_web_gui_font_rendering_contract.js` を含めて GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+
+### subagent_review
+
+- Boole pre-review: Required として、`contour_point_index` は contour-local で nested `point.point_index` は glyph absolute であること、local validation を point decode より先に行うこと、internal table helper を合成し public wrapper を呼ばないこと、absolute index formula と no Vec / metadata independence を source policy で固定することが指摘された。
+- Boole implementation review: Required / Suggested とも無し。local validation order、internal helper composition、typed error、no Vec allocation、metadata 非依存、platform / fallback 非依存、doctest coverage は満たされているため commit 可能と確認された。
+- 未追跡の `NUL` / `tmp_gui_*` は stage しない。
+
+### residual
+
+- F4j は contour-local single point lookup であり、full outline `Vec`、streaming contour sink、quadratic curve segment builder、phantom points、compound glyph、hint instruction semantics、outline winding、rasterization は未実装である。
+- 次 slice では allocation failure / owner recovery と streaming sink の contract を固めたうえで、simple glyph outline builder へ進む。
+- `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。

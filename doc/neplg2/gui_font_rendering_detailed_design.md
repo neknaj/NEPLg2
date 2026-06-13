@@ -557,6 +557,50 @@ point_count = end_point_index - start_point_index + 1
 
 `end_point_index` is inclusive. `contour_index < 0` and `contour_index >= contour_count` return `MissingGlyphOutline`; malformed endpoint data observed through topology validation or endpoint reads returns `MalformedGlyfRecord`.
 
+### SFNT simple glyph contour point lookup
+
+F4j composes the F4i contour span and F4h single point decode. It is the first contour-local coordinate query, but it still does not allocate a point vector, contour vector, curve segment list, or raster mask.
+
+```text
+GuiSfntSimpleGlyphContourPoint:
+    span GuiSfntSimpleGlyphContourSpan
+    contour_point_index i32
+    point GuiSfntSimpleGlyphPoint
+```
+
+Public lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_point:
+    &ByteBuf -> Option i32 -> GuiGlyphId -> i32 -> i32
+    -> Result GuiSfntSimpleGlyphContourPoint GuiSfntParseError
+```
+
+The lookup flow is:
+
+```text
+parse metadata
+    -> unwrap head / loca / glyf
+    -> gui_sfnt_glyf_simple_contour_span_with_tables
+    -> validate contour-local contour_point_index against span.point_count
+    -> absolute_point_index = span.start_point_index + contour_point_index
+    -> gui_sfnt_glyf_simple_point_with_tables
+    -> return GuiSfntSimpleGlyphContourPoint
+```
+
+`contour_point_index` is contour-local. The nested `point.point_index` is absolute within the glyph and must equal `span.start_point_index + contour_point_index`.
+
+The implementation must validate local point range before calling point decode. Otherwise a local out-of-range request could be hidden behind a coordinate stream error from a malformed point array. For a valid contour span, `contour_point_index < 0` and `contour_point_index >= span.point_count` return `MissingGlyphOutline`.
+
+F4j uses internal table helpers, not public wrappers, after metadata is parsed:
+
+```text
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_glyf_simple_point_with_tables
+```
+
+This keeps table unwrap single-pass at the public boundary. F4j must not call platform font APIs, host text measurement, full outline builders, or hidden substitution paths.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
