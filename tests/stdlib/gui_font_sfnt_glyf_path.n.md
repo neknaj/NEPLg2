@@ -246,3 +246,62 @@ fn main %impure fn void i32 \void:
             ok_reason
     test_assertion_exit_code assert "no segment path command is explicit skip" and move_skip_ok and skip_ok and pair_move_ok pair_draw_ok
 ```
+
+## sink event pair wraps existing path commands
+
+neplg2:test[stdio, normalize_newlines]
+exit_code: 0
+stdout: ""
+```neplg2
+#entry main
+#indent 4
+#target wasi
+
+#import "alloc/gui/font/sfnt/glyf" as *
+#import "core/math" as *
+#import "std/test" as *
+
+fn main %impure fn void i32 \void:
+    let skip_payload %GuiSfntSimpleGlyphPathSkipNoSegment gui_sfnt_simple_glyph_path_skip_no_segment 4 5 GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour
+    let skip_command %GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip_payload
+    let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_command_sink_event skip_command
+    let event_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_sink_event_command &event
+    let event_ok %bool match event_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            true
+    let move_payload %GuiSfntSimpleGlyphPathMoveTo gui_sfnt_simple_glyph_path_move_to 7 8 10 12
+    let line_payload %GuiSfntSimpleGlyphPathLineTo gui_sfnt_simple_glyph_path_line_to 7 8 14 16
+    let move_command %GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand::MoveTo move_payload
+    let line_command %GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommand::LineTo line_payload
+    let command_pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_path_command_pair move_command line_command
+    let event_pair %GuiSfntSimpleGlyphPathSinkEventPair gui_sfnt_simple_glyph_path_command_pair_sink_event_pair &command_pair
+    let first_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_first_event &event_pair
+    let second_event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_second_event &event_pair
+    let first_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_sink_event_command &first_event
+    let second_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_path_sink_event_command &second_event
+    let first_ok %bool match first_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            true
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    let second_ok %bool match second_command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+            true
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+            false
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip:
+            false
+    test_assertion_exit_code assert "sink event pair wraps path commands" and event_ok and first_ok second_ok
+```

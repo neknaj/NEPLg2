@@ -59488,3 +59488,46 @@ MERGE_APPROVED
 
 - complete public surface impl candidate 群を走査して builder へ入力する full orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続は未実装である。
 - method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した builder contract を変えずに後からできる最適化として扱う。
+
+## 2026-06-13 GUI font SFNT path sink event adapter checkpoint
+
+### scope
+
+- branch: `gui-font-path-sink-boundary-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を前提に、hidden fallback、silent no-op、platform leakage、stringly state を避け、既存の enum payload と total pure helper で single-edge sink-event boundary を固定した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4p: SFNT simple glyph path sink event adapter を追加した。
+- F4p は F4o の `GuiSfntSimpleGlyphPathCommandPair` を、後続 sink が読む `GuiSfntSimpleGlyphPathSinkEventPair` へ写す single-edge adapter である。
+- `GuiSfntSimpleGlyphPathSinkEvent` は `Command GuiSfntSimpleGlyphPathCommand` の thin wrapper とし、`MoveTo` / `LineTo` / `QuadraticTo` / `SkipNoSegment` payload を再定義しない。
+- `GuiSfntSimpleGlyphPathSinkEventPair` は `first_event` / `second_event` だけを持つ O(1) value とし、full contour stream、command sequence、sink trait、command index、count、next、current point state、`Vec` allocation、`push` は導入していない。
+- `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` は F4o accessor で move / draw command を読み、`gui_sfnt_simple_glyph_path_command_sink_event` で first / second event に包むだけの total pure helper とした。
+- F4p helper は `Option` / `Result` を返さず、byte-backed lookup、metadata parser、`*_with_tables` helper、lower point / contour helper、curve classifier、renderer、rasterizer、platform API、host text API を呼ばない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4p の spec / detailed design / implementation plan / implementation source policy を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に direct path command から sink event / event pair を作る小さい doctest を追加した。既存 line / quadratic / no-segment doctest へ event nested match を足すと 60 秒 compile timeout に近づくため、既存 case は重くしない方針に戻した。
+- F4p doctest は `SkipNoSegment` の direct wrapper と、distinct `MoveTo` / `LineTo` command pair から first / second event を読む ordering smoke に絞った。
+
+### subagent_review
+
+- Godel pre-review: Blocker として、`GuiSfntSimpleGlyphPathCommand` と意味的に同一の duplicate enum を作ると abstraction churn になる点が指摘された。
+- Required として、phase 名は F4p のまま single-edge command-pair to sink-event adapter に閉じること、real sink / contour stream / allocation boundary / winding / fill / rasterizer / render2d / platform API を導入しないこと、pure adapter は `Option` / `Result` を返さないこと、`SkipNoSegment` を typed event として保持すること、note と source policy を更新することが挙げられた。
+- 実装では `GuiSfntSimpleGlyphPathSinkEvent::Command GuiSfntSimpleGlyphPathCommand` の thin wrapper 方式を採用し、payload duplicate enum を避けた。
+- Godel implementation review: Blocker なし。Required として、implementation plan が line / implied quadratic / NoSegment event pair の executable doctest coverage を過大に書いていた点、F4p doctest が同じ `skip_command` を first / second に使い ordering を見ていなかった点が指摘された。
+- 対応として、implementation plan は direct wrapper smoke と既存 F4m/F4o doctest + F4p source policy の分担に修正し、F4p doctest は distinct `MoveTo` / `LineTo` command pair で first / second の順序を確認するように変更した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+- pass: `git diff --check`
+
+### residual
+
+- F4p は single-edge pair の sink-event adapter までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+- 後続では F4p の event pair boundary を使い、allocation / owner recovery と no fallback contract を保ったまま contour/path sink の実消費境界へ進む。

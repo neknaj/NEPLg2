@@ -886,6 +886,43 @@ The pair is not a list. F4o does not expose `command_index`, `count`, `next`, mu
 
 `NoSegment` remains explicit. Both `move_command` and `draw_command` are `SkipNoSegment`, preserving the reason value for later diagnostic, skip counting, or sink behavior.
 
+### SFNT simple glyph path sink event adapter
+
+F4p is a single-edge adapter from the F4o command pair to the event pair a later contour/path sink can consume. It is still not the real sink. It does not define contour stream traversal, full outline command order, contour closure, off-curve contour-start synthesis, winding, fill rules, rasterization, render2d commands, host text measurement, or platform presentation.
+
+The adapter intentionally reuses the existing compact command enum instead of defining another path representation:
+
+```text
+GuiSfntSimpleGlyphPathSinkEvent:
+    Command GuiSfntSimpleGlyphPathCommand
+
+GuiSfntSimpleGlyphPathSinkEventPair:
+    first_event GuiSfntSimpleGlyphPathSinkEvent
+    second_event GuiSfntSimpleGlyphPathSinkEvent
+```
+
+The pure command wrapper is total:
+
+```text
+gui_sfnt_simple_glyph_path_command_sink_event command
+    -> GuiSfntSimpleGlyphPathSinkEvent::Command command
+```
+
+The pair adapter uses only the F4o accessors:
+
+```text
+gui_sfnt_simple_glyph_path_command_pair_sink_event_pair pair
+    -> move_command = gui_sfnt_simple_glyph_path_command_pair_move_command pair
+    -> draw_command = gui_sfnt_simple_glyph_path_command_pair_draw_command pair
+    -> first_event = gui_sfnt_simple_glyph_path_command_sink_event move_command
+    -> second_event = gui_sfnt_simple_glyph_path_command_sink_event draw_command
+    -> GuiSfntSimpleGlyphPathSinkEventPair first_event second_event
+```
+
+F4p must not return `Option` or `Result` from the pure adapter because a valid `GuiSfntSimpleGlyphPathCommandPair` already contains both commands. It must not call byte-backed lookup helpers, metadata parsers, `*_with_tables` helpers, lower point / contour helpers, or the curve classifier. It must not allocate `Vec GuiSfntSimpleGlyphPathSinkEvent`, expose `command_index`, `count`, `next`, or carry mutable current point state.
+
+`SkipNoSegment` remains a typed event by wrapping the existing `GuiSfntSimpleGlyphPathCommand::SkipNoSegment` value. This keeps later sink behavior explicit without changing parse status.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
