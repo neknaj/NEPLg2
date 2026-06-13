@@ -20,6 +20,8 @@
 
 `video_memory_write_rgba8888_row` は `write_slot_bytes` より高水準な row payload 境界である。application は `y * stride + x * 4` の byte offset を計算せず、origin、pixel width、source pointer だけを渡す。worker と video memory surface helper は `width > 0`、surface bounds、`width * 4` と source byte length の一致を検査し、不一致は typed error として返す。row write は pixel plane だけを更新し、dirty metadata、slot epoch、published epoch、presented epoch は publish path の authority として残す。
 
+`examples/gui_video_memory_rows.nepl` は formal row host import の focused NEPL example である。row bytes は `ByteBuilder` / `ByteBuf` owner で構築し、借用 `MemPtr u8` だけを `gui_web_video_memory_write_rgba8888_row` へ渡す。stdout `rgba-row`、command frame fallback、raw extern、`write_slot_bytes` には戻らない。現行 CI の通常 doctest は `nepl_gui_web` video memory import を unsupported stub として持つため、positive fake host import harness と Mandelbrot 全面移行は後続作業である。
+
 ## 根本課題
 
 既存 TUI は terminal 向け helper としては有用だが、GUI と共通化できる抽象境界が不足している。

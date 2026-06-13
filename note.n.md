@@ -126,6 +126,40 @@
   - actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
   - method body fact table lookup の sorted index 化は public API / error contract を保ったまま後からできる最適化として扱う。
   - 次 slice: actual expression method body checker または Drop body effect checker / Resource IR escape proof を、同じ typed effect summary / no-escape proof boundary へ接続する。
+# 2026-06-14 Agent2 Web GUI focused video memory row example checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、stdout `rgba-row` transport ではなく Web video memory row host import を使う focused NEPL example を追加した。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-video-memory-mandelbrot-row-20260614`
+- classification: Web GUI formal row source contract / example / source policy regression
+- design:
+  - full Mandelbrot migration はこの slice では行わず、`gui_web_video_memory_write_rgba8888_row` の source contract を小さい example で固定する。
+  - row bytes は `ByteBuilder` / `ByteBuf` owner で構築し、borrowed `MemPtr u8` だけを host import へ渡す。
+  - `ByteBuf` owner は row write の後に必ず `io_bytebuf_free` で閉じる。
+  - write frame acquire 後の失敗では `gui_web_video_memory_discard_write_frame` を呼び、surface exit path では `gui_web_video_memory_close_surface` を通す。
+  - CI の通常 doctest は `nepl_gui_web` host import を unsupported stub として持つため、happy path fake host harness は後続作業として `todo.md` に残す。
+- implementation:
+  - `examples/gui_video_memory_rows.nepl` を追加した。通常実行は create / acquire / write_rgba8888_row / publish / present / close を通る。`--contract` は host import happy path を要求せず finite check として `video memory rows contract ok` を出力する。
+  - `nodesrc/test_web_gui_video_memory_rows_example_contract.js` を追加し、source policy runner に登録した。
+  - `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新した。
+- subagent review:
+  - Gauss: plan review で implementation may start。source-policy だけを runtime exercise と呼ばないこと、fake positive `nepl_gui_web` harness を入れるか static source-contract に明示的に scope down すること、small example に留めること、ByteBuilder / ByteBuf owner から borrowed `MemPtr u8` を渡して free すること、error path で discard / close することを要求。scope を static source-contract に修正し、実装に反映した。
+  - Gauss: implementation review で blockers なし。required は `note.n.md` 更新、tmp/NUL を stage しないこと、broad verification の確認。対応済み。
+- verify:
+  - pass: `node nodesrc/test_web_gui_video_memory_rows_example_contract.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_video_memory_rows.nepl --no-tree -o tmp_gui_video_memory_rows_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/test_web_gui_video_memory_host_import.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。今回差分由来の warning はなし。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+- residual:
+  - fake positive `nepl_gui_web` host import harness で happy path を CI 実行検査する作業は未完了。
+  - Mandelbrot の formal row/tile/RLE transport への全面移行は未完了。
+
 # 2026-06-14 Agent2 Web GUI RGBA row writer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、Web video memory の row payload を stdout / command frame fallback ではなく Web-only scalar host import と typed `Result` 境界で扱う。

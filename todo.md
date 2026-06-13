@@ -13,6 +13,7 @@
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
 - Web Playground の legacy stdout command frame transport を正式な DrawCommand / tile / bitmap host import ABI へ置き換え、NEPL/Wasm が生成した `DrawCommand` stream を Web / native / headless の同じ presentation contract へ直接渡す。Video memory surface の create / write bytes / write row / discard / publish / present host import は初期 checkpoint として接続済みなので、この残件では stdout command frame と formal tiled transport の置換に絞る
 - Web / native の formal presentation ABI に tile / bitmap / row / RLE payload を追加し、Mandelbrot などの true HD raster を stdout の大量 `fill_rect` stream ではなく bounded command transport で扱う
+- `nepl_gui_web` video memory host import の fake positive test harness を追加し、`create -> acquire -> write_rgba8888_row -> publish -> present -> close/discard` の happy path を CI で実行検査する。現行 `run_test.js` の default import table は unsupported stub なので、focused example は source contract までを固定している
 - Web Playground の `GuiWebEvent` action / pointer down-move-up-cancel / keyboard / single-scalar text input / window resized-close / timer checkpoint を、IME composition / multi-scalar text、window focus-unfocus policy、lifecycle variant、session id formalization へ拡張する
 - Mandelbrot progressive rendering を NEPL app の update loop で処理する
 - Paint example を直近 stroke slot の軽量 model から persistent canvas / stroke storage へ拡張する
