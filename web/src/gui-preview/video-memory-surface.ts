@@ -64,6 +64,15 @@ export type GuiVideoMemoryError =
     }
     | { kind: 'invalid-surface-state'; actual: number }
     | { kind: 'invalid-slot-state'; slotIndex: number; actual: number }
+    | {
+        kind: 'invalid-write-region';
+        x: number;
+        y: number;
+        width: number;
+        surfaceWidth: number;
+        surfaceHeight: number;
+    }
+    | { kind: 'invalid-source-length'; actual: number; expected: number }
     | { kind: 'no-writable-slot' }
     | { kind: 'no-published-slot' }
     | { kind: 'stale-resize-generation'; expected: number; actual: number }
@@ -342,6 +351,52 @@ export function publishGuiVideoMemoryWriteSlot(
     return guiVideoMemoryOk(undefined);
 }
 
+export function writeGuiVideoMemoryRgba8888Row(
+    slot: GuiVideoMemoryWriteSlot,
+    x: number,
+    y: number,
+    width: number,
+    source: Uint8Array,
+): GuiVideoMemoryResult<void> {
+    const currentGeneration = Atomics.load(slot.surface.header, HEADER_GENERATION);
+    if (slot.generation !== currentGeneration) {
+        return guiVideoMemoryErr({
+            kind: 'stale-resize-generation',
+            expected: currentGeneration,
+            actual: slot.generation,
+        });
+    }
+    const stateIndex = guiVideoMemorySlotWord(slot.slotIndex, SLOT_STATE);
+    const currentState = Atomics.load(slot.surface.slots, stateIndex);
+    if (currentState !== GUI_VIDEO_MEMORY_SLOT_WRITING) {
+        return guiVideoMemoryErr({
+            kind: 'invalid-slot-state',
+            slotIndex: slot.slotIndex,
+            actual: currentState,
+        });
+    }
+    if (!isValidGuiVideoMemoryRgba8888Row(slot.surface, x, y, width)) {
+        return guiVideoMemoryErr({
+            kind: 'invalid-write-region',
+            x,
+            y,
+            width,
+            surfaceWidth: slot.surface.width,
+            surfaceHeight: slot.surface.height,
+        });
+    }
+    const expectedByteLength = width * GUI_VIDEO_MEMORY_BYTES_PER_PIXEL;
+    if (source.byteLength !== expectedByteLength) {
+        return guiVideoMemoryErr({
+            kind: 'invalid-source-length',
+            actual: source.byteLength,
+            expected: expectedByteLength,
+        });
+    }
+    slot.pixels.set(source, y * slot.surface.strideBytes + x * GUI_VIDEO_MEMORY_BYTES_PER_PIXEL);
+    return guiVideoMemoryOk(undefined);
+}
+
 export function discardGuiVideoMemoryWriteSlot(
     slot: GuiVideoMemoryWriteSlot,
 ): GuiVideoMemoryResult<void> {
@@ -562,6 +617,23 @@ function guiVideoMemorySlotPixels(surface: GuiVideoMemorySurface, slotIndex: num
 
 function guiVideoMemoryPixelOffset(surface: GuiVideoMemorySurface, slotIndex: number): number {
     return surface.pixelPlaneByteOffset + slotIndex * surface.pixelByteLength;
+}
+
+function isValidGuiVideoMemoryRgba8888Row(
+    surface: GuiVideoMemorySurface,
+    x: number,
+    y: number,
+    width: number,
+): boolean {
+    return Number.isInteger(x)
+        && Number.isInteger(y)
+        && Number.isInteger(width)
+        && x >= 0
+        && y >= 0
+        && width > 0
+        && y < surface.height
+        && x + width <= surface.width
+        && Number.isSafeInteger(width * GUI_VIDEO_MEMORY_BYTES_PER_PIXEL);
 }
 
 function storeGuiVideoMemoryDirtyRegion(

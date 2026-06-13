@@ -36,6 +36,7 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(workerSource, /video_memory_create_surface: this\.nepl_gui_web_video_memory_create_surface\.bind\(this\)/);
     assert.match(workerSource, /video_memory_acquire_write_slot: this\.nepl_gui_web_video_memory_acquire_write_slot\.bind\(this\)/);
     assert.match(workerSource, /video_memory_write_slot_bytes: this\.nepl_gui_web_video_memory_write_slot_bytes\.bind\(this\)/);
+    assert.match(workerSource, /video_memory_write_rgba8888_row: this\.nepl_gui_web_video_memory_write_rgba8888_row\.bind\(this\)/);
     assert.match(workerSource, /video_memory_discard_write_slot: this\.nepl_gui_web_video_memory_discard_write_slot\.bind\(this\)/);
     assert.match(workerSource, /video_memory_publish_slot: this\.nepl_gui_web_video_memory_publish_slot\.bind\(this\)/);
     assert.match(workerSource, /video_memory_present_surface: this\.nepl_gui_web_video_memory_present_surface\.bind\(this\)/);
@@ -54,6 +55,7 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     );
     assert.match(workerImportPath, /createGuiVideoMemorySurface/);
     assert.match(workerImportPath, /acquireGuiVideoMemoryWriteSlot/);
+    assert.match(workerImportPath, /writeGuiVideoMemoryRgba8888Row/);
     assert.match(workerImportPath, /discardGuiVideoMemoryWriteSlot/);
     assert.match(workerImportPath, /publishGuiVideoMemoryWriteSlot/);
     assert.doesNotMatch(workerImportPath, /presentGuiWebRuntimeVideoMemory/);
@@ -64,6 +66,25 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.doesNotMatch(workerImportPath, /\b(?:drawImage|putImageData|fillRect|clearRect|scale|setTransform)\b/);
     assert.doesNotMatch(workerImportPath, /postMessage\(message,\s*\[/);
     assert.doesNotMatch(workerImportPath, /\bArrayBuffer\b(?!\s*;|\s*\|)/);
+
+    const writeRgbaRowMethod = extractClassSlice(
+        workerSource,
+        "nepl_gui_web_video_memory_write_rgba8888_row",
+        "nepl_gui_web_video_memory_fill_rect_rgba8888",
+    );
+    assert.match(writeRgbaRowMethod, /width \* 4/);
+    assert.match(writeRgbaRowMethod, /this\.memoryBytes\(srcPtr, byteLen\)/);
+    assert.match(writeRgbaRowMethod, /writeGuiVideoMemoryRgba8888Row\(frame\.slot, x, y, width, source\)/);
+    assert.match(writeRgbaRowMethod, /return GUI_VIDEO_MEMORY_HOST_STATUS_OK/);
+    assert.doesNotMatch(writeRgbaRowMethod, /frame\.slot\.pixels\.set/);
+    assert.doesNotMatch(writeRgbaRowMethod, /publishGuiVideoMemoryWriteSlot/);
+    assert.doesNotMatch(writeRgbaRowMethod, /discardGuiVideoMemoryWriteSlot/);
+    assert.doesNotMatch(writeRgbaRowMethod, /presentGuiVideoMemorySurface/);
+    assert.doesNotMatch(writeRgbaRowMethod, /presentGuiWebRuntimeVideoMemory/);
+    assert.doesNotMatch(writeRgbaRowMethod, /presentCommands|beginFrame|pushCommand|endFrame/);
+    assert.doesNotMatch(writeRgbaRowMethod, /stdout|GuiWebStdoutProtocol|parse/);
+    assert.doesNotMatch(writeRgbaRowMethod, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
+    assert.doesNotMatch(writeRgbaRowMethod, /\b(?:drawImage|putImageData|fillRect|clearRect|scale|setTransform)\b/);
 
     const discardWriteSlotMethod = extractClassSlice(
         workerSource,
@@ -130,11 +151,13 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_create_surface"/);
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_acquire_write_slot"/);
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_write_slot_bytes"/);
+    assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_write_rgba8888_row"/);
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_discard_write_slot"/);
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_publish_slot"/);
     assert.match(surfaceSource, /#extern "nepl_gui_web" "video_memory_present_surface"/);
     assert.match(surfaceSource, /pub fn gui_web_video_memory_create_surface[\s\S]*Result GuiWebVideoMemorySurface GuiError/);
     assert.match(surfaceSource, /pub fn gui_web_video_memory_write_frame_bytes[\s\S]*Result unit GuiError/);
+    assert.match(surfaceSource, /pub fn gui_web_video_memory_write_rgba8888_row[\s\S]*Result unit GuiError/);
     assert.match(surfaceSource, /pub fn gui_web_video_memory_discard_write_frame[\s\S]*Result unit GuiError/);
     assert.match(surfaceSource, /pub fn gui_web_video_memory_present_surface[\s\S]*Result unit GuiError/);
     assert.match(surfaceSource, /fn gui_web_video_memory_status_error/);
@@ -145,6 +168,7 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(runTestSource, /video_memory_create_surface: \(\) => -1/);
     assert.match(runTestSource, /video_memory_acquire_write_slot: \(\) => -1/);
     assert.match(runTestSource, /video_memory_write_slot_bytes: \(\) => -2/);
+    assert.match(runTestSource, /video_memory_write_rgba8888_row: \(\) => -2/);
     assert.match(runTestSource, /video_memory_discard_write_slot: \(\) => -2/);
     assert.match(runTestSource, /video_memory_present_surface: \(\) => -2/);
 
@@ -153,13 +177,14 @@ async function runWebGuiVideoMemoryHostImportRegression() {
     assert.match(designSource, /gui_video_memory_present/);
     assert.match(designSource, /SharedArrayBuffer remains a Web backend detail/);
     assert.match(implementationPlanSource, /Web video memory host import/);
-    assert.match(implementationPlanSource, /create_surface[\s\S]*acquire_write_slot[\s\S]*discard_write_slot[\s\S]*present_surface/);
+    assert.match(implementationPlanSource, /create_surface[\s\S]*acquire_write_slot[\s\S]*write_rgba8888_row[\s\S]*discard_write_slot[\s\S]*present_surface/);
 
     return {
         ok: true,
         checks: [
             "Web GUI video memory imports are scalar nepl_gui_web host imports",
             "Worker owns SharedArrayBuffer surfaces behind opaque positive ids",
+            "row writer transfers exact RGBA8888 rows without app-side byte offsets",
             "discard import releases unpublished write slots without publish or present side effects",
             "publish and present are separate state transitions",
             "present import waits for the main-thread presenter ack before returning status",

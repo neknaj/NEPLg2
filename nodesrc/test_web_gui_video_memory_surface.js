@@ -53,6 +53,7 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.match(source, /Atomics\.wait/);
     assert.match(source, /acquireGuiVideoMemoryWriteSlot/);
     assert.match(source, /publishGuiVideoMemoryWriteSlot/);
+    assert.match(source, /writeGuiVideoMemoryRgba8888Row/);
     assert.match(source, /discardGuiVideoMemoryWriteSlot/);
     assert.match(source, /acquireGuiVideoMemoryReadSlot/);
     assert.match(source, /releaseGuiVideoMemoryReadSlot/);
@@ -170,6 +171,41 @@ async function runWebGuiVideoMemorySurfaceRegression() {
     assert.equal(released.kind, "ok");
     assert.equal(header[9], waited.value.slot.epoch);
 
+    const rowWrite = videoMemory.acquireGuiVideoMemoryWriteSlot(surface);
+    assert.equal(rowWrite.kind, "ok");
+    const rowSlotBase = rowWrite.value.slotIndex * 8;
+    const rowPublishedEpochBeforeWrite = header[8];
+    const rowPresentedEpochBeforeWrite = header[9];
+    const rowSlotEpochBeforeWrite = Atomics.load(slots, rowSlotBase + 1);
+    const rowSource = new Uint8Array([1, 2, 3, 255, 4, 5, 6, 255]);
+    const rowWritten = videoMemory.writeGuiVideoMemoryRgba8888Row(rowWrite.value, 1, 1, 2, rowSource);
+    assert.equal(rowWritten.kind, "ok");
+    const rowOffset = surface.strideBytes + 4;
+    assert.deepEqual(Array.from(rowWrite.value.pixels.slice(rowOffset, rowOffset + 8)), Array.from(rowSource));
+    assert.equal(header[8], rowPublishedEpochBeforeWrite);
+    assert.equal(header[9], rowPresentedEpochBeforeWrite);
+    assert.equal(Atomics.load(slots, rowSlotBase + 1), rowSlotEpochBeforeWrite);
+    assert.equal(Atomics.load(slots, rowSlotBase + 2), 0);
+    const zeroWidthRow = videoMemory.writeGuiVideoMemoryRgba8888Row(rowWrite.value, 0, 0, 0, new Uint8Array(0));
+    assert.equal(zeroWidthRow.kind, "err");
+    assert.equal(zeroWidthRow.error.kind, "invalid-write-region");
+    const shortSourceRow = videoMemory.writeGuiVideoMemoryRgba8888Row(rowWrite.value, 0, 0, 1, new Uint8Array([9, 9, 9]));
+    assert.equal(shortSourceRow.kind, "err");
+    assert.equal(shortSourceRow.error.kind, "invalid-source-length");
+    const outOfBoundsRow = videoMemory.writeGuiVideoMemoryRgba8888Row(rowWrite.value, 2, 1, 2, rowSource);
+    assert.equal(outOfBoundsRow.kind, "err");
+    assert.equal(outOfBoundsRow.error.kind, "invalid-write-region");
+    const publishedRow = videoMemory.publishGuiVideoMemoryWriteSlot(rowWrite.value, { kind: "rect", x: 1, y: 1, width: 2, height: 1 });
+    assert.equal(publishedRow.kind, "ok");
+    const writeAfterPublish = videoMemory.writeGuiVideoMemoryRgba8888Row(rowWrite.value, 1, 1, 2, rowSource);
+    assert.equal(writeAfterPublish.kind, "err");
+    assert.equal(writeAfterPublish.error.kind, "invalid-slot-state");
+    const waitedRow = videoMemory.waitForGuiVideoMemoryReadSlot(surface, 0);
+    assert.equal(waitedRow.kind, "ok");
+    assert.equal(waitedRow.value.kind, "slot");
+    const releasedRow = videoMemory.releaseGuiVideoMemoryReadSlot(waitedRow.value.slot);
+    assert.equal(releasedRow.kind, "ok");
+
     const unpublishedWrite = videoMemory.acquireGuiVideoMemoryWriteSlot(surface);
     assert.equal(unpublishedWrite.kind, "ok");
     const unpublishedSlotBase = unpublishedWrite.value.slotIndex * 8;
@@ -219,6 +255,7 @@ async function runWebGuiVideoMemorySurfaceRegression() {
         checks: [
             "Web GUI video memory surface requires at least two pixel slots",
             "writer and presenter use explicit Atomics ownership transitions",
+            "row writer copies exact RGBA8888 row payloads without owning publish metadata",
             "unpublished write slots can be discarded without advancing presentation epochs",
             "video memory errors are typed instead of falling back silently",
             "malformed shared buffers return typed errors instead of JavaScript exceptions",

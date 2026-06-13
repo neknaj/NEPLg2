@@ -27,6 +27,7 @@ import {
     createGuiVideoMemorySurface,
     discardGuiVideoMemoryWriteSlot,
     publishGuiVideoMemoryWriteSlot,
+    writeGuiVideoMemoryRgba8888Row,
     type GuiVideoMemoryDirtyRegion,
     type GuiVideoMemoryError,
     type GuiVideoMemorySurface,
@@ -189,6 +190,7 @@ class WorkerWASI extends WASI {
             video_memory_create_surface: this.nepl_gui_web_video_memory_create_surface.bind(this),
             video_memory_acquire_write_slot: this.nepl_gui_web_video_memory_acquire_write_slot.bind(this),
             video_memory_write_slot_bytes: this.nepl_gui_web_video_memory_write_slot_bytes.bind(this),
+            video_memory_write_rgba8888_row: this.nepl_gui_web_video_memory_write_rgba8888_row.bind(this),
             video_memory_fill_rect_rgba8888: this.nepl_gui_web_video_memory_fill_rect_rgba8888.bind(this),
             video_memory_discard_write_slot: this.nepl_gui_web_video_memory_discard_write_slot.bind(this),
             video_memory_publish_slot: this.nepl_gui_web_video_memory_publish_slot.bind(this),
@@ -523,6 +525,33 @@ class WorkerWASI extends WASI {
             return source;
         }
         frame.slot.pixels.set(source, dstOffset);
+        return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
+    }
+
+    nepl_gui_web_video_memory_write_rgba8888_row(
+        surfaceHandle: number,
+        frameId: number,
+        x: number,
+        y: number,
+        width: number,
+        srcPtr: number,
+    ): number {
+        const frame = this.findGuiVideoMemoryFrame(surfaceHandle, frameId);
+        if (!frame || !isPositiveInteger(width)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const byteLen = width * 4;
+        if (!Number.isSafeInteger(byteLen)) {
+            return GUI_VIDEO_MEMORY_HOST_STATUS_INVALID_ARGUMENT;
+        }
+        const source = this.memoryBytes(srcPtr, byteLen);
+        if (typeof source === 'number') {
+            return source;
+        }
+        const written = writeGuiVideoMemoryRgba8888Row(frame.slot, x, y, width, source);
+        if (written.kind === 'err') {
+            return guiVideoMemoryHostStatusFromError(written.error);
+        }
         return GUI_VIDEO_MEMORY_HOST_STATUS_OK;
     }
 
