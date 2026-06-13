@@ -24,12 +24,25 @@
 
 #indent 4
 
+#import "alloc/string" as string
+#import "alloc/string/storage" as string_storage
+#import "core/cast" as *
 #import "core/field" as field
 #import "core/gui" as *
 #import "core/math" as *
+#import "core/mem" as *
+#import "core/mem/internal" as mem_internal
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "std/gui" as *
+
+#extern "nepl_gui_web" "video_memory_create_surface" fn gui_web_video_memory_create_surface_raw %impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_acquire_write_slot" fn gui_web_video_memory_acquire_write_slot_raw %impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_write_slot_bytes" fn gui_web_video_memory_write_slot_bytes_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_fill_rect_rgba8888" fn gui_web_video_memory_fill_rect_rgba8888_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_publish_slot" fn gui_web_video_memory_publish_slot_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_present_surface" fn gui_web_video_memory_present_surface_raw %impure fn i32 impure fn i32 impure fn i32 impure fn i32 i32
+#extern "nepl_gui_web" "video_memory_close_surface" fn gui_web_video_memory_close_surface_raw %impure fn i32 i32
 
 //: GuiWebVideoMemorySurface: Web backend の video memory surface descriptor
 //:
@@ -91,3 +104,168 @@ pub fn gui_web_video_memory_surface_resize_generation %fn &GuiWebVideoMemorySurf
 pub fn gui_web_video_memory_present_command %fn &GuiWebVideoMemorySurface fn FrameId fn DirtyRegion GuiSurfacePresentCommand \surface\frame\dirty:
     let descriptor %GuiPixelBufferDescriptor gui_web_video_memory_surface_descriptor surface
     gui_surface_present_pixel_frame gui_surface_frame frame descriptor dirty
+
+//: gui_web_video_memory_status_error: raw host status を `GuiError` に[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - Web host import の負 sentinel を、この module の境界内でだけ[扱/あつか]います。
+//: - caller には `Result` と `GuiError` だけを[返/かえ]します。
+fn gui_web_video_memory_status_error %fn i32 GuiError \status:
+    if eq status -1:
+        then GuiError::Unsupported
+        else:
+            if eq status -2:
+                then GuiError::InvalidCommand
+                else:
+                    if eq status -3:
+                        then GuiError::ResourceExhausted
+                        else:
+                            if eq status -4:
+                                then GuiError::ResourceExhausted
+                                else:
+                                    if eq status -6:
+                                        then GuiError::InvalidCommand
+                                        else GuiError::BackendFailure
+
+//: gui_web_video_memory_status_unit: raw status を `Result unit GuiError` に[変換/へんかん]する
+fn gui_web_video_memory_status_unit %fn i32 Result unit GuiError \status:
+    if eq status 0:
+        then Result::Ok unit
+        else Result::Err gui_web_video_memory_status_error status
+
+//: gui_web_video_memory_surface_raw: surface handle の raw id を[読/よ]む
+//:
+//: [注意/ちゅうい]:
+//: - raw id は host import 呼び出しにだけ[使/つか]います。public API の判定には `SurfaceId` を[使/つか]います。
+fn gui_web_video_memory_surface_raw %fn &GuiWebVideoMemorySurface i32 \surface:
+    let descriptor %GuiPixelBufferDescriptor gui_web_video_memory_surface_descriptor surface
+    let surface_id %SurfaceId gui_pixel_buffer_surface &descriptor
+    surface_id_raw &surface_id
+
+//: gui_web_video_memory_create_surface: Web host に video memory surface を[作/つく]らせる
+//:
+//: [目的/もくてき]:
+//: - stdout transport を[使/つか]わず、Web host import で `SharedArrayBuffer` backed surface を[作/つく]ります。
+//:
+//: [契約/けいやく]:
+//: - 成功時は checked `GuiWebVideoMemorySurface` を返します。
+//: - host import が未対応、geometry 不正、slot 不足は `Result::Err GuiError` として返し、別 transport へ fallback しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_create_surface %impure fn i32 impure fn i32 impure fn i32 Result GuiWebVideoMemorySurface GuiError \width\height\slot_count:
+    let raw_surface %i32 gui_web_video_memory_create_surface_raw width height slot_count
+    if gt raw_surface 0:
+        then:
+            match surface_id_result raw_surface:
+                Result::Ok surface:
+                    gui_web_video_memory_surface surface width height mul width 4 slot_count 1
+                Result::Err error:
+                    Result::Err error
+        else Result::Err gui_web_video_memory_status_error raw_surface
+
+//: gui_web_video_memory_acquire_write_frame: surface の write frame を[確保/かくほ]する
+//:
+//: [契約/けいやく]:
+//: - 成功時は checked `FrameId` を返します。
+//: - free slot がなければ `GuiError::ResourceExhausted` です。別 buffer や stdout へ fallback しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_acquire_write_frame %impure fn &GuiWebVideoMemorySurface Result FrameId GuiError \surface:
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    let raw_frame %i32 gui_web_video_memory_acquire_write_slot_raw raw_surface
+    if gt raw_frame 0:
+        then frame_id_result raw_frame
+        else Result::Err gui_web_video_memory_status_error raw_frame
+
+//: gui_web_video_memory_write_frame_bytes: write frame へ byte slice を[書/か]き[込/こ]む
+//:
+//: [目的/もくてき]:
+//: - Wasm linear memory 上の RGBA byte 列を、Web host が所有する video memory slot へ[転送/てんそう]します。
+//:
+//: [契約/けいやく]:
+//: - dst_offset と byte_len は host 側でも slot 範囲内で再検査されます。
+//: - raw address はこの Web platform module の host import 境界にだけ[渡/わた]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_write_frame_bytes %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn i32 impure fn MemPtr u8 impure fn i32 Result unit GuiError \surface\frame\dst_offset\src\byte_len:
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    let raw_frame %i32 frame_id_raw &frame
+    let src_raw %i32 mem_internal::mem_ptr_addr src
+    gui_web_video_memory_status_unit gui_web_video_memory_write_slot_bytes_raw raw_surface raw_frame dst_offset src_raw byte_len
+
+//: gui_web_video_memory_fill_rect_rgba8888: write frame の rect を RGBA で[塗/ぬ]る
+//:
+//: [目的/もくてき]:
+//: - 初期 host import ABI の smoke 用に、Wasm 側から pixel buffer slot へ矩形を書き込みます。
+//:
+//: [注意/ちゅうい]:
+//: - これは Canvas の `fillRect` ではありません。worker host import が `SharedArrayBuffer` pixel memory を[更新/こうしん]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_fill_rect_rgba8888 %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiRect impure fn Rgba8888 Result unit GuiError \surface\frame\rect\color:
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    let raw_frame %i32 frame_id_raw &frame
+    let x %i32 gui_rect_x &rect
+    let y %i32 gui_rect_y &rect
+    let width %i32 gui_rect_width &rect
+    let height %i32 gui_rect_height &rect
+    let r %i32 cast rgba8888_r &color
+    let g %i32 cast rgba8888_g &color
+    let b %i32 cast rgba8888_b &color
+    let a %i32 cast rgba8888_a &color
+    gui_web_video_memory_status_unit gui_web_video_memory_fill_rect_rgba8888_raw raw_surface raw_frame x y width height r g b a
+
+//: gui_web_video_memory_publish_full: frame を full dirty として[公開/こうかい]する
+//:
+//: [契約/けいやく]:
+//: - 公開は presentation とは別の状態遷移です。表示は `gui_web_video_memory_present_surface` が[行/おこな]います。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_publish_full %impure fn &GuiWebVideoMemorySurface impure fn FrameId Result unit GuiError \surface\frame:
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    let raw_frame %i32 frame_id_raw &frame
+    gui_web_video_memory_status_unit gui_web_video_memory_publish_slot_raw raw_surface raw_frame 1 0 0 0 0
+
+//: gui_web_video_memory_publish_rect: frame を rect dirty として[公開/こうかい]する
+//:
+//: [契約/けいやく]:
+//: - rect の width / height が負の場合は `GuiError::InvalidGeometry` です。
+//: - host 側でも surface 範囲を再検査します。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_publish_rect %impure fn &GuiWebVideoMemorySurface impure fn FrameId impure fn GuiRect Result unit GuiError \surface\frame\dirty_rect:
+    match dirty_region_rect_checked dirty_rect:
+        Result::Ok _dirty:
+            let raw_surface %i32 gui_web_video_memory_surface_raw surface
+            let raw_frame %i32 frame_id_raw &frame
+            let x %i32 gui_rect_x &dirty_rect
+            let y %i32 gui_rect_y &dirty_rect
+            let width %i32 gui_rect_width &dirty_rect
+            let height %i32 gui_rect_height &dirty_rect
+            gui_web_video_memory_status_unit gui_web_video_memory_publish_slot_raw raw_surface raw_frame 2 x y width height
+        Result::Err error:
+            Result::Err error
+
+//: gui_web_video_memory_present_surface: 公開済み video memory surface を window へ[表示/ひょうじ]する
+//:
+//: [目的/もくてき]:
+//: - Worker 側の host import から main thread presenter へ typed request を[送/おく]り、ack status を `Result` へ[変換/へんかん]します。
+//:
+//: [契約/けいやく]:
+//: - `title` は UTF-8 byte slice として host に渡します。不正 pointer / length / UTF-8 は host 側で `InvalidCommand` になります。
+//: - command frame、stdout protocol、DOM widget への fallback は[行/おこな]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_present_surface %impure fn WindowId impure fn str impure fn &GuiWebVideoMemorySurface Result unit GuiError \window\title\surface:
+    let window_raw %i32 window_id_raw &window
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    let title_ptr %i32 mem_internal::mem_ptr_addr string_storage::string_data_ptr title
+    let title_len %i32 string::len title
+    gui_web_video_memory_status_unit gui_web_video_memory_present_surface_raw window_raw title_ptr title_len raw_surface
+
+//: gui_web_video_memory_close_surface: Web host の video memory surface を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_web_video_memory_close_surface %impure fn &GuiWebVideoMemorySurface Result unit GuiError \surface:
+    let raw_surface %i32 gui_web_video_memory_surface_raw surface
+    gui_web_video_memory_status_unit gui_web_video_memory_close_surface_raw raw_surface

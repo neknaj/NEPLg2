@@ -53,12 +53,12 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(specSource, /rgba-row/);
     assert.match(specSource, /legacy stdout protocol/);
     assert.match(specSource, /formal host import ABI/);
-    assert.match(specSource, /まだ NEPLg2 program から `DrawCommand` stream を JS \/ native host へ直接 export する正式 ABI ではない/);
-    assert.match(specSource, /presentation の formal host import ABI である/);
+    assert.match(specSource, /まだ NEPLg2 program から `DrawCommand` stream や tile \/ bitmap \/ row \/ RLE payload を JS \/ native host へ直接 export する全体正式 ABI ではない/);
+    assert.match(specSource, /DrawCommand \/ tile presentation の formal host import ABI/);
     assert.match(planSource, /row payload/);
     assert.match(planSource, /正式 host import ABI/);
     assert.match(planSource, /legacy transport/);
-    assert.match(planSource, /formal host import ABI と native `GuiHost\.present` の HD raster contract はまだ未実装である/);
+    assert.match(planSource, /DrawCommand \/ tile formal host import ABI と native `GuiHost\.present` の HD raster contract はまだ未実装である/);
 
     return {
         ok: true,

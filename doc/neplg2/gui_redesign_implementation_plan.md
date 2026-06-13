@@ -107,6 +107,11 @@ Subagent review:
 - Canvas `putImageData` failure や invalid dirty region は slot を discard して writer を詰まらせない。ただし表示済みではないため presented epoch は進めない。
 - SAB unavailable は typed error にする。
 - invalid header、unsupported version、stale resize generation、presenter unavailable、writer closed、unsupported command も typed error にする。
+- `GuiWebRuntimeBridge` に `presentVideoMemory` を追加し、`windowId`、`title`、`SharedArrayBuffer` だけを受ける typed runtime boundary とする。
+- `ArrayBuffer`、typed array、numeric id、string handle、transfer object は `invalid-video-memory-frame` で拒否し、stdout protocol や command frame path へ fallback しない。
+- `GuiPreviewPanel` は `none` / `command-frame` / `video-memory` の state を分け、video memory state では resize 時に command renderer や background fallback へ戻らない。
+- Panel は同じ `SharedArrayBuffer` identity の opened video memory surface を再利用し、buffer identity が変わった時だけ open し直す。
+- Surface size と drawable surface size が異なる場合は 1:1 top-left presentation とし、CSS scale や `drawImage` で引き伸ばさない。resize event が新 surface を促す。
 - `nodesrc/test_web_gui_video_memory_surface.js` を追加する。
 
 検証:
@@ -130,12 +135,18 @@ Subagent review:
 変更:
 
 - formal Web host import は video memory surface / pixel frame present を持つ。
+- Web video memory host import は `nepl_gui_web` の Web-only scalar ABI として実装する。最初の import set は `video_memory_create_surface`、`video_memory_acquire_write_slot`、`video_memory_write_slot_bytes`、`video_memory_publish_slot`、`video_memory_present_surface`、`video_memory_close_surface` である。`video_memory_fill_rect_rgba8888` は early smoke 用の pixel slot writer であり、Canvas `fillRect` ではない。
+- `publish_slot` と `present_surface` は分離する。`publish_slot` は Worker 所有の slot を `Published` にするだけで、visible window へ表示しない。`present_surface` は Worker から main thread へ typed `gui_video_memory_present` message を送り、ack `SharedArrayBuffer` に書かれた actual presenter status を待ってから戻る。
+- `surface_id` と `frame_id` は Worker-local opaque positive integer とし、NEPL/Wasm は `SharedArrayBuffer`、DOM handle、Canvas handle、ArrayBuffer transfer object、JS object handle、string handle を受け取らない。
+- `title_ptr` と `title_len` は Wasm linear memory の UTF-8 byte slice として検査する。pointer / length / UTF-8 の不正は typed negative status から `GuiError::InvalidCommand` へ写す。
+- `platforms/gui/web/surface.nepl` は raw negative status を module private helper で `Result` / `GuiError` へ写し、public wrapper へ sentinel を漏らさない。
 - Web stdout protocol は legacy smoke transport として隔離し、正式 ABI の代替として参照しない。
 - native / bare / headless は同じ app-facing effect / present command を受け、capability 不足時だけ `GuiError::Unsupported` を返す。
 
 検証:
 
 ```powershell
+node nodesrc/test_web_gui_video_memory_host_import.js
 node nodesrc/test_web_gui_same_app_code_contract.js
 node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check

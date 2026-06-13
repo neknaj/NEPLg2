@@ -1,6 +1,7 @@
 import { GuiPreviewPanel, type GuiPreviewDrawableSurfaceSize } from './panel.js';
 import { decodeGuiWebHostPresentedFrame } from './host-bridge.js';
 import type { GuiWebHostResult } from './host-bridge.js';
+import type { GuiWebRuntimeResult, GuiWebRuntimeVideoMemoryFrame } from './runtime-bridge.js';
 import { queueGuiWebInputEvent } from './input-bridge.js';
 import type { GuiWebWindowEventKind } from './input-bridge.js';
 import type { GuiPreviewDebugRecord } from './panel.js';
@@ -134,6 +135,27 @@ export class GuiFloatingWindowManager {
             };
         }
         lookup.windowState.preview.presentHostFrame(decoded.value.frame, decoded.value.windowId);
+        lookup.windowState.source = source;
+        this.updateTitle(lookup.windowState);
+        this.focusWindow(id);
+        return { kind: 'ok', value: id };
+    }
+
+    presentVideoMemorySurface(input: GuiWebRuntimeVideoMemoryFrame): GuiWebRuntimeResult<string> {
+        const source: GuiWindowSource = {
+            kind: 'host-frame',
+            windowId: input.windowId,
+            title: input.title,
+        };
+        const id = this.openWindow(source);
+        const lookup = this.lookupWindow(id);
+        if (lookup.kind === 'missing') {
+            return this.runtimeErr('invalid-video-memory-frame', '$.windowId', 'mounted GUI window', id);
+        }
+        const presented = lookup.windowState.preview.presentVideoMemorySurface(input.buffer, input.windowId);
+        if (presented.kind === 'err') {
+            return presented;
+        }
         lookup.windowState.source = source;
         this.updateTitle(lookup.windowState);
         this.focusWindow(id);
@@ -584,6 +606,18 @@ export class GuiFloatingWindowManager {
         });
     }
 
+    private runtimeErr(kind: 'invalid-video-memory-frame', path: string, expected: string, actual: string): GuiWebRuntimeResult<never> {
+        return {
+            kind: 'err',
+            error: {
+                kind,
+                path,
+                expected,
+                actual,
+            },
+        };
+    }
+
     private defaultRect(): GuiWindowRect {
         const bounds = this.layerBounds();
         const width = Math.min(Math.max(this.minWidth(), Math.floor(bounds.width * 0.48)), Math.max(this.minWidth(), bounds.width - WINDOW_MARGIN * 2));
@@ -718,6 +752,10 @@ class GuiWindowDebugPanel {
                 return `window ${record.windowId}: render error ${record.errorKind}`;
             case 'frame-presented':
                 return `window ${record.windowId}: frame commands ${record.commandCount}, targets ${record.inputTargetCount}`;
+            case 'video-memory-presented':
+                return `window ${record.windowId}: video memory epoch ${record.epoch} ${record.width}x${record.height} ${record.dirtyKind}`;
+            case 'video-memory-error':
+                return `window ${record.windowId}: video memory error ${record.errorKind}`;
             case 'input-queued':
                 return `window ${record.windowId}: queued ${record.eventKind}`;
             case 'action-queued':
