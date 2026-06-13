@@ -20,6 +20,7 @@ function runWebGuiFloatingWindowSourceRegression() {
         ["window-manager.ts", managerSource],
         ["panel.ts", panelSource],
     ];
+    const videoMemoryPanelMethod = extractMethodSource(panelSource, "presentVideoMemorySurface", "focusInputSurface");
 
     assert.match(indexHtml, /id="gui-window-layer"/);
     assert.doesNotMatch(indexHtml, /id="gui-button"/);
@@ -30,11 +31,19 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(managerSource, /previousMode: this\.restorableMode\(windowState\.mode\)/);
     assert.match(managerSource, /windowState\.mode = windowState\.mode\.previousMode/);
     assert.match(managerSource, /WindowLookup =[\s\S]*kind: 'missing'/);
-    assert.match(panelSource, /GuiHostFrameState =[\s\S]*kind: 'none'[\s\S]*kind: 'presented'/);
+    assert.match(panelSource, /GuiHostFrameState =[\s\S]*kind: 'none'[\s\S]*kind: 'command-frame'[\s\S]*kind: 'video-memory'/);
     assert.match(panelSource, /GuiPreviewDebugSink =[\s\S]*kind: 'none'[\s\S]*kind: 'present'/);
     assert.doesNotMatch(panelSource, /metricsEl|gui-preview-metrics|host commands|queued action/);
     assert.match(managerSource, /presentHostFrame\(input: unknown\): GuiWebHostResult<string>/);
+    assert.match(managerSource, /presentVideoMemorySurface\(input: GuiWebRuntimeVideoMemoryFrame\): GuiWebRuntimeResult<string>/);
+    assert.match(managerSource, /preview\.presentVideoMemorySurface\(input\.buffer, input\.windowId\)/);
     assert.match(managerSource, /closeHostFrameWindow\(windowId: number\): GuiWebHostResult<string>/);
+    assert.match(panelSource, /presentVideoMemorySurface\(buffer: SharedArrayBuffer, windowId: number\): GuiWebRuntimeResult<string>/);
+    assert.match(panelSource, /openVideoMemorySurface\(buffer: SharedArrayBuffer\)/);
+    assert.match(panelSource, /presentNewestGuiVideoMemoryFrameToCanvas/);
+    assert.match(panelSource, /this\.hostFrame\.kind === 'video-memory'[\s\S]*return;/);
+    assert.match(panelSource, /this\.hostFrame\.kind === 'video-memory' && this\.hostFrame\.buffer === buffer/);
+    assert.match(panelSource, /activeHostWindow\(\): GuiActiveHostWindowLookup/);
     assert.match(managerSource, /class GuiWindowDebugPanel/);
     assert.match(managerSource, /new GuiPreviewPanel\(contentEl, \{[\s\S]*kind: 'present'/);
     assert.match(managerSource, /debugPanel\.record/);
@@ -48,6 +57,9 @@ function runWebGuiFloatingWindowSourceRegression() {
     assert.match(managerSource, /queueHostWindowEvent\(windowState, 'resized', nextSurfaceSize\)/);
     assert.match(panelSource, /drawableSurfaceCssSize\(\)/);
     assert.doesNotMatch(managerSource, /requestAnimationFrame\(\(\) => windowState\.preview\.resizeEditor\(\)\)/);
+    assert.doesNotMatch(videoMemoryPanelMethod, /renderGuiPreviewFrameToCanvas/);
+    assert.doesNotMatch(videoMemoryPanelMethod, /presentGuiPreviewCanvasBackground/);
+    assert.doesNotMatch(videoMemoryPanelMethod, /presentHostFrame/);
     assert.match(managerSource, /minimizeWindow/);
     assert.match(managerSource, /toggleMaximizeWindow/);
     assert.match(managerSource, /startDrag/);
@@ -110,3 +122,11 @@ if (require.main === module) {
 module.exports = {
     runWebGuiFloatingWindowSourceRegression,
 };
+
+function extractMethodSource(source, startName, nextName) {
+    const start = source.indexOf(`    ${startName}`);
+    assert.notEqual(start, -1, `${startName} method must exist`);
+    const next = source.indexOf(`    ${nextName}`, start + 1);
+    assert.notEqual(next, -1, `${nextName} method must follow ${startName}`);
+    return source.slice(start, next);
+}

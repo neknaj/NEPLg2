@@ -300,6 +300,43 @@ presented_epoch は変更しない
 
 FHD 60 fps の最低性能目標を満たすため、presenter は `SharedArrayBuffer` と slot index ごとに `ImageData` を cache する。同じ slot を再利用する frame では `ImageData` を再生成せず、同じ underlying byte view の内容更新だけを presentation に反映する。
 
+## Web runtime video memory bridge
+
+Web runtime bridge は `neplGuiHost.presentVideoMemory` を公開する。これは legacy stdout transport や command frame stream の代替 fallback ではなく、Web backend の正式 video memory surface を visible floating window へ提示するための typed runtime boundary である。
+
+Input shape:
+
+```text
+VideoMemoryFrame:
+    windowId positive integer
+    title string
+    buffer SharedArrayBuffer
+```
+
+`buffer` は `SharedArrayBuffer` だけを受ける。`ArrayBuffer`、typed array、numeric id、string handle、transferable object は `invalid-video-memory-frame` として拒否する。`ArrayBuffer` transfer path や stdout protocol へ自動的に戻る処理は持たない。
+
+Runtime error kind:
+
+```text
+invalid-video-memory-frame
+video-memory-open-failed
+video-memory-present-failed
+```
+
+`openGuiVideoMemorySurface` の失敗は `video-memory-open-failed`、`presentNewestGuiVideoMemoryFrameToCanvas` の失敗は `video-memory-present-failed` へ写す。元の `GuiVideoMemoryError.kind` は `actual` に含め、JavaScript exception や platform string handle を branch authority にしない。
+
+Floating window は `windowId` で既存 window を再利用する。同じ `windowId` に command frame と video memory frame が交互に来た場合、latest presentation kind が panel state を置き換える。Panel state は次の union とする。
+
+```text
+none
+command-frame
+video-memory
+```
+
+Panel は同じ `SharedArrayBuffer` identity の video memory surface を再利用し、buffer identity が変わった時だけ `openGuiVideoMemorySurface` を再実行する。これは FHD 60 fps の hot path で header validation object を作り直し続けないための policy である。
+
+Surface size と drawable surface size が異なる場合、presenter は CSS scale や Canvas transform で引き伸ばさない。初期実装では pixel buffer を top-left に 1:1 で提示し、window resize event により application が新しい surface / frame を生成する。Hidden stretch、row-copy fallback、`drawImage` 拡大縮小は禁止する。
+
 ## Frame publish protocol
 
 Slot state:

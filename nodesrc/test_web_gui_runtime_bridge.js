@@ -39,13 +39,25 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.equal(missingPresenter.kind, "err");
     assert.equal(missingPresenter.error.kind, "presenter-missing");
     assert.equal(missingPresenter.error.path, "$");
+    const missingVideoMemoryPresenter = runtimeBridge.presentGuiWebRuntimeVideoMemory({
+        windowId: 16,
+        title: "Video Memory",
+        buffer: new SharedArrayBuffer(64),
+    });
+    assert.equal(missingVideoMemoryPresenter.kind, "err");
+    assert.equal(missingVideoMemoryPresenter.error.kind, "presenter-missing");
 
     const receivedFrames = [];
+    const receivedVideoMemoryFrames = [];
     const closedWindowIds = [];
     const presenter = {
         presentHostFrame(input) {
             receivedFrames.push(input);
             return { kind: "ok", value: "gui-window-runtime" };
+        },
+        presentVideoMemorySurface(input) {
+            receivedVideoMemoryFrames.push(input);
+            return { kind: "ok", value: "gui-window-video-memory" };
         },
         closeHostFrameWindow(windowId) {
             closedWindowIds.push(windowId);
@@ -67,6 +79,7 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.equal(installed.kind, "ok");
     assert.equal(target.neplGuiHost.kind, "gui-runtime-bridge");
     assert.equal(typeof target.neplGuiHost.closeWindow, "function");
+    assert.equal(typeof target.neplGuiHost.presentVideoMemory, "function");
     assert.equal(typeof target.neplGuiHost.takeInputEvents, "function");
     assert.equal(typeof target.neplGuiHost.resetInputEvents, "function");
     const resetInput = target.neplGuiHost.resetInputEvents();
@@ -81,6 +94,62 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.equal(globalClosed.kind, "ok");
     assert.equal(globalClosed.value, "closed:11");
     assert.deepEqual(closedWindowIds, [11]);
+    const videoMemoryBuffer = new SharedArrayBuffer(64);
+    const globalVideoMemoryPresented = target.neplGuiHost.presentVideoMemory({
+        windowId: 16,
+        title: "Runtime Video Memory",
+        buffer: videoMemoryBuffer,
+    });
+    assert.equal(globalVideoMemoryPresented.kind, "ok");
+    assert.equal(globalVideoMemoryPresented.value, "gui-window-video-memory");
+    assert.equal(receivedVideoMemoryFrames.length, 1);
+    assert.equal(receivedVideoMemoryFrames[0].windowId, 16);
+    assert.equal(receivedVideoMemoryFrames[0].title, "Runtime Video Memory");
+    assert.equal(receivedVideoMemoryFrames[0].buffer, videoMemoryBuffer);
+    const invalidVideoMemoryArrayBuffer = target.neplGuiHost.presentVideoMemory({
+        windowId: 17,
+        title: "Invalid Video Memory",
+        buffer: new ArrayBuffer(64),
+    });
+    assert.equal(invalidVideoMemoryArrayBuffer.kind, "err");
+    assert.equal(invalidVideoMemoryArrayBuffer.error.kind, "invalid-video-memory-frame");
+    assert.equal(invalidVideoMemoryArrayBuffer.error.path, "$.buffer");
+    assert.equal(invalidVideoMemoryArrayBuffer.error.actual, "ArrayBuffer");
+    const invalidVideoMemoryStringHandle = target.neplGuiHost.presentVideoMemory({
+        windowId: 18,
+        title: "Invalid Video Memory",
+        buffer: "shared-buffer-id",
+    });
+    assert.equal(invalidVideoMemoryStringHandle.kind, "err");
+    assert.equal(invalidVideoMemoryStringHandle.error.kind, "invalid-video-memory-frame");
+    assert.equal(invalidVideoMemoryStringHandle.error.path, "$.buffer");
+    const invalidVideoMemoryTypedArray = target.neplGuiHost.presentVideoMemory({
+        windowId: 19,
+        title: "Invalid Video Memory",
+        buffer: new Uint8Array(64),
+    });
+    assert.equal(invalidVideoMemoryTypedArray.kind, "err");
+    assert.equal(invalidVideoMemoryTypedArray.error.kind, "invalid-video-memory-frame");
+    assert.equal(invalidVideoMemoryTypedArray.error.path, "$.buffer");
+    const invalidVideoMemoryNumericHandle = target.neplGuiHost.presentVideoMemory({
+        windowId: 20,
+        title: "Invalid Video Memory",
+        buffer: 64,
+    });
+    assert.equal(invalidVideoMemoryNumericHandle.kind, "err");
+    assert.equal(invalidVideoMemoryNumericHandle.error.kind, "invalid-video-memory-frame");
+    assert.equal(invalidVideoMemoryNumericHandle.error.path, "$.buffer");
+    const invalidVideoMemoryTransferObject = target.neplGuiHost.presentVideoMemory({
+        windowId: 21,
+        title: "Invalid Video Memory",
+        buffer: {
+            byteLength: 64,
+            detached: false,
+        },
+    });
+    assert.equal(invalidVideoMemoryTransferObject.kind, "err");
+    assert.equal(invalidVideoMemoryTransferObject.error.kind, "invalid-video-memory-frame");
+    assert.equal(invalidVideoMemoryTransferObject.error.path, "$.buffer");
 
     const beginFrame = target.neplGuiHost.beginFrame({
         windowId: 12,
@@ -218,6 +287,13 @@ async function runWebGuiRuntimeBridgeRegression() {
     const missingAfterClear = target.neplGuiHost.presentCommands(validFrame);
     assert.equal(missingAfterClear.kind, "err");
     assert.equal(missingAfterClear.error.kind, "presenter-missing");
+    const videoMemoryMissingAfterClear = target.neplGuiHost.presentVideoMemory({
+        windowId: 16,
+        title: "Runtime Video Memory",
+        buffer: videoMemoryBuffer,
+    });
+    assert.equal(videoMemoryMissingAfterClear.kind, "err");
+    assert.equal(videoMemoryMissingAfterClear.error.kind, "presenter-missing");
     const closeMissingAfterClear = target.neplGuiHost.closeWindow({ windowId: 11 });
     assert.equal(closeMissingAfterClear.kind, "err");
     assert.equal(closeMissingAfterClear.error.kind, "presenter-missing");
@@ -225,11 +301,18 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.match(runtimeBridgeSource, /GuiWebRuntimePresenterState =[\s\S]*kind: 'missing'[\s\S]*kind: 'mounted'/);
     assert.match(runtimeBridgeSource, /GuiWebRuntimeResult<Value> =[\s\S]*kind: 'ok'[\s\S]*kind: 'err'/);
     assert.match(runtimeBridgeSource, /presentCommands: presentGuiWebRuntimeFrame/);
+    assert.match(runtimeBridgeSource, /presentVideoMemory: presentGuiWebRuntimeVideoMemory/);
     assert.match(runtimeBridgeSource, /closeWindow: closeGuiWebRuntimeHostFrameWindow/);
     assert.match(runtimeBridgeSource, /beginFrame: beginGuiWebRuntimeFrame/);
     assert.match(runtimeBridgeSource, /pushCommand: pushGuiWebRuntimeCommand/);
     assert.match(runtimeBridgeSource, /endFrame: endGuiWebRuntimeFrame/);
     assert.match(runtimeBridgeSource, /discardFrame: discardGuiWebRuntimeFrame/);
+    assert.match(runtimeBridgeSource, /presentVideoMemorySurface/);
+    assert.match(runtimeBridgeSource, /readSharedArrayBuffer/);
+    assert.match(runtimeBridgeSource, /invalid-video-memory-frame/);
+    assert.match(runtimeBridgeSource, /video-memory-open-failed/);
+    assert.match(runtimeBridgeSource, /video-memory-present-failed/);
+    assert.match(runtimeBridgeSource, /actualType\(value\)[\s\S]*ArrayBuffer/);
     assert.match(runtimeBridgeSource, /closeHostFrameWindow/);
     assert.match(runtimeBridgeSource, /takeInputEvents: takeGuiWebInputEvents/);
     assert.match(runtimeBridgeSource, /resetInputEvents: resetGuiWebInputEvents/);
@@ -242,6 +325,7 @@ async function runWebGuiRuntimeBridgeRegression() {
     assert.doesNotMatch(runtimeBridgeSource, /\|\s*null|\|\s*undefined/);
     assert.doesNotMatch(runtimeBridgeSource, /throw new Error|throw\s+/);
     assert.doesNotMatch(runtimeBridgeSource, /CanvasRenderingContext2D|HTMLCanvasElement|document\.|window\./);
+    assert.doesNotMatch(runtimeBridgeSource, /postMessage|transfer|presentCommands\(frame\.value\)|presentGuiWebRuntimeFrame\(frame\.value\)/);
 
     return {
         ok: true,
@@ -249,6 +333,8 @@ async function runWebGuiRuntimeBridgeRegression() {
             "Web GUI runtime bridge rejects present-commands before presenter registration",
             "Web GUI runtime bridge forwards frames through a typed presenter",
             "Web GUI runtime bridge installs a global neplGuiHost command surface",
+            "Web GUI runtime bridge exposes SharedArrayBuffer video memory presentation",
+            "Web GUI runtime bridge rejects ArrayBuffer, typed arrays, numeric handles, string handles, and transfer-like objects for video memory frames",
             "Web GUI runtime bridge closes host-frame windows through the presenter",
             "Web GUI runtime bridge supports begin/push/end streaming frames",
             "Web GUI runtime bridge streams rgba row payload commands through host decode",

@@ -107,6 +107,11 @@ Subagent review:
 - Canvas `putImageData` failure や invalid dirty region は slot を discard して writer を詰まらせない。ただし表示済みではないため presented epoch は進めない。
 - SAB unavailable は typed error にする。
 - invalid header、unsupported version、stale resize generation、presenter unavailable、writer closed、unsupported command も typed error にする。
+- `GuiWebRuntimeBridge` に `presentVideoMemory` を追加し、`windowId`、`title`、`SharedArrayBuffer` だけを受ける typed runtime boundary とする。
+- `ArrayBuffer`、typed array、numeric id、string handle、transfer object は `invalid-video-memory-frame` で拒否し、stdout protocol や command frame path へ fallback しない。
+- `GuiPreviewPanel` は `none` / `command-frame` / `video-memory` の state を分け、video memory state では resize 時に command renderer や background fallback へ戻らない。
+- Panel は同じ `SharedArrayBuffer` identity の opened video memory surface を再利用し、buffer identity が変わった時だけ open し直す。
+- Surface size と drawable surface size が異なる場合は 1:1 top-left presentation とし、CSS scale や `drawImage` で引き伸ばさない。resize event が新 surface を促す。
 - `nodesrc/test_web_gui_video_memory_surface.js` を追加する。
 
 検証:

@@ -1,3 +1,42 @@
+# 2026-06-13 Agent2 Web GUI video memory runtime bridge checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、今回の slice では `SharedArrayBuffer` video memory surface を Web runtime bridge へ接続する。`null` / `undefined` authority、silent fallback、ArrayBuffer transfer fallback、DOM drawing primitive、CSS scale / Canvas transform による content stretching は入れない。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。
+- 対象 branch: `web-gui-video-memory-runtime-20260613`
+- classification: Web GUI runtime bridge / video memory presentation boundary / floating window panel state split
+- design:
+  - `neplGuiHost.presentVideoMemory` は `windowId`、`title`、`SharedArrayBuffer` を持つ video memory frame だけを受ける typed runtime boundary とする。
+  - `ArrayBuffer`、typed array、numeric id、string handle、transferable object は `invalid-video-memory-frame` で拒否し、stdout protocol や command frame path へ自動迂回しない。
+  - Floating window は `windowId` で再利用し、command frame と video memory frame は `none` / `command-frame` / `video-memory` の panel state として分離する。
+  - Panel は同じ `SharedArrayBuffer` identity の opened video memory surface を再利用し、buffer identity が変わった時だけ open し直す。
+  - Window resize は content を引き伸ばさない。Presenter は pixel buffer を top-left に 1:1 で提示し、resize event によって application 側が次の pixel buffer size を決める。
+- implementation:
+  - `web/src/gui-preview/runtime-bridge.ts` に `presentVideoMemory`、`GuiWebRuntimeVideoMemoryFrame`、`invalid-video-memory-frame`、`video-memory-open-failed`、`video-memory-present-failed` を追加した。
+  - `web/src/gui-preview/panel.ts` に video memory state、surface reuse、`presentNewestGuiVideoMemoryFrameToCanvas` 接続、video memory state 用 active host window lookup を追加した。
+  - `web/src/gui-preview/window-manager.ts` に `presentVideoMemorySurface` presenter path を追加し、同じ `windowId` の floating window を再利用するようにした。
+  - `nodesrc/test_web_gui_runtime_bridge.js` と `nodesrc/test_web_gui_floating_window_source.js` に video memory runtime boundary と source policy regression を追加した。
+  - `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_redesign_detailed_design.md`、`doc/neplg2/gui_redesign_implementation_plan.md`、`doc/neplg2/gui_tui_implementation_plan.md` に runtime bridge と panel state contract を追記した。
+- subagent review:
+  - Godel: pre-review で implementation may start。Required として typed runtime error mapping、`ArrayBuffer` 明示拒否、panel state 分離、SAB identity reuse、size mismatch 非伸縮、source policy 禁止事項、docs 更新を要求。反映済み。
+  - Godel: implementation review で Blocker なし。Required として `note.n.md` checkpoint、typed array / numeric handle / transfer-like object の拒否 coverage、temp file 除外確認を要求。checkpoint を追加し、追加拒否 test と typed array diagnostic を実装した。
+  - Godel: follow-up review で Blocker / Required なし。commit readiness OK。
+- verify:
+  - pass: `npm --prefix web run build:ts`
+  - pass: `node nodesrc/test_web_gui_runtime_bridge.js`
+  - pass: `node nodesrc/test_web_gui_floating_window_source.js`
+  - pass: `node nodesrc/test_web_gui_video_memory_surface.js`
+  - pass: `node nodesrc/test_web_gui_preview_renderer.js`
+  - pass: `node nodesrc/test_stdlib_gui_layering_policy.js`
+  - pass: `node nodesrc/test_web_gui_offscreen_headless_contract.js`
+  - pass: `node nodesrc/test_web_gui_host_bridge.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - pass: `trunk build`
+- residual:
+  - NEPL/Wasm 側から formal host import ABI として video memory surface を open / publish / present する経路は後続 slice。
+  - Native / bare / headless の formal pixel framebuffer presenter と screenshot hash authority は後続 slice。
+
 # 2026-06-13 Agent2 Web GUI video memory presenter checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の方針に従い、今回の slice では hidden fallback、silent clamp、DOM widget 表現、Canvas primitive drawing を正式 GUI presentation path に入れない。
