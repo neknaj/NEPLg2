@@ -1625,6 +1625,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materi
 
 この checkpoint 後の残件は、actual AST / typed HIR public impl scanner と full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
 
+### 2026-06-14 MemoKey / MemoValue public impl scanner checkpoint
+
+`memo_trait_public_impl_scanner.nepl` を追加し、`SelfhostModuleAst` の public `ImplDecl` と resolver / lowering stage が作った typed public impl record を 1-origin の public declaration ordinal で照合する checker-layer boundary を作った。
+
+この scanner の authority は、AST 側では public declaration item の存在、visibility、declaration kind、public declaration ordinal に限定する。target type、trait application、operation trait source、method body root、fuel は resolver-owned typed record から受け取り、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、HIR traversal から復元しない。
+
+accepted path では、typed record を `memo_trait_public_impl_header` で public impl header evidence へ通し、同じ record から `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` へ渡す materializer input を作る。これにより public surface normalizer 用の public declaration evidence と、operation materializer 用 typed record table を同じ association boundary から得る。operation kind は scanner では決めず、後続 materializer / classifier が shape-bound trusted source identity で決める。
+
+error は `TypedRecordMissing`、`TypedRecordDuplicate`、`TypedRecordUnmatched`、`HeaderRejected`、AST alignment error、owner allocation / push error に分ける。module 全体の ordinal alignment は output owner allocation と header validation より先に preflight する。public impl に record が無い場合と、public impl ではない ordinal に record が向いた場合を stage0 fixture で分離し、first-wins や余剰 record の黙殺を禁止する。さらに余剰 record と invalid header が混在する場合は `TypedRecordUnmatched` を先に返す mixed regression を固定した。scanner output owner は success の場合だけ caller へ渡し、failure の partial output は scanner が閉じる。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、token seed scan 側の public impl unsupported 維持、forbidden layer import 禁止、source-derived authority 禁止、operation evidence / candidate / proof / method body / Drop body 作成禁止、stage0 smoke、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、scanner output を full public surface composer へ接続して complete public surface state を作る orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続である。public impl record lookup の ordinal index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した association / owner / error contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

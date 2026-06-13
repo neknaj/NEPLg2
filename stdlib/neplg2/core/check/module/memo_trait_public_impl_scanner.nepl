@@ -1,0 +1,1129 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_scanner
+//: public `impl` item と resolver-owned typed impl record を public declaration ordinal で[対応/たいおう]させる checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - parser が作った `SelfhostModuleAst` には `ImplDecl` と declaration header / body range だけがあり、target type、trait application、method body root、operation trait source は含まれません。
+//: - この module は AST から意味を復元せず、別の resolver / lowering stage が作った typed impl record と public `ImplDecl` の存在だけを照合します。
+//: - 照合済み record から、operation materializer が読む `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` と、public surface normalizer が読む `SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` vector を同時に作ります。
+//:
+//: [契約/けいやく]:
+//: - pairing key は 1-origin の public declaration ordinal です。AST index は error payload の位置情報にだけ使い、hash / proof / operation authority には使いません。
+//: - public declaration ordinal は public declaration item だけを source order で数えます。private declaration は ordinal を消費しません。
+//: - public `ImplDecl` 1 件につき typed resolver record がちょうど 1 件必要です。0 件は `TypedRecordMissing`、2 件以上は `TypedRecordDuplicate` として拒否します。
+//: - typed resolver record がどの public `ImplDecl` にも対応しない場合は `TypedRecordUnmatched` として拒否します。first-wins や余剰 record の黙殺はしません。
+//: - ordinal alignment は header validation より先に module 全体で検査します。余剰 record と不正 header が同時にある場合は、対応関係が壊れていることを先に報告します。
+//: - `SelfhostMemoTraitPublicImplHeaderInput` の妥当性、inherent impl / generic impl / bound count / placeholder hash の拒否は `memo_trait_public_impl_header` に委譲します。
+//: - operation kind はこの module では確定しません。typed record の trait source は operation materializer へ渡し、既存 classifier が shape-bound evidence として operation を決めます。
+//: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から target / trait / operation / HIR root を推測しません。
+//: - HIR lowering、method body purity check、Drop Resource proof、operation impl candidate builder、operation evidence producer、aggregate proof status、proof store、backend artifact はこの module の責務ではありません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では resolver-owned record table を caller supplied typed table として受け取ります。actual parser / type resolver からこの table を作る stage は後続 slice です。
+//: - full public surface composer はまだ未接続です。この module は composer が必要とする public impl declaration evidence vector と operation materializer input table を返す境界を固定します。
+//:
+//: [計算量/けいさんりょう]:
+//: - AST item 数を n、typed record 数を m とすると、現在の照合は public impl ごとに record table を線形走査し、さらに余剰 record 検査でも AST を線形走査するため O(n * m) 時間です。
+//: - この探索は semantic boundary を固定するための Phase 1 実装です。public API、error enum、owner contract を保ったまま、後続で ordinal sorted index または ordinal bucket へ置換できます。
+//: - output push は Vec の償却 O(1) です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_header" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_scanner" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_scanner_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_public_impl_scanner_accepted_len_eq summary.accepted 1 1
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_scanner_accepted_public_ordinal_eq summary.accepted 2
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_scanner_accepted_method_root_present summary.accepted
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_scanner_error_ordinal_eq summary.missing_typed_record SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing 1
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_scanner_error_ordinal_eq summary.duplicate_typed_record SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate 1
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_scanner_error_ordinal_eq summary.unmatched_typed_record SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched 1
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_public_impl_scanner_error_header_eq summary.inherent_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::InherentImplUnsupported
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_public_impl_scanner_error_ordinal_eq summary.mixed_alignment_first SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched 2
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "public impl scanner stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_public_impl_header" as *
+#import "./memo_trait_public_surface_normalizer" as *
+
+//: SelfhostMemoTraitPublicImplScannerResolverRecord: resolver / lowering stage が作る typed public impl association record
+//:
+//: [契約/けいやく]:
+//: - `declaration_ordinal` は AST の public declaration ordinal と照合する key です。
+//: - `type_id`、target type shape、trait application shape、trait source、method body root は上流 resolver が typed evidence として決めた値です。この module は source から再計算しません。
+pub struct SelfhostMemoTraitPublicImplScannerResolverRecord:
+    type_id %SelfhostTypeId
+    module_fingerprint %i32
+    declaration_ordinal %Option i32
+    visibility %SelfhostModuleDeclarationVisibility
+    impl_kind %SelfhostMemoTraitPublicImplHeaderKind
+    target_type_shape_hash %Option i32
+    trait_source %SelfhostMemoTraitOperationSourceIdentity
+    trait_type_argument_count %i32
+    trait_application_shape_hash %Option i32
+    type_parameter_count %i32
+    type_parameter_bound_count %i32
+    method_body_root %Option SelfhostHirExprId
+    fuel %i32
+
+//: SelfhostMemoTraitPublicImplScannerResolverRecordTable: typed resolver record の owner table
+pub struct SelfhostMemoTraitPublicImplScannerResolverRecordTable:
+    records %Vec SelfhostMemoTraitPublicImplScannerResolverRecord
+
+//: SelfhostMemoTraitPublicImplScannerOutput: scanner が返す 2 系統の typed output owner
+//:
+//: [契約/けいやく]:
+//: - `operation_records` は operation materializer へ渡す owner table です。
+//: - `public_declarations` は public surface normalizer へ渡す declaration evidence vector です。
+//: - caller は不要になったら `selfhost_memo_trait_public_impl_scanner_output_free` で両方の owner を閉じます。
+pub struct SelfhostMemoTraitPublicImplScannerOutput:
+    operation_records %SelfhostMemoTraitOperationPublicImplMaterializerRecordTable
+    public_declarations %Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence
+
+//: SelfhostMemoTraitPublicImplScannerAcceptedSummary: stage0 accepted path の owner-free summary
+pub struct SelfhostMemoTraitPublicImplScannerAcceptedSummary:
+    operation_record_len %i32
+    public_declaration_len %i32
+    public_impl_ordinal %i32
+    method_root_present %bool
+
+//: SelfhostMemoTraitPublicImplScannerErrorKindCode: doctest 用の stable error 分類 code
+pub enum SelfhostMemoTraitPublicImplScannerErrorKindCode:
+    TypedRecordMissing
+    TypedRecordDuplicate
+    TypedRecordUnmatched
+    HeaderRejected
+    Other
+
+//: SelfhostMemoTraitPublicImplScannerErrorKind: public impl scanner の拒否理由
+//:
+//: [目的/もくてき]:
+//: - AST / resolver alignment、owner allocation / push、header producer rejection を typed enum として分けます。
+pub enum SelfhostMemoTraitPublicImplScannerErrorKind:
+    ResolverRecordTableAllocFailed %StdErrorKind
+    ResolverRecordPushFailed %StdErrorKind
+    OperationRecordTableAllocFailed %StdErrorKind
+    PublicDeclarationVectorAllocFailed %StdErrorKind
+    OperationRecordPushRejected %SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    PublicDeclarationPushFailed %StdErrorKind
+    AstItemUnavailable %i32
+    DeclarationHeaderMissing %i32
+    DeclarationKindMismatch %i32
+    TypedRecordMissing %i32
+    TypedRecordDuplicate %i32
+    TypedRecordUnmatched %i32
+    HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind
+
+//: SelfhostMemoTraitPublicImplScannerStage0Summary: scanner smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplScannerStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind
+    missing_typed_record %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind
+    duplicate_typed_record %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind
+    unmatched_typed_record %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind
+    inherent_rejected %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind
+    mixed_alignment_first %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplScannerResolverRecord:
+    fn clone %fn &SelfhostMemoTraitPublicImplScannerResolverRecord SelfhostMemoTraitPublicImplScannerResolverRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplScannerResolverRecord:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplScannerResolverRecord SelfhostMemoTraitPublicImplScannerResolverRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplScannerAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerAcceptedSummary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplScannerAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerAcceptedSummary \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplScannerErrorKindCode:
+    fn clone %fn &SelfhostMemoTraitPublicImplScannerErrorKindCode SelfhostMemoTraitPublicImplScannerErrorKindCode \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplScannerErrorKindCode:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplScannerErrorKindCode SelfhostMemoTraitPublicImplScannerErrorKindCode \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplScannerErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplScannerErrorKind SelfhostMemoTraitPublicImplScannerErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplScannerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplScannerErrorKind SelfhostMemoTraitPublicImplScannerErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplScannerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplScannerStage0Summary SelfhostMemoTraitPublicImplScannerStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplScannerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplScannerStage0Summary SelfhostMemoTraitPublicImplScannerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_scanner_resolver_record_new: typed resolver record を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_scanner_resolver_record_new %fn SelfhostTypeId fn i32 fn Option i32 fn SelfhostModuleDeclarationVisibility fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn Option i32 fn i32 fn i32 fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitPublicImplScannerResolverRecord \type_id\module_fingerprint\declaration_ordinal\visibility\impl_kind\target_type_shape_hash\trait_source\trait_type_argument_count\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\method_body_root\fuel:
+    SelfhostMemoTraitPublicImplScannerResolverRecord type_id module_fingerprint declaration_ordinal visibility impl_kind target_type_shape_hash trait_source trait_type_argument_count trait_application_shape_hash type_parameter_count type_parameter_bound_count method_body_root fuel
+
+//: selfhost_memo_trait_public_impl_scanner_resolver_record_table_new: [空/から]の resolver record table を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_scanner_resolver_record_table_new %impure fn void Result SelfhostMemoTraitPublicImplScannerResolverRecordTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplScannerResolverRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplScannerResolverRecordTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_resolver_record_table_free: resolver record table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_scanner_resolver_record_table_free %impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_scanner_resolver_record_table_len: resolver record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_resolver_record_table_len %fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplScannerResolverRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_scanner_resolver_record_table_push: resolver record を table へ[追加/ついか]する
+pub fn selfhost_memo_trait_public_impl_scanner_resolver_record_table_push %impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostMemoTraitPublicImplScannerResolverRecord Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplScannerErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitPublicImplScannerResolverRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplScannerResolverRecordTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordPushFailed error
+
+//: selfhost_memo_trait_public_impl_scanner_output_free: scanner output の owner を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_scanner_output_free %impure fn SelfhostMemoTraitPublicImplScannerOutput unit \output:
+    selfhost_memo_trait_operation_public_impl_materializer_record_table_free field::get output "operation_records"
+    v::free field::get output "public_declarations"
+
+//: selfhost_memo_trait_public_impl_scanner_output_operation_len: operation materializer record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_output_operation_len %fn &SelfhostMemoTraitPublicImplScannerOutput i32 \output:
+    selfhost_memo_trait_operation_public_impl_materializer_record_table_len field::get_ref output "operation_records"
+
+//: selfhost_memo_trait_public_impl_scanner_output_declaration_len: public declaration evidence 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_output_declaration_len %fn &SelfhostMemoTraitPublicImplScannerOutput i32 \output:
+    let declarations %&Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence field::get_ref output "public_declarations"
+    v::len declarations
+
+//: selfhost_memo_trait_public_impl_scanner_state_free: build state を error path で[閉/と]じる
+fn selfhost_memo_trait_public_impl_scanner_state_free %impure fn SelfhostMemoTraitPublicImplScannerOutput unit \state:
+    selfhost_memo_trait_public_impl_scanner_output_free state
+
+//: selfhost_memo_trait_public_impl_scanner_output_new_result: empty output owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_output_new_result %impure fn void Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_memo_trait_operation_public_impl_materializer_record_table_new:
+        Result::Ok operation_records:
+            let declarations_result %Result Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence StdErrorKind v::new
+            match declarations_result:
+                Result::Ok declarations:
+                    Result::Ok SelfhostMemoTraitPublicImplScannerOutput operation_records declarations
+                Result::Err e:
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free operation_records
+                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationVectorAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_scanner_header_input: resolver record から public impl header input を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_header_input %fn SelfhostMemoTraitPublicImplScannerResolverRecord SelfhostMemoTraitPublicImplHeaderInput \record:
+    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count
+
+//: selfhost_memo_trait_public_impl_scanner_operation_record: resolver record から operation materializer record を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_operation_record %fn SelfhostMemoTraitPublicImplScannerResolverRecord SelfhostMemoTraitOperationPublicImplMaterializerRecord \record:
+    selfhost_memo_trait_operation_public_impl_materializer_record_new record.type_id record.module_fingerprint record.declaration_ordinal record.visibility record.impl_kind record.target_type_shape_hash record.trait_source record.trait_type_argument_count record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count record.method_body_root record.fuel
+
+//: selfhost_memo_trait_public_impl_scanner_declaration_kind_eq: declaration kind が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - declaration header と item kind の対応を bool や整数 code に潰さず、enum の網羅的 match で確認します。
+fn selfhost_memo_trait_public_impl_scanner_declaration_kind_eq %fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationKind bool \a\b:
+    match a:
+        SelfhostModuleDeclarationKind::Function:
+            match b:
+                SelfhostModuleDeclarationKind::Function:
+                    true
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Struct:
+            match b:
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    true
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Enum:
+            match b:
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    true
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Trait:
+            match b:
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    true
+                SelfhostModuleDeclarationKind::Impl:
+                    false
+        SelfhostModuleDeclarationKind::Impl:
+            match b:
+                SelfhostModuleDeclarationKind::Function:
+                    false
+                SelfhostModuleDeclarationKind::Struct:
+                    false
+                SelfhostModuleDeclarationKind::Enum:
+                    false
+                SelfhostModuleDeclarationKind::Trait:
+                    false
+                SelfhostModuleDeclarationKind::Impl:
+                    true
+
+//: selfhost_memo_trait_public_impl_scanner_record_ordinal_matches: resolver record が ordinal に対応するか[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_record_ordinal_matches %fn SelfhostMemoTraitPublicImplScannerResolverRecord fn i32 bool \record\ordinal:
+    match record.declaration_ordinal:
+        Option::Some value:
+            eq value ordinal
+        Option::None:
+            false
+
+//: selfhost_memo_trait_public_impl_scanner_find_record_loop: ordinal に対応する resolver record を[探/さが]す
+fn selfhost_memo_trait_public_impl_scanner_find_record_loop %fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn i32 fn i32 fn i32 fn Option SelfhostMemoTraitPublicImplScannerResolverRecord Result Option SelfhostMemoTraitPublicImplScannerResolverRecord SelfhostMemoTraitPublicImplScannerErrorKind \records\ordinal\idx\n\found:
+    if:
+        ge idx n
+        then:
+            Result::Ok found
+        else:
+            let source_records %&Vec SelfhostMemoTraitPublicImplScannerResolverRecord field::get_ref records "records"
+            match v::get source_records idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_trait_public_impl_scanner_record_ordinal_matches record ordinal
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordDuplicate ordinal
+                                Option::None:
+                                    selfhost_memo_trait_public_impl_scanner_find_record_loop records ordinal add idx 1 n some record
+                        else:
+                            selfhost_memo_trait_public_impl_scanner_find_record_loop records ordinal add idx 1 n found
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched ordinal
+
+//: selfhost_memo_trait_public_impl_scanner_find_record_result: ordinal に対応する resolver record を 1 件だけ[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_find_record_result %fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn i32 Result SelfhostMemoTraitPublicImplScannerResolverRecord SelfhostMemoTraitPublicImplScannerErrorKind \records\ordinal:
+    match selfhost_memo_trait_public_impl_scanner_find_record_loop records ordinal 0 selfhost_memo_trait_public_impl_scanner_resolver_record_table_len records none:
+        Result::Ok found:
+            match found:
+                Option::Some record:
+                    Result::Ok record
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordMissing ordinal
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_push_output_result: accepted record を 2 系統の output owner へ[追加/ついか]する
+fn selfhost_memo_trait_public_impl_scanner_push_output_result %impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn SelfhostMemoTraitPublicImplScannerResolverRecord impure fn SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \state\record\evidence:
+    let operation_records %SelfhostMemoTraitOperationPublicImplMaterializerRecordTable field::get state "operation_records"
+    let declarations %Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence field::get state "public_declarations"
+    let operation_record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_public_impl_scanner_operation_record record
+    match selfhost_memo_trait_operation_public_impl_materializer_record_table_push operation_records operation_record:
+        Result::Ok next_operation_records:
+            match v::push declarations evidence:
+                Result::Ok next_declarations:
+                    Result::Ok SelfhostMemoTraitPublicImplScannerOutput next_operation_records next_declarations
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free next_operation_records
+                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationPushFailed error
+        Result::Err operation_error:
+            v::free declarations
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordPushRejected operation_error
+
+//: selfhost_memo_trait_public_impl_scanner_reject_with_state: state owner を閉じて error を[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_reject_with_state %impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn SelfhostMemoTraitPublicImplScannerErrorKind Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \state\error:
+    selfhost_memo_trait_public_impl_scanner_state_free state
+    Result::Err error
+
+//: selfhost_memo_trait_public_impl_scanner_process_public_impl_result: public impl ordinal 1 件を record/evidence へ[変換/へんかん]する
+fn selfhost_memo_trait_public_impl_scanner_process_public_impl_result %impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn i32 Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \state\records\ordinal:
+    match selfhost_memo_trait_public_impl_scanner_find_record_result records ordinal:
+        Result::Ok record:
+            let header_input %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_scanner_header_input record
+            match selfhost_memo_trait_public_impl_header_evidence_result header_input:
+                Result::Ok evidence:
+                    selfhost_memo_trait_public_impl_scanner_push_output_result state record evidence
+                Result::Err header_error:
+                    selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::HeaderRejected header_error
+        Result::Err record_error:
+            selfhost_memo_trait_public_impl_scanner_reject_with_state state record_error
+
+//: selfhost_memo_trait_public_impl_scanner_scan_declaration_result: declaration item を public ordinal と output state へ[反映/はんえい]する
+fn selfhost_memo_trait_public_impl_scanner_scan_declaration_result %impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostModuleItem impure fn SelfhostModuleDeclarationKind impure fn i32 Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \state\records\item\expected_kind\public_ordinal:
+    match item.declaration:
+        Option::Some header:
+            match header.kind:
+                SelfhostModuleDeclarationKind::Function:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Function
+                        then:
+                            selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok state
+                SelfhostModuleDeclarationKind::Struct:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Struct
+                        then:
+                            selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok state
+                SelfhostModuleDeclarationKind::Enum:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Enum
+                        then:
+                            selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok state
+                SelfhostModuleDeclarationKind::Trait:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Trait
+                        then:
+                            selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok state
+                SelfhostModuleDeclarationKind::Impl:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Impl
+                        then:
+                            selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            match header.visibility:
+                                SelfhostModuleDeclarationVisibility::Public:
+                                    selfhost_memo_trait_public_impl_scanner_process_public_impl_result state records public_ordinal
+                                SelfhostModuleDeclarationVisibility::Private:
+                                    Result::Ok state
+        Option::None:
+            selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationHeaderMissing public_ordinal
+
+//: selfhost_memo_trait_public_impl_scanner_item_public_ordinal: item が public declaration なら次 ordinal を[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_item_public_ordinal %fn SelfhostModuleItem fn i32 i32 \item\public_ordinal:
+    match item.declaration:
+        Option::Some header:
+            match header.visibility:
+                SelfhostModuleDeclarationVisibility::Public:
+                    add public_ordinal 1
+                SelfhostModuleDeclarationVisibility::Private:
+                    public_ordinal
+        Option::None:
+            public_ordinal
+
+//: selfhost_memo_trait_public_impl_scanner_scan_item_result: AST item 1 件を[走査/そうさ]する
+fn selfhost_memo_trait_public_impl_scanner_scan_item_result %impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostModuleItem impure fn i32 Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \state\records\item\public_ordinal:
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some expected_kind:
+            let next_public_ordinal %i32 selfhost_memo_trait_public_impl_scanner_item_public_ordinal item public_ordinal
+            selfhost_memo_trait_public_impl_scanner_scan_declaration_result state records item expected_kind next_public_ordinal
+        Option::None:
+            Result::Ok state
+
+//: selfhost_memo_trait_public_impl_scanner_scan_loop: AST item stream と resolver record を[照合/しょうごう]する
+fn selfhost_memo_trait_public_impl_scanner_scan_loop %impure fn &SelfhostModuleAst impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \ast\records\state\idx\n\public_ordinal:
+    if:
+        ge idx n
+        then:
+            Result::Ok state
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    let next_public_ordinal %i32 selfhost_memo_trait_public_impl_scanner_item_public_ordinal item public_ordinal
+                    match selfhost_memo_trait_public_impl_scanner_scan_item_result state records item public_ordinal:
+                        Result::Ok next_state:
+                            selfhost_memo_trait_public_impl_scanner_scan_loop ast records next_state add idx 1 n next_public_ordinal
+                        Result::Err scan_error:
+                            Result::Err scan_error
+                Option::None:
+                    selfhost_memo_trait_public_impl_scanner_reject_with_state state SelfhostMemoTraitPublicImplScannerErrorKind::AstItemUnavailable idx
+
+//: selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop: AST に public impl ordinal があるか[調/しら]べる
+fn selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop %fn &SelfhostModuleAst fn i32 fn i32 fn i32 fn i32 bool \ast\target_ordinal\idx\n\public_ordinal:
+    if:
+        ge idx n
+        then:
+            false
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    let next_public_ordinal %i32 selfhost_memo_trait_public_impl_scanner_item_public_ordinal item public_ordinal
+                    match item.declaration:
+                        Option::Some header:
+                            match header.visibility:
+                                SelfhostModuleDeclarationVisibility::Public:
+                                    match header.kind:
+                                        SelfhostModuleDeclarationKind::Impl:
+                                            if:
+                                                eq next_public_ordinal target_ordinal
+                                                then:
+                                                    true
+                                                else:
+                                                    selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                                        SelfhostModuleDeclarationKind::Function:
+                                            selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                                        SelfhostModuleDeclarationKind::Struct:
+                                            selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                                        SelfhostModuleDeclarationKind::Enum:
+                                            selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                                        SelfhostModuleDeclarationKind::Trait:
+                                            selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                                SelfhostModuleDeclarationVisibility::Private:
+                                    selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                        Option::None:
+                            selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast target_ordinal add idx 1 n next_public_ordinal
+                Option::None:
+                    false
+
+//: selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists: public impl ordinal が存在するか[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists %fn &SelfhostModuleAst fn i32 bool \ast\ordinal:
+    selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists_loop ast ordinal 0 selfhost_module_ast_len ast 0
+
+//: selfhost_memo_trait_public_impl_scanner_record_ordinal_or_zero: record の ordinal を unmatched 検査用に[取/と]る
+fn selfhost_memo_trait_public_impl_scanner_record_ordinal_or_zero %fn SelfhostMemoTraitPublicImplScannerResolverRecord i32 \record:
+    match record.declaration_ordinal:
+        Option::Some ordinal:
+            ordinal
+        Option::None:
+            0
+
+//: selfhost_memo_trait_public_impl_scanner_public_impl_record_alignment_result: public impl ordinal に typed record が 1 件だけあるか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - header validation や operation materialization の前に、AST public impl と resolver record table の対応関係だけを検査します。
+//: - ここでは record payload の semantic 妥当性を見ず、missing / duplicate / unmatched のうち public impl 側から見える missing / duplicate だけを返します。
+fn selfhost_memo_trait_public_impl_scanner_public_impl_record_alignment_result %fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn i32 Result unit SelfhostMemoTraitPublicImplScannerErrorKind \records\ordinal:
+    match selfhost_memo_trait_public_impl_scanner_find_record_result records ordinal:
+        Result::Ok _record:
+            Result::Ok unit
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_alignment_declaration_result: declaration header と resolver record alignment を preflight する
+fn selfhost_memo_trait_public_impl_scanner_alignment_declaration_result %fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn SelfhostModuleItem fn SelfhostModuleDeclarationKind fn i32 Result unit SelfhostMemoTraitPublicImplScannerErrorKind \records\item\expected_kind\public_ordinal:
+    match item.declaration:
+        Option::Some header:
+            match header.kind:
+                SelfhostModuleDeclarationKind::Function:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Function
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok unit
+                SelfhostModuleDeclarationKind::Struct:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Struct
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok unit
+                SelfhostModuleDeclarationKind::Enum:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Enum
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok unit
+                SelfhostModuleDeclarationKind::Trait:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Trait
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            Result::Ok unit
+                SelfhostModuleDeclarationKind::Impl:
+                    if:
+                        not selfhost_memo_trait_public_impl_scanner_declaration_kind_eq expected_kind SelfhostModuleDeclarationKind::Impl
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch public_ordinal
+                        else:
+                            match header.visibility:
+                                SelfhostModuleDeclarationVisibility::Public:
+                                    selfhost_memo_trait_public_impl_scanner_public_impl_record_alignment_result records public_ordinal
+                                SelfhostModuleDeclarationVisibility::Private:
+                                    Result::Ok unit
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationHeaderMissing public_ordinal
+
+//: selfhost_memo_trait_public_impl_scanner_alignment_scan_item_result: AST item 1 件の対応関係を preflight する
+fn selfhost_memo_trait_public_impl_scanner_alignment_scan_item_result %fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn SelfhostModuleItem fn i32 Result unit SelfhostMemoTraitPublicImplScannerErrorKind \records\item\public_ordinal:
+    match selfhost_module_item_kind_declaration item.kind:
+        Option::Some expected_kind:
+            let next_public_ordinal %i32 selfhost_memo_trait_public_impl_scanner_item_public_ordinal item public_ordinal
+            selfhost_memo_trait_public_impl_scanner_alignment_declaration_result records item expected_kind next_public_ordinal
+        Option::None:
+            Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_scanner_alignment_scan_loop: public impl 側の missing / duplicate を module 全体で preflight する
+fn selfhost_memo_trait_public_impl_scanner_alignment_scan_loop %fn &SelfhostModuleAst fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn i32 fn i32 fn i32 Result unit SelfhostMemoTraitPublicImplScannerErrorKind \ast\records\idx\n\public_ordinal:
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_module_ast_get ast idx:
+                Option::Some item:
+                    let next_public_ordinal %i32 selfhost_memo_trait_public_impl_scanner_item_public_ordinal item public_ordinal
+                    match selfhost_memo_trait_public_impl_scanner_alignment_scan_item_result records item public_ordinal:
+                        Result::Ok _unit:
+                            selfhost_memo_trait_public_impl_scanner_alignment_scan_loop ast records add idx 1 n next_public_ordinal
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::AstItemUnavailable idx
+
+//: selfhost_memo_trait_public_impl_scanner_unmatched_loop: public impl に対応しない余剰 resolver record を preflight で[拒否/きょひ]する
+fn selfhost_memo_trait_public_impl_scanner_unmatched_loop %fn &SelfhostModuleAst fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable fn i32 fn i32 Result unit SelfhostMemoTraitPublicImplScannerErrorKind \ast\records\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            let source_records %&Vec SelfhostMemoTraitPublicImplScannerResolverRecord field::get_ref records "records"
+            match v::get source_records idx:
+                Option::Some record:
+                    let ordinal %i32 selfhost_memo_trait_public_impl_scanner_record_ordinal_or_zero record
+                    if:
+                        selfhost_memo_trait_public_impl_scanner_public_impl_ordinal_exists ast ordinal
+                        then:
+                            selfhost_memo_trait_public_impl_scanner_unmatched_loop ast records add idx 1 n
+                        else:
+                            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched ordinal
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched 0
+
+//: selfhost_memo_trait_public_impl_scanner_alignment_result: output owner を[作/つく]る前に bijective ordinal alignment を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - public impl ごとの missing / duplicate と、record table 側の unmatched を header validation より先に検査します。
+//: - mixed-invalid input では、まず対応関係が module 全体として成立しているかを報告し、その後に個々の header producer rejection へ進みます。
+fn selfhost_memo_trait_public_impl_scanner_alignment_result %fn &SelfhostModuleAst fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable Result unit SelfhostMemoTraitPublicImplScannerErrorKind \ast\records:
+    match selfhost_memo_trait_public_impl_scanner_alignment_scan_loop ast records 0 selfhost_module_ast_len ast 0:
+        Result::Ok _unit:
+            selfhost_memo_trait_public_impl_scanner_unmatched_loop ast records 0 selfhost_memo_trait_public_impl_scanner_resolver_record_table_len records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_result: AST と resolver record table を[照合/しょうごう]し output owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `ast` と `records` は borrow です。この関数は閉じません。
+//: - success の場合だけ caller が output owner を受け取ります。
+//: - failure の場合、内部で作った partial output owner はこの module が閉じます。
+//: - output owner を作る前に module 全体の ordinal alignment を検査し、余剰 resolver record と invalid header が混在する場合も alignment error を先に返します。
+pub fn selfhost_memo_trait_public_impl_scanner_result %impure fn &SelfhostModuleAst impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind \ast\records:
+    match selfhost_memo_trait_public_impl_scanner_alignment_result ast records:
+        Result::Ok _unit:
+            match selfhost_memo_trait_public_impl_scanner_output_new_result:
+                Result::Ok state0:
+                    selfhost_memo_trait_public_impl_scanner_scan_loop ast records state0 0 selfhost_module_ast_len ast 0
+                Result::Err setup_error:
+                    Result::Err setup_error
+        Result::Err alignment_error:
+            Result::Err alignment_error
+
+//: selfhost_memo_trait_public_impl_scanner_error_code: error kind を doctest 用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_scanner_error_code %fn SelfhostMemoTraitPublicImplScannerErrorKind SelfhostMemoTraitPublicImplScannerErrorKindCode \error:
+    match error:
+        SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordMissing _ordinal:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing
+        SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordDuplicate _ordinal:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate
+        SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched _ordinal:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched
+        SelfhostMemoTraitPublicImplScannerErrorKind::HeaderRejected _header:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected
+        SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed _alloc:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordPushFailed _push:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordTableAllocFailed _alloc:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationVectorAllocFailed _alloc:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordPushRejected _operation:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationPushFailed _push:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::AstItemUnavailable _idx:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationHeaderMissing _idx:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+        SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch _idx:
+            SelfhostMemoTraitPublicImplScannerErrorKindCode::Other
+
+//: selfhost_memo_trait_public_impl_scanner_error_ordinal: ordinal payload を[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_error_ordinal %fn SelfhostMemoTraitPublicImplScannerErrorKind i32 \error:
+    match error:
+        SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordMissing ordinal:
+            ordinal
+        SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordDuplicate ordinal:
+            ordinal
+        SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched ordinal:
+            ordinal
+        SelfhostMemoTraitPublicImplScannerErrorKind::AstItemUnavailable idx:
+            idx
+        SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationHeaderMissing idx:
+            idx
+        SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch idx:
+            idx
+        SelfhostMemoTraitPublicImplScannerErrorKind::HeaderRejected _header:
+            0
+        SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed _alloc:
+            0
+        SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordPushFailed _push:
+            0
+        SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordTableAllocFailed _alloc:
+            0
+        SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationVectorAllocFailed _alloc:
+            0
+        SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordPushRejected _operation:
+            0
+        SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationPushFailed _push:
+            0
+
+//: selfhost_memo_trait_public_impl_scanner_error_kind_code_eq: error code が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_error_kind_code_eq %fn SelfhostMemoTraitPublicImplScannerErrorKindCode fn SelfhostMemoTraitPublicImplScannerErrorKindCode bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing:
+            match b:
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing:
+                    true
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::Other:
+                    false
+        SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate:
+            match b:
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate:
+                    true
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::Other:
+                    false
+        SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched:
+            match b:
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched:
+                    true
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::Other:
+                    false
+        SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected:
+            match b:
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected:
+                    true
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::Other:
+                    false
+        SelfhostMemoTraitPublicImplScannerErrorKindCode::Other:
+            match b:
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordMissing:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordDuplicate:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::TypedRecordUnmatched:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::HeaderRejected:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKindCode::Other:
+                    true
+
+//: selfhost_memo_trait_public_impl_scanner_error_ordinal_eq: result error が期待 code / ordinal か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_error_ordinal_eq %fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind fn SelfhostMemoTraitPublicImplScannerErrorKindCode fn i32 bool \result\expected_code\expected_ordinal:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            and:
+                selfhost_memo_trait_public_impl_scanner_error_kind_code_eq selfhost_memo_trait_public_impl_scanner_error_code error expected_code
+                eq selfhost_memo_trait_public_impl_scanner_error_ordinal error expected_ordinal
+
+//: selfhost_memo_trait_public_impl_scanner_error_header_eq: result error が header rejection か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_error_header_eq %fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind fn SelfhostMemoTraitPublicImplHeaderErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitPublicImplScannerErrorKind::HeaderRejected header_error:
+                    selfhost_memo_trait_public_impl_header_error_kind_eq header_error expected
+                SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordPushFailed _push:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationVectorAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::OperationRecordPushRejected _operation:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::PublicDeclarationPushFailed _push:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::AstItemUnavailable _idx:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationHeaderMissing _idx:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::DeclarationKindMismatch _idx:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordMissing _ordinal:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordDuplicate _ordinal:
+                    false
+                SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched _ordinal:
+                    false
+
+//: selfhost_memo_trait_public_impl_scanner_accepted_len_eq: accepted summary の output 数が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_accepted_len_eq %fn Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind fn i32 fn i32 bool \result\expected_operations\expected_declarations:
+    match result:
+        Result::Ok summary:
+            and eq summary.operation_record_len expected_operations eq summary.public_declaration_len expected_declarations
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_scanner_accepted_public_ordinal_eq: accepted summary の public impl ordinal が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_accepted_public_ordinal_eq %fn Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok summary:
+            eq summary.public_impl_ordinal expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_scanner_accepted_method_root_present: method root が output record に運ばれたか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_scanner_accepted_method_root_present %fn Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind bool \result:
+    match result:
+        Result::Ok summary:
+            summary.method_root_present
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind fn Result i32 SelfhostMemoTraitPublicImplScannerErrorKind SelfhostMemoTraitPublicImplScannerStage0Summary \accepted\missing_typed_record\duplicate_typed_record\unmatched_typed_record\inherent_rejected\mixed_alignment_first:
+    SelfhostMemoTraitPublicImplScannerStage0Summary accepted missing_typed_record duplicate_typed_record unmatched_typed_record inherent_rejected mixed_alignment_first
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_span: stage0 用 span を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_span %fn i32 SelfhostSourceSpan \start:
+    source_span_new_unchecked 0 start add start 1
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_item: stage0 用 declaration item を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_item %fn SelfhostModuleItemKind fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn i32 SelfhostModuleItem \item_kind\decl_kind\visibility\start:
+    let span %SelfhostSourceSpan selfhost_memo_trait_public_impl_scanner_stage0_span start
+    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new decl_kind visibility span span none selfhost_syntax_range_empty selfhost_syntax_range_empty
+    selfhost_module_item_new_with_declaration item_kind "decl" header
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_ast_push: stage0 AST へ item を[追加/ついか]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_ast_push %impure fn SelfhostModuleAst impure fn SelfhostModuleItem Result SelfhostModuleAst SelfhostMemoTraitPublicImplScannerErrorKind \ast\item:
+    match selfhost_module_ast_push ast item:
+        Result::Ok next_ast:
+            Result::Ok next_ast
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_ast_result: public function / private impl / public impl を持つ AST を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_ast_result %impure fn void Result SelfhostModuleAst SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            let function_item %SelfhostModuleItem selfhost_memo_trait_public_impl_scanner_stage0_item SelfhostModuleItemKind::FunctionDecl SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Public 10
+            match selfhost_memo_trait_public_impl_scanner_stage0_ast_push ast0 function_item:
+                Result::Ok ast1:
+                    let private_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_scanner_stage0_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Private 20
+                    match selfhost_memo_trait_public_impl_scanner_stage0_ast_push ast1 private_impl:
+                        Result::Ok ast2:
+                            let public_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_scanner_stage0_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public 30
+                            selfhost_memo_trait_public_impl_scanner_stage0_ast_push ast2 public_impl
+                        Result::Err private_error:
+                            Result::Err private_error
+                Result::Err function_error:
+                    Result::Err function_error
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_no_public_impl_ast_result: public impl を[含/ふく]まない AST を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - unmatched typed record path では「public impl に対する record 欠落」と「public impl ではない ordinal に向いた record」を分離して検査します。
+//: - public function は public declaration ordinal を消費しますが public impl ではないため、resolver record がそこを指した場合は `TypedRecordUnmatched` になります。
+//: - private impl は scanner が public ordinal を消費しないことを同時に確認します。
+fn selfhost_memo_trait_public_impl_scanner_stage0_no_public_impl_ast_result %impure fn void Result SelfhostModuleAst SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            let function_item %SelfhostModuleItem selfhost_memo_trait_public_impl_scanner_stage0_item SelfhostModuleItemKind::FunctionDecl SelfhostModuleDeclarationKind::Function SelfhostModuleDeclarationVisibility::Public 50
+            match selfhost_memo_trait_public_impl_scanner_stage0_ast_push ast0 function_item:
+                Result::Ok ast1:
+                    let private_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_scanner_stage0_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Private 60
+                    selfhost_memo_trait_public_impl_scanner_stage0_ast_push ast1 private_impl
+                Result::Err function_error:
+                    Result::Err function_error
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_single_impl_ast_result: public impl だけを持つ AST を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_single_impl_ast_result %impure fn void Result SelfhostModuleAst SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            let public_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_scanner_stage0_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public 40
+            selfhost_memo_trait_public_impl_scanner_stage0_ast_push ast0 public_impl
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_empty_record_table_result: stage0 用 resolver table を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_empty_record_table_result %impure fn void Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_memo_trait_public_impl_scanner_resolver_record_table_new:
+        Result::Ok table:
+            Result::Ok table
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_record: stage0 resolver record を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn SelfhostMemoTraitPublicImplHeaderKind fn i32 fn Option SelfhostHirExprId SelfhostMemoTraitPublicImplScannerResolverRecord \type_id\source\ordinal\impl_kind\type_parameter_count\method_body_root:
+    selfhost_memo_trait_public_impl_scanner_resolver_record_new type_id 880101 some ordinal SelfhostModuleDeclarationVisibility::Public impl_kind some 880201 source 0 some 880301 type_parameter_count 0 method_body_root 16
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_push_record: stage0 table へ resolver record を[追加/ついか]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_push_record %impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn SelfhostMemoTraitPublicImplHeaderKind impure fn i32 impure fn Option SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplScannerErrorKind \table\type_id\source\ordinal\impl_kind\type_parameter_count\method_body_root:
+    let record %SelfhostMemoTraitPublicImplScannerResolverRecord selfhost_memo_trait_public_impl_scanner_stage0_record type_id source ordinal impl_kind type_parameter_count method_body_root
+    selfhost_memo_trait_public_impl_scanner_resolver_record_table_push table record
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_record_table_result: stage0 resolver table を 1 件で[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_record_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn SelfhostMemoTraitPublicImplHeaderKind impure fn i32 impure fn Option SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplScannerErrorKind \type_id\source\ordinal\impl_kind\type_parameter_count\method_body_root:
+    match selfhost_memo_trait_public_impl_scanner_stage0_empty_record_table_result:
+        Result::Ok table0:
+            selfhost_memo_trait_public_impl_scanner_stage0_push_record table0 type_id source ordinal impl_kind type_parameter_count method_body_root
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_duplicate_record_table_result: duplicate resolver table を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_duplicate_record_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplScannerErrorKind \type_id\source:
+    match selfhost_memo_trait_public_impl_scanner_stage0_record_table_result type_id source 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl 0 none:
+        Result::Ok table1:
+            selfhost_memo_trait_public_impl_scanner_stage0_push_record table1 type_id source 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl 0 none
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_mixed_record_table_result: alignment と header rejection が[混在/こんざい]する table を[作/つく]る
+fn selfhost_memo_trait_public_impl_scanner_stage0_mixed_record_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplScannerErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_scanner_stage0_record_table_result type_id registry.copy_source 1 SelfhostMemoTraitPublicImplHeaderKind::InherentImpl 0 none:
+        Result::Ok table1:
+            selfhost_memo_trait_public_impl_scanner_stage0_push_record table1 type_id registry.eq_source 2 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl 0 none
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_summary_from_output: output owner を閉じて accepted summary を[返/かえ]す
+fn selfhost_memo_trait_public_impl_scanner_stage0_summary_from_output %impure fn SelfhostMemoTraitPublicImplScannerOutput impure fn i32 impure fn bool SelfhostMemoTraitPublicImplScannerAcceptedSummary \output\ordinal\method_root_present:
+    let operation_len %i32 selfhost_memo_trait_public_impl_scanner_output_operation_len &output
+    let declaration_len %i32 selfhost_memo_trait_public_impl_scanner_output_declaration_len &output
+    selfhost_memo_trait_public_impl_scanner_output_free output
+    SelfhostMemoTraitPublicImplScannerAcceptedSummary operation_len declaration_len ordinal method_root_present
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_run_owned: AST / record owner を閉じながら scanner を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_run_owned %impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn i32 impure fn bool Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind \ast\records\ordinal\method_root_present:
+    let result %Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_result &ast &records
+    match result:
+        Result::Ok output:
+            let summary %SelfhostMemoTraitPublicImplScannerAcceptedSummary selfhost_memo_trait_public_impl_scanner_stage0_summary_from_output output ordinal method_root_present
+            selfhost_memo_trait_public_impl_scanner_resolver_record_table_free records
+            selfhost_module_ast_free ast
+            Result::Ok summary
+        Result::Err e:
+            selfhost_memo_trait_public_impl_scanner_resolver_record_table_free records
+            selfhost_module_ast_free ast
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned: AST / record owner を閉じながら error path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned %impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable Result i32 SelfhostMemoTraitPublicImplScannerErrorKind \ast\records:
+    let result %Result SelfhostMemoTraitPublicImplScannerOutput SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_result &ast &records
+    match result:
+        Result::Ok output:
+            let operation_len %i32 selfhost_memo_trait_public_impl_scanner_output_operation_len &output
+            selfhost_memo_trait_public_impl_scanner_output_free output
+            selfhost_memo_trait_public_impl_scanner_resolver_record_table_free records
+            selfhost_module_ast_free ast
+            Result::Ok operation_len
+        Result::Err e:
+            selfhost_memo_trait_public_impl_scanner_resolver_record_table_free records
+            selfhost_module_ast_free ast
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_accepted: accepted public impl path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_accepted %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind \type_id\registry\root:
+    match selfhost_memo_trait_public_impl_scanner_stage0_ast_result:
+        Result::Ok ast:
+            match selfhost_memo_trait_public_impl_scanner_stage0_record_table_result type_id registry.eq_source 2 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl 0 some root:
+                Result::Ok records:
+                    selfhost_memo_trait_public_impl_scanner_stage0_run_owned ast records 2 true
+                Result::Err e:
+                    selfhost_module_ast_free ast
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_missing: missing typed record path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_missing %impure fn void Result i32 SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_memo_trait_public_impl_scanner_stage0_single_impl_ast_result:
+        Result::Ok ast:
+            match selfhost_memo_trait_public_impl_scanner_stage0_empty_record_table_result:
+                Result::Ok records:
+                    selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned ast records
+                Result::Err e:
+                    selfhost_module_ast_free ast
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_duplicate: duplicate typed record path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_duplicate %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result i32 SelfhostMemoTraitPublicImplScannerErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_scanner_stage0_single_impl_ast_result:
+        Result::Ok ast:
+            match selfhost_memo_trait_public_impl_scanner_stage0_duplicate_record_table_result type_id registry.copy_source:
+                Result::Ok records:
+                    selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned ast records
+                Result::Err e:
+                    selfhost_module_ast_free ast
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_unmatched: unmatched typed record path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_unmatched %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result i32 SelfhostMemoTraitPublicImplScannerErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_scanner_stage0_no_public_impl_ast_result:
+        Result::Ok ast:
+            match selfhost_memo_trait_public_impl_scanner_stage0_record_table_result type_id registry.copy_source 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl 0 none:
+                Result::Ok records:
+                    selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned ast records
+                Result::Err e:
+                    selfhost_module_ast_free ast
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_inherent: header producer rejection path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_inherent %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result i32 SelfhostMemoTraitPublicImplScannerErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_scanner_stage0_single_impl_ast_result:
+        Result::Ok ast:
+            match selfhost_memo_trait_public_impl_scanner_stage0_record_table_result type_id registry.copy_source 1 SelfhostMemoTraitPublicImplHeaderKind::InherentImpl 0 none:
+                Result::Ok records:
+                    selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned ast records
+                Result::Err e:
+                    selfhost_module_ast_free ast
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_mixed_alignment_first: mixed-invalid path で alignment error が先に[返/かえ]ることを[確認/かくにん]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_mixed_alignment_first %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result i32 SelfhostMemoTraitPublicImplScannerErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_scanner_stage0_single_impl_ast_result:
+        Result::Ok ast:
+            match selfhost_memo_trait_public_impl_scanner_stage0_mixed_record_table_result type_id registry:
+                Result::Ok records:
+                    selfhost_memo_trait_public_impl_scanner_stage0_run_len_owned ast records
+                Result::Err e:
+                    selfhost_module_ast_free ast
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_scanner_stage0_with_registry: trusted registry を受け取って smoke を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_scanner_stage0_with_registry %impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result SelfhostMemoTraitPublicImplScannerStage0Summary SelfhostMemoTraitPublicImplScannerErrorKind \registry:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9901
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 1
+    let accepted %Result SelfhostMemoTraitPublicImplScannerAcceptedSummary SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_stage0_accepted type_id registry root
+    let missing %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_stage0_missing
+    let duplicate %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_stage0_duplicate type_id registry
+    let unmatched %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_stage0_unmatched type_id registry
+    let inherent %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_stage0_inherent type_id registry
+    let mixed %Result i32 SelfhostMemoTraitPublicImplScannerErrorKind selfhost_memo_trait_public_impl_scanner_stage0_mixed_alignment_first type_id registry
+    Result::Ok selfhost_memo_trait_public_impl_scanner_stage0_summary_new accepted missing duplicate unmatched inherent mixed
+
+//: selfhost_memo_trait_public_impl_scanner_stage0: scanner boundary の smoke API
+pub fn selfhost_memo_trait_public_impl_scanner_stage0 %impure fn void Result SelfhostMemoTraitPublicImplScannerStage0Summary SelfhostMemoTraitPublicImplScannerErrorKind \void:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            selfhost_memo_trait_public_impl_scanner_stage0_with_registry registry
+        Result::Err _registry_error:
+            Result::Err SelfhostMemoTraitPublicImplScannerErrorKind::TypedRecordUnmatched 0

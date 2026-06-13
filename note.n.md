@@ -60025,3 +60025,47 @@ MERGE_APPROVED
 
 - actual AST / typed HIR public impl scanner と full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保てるため後続最適化として扱う。
+
+## 2026-06-14 selfhost public impl scanner checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、静的検査、Result / Option / enum error、責務分割、純粋性、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針、line count / doc comment length cap 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl` を追加した。
+- public `ImplDecl` と resolver-owned typed public impl record を 1-origin public declaration ordinal で照合する checker-layer boundary とした。
+- AST 側は public declaration item の存在、visibility、declaration kind、ordinal だけを authority とする。target type、trait application、operation trait source、method body root、fuel は resolver record から受け取り、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、HIR traversal から復元しない。
+- accepted path では `memo_trait_public_impl_header` を通して public surface normalizer 用 declaration evidence を作り、同じ typed record を operation public impl materializer record へ写す。operation kind は scanner では確定せず、既存 materializer / classifier に委譲する。
+- `TypedRecordMissing`、`TypedRecordDuplicate`、`TypedRecordUnmatched`、`HeaderRejected`、AST alignment error、owner setup / push error を typed enum として分けた。
+- stage0 unmatched fixture は、public impl の record 欠落と余剰 record を混ぜないよう public function + private impl だけの AST に resolver record を向ける形へ分離した。
+- `nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、public impl scanner boundary 接続済みと次の full public surface composer 残件を整理した。
+
+### subagent_review
+
+- Ampere pre-review: AST / HIR だけでは semantic authority が足りないため、source text や HIR scan から意味を復元せず、public `ImplDecl` と resolver-owned typed record を public declaration ordinal で照合する facade-private boundary を先に置くべきと指摘した。
+- 対応として、この slice は AST alignment と typed record transport だけに限定し、operation classification、method body checking、Drop proof、Resource IR proof、backend artifact、proof store には触れない設計にした。
+- Copernicus implementation review: Blocker はなかったが、mixed-invalid table で余剰 resolver record と invalid header が同時にある場合の error priority が未固定であり、現実装では header rejection が unmatched より先に返り得ることを Medium finding として指摘した。
+- 対応として、output owner allocation / header validation より前に `selfhost_memo_trait_public_impl_scanner_alignment_result` を実行し、module-wide ordinal alignment を先に検査する方針へ変更した。stage0 に `mixed_alignment_first` regression を追加し、public impl ordinal 1 の header が `InherentImpl` で invalid、かつ surplus record ordinal 2 がある場合に `TypedRecordUnmatched 2` を返すことを固定した。
+- Copernicus re-review: Approve。`selfhost_memo_trait_public_impl_scanner_result` が `alignment_result` を先に呼び、output owner allocation と header validation の前に missing / duplicate / unmatched を確定するため、前回 finding は解消されたと確認された。新しい preflight は owner を作らないため、失敗時 cleanup の責務も増えていない。残リスクは preflight が O(n*m) のままであり、後続の ordinal bucket / index 化で今回固定した error priority を崩さないことである。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl -o tmp/selfhost-public-impl-scanner.json --no-tree -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した public impl scanner contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+### residual
+
+- scanner output を full public surface composer へ接続して complete public surface state を作る orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- public impl record lookup の ordinal index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した association / owner / error contract を保てるため後続最適化として扱う。

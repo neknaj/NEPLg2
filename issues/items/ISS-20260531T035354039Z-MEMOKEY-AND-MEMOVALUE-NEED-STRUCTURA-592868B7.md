@@ -213,6 +213,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materi
 
 この checkpoint 後の残件は、actual AST / typed HIR public impl scanner と full public surface materialization、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 selfhost public impl scanner checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl` を追加し、public `ImplDecl` と resolver-owned typed public impl record を public declaration ordinal で照合する checker-layer boundary を作った。
+
+この scanner は AST から target type、trait application、operation trait source、method body root を復元しない。AST 側は public declaration item の存在、visibility、declaration kind、1-origin public declaration ordinal だけを authority とし、semantic payload は resolver / lowering stage が渡す `SelfhostMemoTraitPublicImplScannerResolverRecord` から受け取る。
+
+accepted path では `memo_trait_public_impl_header` へ header input を渡して public surface normalizer 用 declaration evidence を作り、同じ typed record を operation public impl materializer record へ写す。operation kind は scanner では確定せず、既存 materializer / classifier boundary に委譲する。
+
+`TypedRecordMissing`、`TypedRecordDuplicate`、`TypedRecordUnmatched`、`HeaderRejected`、AST alignment error、owner setup / push error を typed enum として分けた。module 全体の ordinal alignment は output owner allocation と header validation より先に preflight する。stage0 では accepted、missing、duplicate、unmatched、inherent header rejection を実行し、unmatched fixture は public impl record 欠落と混ざらないよう public function + private impl の AST に resolver record を向ける。さらに invalid header と surplus record が混在する table では `TypedRecordUnmatched` を先に返す mixed priority regression を追加した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js` で固定し、source policy runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、token seed scan の public impl unsupported 維持、Resource IR / backend / proof store / candidate builder / evidence producer / purity gate / method body / Drop resolver import 禁止、source-derived authority 禁止、line count / doc comment length cap 禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl -o tmp/selfhost-public-impl-scanner.json --no-tree -j 1 --dist web/dist --assert-io`
+
+この checkpoint 後の残件は、scanner output を full public surface composer へ接続して complete public surface state を作る orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。public impl record lookup の ordinal index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した association / owner / error contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。
