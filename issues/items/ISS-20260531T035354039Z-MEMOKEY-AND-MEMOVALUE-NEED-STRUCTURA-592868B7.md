@@ -444,6 +444,31 @@ subagent review では Anscombe が Blocker なしとしつつ、first-wins 禁�
 
 残件は、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact との接続である。
 
+## 2026-06-13 selfhost operation purity gate checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl` を追加し、method body / Drop 実装の typed effect fact から `SelfhostMemoTraitOperationMethodBodyEvidence` と `SelfhostMemoTraitOperationDropEvidence` を作る checker-layer gate を接続した。
+
+この gate は actual method body checker ではなく、すでに得られた `SelfhostEffectKind` と `SelfhostEffectEscapeState` を operation evidence producer が読む evidence enum へ写す境界である。`InternalAlloc` は `NoEscapeProven` がある場合だけ pure evidence へ畳み、`MayEscape` は impure、`NotApplicable` は unknown として扱う。`UnsafeMemory` / `ExternalIo` / `Nondet` は impure であり、private cache masking や trusted unsafe boundary を推測しない。
+
+operation 別 matrix は typed error で固定した。`Eq` / `Hash` は method body evidence を必要とし、`Copy` / `Drop` に method body fact が渡された場合は `UnexpectedMethodBodyEvidence` で拒否する。`Drop` は Drop evidence を必要とし、`Copy` / `Eq` / `Hash` に Drop fact が渡された場合は `UnexpectedDropEvidence` で拒否する。`Missing` / `Unknown` / `Impure` は producer error に潰さず、後続 solver が読む status として残す。
+
+`memo_trait_operation_impl_table.nepl` には `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を追加し、full orchestration が typed effect fact から candidate を作る場合に purity gate を必ず通るようにした。source policy は facade 非公開、`selfhost_ty_sources.js` 非登録、source/span/lexeme/diagnostic/HIR/Resource/backend/proof-store authority 禁止、InternalAlloc no-escape gate、operation matrix、wildcard arm 禁止、行数・doc comment 長制限禁止を固定する。
+
+subagent review では Anscombe が Blocker なしとしつつ、method body / Drop evidence を producer record へ直結せず producer input に流す境界、Missing / Unknown / Impure の status preservation、Drop 実装なし proof と pure Drop proof の区別、operation 別 matrix、source spelling / diagnostic 非 authority、facade 非公開、line / doccomment length cap 禁止を Required とした。実装では `DropImplAbsent` を上流 resolver の typed fact として扱い、見つからないことを fallback success にしない方針を doc comment と source policy で固定した。実装後レビューでも Blocker / Required はなく、後続 orchestration 実装時に `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を使う contract を維持することが Suggested として残った。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-purity-gate-and-impl-table.json`
+- pass: `node nodesrc/test_selfhost_prototype_design_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加・更新した selfhost memo trait operation purity gate / impl table policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後も、actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked interface artifact 接続は未実装である。
+
 ## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
 
 `memo_trait_operation_evidence.nepl` を追加し、Copy / Drop / Eq / Hash の trait operation evidence を `SelfhostTypeId`、operation kind、`SelfhostMemoTraitAggregateProofStatus` の typed table として運ぶ境界を固定した。

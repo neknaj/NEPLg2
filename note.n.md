@@ -58910,3 +58910,51 @@ MERGE_APPROVED
 
 - method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact 接続は未実装である。
 - operation impl table lookup の sorted index 化は public candidate schema / duplicate fail-closed / classifier-producer 経由 contract を変えずに後から行える最適化として扱う。
+
+## 2026-06-13 selfhost memo trait operation purity gate checkpoint
+
+### scope
+
+- branch: `work/selfhost-operation-method-purity`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、enum / struct / Result による静的検査、純粋性と内部 effect の分離、source authority の排除、DAG、丁寧な doc comment、試作段階でも暫定設計を残さない方針を優先した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl` を追加した。
+- `SelfhostMemoTraitOperationMethodBodyCheck` と `SelfhostMemoTraitOperationDropCheck` は、上流 checker / resolver が作った typed effect fact と escape fact を受け取る checker-layer input である。
+- `SelfhostEffectKind::Pure` は method body evidence の `Pure` または Drop evidence の `PureDrop` に写す。
+- `SelfhostEffectKind::InternalAlloc` は `NoEscapeProven` がある場合だけ pure evidence に畳み、`MayEscape` は `Impure` / `ImpureDrop`、`NotApplicable` は `Unknown` とした。
+- `UnsafeMemory`、`ExternalIo`、`Nondet` は `Impure` / `ImpureDrop` とし、private cache masking や trusted unsafe boundary をこの gate では推測しない。
+- `Eq` / `Hash` は method body evidence を必須とし、`Copy` / `Drop` に method body fact が渡された場合は `UnexpectedMethodBodyEvidence` で拒否する。
+- `Drop` は Drop evidence を必須とし、`Copy` / `Eq` / `Hash` に Drop fact が渡された場合は `UnexpectedDropEvidence` で拒否する。
+- `DropImplAbsent` は Drop 実装が存在しないことを上流 resolver が確認した typed fact であり、単なる lookup miss を success にする fallback ではない。
+- `Missing` / `Unknown` / `Impure` は producer error へ潰さず、operation evidence producer / solver が読む status として残す。
+- `memo_trait_operation_impl_table.nepl` には `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を追加し、full orchestration が typed check fact から candidate を作る場合に purity gate を必ず通る入口を用意した。
+- `nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js` を追加し、source policy runner に登録した。facade re-export、`nodesrc/selfhost_ty_sources.js` 登録、source text / span / lexeme / display / diagnostic / module path / HIR / Resource IR / backend / proof-store authority、wildcard arm、行数・doc comment 長制限の導入を禁止した。
+- `nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js` を更新し、impl table が purity gate を通して candidate を組み立てる境界を退行検出対象にした。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、operation purity gate を接続済みに移した。
+
+### subagent_review
+
+- Anscombe pre-review: Blocker なし。
+- Required として、operation impl table の候補に入れる method body / Drop evidence だけを作り、operation evidence record を直接作らないこと、Pure / Missing / Impure / Unknown / NotRequired を fail-closed に分類すること、NoDropRequired と PureDrop を区別すること、operation 別 matrix を producer 契約に合わせること、method signature spelling や source text / diagnostic を authority にしないこと、facade 非公開と source policy 固定、line / doccomment length cap 禁止が指摘された。
+- 実装では typed check fact から evidence enum へ写す gate、`DropImplAbsent` typed fact、InternalAlloc no-escape gate、operation 別 matrix、facade 非公開、source policy runner 登録を反映した。
+- Anscombe implementation review: Blocker / Required なし。Suggested として、後続 orchestration 実装時に `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を使う contract を維持すること、追加するなら `UnsafeMemory` / `ExternalIo` / `Nondet` の実行 smoke を増やすことが挙がった。今回の slice では source policy 上の effect mapping と focused doctest で境界を固定し、追加 smoke は後続 checker 実装時の候補として残す。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_purity_gate.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-purity-gate-and-impl-table.json`
+- pass: `node nodesrc/test_selfhost_prototype_design_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_gaps: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加・更新した selfhost memo trait operation purity gate / impl table policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked interface artifact 接続は未実装である。
+- operation impl table lookup の sorted index 化、nested operation fold の重複削減、stage0 fixture の細分化は、今回固定した typed effect fact -> evidence enum contract を変えずに後から行える最適化として扱う。

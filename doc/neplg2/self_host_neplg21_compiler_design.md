@@ -1440,6 +1440,20 @@ candidate は typed public impl header input、typed trait application input、r
 
 現実装の lookup は candidate 数 n に対して O(n) である。これは公開契約ではなく、後で sorted index や operation bucket へ置き換えられる。置換時も typed candidate schema、duplicate fail-closed、classifier / producer 経由、source-derived authority 非使用という契約は変えてはならない。
 
+### 2026-06-13 MemoKey / MemoValue operation purity gate checkpoint
+
+`memo_trait_operation_purity_gate.nepl` を追加し、method body / Drop 実装の typed effect fact を operation evidence producer が読む `SelfhostMemoTraitOperationMethodBodyEvidence` と `SelfhostMemoTraitOperationDropEvidence` へ写す checker-layer 境界を作った。
+
+この gate は、実 method body checker や Drop resolver ではない。入力は `SelfhostEffectKind` と `SelfhostEffectEscapeState` を持つ typed check fact であり、source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record を authority にしない。実際の expression tree 解析、Drop impl 探索、generic binder / bound evidence、private cache effect masking、Resource IR escape proof、full public surface orchestration は後続 stage の責務である。
+
+`SelfhostEffectKind::Pure` は method body evidence の `Pure` または Drop evidence の `PureDrop` へ写す。`InternalAlloc` は `SelfhostEffectEscapeState::NoEscapeProven` の場合だけ pure evidence へ畳み、`MayEscape` は `Impure` / `ImpureDrop`、`NotApplicable` は `Unknown` にする。`UnsafeMemory`、`ExternalIo`、`Nondet` は `Impure` / `ImpureDrop` であり、trusted private boundary や memo cache masking をこの gate が推測しない。
+
+operation 別の matrix もここで固定した。`Eq` / `Hash` は method body evidence を必要とし、`NotRequired` は `MethodBodyEvidenceRequired` として拒否する。`Copy` / `Drop` に method body fact が渡された場合は `UnexpectedMethodBodyEvidence` として拒否する。`Drop` は Drop evidence を必要とし、`NotRequired` は `DropEvidenceRequired` として拒否する。`Copy` / `Eq` / `Hash` に Drop fact が渡された場合は `UnexpectedDropEvidence` として拒否する。`Missing` / `Unknown` / `Impure` は producer error に潰さず、producer / solver へ status として残す。
+
+`memo_trait_operation_impl_table.nepl` には `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を追加し、full orchestration が method / Drop check fact から candidate を作る場合に purity gate を必ず通る入口を用意した。既存の raw candidate constructor は typed evidence を束ねる低層 constructor として残るが、後続 orchestration は check fact から evidence enum を手で組み立てない。
+
+この checkpoint 後の残件は、actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、private cache / private state effect masking、prechecked artifact との接続である。lookup index 化や nested operation fold の重複削減は、今回固定した typed effect fact -> evidence enum の contract を変えずに後から最適化できる。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

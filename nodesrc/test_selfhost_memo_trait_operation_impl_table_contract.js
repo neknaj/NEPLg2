@@ -94,8 +94,9 @@ assertOrdered(
         "#import \"./memo_trait_operation_classifier\" as *",
         "#import \"./memo_trait_operation_evidence_producer\" as *",
         "#import \"./memo_trait_public_impl_header\" as *",
+        "#import \"./memo_trait_operation_purity_gate\" as *",
     ],
-    "impl table must import classifier, producer, and public impl header boundaries in checker-layer direction",
+    "impl table must import classifier, producer, public impl header, and purity gate boundaries in checker-layer direction",
 );
 assert.doesNotMatch(
     code,
@@ -154,6 +155,17 @@ assertOrdered(
         "CandidatePushFailed error",
     ],
     "table push must recover and free the owner Vec returned by a failed push",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_from_checks_result"),
+    [
+        "selfhost_memo_trait_operation_purity_gate_method_body_evidence_result operation method_check",
+        "selfhost_memo_trait_operation_purity_gate_drop_evidence_result operation drop_check",
+        "selfhost_memo_trait_operation_impl_candidate_new type_id operation impl_header trait_application resolved_type_shape_hash method_body drop_evidence",
+        "Result::Err drop_error",
+        "Result::Err method_error",
+    ],
+    "candidate-from-checks entry must pass method and drop facts through the purity gate before constructing an impl candidate",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_impl_candidate_producer_input_result"),

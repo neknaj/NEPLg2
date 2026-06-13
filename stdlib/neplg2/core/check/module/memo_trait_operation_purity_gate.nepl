@@ -1,0 +1,589 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_purity_gate
+//: `MemoKey` / `MemoValue` operation evidence producer へ渡す method body purity evidence と Drop evidence を、typed effect fact から[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `Eq` / `Hash` の method body が外部観測可能な effect を持たないかを、`SelfhostEffectKind` と `SelfhostEffectEscapeState` から判定します。
+//: - `Drop` operation について、Drop 実装が存在しない場合の `NoDropRequired` と、Drop 実装が pure と検査された場合の `PureDrop` を区別します。
+//: - `InternalAlloc` は、`NoEscapeProven` がある場合だけ pure evidence へ畳みます。no-escape 証明なしに `Pure` へ mask しません。
+//: - operation ごとの evidence 必要性をここで確認し、`Copy` / `Drop` に method body evidence を混ぜる退行や、`Eq` / `Hash` に method body evidence を渡さない退行を fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - accepted evidence は typed effect fact と escape fact だけから作ります。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record を authority にしません。
+//: - `SelfhostEffectKind::Pure` は `SelfhostMemoTraitOperationEffectPurityKind::Pure` です。
+//: - `SelfhostEffectKind::InternalAlloc` は `SelfhostEffectEscapeState::NoEscapeProven` の場合だけ `Pure` です。`MayEscape` は `Impure`、`NotApplicable` は `Unknown` として扱います。
+//: - `UnsafeMemory` / `ExternalIo` / `Nondet` は `Impure` です。trusted private memory boundary や private cache masking をここで推測しません。
+//: - method body が必要な `Eq` / `Hash` に `NotRequired` が渡された場合は `MethodBodyEvidenceRequired` です。method body が不要な `Copy` / `Drop` に body fact が渡された場合は `UnexpectedMethodBodyEvidence` です。
+//: - Drop evidence が必要な `Drop` に `NotRequired` が渡された場合は `DropEvidenceRequired` です。Drop evidence が不要な `Copy` / `Eq` / `Hash` に Drop fact が渡された場合は `UnexpectedDropEvidence` です。
+//: - `Missing` / `Unknown` / `Impure` は producer error に潰さず、`SelfhostMemoTraitOperationMethodBodyEvidence` または `SelfhostMemoTraitOperationDropEvidence` の status として後続 solver に渡します。
+//:
+//: [現状/げんじょう]:
+//: - この module は method body / Drop 実装の effect summary がすでに typed fact として得られている前提の gate です。
+//: - actual method body checker、Drop impl resolver、generic impl binder、private cache effect masking、Resource IR escape proof、full public surface orchestration は後続 stage の責務です。
+//: - facade にはまだ re-export しません。operation impl table と full orchestration がこの gate を消費する段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - すべての判定は enum variant の固定個数 match であり、O(1) 時間・O(1) 追加空間です。
+//: - 後続で method body checker が expression tree を読む場合でも、この gate の public contract は typed fact から evidence を作る固定時間境界として維持します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: ##: [8] ok
+//: ##: [9] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_operation_purity_gate_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check selfhost_memo_trait_operation_purity_gate_method_result_eq summary.pure_method SelfhostMemoTraitOperationMethodBodyEvidence::Pure
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_operation_purity_gate_method_result_eq summary.alloc_no_escape_method SelfhostMemoTraitOperationMethodBodyEvidence::Pure
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_operation_purity_gate_method_result_eq summary.alloc_escape_method SelfhostMemoTraitOperationMethodBodyEvidence::Impure
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_operation_purity_gate_method_result_eq summary.missing_method SelfhostMemoTraitOperationMethodBodyEvidence::Missing
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_operation_purity_gate_error_result_eq unwrap_err summary.unexpected_method SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_operation_purity_gate_drop_result_eq summary.no_drop_required SelfhostMemoTraitOperationDropEvidence::NoDropRequired
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_operation_purity_gate_drop_result_eq summary.pure_drop SelfhostMemoTraitOperationDropEvidence::PureDrop
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_operation_purity_gate_drop_result_eq summary.unknown_drop SelfhostMemoTraitOperationDropEvidence::Unknown
+//:     let checks9 checks_push checks8 check selfhost_memo_trait_operation_purity_gate_error_result_eq unwrap_err summary.drop_required SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired
+//:     let checks10 checks_push checks9 check selfhost_memo_trait_operation_purity_gate_error_result_eq unwrap_err summary.unexpected_drop SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence
+//:     let shown checks_print_report checks10
+//:     checks_exit_code shown
+//: ```
+
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+
+//: SelfhostMemoTraitOperationEffectPurityKind: method / Drop body effect の[観測可能/かんそくかのう] purity 分類
+//:
+//: [目的/もくてき]:
+//: - internal effect を method body evidence と Drop evidence の両方へ写せるよう、共通の中間分類を enum として持ちます。
+//:
+//: [契約/けいやく]:
+//: - `Pure` は外部観測可能な effect がないことを表します。
+//: - `Unknown` は必要な no-escape proof などがまだ得られていない状態です。成功扱いにはしません。
+//: - `Impure` は外部観測可能な effect、または escape が確認された internal allocation を表します。
+pub enum SelfhostMemoTraitOperationEffectPurityKind:
+    Pure
+    Unknown
+    Impure
+
+//: SelfhostMemoTraitOperationMethodBodyCheckKind: method body fact の[有無/うむ]と適用対象
+//:
+//: [目的/もくてき]:
+//: - body の有無を bool にせず、present / missing / unknown / not-required を区別します。
+pub enum SelfhostMemoTraitOperationMethodBodyCheckKind:
+    Present
+    Missing
+    Unknown
+    NotRequired
+
+//: SelfhostMemoTraitOperationDropCheckKind: Drop proof fact の[有無/うむ]と適用対象
+//:
+//: [目的/もくてき]:
+//: - Drop 実装が存在しない proof、Drop 実装の body effect、証拠欠落、未判定、operation 上不要な場合を区別します。
+pub enum SelfhostMemoTraitOperationDropCheckKind:
+    DropImplAbsent
+    DropImplPresent
+    Missing
+    Unknown
+    NotRequired
+
+//: SelfhostMemoTraitOperationMethodBodyCheck: method body purity gate の typed input
+//:
+//: [契約/けいやく]:
+//: - `effect` と `escape` は `kind = Present` の場合だけ evidence へ使います。
+//: - `Missing` / `Unknown` / `NotRequired` のとき、effect payload から成功を推測してはいけません。
+pub struct SelfhostMemoTraitOperationMethodBodyCheck:
+    kind %SelfhostMemoTraitOperationMethodBodyCheckKind
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+
+//: SelfhostMemoTraitOperationDropCheck: Drop evidence gate の typed input
+//:
+//: [契約/けいやく]:
+//: - `DropImplAbsent` は Drop 実装がないことを上流 resolver が確認した fact です。
+//: - `DropImplAbsent` は単なる lookup miss を success にする fallback ではありません。
+//: - `DropImplPresent` の場合だけ `effect` と `escape` を読んで `PureDrop` / `ImpureDrop` / `Unknown` へ写します。
+pub struct SelfhostMemoTraitOperationDropCheck:
+    kind %SelfhostMemoTraitOperationDropCheckKind
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+
+//: SelfhostMemoTraitOperationPurityGateErrorKind: purity gate の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - operation と evidence fact の組み合わせが構造的に不正な場合を、producer error へ進める前に typed enum として表します。
+pub enum SelfhostMemoTraitOperationPurityGateErrorKind:
+    MethodBodyEvidenceRequired
+    UnexpectedMethodBodyEvidence
+    DropEvidenceRequired
+    UnexpectedDropEvidence
+
+//: SelfhostMemoTraitOperationPurityGateStage0Summary: purity gate smoke の代表結果
+pub struct SelfhostMemoTraitOperationPurityGateStage0Summary:
+    pure_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    alloc_no_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    alloc_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    missing_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    unexpected_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    no_drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    pure_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    unknown_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+    unexpected_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind
+
+impl Clone for SelfhostMemoTraitOperationEffectPurityKind:
+    fn clone %fn &SelfhostMemoTraitOperationEffectPurityKind SelfhostMemoTraitOperationEffectPurityKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationEffectPurityKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationEffectPurityKind SelfhostMemoTraitOperationEffectPurityKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyCheckKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyCheckKind SelfhostMemoTraitOperationMethodBodyCheckKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyCheckKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyCheckKind SelfhostMemoTraitOperationMethodBodyCheckKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationDropCheckKind:
+    fn clone %fn &SelfhostMemoTraitOperationDropCheckKind SelfhostMemoTraitOperationDropCheckKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationDropCheckKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropCheckKind SelfhostMemoTraitOperationDropCheckKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyCheck:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyCheck \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyCheck:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyCheck \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationDropCheck:
+    fn clone %fn &SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropCheck \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationDropCheck:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropCheck \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationPurityGateErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationPurityGateErrorKind SelfhostMemoTraitOperationPurityGateErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPurityGateErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationPurityGateErrorKind SelfhostMemoTraitOperationPurityGateErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationPurityGateStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationPurityGateStage0Summary SelfhostMemoTraitOperationPurityGateStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationPurityGateStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationPurityGateStage0Summary SelfhostMemoTraitOperationPurityGateStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_check_new: method body check input を[作/つく]る
+pub fn selfhost_memo_trait_operation_method_body_check_new %fn SelfhostMemoTraitOperationMethodBodyCheckKind fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationMethodBodyCheck \kind\effect\escape:
+    SelfhostMemoTraitOperationMethodBodyCheck kind effect escape
+
+//: selfhost_memo_trait_operation_drop_check_new: Drop check input を[作/つく]る
+pub fn selfhost_memo_trait_operation_drop_check_new %fn SelfhostMemoTraitOperationDropCheckKind fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationDropCheck \kind\effect\escape:
+    SelfhostMemoTraitOperationDropCheck kind effect escape
+
+//: selfhost_memo_trait_operation_purity_gate_effect_kind: effect / escape fact を[共通/きょうつう] purity 分類へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `InternalAlloc` は `NoEscapeProven` の場合だけ `Pure` です。
+//: - `MayEscape` は実際に外へ出得る fact なので `Impure` とし、`NotApplicable` は no-escape proof がまだ接続されていない `Unknown` として扱います。
+pub fn selfhost_memo_trait_operation_purity_gate_effect_kind %fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationEffectPurityKind \effect\escape:
+    match effect:
+        SelfhostEffectKind::Pure:
+            SelfhostMemoTraitOperationEffectPurityKind::Pure
+        SelfhostEffectKind::InternalAlloc:
+            match escape:
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    SelfhostMemoTraitOperationEffectPurityKind::Pure
+                SelfhostEffectEscapeState::MayEscape:
+                    SelfhostMemoTraitOperationEffectPurityKind::Impure
+                SelfhostEffectEscapeState::NotApplicable:
+                    SelfhostMemoTraitOperationEffectPurityKind::Unknown
+        SelfhostEffectKind::UnsafeMemory:
+            SelfhostMemoTraitOperationEffectPurityKind::Impure
+        SelfhostEffectKind::ExternalIo:
+            SelfhostMemoTraitOperationEffectPurityKind::Impure
+        SelfhostEffectKind::Nondet:
+            SelfhostMemoTraitOperationEffectPurityKind::Impure
+
+//: selfhost_memo_trait_operation_purity_gate_method_from_effect: purity 分類を method body evidence へ[写/うつ]す
+fn selfhost_memo_trait_operation_purity_gate_method_from_effect %fn SelfhostMemoTraitOperationEffectPurityKind SelfhostMemoTraitOperationMethodBodyEvidence \purity:
+    match purity:
+        SelfhostMemoTraitOperationEffectPurityKind::Pure:
+            SelfhostMemoTraitOperationMethodBodyEvidence::Pure
+        SelfhostMemoTraitOperationEffectPurityKind::Unknown:
+            SelfhostMemoTraitOperationMethodBodyEvidence::Unknown
+        SelfhostMemoTraitOperationEffectPurityKind::Impure:
+            SelfhostMemoTraitOperationMethodBodyEvidence::Impure
+
+//: selfhost_memo_trait_operation_purity_gate_drop_from_effect: purity 分類を Drop evidence へ[写/うつ]す
+fn selfhost_memo_trait_operation_purity_gate_drop_from_effect %fn SelfhostMemoTraitOperationEffectPurityKind SelfhostMemoTraitOperationDropEvidence \purity:
+    match purity:
+        SelfhostMemoTraitOperationEffectPurityKind::Pure:
+            SelfhostMemoTraitOperationDropEvidence::PureDrop
+        SelfhostMemoTraitOperationEffectPurityKind::Unknown:
+            SelfhostMemoTraitOperationDropEvidence::Unknown
+        SelfhostMemoTraitOperationEffectPurityKind::Impure:
+            SelfhostMemoTraitOperationDropEvidence::ImpureDrop
+
+//: selfhost_memo_trait_operation_purity_gate_method_required_result: method body が必要な operation の evidence を[作/つく]る
+fn selfhost_memo_trait_operation_purity_gate_method_required_result %fn SelfhostMemoTraitOperationMethodBodyCheck Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind \check:
+    match check.kind:
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+            let purity %SelfhostMemoTraitOperationEffectPurityKind selfhost_memo_trait_operation_purity_gate_effect_kind check.effect check.escape
+            Result::Ok selfhost_memo_trait_operation_purity_gate_method_from_effect purity
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyEvidence::Missing
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyEvidence::Unknown
+        SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::MethodBodyEvidenceRequired
+
+//: selfhost_memo_trait_operation_purity_gate_method_not_required_result: method body が不要な operation の evidence を[作/つく]る
+fn selfhost_memo_trait_operation_purity_gate_method_not_required_result %fn SelfhostMemoTraitOperationMethodBodyCheck Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind \check:
+    match check.kind:
+        SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence
+
+//: selfhost_memo_trait_operation_purity_gate_method_body_evidence_result: operation 別 method body evidence を[作/つく]る
+pub fn selfhost_memo_trait_operation_purity_gate_method_body_evidence_result %fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationMethodBodyCheck Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind \operation\check:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            selfhost_memo_trait_operation_purity_gate_method_not_required_result check
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            selfhost_memo_trait_operation_purity_gate_method_not_required_result check
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            selfhost_memo_trait_operation_purity_gate_method_required_result check
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            selfhost_memo_trait_operation_purity_gate_method_required_result check
+
+//: selfhost_memo_trait_operation_purity_gate_drop_required_result: Drop operation 用 evidence を[作/つく]る
+fn selfhost_memo_trait_operation_purity_gate_drop_required_result %fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind \check:
+    match check.kind:
+        SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent:
+            Result::Ok SelfhostMemoTraitOperationDropEvidence::NoDropRequired
+        SelfhostMemoTraitOperationDropCheckKind::DropImplPresent:
+            let purity %SelfhostMemoTraitOperationEffectPurityKind selfhost_memo_trait_operation_purity_gate_effect_kind check.effect check.escape
+            Result::Ok selfhost_memo_trait_operation_purity_gate_drop_from_effect purity
+        SelfhostMemoTraitOperationDropCheckKind::Missing:
+            Result::Ok SelfhostMemoTraitOperationDropEvidence::Missing
+        SelfhostMemoTraitOperationDropCheckKind::Unknown:
+            Result::Ok SelfhostMemoTraitOperationDropEvidence::Unknown
+        SelfhostMemoTraitOperationDropCheckKind::NotRequired:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired
+
+//: selfhost_memo_trait_operation_purity_gate_drop_not_required_result: Drop evidence が不要な operation の evidence を[作/つく]る
+fn selfhost_memo_trait_operation_purity_gate_drop_not_required_result %fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind \check:
+    match check.kind:
+        SelfhostMemoTraitOperationDropCheckKind::NotRequired:
+            Result::Ok SelfhostMemoTraitOperationDropEvidence::NotRequired
+        SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropCheckKind::DropImplPresent:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropCheckKind::Missing:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence
+        SelfhostMemoTraitOperationDropCheckKind::Unknown:
+            Result::Err SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence
+
+//: selfhost_memo_trait_operation_purity_gate_drop_evidence_result: operation 別 Drop evidence を[作/つく]る
+pub fn selfhost_memo_trait_operation_purity_gate_drop_evidence_result %fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind \operation\check:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            selfhost_memo_trait_operation_purity_gate_drop_not_required_result check
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            selfhost_memo_trait_operation_purity_gate_drop_required_result check
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            selfhost_memo_trait_operation_purity_gate_drop_not_required_result check
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            selfhost_memo_trait_operation_purity_gate_drop_not_required_result check
+
+//: selfhost_memo_trait_operation_purity_gate_error_kind_eq: purity gate error が同じ variant か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_purity_gate_error_kind_eq %fn SelfhostMemoTraitOperationPurityGateErrorKind fn SelfhostMemoTraitOperationPurityGateErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationPurityGateErrorKind::MethodBodyEvidenceRequired:
+            match b:
+                SelfhostMemoTraitOperationPurityGateErrorKind::MethodBodyEvidenceRequired:
+                    true
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence:
+                    false
+        SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence:
+            match b:
+                SelfhostMemoTraitOperationPurityGateErrorKind::MethodBodyEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence:
+                    true
+                SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence:
+                    false
+        SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired:
+            match b:
+                SelfhostMemoTraitOperationPurityGateErrorKind::MethodBodyEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired:
+                    true
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence:
+                    false
+        SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence:
+            match b:
+                SelfhostMemoTraitOperationPurityGateErrorKind::MethodBodyEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedMethodBodyEvidence:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::DropEvidenceRequired:
+                    false
+                SelfhostMemoTraitOperationPurityGateErrorKind::UnexpectedDropEvidence:
+                    true
+
+//: selfhost_memo_trait_operation_purity_gate_method_result_eq: method evidence result が期待値か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_purity_gate_method_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn SelfhostMemoTraitOperationMethodBodyEvidence bool \result\expected:
+    match result:
+        Result::Ok evidence:
+            selfhost_memo_trait_operation_method_body_evidence_eq evidence expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_purity_gate_drop_result_eq: Drop evidence result が期待値か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_purity_gate_drop_result_eq %fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn SelfhostMemoTraitOperationDropEvidence bool \result\expected:
+    match result:
+        Result::Ok evidence:
+            selfhost_memo_trait_operation_drop_evidence_eq evidence expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_purity_gate_error_result_eq: error result が期待 error か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_purity_gate_error_result_eq %fn SelfhostMemoTraitOperationPurityGateErrorKind fn SelfhostMemoTraitOperationPurityGateErrorKind bool \actual\expected:
+    selfhost_memo_trait_operation_purity_gate_error_kind_eq actual expected
+
+//: selfhost_memo_trait_operation_method_body_evidence_eq: method body evidence が同じ variant か[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_evidence_eq %fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationMethodBodyEvidence bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                    true
+                SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                    true
+                SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                    true
+                SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                    true
+                SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyEvidence::Pure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Impure:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired:
+                    true
+
+//: selfhost_memo_trait_operation_drop_evidence_eq: Drop evidence が同じ variant か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_evidence_eq %fn SelfhostMemoTraitOperationDropEvidence fn SelfhostMemoTraitOperationDropEvidence bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+            match b:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    true
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationDropEvidence::PureDrop:
+            match b:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    true
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationDropEvidence::Missing:
+            match b:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    true
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+            match b:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    true
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationDropEvidence::Unknown:
+            match b:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    true
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    false
+        SelfhostMemoTraitOperationDropEvidence::NotRequired:
+            match b:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    false
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    true
+
+//: selfhost_memo_trait_operation_purity_gate_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_purity_gate_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind SelfhostMemoTraitOperationPurityGateStage0Summary \pure_method\alloc_no_escape_method\alloc_escape_method\missing_method\unexpected_method\no_drop_required\pure_drop\unknown_drop\drop_required\unexpected_drop:
+    SelfhostMemoTraitOperationPurityGateStage0Summary pure_method alloc_no_escape_method alloc_escape_method missing_method unexpected_method no_drop_required pure_drop unknown_drop drop_required unexpected_drop
+
+//: selfhost_memo_trait_operation_purity_gate_stage0: purity gate の smoke API
+//:
+//: [目的/もくてき]:
+//: - pure body、private allocation no-escape body、allocation escape body、missing body、operation mismatch、Drop なし proof、pure Drop、unknown Drop、Drop proof 欠落、unexpected Drop fact を代表的に確認します。
+pub fn selfhost_memo_trait_operation_purity_gate_stage0 %fn void SelfhostMemoTraitOperationPurityGateStage0Summary \void:
+    let pure_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let alloc_no_escape_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven
+    let alloc_escape_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape
+    let missing_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Missing SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let unexpected_method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let no_drop_check %SelfhostMemoTraitOperationDropCheck selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let pure_drop_check %SelfhostMemoTraitOperationDropCheck selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::DropImplPresent SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let unknown_drop_check %SelfhostMemoTraitOperationDropCheck selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::DropImplPresent SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+    let drop_required_check %SelfhostMemoTraitOperationDropCheck selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::NotRequired SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let unexpected_drop_check %SelfhostMemoTraitOperationDropCheck selfhost_memo_trait_operation_drop_check_new SelfhostMemoTraitOperationDropCheckKind::DropImplPresent SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let pure_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq pure_method_check
+    let alloc_no_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Hash alloc_no_escape_method_check
+    let alloc_escape_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq alloc_escape_method_check
+    let missing_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Hash missing_method_check
+    let unexpected_method %Result SelfhostMemoTraitOperationMethodBodyEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_method_body_evidence_result SelfhostMemoTraitOperationEvidenceKind::Copy unexpected_method_check
+    let no_drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop no_drop_check
+    let pure_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop pure_drop_check
+    let unknown_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop unknown_drop_check
+    let drop_required %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop drop_required_check
+    let unexpected_drop %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationPurityGateErrorKind selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Eq unexpected_drop_check
+    selfhost_memo_trait_operation_purity_gate_stage0_summary_new pure_method alloc_no_escape_method alloc_escape_method missing_method unexpected_method no_drop_required pure_drop unknown_drop drop_required unexpected_drop

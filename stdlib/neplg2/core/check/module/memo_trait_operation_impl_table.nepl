@@ -15,11 +15,13 @@
 //: - trait operation classifier は `selfhost_memo_trait_operation_classifier_evidence_result` から作ります。operation kind、trait name string、method name string、source spelling だけでは candidate を受理しません。
 //: - `resolved_type_shape_hash` と impl header target shape、classifier が読んだ trait application shape と impl header trait application shape、requested operation と classified operation は producer 側でも再照合します。
 //: - method body evidence と Drop evidence は上流 checker から渡された typed enum を消費するだけです。`Missing` / `Unknown` / `Impure` をこの module で `Proven` に変換しません。
+//: - full orchestration が typed effect fact から candidate を作る場合は、`memo_trait_operation_purity_gate` を通して method body evidence と Drop evidence を作り、それから candidate へ束ねます。
 //: - HIR、Resource IR、backend artifact、proof store、`.neplproof` reader / serializer、canonical key codec には依存しません。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では候補 table は session-local `Vec` owner table です。永続 artifact や `.neplmeta` の authority にはしません。
-//: - method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration は後続 slice で接続します。
+//: - method body / Drop effect fact から producer evidence を作る purity gate は接続済みです。
+//: - actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration は後続 slice で接続します。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が public surface / method / Drop proof をまとめる段階で公開 API を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -78,6 +80,7 @@
 #import "./memo_trait_operation_classifier" as *
 #import "./memo_trait_operation_evidence_producer" as *
 #import "./memo_trait_public_impl_header" as *
+#import "./memo_trait_operation_purity_gate" as *
 
 //: SelfhostMemoTraitOperationImplCandidate: operation impl table の 1 候補
 //:
@@ -159,6 +162,25 @@ impl Copy for SelfhostMemoTraitOperationImplTableStage0Summary:
 //: - この constructor は typed field を束ねるだけです。classifier / producer validation は result API が実行します。
 pub fn selfhost_memo_trait_operation_impl_candidate_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitPublicImplHeaderInput fn SelfhostMemoTraitOperationTraitApplicationInput fn Option i32 fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationImplCandidate \type_id\operation\impl_header\trait_application\resolved_type_shape_hash\method_body\drop_evidence:
     SelfhostMemoTraitOperationImplCandidate type_id operation impl_header trait_application resolved_type_shape_hash method_body drop_evidence
+
+//: selfhost_memo_trait_operation_impl_candidate_from_checks_result: method / Drop check fact から operation impl 候補を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - full orchestration が、method body effect summary と Drop proof summary を直接 `SelfhostMemoTraitOperationMethodBodyEvidence` / `SelfhostMemoTraitOperationDropEvidence` へ手で写さず、purity gate を通して candidate を作れるようにします。
+//:
+//: [契約/けいやく]:
+//: - method body check と Drop check は operation kind に応じた必要性 matrix を `memo_trait_operation_purity_gate` 側で検査します。
+//: - purity gate が返した `Missing` / `Unknown` / `Impure` はそのまま candidate に保存し、impl table では `Proven` へ変換しません。
+pub fn selfhost_memo_trait_operation_impl_candidate_from_checks_result %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitPublicImplHeaderInput fn SelfhostMemoTraitOperationTraitApplicationInput fn Option i32 fn SelfhostMemoTraitOperationMethodBodyCheck fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationPurityGateErrorKind \type_id\operation\impl_header\trait_application\resolved_type_shape_hash\method_check\drop_check:
+    match selfhost_memo_trait_operation_purity_gate_method_body_evidence_result operation method_check:
+        Result::Ok method_body:
+            match selfhost_memo_trait_operation_purity_gate_drop_evidence_result operation drop_check:
+                Result::Ok drop_evidence:
+                    Result::Ok selfhost_memo_trait_operation_impl_candidate_new type_id operation impl_header trait_application resolved_type_shape_hash method_body drop_evidence
+                Result::Err drop_error:
+                    Result::Err drop_error
+        Result::Err method_error:
+            Result::Err method_error
 
 //: selfhost_memo_trait_operation_impl_table_new: [空/から]の impl candidate table を[作/つく]る
 pub fn selfhost_memo_trait_operation_impl_table_new %impure fn void Result SelfhostMemoTraitOperationImplTable StdErrorKind \void:
