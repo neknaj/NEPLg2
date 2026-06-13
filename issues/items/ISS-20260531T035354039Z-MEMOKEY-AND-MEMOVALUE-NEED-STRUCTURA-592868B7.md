@@ -399,6 +399,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-13 selfhost method body resolver checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl` を追加し、`Eq` / `Hash` operation の method body effect fact table から `SelfhostMemoTraitOperationMethodBodyCheck` を作る checker-layer 境界を実装した。
+
+この resolver は actual expression checker ではなく、actual checker / Resource proof が後続 stage で作る typed effect fact を受ける境界である。`Eq` / `Hash` は method body purity を必要とし、`Copy` / `Drop` は method body を必要としないことを `SelfhostMemoTraitOperationEvidenceKind` の exhaustive match として固定した。`selfhost_memo_trait_operation_method_body_fact_new_result` は `Copy` / `Drop` の method body fact を `UnexpectedMethodOperation` として拒否する。
+
+surface completeness は `Complete` / `Missing` / `Unknown` に分ける。`Complete` で `Eq` / `Hash` の候補が 1 件だけ見つかった場合だけ `Present` check を返し、候補 0 件は `Missing` check にする。`Missing` / `Unknown` surface は table を信用せず、それぞれ `Missing` / `Unknown` check に畳む。同じ `SelfhostTypeId` と operation の fact が複数ある場合は `RecordDuplicate` として fail-closed に拒否し、record order の first-wins は使わない。
+
+accepted fact は session-local `SelfhostTypeId`、operation enum、`SelfhostEffectKind`、`SelfhostEffectEscapeState` だけから作る。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、payload hash、signature hash、body hash は authority にしない。facade には re-export せず、full orchestration が method body resolver、Drop resolver、purity gate、operation impl table をまとめる段階で公開 API を再評価する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js` で固定した。目的 / 契約 / 現状 / 計算量 / doctest、operation requirement matrix、complete surface だけの lookup、missing / unknown preservation、duplicate rejection、typed error enum、forbidden authority、DAG、facade private、ty source list 非登録、行数制限 / doc comment 長制限禁止を検査する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl --no-tree -o tmp/selfhost-method-body-resolver.json -j 1 --dist web/dist --assert-io`
+
+この checkpoint 後の残件は、actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化は resolver contract を変えずに後から置換できる最適化として扱う。
+
 ## 2026-06-13 selfhost operation evidence producer checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl` を追加し、public impl header typed input、現在の `SelfhostTypeId` から別 stage が作った resolved target type shape evidence、trusted trait identity classifier が作った shape-bound trait operation evidence、method / drop の typed evidence から `SelfhostMemoTraitOperationEvidenceRecord` を作る checker-layer producer を接続した。

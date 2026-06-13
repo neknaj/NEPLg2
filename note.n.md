@@ -1,3 +1,54 @@
+# 2026-06-13 Agent selfhost method body resolver checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、pure core boundary、DAG、source authority 排除、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / `Eq` / `Hash` method body effect fact resolver
+- classification: selfhost MemoKey / MemoValue structural purity / operation method body evidence boundary
+- policy/spec:
+  - `Eq` / `Hash` の method body effect fact は typed summary として扱い、`Copy` / `Drop` は method body fact を持たない operation とする。
+  - `Complete` surface でのみ lookup miss を `Missing` check として確定し、incomplete surface を accepted proof にしない。
+  - accepted authority は `SelfhostTypeId`、operation enum、`SelfhostEffectKind`、`SelfhostEffectEscapeState` に限定し、source / display / diagnostic / path / HIR / Resource IR / backend / proof store / hash を使わない。
+  - method body fact table lookup の sorted index 化はあとからできる最適化であり、今の stage では missing / unknown / duplicate / authority boundary の契約固定を優先する。
+- decision:
+  - full orchestration や Resource IR 本体解析に進む前に、method body effect fact を purity gate input へ渡す resolver 境界を先に固定する。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl` を追加し、actual checker / Resource proof が作る typed method body effect fact を `SelfhostMemoTraitOperationMethodBodyCheck` へ写す checker-layer 境界を作った。
+  - `Eq` / `Hash` は method body purity を必要とし、`Copy` / `Drop` は method body を必要としないことを `SelfhostMemoTraitOperationEvidenceKind` の exhaustive match で固定した。
+  - `Complete` surface だけを table lookup へ進め、候補 0 件は `Missing` check、incomplete surface は `Missing` / `Unknown` check として保持する。missing / unknown を pure success に畳まない。
+  - duplicate fact は `RecordDuplicate` で fail-closed にし、record order first-wins を禁止した。
+  - accepted authority は `SelfhostTypeId`、operation enum、`SelfhostEffectKind`、`SelfhostEffectEscapeState` に限定し、source text / span / lexeme / display name / diagnostic / module path / HIR / Resource IR / backend / proof store / hash を使わない。
+- implementation:
+  - method body surface state、method body fact、owner table、typed error enum、stage0 summary、fact constructor result、resolver result、test helper equality を追加した。
+  - `nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `todo.md` と MemoKey/MemoValue issue に checkpoint を反映した。
+- implementation/test:
+  - focused doctest は `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl` に置き、complete missing、present pure、internal alloc may-escape、surface missing、surface unknown、Copy not-required、duplicate、unexpected method operation を実行で確認する。
+  - source_policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js` で固定した。facade private、ty source list 非登録、forbidden imports、typed error、operation requirement matrix、Missing / Unknown preservation、first-wins 禁止、行数制限 / doc comment 長制限禁止を確認する。
+- subagent review:
+  - subagent_review_ids: `019ebca5-8b7e-7433-acff-a097308ca850`
+  - subagent_review_count: 2
+  - pre-review: effect fact を typed summary に正規化して purity gate へ渡す境界を切る方針は妥当。Resource IR や HIR node をそのまま authority にしないこと、`Missing` / `Unknown` を `Pure` に fallback しないこと、Drop absent に complete surface witness を要求すること、source text / span / display / diagnostic / path suffix を accepted authority にしないことが Required として確認された。
+  - implementation review: Blocker なし。Required なし。Question なし。Approve。`Missing` / `Unknown` preservation、Copy / Drop fact rejection、duplicate `RecordDuplicate`、first-wins 禁止、authority 境界、DAG、doc comment、source policy、行数制限 / doc comment 長制限の不在を確認済み。
+  - Non-blocker: full `node nodesrc/run_source_policy_regressions.js` は既存 `stdlib declaration doc gaps increased: 153 > 108` baseline で停止する。今回の focused contract と warn-only source policy は pass しており、この slice の blocker ではない。
+  - review response checklist: `nodesrc/selfhost_zenn_review_response_check.js` の期待する Blocker / Required / Non-blocker / Question / Approve 分類に沿って記録した。
+- verify:
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl --no-tree -o tmp/selfhost-method-body-resolver.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した method body resolver contract は pass。
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - 既存 warning: Node WASI ExperimentalWarning、`stdlib declaration doc gaps increased: 153 > 108` は確認済み。
+  - 今回差分由来 warning: なし。
+  - 検証済み: focused contract、focused doctest、関連 operation contract、issues check、source policy warn-only、diff check。
+- residual:
+  - actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
+  - method body fact table lookup の sorted index 化は public API / error contract を保ったまま後からできる最適化として扱う。
+  - 次 slice: actual expression method body checker または Drop body effect checker / Resource IR escape proof を、同じ typed effect summary / no-escape proof boundary へ接続する。
+
 # 2026-06-13 Agent1 selfhost operation classifier checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Copy / Drop / Eq / Hash の trait application 分類を source text や表示名ではなく typed source identity / shape hash / enum error で扱い、DAG、fail-closed、丁寧な doc comment、探索範囲を固定個数に閉じる方針を守る。

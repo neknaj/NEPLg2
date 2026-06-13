@@ -1,0 +1,571 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_method_body_resolver
+//: `Eq` / `Hash` operation の method body effect fact table から、`SelfhostMemoTraitOperationMethodBodyCheck` を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - public impl surface から得た method body effect summary を、operation purity gate が読める typed check へ変換します。
+//: - `Eq` / `Hash` は method body purity を必要とし、`Copy` / `Drop` は method body を必要としないことを、この境界で enum match として固定します。
+//: - complete surface の lookup miss、incomplete surface、duplicate method body fact を bool や文字列に潰さず、後続 solver が fail-closed に扱える status / error として残します。
+//:
+//: [契約/けいやく]:
+//: - `Complete` surface で `Eq` / `Hash` の候補が 1 件だけ見つかった場合だけ `Present` check を返します。
+//: - `Complete` surface で `Eq` / `Hash` の候補が 0 件の場合は `Missing` check を返します。missing を pure success に畳みません。
+//: - `Missing` surface は `Missing` check、`Unknown` surface は `Unknown` check に畳み、complete でない lookup miss を成功扱いしません。
+//: - 同じ `SelfhostTypeId` と operation の method body fact が 2 件以上ある場合は `RecordDuplicate` として fail-closed に拒否します。record order による first-wins は使いません。
+//: - `Copy` / `Drop` に対する resolver 呼び出しは table を探索せず `NotRequired` check を返します。method body fact は `Eq` / `Hash` 用であり、`selfhost_memo_trait_operation_method_body_fact_new_result` は `Copy` / `Drop` fact を拒否します。
+//: - accepted fact は session-local `SelfhostTypeId`、operation enum、typed effect kind、typed escape state だけから作ります。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record を authority にしません。
+//: - actual expression checker、trait coherence、generic impl binder、Resource IR no-escape proof、private cache effect masking、full public surface orchestration は後続 stage の責務です。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では、actual checker が作った method body effect fact table を受け取る境界だけを提供します。
+//: - facade にはまだ re-export しません。operation impl orchestration が method body resolver、Drop resolver、purity gate、impl table をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - table push は `Vec` push の償却 O(1) 時間です。
+//: - lookup は method body fact 数 n に対して O(n) 時間、O(1) 追加空間です。これは現状の実装詳細であり、typed error contract と first-wins 禁止を保ったまま sorted index や type / operation bucket へ後から置き換えられます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_resolver" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_method_body_resolver_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_method_body_resolver_check_kind_eq summary.complete_missing SelfhostMemoTraitOperationMethodBodyCheckKind::Missing
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_method_body_resolver_check_kind_eq summary.complete_present_pure SelfhostMemoTraitOperationMethodBodyCheckKind::Present
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_method_body_resolver_check_effect_eq summary.complete_present_alloc_escape SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_method_body_resolver_check_kind_eq summary.surface_missing SelfhostMemoTraitOperationMethodBodyCheckKind::Missing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_method_body_resolver_check_kind_eq summary.surface_unknown SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_method_body_resolver_check_kind_eq summary.not_required_copy SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_method_body_resolver_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_method_body_resolver_fact_error_result_eq summary.unexpected_operation_rejected SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "method body resolver stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_purity_gate" as *
+
+//: SelfhostMemoTraitOperationMethodBodySurfaceState: method body fact table の[完全性/かんぜんせい]
+//:
+//: [目的/もくてき]:
+//: - complete でない table の lookup miss を method body missing proof にしないため、surface 状態を typed enum として持ちます。
+pub enum SelfhostMemoTraitOperationMethodBodySurfaceState:
+    Complete
+    Missing
+    Unknown
+
+//: SelfhostMemoTraitOperationMethodBodyFact: 1 つの operation method body effect fact
+//:
+//: [契約/けいやく]:
+//: - この fact は `Eq` / `Hash` の method body が存在し、effect summary が得られていることを表します。
+//: - `operation` は `Eq` または `Hash` でなければなりません。`Copy` / `Drop` は method body check を必要としないため、fact constructor result で拒否します。
+//: - `effect` と `escape` は actual method body checker / Resource proof が後続 stage で作る typed summary です。
+pub struct SelfhostMemoTraitOperationMethodBodyFact:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+
+//: SelfhostMemoTraitOperationMethodBodyTable: method body fact の session-local owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。不要になったら `selfhost_memo_trait_operation_method_body_table_free` で閉じます。
+//: - table 自体は永続 artifact ではありません。complete 性は `SelfhostMemoTraitOperationMethodBodySurfaceState` で別に渡します。
+pub struct SelfhostMemoTraitOperationMethodBodyTable:
+    records %Vec SelfhostMemoTraitOperationMethodBodyFact
+
+//: SelfhostMemoTraitOperationMethodBodyResolverErrorKind: method body resolver の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - table allocation / push / read / duplicate / operation mismatch を typed enum として分けます。
+pub enum SelfhostMemoTraitOperationMethodBodyResolverErrorKind:
+    TableAllocFailed %StdErrorKind
+    RecordPushFailed %StdErrorKind
+    RecordReadFailed %i32
+    RecordDuplicate
+    UnexpectedMethodOperation
+
+//: SelfhostMemoTraitOperationMethodBodyResolverStage0Summary: method body resolver smoke の代表結果
+pub struct SelfhostMemoTraitOperationMethodBodyResolverStage0Summary:
+    complete_missing %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    complete_present_pure %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    complete_present_alloc_escape %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    surface_missing %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    surface_unknown %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    not_required_copy %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+    unexpected_operation_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodySurfaceState:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodySurfaceState SelfhostMemoTraitOperationMethodBodySurfaceState \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodySurfaceState:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodySurfaceState SelfhostMemoTraitOperationMethodBodySurfaceState \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFact:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFact \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFact:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyFact \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyResolverErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyResolverErrorKind SelfhostMemoTraitOperationMethodBodyResolverErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyResolverErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind SelfhostMemoTraitOperationMethodBodyResolverErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyResolverStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyResolverStage0Summary SelfhostMemoTraitOperationMethodBodyResolverStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyResolverStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyResolverStage0Summary SelfhostMemoTraitOperationMethodBodyResolverStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_operation_required: operation が method body effect fact を[必要/ひつよう]とするか[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_operation_required %fn SelfhostMemoTraitOperationEvidenceKind bool \operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            true
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            true
+
+//: selfhost_memo_trait_operation_method_body_fact_new_unchecked: validated fact payload を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_new_unchecked %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationMethodBodyFact \type_id\operation\effect\escape:
+    SelfhostMemoTraitOperationMethodBodyFact type_id operation effect escape
+
+//: selfhost_memo_trait_operation_method_body_fact_new_result: method body fact を[検査/けんさ]して[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `Eq` / `Hash` だけを受理します。`Copy` / `Drop` に method body fact を作ることは、operation requirement matrix の退行なので拒否します。
+pub fn selfhost_memo_trait_operation_method_body_fact_new_result %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostEffectKind fn SelfhostEffectEscapeState Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyResolverErrorKind \type_id\operation\effect\escape:
+    if:
+        selfhost_memo_trait_operation_method_body_operation_required operation
+        then:
+            Result::Ok selfhost_memo_trait_operation_method_body_fact_new_unchecked type_id operation effect escape
+        else:
+            Result::Err SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation
+
+//: selfhost_memo_trait_operation_method_body_table_new: [空/から]の method body fact table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - 返した table は `records` buffer を[所有/しょゆう]します。caller は resolver で[使/つか]い[終/お]えたあと `selfhost_memo_trait_operation_method_body_table_free` で[閉/と]じます。
+pub fn selfhost_memo_trait_operation_method_body_table_new %impure fn void Result SelfhostMemoTraitOperationMethodBodyTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationMethodBodyFact StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_table_free: method body fact table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_method_body_table_free %impure fn SelfhostMemoTraitOperationMethodBodyTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_method_body_table_len: method body fact 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_table_len %fn &SelfhostMemoTraitOperationMethodBodyTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationMethodBodyFact field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_method_body_table_push: method body fact を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - push 失敗時は `Vec` が返した owner を閉じ、`RecordPushFailed(error)` として `StdErrorKind` を保持します。
+pub fn selfhost_memo_trait_operation_method_body_table_push %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn SelfhostMemoTraitOperationMethodBodyFact Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationMethodBodyResolverErrorKind \table\fact:
+    let records %Vec SelfhostMemoTraitOperationMethodBodyFact field::get table "records"
+    match v::push records fact:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitOperationMethodBodyTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed error
+
+//: selfhost_memo_trait_operation_method_body_fact_matches: fact が TypeId / operation に[一致/いっち]するか[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_fact_matches %fn SelfhostMemoTraitOperationMethodBodyFact fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind bool \fact\type_id\operation:
+    and:
+        selfhost_type_id_eq fact.type_id type_id
+        selfhost_memo_trait_operation_evidence_kind_eq fact.operation operation
+
+//: selfhost_memo_trait_operation_method_body_fact_check: present fact を method body check へ[写/うつ]す
+fn selfhost_memo_trait_operation_method_body_fact_check %fn SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyCheck \fact:
+    selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Present fact.effect fact.escape
+
+//: selfhost_memo_trait_operation_method_body_missing_check: method body 欠落 check を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_missing_check %fn void SelfhostMemoTraitOperationMethodBodyCheck \void:
+    selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Missing SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_method_body_unknown_check: method body 未判定 check を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_unknown_check %fn void SelfhostMemoTraitOperationMethodBodyCheck \void:
+    selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_method_body_not_required_check: method body 不要 check を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_not_required_check %fn void SelfhostMemoTraitOperationMethodBodyCheck \void:
+    selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+
+//: selfhost_memo_trait_operation_method_body_find_finish: complete surface lookup を typed check へ[畳/たた]む
+fn selfhost_memo_trait_operation_method_body_find_finish %fn Option SelfhostMemoTraitOperationMethodBodyCheck Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind \found:
+    match found:
+        Option::Some check:
+            Result::Ok check
+        Option::None:
+            Result::Ok selfhost_memo_trait_operation_method_body_missing_check
+
+//: selfhost_memo_trait_operation_method_body_find_loop: complete table から method body fact を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - 同じ `SelfhostTypeId` と operation の fact が 2 件以上ある場合は `RecordDuplicate` として拒否します。
+fn selfhost_memo_trait_operation_method_body_find_loop %fn &SelfhostMemoTraitOperationMethodBodyTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn Option SelfhostMemoTraitOperationMethodBodyCheck Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind \table\type_id\operation\idx\found:
+    if:
+        ge idx selfhost_memo_trait_operation_method_body_table_len table
+        then:
+            selfhost_memo_trait_operation_method_body_find_finish found
+        else:
+            let records %&Vec SelfhostMemoTraitOperationMethodBodyFact field::get_ref table "records"
+            match v::get records idx:
+                Option::Some fact:
+                    if:
+                        selfhost_memo_trait_operation_method_body_fact_matches fact type_id operation
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate
+                                Option::None:
+                                    let check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_fact_check fact
+                                    selfhost_memo_trait_operation_method_body_find_loop table type_id operation add idx 1 some check
+                        else:
+                            selfhost_memo_trait_operation_method_body_find_loop table type_id operation add idx 1 found
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed idx
+
+//: selfhost_memo_trait_operation_method_body_resolve_result: surface state と fact table から method body check を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `Copy` / `Drop` は method body を必要としないため、surface state や table 中身に関係なく `NotRequired` を返します。
+//: - `Eq` / `Hash` は `Complete` のときだけ table を探索します。
+//: - `Missing` / `Unknown` は構造的な resolver error ではなく、後続 solver が fail-closed に扱う status です。これらを `Present` に畳むことはありません。
+pub fn selfhost_memo_trait_operation_method_body_resolve_result %fn SelfhostMemoTraitOperationMethodBodySurfaceState fn &SelfhostMemoTraitOperationMethodBodyTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind \surface\table\type_id\operation:
+    if:
+        selfhost_memo_trait_operation_method_body_operation_required operation
+        then:
+            match surface:
+                SelfhostMemoTraitOperationMethodBodySurfaceState::Complete:
+                    selfhost_memo_trait_operation_method_body_find_loop table type_id operation 0 none
+                SelfhostMemoTraitOperationMethodBodySurfaceState::Missing:
+                    Result::Ok selfhost_memo_trait_operation_method_body_missing_check
+                SelfhostMemoTraitOperationMethodBodySurfaceState::Unknown:
+                    Result::Ok selfhost_memo_trait_operation_method_body_unknown_check
+        else:
+            Result::Ok selfhost_memo_trait_operation_method_body_not_required_check
+
+//: selfhost_memo_trait_operation_method_body_resolver_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_method_body_resolver_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_method_body_resolver_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_resolver_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_method_body_resolver_std_error_kind_code a selfhost_memo_trait_operation_method_body_resolver_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_method_body_resolver_error_kind_eq: resolver error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ error は payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_method_body_resolver_error_kind_eq %fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_method_body_resolver_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation:
+                    false
+        SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed a_push:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed b_push:
+                    selfhost_memo_trait_operation_method_body_resolver_std_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation:
+                    false
+        SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed a_idx:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed b_idx:
+                    eq a_idx b_idx
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation:
+                    false
+        SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate:
+                    true
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation:
+                    false
+        SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::RecordDuplicate:
+                    false
+                SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation:
+                    true
+
+//: selfhost_memo_trait_operation_method_body_resolver_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_resolver_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_method_body_resolver_check_kind_is: method body check の kind が期待通りか[返/かえ]す
+fn selfhost_memo_trait_operation_method_body_resolver_check_kind_is %fn SelfhostMemoTraitOperationMethodBodyCheck fn SelfhostMemoTraitOperationMethodBodyCheckKind bool \check\expected:
+    match expected:
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+            match check.kind:
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+                    true
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+            match check.kind:
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+                    true
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+            match check.kind:
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+                    true
+                SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+                    false
+        SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+            match check.kind:
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Present:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Missing:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::Unknown:
+                    false
+                SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired:
+                    true
+
+//: selfhost_memo_trait_operation_method_body_resolver_check_kind_eq: result の method body check kind が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_resolver_check_kind_eq %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn SelfhostMemoTraitOperationMethodBodyCheckKind bool \result\expected:
+    match result:
+        Result::Ok check:
+            selfhost_memo_trait_operation_method_body_resolver_check_kind_is check expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_method_body_resolver_check_effect_eq: result の method body check effect / escape が期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_resolver_check_effect_eq %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn SelfhostEffectKind fn SelfhostEffectEscapeState bool \result\expected_effect\expected_escape:
+    match result:
+        Result::Ok check:
+            and:
+                selfhost_effect_kind_eq check.effect expected_effect
+                selfhost_memo_trait_operation_method_body_resolver_escape_state_eq check.escape expected_escape
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_method_body_resolver_error_result_eq: method body check result が期待 error か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_resolver_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _check:
+            false
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_resolver_error_kind_eq e expected
+
+//: selfhost_memo_trait_operation_method_body_resolver_fact_error_result_eq: fact constructor result が期待 error か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_resolver_fact_error_result_eq %fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _fact:
+            false
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_resolver_error_kind_eq e expected
+
+//: selfhost_memo_trait_operation_method_body_resolver_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_resolver_stage0_summary_new %fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyResolverErrorKind SelfhostMemoTraitOperationMethodBodyResolverStage0Summary \complete_missing\complete_present_pure\complete_present_alloc_escape\surface_missing\surface_unknown\not_required_copy\duplicate_rejected\unexpected_operation_rejected:
+    SelfhostMemoTraitOperationMethodBodyResolverStage0Summary complete_missing complete_present_pure complete_present_alloc_escape surface_missing surface_unknown not_required_copy duplicate_rejected unexpected_operation_rejected
+
+//: selfhost_memo_trait_operation_method_body_resolver_stage0_duplicate: duplicate rejection までの smoke を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_resolver_stage0_duplicate %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn SelfhostTypeId Result SelfhostMemoTraitOperationMethodBodyResolverStage0Summary SelfhostMemoTraitOperationMethodBodyResolverErrorKind \table\complete_missing\complete_present_pure\complete_present_alloc_escape\surface_missing\surface_unknown\not_required_copy\unexpected_operation_rejected\type_id:
+    match selfhost_memo_trait_operation_method_body_fact_new_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable:
+        Result::Ok duplicate_fact:
+            match selfhost_memo_trait_operation_method_body_table_push table duplicate_fact:
+                Result::Ok duplicate_table:
+                    let duplicate_rejected %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &duplicate_table type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+                    selfhost_memo_trait_operation_method_body_table_free duplicate_table
+                    Result::Ok selfhost_memo_trait_operation_method_body_resolver_stage0_summary_new complete_missing complete_present_pure complete_present_alloc_escape surface_missing surface_unknown not_required_copy duplicate_rejected unexpected_operation_rejected
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_table_free table
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_resolver_stage0_second: 2 つ目の別 operation fact までの smoke を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_resolver_stage0_second %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationMethodBodyResolverStage0Summary SelfhostMemoTraitOperationMethodBodyResolverErrorKind \table\complete_missing\complete_present_pure\surface_missing\surface_unknown\not_required_copy\type_id\other_type_id:
+    match selfhost_memo_trait_operation_method_body_fact_new_result other_type_id SelfhostMemoTraitOperationEvidenceKind::Hash SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape:
+        Result::Ok other_fact:
+            match selfhost_memo_trait_operation_method_body_table_push table other_fact:
+                Result::Ok table2:
+                    let complete_present_alloc_escape %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &table2 other_type_id SelfhostMemoTraitOperationEvidenceKind::Hash
+                    let unexpected_operation_rejected %Result SelfhostMemoTraitOperationMethodBodyFact SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_fact_new_result type_id SelfhostMemoTraitOperationEvidenceKind::Copy SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+                    selfhost_memo_trait_operation_method_body_resolver_stage0_duplicate table2 complete_missing complete_present_pure complete_present_alloc_escape surface_missing surface_unknown not_required_copy unexpected_operation_rejected type_id
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_table_free table
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_resolver_stage0_first: 1 つ目の present fact までの smoke を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_resolver_stage0_first %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationMethodBodyResolverStage0Summary SelfhostMemoTraitOperationMethodBodyResolverErrorKind \table\complete_missing\surface_missing\surface_unknown\not_required_copy\type_id\other_type_id:
+    match selfhost_memo_trait_operation_method_body_fact_new_result type_id SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable:
+        Result::Ok present_fact:
+            match selfhost_memo_trait_operation_method_body_table_push table present_fact:
+                Result::Ok table1:
+                    let complete_present_pure %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &table1 type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+                    selfhost_memo_trait_operation_method_body_resolver_stage0_second table1 complete_missing complete_present_pure surface_missing surface_unknown not_required_copy type_id other_type_id
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_trait_operation_method_body_table_free table
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_resolver_stage0: method body resolver の smoke API
+//:
+//: [目的/もくてき]:
+//: - complete surface での missing、present、duplicate と、incomplete surface の missing / unknown、method body 不要 operation、fact constructor の unexpected operation rejection を実行経路で確認します。
+pub fn selfhost_memo_trait_operation_method_body_resolver_stage0 %impure fn void Result SelfhostMemoTraitOperationMethodBodyResolverStage0Summary SelfhostMemoTraitOperationMethodBodyResolverErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9201
+    let other_type_id %SelfhostTypeId selfhost_type_id_new 9202
+    match selfhost_memo_trait_operation_method_body_table_new:
+        Result::Ok table0:
+            let complete_missing %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+            let surface_missing %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Missing &table0 type_id SelfhostMemoTraitOperationEvidenceKind::Hash
+            let surface_unknown %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Unknown &table0 type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+            let not_required_copy %Result SelfhostMemoTraitOperationMethodBodyCheck SelfhostMemoTraitOperationMethodBodyResolverErrorKind selfhost_memo_trait_operation_method_body_resolve_result SelfhostMemoTraitOperationMethodBodySurfaceState::Complete &table0 type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+            selfhost_memo_trait_operation_method_body_resolver_stage0_first table0 complete_missing surface_missing surface_unknown not_required_copy type_id other_type_id
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationMethodBodyResolverErrorKind::TableAllocFailed e
