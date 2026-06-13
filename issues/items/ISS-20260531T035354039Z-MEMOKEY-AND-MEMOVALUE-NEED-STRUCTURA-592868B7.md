@@ -98,6 +98,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_p
 
 この checkpoint 後の残件は、fact producer result を complete public surface impl candidate 群から method body fact table へ投入する orchestration、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した typed fact producer contract を保って後から行える最適化として扱う。
 
+## 2026-06-13 selfhost method body fact table builder checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_table_builder.nepl` を追加し、HIR method body root から fact producer result を作り、それを complete surface 用 `SelfhostMemoTraitOperationMethodBodyTable` owner へ投入する checker-layer builder 境界を作った。
+
+この builder は table owner を消費する。fact producer が成功した場合だけ resolver の `selfhost_memo_trait_operation_method_body_table_push` に進み、成功すれば追加後の table owner を返す。fact producer が失敗した場合は table push へ進んでいないため、builder が未消費 table owner を `selfhost_memo_trait_operation_method_body_table_free` で閉じる。table push が失敗した場合は既存 resolver push が `Vec` owner を回収して閉じるため、builder は古い table owner を二重解放しない。`Result::Err` を受け取った caller は、渡した table owner を再利用したり free したりしてはいけない。
+
+typed error は `FactProducerRejected(SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind)` と `TableRejected(SelfhostMemoTraitOperationMethodBodyResolverErrorKind)` に分けた。effect checker / fact constructor / table push の失敗を bool や表示文字列へ潰さず、後続 orchestration が診断や fail-closed 分岐へ運べる nested payload として保持する。
+
+この builder は table lookup、duplicate rejection、surface completeness decision、operation evidence record 作成、method body evidence 作成、Drop evidence 作成、Resource IR proof、backend artifact、proof store、public surface scanning を行わない。full public surface orchestration は public impl candidate 群から HIR root を得て、この builder を繰り返し呼ぶ境界として後続で接続する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_builder_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、producer -> table push の順序、producer error branch の table free、table push error branch の二重解放禁止、resolver lookup 禁止、direct fact struct constructor bypass 禁止、body check / evidence / proof 作成禁止、line count / doc comment length cap 禁止、unwrap / unreachable shortcut 禁止を確認する。
+
+この checkpoint 後の残件は、complete public surface impl candidate 群を走査して builder へ入力する full orchestration、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した builder contract を保って後から行える最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

@@ -1,0 +1,331 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_method_body_fact_table_builder
+//: HIR method body root から作った `Eq` / `Hash` method body fact を、complete surface 用の method body fact table へ[投入/とうにゅう]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_method_body_fact_producer` が返す typed fact result と、`memo_trait_operation_method_body_resolver` が所有する `SelfhostMemoTraitOperationMethodBodyTable` の owner push 境界を接続します。
+//: - full public surface orchestration が public impl candidate ごとに method body HIR root を見つけたあと、table owner を安全に次の状態へ進めるための小さな building block にします。
+//: - fact producer と resolver table push の責務を混ぜず、producer error、table push error、owner cleanup の位置を typed enum と文書化された契約で固定します。
+//:
+//: [契約/けいやく]:
+//: - public API は `SelfhostMemoTraitOperationMethodBodyTable` owner を消費します。成功した場合だけ、fact を 1 件追加した新しい table owner を返します。
+//: - fact producer が失敗した場合、table owner はまだ table push に渡されていないため、この module が `selfhost_memo_trait_operation_method_body_table_free` で閉じます。
+//: - table push が失敗した場合、既存 resolver の `selfhost_memo_trait_operation_method_body_table_push` が `Vec` owner を回収して閉じます。この module は古い table owner を二重解放しません。
+//: - `Result::Err` を受け取った caller は、渡した table owner を再利用してはいけません。success / failure のどちらでも owner の責務はこの boundary 内で完結します。
+//: - error は `FactProducerRejected` と `TableRejected` に分け、HIR effect checker / fact constructor / table push の nested typed payload を失わずに保持します。
+//: - この module は table lookup、duplicate rejection、surface completeness decision、operation evidence record 作成、method body evidence 作成、Drop evidence 作成、Resource IR proof、backend artifact、proof store、public surface scanning を行いません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では、既に得られた HIR module borrow、type id、operation kind、method body root、fuel を 1 件の table push へ変換する boundary です。
+//: - complete public surface impl candidate 群を走査する full orchestration、generic impl binder、Drop body effect checker、Resource IR no-escape proof、PrivateCache / PrivateState masking、prechecked artifact 接続は後続 stage の責務です。
+//: - facade にはまだ re-export しません。full orchestration がこの builder を呼ぶ段階で公開 API と DAG を再確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - HIR root から到達する expression 数を n、child edge 数を e とすると、fact producer 側の effect check により O(n + e) 時間です。
+//: - fact 生成後の table push は `Vec` push の償却 O(1) 時間です。
+//: - table lookup や duplicate 検査はこの module では行わないため、sorted index 化や bucket 化は resolver / full orchestration の契約を保ったまま後から適用できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_fact_table_builder" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_effect_checker" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_method_body_resolver" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_method_body_fact_table_builder_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_method_body_fact_table_builder_len_result_eq summary.pure_push_len 1
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_method_body_fact_table_builder_len_result_eq summary.external_after_pure_push_len 2
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_method_body_fact_table_builder_fact_error_result_eq summary.copy_rejected SelfhostMemoTraitOperationMethodBodyResolverErrorKind::UnexpectedMethodOperation
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_method_body_fact_table_builder_effect_error_result_eq summary.error_expr_rejected SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ErrorExpressionUnsupported
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_method_body_fact_table_builder_effect_error_result_eq summary.missing_root_rejected SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind::ExpressionMissing 9999
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "method body fact table builder stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_method_body_effect_checker" as *
+#import "./memo_trait_operation_method_body_fact_producer" as *
+#import "./memo_trait_operation_method_body_resolver" as *
+
+//: SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind: fact table builder の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - HIR root から fact を作る段階の失敗と、table owner へ追加する段階の失敗を分けます。
+//:
+//: [契約/けいやく]:
+//: - `FactProducerRejected` は effect checker または fact constructor の nested typed error を保持します。この場合、builder は未消費 table owner を閉じたあとに error を返します。
+//: - `TableRejected` は resolver table push の nested typed error を保持します。この場合、table push が owner recovery / cleanup を担当済みです。
+pub enum SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind:
+    FactProducerRejected %SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind
+    TableRejected %SelfhostMemoTraitOperationMethodBodyResolverErrorKind
+
+//: SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary: table builder smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - 1 件 push、2 件連続 push、fact producer rejection の代表形を確認します。
+pub struct SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary:
+    pure_push_len %Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind
+    external_after_pure_push_len %Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind
+    copy_rejected %Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind
+    error_expr_rejected %Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind
+    missing_root_rejected %Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_producer_error: fact producer error を builder error に[包/つつ]む
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_producer_error %fn SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind \error:
+    SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected error
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_table_error: table push error を builder error に[包/つつ]む
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_table_error %fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind \error:
+    SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected error
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_push_hir_root_result: HIR root 由来 fact を table owner へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `table` はこの関数が消費します。成功時は追加後の table owner を返します。
+//: - fact producer が失敗した場合は、`table` はまだ push に渡されていないため、この関数が必ず閉じます。
+//: - table push が失敗した場合は、resolver table push が owner buffer を回収して閉じるため、この関数は二重解放しません。
+//: - `Result::Err` の後に caller が元の `table` を再利用したり free したりしてはいけません。
+//: - surface completeness、duplicate lookup、method body evidence 化はこの関数の責務ではありません。
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_push_hir_root_result %impure fn SelfhostMemoTraitOperationMethodBodyTable impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoTraitOperationMethodBodyTable SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind \table\module\type_id\operation\root\fuel:
+    match selfhost_memo_trait_operation_method_body_fact_from_hir_root_result module type_id operation root fuel:
+        Result::Ok fact:
+            match selfhost_memo_trait_operation_method_body_table_push table fact:
+                Result::Ok next_table:
+                    Result::Ok next_table
+                Result::Err table_error:
+                    Result::Err selfhost_memo_trait_operation_method_body_fact_table_builder_table_error table_error
+        Result::Err producer_error:
+            selfhost_memo_trait_operation_method_body_table_free table
+            Result::Err selfhost_memo_trait_operation_method_body_fact_table_builder_producer_error producer_error
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_error_kind_eq: builder error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested error payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_error_kind_eq %fn SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected a_producer:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected b_producer:
+                    selfhost_memo_trait_operation_method_body_fact_producer_error_kind_eq a_producer b_producer
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected a_table:
+            match b:
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected _b_producer:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected b_table:
+                    selfhost_memo_trait_operation_method_body_resolver_error_kind_eq a_table b_table
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_len_result_eq: push 後 len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_len_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual_len:
+            eq actual_len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_error_result_eq: builder error result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_method_body_fact_table_builder_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_fact_error_result_eq: fact constructor 側 error payload を期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_fact_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected producer_error:
+                    match producer_error:
+                        SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected _effect_error:
+                            false
+                        SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected fact_error:
+                            selfhost_memo_trait_operation_method_body_resolver_error_kind_eq fact_error expected
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected _table_error:
+                    false
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_effect_error_result_eq: effect checker 側 error payload を期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_effect_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected producer_error:
+                    match producer_error:
+                        SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::EffectCheckRejected effect_error:
+                            selfhost_memo_trait_operation_method_body_effect_checker_error_kind_eq effect_error expected
+                        SelfhostMemoTraitOperationMethodBodyFactProducerErrorKind::FactRejected _fact_error:
+                            false
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected _table_error:
+                    false
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_table_error_result_eq: table push 側 error payload を期待通りか[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_table_error_result_eq %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn SelfhostMemoTraitOperationMethodBodyResolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::FactProducerRejected _producer_error:
+                    false
+                SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind::TableRejected table_error:
+                    selfhost_memo_trait_operation_method_body_resolver_error_kind_eq table_error expected
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind fn Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary \pure_push_len\external_after_pure_push_len\copy_rejected\error_expr_rejected\missing_root_rejected:
+    SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary pure_push_len external_after_pure_push_len copy_rejected error_expr_rejected missing_root_rejected
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_len_and_free: builder success table の len を[読/よ]んで owner を[閉/と]じる
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_len_and_free %impure fn SelfhostMemoTraitOperationMethodBodyTable Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind \table:
+    let table_record_count %i32 selfhost_memo_trait_operation_method_body_table_len &table
+    selfhost_memo_trait_operation_method_body_table_free table
+    Result::Ok table_record_count
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_single_push_len: 1 件 push の len result を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_single_push_len %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn SelfhostHirExprId impure fn i32 Result Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind StdErrorKind \module\type_id\operation\root\fuel:
+    match selfhost_memo_trait_operation_method_body_table_new:
+        Result::Ok table:
+            match selfhost_memo_trait_operation_method_body_fact_table_builder_push_hir_root_result table module type_id operation root fuel:
+                Result::Ok next_table:
+                    Result::Ok selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_len_and_free next_table
+                Result::Err error:
+                    Result::Ok Result::Err error
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_two_push_len: 2 件連続 push の len result を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_two_push_len %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result Result i32 SelfhostMemoTraitOperationMethodBodyFactTableBuilderErrorKind StdErrorKind \module\type_id\pure_id\external_id:
+    match selfhost_memo_trait_operation_method_body_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_method_body_fact_table_builder_push_hir_root_result table0 module type_id SelfhostMemoTraitOperationEvidenceKind::Eq pure_id 16:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_method_body_fact_table_builder_push_hir_root_result table1 module type_id SelfhostMemoTraitOperationEvidenceKind::Hash external_id 16:
+                        Result::Ok table2:
+                            Result::Ok selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_len_and_free table2
+                        Result::Err error:
+                            Result::Ok Result::Err error
+                Result::Err error:
+                    Result::Ok Result::Err error
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_finish: 構築済み HIR module で代表 push を[実行/じっこう]する
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_finish %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary StdErrorKind \module\pure_id\external_id\error_id\type_id:
+    match selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_single_push_len &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq pure_id 16:
+        Result::Ok pure_push_len:
+            match selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_two_push_len &module type_id pure_id external_id:
+                Result::Ok external_after_pure_push_len:
+                    match selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_single_push_len &module type_id SelfhostMemoTraitOperationEvidenceKind::Copy pure_id 16:
+                        Result::Ok copy_rejected:
+                            match selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_single_push_len &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq error_id 16:
+                                Result::Ok error_expr_rejected:
+                                    match selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_single_push_len &module type_id SelfhostMemoTraitOperationEvidenceKind::Eq selfhost_hir_expr_id_new 9999 16:
+                                        Result::Ok missing_root_rejected:
+                                            selfhost_hir_module_free module
+                                            Result::Ok selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_summary_new pure_push_len external_after_pure_push_len copy_rejected error_expr_rejected missing_root_rejected
+                                        Result::Err e:
+                                            selfhost_hir_module_free module
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_hir_module_free module
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_hir_module_free module
+                            Result::Err e
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            selfhost_hir_module_free module
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_error: error expression までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_error %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary StdErrorKind \module\pure_id\external_id\type_id\span:
+    match selfhost_hir_module_add_expr module selfhost_hir_expr_error type_id span:
+        Result::Ok error_alloc:
+            let error_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &error_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module error_alloc
+            selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_finish module1 pure_id external_id error_id type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_external: ExternalIo call expression までの smoke module を[作/つく]る
+fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_external %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary StdErrorKind \module\pure_id\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "read" selfhost_def_id_new 4401 type_id SelfhostEffectKind::ExternalIo selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok external_alloc:
+            let external_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &external_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module external_alloc
+            selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_error module1 pure_id external_id type_id span
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_method_body_fact_table_builder_stage0: method body fact table builder の smoke API
+//:
+//: [目的/もくてき]:
+//: - pure `Eq` root の 1 件 push、pure `Eq` と ExternalIo `Hash` root の 2 件 push、`Copy` operation rejection、error expression rejection、missing root rejection を小さな HIR module で確認します。
+pub fn selfhost_memo_trait_operation_method_body_fact_table_builder_stage0 %impure fn void Result SelfhostMemoTraitOperationMethodBodyFactTableBuilderStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9601
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            match selfhost_hir_module_add_expr module0 selfhost_hir_expr_unit type_id span:
+                Result::Ok pure_alloc:
+                    let pure_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &pure_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module pure_alloc
+                    selfhost_memo_trait_operation_method_body_fact_table_builder_stage0_external module1 pure_id type_id span
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

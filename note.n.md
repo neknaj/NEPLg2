@@ -59445,3 +59445,46 @@ MERGE_APPROVED
 
 - F4o は single edge の pair lookup までであり、contour-wide streaming path sink、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
 - 後続では F4o の pair boundary を使い、allocation / owner recovery と no fallback contract を保ったまま contour/path sink へ進む。
+
+## 2026-06-13 selfhost method body fact table builder checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、enum / Result / match による静的検査、責務分割、丁寧な doc comment、試作段階でも雑設計を残さない方針を優先した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_table_builder.nepl` を追加した。
+- この module は `SelfhostMemoTraitOperationMethodBodyTable` owner を消費し、HIR method body root から fact producer を通して fact を作り、resolver の table push へ渡す。
+- 成功時は追加後の table owner を返す。fact producer が失敗した場合は、push 前の未消費 table owner を builder が閉じる。table push が失敗した場合は既存 resolver push が Vec owner を回収するため、builder は二重解放しない。
+- `Result::Err` 後に caller が元の table owner を再利用 / free してはいけない destructive append contract を doc comment、設計 doc、issue、source policy に明記した。
+- error は `FactProducerRejected` と `TableRejected` に分け、effect checker / fact constructor / table push の nested typed payload を保持した。
+- table lookup、duplicate rejection、surface completeness decision、operation evidence record、method body evidence、Drop evidence、Resource IR proof、backend artifact、proof store、public surface scanning は扱わない。
+- `nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_builder_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、fact table builder を接続済みとして残件を再整理した。
+
+### subagent_review
+
+- Anscombe design review: 既存 `selfhost_memo_trait_operation_method_body_table_push` は owner を消費し、push 失敗時に Vec owner を閉じるため、Err 後に table が生きているように見える API は Blocker と指摘された。
+- 対応として destructive append API を採用し、success だけ table owner を返し、fact producer error では builder が free、table push error では resolver push の owner recovery に委譲する形を明示した。
+- Required として、public surface candidate scanning、impl uniqueness、classifier/evidence producer、body check pair、duplicate lookup、complete surface 判定、Resource IR proof、Drop body checker、backend/proof store を入れないこと、error enum を producer rejection と table push rejection に分けること、Err 後の owner 非再利用を doc comment に明記することが挙げられた。同じ slice 内で反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_table_builder_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_method_body_fact_table_builder.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-method-body-fact-table-builder.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_fact_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_method_body_resolver_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した fact table builder contract は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+- pass_with_git_warning: `git diff --check` exit=0。既存環境の LF / CRLF working-copy warning のみ。
+
+### residual
+
+- complete public surface impl candidate 群を走査して builder へ入力する full orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、private cache / private state effect masking、prechecked artifact 接続は未実装である。
+- method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化、subtree memoization は、今回固定した builder contract を変えずに後からできる最適化として扱う。
