@@ -58875,3 +58875,38 @@ MERGE_APPROVED
 - 次 slice は allocation-free curve segment classifier を先に実装し、その後に streaming contour sink を検討する。sink が drawable geometry を出すなら line/quadratic/implied-point rules が先に必要である。
 - `tests/stdlib/gui_font_sfnt_glyf.n.md` は 60 秒 compile timeout に近いため、次のGUI font test追加前に success / error / edge / point stream などへ doctest を分割する。
 - `cmap.nepl` / `name.nepl` など既存 SFNT helper の stdlib declaration doc gap は別の Zenn audit / documentation cleanup slice で扱う。
+
+## 2026-06-13 selfhost memo trait operation impl table checkpoint
+
+### scope
+
+- branch: `work/selfhost-operation-impl-table`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core と checker boundary の分離、DAG、丁寧な doc comment、試作段階でも暫定設計を残さない方針を優先した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl` を追加した。
+- `SelfhostMemoTraitOperationImplCandidate` は `SelfhostTypeId`、Copy / Drop / Eq / Hash operation kind、`SelfhostMemoTraitPublicImplHeaderInput`、`SelfhostMemoTraitOperationTraitApplicationInput`、resolved target type shape evidence、method body evidence、Drop evidence を束ねる typed candidate とした。
+- `SelfhostMemoTraitOperationImplTable` は session-local `Vec` owner table であり、lookup は `SelfhostTypeId` + operation kind に対して一意候補だけを受理する。候補なしは `CandidateMissing`、同じ key が複数ある場合は `CandidateDuplicate`、`idx < len` で `Vec::get` が `None` になる table 不整合は `CandidateReadFailed(idx)` として fail-closed にする。
+- 見つかった候補は `selfhost_memo_trait_operation_classifier_evidence_result` と `selfhost_memo_trait_operation_evidence_producer_status_result` / `record_result` を必ず通す。table は operation evidence record を直接組み立てず、public impl header validation、target shape match、classifier shape match、operation kind match、method / Drop evidence applicability を迂回しない。
+- stage0 smoke は accepted lookup、missing lookup、duplicate rejection、untrusted classifier rejection、generic header producer rejection、target shape mismatch を実行経路で固定した。
+- `nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js` を追加し、source policy runner に登録した。facade re-export と `nodesrc/selfhost_ty_sources.js` 登録は禁止したままにし、source text / span / lexeme / display / diagnostic / module path / HIR / Resource IR / backend / proof-store / artifact authority の混入、行数・doc comment 長制限の導入、push 失敗時の owner recovery 退行を禁止した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と対象 issue、`todo.md` を更新し、trait impl table 探索を接続済みに移した。
+
+### subagent_review
+
+- Anscombe pre-review: Blocker なし。Required として、first-wins 禁止、typed candidate fields、nested classifier / producer rejection、target mismatch smoke、method body purity / Drop proof / generic binder を混ぜないこと、O(n) lookup は後から index 化できる実装詳細として扱うことが指摘された。
+- Anscombe implementation review: Blocker なし。Required として、`idx < len` で `Vec::get` が `None` の場合を typed read failure にすること、push 失敗時の owner cleanup を source policy に固定することが指摘された。
+- 実装では `Vec` owner table、duplicate fail-closed、`CandidateReadFailed(idx)`、classifier / producer 経由、target mismatch regression、facade 非公開、push owner recovery source policy 固定を同じ slice 内で反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-impl-table.json`
+
+### residual
+
+- method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact 接続は未実装である。
+- operation impl table lookup の sorted index 化は public candidate schema / duplicate fail-closed / classifier-producer 経由 contract を変えずに後から行える最適化として扱う。

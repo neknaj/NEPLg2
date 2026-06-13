@@ -238,6 +238,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_classifier_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_surface_seed_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_surface_token_seed_scan_contract.js",
     "nodesrc/test_selfhost_memo_trait_source_evidence_producer_contract.js",

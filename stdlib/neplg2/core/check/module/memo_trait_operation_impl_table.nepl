@@ -1,0 +1,580 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_impl_table
+//: Copy / Drop / Eq / Hash の public trait impl 候補 table から、`MemoKey` / `MemoValue` aggregate solver へ渡す operation evidence producer input を[選/えら]ぶ checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - public surface normalizer が作る trait impl 候補列と、operation classifier / operation evidence producer の間に置く探索境界です。
+//: - 候補 table は `SelfhostTypeId` と `SelfhostMemoTraitOperationEvidenceKind` を key として一意の impl 候補を探します。同じ key の候補が複数ある場合は、record order による first-wins にせず `CandidateDuplicate` として拒否します。
+//: - 見つかった候補は、trait application input から `SelfhostMemoTraitOperationClassifierEvidence` を作り、さらに `SelfhostMemoTraitOperationEvidenceProducerInput` として producer の構造検査に通します。
+//: - この module は「どの public impl が operation 証拠として使われるか」を決める境界であり、method body purity、Drop なし proof、generic impl binder、trait coherence、full public surface orchestration を推測しません。
+//:
+//: [契約/けいやく]:
+//: - accepted candidate は、session-local `SelfhostTypeId`、operation enum、typed public impl header input、typed trait application input、resolved target type shape evidence、method / drop evidence だけから作ります。
+//: - `SelfhostMemoTraitPublicImplHeaderInput` は operation evidence producer が再検査します。table は public declaration payload hash、source text、span、lexeme、display name、diagnostic text、module path を authority にしません。
+//: - trait operation classifier は `selfhost_memo_trait_operation_classifier_evidence_result` から作ります。operation kind、trait name string、method name string、source spelling だけでは candidate を受理しません。
+//: - `resolved_type_shape_hash` と impl header target shape、classifier が読んだ trait application shape と impl header trait application shape、requested operation と classified operation は producer 側でも再照合します。
+//: - method body evidence と Drop evidence は上流 checker から渡された typed enum を消費するだけです。`Missing` / `Unknown` / `Impure` をこの module で `Proven` に変換しません。
+//: - HIR、Resource IR、backend artifact、proof store、`.neplproof` reader / serializer、canonical key codec には依存しません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では候補 table は session-local `Vec` owner table です。永続 artifact や `.neplmeta` の authority にはしません。
+//: - method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration は後続 slice で接続します。
+//: - facade にはまだ re-export しません。full operation evidence orchestration が public surface / method / Drop proof をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - table push は `Vec` push の償却 O(1) 時間です。
+//: - lookup は候補数 n に対して O(n) 時間、O(1) 追加空間です。これは現状の実装詳細であり、public API を変えずに sorted index や operation 別 bucket へ後から置き換えられます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_impl_table" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_classifier" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_header" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let checks0 checks_new
+//:     match selfhost_memo_trait_operation_impl_table_stage0:
+//:         Result::Ok summary:
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_impl_table_record_result_status_eq summary.accepted_record SelfhostMemoTraitAggregateProofStatus::Proven
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_impl_table_error_kind_eq unwrap_err summary.missing_rejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_impl_table_error_kind_eq unwrap_err summary.duplicate_rejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_impl_table_record_result_classifier_rejected_eq summary.classifier_rejected SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Copy
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq summary.producer_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericImplUnsupported
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq summary.target_mismatch_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks1 checks_push checks0 Result::Err "memo trait operation impl table stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_producer" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_evidence_producer" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitOperationImplCandidate: operation impl table の 1 候補
+//:
+//: [目的/もくてき]:
+//: - public impl header、trait application、resolved target shape、method / drop evidence を、1 つの探索候補として束ねます。
+//:
+//: [契約/けいやく]:
+//: - `type_id` と `operation` は lookup key です。
+//: - `trait_application` は classifier が読む stable trait application input です。候補 constructor は classifier evidence を作りません。
+//: - `method_body` と `drop_evidence` は上流 checker が作った typed evidence であり、この table はその正しさを推測しません。
+pub struct SelfhostMemoTraitOperationImplCandidate:
+    type_id %SelfhostTypeId
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    impl_header %SelfhostMemoTraitPublicImplHeaderInput
+    trait_application %SelfhostMemoTraitOperationTraitApplicationInput
+    resolved_type_shape_hash %Option i32
+    method_body %SelfhostMemoTraitOperationMethodBodyEvidence
+    drop_evidence %SelfhostMemoTraitOperationDropEvidence
+
+//: SelfhostMemoTraitOperationImplTable: operation impl 候補の session-local owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。不要になったら `selfhost_memo_trait_operation_impl_table_free` で閉じます。
+//: - table は checker-layer の探索用であり、永続 artifact key や public surface hash の authority ではありません。
+pub struct SelfhostMemoTraitOperationImplTable:
+    records %Vec SelfhostMemoTraitOperationImplCandidate
+
+//: SelfhostMemoTraitOperationImplTableErrorKind: impl table 境界の拒否理由
+//:
+//: [目的/もくてき]:
+//: - lookup 欠落、重複、table read 不整合、push 失敗、classifier rejection、producer rejection を bool ではなく typed enum として保持します。
+pub enum SelfhostMemoTraitOperationImplTableErrorKind:
+    CandidateMissing
+    CandidateDuplicate
+    CandidateReadFailed %i32
+    CandidatePushFailed %StdErrorKind
+    ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
+    ProducerRejected %SelfhostMemoTraitOperationEvidenceProducerErrorKind
+
+//: SelfhostMemoTraitOperationImplTableStage0Summary: impl table smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted record、missing、duplicate、classifier rejection、producer rejection を public API 経由で確認します。
+pub struct SelfhostMemoTraitOperationImplTableStage0Summary:
+    accepted_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind
+    missing_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind
+    classifier_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind
+    producer_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind
+    target_mismatch_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind
+
+impl Clone for SelfhostMemoTraitOperationImplCandidate:
+    fn clone %fn &SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplCandidate \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplCandidate:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplCandidate \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationImplTableErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationImplTableErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplTableErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationImplTableErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationImplTableStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationImplTableStage0Summary SelfhostMemoTraitOperationImplTableStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationImplTableStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationImplTableStage0Summary SelfhostMemoTraitOperationImplTableStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_impl_candidate_new: operation impl 候補を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は typed field を束ねるだけです。classifier / producer validation は result API が実行します。
+pub fn selfhost_memo_trait_operation_impl_candidate_new %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitPublicImplHeaderInput fn SelfhostMemoTraitOperationTraitApplicationInput fn Option i32 fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationImplCandidate \type_id\operation\impl_header\trait_application\resolved_type_shape_hash\method_body\drop_evidence:
+    SelfhostMemoTraitOperationImplCandidate type_id operation impl_header trait_application resolved_type_shape_hash method_body drop_evidence
+
+//: selfhost_memo_trait_operation_impl_table_new: [空/から]の impl candidate table を[作/つく]る
+pub fn selfhost_memo_trait_operation_impl_table_new %impure fn void Result SelfhostMemoTraitOperationImplTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationImplCandidate StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationImplTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_table_free: impl candidate table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_impl_table_free %impure fn SelfhostMemoTraitOperationImplTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_impl_table_len: impl candidate 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_impl_table_len %fn &SelfhostMemoTraitOperationImplTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationImplCandidate field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_impl_table_push: impl candidate を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - push 失敗時は `Vec` が返した owner を閉じ、`CandidatePushFailed(error)` として `StdErrorKind` を保持します。
+pub fn selfhost_memo_trait_operation_impl_table_push %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostMemoTraitOperationImplCandidate Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationImplTableErrorKind \table\candidate:
+    let records %Vec SelfhostMemoTraitOperationImplCandidate field::get table "records"
+    match v::push records candidate:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitOperationImplTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed error
+
+//: selfhost_memo_trait_operation_impl_candidate_key_matches: candidate が lookup key に[一致/いっち]するか[返/かえ]す
+fn selfhost_memo_trait_operation_impl_candidate_key_matches %fn SelfhostMemoTraitOperationImplCandidate fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind bool \candidate\type_id\operation:
+    and:
+        selfhost_type_id_eq candidate.type_id type_id
+        selfhost_memo_trait_operation_evidence_kind_eq candidate.operation operation
+
+//: selfhost_memo_trait_operation_impl_find_finish: lookup 結果を typed result へ[畳/たた]む
+fn selfhost_memo_trait_operation_impl_find_finish %fn Option SelfhostMemoTraitOperationImplCandidate Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind \found:
+    match found:
+        Option::Some candidate:
+            Result::Ok candidate
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing
+
+//: selfhost_memo_trait_operation_impl_find_loop: TypeId / operation に対応する impl candidate を[探/さが]す
+//:
+//: [目的/もくてき]:
+//: - lookup key は `SelfhostTypeId` と operation enum です。source spelling や method name string では探索しません。
+//: - 同じ key の候補が 2 件以上ある場合は `CandidateDuplicate` として拒否し、record order による first-wins を避けます。
+fn selfhost_memo_trait_operation_impl_find_loop %fn &SelfhostMemoTraitOperationImplTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn Option SelfhostMemoTraitOperationImplCandidate Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind \table\type_id\operation\idx\found:
+    if:
+        ge idx selfhost_memo_trait_operation_impl_table_len table
+        then:
+            selfhost_memo_trait_operation_impl_find_finish found
+        else:
+            let records %&Vec SelfhostMemoTraitOperationImplCandidate field::get_ref table "records"
+            match v::get records idx:
+                Option::Some candidate:
+                    if:
+                        selfhost_memo_trait_operation_impl_candidate_key_matches candidate type_id operation
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
+                                Option::None:
+                                    selfhost_memo_trait_operation_impl_find_loop table type_id operation add idx 1 some candidate
+                        else:
+                            selfhost_memo_trait_operation_impl_find_loop table type_id operation add idx 1 found
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx
+
+//: selfhost_memo_trait_operation_impl_candidate_for_type_operation_result: TypeId / operation に対応する raw candidate を[返/かえ]す
+pub fn selfhost_memo_trait_operation_impl_candidate_for_type_operation_result %fn &SelfhostMemoTraitOperationImplTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind \table\type_id\operation:
+    selfhost_memo_trait_operation_impl_find_loop table type_id operation 0 none
+
+//: selfhost_memo_trait_operation_impl_candidate_producer_input_result: raw candidate を producer input へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - trait application input は classifier public API を通して shape-bound classifier evidence にします。
+//: - producer input を返す前に `selfhost_memo_trait_operation_evidence_producer_status_result` を通し、public impl header、target shape、classifier shape、operation kind、method / drop evidence applicability が構造的に妥当か確認します。
+pub fn selfhost_memo_trait_operation_impl_candidate_producer_input_result %fn SelfhostMemoTraitOperationImplCandidate Result SelfhostMemoTraitOperationEvidenceProducerInput SelfhostMemoTraitOperationImplTableErrorKind \candidate:
+    match selfhost_memo_trait_operation_classifier_evidence_result candidate.trait_application:
+        Result::Ok trait_operation:
+            let input %SelfhostMemoTraitOperationEvidenceProducerInput selfhost_memo_trait_operation_evidence_producer_input_new candidate.type_id candidate.operation trait_operation candidate.impl_header candidate.resolved_type_shape_hash candidate.method_body candidate.drop_evidence
+            match selfhost_memo_trait_operation_evidence_producer_status_result input:
+                Result::Ok _status:
+                    Result::Ok input
+                Result::Err producer_error:
+                    Result::Err SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_impl_producer_input_for_type_operation_result: table から producer input を[取/と]り[出/だ]す
+pub fn selfhost_memo_trait_operation_impl_producer_input_for_type_operation_result %fn &SelfhostMemoTraitOperationImplTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationEvidenceProducerInput SelfhostMemoTraitOperationImplTableErrorKind \table\type_id\operation:
+    match selfhost_memo_trait_operation_impl_candidate_for_type_operation_result table type_id operation:
+        Result::Ok candidate:
+            selfhost_memo_trait_operation_impl_candidate_producer_input_result candidate
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_record_for_type_operation_result: table から operation evidence record を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - impl candidate table の探索結果を、ty 層の operation evidence transport が読める record へ接続します。
+//:
+//: [契約/けいやく]:
+//: - producer input はこの module で一度構造検査済みですが、record 作成時にも producer を通します。下流 producer の contract を迂回しません。
+pub fn selfhost_memo_trait_operation_impl_record_for_type_operation_result %fn &SelfhostMemoTraitOperationImplTable fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind \table\type_id\operation:
+    match selfhost_memo_trait_operation_impl_producer_input_for_type_operation_result table type_id operation:
+        Result::Ok input:
+            match selfhost_memo_trait_operation_evidence_producer_record_result input:
+                Result::Ok record:
+                    Result::Ok record
+                Result::Err producer_error:
+                    Result::Err SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_table_error_kind_eq: impl table error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - payload を持つ error は payload まで比較します。
+//: - wildcard arm は使いません。error variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_impl_table_error_kind_eq %fn SelfhostMemoTraitOperationImplTableErrorKind fn SelfhostMemoTraitOperationImplTableErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+            match b:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    true
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _b_idx:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _b_producer:
+                    false
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+            match b:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    true
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _b_idx:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _b_producer:
+                    false
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed a_idx:
+            match b:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed b_idx:
+                    eq a_idx b_idx
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _b_producer:
+                    false
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed a_push:
+            match b:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _b_idx:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed b_push:
+                    selfhost_memo_trait_operation_impl_table_std_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _b_producer:
+                    false
+        SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected a_classifier:
+            match b:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _b_idx:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected b_classifier:
+                    selfhost_memo_trait_operation_classifier_error_kind_eq a_classifier b_classifier
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _b_producer:
+                    false
+        SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected a_producer:
+            match b:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _b_idx:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected b_producer:
+                    selfhost_memo_trait_operation_evidence_producer_error_kind_eq a_producer b_producer
+
+//: selfhost_memo_trait_operation_impl_table_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_impl_table_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_impl_table_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_impl_table_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_impl_table_std_error_kind_code a selfhost_memo_trait_operation_impl_table_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_impl_table_record_result_status_eq: record result の status を[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_impl_table_record_result_status_eq %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn SelfhostMemoTraitAggregateProofStatus bool \result\expected:
+    match result:
+        Result::Ok record:
+            selfhost_memo_trait_operation_evidence_status_eq record.status expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_impl_table_record_result_classifier_rejected_eq: record result が期待した classifier rejection か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_impl_table_record_result_classifier_rejected_eq %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn SelfhostMemoTraitOperationClassifierErrorKind bool \result\expected:
+    match result:
+        Result::Ok _record:
+            false
+        Result::Err e:
+            match e:
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error:
+                    selfhost_memo_trait_operation_classifier_error_kind_eq classifier_error expected
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected _producer:
+                    false
+
+//: selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq: record result が期待した producer rejection か[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn SelfhostMemoTraitOperationEvidenceProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _record:
+            false
+        Result::Err e:
+            match e:
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error:
+                    selfhost_memo_trait_operation_evidence_producer_error_kind_eq producer_error expected
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed _push:
+                    false
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected _classifier:
+                    false
+
+//: selfhost_memo_trait_operation_impl_table_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_impl_table_stage0_summary_new %fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationImplTableStage0Summary \accepted_record\missing_rejected\duplicate_rejected\classifier_rejected\producer_rejected\target_mismatch_rejected:
+    SelfhostMemoTraitOperationImplTableStage0Summary accepted_record missing_rejected duplicate_rejected classifier_rejected producer_rejected target_mismatch_rejected
+
+//: selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target: stage0 用 impl header input を target shape 指定で[作/つく]る
+fn selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target %fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\target_shape\trait_shape\type_parameter_count:
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9301 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape some trait_shape type_parameter_count 0
+
+//: selfhost_memo_trait_operation_impl_table_stage0_impl_header: stage0 用 impl header input を[作/つく]る
+fn selfhost_memo_trait_operation_impl_table_stage0_impl_header %fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\trait_shape:
+    selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target declaration_ordinal 9401 trait_shape 0
+
+//: selfhost_memo_trait_operation_impl_table_stage0_generic_impl_header: generic rejection 用 impl header input を[作/つく]る
+fn selfhost_memo_trait_operation_impl_table_stage0_generic_impl_header %fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\trait_shape:
+    selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target declaration_ordinal 9401 trait_shape 1
+
+//: selfhost_memo_trait_operation_impl_table_stage0_trait_application: stage0 用 trait application input を[作/つく]る
+fn selfhost_memo_trait_operation_impl_table_stage0_trait_application %fn SelfhostMemoTraitOperationSourceIdentity fn i32 SelfhostMemoTraitOperationTraitApplicationInput \source\shape_hash:
+    selfhost_memo_trait_operation_trait_application_input_new source 0 some shape_hash
+
+//: selfhost_memo_trait_operation_impl_table_stage0_candidate: stage0 用 candidate を[作/つく]る
+fn selfhost_memo_trait_operation_impl_table_stage0_candidate %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn SelfhostMemoTraitPublicImplHeaderInput fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationImplCandidate \type_id\operation\source\shape_hash\impl_header\method_body\drop_evidence:
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_impl_table_stage0_trait_application source shape_hash
+    selfhost_memo_trait_operation_impl_candidate_new type_id operation impl_header trait_application some 9401 method_body drop_evidence
+
+//: selfhost_memo_trait_operation_impl_table_stage0_duplicate: duplicate rejection を[確認/かくにん]する
+fn selfhost_memo_trait_operation_impl_table_stage0_duplicate %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind StdErrorKind \type_id\source\shape_hash:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok table0:
+            let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_table_stage0_impl_header 1 shape_hash
+            let first %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_table_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy source shape_hash header SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+            match selfhost_memo_trait_operation_impl_table_push table0 first:
+                Result::Ok table1:
+                    let second_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_table_stage0_impl_header 2 shape_hash
+                    let second %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_table_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy source shape_hash second_header SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+                    match selfhost_memo_trait_operation_impl_table_push table1 second:
+                        Result::Ok table:
+                            let result %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_record_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+                            selfhost_memo_trait_operation_impl_table_free table
+                            Result::Ok result
+                        Result::Err _push_error:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _push_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_impl_table_stage0_single_candidate_record: 単一 candidate table の lookup 結果を[得/え]る
+//:
+//: [契約/けいやく]:
+//: - classifier / producer rejection の stage0 でも、table search public API と owner cleanup を必ず通します。
+fn selfhost_memo_trait_operation_impl_table_stage0_single_candidate_record %impure fn SelfhostMemoTraitOperationImplCandidate impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind Result Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind StdErrorKind \candidate\type_id\operation:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_impl_table_push table0 candidate:
+                Result::Ok table:
+                    let result %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_record_for_type_operation_result &table type_id operation
+                    selfhost_memo_trait_operation_impl_table_free table
+                    Result::Ok result
+                Result::Err _push_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_impl_table_stage0_after_table: accepted table から代表 lookup を[集/あつ]める
+fn selfhost_memo_trait_operation_impl_table_stage0_after_table %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result SelfhostMemoTraitOperationImplTableStage0Summary StdErrorKind \table\type_id\missing_type_id\copy_source\copy_shape_hash:
+    let accepted_record %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_record_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+    let missing_rejected %Result SelfhostMemoTraitOperationEvidenceRecord SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_record_for_type_operation_result &table missing_type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+    match selfhost_memo_trait_operation_impl_table_stage0_duplicate type_id copy_source copy_shape_hash:
+        Result::Ok duplicate_rejected:
+            let untrusted_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Copy 9311 9312 9313
+            let classifier_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_table_stage0_impl_header 3 copy_shape_hash
+            let classifier_candidate %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_table_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy untrusted_source copy_shape_hash classifier_header SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+            match selfhost_memo_trait_operation_impl_table_stage0_single_candidate_record classifier_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy:
+                Result::Ok classifier_rejected:
+                    let producer_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_table_stage0_generic_impl_header 4 copy_shape_hash
+                    let producer_candidate %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_table_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_source copy_shape_hash producer_header SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+                    match selfhost_memo_trait_operation_impl_table_stage0_single_candidate_record producer_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy:
+                        Result::Ok producer_rejected:
+                            let target_mismatch_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target 5 9402 copy_shape_hash 0
+                            let target_mismatch_candidate %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_table_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_source copy_shape_hash target_mismatch_header SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+                            match selfhost_memo_trait_operation_impl_table_stage0_single_candidate_record target_mismatch_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy:
+                                Result::Ok target_mismatch_rejected:
+                                    selfhost_memo_trait_operation_impl_table_free table
+                                    Result::Ok selfhost_memo_trait_operation_impl_table_stage0_summary_new accepted_record missing_rejected duplicate_rejected classifier_rejected producer_rejected target_mismatch_rejected
+                                Result::Err target_stage_error:
+                                    selfhost_memo_trait_operation_impl_table_free table
+                                    Result::Err target_stage_error
+                        Result::Err producer_stage_error:
+                            selfhost_memo_trait_operation_impl_table_free table
+                            Result::Err producer_stage_error
+                Result::Err classifier_stage_error:
+                    selfhost_memo_trait_operation_impl_table_free table
+                    Result::Err classifier_stage_error
+        Result::Err e:
+            selfhost_memo_trait_operation_impl_table_free table
+            Result::Err e
+
+//: selfhost_memo_trait_operation_impl_table_stage0_push_accepted: accepted candidate を追加して stage0 を[進/すす]める
+fn selfhost_memo_trait_operation_impl_table_stage0_push_accepted %impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result SelfhostMemoTraitOperationImplTableStage0Summary StdErrorKind \type_id\missing_type_id\copy_source\copy_shape_hash:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok table0:
+            let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_impl_table_stage0_impl_header 1 copy_shape_hash
+            let candidate %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_table_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy copy_source copy_shape_hash header SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+            match selfhost_memo_trait_operation_impl_table_push table0 candidate:
+                Result::Ok table:
+                    selfhost_memo_trait_operation_impl_table_stage0_after_table table type_id missing_type_id copy_source copy_shape_hash
+                Result::Err _push_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_impl_table_stage0: operation impl table の smoke API
+//:
+//: [目的/もくてき]:
+//: - trusted Copy impl 候補の accepted path、missing、duplicate、untrusted classifier rejection、generic header rejection を実行で確認します。
+pub fn selfhost_memo_trait_operation_impl_table_stage0 %impure fn void Result SelfhostMemoTraitOperationImplTableStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 80
+    let missing_type_id %SelfhostTypeId selfhost_type_id_new 81
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            match selfhost_memo_trait_operation_trait_application_shape_hash_result registry.copy_source 0:
+                Result::Ok copy_shape_hash:
+                    selfhost_memo_trait_operation_impl_table_stage0_push_accepted type_id missing_type_id registry.copy_source copy_shape_hash
+                Result::Err _shape_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _registry_error:
+            Result::Err StdErrorKind::InvalidOperation

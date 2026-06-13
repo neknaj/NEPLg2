@@ -1428,6 +1428,18 @@ producer stage0、operation proof stage0、recursive producer stage0 は、opera
 
 Phase 1 の current registry は compiler-known prepared fingerprint である。これは actual public surface materializer ではないため、後続では Copy / Drop / Eq / Hash trait definition source identity を public surface hash、stable trait definition key、normalized signature evidence から作る。type argument count は 0 だけを受理し、generic operation trait application は binder / argument identity が接続されるまで拒否する。
 
+### 2026-06-13 MemoKey / MemoValue operation impl table checkpoint
+
+`memo_trait_operation_impl_table.nepl` を追加し、public surface normalizer が作る trait impl 候補列と operation classifier / operation evidence producer の間に置く checker-layer 探索境界を作った。
+
+この table は `SelfhostTypeId` と `SelfhostMemoTraitOperationEvidenceKind` を key として一意の `SelfhostMemoTraitOperationImplCandidate` を探す。同じ key の候補が複数ある場合は record order による first-wins にせず、`CandidateDuplicate` として fail-closed に拒否する。候補が無い場合は `CandidateMissing` であり、証拠欠落を `Proven` に見せない。`idx < len` なのに `Vec::get` が `None` を返す table 不整合は `CandidateReadFailed(idx)` として扱い、既に見つけた候補を成功へ畳まない。
+
+candidate は typed public impl header input、typed trait application input、resolved target type shape evidence、method body evidence、Drop evidence を持つ。見つかった candidate は `selfhost_memo_trait_operation_classifier_evidence_result` で shape-bound classifier evidence に変換し、さらに `selfhost_memo_trait_operation_evidence_producer_status_result` と `selfhost_memo_trait_operation_evidence_producer_record_result` を通す。table 自身は operation evidence record を直接組み立てず、producer の public impl header / target shape / classifier shape / operation kind / method-drop evidence gate を迂回しない。
+
+この checkpoint でも method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration は未実装である。table はそれらが作った typed evidence を運ぶ探索境界であり、source text、span、lexeme、display name、diagnostic、module path、HIR、Resource IR、backend artifact、proof store、`.neplproof` reader / serializer、canonical key codec を authority にしない。
+
+現実装の lookup は candidate 数 n に対して O(n) である。これは公開契約ではなく、後で sorted index や operation bucket へ置き換えられる。置換時も typed candidate schema、duplicate fail-closed、classifier / producer 経由、source-derived authority 非使用という契約は変えてはならない。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
