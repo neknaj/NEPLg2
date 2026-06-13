@@ -346,6 +346,47 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4h: sfnt simple glyph single point decode
+
+目的:
+
+- checked point stream range から 1 logical point の coordinate、on-curve、contour end state を復元する。
+- full point `Vec` / outline builder は allocation failure と owner recovery の contract を設計してから後続 phase で実装する。
+- F4h は allocation なしで動作し、F4g の range validation を必ず通る。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPoint` と `gui_sfnt_lookup_simple_glyph_point` を追加する。
+- `GuiSfntSimpleGlyphPoint` は glyph、point_index、x、y、on_curve、end_of_contour を持つ。
+- `point_index < 0` または `point_index >= topology.point_count` は `MissingGlyphOutline` とする。
+- flag / coordinate / endpoint の byte 構造不整合は `MalformedGlyfRecord` とする。
+- `gui_sfnt_lookup_simple_glyph_point` は `gui_sfnt_glyf_simple_point_stream_with_tables` を通り、F4g-derived `flag_data` / `x_data` / `y_data` range 内だけを読む。
+- flag bit 0 を `on_curve` とする。
+- x delta は xShort / xPositive / xSame から `+u8`、`-u8`、`0`、`i16be` に復元する。
+- y delta は yShort / yPositive / ySame から `+u8`、`-u8`、`0`、`i16be` に復元する。
+- coordinate は point 0 から `point_index` まで累積する。target が repeat run の途中にある場合も、target より前の repeated point の delta は消費・累積する。
+- `end_of_contour` は topology から endpoint array offset を復元し、endpoint value と point_index の一致で判定する。
+- F4h は `trailing_data_length` を読まず、zero padding も要求しない。
+- Source policy で single point API、no Vec allocation、F4g validation reuse、cumulative coordinate semantics、out-of-range error kind、platform / fallback 非依存を固定する。
+
+完了条件:
+
+- no-repeat fixture で point 0 と endpoint point を decode できる。
+- repeat run fixture で target が repeat run 内にある場合でも、前の repeated point の delta が累積される。
+- signed long coordinate と negative short coordinate を decode できる。
+- `repeat_count = 0` fixture で x/y 0、contour end を decode できる。
+- `point_index = -1` と `point_index = point_count` は `MissingGlyphOutline` になる。
+- coordinate overrun 系 fixture を point lookup 経由でも `MalformedGlyfRecord` として扱える。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

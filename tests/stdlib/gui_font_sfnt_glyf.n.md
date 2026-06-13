@@ -8,7 +8,7 @@ short / long `loca` から glyph offset を読み、`glyf` header の bounds を
 
 neplg2:test[stdio, normalize_newlines]
 exit_code: 0
-stdout: "test_report name=\"gui_sfnt_glyf_reads_header_bounds_and_typed_errors\" count=47 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"glyf glyph1 x min\" expected=\"-10\" actual=\"-10\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"glyf glyph1 y max\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"glyf long loca x max\" expected=\"90\" actual=\"90\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"topology contour count\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"topology point count\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"topology instruction length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"topology point data offset\" expected=\"17\" actual=\"17\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"topology point data length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"point stream no-repeat flag offset\" expected=\"17\" actual=\"17\" message=\"\"\nassertion index=9 status=ok kind=eq_i32 label=\"point stream no-repeat raw flag length\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"point stream no-repeat x offset\" expected=\"21\" actual=\"21\" message=\"\"\nassertion index=11 status=ok kind=eq_i32 label=\"point stream no-repeat x length\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=12 status=ok kind=eq_i32 label=\"point stream no-repeat y offset\" expected=\"26\" actual=\"26\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"point stream no-repeat y length\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=14 status=ok kind=eq_i32 label=\"point stream no-repeat trailing offset\" expected=\"31\" actual=\"31\" message=\"\"\nassertion index=15 status=ok kind=eq_i32 label=\"point stream no-repeat trailing length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"point stream repeat raw flag length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=17 status=ok kind=eq_i32 label=\"point stream repeat x offset\" expected=\"20\" actual=\"20\" message=\"\"\nassertion index=18 status=ok kind=eq_i32 label=\"point stream repeat x length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=19 status=ok kind=eq_i32 label=\"point stream repeat y length\" expected=\"6\" actual=\"6\" message=\"\"\nassertion index=20 status=ok kind=eq_i32 label=\"point stream repeat trailing length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=21 status=ok kind=eq_i32 label=\"point stream repeat zero raw flag length\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=22 status=ok kind=eq_i32 label=\"point stream repeat zero x offset\" expected=\"16\" actual=\"16\" message=\"\"\nassertion index=23 status=ok kind=eq_i32 label=\"point stream repeat zero x length\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=24 status=ok kind=eq_i32 label=\"point stream repeat zero y length\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=25 status=ok kind=eq_i32 label=\"point stream repeat zero trailing length\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=26 status=ok kind=bool label=\"missing loca table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=27 status=ok kind=bool label=\"missing glyf table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"short head for glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"unsupported loca format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=bool label=\"long loca high bit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=31 status=ok kind=bool label=\"short loca declared length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=32 status=ok kind=bool label=\"decreasing glyph offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=33 status=ok kind=bool label=\"empty glyph outline\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=34 status=ok kind=bool label=\"short glyf header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=35 status=ok kind=bool label=\"inverted glyph bounds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=36 status=ok kind=bool label=\"composite glyph unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=37 status=ok kind=bool label=\"zero contour topology\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=38 status=ok kind=bool label=\"non increasing endpoint\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=39 status=ok kind=bool label=\"short endpoint array\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=40 status=ok kind=bool label=\"short instruction length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=41 status=ok kind=bool label=\"instruction overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=42 status=ok kind=bool label=\"missing point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=43 status=ok kind=bool label=\"point stream repeat overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=44 status=ok kind=bool label=\"point stream missing repeat byte\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=45 status=ok kind=bool label=\"point stream x coordinate overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=46 status=ok kind=bool label=\"point stream y coordinate overrun\" expected=\"true\" actual=\"true\" message=\"\"\n"
+stdout: "test_report name=\"gui_sfnt_glyf_reads_header_bounds_and_typed_errors\" count=67 failed=0\nassertion index=0 status=ok kind=eq_i32 label=\"glyf glyph1 x min\" expected=\"-10\" actual=\"-10\" message=\"\"\nassertion index=1 status=ok kind=eq_i32 label=\"glyf glyph1 y max\" expected=\"200\" actual=\"200\" message=\"\"\nassertion index=2 status=ok kind=eq_i32 label=\"glyf long loca x max\" expected=\"90\" actual=\"90\" message=\"\"\nassertion index=3 status=ok kind=eq_i32 label=\"topology contour count\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=4 status=ok kind=eq_i32 label=\"topology point count\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=5 status=ok kind=eq_i32 label=\"topology instruction length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=6 status=ok kind=eq_i32 label=\"topology point data offset\" expected=\"17\" actual=\"17\" message=\"\"\nassertion index=7 status=ok kind=eq_i32 label=\"topology point data length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=8 status=ok kind=eq_i32 label=\"point stream no-repeat flag offset\" expected=\"17\" actual=\"17\" message=\"\"\nassertion index=9 status=ok kind=eq_i32 label=\"point stream no-repeat raw flag length\" expected=\"4\" actual=\"4\" message=\"\"\nassertion index=10 status=ok kind=eq_i32 label=\"point stream no-repeat x offset\" expected=\"21\" actual=\"21\" message=\"\"\nassertion index=11 status=ok kind=eq_i32 label=\"point stream no-repeat x length\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=12 status=ok kind=eq_i32 label=\"point stream no-repeat y offset\" expected=\"26\" actual=\"26\" message=\"\"\nassertion index=13 status=ok kind=eq_i32 label=\"point stream no-repeat y length\" expected=\"5\" actual=\"5\" message=\"\"\nassertion index=14 status=ok kind=eq_i32 label=\"point stream no-repeat trailing offset\" expected=\"31\" actual=\"31\" message=\"\"\nassertion index=15 status=ok kind=eq_i32 label=\"point stream no-repeat trailing length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=16 status=ok kind=eq_i32 label=\"point stream repeat raw flag length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=17 status=ok kind=eq_i32 label=\"point stream repeat x offset\" expected=\"20\" actual=\"20\" message=\"\"\nassertion index=18 status=ok kind=eq_i32 label=\"point stream repeat x length\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=19 status=ok kind=eq_i32 label=\"point stream repeat y length\" expected=\"6\" actual=\"6\" message=\"\"\nassertion index=20 status=ok kind=eq_i32 label=\"point stream repeat trailing length\" expected=\"1\" actual=\"1\" message=\"\"\nassertion index=21 status=ok kind=eq_i32 label=\"point stream repeat zero raw flag length\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=22 status=ok kind=eq_i32 label=\"point stream repeat zero x offset\" expected=\"16\" actual=\"16\" message=\"\"\nassertion index=23 status=ok kind=eq_i32 label=\"point stream repeat zero x length\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=24 status=ok kind=eq_i32 label=\"point stream repeat zero y length\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=25 status=ok kind=eq_i32 label=\"point stream repeat zero trailing length\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=26 status=ok kind=eq_i32 label=\"point decode no-repeat point0 x\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=27 status=ok kind=eq_i32 label=\"point decode no-repeat point0 y\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=28 status=ok kind=bool label=\"point decode no-repeat point0 off curve\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=29 status=ok kind=bool label=\"point decode no-repeat point0 not contour end\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=30 status=ok kind=eq_i32 label=\"point decode no-repeat endpoint index\" expected=\"3\" actual=\"3\" message=\"\"\nassertion index=31 status=ok kind=bool label=\"point decode no-repeat endpoint contour end\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=32 status=ok kind=eq_i32 label=\"point decode repeat cumulative x\" expected=\"6\" actual=\"6\" message=\"\"\nassertion index=33 status=ok kind=eq_i32 label=\"point decode repeat cumulative y\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=34 status=ok kind=bool label=\"point decode repeat off curve\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=35 status=ok kind=bool label=\"point decode repeat middle not contour end\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=36 status=ok kind=eq_i32 label=\"point decode repeat zero x\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=37 status=ok kind=eq_i32 label=\"point decode repeat zero y\" expected=\"0\" actual=\"0\" message=\"\"\nassertion index=38 status=ok kind=bool label=\"point decode repeat zero contour end\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=39 status=ok kind=eq_i32 label=\"point decode signed x\" expected=\"2\" actual=\"2\" message=\"\"\nassertion index=40 status=ok kind=eq_i32 label=\"point decode signed y\" expected=\"-6\" actual=\"-6\" message=\"\"\nassertion index=41 status=ok kind=bool label=\"point decode signed on curve\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=42 status=ok kind=bool label=\"missing loca table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=43 status=ok kind=bool label=\"missing glyf table\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=44 status=ok kind=bool label=\"short head for glyf\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=45 status=ok kind=bool label=\"unsupported loca format\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=46 status=ok kind=bool label=\"long loca high bit\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=47 status=ok kind=bool label=\"short loca declared length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=48 status=ok kind=bool label=\"decreasing glyph offset\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=49 status=ok kind=bool label=\"empty glyph outline\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=50 status=ok kind=bool label=\"short glyf header\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=51 status=ok kind=bool label=\"inverted glyph bounds\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=52 status=ok kind=bool label=\"composite glyph unsupported\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=53 status=ok kind=bool label=\"zero contour topology\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=54 status=ok kind=bool label=\"non increasing endpoint\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=55 status=ok kind=bool label=\"short endpoint array\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=56 status=ok kind=bool label=\"short instruction length\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=57 status=ok kind=bool label=\"instruction overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=58 status=ok kind=bool label=\"missing point data\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=59 status=ok kind=bool label=\"point stream repeat overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=60 status=ok kind=bool label=\"point stream missing repeat byte\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=61 status=ok kind=bool label=\"point stream x coordinate overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=62 status=ok kind=bool label=\"point stream y coordinate overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=63 status=ok kind=bool label=\"point decode negative index missing\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=64 status=ok kind=bool label=\"point decode index count missing\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=65 status=ok kind=bool label=\"point decode x coordinate overrun\" expected=\"true\" actual=\"true\" message=\"\"\nassertion index=66 status=ok kind=bool label=\"point decode y coordinate overrun\" expected=\"true\" actual=\"true\" message=\"\"\n"
 ```neplg2
 #entry main
 #indent 4
@@ -498,6 +498,21 @@ fn sfnt_push_one_contour_point_header %impure fn ByteBuilder impure fn i32 Resul
                         Result::Ok b3:
                             sfnt_push_zero_run b3 instruction_length
 
+fn sfnt_push_one_contour_endpoint_header %impure fn ByteBuilder impure fn i32 impure fn i32 Result ByteBuilder str \builder\endpoint\instruction_length:
+    match sfnt_push_glyf_header builder 1 0 65530 20 30:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u16_be b1 endpoint:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u16_be b2 instruction_length:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            sfnt_push_zero_run b3 instruction_length
+
 fn sfnt_push_point_stream_no_repeat_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
     match sfnt_push_two_contour_point_header builder:
         Result::Err message:
@@ -550,11 +565,23 @@ fn sfnt_push_point_stream_repeat_glyf %impure fn ByteBuilder Result ByteBuilder 
                                 Result::Err message:
                                     Result::Err message
                                 Result::Ok b4:
-                                    match sfnt_push_zero_run b4 9:
+                                    match sfnt_push_u8 b4 1:
                                         Result::Err message:
                                             Result::Err message
                                         Result::Ok b5:
-                                            sfnt_push_u8 b5 238
+                                            match sfnt_push_u8 b5 2:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u8 b6 3:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_zero_run b7 6:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    sfnt_push_u8 b8 238
 
 fn sfnt_push_point_stream_repeat_zero_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
     match sfnt_push_one_contour_point_header builder 0:
@@ -615,6 +642,41 @@ fn sfnt_push_point_stream_y_overrun_glyf %impure fn ByteBuilder Result ByteBuild
                 Result::Ok b2:
                     sfnt_push_u8 b2 34
 
+fn sfnt_push_point_decode_signed_glyf %impure fn ByteBuilder Result ByteBuilder str \builder:
+    match sfnt_push_one_contour_endpoint_header builder 2 0:
+        Result::Err message:
+            Result::Err message
+        Result::Ok b1:
+            match sfnt_push_u8 b1 19:
+                Result::Err message:
+                    Result::Err message
+                Result::Ok b2:
+                    match sfnt_push_u8 b2 7:
+                        Result::Err message:
+                            Result::Err message
+                        Result::Ok b3:
+                            match sfnt_push_u8 b3 49:
+                                Result::Err message:
+                                    Result::Err message
+                                Result::Ok b4:
+                                    match sfnt_push_u8 b4 5:
+                                        Result::Err message:
+                                            Result::Err message
+                                        Result::Ok b5:
+                                            match sfnt_push_u8 b5 3:
+                                                Result::Err message:
+                                                    Result::Err message
+                                                Result::Ok b6:
+                                                    match sfnt_push_u8 b6 255:
+                                                        Result::Err message:
+                                                            Result::Err message
+                                                        Result::Ok b7:
+                                                            match sfnt_push_u8 b7 254:
+                                                                Result::Err message:
+                                                                    Result::Err message
+                                                                Result::Ok b8:
+                                                                    sfnt_push_u8 b8 4
+
 fn sfnt_push_topology_payload %impure fn ByteBuilder impure fn i32 Result ByteBuilder str \builder\kind:
     match kind:
         0:
@@ -647,6 +709,8 @@ fn sfnt_push_topology_payload %impure fn ByteBuilder impure fn i32 Result ByteBu
             sfnt_push_point_stream_x_overrun_glyf builder
         14:
             sfnt_push_point_stream_y_overrun_glyf builder
+        15:
+            sfnt_push_point_decode_signed_glyf builder
         _:
             Result::Err "unknown topology payload"
 
@@ -947,6 +1011,33 @@ fn sfnt_glyf_point_stream_error_is %fn Result GuiSfntSimpleGlyphPointStream GuiS
         Result::Ok _stream:
             false
 
+fn sfnt_glyf_point_error_is %fn Result GuiSfntSimpleGlyphPoint GuiSfntParseError fn GuiSfntParseErrorKind bool \result\expected:
+    match result:
+        Result::Err error:
+            match expected:
+                GuiSfntParseErrorKind::MalformedGlyfRecord:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MalformedGlyfRecord:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::MissingGlyphOutline:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::MissingGlyphOutline:
+                            true
+                        _:
+                            false
+                GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+                    match gui_sfnt_parse_error_kind &error:
+                        GuiSfntParseErrorKind::UnsupportedGlyphOutlineFormat:
+                            true
+                        _:
+                            false
+                _:
+                    false
+        Result::Ok _point:
+            false
+
 fn append_success_cases %impure fn TestReport TestReport \report0:
     let glyph1 %GuiGlyphId unwrap_ok gui_glyph_id_result 1
     let report1 %TestReport match build_short_loca_glyf_sfnt:
@@ -1020,7 +1111,7 @@ fn append_success_cases %impure fn TestReport TestReport \report0:
                     test_report_push r4 assert_eq_i32 "point stream repeat trailing length" 1 gui_sfnt_simple_glyph_point_stream_trailing_data_length &stream
             io_bytebuf_free bytes
             next_report
-    match build_topology_case_sfnt 10 18 9:
+    let report6 %TestReport match build_topology_case_sfnt 10 18 9:
         Result::Err _message:
             test_report_push report5 assert false
         Result::Ok bytes:
@@ -1033,6 +1124,72 @@ fn append_success_cases %impure fn TestReport TestReport \report0:
                     let r3 %TestReport test_report_push r2 assert_eq_i32 "point stream repeat zero x length" 0 gui_sfnt_simple_glyph_point_stream_x_data_length &stream
                     let r4 %TestReport test_report_push r3 assert_eq_i32 "point stream repeat zero y length" 0 gui_sfnt_simple_glyph_point_stream_y_data_length &stream
                     test_report_push r4 assert_eq_i32 "point stream repeat zero trailing length" 2 gui_sfnt_simple_glyph_point_stream_trailing_data_length &stream
+            io_bytebuf_free bytes
+            next_report
+    let report7 %TestReport match build_topology_case_sfnt 8 34 17:
+        Result::Err _message:
+            test_report_push report6 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 0:
+                Result::Err _error:
+                    test_report_push report6 assert false
+                Result::Ok point:
+                    let r1 %TestReport test_report_push report6 assert_eq_i32 "point decode no-repeat point0 x" 0 gui_sfnt_simple_glyph_point_x &point
+                    let r2 %TestReport test_report_push r1 assert_eq_i32 "point decode no-repeat point0 y" 0 gui_sfnt_simple_glyph_point_y &point
+                    let r3 %TestReport test_report_push r2 assert "point decode no-repeat point0 off curve" not gui_sfnt_simple_glyph_point_on_curve &point
+                    test_report_push r3 assert "point decode no-repeat point0 not contour end" not gui_sfnt_simple_glyph_point_end_of_contour &point
+            io_bytebuf_free bytes
+            next_report
+    let report8 %TestReport match build_topology_case_sfnt 8 34 17:
+        Result::Err _message:
+            test_report_push report7 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 3:
+                Result::Err _error:
+                    test_report_push report7 assert false
+                Result::Ok point:
+                    let r1 %TestReport test_report_push report7 assert_eq_i32 "point decode no-repeat endpoint index" 3 gui_sfnt_simple_glyph_point_index &point
+                    test_report_push r1 assert "point decode no-repeat endpoint contour end" gui_sfnt_simple_glyph_point_end_of_contour &point
+            io_bytebuf_free bytes
+            next_report
+    let report9 %TestReport match build_topology_case_sfnt 9 30 15:
+        Result::Err _message:
+            test_report_push report8 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 2:
+                Result::Err _error:
+                    test_report_push report8 assert false
+                Result::Ok point:
+                    let r1 %TestReport test_report_push report8 assert_eq_i32 "point decode repeat cumulative x" 6 gui_sfnt_simple_glyph_point_x &point
+                    let r2 %TestReport test_report_push r1 assert_eq_i32 "point decode repeat cumulative y" 0 gui_sfnt_simple_glyph_point_y &point
+                    let r3 %TestReport test_report_push r2 assert "point decode repeat off curve" not gui_sfnt_simple_glyph_point_on_curve &point
+                    test_report_push r3 assert "point decode repeat middle not contour end" not gui_sfnt_simple_glyph_point_end_of_contour &point
+            io_bytebuf_free bytes
+            next_report
+    let report10 %TestReport match build_topology_case_sfnt 10 18 9:
+        Result::Err _message:
+            test_report_push report9 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 0:
+                Result::Err _error:
+                    test_report_push report9 assert false
+                Result::Ok point:
+                    let r1 %TestReport test_report_push report9 assert_eq_i32 "point decode repeat zero x" 0 gui_sfnt_simple_glyph_point_x &point
+                    let r2 %TestReport test_report_push r1 assert_eq_i32 "point decode repeat zero y" 0 gui_sfnt_simple_glyph_point_y &point
+                    test_report_push r2 assert "point decode repeat zero contour end" gui_sfnt_simple_glyph_point_end_of_contour &point
+            io_bytebuf_free bytes
+            next_report
+    match build_topology_case_sfnt 15 22 11:
+        Result::Err _message:
+            test_report_push report10 assert false
+        Result::Ok bytes:
+            let next_report %TestReport match gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 1:
+                Result::Err _error:
+                    test_report_push report10 assert false
+                Result::Ok point:
+                    let r1 %TestReport test_report_push report10 assert_eq_i32 "point decode signed x" 2 gui_sfnt_simple_glyph_point_x &point
+                    let r2 %TestReport test_report_push r1 assert_eq_i32 "point decode signed y" -6 gui_sfnt_simple_glyph_point_y &point
+                    test_report_push r2 assert "point decode signed on curve" gui_sfnt_simple_glyph_point_on_curve &point
             io_bytebuf_free bytes
             next_report
 
@@ -1179,13 +1336,41 @@ fn append_error_cases %impure fn TestReport TestReport \report0:
             let ok %bool sfnt_glyf_point_stream_error_is gui_sfnt_lookup_simple_glyph_point_stream &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
             io_bytebuf_free bytes
             test_report_push report19 assert "point stream x coordinate overrun" ok
-    match build_topology_case_sfnt 14 16 8:
+    let report21 %TestReport match build_topology_case_sfnt 14 16 8:
         Result::Err _message:
             test_report_push report20 assert false
         Result::Ok bytes:
             let ok %bool sfnt_glyf_point_stream_error_is gui_sfnt_lookup_simple_glyph_point_stream &bytes none glyph1 GuiSfntParseErrorKind::MalformedGlyfRecord
             io_bytebuf_free bytes
             test_report_push report20 assert "point stream y coordinate overrun" ok
+    let report22 %TestReport match build_topology_case_sfnt 8 34 17:
+        Result::Err _message:
+            test_report_push report21 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_point_error_is gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 -1 GuiSfntParseErrorKind::MissingGlyphOutline
+            io_bytebuf_free bytes
+            test_report_push report21 assert "point decode negative index missing" ok
+    let report23 %TestReport match build_topology_case_sfnt 8 34 17:
+        Result::Err _message:
+            test_report_push report22 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_point_error_is gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 4 GuiSfntParseErrorKind::MissingGlyphOutline
+            io_bytebuf_free bytes
+            test_report_push report22 assert "point decode index count missing" ok
+    let report24 %TestReport match build_topology_case_sfnt 13 16 8:
+        Result::Err _message:
+            test_report_push report23 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_point_error_is gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 0 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report23 assert "point decode x coordinate overrun" ok
+    match build_topology_case_sfnt 14 16 8:
+        Result::Err _message:
+            test_report_push report24 assert false
+        Result::Ok bytes:
+            let ok %bool sfnt_glyf_point_error_is gui_sfnt_lookup_simple_glyph_point &bytes none glyph1 0 GuiSfntParseErrorKind::MalformedGlyfRecord
+            io_bytebuf_free bytes
+            test_report_push report24 assert "point decode y coordinate overrun" ok
 
 fn main %impure fn void i32 \void:
     let report0 %TestReport test_report_new "gui_sfnt_glyf_reads_header_bounds_and_typed_errors"
