@@ -1,3 +1,83 @@
+# 2026-06-14 Agent selfhost public impl operation evidence connector checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、DAG、source authority 排除、純粋 core boundary、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / public surface state と operation impl table から operation evidence table を作り、既存 operation solver へ渡す connector boundary
+- classification: selfhost MemoKey / MemoValue structural purity / public impl operation evidence connector boundary
+- policy/spec:
+  - public impl surface state または operation impl table を受け取り、root aggregate 用の `SelfhostMemoTraitOperationEvidenceTable` owner を作る。
+  - `CandidateMissing` だけを skip として扱い、後段の evidence table lookup が Missing status へ畳む。duplicate / classifier / producer / read / push failure は typed error のまま保持する。
+  - Drop candidate 欠落を `NoDropRequired` や `PureDrop` へ合成しない。Drop なし proof / pure Drop proof は Resource proof stage が明示的に作った typed evidence だけを信用する。
+  - surface state 入口では `public_surface_hash = 0` を拒否し、orchestrator 由来の transport state と手書きの空 state を区別する。ただし hash は final proof authority ではない。
+  - solver wrapper は `selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` に委譲し、field traversal / layout validation / root evidence merge / recursive aggregate gate は既存 solver の責務に残す。
+  - operation impl table lookup の sorted index 化、operation bucket、solver traversal memoization、stage0 fixture 分割はあとからできる最適化であり、今の stage では typed connector / owner cleanup / error contract を固定する。
+- decision:
+  - complete public surface state から直接 final aggregate proof へ進まず、operation impl table -> operation evidence table -> existing solver wrapper の小さい境界を先に固定した。
+  - Drop body Resource proof、generic impl binder、PrivateCache / PrivateState masking はまだ開かない。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl` を追加した。
+  - low-level API は `&SelfhostMemoTraitOperationImplTable` と `SelfhostTypeId` から evidence table owner を作る。
+  - state API は `&SelfhostMemoTraitPublicImplSurfaceState` を受け、hash 0 を拒否してから state 内の operation impl table を borrow する。
+  - proof table wrapper は temporary evidence table を作り、既存 solver へ渡し、solver success / failure のどちらでも temporary owner を閉じる。
+- implementation:
+  - `SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind`、accepted summary、stage0 summary、operation push helper、impl table / surface state evidence table API、impl table / surface state proof table wrapper、nested error equality、stage0 smoke を追加した。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` は、surface state の外部利用を完全禁止から、この checker-layer connector だけを許す allow-list へ更新した。
+  - `todo.md`、MemoKey/MemoValue issue、selfhost compiler design に checkpoint を反映した。
+- implementation/test:
+  - focused doctest は trusted Copy candidate 1 件を evidence table に入れ、Drop は Missing のまま、別 TypeId は Copy / Drop とも Missing、duplicate は typed error、hash 0 state は typed errorになることを確認する。
+  - source_policy は facade private、`nodesrc/selfhost_ty_sources.js` 非登録、checker-layer import allow-list、Resource IR / backend / proof store / canonical key / method body / Drop resolver / candidate builder / materializer / scanner import 禁止、CandidateMissing skip、duplicate / classifier / producer typed error、Drop proof 合成禁止、surface hash 0 rejection、solver 委譲、temporary evidence table cleanup、wildcard-free equality、行数制限 / doc comment 長制限禁止を確認する。
+- subagent review:
+  - files_read: stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl; stdlib/neplg2/core/ty/ty/memo_trait_operation_evidence.nepl; stdlib/neplg2/core/ty/ty/memo_trait_operation_solver.nepl; stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl; doc/neplg2/self_host_neplg21_compiler_design.md; issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md; todo.md; note.n.md
+  - not_reviewed: なし
+  - base: HEAD before current operation evidence connector diff
+  - head: working tree after operation evidence connector diff
+  - subagent_review_ids: `019ec1c8-5e90-7432-a695-6ecd59386196`, `019ec1ef-ed4a-7670-a803-c836a8557ca1`
+  - subagent_review_count: 2
+  - subagent_review_rounds: 1
+  - review response checklist: `nodesrc/selfhost_zenn_review_response_check.js` の Blocker / Non-blocker / Question / Approve 分類に沿って記録した。
+  - Ampere review:
+    - Blocker: なし。
+    - Required: checker-layer operation proof status projector に絞り、Copy / Drop / Eq / Hash を impl table から取得すること、`CandidateMissing` だけを Missing / absence にし、duplicate / classifier / producer failure は typed error として残すこと、Drop を Resource proof なしに Proven にしないことが確認された。
+    - Non-blocker: batch over all aggregate types、sorted index、operation bucket、recursive traversal sharing は後続最適化でよい。
+    - Question: first API を proof record か proof table owner にするか。今回の decision は evidence table API を主にし、proof table owner は既存 solver wrapper として薄く追加した。
+    - Approve: proof-status / evidence projection に留め、Resource IR / backend / recursive producer / scanner / materializer を直接 import しなければ approve。
+  - Locke review:
+    - Blocker: なし。
+    - Required: aggregate pure evidence composer ではなく checker-layer connector に絞ること、state API と低レベル impl table API の両方を置くこと、Copy / Eq / Hash は impl table record API を通すこと、Missing は push せず evidence table 側の Missing fold に任せること、Drop は成功扱いにしないこと、solver proof table が必要なら既存 `selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` を呼ぶだけにすることが確認された。
+    - Non-blocker: stage0 は軽くてよく、source policy で forbidden imports、Drop deferred、typed nested errors、owner cleanup、line/doc cap 禁止を固定すればよい。
+    - Question: connector が state だけを受けるか lower table も public にするか。今回の decision は両方を採用した。
+    - Approve: public impl surface state / operation table -> operation evidence table、必要なら thin solver wrapper までなら approve。
+  - decision: MERGE_APPROVED after focused verification and source policy rerun.
+  - source_policy: updated。`nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - source_policy: updated implementation/test contract for CandidateMissing skip, duplicate/classifier/producer typed error, Drop proof synthesis ban, surface hash 0 rejection, existing solver delegation, temporary evidence table cleanup, facade private, ty source non-registration, forbidden imports, and no line/doc comment length cap.
+- verify:
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl --no-tree -o tmp/selfhost-operation-evidence-connector.json -j 1`
+  - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_solver_contract.js`
+  - pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+  - pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した connector contract は pass。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass_with_git_warning: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - 既存 warning: Node WASI ExperimentalWarning、CRLF warning、full source policy の既存 stdlib declaration doc gap baseline。
+  - existing_warnings: Node WASI ExperimentalWarning; CRLF warning; stdlib declaration doc gaps increased: 153 > 108 baseline.
+  - 今回差分由来 warning: なし。
+  - new_warnings: なし
+  - 検証済み: focused contract、focused doctest、関連 operation / surface contracts、line-count policy、Zenn review gate、source policy warn-only、issues check、diff check。
+  - blockers: なし
+  - questions: なし
+  - approve: approved
+  - residual_risk: なし
+  - unexecuted_verification: なし
+- residual:
+  - Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
+  - 次 slice: Drop body effect checker / Resource IR no-escape proof、または generic impl binder / bound detailed evidence を typed boundary として接続する。
+
 # 2026-06-14 Agent selfhost public impl surface orchestrator checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、pure core boundary、DAG、source authority 排除、丁寧な doc comment、探索範囲を不必要に広げない fixture 設計、試作段階でも設計を雑にしない方針を守る。

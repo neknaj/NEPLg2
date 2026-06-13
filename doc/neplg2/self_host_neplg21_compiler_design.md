@@ -1655,6 +1655,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestr
 
 この checkpoint 後の残件は、complete public surface state から Copy / Drop / Eq / Hash pure evidence を実計算する aggregate solver 接続、Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、materializer record table の operation bucket 化、public impl record lookup の ordinal index 化、normalizer / hash composer の sorted index / merge cursor 化、stage0 fixture のさらなる分割は、今回固定した typed input / owner / error contract を保って後から行える最適化として扱う。
 
+### 2026-06-14 MemoKey / MemoValue public impl operation evidence connector checkpoint
+
+`memo_trait_public_impl_operation_evidence_connector.nepl` を追加し、public impl surface state または operation impl table から root aggregate 用の `SelfhostMemoTraitOperationEvidenceTable` owner を作る checker-layer connector を接続した。これにより、public impl scanner / surface orchestrator / operation impl table が作った Copy / Drop / Eq / Hash 候補を、既存 operation evidence table と evidence 付き operation solver へ渡す境界ができた。
+
+重要な点は、operation impl table の探索結果をこの connector が直接 final proof にしないことである。`CandidateMissing` だけは evidence table に何も push せず、後続の `selfhost_memo_trait_operation_evidence_record_for_type_or_missing_result` が `Missing` status へ畳む。`CandidateDuplicate`、table read / push failure、classifier rejection、producer rejection は typed `OperationImplRejected` として返し、Missing や Unknown に潰さない。Drop candidate が無い場合に `NoDropRequired` や `PureDrop` を合成せず、Drop なし proof / pure Drop proof は Resource proof stage が明示的に作った evidence だけを信用する。
+
+surface state 入口では `public_surface_hash = 0` を拒否する。hash は complete proof ではないが、orchestrator 由来の transport state と手書きの空 struct literal を区別する最低限の境界として扱う。accepted authority は `SelfhostMemoTraitPublicImplSurfaceState` の hash と operation impl table、`SelfhostTypeId`、operation enum、既存 impl table / evidence table / solver API だけであり、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string は authority にしない。
+
+solver wrapper は `selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` を呼ぶだけにした。field traversal、root evidence merge、layout validation、recursive aggregate gate は既存 solver の責務であり、この module は自前で Copy / Drop / Eq / Hash status を合成しない。temporary evidence table owner は solver success / failure のどちらでも connector が閉じる。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、Resource IR / backend / proof store / canonical key / method body / Drop resolver / candidate builder / materializer / scanner import 禁止、CandidateMissing のみ skip、duplicate / classifier / producer typed error、Drop proof 合成禁止、surface hash 0 rejection、solver 委譲、temporary evidence table cleanup、wildcard-free equality、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、operation 別 bucket 化、solver traversal の subtree memoization、stage0 fixture のさらなる分割は、今回固定した typed connector / owner cleanup / error contract を保って後からできる最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

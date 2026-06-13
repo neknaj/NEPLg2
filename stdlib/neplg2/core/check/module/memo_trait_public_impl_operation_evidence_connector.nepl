@@ -1,0 +1,583 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_operation_evidence_connector
+//: public impl surface state または operation impl table から、root aggregate 用の operation evidence table を[作/つく]る checker-layer connector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_surface_orchestrator` が作った public surface hash と operation impl table を、`memo_trait_operation_evidence.nepl` の owner table へ接続します。
+//: - Copy / Drop / Eq / Hash の各 operation について、impl candidate table から producer 検査済み evidence record を取り出し、欠落した operation だけを evidence table に追加せず後段の Missing fold に任せます。
+//: - 既存の `memo_trait_operation_solver.nepl` に渡す薄い入口も用意し、field layout と root operation evidence の merge は既存 solver の責務として再利用します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationImplTable`、`SelfhostMemoTraitPublicImplSurfaceState` の public surface hash、`SelfhostTypeId`、operation enum、既存 operation impl table API だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から operation evidence を推測しません。
+//: - `CandidateMissing` だけは「その operation の public impl evidence が無い」という情報として扱い、evidence table に何も push しません。後段の `selfhost_memo_trait_operation_evidence_record_for_type_or_missing_result` が Missing status へ畳みます。
+//: - `CandidateDuplicate`、table read failure、push failure、classifier rejection、producer rejection は table consistency または typed proof 境界の失敗です。Missing に潰さず typed error として返します。
+//: - Drop candidate が無い場合に `NoDropRequired` や `PureDrop` を合成しません。Drop Resource proof と Drop なし proof は上流の purity / Resource boundary が作る evidence だけを信用します。
+//: - public surface state 入口では `public_surface_hash` が 0 の state を拒否します。hash は complete proof ではありませんが、orchestrator 由来の surface transport と空の struct literal を区別する最低限の境界です。
+//: - solver wrapper は evidence table を作って既存 solver に渡すだけです。field traversal、hazard、MemoKey / MemoValue final evidence record、proof store、backend artifact はこの module の責務ではありません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では operation impl table の lookup は O(n) 線形探索です。これは既存 table の実装詳細であり、後から operation 別 index や sorted table に置き換えられます。
+//: - この module は public impl surface state から operation evidence table へ進む typed connector であり、generic impl binder、Drop body Resource proof、PrivateCache / PrivateState masking、prechecked artifact 生成は後続 slice で接続します。
+//: - facade にはまだ re-export しません。MemoKey / MemoValue の public proof orchestration が Resource proof と artifact boundary まで揃う段階で公開範囲を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、戻り値、例を十分に説明することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - evidence table construction は 4 operation だけを順に処理するため、operation impl table lookup の候補数を n として O(4n) 時間、追加する evidence record は最大 4 件です。
+//: - solver wrapper の追加コストは evidence table construction と owner cleanup だけです。型構造 traversal の計算量は `memo_trait_operation_solver.nepl` の契約に従います。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0:
+//:         Result::Ok summary:
+//:             if:
+//:                 selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_eq summary
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Result::Err _setup:
+//:             1
+//: ```
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_layout" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_proof" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_solver" as *
+#import "neplg2/core/ty/ty/memo_trait_producer" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_evidence_producer" as *
+#import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_public_impl_header" as *
+#import "./memo_trait_public_impl_surface_orchestrator" as *
+
+//: SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary: stage0 が evidence table owner を閉じた後に保持する代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted path と missing path の観測値を owner なしで保持します。
+//: - `copy_status` と `drop_status` は、table に record が無い operation を Missing へ畳む既存 evidence table API 経由の結果です。
+pub struct SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary:
+    table_len %i32
+    copy_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+    drop_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+
+//: SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind: connector 境界の失敗分類
+//:
+//: [目的/もくてき]:
+//: - public surface state 検査、evidence table owner 生成、operation impl lookup、evidence push、solver wrapper のどこで失敗したかを typed enum として保持します。
+pub enum SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind:
+    PublicSurfaceHashMissing
+    EvidenceTableAllocFailed %StdErrorKind
+    OperationImplRejected %SelfhostMemoTraitOperationImplTableErrorKind
+    EvidenceTablePushRejected %SelfhostMemoTraitOperationEvidenceErrorKind
+    OperationSolverRejected %SelfhostMemoTraitOperationSolverErrorKind
+
+//: SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary: connector smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted Copy evidence、別 TypeId の Missing fold、duplicate rejection、surface hash 0 rejection を public API 経由で確認します。
+pub struct SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind
+    missing %Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind
+    zero_hash_rejected %Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind
+
+//: Clone for SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary: owner を含まない summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は evidence table owner を持ちません。owner cleanup は summary 作成前に完了しています。
+impl Clone for SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary: stage0 summary payload を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - `copy_status` と `drop_status` は typed enum payload であり、resource owner を保持しません。
+impl Copy for SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind: typed error payload を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - nested error を表示文字列へ潰さず、lower boundary の enum payload のまま保持します。
+impl Clone for SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind: owner を含まない error payload を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - error enum は table owner や evidence table owner を含みません。copy による二重解放は発生しません。
+impl Copy for SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary: stage0 summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は owner cleanup 済みの代表値だけを保持します。
+impl Clone for SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary: stage0 summary を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - accepted / missing / rejection payload は typed enum と scalar だけです。
+impl Copy for SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_summary_new: accepted summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_summary_new %fn i32 fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary \table_len\copy_status\drop_status:
+    SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary table_len copy_status drop_status
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind fn Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind fn Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind fn Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary \accepted\missing\duplicate_rejected\zero_hash_rejected:
+    SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary accepted missing duplicate_rejected zero_hash_rejected
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result: impl table error を connector error へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `CandidateMissing` は error にしません。この helper は Missing 以外の impl table error を、evidence table owner cleanup 後に返すためだけに使います。
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result %fn SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \error:
+    match error:
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+            SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+            SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx:
+            SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx
+        SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed push_error:
+            SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed push_error
+        SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error:
+            SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
+        SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error:
+            SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_push_operation_result: 1 operation の impl evidence を table へ[追加/ついか]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(table)`: record を追加したか、CandidateMissing のため何も追加せず同じ table owner を返しました。
+//: - `Err(OperationImplRejected(_))`: Missing 以外の impl table error です。この関数は返る前に evidence table owner を閉じます。
+//: - `Err(EvidenceTablePushRejected(_))`: push が table owner を消費して失敗しました。push boundary が owner vec を閉じるため、この関数では追加の free を行いません。
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_push_operation_result %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn &SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \table\impls\type_id\operation:
+    match selfhost_memo_trait_operation_impl_record_for_type_operation_result impls type_id operation:
+        Result::Ok record:
+            match selfhost_memo_trait_operation_evidence_table_push table record:
+                Result::Ok next_table:
+                    Result::Ok next_table
+                Result::Err push_error:
+                    Result::Err SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected push_error
+        Result::Err impl_error:
+            match impl_error:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    Result::Ok table
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed push_error:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed push_error
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err selfhost_memo_trait_public_impl_operation_evidence_connector_operation_error_result SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_impl_table_result: impl table から root operation evidence table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public impl materializer が作った candidate table を、ty 層の operation evidence table owner に変換します。
+//:
+//: [契約/けいやく]:
+//: - Copy、Drop、Eq、Hash の順で処理します。この順序は出力 table の deterministic order のためであり、proof semantics は enum key と TypeId で決まります。
+//: - Missing candidate は table に push せず、後段の evidence table lookup が Missing status へ畳みます。
+pub fn selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_impl_table_result %impure fn &SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \impls\type_id:
+    match selfhost_memo_trait_operation_evidence_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_public_impl_operation_evidence_connector_push_operation_result table0 impls type_id SelfhostMemoTraitOperationEvidenceKind::Copy:
+                Result::Ok table1:
+                    match selfhost_memo_trait_public_impl_operation_evidence_connector_push_operation_result table1 impls type_id SelfhostMemoTraitOperationEvidenceKind::Drop:
+                        Result::Ok table2:
+                            match selfhost_memo_trait_public_impl_operation_evidence_connector_push_operation_result table2 impls type_id SelfhostMemoTraitOperationEvidenceKind::Eq:
+                                Result::Ok table3:
+                                    selfhost_memo_trait_public_impl_operation_evidence_connector_push_operation_result table3 impls type_id SelfhostMemoTraitOperationEvidenceKind::Hash
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_surface_state_result: surface state から root operation evidence table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - state は borrow です。この関数は state owner を閉じません。
+//: - hash 0 の state は orchestrator 由来の complete transport として信用せず、operation impl table を読みません。
+pub fn selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_surface_state_result %impure fn &SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \state\type_id:
+    if:
+        eq selfhost_memo_trait_public_impl_surface_state_public_surface_hash state 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing
+        else:
+            let impls %&SelfhostMemoTraitOperationImplTable field::get_ref state "operation_impls"
+            selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_impl_table_result impls type_id
+
+//: selfhost_memo_trait_public_impl_operation_proof_table_for_type_from_impl_table_result: impl table evidence を既存 solver へ[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - caller が `SelfhostMemoTraitOperationProofTable` owner を必要とする場合に、operation evidence table の一時 owner をこの関数内で閉じます。
+//:
+//: [契約/けいやく]:
+//: - aggregate field traversal と root evidence merge は `selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result` に委譲します。
+//: - solver が失敗した場合も一時 evidence table owner は必ず閉じます。
+pub fn selfhost_memo_trait_public_impl_operation_proof_table_for_type_from_impl_table_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn &SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \types\layout_table\impls\type_id\max_depth:
+    match selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_impl_table_result impls type_id:
+        Result::Ok evidence_table:
+            let solver_result %Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitOperationSolverErrorKind selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result types layout_table &evidence_table type_id max_depth
+            selfhost_memo_trait_operation_evidence_table_free evidence_table
+            match solver_result:
+                Result::Ok proof_table:
+                    Result::Ok proof_table
+                Result::Err solver_error:
+                    Result::Err SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected solver_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_operation_proof_table_for_type_from_surface_state_result: surface state evidence を既存 solver へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - state は borrow です。この関数は state owner を閉じません。
+//: - hash 0 rejection と evidence table cleanup は lower helper と同じ規則に従います。
+pub fn selfhost_memo_trait_public_impl_operation_proof_table_for_type_from_surface_state_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn &SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \types\layout_table\state\type_id\max_depth:
+    match selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_surface_state_result state type_id:
+        Result::Ok evidence_table:
+            let solver_result %Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitOperationSolverErrorKind selfhost_memo_trait_operation_solver_table_for_type_with_operation_evidence_result types layout_table &evidence_table type_id max_depth
+            selfhost_memo_trait_operation_evidence_table_free evidence_table
+            match solver_result:
+                Result::Ok proof_table:
+                    Result::Ok proof_table
+                Result::Err solver_error:
+                    Result::Err SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected solver_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_error_kind_eq: connector error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested error payload まで比較します。
+//: - wildcard arm は使いません。variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_public_impl_operation_evidence_connector_error_kind_eq %fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing:
+            match b:
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing:
+                    true
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected _b_impl:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected _b_solver:
+                    false
+        SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed b_alloc:
+                    selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected _b_impl:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected _b_solver:
+                    false
+        SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected a_impl:
+            match b:
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected b_impl:
+                    selfhost_memo_trait_operation_impl_table_error_kind_eq a_impl b_impl
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected _b_solver:
+                    false
+        SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected a_push:
+            match b:
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected _b_impl:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected b_push:
+                    selfhost_memo_trait_operation_evidence_error_kind_eq a_push b_push
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected _b_solver:
+                    false
+        SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected a_solver:
+            match b:
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected _b_impl:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::EvidenceTablePushRejected _b_push:
+                    false
+                SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationSolverRejected b_solver:
+                    selfhost_memo_trait_operation_solver_error_kind_eq a_solver b_solver
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - code は equality helper の内部実装です。public error payload は enum のまま保持します。
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_code a selfhost_memo_trait_public_impl_operation_evidence_connector_std_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_status_result_eq: status Result が期待 status か[返/かえ]す
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_status_result_eq %fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind fn SelfhostMemoTraitAggregateProofStatus bool \result\expected:
+    match result:
+        Result::Ok status:
+            selfhost_memo_trait_operation_evidence_status_eq status expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_accepted_summary_eq: accepted summary が期待範囲か[返/かえ]す
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_accepted_summary_eq %fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary fn i32 fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \summary\expected_len\expected_copy\expected_drop:
+    and:
+        eq summary.table_len expected_len
+        and:
+            selfhost_memo_trait_public_impl_operation_evidence_connector_status_result_eq summary.copy_status expected_copy
+            selfhost_memo_trait_public_impl_operation_evidence_connector_status_result_eq summary.drop_status expected_drop
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_result_summary_eq: Result payload が期待 summary か[返/かえ]す
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_result_summary_eq %fn Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind fn i32 fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \result\expected_len\expected_copy\expected_drop:
+    match result:
+        Result::Ok summary:
+            selfhost_memo_trait_public_impl_operation_evidence_connector_accepted_summary_eq summary expected_len expected_copy expected_drop
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_result_error_eq: Result payload が期待 error か[返/かえ]す
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_result_error_eq %fn Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _summary:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_operation_evidence_connector_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_eq: stage0 summary の代表 contract を[確認/かくにん]する
+//:
+//: [契約/けいやく]:
+//: - accepted は Copy record 1 件だけを持ち、Drop は候補が無いため Missing です。
+//: - missing は table に record が無い TypeId を query し、Copy / Drop の両方が Missing へ畳まれることを確認します。
+//: - duplicate と hash 0 は typed error として残ることを確認します。
+pub fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_eq %fn SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary bool \summary:
+    let accepted_ok %bool selfhost_memo_trait_public_impl_operation_evidence_connector_result_summary_eq summary.accepted 1 SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Missing
+    let missing_ok %bool selfhost_memo_trait_public_impl_operation_evidence_connector_result_summary_eq summary.missing 0 SelfhostMemoTraitAggregateProofStatus::Missing SelfhostMemoTraitAggregateProofStatus::Missing
+    let duplicate_error %SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::OperationImplRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
+    let duplicate_ok %bool selfhost_memo_trait_public_impl_operation_evidence_connector_result_error_eq summary.duplicate_rejected duplicate_error
+    let zero_hash_ok %bool selfhost_memo_trait_public_impl_operation_evidence_connector_result_error_eq summary.zero_hash_rejected SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing
+    and accepted_ok and missing_ok and duplicate_ok zero_hash_ok
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_impl_header: stage0 用 impl header input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - production path の header authority は operation impl table / producer が再検査します。この helper は doctest fixture だけで使います。
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_impl_header %fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\trait_shape:
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9501 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 9601 some trait_shape 0 0
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_trait_application: stage0 用 trait application input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - trait source と shape hash は trusted registry から導出し、classifier の shape 検査を通します。
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_trait_application %fn SelfhostMemoTraitOperationSourceIdentity fn i32 SelfhostMemoTraitOperationTraitApplicationInput \source\shape_hash:
+    selfhost_memo_trait_operation_trait_application_input_new source 0 some shape_hash
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_candidate: stage0 用 candidate を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - Copy operation は method / Drop evidence を必要としないため、`NotRequired` evidence だけを渡します。
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_candidate %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 SelfhostMemoTraitOperationImplCandidate \type_id\source\shape_hash\ordinal:
+    let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_impl_header ordinal shape_hash
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_trait_application source shape_hash
+    selfhost_memo_trait_operation_impl_candidate_new type_id SelfhostMemoTraitOperationEvidenceKind::Copy header trait_application some 9601 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::NotRequired
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_from_table: evidence table owner を summary へ[変換/へんかん]して[閉/と]じる
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_from_table %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary \table\type_id:
+    let table_len %i32 selfhost_memo_trait_operation_evidence_table_len &table
+    let copy_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+    let drop_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+    selfhost_memo_trait_operation_evidence_table_free table
+    selfhost_memo_trait_public_impl_operation_evidence_connector_summary_new table_len copy_status drop_status
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_run_owned: impl table owner を使って evidence summary を[作/つく]り owner を[閉/と]じる
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_run_owned %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind \impls\type_id:
+    let result %Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_impl_table_result &impls type_id
+    selfhost_memo_trait_operation_impl_table_free impls
+    match result:
+        Result::Ok evidence_table:
+            Result::Ok selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_from_table evidence_table type_id
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_copy_table_result: Copy candidate 1 件の impl table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_copy_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result SelfhostMemoTraitOperationImplTable StdErrorKind \type_id\source\shape_hash:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok table0:
+            let candidate %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_candidate type_id source shape_hash 1
+            match selfhost_memo_trait_operation_impl_table_push table0 candidate:
+                Result::Ok table:
+                    Result::Ok table
+                Result::Err _push_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_duplicate_table_result: Copy candidate 重複 table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_duplicate_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result SelfhostMemoTraitOperationImplTable StdErrorKind \type_id\source\shape_hash:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok table0:
+            let first %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_candidate type_id source shape_hash 1
+            match selfhost_memo_trait_operation_impl_table_push table0 first:
+                Result::Ok table1:
+                    let second %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_candidate type_id source shape_hash 2
+                    match selfhost_memo_trait_operation_impl_table_push table1 second:
+                        Result::Ok table:
+                            Result::Ok table
+                        Result::Err _second_push_error:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _first_push_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_accepted_result: accepted Copy path の代表 result を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_accepted_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind StdErrorKind \type_id\source\shape_hash:
+    match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_copy_table_result type_id source shape_hash:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_run_owned table type_id
+        Result::Err setup_error:
+            Result::Err setup_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_missing_result: 別 TypeId lookup の Missing fold result を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_missing_result %impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind StdErrorKind \type_id\missing_type_id\source\shape_hash:
+    match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_copy_table_result type_id source shape_hash:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_run_owned table missing_type_id
+        Result::Err setup_error:
+            Result::Err setup_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_duplicate_result: duplicate rejection result を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_duplicate_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind StdErrorKind \type_id\source\shape_hash:
+    match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_duplicate_table_result type_id source shape_hash:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_run_owned table type_id
+        Result::Err setup_error:
+            Result::Err setup_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_zero_hash_result: hash 0 state rejection result を[作/つく]る
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_zero_hash_result %impure fn SelfhostTypeId Result Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorAcceptedSummary SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok impls:
+            let state %SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceState 0 impls
+            let result %Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_surface_state_result &state type_id
+            selfhost_memo_trait_public_impl_surface_state_free state
+            match result:
+                Result::Ok evidence_table:
+                    Result::Ok Result::Ok selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_from_table evidence_table type_id
+                Result::Err error:
+                    Result::Ok Result::Err error
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_with_shape: trusted Copy shape から stage0 を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_with_shape %impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary StdErrorKind \copy_source\copy_shape_hash:
+    let type_id %SelfhostTypeId selfhost_type_id_new 96
+    let missing_type_id %SelfhostTypeId selfhost_type_id_new 97
+    match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_accepted_result type_id copy_source copy_shape_hash:
+        Result::Ok accepted:
+            match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_missing_result type_id missing_type_id copy_source copy_shape_hash:
+                Result::Ok missing:
+                    match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_duplicate_result type_id copy_source copy_shape_hash:
+                        Result::Ok duplicate_rejected:
+                            match selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_zero_hash_result type_id:
+                                Result::Ok zero_hash_rejected:
+                                    Result::Ok selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_summary_new accepted missing duplicate_rejected zero_hash_rejected
+                                Result::Err setup_error:
+                                    Result::Err setup_error
+                        Result::Err setup_error:
+                            Result::Err setup_error
+                Result::Err setup_error:
+                    Result::Err setup_error
+        Result::Err setup_error:
+            Result::Err setup_error
+
+//: selfhost_memo_trait_public_impl_operation_evidence_connector_stage0: connector の smoke API
+//:
+//: [目的/もくてき]:
+//: - trusted Copy candidate 1 件が evidence table に入り、未接続 Drop は Missing のままであることを確認します。
+//: - 同じ TypeId / operation の重複は typed error として拒否し、hash 0 の surface state を拒否します。
+pub fn selfhost_memo_trait_public_impl_operation_evidence_connector_stage0 %impure fn void Result SelfhostMemoTraitPublicImplOperationEvidenceConnectorStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            match selfhost_memo_trait_operation_trait_application_shape_hash_result registry.copy_source 0:
+                Result::Ok copy_shape_hash:
+                    selfhost_memo_trait_public_impl_operation_evidence_connector_stage0_with_shape registry.copy_source copy_shape_hash
+                Result::Err _shape_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _registry_error:
+            Result::Err StdErrorKind::InvalidOperation

@@ -185,8 +185,8 @@ assert.ok(
     );
     assert.deepEqual(
         externalUses,
-        [],
-        "surface state must remain local to the orchestrator until a later facade-level proof boundary is introduced",
+        ["stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl"],
+        "surface state may only be consumed by the checker-layer operation evidence connector and must remain out of facade-level public APIs",
     );
 }
 assertOrdered(
