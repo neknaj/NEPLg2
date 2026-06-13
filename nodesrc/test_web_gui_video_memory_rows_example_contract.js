@@ -16,6 +16,7 @@ function runWebGuiVideoMemoryRowsExampleContractRegression() {
     const planSource = readRepoFile("doc", "neplg2", "gui_tui_implementation_plan.md");
     const sourcePolicyRunner = readRepoFile("nodesrc", "run_source_policy_regressions.js");
     const fakeHarnessSource = readRepoFile("nodesrc", "test_web_gui_video_memory_fake_host_harness.js");
+    const fakeHostSource = readRepoFile("nodesrc", "gui_video_memory_fake_host.js");
 
     assert.match(exampleSource, /#import "alloc\/io" as \*/);
     assert.match(exampleSource, /#import "platforms\/gui\/web" as \*/);
@@ -56,8 +57,11 @@ function runWebGuiVideoMemoryRowsExampleContractRegression() {
     assert.match(sourcePolicyRunner, /nodesrc\/test_web_gui_video_memory_fake_host_harness\.js/);
     assert.match(fakeHarnessSource, /runSingle/);
     assert.match(fakeHarnessSource, /runtimeImportsFactory/);
-    assert.match(fakeHarnessSource, /video_memory_write_rgba8888_row/);
     assert.match(fakeHarnessSource, /expectedRgbaRow/);
+    assert.match(fakeHostSource, /video_memory_write_rgba8888_row/);
+    assert.match(fakeHostSource, /video_memory_publish_slot/);
+    assert.match(fakeHostSource, /video_memory_present_surface/);
+    assert.match(fakeHostSource, /video_memory_close_surface/);
     assert.doesNotMatch(fakeHarnessSource, /argv:\s*\["--contract"\]/);
 
     return {
