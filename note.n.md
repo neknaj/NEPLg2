@@ -60265,3 +60265,77 @@ MERGE_APPROVED
 
 - scanner output を full public surface composer へ接続して complete public surface state を作る orchestration、Drop body effect checker / Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - public impl record lookup の ordinal index 化、materializer record table の operation bucket 化、method body fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した association / owner / error contract を保てるため後続最適化として扱う。
+
+## 2026-06-14 selfhost Drop impl fact table builder checkpoint
+
+### scope
+
+- 対象 branch: `work/selfhost-method-body-resolver`
+- base: `a340b7cdc718cddf88801e4f68ef2a95d9eef5d7`
+- head: `b6b148c46506b18a7782ddff6403594a097c79f1`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / `drop-impl-fact-table-builder`
+- plan.md: AGENTS.md の指示どおり確認のみ。人が編集する文書なので変更していない。
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を 2026-06-14 に再確認し、Result / Option、enum error、網羅 match、pure / impure 境界、authority boundary、owner / free、zero-cost / performance、丁寧な doc comment、prototype / fail-closed、行数制限 / doc comment 長制限禁止を前提にした。
+- classification: checker-layer boundary。
+- decision: MERGE_APPROVED。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_fact_table_builder.nepl` を追加した。
+- Drop impl body の typed HIR root を既存 `memo_trait_operation_method_body_effect_checker` へ渡し、effect summary から `SelfhostMemoTraitOperationDropImplFact` を作り、`SelfhostMemoTraitOperationDropImplTable` owner へ push する boundary とした。
+- authority は `SelfhostTypeId`、HIR root、fuel、typed HIR payload effect / child range、`SelfhostEffectEscapeState` に限定した。source text、span、lexeme、display name、diagnostic text、module path、method name string は authority にしない。
+- `InternalAlloc` は `SelfhostEffectEscapeState::NotApplicable` のまま fact table に残す。Resource IR no-escape proof なしに `PureDrop` や `NoDropRequired` を合成しない。
+- effect checker rejection では、resolver push へ渡していない table owner を builder が閉じる。table push rejection では resolver push が owner recovery / cleanup を担当するため、builder は二重解放しない。
+- `SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind` は `EffectCheckRejected` と `TableRejected` の nested typed error を保持する。bool / string error、diagnostic text authority、wildcard shortcut は入れていない。
+- Heisenberg review の Blocker に従い、error / stage0 summary の Clone / Copy impl 直前に日本語 doc comment を追加し、typed-payload-only、no-owner、no-double-free、owner-bearing field を追加しない契約を明記した。
+- `nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。source_policy: updated。
+- source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / public surface / evidence producer / impl table / purity gate / classifier / materializer / scanner import 禁止、Drop evidence / operation evidence / aggregate proof / proof-store value / `DropImplAbsent` / `NoDropRequired` / `PureDrop` 合成禁止、owner cleanup、effect / escape preservation、Clone / Copy impl doc comment、行数制限 / doc comment 長制限禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、Drop impl fact table builder 接続済みと残件を整理した。
+
+### subagent review
+
+- subagent review ids: `019f2d80-7c8e-75e7-8b41-cf001d9a91d4`, `7b7f4a0e-2864-4d7a-a3c8-6c76c5db5b29`
+- subagent review count: 2
+- files_read: AGENTS.md、plan.md、Zenn 記事、`doc/neplg2/self_host_zenn_review_checklist.md`、`doc/neplg2/self_host_zenn_review_prompt.md`、`nodesrc/selfhost_zenn_review_response_check.js`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`doc/neplg2/self_host_execution_plan.md`、対象 issue、`todo.md`、`nodesrc/run_source_policy_regressions.js`、新 source policy、Drop impl fact table builder、Drop impl resolver、method body effect checker。
+- not_reviewed: full repository implementation outside the listed files、generated web/dist artifacts internals、Rust-side compiler/runtime internals beyond referenced design authority。
+- Plato review: policy/spec と implementation/test は accepted scope に合うと確認。初回は broad verification 未実行を Blocker としたが、main agent が source policy / issue / diff / focused doctest を実行した後、MERGE_APPROVED に更新した。
+- Heisenberg review: 初回は Clone / Copy impl の owner-safety doc comment と source policy coverage 欠落を Blocker とした。同じ branch 内で doc comment と contract を追加し、focused test 後の再 review で MERGE_APPROVED になった。
+- Blocker: none。
+- Non-blocker: actual public impl scanner / materializer Drop root orchestration、Resource IR no-escape proof、pure Drop evidence gate、generic binder、PrivateCache / PrivateState masking、prechecked artifact integration は後続 slice として維持する。
+- Question: none。
+- Approve: approved。
+- residual_risk: none。
+- unexecuted_verification: none。
+- individual review validation: `node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --input tmp/review-plato.md` pass、`node nodesrc/selfhost_zenn_review_response_check.js --review-kind individual --input tmp/review-heisenberg-rereview.md` pass。
+
+### zenn_check
+
+- Result/Option: `selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result` は `Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind` を返す。source policy は bool / string error を拒否する。
+- enum error/display separation: `SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind` は effect checker / table push の nested typed payload を保持し、diagnostic text を authority にしない。
+- match exhaustiveness: builder error equality と escape state equality は variant を明示 match する。source policy は nested comparison と branch order を固定する。
+- pure/impure boundary: table owner を消費する public push API と stage0 fixture construction は impure。summary から fact への写像は pure typed value mapping に閉じる。
+- authority boundary: HIR effect traversal は `memo_trait_operation_method_body_effect_checker` に委譲し、この module は Resource IR / backend / proof store / scanner / materializer / source text authority を持たない。
+- owner/free: effect-check error branch は table を閉じ、table-push error branch は resolver push cleanup に任せる。source policy は double-free 退行を検査する。
+- zero-cost/performance: effect summary は O(n + e)、table push は償却 O(1)。Drop impl fact table sorted index、HIR traversal explicit stack、subtree memoization、child range lookup index 化は contract-preserving 後続最適化として残す。
+- doc comment: module、public enum / struct / functions、重要 helper、Clone / Copy impl に日本語 doc comment を付けた。source policy で Clone / Copy impl の typed-payload-only / no-owner docs を固定した。
+- prototype/fail-closed: Drop evidence、operation evidence、aggregate proof、Resource IR no-escape proof、PrivateCache / PrivateState masking、prechecked artifact は作らず、後続 stage に残した。
+
+### verification_current
+
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js` pass。
+- 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_fact_table_builder.nepl --no-tree -o tmp/selfhost-drop-impl-fact-table-builder.json -j 1 --dist web/dist --assert-io` pass。Node WASI ExperimentalWarning は既存 warning として扱う。
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js` pass。
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js` pass。
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js` pass。
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` pass。
+- 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+- 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+- 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+- 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した Drop impl fact table builder contract は pass した。既存 warning: `stdlib declaration doc gaps increased: 153 > 108`。今回差分由来 warning: none。
+- 検証済み: `git diff --check` exit=0。既存 warning: LF / CRLF working-copy warning。今回差分由来 warning: none。
+- final review validation は `nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record note.n.md` で確認する。
+
+### residual
+
+- actual public impl scanner / materializer 由来の Drop impl body root input orchestration、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- Drop impl fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error / source policy contract を保てるため後続最適化として扱う。

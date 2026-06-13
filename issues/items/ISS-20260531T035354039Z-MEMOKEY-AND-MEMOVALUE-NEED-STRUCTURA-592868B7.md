@@ -260,6 +260,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_operation_eviden
 
 この checkpoint 後の残件は、Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、operation 別 bucket 化、solver traversal の subtree memoization、stage0 fixture のさらなる分割は、今回固定した typed connector / owner cleanup / error contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 selfhost Drop impl fact table builder checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_fact_table_builder.nepl` を追加し、Drop impl body の typed HIR root から effect summary を作り、`SelfhostMemoTraitOperationDropImplFact` として complete surface 用 Drop impl fact table owner へ投入する checker-layer boundary を作った。
+
+この builder は `SelfhostTypeId`、HIR root、fuel、HIR payload の effect / child range、effect summary の escape state だけを authority にする。source text、span、lexeme、display name、diagnostic text、module path、method name string から Drop impl の存在や purity を推測しない。`InternalAlloc` は `NotApplicable` escape のまま保存し、Resource IR no-escape proof なしに `PureDrop` や `NoDropRequired` へ畳まない。
+
+owner 契約として、effect checker rejection では未消費 Drop impl fact table owner を builder が閉じる。resolver table push rejection では既存 push boundary が owner cleanup を担当済みなので builder は二重解放しない。error は `EffectCheckRejected(SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind)` と `TableRejected(SelfhostMemoTraitOperationDropImplResolverErrorKind)` の typed enum payload として保持し、bool や表示文字列へ潰さない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js` で固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import、Drop evidence / operation evidence / aggregate proof / proof store 作成禁止、`DropImplAbsent` / `NoDropRequired` / `PureDrop` 合成禁止、effect checker -> fact -> resolver table push 順序、effect error cleanup、table push error no double-free、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、actual public impl scanner / materializer 由来の Drop impl body root input をこの builder へ渡す orchestration、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop impl fact table lookup の sorted index 化、HIR traversal explicit stack 化、subtree memoization は今回固定した contract を保って後からできる最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

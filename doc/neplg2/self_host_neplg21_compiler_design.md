@@ -1669,6 +1669,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_operation_eviden
 
 この checkpoint 後の残件は、Drop body effect checker / Resource IR no-escape proof、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation impl table lookup の sorted index 化、operation 別 bucket 化、solver traversal の subtree memoization、stage0 fixture のさらなる分割は、今回固定した typed connector / owner cleanup / error contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue Drop impl fact table builder checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_fact_table_builder.nepl` を追加し、Drop impl body の typed HIR root から `SelfhostMemoTraitOperationDropImplFact` を作り、complete surface 用の `SelfhostMemoTraitOperationDropImplTable` owner へ投入する checker-layer boundary を作った。
+
+この builder は既存 `memo_trait_operation_method_body_effect_checker` を、Drop impl body に対する typed HIR payload effect summary builder として再利用する。accepted authority は `SelfhostTypeId`、HIR root、fuel、HIR payload の `SelfhostEffectKind` / child range、effect summary の `SelfhostEffectEscapeState` に限定する。source text、span、lexeme、display name、diagnostic text、module path、method name string から Drop impl の存在や purity を推測しない。
+
+owner 境界は destructive builder として固定した。`selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result` は Drop impl fact table owner を消費し、effect checker が失敗した場合は未消費 table owner をこの module が閉じる。resolver table push が失敗した場合は既存 `selfhost_memo_trait_operation_drop_impl_table_push` が `Vec` owner cleanup を担当済みなので、この module は二重解放しない。`Result::Err` を受け取った caller は、渡した table owner を再利用してはいけない。
+
+この checkpoint では Drop evidence、operation evidence record、aggregate proof status、Resource IR no-escape proof、PrivateCache / PrivateState masking、backend artifact、proof store、public surface scanning を作らない。`InternalAlloc` は effect checker が `NotApplicable` escape のまま fact table に保存するため、Resource IR no-escape proof なしに `PureDrop` へ畳まれない。Drop なし proof と pure Drop proof は、後続 Resource proof stage が明示的な typed evidence として作る。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / public surface / evidence producer / operation impl table / purity gate / classifier / materializer / scanner import 禁止、Drop evidence / aggregate proof 合成禁止、`DropImplAbsent` / `NoDropRequired` / `PureDrop` 合成禁止、effect checker -> fact -> resolver table push の順序、effect error branch の table free、table push error branch の二重解放禁止、summary effect / escape の mask なし保存、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual public impl scanner / materializer から Drop impl body root input をこの builder へ渡す orchestration、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop impl fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error contract を保って後からできる最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
