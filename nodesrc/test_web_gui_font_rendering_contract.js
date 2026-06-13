@@ -77,6 +77,7 @@ const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
+    read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
 ].join("\n");
 const webFontResourceVfs = read("web/src/gui-font/font-resource-vfs.ts");
 const webMain = read("web/src/main.ts");
@@ -216,6 +217,32 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4k contour edge contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph curve segment classification",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason:",
+    "SinglePointContour",
+    "OffCurveStart",
+    "MissingLookahead",
+    "GuiSfntSimpleGlyphLineSegment:",
+    "start_x2 i32",
+    "end_y2 i32",
+    "GuiSfntSimpleGlyphQuadraticSegment:",
+    "control_x2 i32",
+    "end_is_implied bool",
+    "GuiSfntSimpleGlyphCurveSegment:",
+    "NoSegment GuiSfntSimpleGlyphCurveNoSegment",
+    "Line GuiSfntSimpleGlyphLineSegment",
+    "Quadratic GuiSfntSimpleGlyphQuadraticSegment",
+    "`*_x2` / `*_y2` は font unit の 2 倍",
+    "end_x2 = control.x + lookahead.x",
+    "整数除算による丸めや fallback を行わない",
+    "gui_sfnt_classify_simple_glyph_curve_segment:",
+    "gui_sfnt_lookup_simple_glyph_curve_segment:",
+    "Result GuiSfntSimpleGlyphCurveSegment GuiSfntParseError",
+    "NoSegment` は parse error ではない",
+]) {
+    assert(spec.includes(fragment), `font spec F4l curve segment contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -275,6 +302,28 @@ for (const fragment of [
     "must not allocate `Vec GuiSfntSimpleGlyphContourEdge`",
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4k contour edge contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "SFNT simple glyph curve segment classification",
+    "enum payloads instead of a shared struct with inactive fields",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason:",
+    "GuiSfntSimpleGlyphLineSegment:",
+    "GuiSfntSimpleGlyphQuadraticSegment:",
+    "GuiSfntSimpleGlyphCurveSegment:",
+    "Coordinate fields are doubled font units",
+    "end_x2 = control.x + lookahead.x",
+    "must not compute implied midpoint with integer division",
+    "Pure classifier flow",
+    "return NoSegment SinglePointContour",
+    "return NoSegment OffCurveStart",
+    "return Quadratic with implied doubled midpoint end",
+    "Byte lookup flow",
+    "if start is on-curve and end is off-curve",
+    "gui_sfnt_glyf_simple_contour_point_with_tables for lookahead",
+    "NoSegment` is a successful classification state",
+    "must not allocate `Vec GuiSfntSimpleGlyphCurveSegment`",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4l curve segment contract must mention ${fragment}`);
 }
 assertMatch(
     implementationPlan,
@@ -337,6 +386,30 @@ for (const fragment of [
     "no Vec allocation",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4k contour edge contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4l:",
+    "line / quadratic / no-segment",
+    "`x2` / `y2`",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason",
+    "GuiSfntSimpleGlyphCurveNoSegment",
+    "GuiSfntSimpleGlyphLineSegment",
+    "GuiSfntSimpleGlyphQuadraticSegment",
+    "GuiSfntSimpleGlyphCurveSegment",
+    "gui_sfnt_classify_simple_glyph_curve_segment",
+    "gui_sfnt_lookup_simple_glyph_curve_segment",
+    "payload 付き enum",
+    "inactive field",
+    "end_x2 = control.x + lookahead.x",
+    "`div_s ... 2` や丸めは使わない",
+    "NoSegment SinglePointContour",
+    "NoSegment OffCurveStart",
+    "NoSegment MissingLookahead",
+    "gui_sfnt_glyf_simple_curve_segment_with_tables",
+    "tests/stdlib/gui_font_sfnt_glyf_curve.n.md",
+    "no curve segment `Vec` allocation",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4l curve segment contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -651,6 +724,41 @@ assertMatch(
 );
 assertMatch(
     allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphCurveNoSegmentReason:[\s\S]*SinglePointContour[\s\S]*OffCurveStart[\s\S]*MissingLookahead/,
+    "alloc/gui/font/sfnt/glyf must expose no-segment reasons as enum variants",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphCurveNoSegment:[\s\S]*edge\s+%GuiSfntSimpleGlyphContourEdge[\s\S]*reason\s+%GuiSfntSimpleGlyphCurveNoSegmentReason/,
+    "alloc/gui/font/sfnt/glyf must expose no-segment payload as typed data",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphLineSegment:[\s\S]*edge\s+%GuiSfntSimpleGlyphContourEdge[\s\S]*start_x2\s+%i32[\s\S]*start_y2\s+%i32[\s\S]*end_x2\s+%i32[\s\S]*end_y2\s+%i32/,
+    "alloc/gui/font/sfnt/glyf must expose line segment doubled coordinates",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphQuadraticSegment:[\s\S]*edge\s+%GuiSfntSimpleGlyphContourEdge[\s\S]*lookahead\s+%GuiSfntSimpleGlyphContourPoint[\s\S]*start_x2\s+%i32[\s\S]*start_y2\s+%i32[\s\S]*control_x2\s+%i32[\s\S]*control_y2\s+%i32[\s\S]*end_x2\s+%i32[\s\S]*end_y2\s+%i32[\s\S]*end_is_implied\s+%bool/,
+    "alloc/gui/font/sfnt/glyf must expose quadratic segment doubled coordinates and implied-end state",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphCurveSegment:[\s\S]*NoSegment\s+%GuiSfntSimpleGlyphCurveNoSegment[\s\S]*Line\s+%GuiSfntSimpleGlyphLineSegment[\s\S]*Quadratic\s+%GuiSfntSimpleGlyphQuadraticSegment/,
+    "alloc/gui/font/sfnt/glyf must expose curve segment as payload enum states",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_classify_simple_glyph_curve_segment\s+%fn\s+GuiSfntSimpleGlyphContourEdge\s+fn\s+Option\s+GuiSfntSimpleGlyphContourPoint\s+GuiSfntSimpleGlyphCurveSegment/,
+    "alloc/gui/font/sfnt/glyf must expose pure curve segment classifier over an edge and optional lookahead",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_lookup_simple_glyph_curve_segment\s+%fn\s+&ByteBuf\s+fn\s+Option\s+i32\s+fn\s+GuiGlyphId\s+fn\s+i32\s+fn\s+i32\s+Result\s+GuiSfntSimpleGlyphCurveSegment\s+GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf curve segment lookup must take borrowed ByteBuf, checked GuiGlyphId, contour index, and contour-local edge index",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
     /gui_sfnt_glyf_read_index_to_loc_format[\s\S]*lt\s+gui_sfnt_table_record_length\s+&head\s+52[\s\S]*add\s+gui_sfnt_table_record_offset\s+&head\s+50/,
     "alloc/gui/font/sfnt/glyf must read head.indexToLocFormat only after head length 52",
 );
@@ -826,6 +934,11 @@ assertNoMatch(
     /\bVec\s+GuiSfntSimpleGlyphContourEdge\b|\bpush\s+.*GuiSfntSimpleGlyphContourEdge\b/,
     "alloc/gui/font/sfnt/glyf F4k must not allocate or build a full contour edge Vec",
 );
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /\bVec\s+GuiSfntSimpleGlyphCurveSegment\b|\bpush\s+.*GuiSfntSimpleGlyphCurveSegment\b/,
+    "alloc/gui/font/sfnt/glyf F4l must not allocate or build a full curve segment Vec",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,
@@ -852,6 +965,47 @@ assertNoMatch(
     contourEdgeWithTables,
     /\bgui_sfnt_lookup_simple_glyph_contour_span\b|\bgui_sfnt_lookup_simple_glyph_contour_point\b|\bgui_sfnt_lookup_simple_glyph_point\b|\bgui_sfnt_lookup_simple_glyph_point_stream\b/,
     "alloc/gui/font/sfnt/glyf F4k table helper must not call public wrappers after metadata unwrap",
+);
+const classifyCurveSegment = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_classify_simple_glyph_curve_segment");
+for (const fragment of [
+    "eq span_point_count 1",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour",
+    "not start_on_curve",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart",
+    "gui_sfnt_simple_glyph_point_on_curve &end_point",
+    "GuiSfntSimpleGlyphCurveSegment::Line",
+    "Option::None:",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead",
+    "end_is_implied %bool not gui_sfnt_simple_glyph_point_on_curve &lookahead_point",
+    "add end_x lookahead_x",
+    "add end_y lookahead_y",
+    "GuiSfntSimpleGlyphCurveSegment::Quadratic",
+]) {
+    assert(classifyCurveSegment.includes(fragment), `alloc/gui/font/sfnt/glyf curve classifier must include ${fragment}`);
+}
+assertNoMatch(
+    classifyCurveSegment,
+    /\bdiv_[su]\b/,
+    "alloc/gui/font/sfnt/glyf curve classifier must not divide implied midpoint coordinates",
+);
+const curveSegmentWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_curve_segment_with_tables");
+for (const fragment of [
+    "gui_sfnt_glyf_simple_contour_edge_with_tables",
+    "needs_lookahead %bool",
+    "start_on_curve",
+    "not end_on_curve",
+    "lookahead_contour_point_index",
+    "eq add next_contour_point_index 1 span_point_count",
+    "gui_sfnt_glyf_simple_contour_point_with_tables",
+    "gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead",
+    "gui_sfnt_classify_simple_glyph_curve_segment edge Option::None",
+]) {
+    assert(curveSegmentWithTables.includes(fragment), `alloc/gui/font/sfnt/glyf curve segment helper must include ${fragment}`);
+}
+assertNoMatch(
+    curveSegmentWithTables,
+    /\bgui_sfnt_lookup_simple_glyph_contour_edge\b|\bgui_sfnt_lookup_simple_glyph_contour_point\b|\bgui_sfnt_lookup_simple_glyph_point\b|\bgui_sfnt_lookup_simple_glyph_point_stream\b/,
+    "alloc/gui/font/sfnt/glyf F4l table helper must not call public wrappers after metadata unwrap",
 );
 assertNoMatch(
     allocFontSfntMetadataImpl,
@@ -902,6 +1056,11 @@ assertNoMatch(
     allocFontSfntMetadataImpl,
     /\bgui_sfnt_lookup_simple_glyph_contour_edge\b/,
     "gui_sfnt_parse_metadata must remain independent from glyf contour edge lookup",
+);
+assertNoMatch(
+    allocFontSfntMetadataImpl,
+    /\bgui_sfnt_lookup_simple_glyph_curve_segment\b/,
+    "gui_sfnt_parse_metadata must remain independent from glyf curve segment lookup",
 );
 assertNoMatch(
     allocFontSfntHmtxImpl,

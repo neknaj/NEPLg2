@@ -426,6 +426,93 @@ next_contour_point_index =
 
 F4k は full edge `Vec`、full contour `Vec`、curve segment builder、rasterizer を作らない。F4i / F4j / F4h 由来の byte 構造不整合は、それぞれの typed error をそのまま伝播する。
 
+### SFNT simple glyph curve segment classification
+
+F4l は F4k の topology edge を、TrueType simple glyph の on-curve / off-curve 規則で 1 つの curve segment state に分類する段階である。この段階はまだ full outline `Vec`、streaming contour sink、winding、rasterization を作らない。分類結果は drawable な line / quadratic だけでなく、valid topology だが edge start からは drawable segment を出さない `NoSegment` も enum payload として返す。
+
+```text
+GuiSfntSimpleGlyphCurveNoSegmentReason:
+    SinglePointContour
+    OffCurveStart
+    MissingLookahead
+
+GuiSfntSimpleGlyphCurveNoSegment:
+    edge GuiSfntSimpleGlyphContourEdge
+    reason GuiSfntSimpleGlyphCurveNoSegmentReason
+
+GuiSfntSimpleGlyphLineSegment:
+    edge GuiSfntSimpleGlyphContourEdge
+    start_x2 i32
+    start_y2 i32
+    end_x2 i32
+    end_y2 i32
+
+GuiSfntSimpleGlyphQuadraticSegment:
+    edge GuiSfntSimpleGlyphContourEdge
+    lookahead GuiSfntSimpleGlyphContourPoint
+    start_x2 i32
+    start_y2 i32
+    control_x2 i32
+    control_y2 i32
+    end_x2 i32
+    end_y2 i32
+    end_is_implied bool
+
+GuiSfntSimpleGlyphCurveSegment:
+    NoSegment GuiSfntSimpleGlyphCurveNoSegment
+    Line GuiSfntSimpleGlyphLineSegment
+    Quadratic GuiSfntSimpleGlyphQuadraticSegment
+```
+
+`*_x2` / `*_y2` は font unit の 2 倍である。通常の decoded point は `x * 2` / `y * 2` として保持する。2 つの off-curve point の midpoint が implied on-curve endpoint になる場合、`end_x2 = control.x + lookahead.x`、`end_y2 = control.y + lookahead.y` とする。これにより odd midpoint も exact に表現し、整数除算による丸めや fallback を行わない。
+
+Pure classifier:
+
+```text
+gui_sfnt_classify_simple_glyph_curve_segment:
+    edge GuiSfntSimpleGlyphContourEdge
+    lookahead Option GuiSfntSimpleGlyphContourPoint
+    -> GuiSfntSimpleGlyphCurveSegment
+```
+
+Byte lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_curve_segment:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphCurveSegment GuiSfntParseError
+```
+
+分類規則は次である。
+
+```text
+span.point_count == 1
+    -> NoSegment SinglePointContour
+
+start.on_curve == false
+    -> NoSegment OffCurveStart
+
+start.on_curve == true and end.on_curve == true
+    -> Line
+
+start.on_curve == true and end.on_curve == false and lookahead is None
+    -> NoSegment MissingLookahead
+
+start.on_curve == true and end.on_curve == false and lookahead.on_curve == true
+    -> Quadratic with explicit on-curve end
+
+start.on_curve == true and end.on_curve == false and lookahead.on_curve == false
+    -> Quadratic with implied midpoint end
+```
+
+`gui_sfnt_lookup_simple_glyph_curve_segment` は `edge.end` が off-curve で、かつ `edge.start` が on-curve の場合だけ lookahead point を読む。line、single point contour、off-curve start では不要な lookahead decode を行わない。これにより、関係しない後続 coordinate corruption を現在 edge の error として露出しない。
+
+`NoSegment` は parse error ではない。`edge_index` や `contour_index` が範囲外の場合、または必要な byte range が壊れている場合だけ `Result::Err GuiSfntParseError` とする。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

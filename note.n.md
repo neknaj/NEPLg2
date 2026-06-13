@@ -58910,3 +58910,52 @@ MERGE_APPROVED
 
 - method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact 接続は未実装である。
 - operation impl table lookup の sorted index 化は public candidate schema / duplicate fail-closed / classifier-producer 経由 contract を変えずに後から行える最適化として扱う。
+
+## 2026-06-13 GUI font SFNT simple glyph curve segment checkpoint
+
+### scope
+
+- branch: `gui-font-sfnt-curve-segment-20260613`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に沿って、Result / enum error、platform boundary 分離、doc contract と current implementation の分離、静的検査に掛かる typed value、hidden fallback なしを優先した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F4l `GuiSfntSimpleGlyphCurveSegment` の仕様、詳細設計、実装計画を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphCurveNoSegmentReason`、`GuiSfntSimpleGlyphCurveNoSegment`、`GuiSfntSimpleGlyphLineSegment`、`GuiSfntSimpleGlyphQuadraticSegment`、`GuiSfntSimpleGlyphCurveSegment` を追加した。
+- `GuiSfntSimpleGlyphCurveSegment` は `NoSegment` / `Line` / `Quadratic` の payload 付き enum とし、inactive field を持つ shared struct にはしない。
+- `gui_sfnt_classify_simple_glyph_curve_segment` は typed contour edge と optional lookahead だけから、allocation なしで 1 segment state を分類する。
+- coordinate は `*_x2` / `*_y2` として font unit の 2 倍で保持する。implied midpoint は `end_x2 = control.x + lookahead.x`、`end_y2 = control.y + lookahead.y` とし、整数除算による丸めや fallback を行わない。
+- `span.point_count == 1`、off-curve start、lookahead missing は parse error ではなく `NoSegment` の typed success として返す。
+- `gui_sfnt_glyf_simple_curve_segment_with_tables` は public wrapper ではなく metadata 済み internal table helper を使い、start が on-curve かつ end が off-curve の場合だけ lookahead point を読む。
+- `gui_sfnt_lookup_simple_glyph_curve_segment` は checked `GuiGlyphId`、`contour_index`、`edge_index` から `Result GuiSfntSimpleGlyphCurveSegment GuiSfntParseError` を返す public lookup とした。
+- Source policy で F4l API、payload enum、doubled coordinate field、no integer midpoint division、conditional lookahead decode、internal helper reuse、metadata 非依存、no curve segment `Vec` allocation を固定した。
+
+### tests
+
+- `tests/stdlib/gui_font_sfnt_glyf_curve.n.md` を追加し、line doubled coordinate、explicit quadratic、odd implied midpoint、single point no-segment、off-curve start no-segment、missing lookahead no-segment を typed value で検査した。
+- 当初 1 entry に 6 ケースを詰めた doctest は 60 秒 timeout したため、テスト責務を減らさず entry を分割した。NEPLg2.1 の現状の型検査に合わせた test structure の修正であり、実装 contract は変更していない。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt.n.md --no-tree -o tmp_gui_font_sfnt.json -j 1`
+- pass: `git diff --check`
+- warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は今回追加した `nodesrc/test_web_gui_font_rendering_contract.js` を含めて GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告したが、この slice では baseline を緩めない。
+
+### subagent_review
+
+- Boole pre-review: Required として、implied midpoint を丸め済み `i32` として隠さないこと、全 kind が inactive field を持たない payload であること、midpoint policy を source policy で固定することが指摘された。
+- 実装では doubled coordinate contract、payload enum、source policy の `div_s` / `div_u` 禁止、odd midpoint doctest を同じ slice 内で反映した。
+- Boole implementation review: Blocker / Required なし。pre-review の Required は満たされ、hidden fallback、platform leakage、curve segment `Vec` allocation、integer midpoint division は見つからないため、最終 local check 後の commit / merge が許可された。
+- Suggested として `gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level smoke doctest が挙がった。既存の `tests/stdlib/gui_font_sfnt_glyf.n.md` は 60 秒 timeout に近く、同じ巨大 fixture に追記すると検証基盤を不安定化させるため、この slice では source policy と pure classifier doctest に留め、byte fixture 分割後の次 slice で追加する。
+
+### residual
+
+- F4l は 1 edge の curve segment classification であり、full outline `Vec`、streaming contour sink、compound glyph、phantom points、hint instruction semantics、outline winding、2D renderer への path emission、rasterization は未実装である。
+- 次 slice は F4l の enum state を streaming outline/path sink へ渡す境界を設計する。allocation failure / owner recovery と no fallback contract を先に固定してから実装する。
+- `tests/stdlib/gui_font_sfnt_glyf.n.md` は既に重いため、今後の curve/path/raster test は責務ごとに別ファイルへ分ける。
+- `gui_sfnt_lookup_simple_glyph_curve_segment` の byte-level public lookup smoke は、既存 glyf byte fixture helper を小さな共有 fixture に分けた後に追加する。
