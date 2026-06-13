@@ -58185,3 +58185,45 @@ MERGE_APPROVED
 
 - F4b は representative name metadata の parser であり、real HackGen face 0 の integration validation、font registry、cmap / glyph outline / shaping / ruby / vertical / math bridge は後続 phase で接続する。
 - SFNT parser の shared byte reader / table helper は F4a/F4b の public contract を変えずに後続で共通 submodule へさらに整理できる。
+
+## 2026-06-13 selfhost public function signature producer checkpoint
+
+### scope
+
+- branch: `selfhost/public-function-signature-producer-20260613`
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / enum error、静的検査、pure core / boundary 分離、DAG、計算量と探索範囲の明示、丁寧な doc comment、line count / doc comment length cap 禁止、試作段階でも公開 API を雑にしない方針を優先した。
+
+### implementation
+
+- `memo_trait_public_function_signature.nepl` を追加し、public function declaration の typed signature evidence を normalizer payload input へ変換する internal producer を実装した。
+- `fn void unit` と `fn unit unit` は `SelfhostFunctionTypeArgRange::Empty` と function argument table の違いとして hash material に入るため、同じ stable key でも payload hash が異なる。
+- named / applied type は stable nominal key table を必ず通し、session-local named type id を accepted hash material にしない。
+- normalizer の payload helper を一度 `pub` にしたが、source policy 全体で facade leak が検出されたため非公開へ戻した。function producer 側には同じ typed payload schema を fold する private helper を置き、normalizer の公開 API を増やさない形へ修正した。
+- `SelfhostTypeArena` に `selfhost_type_arena_type_arg_at` を追加し、applied type argument table の読み取りを typed accessor 化した。
+- `.neplproof` serializer / reader の `SelfhostMemoTraitRejectKind` tag table が新しい operation / hazard 系 variant を網羅していなかったため、28 variant 全てを明示的に更新した。
+- `nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js` を追加し、source policy regression に登録した。
+
+### subagent_review
+
+- Anscombe review: Blocker なし。
+- Required として、facade 非公開、typed enum / Result error、source text / span / display / diagnostic / HIR / Resource IR / backend / proof store 非 authority、doc comment / doctest / source policy、line count / doc comment length cap 禁止を確認した。
+- source policy 全体で normalizer helper の public facade leak が検出されたため、Required に沿って公開境界を戻した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --no-tree -o tmp/selfhost-public-function-signature-doctest.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -o tmp/selfhost-memo-trait-proof-codec-reject-kind.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### residual
+
+- struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producer は未完了である。
+- trait impl table、method body purity、Drop なし proof、Copy / Drop / Eq / Hash pure evidence の実計算は未完了である。
+- recursive aggregate traversal、nested operation fold の重複計算、proof lookup index 化、composer sorted merge cursor 化は public evidence / payload input / typed error contract を変えずに後から置換できる最適化として扱う。

@@ -445,7 +445,92 @@ fn selfhost_memo_trait_neplproof_reader_reject_kind_result %fn i32 Result Selfho
                                                                                         then:
                                                                                             Result::Ok SelfhostMemoTraitRejectKind::ParameterUnresolved
                                                                                         else:
-                                                                                            Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RejectKindTagInvalid
+                                                                                            if:
+                                                                                                eq tag 12
+                                                                                                then:
+                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::CopyProofMissing
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        eq tag 13
+                                                                                                        then:
+                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::CopyProofImpure
+                                                                                                        else:
+                                                                                                            if:
+                                                                                                                eq tag 14
+                                                                                                                then:
+                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::CopyProofUnknown
+                                                                                                                else:
+                                                                                                                    if:
+                                                                                                                        eq tag 15
+                                                                                                                        then:
+                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::DropProofMissing
+                                                                                                                        else:
+                                                                                                                            if:
+                                                                                                                                eq tag 16
+                                                                                                                                then:
+                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::DropProofImpure
+                                                                                                                                else:
+                                                                                                                                    if:
+                                                                                                                                        eq tag 17
+                                                                                                                                        then:
+                                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::DropProofUnknown
+                                                                                                                                        else:
+                                                                                                                                            if:
+                                                                                                                                                eq tag 18
+                                                                                                                                                then:
+                                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::EqProofMissing
+                                                                                                                                                else:
+                                                                                                                                                    if:
+                                                                                                                                                        eq tag 19
+                                                                                                                                                        then:
+                                                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::EqProofImpure
+                                                                                                                                                        else:
+                                                                                                                                                            if:
+                                                                                                                                                                eq tag 20
+                                                                                                                                                                then:
+                                                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::EqProofUnknown
+                                                                                                                                                                else:
+                                                                                                                                                                    if:
+                                                                                                                                                                        eq tag 21
+                                                                                                                                                                        then:
+                                                                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::HashProofMissing
+                                                                                                                                                                        else:
+                                                                                                                                                                            if:
+                                                                                                                                                                                eq tag 22
+                                                                                                                                                                                then:
+                                                                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::HashProofImpure
+                                                                                                                                                                                else:
+                                                                                                                                                                                    if:
+                                                                                                                                                                                        eq tag 23
+                                                                                                                                                                                        then:
+                                                                                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::HashProofUnknown
+                                                                                                                                                                                        else:
+                                                                                                                                                                                            if:
+                                                                                                                                                                                                eq tag 24
+                                                                                                                                                                                                then:
+                                                                                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::CacheReferenceEscape
+                                                                                                                                                                                                else:
+                                                                                                                                                                                                    if:
+                                                                                                                                                                                                        eq tag 25
+                                                                                                                                                                                                        then:
+                                                                                                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::ExternalHandle
+                                                                                                                                                                                                        else:
+                                                                                                                                                                                                            if:
+                                                                                                                                                                                                                eq tag 26
+                                                                                                                                                                                                                then:
+                                                                                                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::OwnerToken
+                                                                                                                                                                                                                else:
+                                                                                                                                                                                                                    if:
+                                                                                                                                                                                                                        eq tag 27
+                                                                                                                                                                                                                        then:
+                                                                                                                                                                                                                            Result::Ok SelfhostMemoTraitRejectKind::PublicMutableState
+                                                                                                                                                                                                                        else:
+                                                                                                                                                                                                                            if:
+                                                                                                                                                                                                                                eq tag 28
+                                                                                                                                                                                                                                then:
+                                                                                                                                                                                                                                    Result::Ok SelfhostMemoTraitRejectKind::HazardUnknown
+                                                                                                                                                                                                                                else:
+                                                                                                                                                                                                                                    Result::Err SelfhostMemoTraitNeplProofReaderErrorKind::RejectKindTagInvalid
 
 //: selfhost_memo_trait_neplproof_reader_memo_result_result: Result unit SelfhostMemoTraitRejectKind tag を typed payload へ[戻/もど]す
 fn selfhost_memo_trait_neplproof_reader_memo_result_result %fn i32 fn i32 Result Result unit SelfhostMemoTraitRejectKind SelfhostMemoTraitNeplProofReaderErrorKind \tag\payload:

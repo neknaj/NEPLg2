@@ -68,6 +68,28 @@ pub fn selfhost_type_arena_type_arg_len %fn &SelfhostTypeArena i32 \arena:
     let type_args %&Vec SelfhostTypeId field::get_ref arena "type_args"
     v::len type_args
 
+//: selfhost_type_arena_type_arg_at: applied type argument table の指定 index を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `SelfhostAppliedTypeRecord` の range payload を読む checker / artifact producer が、`SelfhostTypeArena` の内部 field 名へ直接依存しないようにします。
+//: - applied type の owner `SelfhostTypeId` が手元にない場合でも、検証済み range の absolute index から型引数を読めます。
+//:
+//: [契約/けいやく]:
+//: - `arg_index < 0` は `none` です。
+//: - `arg_index` が type argument table 外の場合も `none` です。
+//: - 返す `SelfhostTypeId` は arena-local identity であり、別 arena へ持ち出して比較してはいけません。
+//:
+//: [計算量/けいさんりょう]:
+//: - `Vec` index lookup なので O(1) です。
+pub fn selfhost_type_arena_type_arg_at %fn &SelfhostTypeArena fn i32 Option SelfhostTypeId \arena\arg_index:
+    if:
+        lt arg_index 0
+        then:
+            none
+        else:
+            let type_args %&Vec SelfhostTypeId field::get_ref arena "type_args"
+            v::get type_args arg_index
+
 //: selfhost_type_arena_alloc_new: 型追加結果を[作/つく]る
 pub fn selfhost_type_arena_alloc_new %impure fn SelfhostTypeArena impure fn SelfhostTypeId SelfhostTypeArenaAlloc \arena\type_id:
     SelfhostTypeArenaAlloc arena type_id

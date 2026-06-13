@@ -423,6 +423,36 @@ source policy は typed payload input、kind / schema fold、原因別 placehold
 
 この checkpoint 後の残件は、public function signature、struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producer を今回の payload input 境界へ接続すること、trait impl table、method body purity、Drop なし proof を operation solver へ接続することである。
 
+## 2026-06-13 selfhost public function signature producer checkpoint
+
+`memo_trait_public_function_signature.nepl` を追加し、public function declaration の typed signature evidence を public surface normalizer の `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` へ接続した。
+
+producer input は `visibility`、`declaration_ordinal`、`stable_function_key_hash`、`function_type`、`effect` を typed field として受け取る。`Public` visibility、`some(nonzero)` ordinal、`some(nonzero)` stable function key、function root type だけを accepted path に進め、失敗は `SelfhostMemoTraitPublicFunctionSignatureErrorKind` と `SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind` に分けて返す。bool や diagnostic string へ潰さない。
+
+type shape hash は `SelfhostTypeArena` と `SelfhostMemoTraitStableNominalKeyTable` だけを authority にする。`Primitive`、`Parameter`、`Named`、`Applied`、`Function` を明示的に fold し、named / applied type は stable nominal key table を通す。`fn void unit` は empty function argument range、`fn unit unit` は function argument table に入った `unit` type として扱うため、同じ stable function key でも payload hash が異なる。
+
+accepted hash material には source text、span、lexeme、display name、diagnostic text、path suffix、HIR、Resource IR、backend artifact、proof store record を入れない。function signature producer は checker-layer の internal producer として facade へ re-export せず、full public surface orchestration が function / layout / impl producer をまとめる段階まで公開 API を増やさない。
+
+normalizer の public declaration payload hash helper は facade 公開せず、function signature producer 側に同じ typed payload schema を fold する private helper を置いた。これは現行 module visibility では private helper を別 submodule から直接参照できず、helper を `pub` にすると module checker facade の公開surfaceから漏れるためである。payload input の型と normalizer error kind は既存 normalizer 境界を使い、schema code / kind code / placeholder error を source policy で固定した。
+
+この slice で `SelfhostTypeArena` に `selfhost_type_arena_type_arg_at` を追加し、applied type argument table の読み取りを field-name 依存から typed accessor へ移した。また、`SelfhostMemoTraitRejectKind` に Copy / Drop / Eq / Hash proof と hazard 系 variant が増えていたのに `.neplproof` serializer / reader が旧 11 variant だけを扱っていたため、artifact tag table を 28 variant まで明示的に更新した。これは wildcard ではなく reader / serializer の双方で同じ fail-closed tag table を持つ修正である。
+
+subagent review では Anscombe が Blocker なし、Required として facade 非公開、typed error enum、source/span/display/diagnostic/HIR/Resource/backend/proof-store authority 排除、doc comment / doctest / source policy 固定、line count / comment length cap 禁止を確認した。実装はこの指摘に合わせ、normalizer helper の facade leak は source policy 全体で検出されたため同じ slice 内で非公開へ戻した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_function_signature_contract.js`
+- pass: `node nodesrc/test_selfhost_module_checker_split_contract.js`
+- pass: `node nodesrc/test_selfhost_proof_entry_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_proof_reader_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_function_signature.nepl --no-tree -o tmp/selfhost-public-function-signature-doctest.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_proof_reader.nepl -i stdlib/neplg2/core/ty/ty/memo_trait_proof_serializer.nepl --no-tree -o tmp/selfhost-memo-trait-proof-codec-reject-kind.json -j 1 --dist web/dist --assert-io`
+- pass: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+この checkpoint 後の残件は、struct / enum layout header、impl header、re-export export table、stable nominal key の実 hash producer を payload input 境界へ接続すること、trait impl table、method body purity、Drop なし proof を operation solver へ接続することである。recursive aggregate traversal、nested operation fold、proof lookup index 化などは public evidence / payload input / typed error contract を変えずに後から置換できる最適化として扱う。
+
 ## 2026-06-13 selfhost public surface seed and partial stream composer checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_hash.nepl` に `selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result` を追加し、local `MemoKey` / `MemoValue` seed table と normalizer が返す partial input stream を同じ full public surface input stream へ合成する境界を作った。

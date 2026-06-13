@@ -1,0 +1,785 @@
+#indent 4
+
+//: # check/module/memo_trait_public_function_signature
+//: public function declaration の typed signature evidence を public surface normalizer の payload input へ[変換/へんかん]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - full public surface hash が public function を source header の文字列ではなく、type arena 上の function type、function effect、stable declaration key から受け取れるようにします。
+//: - `fn void T` の 0 引数 function type と `fn unit T` の unit 引数 function type を、`SelfhostFunctionTypeArgRange::Empty` と function argument table の違いとして hash material に反映します。
+//: - named / applied type は `SelfhostNamedTypeId` を直接 fingerprint にせず、caller が用意した stable nominal key table を必ず通してから hash に入れます。
+//: - normalizer が受け取る public declaration payload input と同じ schema で function payload hash を作り、function producer 側の evidence が normalizer の部分 stream API と同じ値域に入るようにします。
+//:
+//: [契約/けいやく]:
+//: - accepted function declaration evidence は `SelfhostMemoTraitPublicFunctionSignatureInput` の typed field と `SelfhostTypeArena` / `SelfhostMemoTraitStableNominalKeyTable` だけから作ります。
+//: - source text、span、lexeme、display name、diagnostic text、path suffix、HIR、Resource IR、backend artifact、proof store record は accepted hash material に入りません。
+//: - `visibility` は `Public` だけを受理します。private function は public surface input ではないため typed error にします。
+//: - `declaration_ordinal` と `stable_function_key_hash` は `some(nonzero)` でなければなりません。欠落と placeholder は別の enum error として返します。
+//: - `function_type` は type arena 内の function record でなければなりません。unit 型そのものを function signature として渡した場合は `FunctionSignatureTypeNotFunction` で拒否します。
+//: - generic parameter は binder depth と binder 内 index を hash material に入れます。この hash は caller が `stable_function_key_hash` で binder identity を固定していることを前提にします。
+//:
+//: [現状/げんじょう]:
+//: - この module は public function signature producer の最初の接続点です。struct / enum layout header、impl header、re-export export table は別 producer で接続します。
+//: - effect は現行 selfhost model の `SelfhostEffectKind` を fold します。将来 surface pure / impure と internal effect row を分離した場合は schema version を更新します。
+//: - facade にはまだ re-export しません。full public surface orchestration が function / layout / impl producer をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - type shape hash は root function type から到達する型 record と argument edge の数を n、stable nominal key table の record 数を m とすると、現実装では O(n * m) です。
+//: - primitive / parameter / function edge だけの signature は O(n) です。nominal lookup は後続で stable map 化できますが、hash material と error contract は変えません。
+//: - declaration payload evidence 生成は shape hash 後に O(1) で normalizer payload hash へ委譲します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_function_signature" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_function_signature_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check is_ok summary.zero_arg_function
+//:             let checks2 checks_push checks1 check is_ok summary.unit_arg_function
+//:             let checks3 checks_push checks2 check summary.zero_and_unit_arg_differ
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_function_signature_error_kind_eq (unwrap_err summary.private_rejected) SelfhostMemoTraitPublicFunctionSignatureErrorKind::PrivateVisibilityRejected
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_function_signature_error_kind_eq (unwrap_err summary.key_missing_rejected) SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyMissing
+//:             let expected_type %SelfhostMemoTraitPublicFunctionSignatureErrorKind SelfhostMemoTraitPublicFunctionSignatureErrorKind::TypeHashRejected SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::FunctionSignatureTypeNotFunction
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_function_signature_error_kind_eq (unwrap_err summary.non_function_rejected) expected_type
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             1
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./memo_trait_public_surface_normalizer" as *
+
+//: SelfhostMemoTraitPublicFunctionSignatureShapeHash: public function signature shape の normalized fingerprint
+//:
+//: [目的/もくてき]:
+//: - type arena root と effect から作った function signature の shape hash を、schema version と一緒に保持します。
+//:
+//: [契約/けいやく]:
+//: - `schema_version` は hash material の構造を表します。
+//: - `root_hash` は nonzero でなければ accepted shape ではありません。
+pub struct SelfhostMemoTraitPublicFunctionSignatureShapeHash:
+    schema_version %i32
+    root_hash %i32
+
+//: SelfhostMemoTraitPublicFunctionSignatureInput: public function declaration producer の typed input
+//:
+//: [目的/もくてき]:
+//: - public function declaration の stable key、ordinal、effect、typed function type を同じ record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `stable_function_key_hash` は stable declaration key producer が作った nonzero hash です。
+//: - `function_type` は `SelfhostTypeArena` 内の function record を指す必要があります。
+//: - `effect` は public signature の effect field であり、function type shape hash と別に fold します。
+pub struct SelfhostMemoTraitPublicFunctionSignatureInput:
+    visibility %SelfhostModuleDeclarationVisibility
+    declaration_ordinal %Option i32
+    stable_function_key_hash %Option i32
+    function_type %SelfhostTypeId
+    effect %SelfhostEffectKind
+
+//: SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind: type shape hash の拒否理由
+//:
+//: [目的/もくてき]:
+//: - arena lookup、function root 検査、argument lookup、nominal key lookup、placeholder hash を typed error として区別します。
+pub enum SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind:
+    MissingTypeRecord
+    FunctionSignatureTypeNotFunction
+    MissingFunctionArgument
+    MissingFunctionResult
+    MissingAppliedArgument
+    InvalidTypeParameterBinding
+    NominalKeyRejected %SelfhostMemoTraitCanonicalFingerprintErrorKind
+    TraversalFuelExhausted
+    DerivedTypeHashPlaceholder
+    DerivedSignatureShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicFunctionSignatureErrorKind: public function signature producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - visibility、ordinal、stable key、type hash、normalizer payload hash の失敗を同じ enum に潰さず保持します。
+pub enum SelfhostMemoTraitPublicFunctionSignatureErrorKind:
+    PrivateVisibilityRejected
+    DeclarationOrdinalMissing
+    DeclarationOrdinalPlaceholder
+    StableFunctionKeyMissing
+    StableFunctionKeyPlaceholder
+    TypeHashRejected %SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind
+    PublicDeclarationPayloadRejected %SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
+
+//: SelfhostMemoTraitPublicFunctionSignatureStage0Summary: function signature producer の代表 smoke
+//:
+//: [目的/もくてき]:
+//: - `fn void unit` と `fn unit unit` の区別、private / missing key / non-function rejection をまとめます。
+pub struct SelfhostMemoTraitPublicFunctionSignatureStage0Summary:
+    zero_arg_function %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind
+    unit_arg_function %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind
+    zero_and_unit_arg_differ %bool
+    private_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind
+    key_missing_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind
+    non_function_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind
+
+impl Clone for SelfhostMemoTraitPublicFunctionSignatureShapeHash:
+    fn clone %fn &SelfhostMemoTraitPublicFunctionSignatureShapeHash SelfhostMemoTraitPublicFunctionSignatureShapeHash \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicFunctionSignatureShapeHash:
+    fn copy_mark %fn SelfhostMemoTraitPublicFunctionSignatureShapeHash SelfhostMemoTraitPublicFunctionSignatureShapeHash \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicFunctionSignatureInput:
+    fn clone %fn &SelfhostMemoTraitPublicFunctionSignatureInput SelfhostMemoTraitPublicFunctionSignatureInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicFunctionSignatureInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicFunctionSignatureInput SelfhostMemoTraitPublicFunctionSignatureInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicFunctionSignatureErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicFunctionSignatureErrorKind SelfhostMemoTraitPublicFunctionSignatureErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicFunctionSignatureErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicFunctionSignatureErrorKind SelfhostMemoTraitPublicFunctionSignatureErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicFunctionSignatureStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicFunctionSignatureStage0Summary SelfhostMemoTraitPublicFunctionSignatureStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicFunctionSignatureStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicFunctionSignatureStage0Summary SelfhostMemoTraitPublicFunctionSignatureStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_function_signature_input_new: typed input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は field をまとめるだけです。visibility、ordinal、stable key、function type の検査は producer 本体で行います。
+pub fn selfhost_memo_trait_public_function_signature_input_new %fn SelfhostModuleDeclarationVisibility fn Option i32 fn Option i32 fn SelfhostTypeId fn SelfhostEffectKind SelfhostMemoTraitPublicFunctionSignatureInput \visibility\declaration_ordinal\stable_function_key_hash\function_type\effect:
+    SelfhostMemoTraitPublicFunctionSignatureInput visibility declaration_ordinal stable_function_key_hash function_type effect
+
+//: selfhost_memo_trait_public_function_signature_schema_version: signature shape hash schema version
+//:
+//: [契約/けいやく]:
+//: - effect folding、type node code、function argument fold、parameter binding fold、nominal key fold のどれかを変える場合はこの version を更新します。
+fn selfhost_memo_trait_public_function_signature_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_function_signature_mix2: signature hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_function_signature_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_function_signature_mix3: signature hash 用の 3 field [混合/こんごう]
+fn selfhost_memo_trait_public_function_signature_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_public_function_signature_mix2 a b c
+
+//: selfhost_memo_trait_public_function_signature_mix4: signature hash 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_public_function_signature_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_function_signature_mix2 (selfhost_memo_trait_public_function_signature_mix2 a b) (selfhost_memo_trait_public_function_signature_mix2 c d)
+
+//: selfhost_memo_trait_public_function_signature_payload_schema_code: public declaration payload schema の domain code
+//:
+//: [契約/けいやく]:
+//: - normalizer の `SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput` と同じ field 構成を hash へ畳みます。
+//: - この helper は facade 公開されません。normalizer の内部 adapter を公開 API に漏らさず、function producer が同じ typed payload contract に従うための局所境界です。
+fn selfhost_memo_trait_public_function_signature_payload_schema_code %fn void i32 \void:
+    252301
+
+//: selfhost_memo_trait_public_function_signature_payload_kind_code: public declaration kind を payload domain code へ[写/うつ]す
+fn selfhost_memo_trait_public_function_signature_payload_kind_code %fn SelfhostMemoTraitPublicSurfacePublicDeclarationKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function:
+            252311
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Struct:
+            252312
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Enum:
+            252313
+        SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl:
+            252314
+
+//: selfhost_memo_trait_public_function_signature_payload_hash_result: payload input から stable hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - stable declaration key と normalized declaration shape は nonzero でなければなりません。
+//: - source text、span、display name、diagnostic text は読まず、payload input の typed field だけを authority にします。
+//: - normalizer の内部 adapter と同じ placeholder error kind を返し、呼び出し側が public function producer の error enum へ包めるようにします。
+fn selfhost_memo_trait_public_function_signature_payload_hash_result %fn SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput Result i32 SelfhostMemoTraitPublicSurfaceNormalizerErrorKind \input:
+    if:
+        eq input.stable_declaration_key_hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::StableDeclarationKeyHashPlaceholder
+        else:
+            if:
+                eq input.normalized_declaration_shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::NormalizedDeclarationShapeHashPlaceholder
+                else:
+                    let kind_hash %i32 selfhost_memo_trait_public_function_signature_payload_kind_code input.kind
+                    let header_hash %i32 selfhost_memo_trait_public_function_signature_mix3 selfhost_memo_trait_public_function_signature_payload_schema_code kind_hash input.stable_declaration_key_hash
+                    let payload_hash %i32 selfhost_memo_trait_public_function_signature_mix2 header_hash input.normalized_declaration_shape_hash
+                    if:
+                        eq payload_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::DerivedDeclarationPayloadHashPlaceholder
+                        else:
+                            Result::Ok payload_hash
+
+//: selfhost_memo_trait_public_function_signature_nonzero_type_hash_result: derived hash の placeholder を[拒否/きょひ]する
+fn selfhost_memo_trait_public_function_signature_nonzero_type_hash_result %fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \hash:
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedTypeHashPlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_public_function_signature_primitive_code: primitive type を stable node code へ[写/うつ]す
+fn selfhost_memo_trait_public_function_signature_primitive_code %fn SelfhostPrimitiveTypeKind i32 \kind:
+    match kind:
+        SelfhostPrimitiveTypeKind::Error:
+            331001
+        SelfhostPrimitiveTypeKind::Unit:
+            331002
+        SelfhostPrimitiveTypeKind::Bool:
+            331003
+        SelfhostPrimitiveTypeKind::I32:
+            331004
+        SelfhostPrimitiveTypeKind::I64:
+            331005
+        SelfhostPrimitiveTypeKind::U8:
+            331006
+        SelfhostPrimitiveTypeKind::Char:
+            331007
+        SelfhostPrimitiveTypeKind::Str:
+            331008
+        SelfhostPrimitiveTypeKind::F32:
+            331009
+        SelfhostPrimitiveTypeKind::F64:
+            331010
+        SelfhostPrimitiveTypeKind::Never:
+            331011
+
+//: selfhost_memo_trait_public_function_signature_effect_code: function effect を stable node code へ[写/うつ]す
+fn selfhost_memo_trait_public_function_signature_effect_code %fn SelfhostEffectKind i32 \effect:
+    match effect:
+        SelfhostEffectKind::Pure:
+            332001
+        SelfhostEffectKind::InternalAlloc:
+            332002
+        SelfhostEffectKind::UnsafeMemory:
+            332003
+        SelfhostEffectKind::ExternalIo:
+            332004
+        SelfhostEffectKind::Nondet:
+            332005
+
+//: selfhost_memo_trait_public_function_signature_nominal_error: canonical nominal error を local type hash error へ[写/うつ]す
+fn selfhost_memo_trait_public_function_signature_nominal_error %fn SelfhostMemoTraitCanonicalFingerprintErrorKind SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \error:
+    SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::NominalKeyRejected error
+
+//: selfhost_memo_trait_public_function_signature_primitive_type_hash_result: primitive type hash を[作/つく]る
+fn selfhost_memo_trait_public_function_signature_primitive_type_hash_result %fn SelfhostPrimitiveTypeKind Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \kind:
+    selfhost_memo_trait_public_function_signature_nonzero_type_hash_result:
+        selfhost_memo_trait_public_function_signature_mix3 333001 selfhost_memo_trait_public_function_signature_schema_version selfhost_memo_trait_public_function_signature_primitive_code kind
+
+//: selfhost_memo_trait_public_function_signature_parameter_type_hash_result: generic parameter type hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - binding が invalid な場合は hash に進めません。
+//: - source name は読まず、binder depth と binder 内 index だけを使います。
+fn selfhost_memo_trait_public_function_signature_parameter_type_hash_result %fn SelfhostTypeParameterBinding Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \binding:
+    if:
+        not selfhost_type_parameter_binding_is_valid binding
+        then:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::InvalidTypeParameterBinding
+        else:
+            selfhost_memo_trait_public_function_signature_nonzero_type_hash_result:
+                selfhost_memo_trait_public_function_signature_mix4 333002 selfhost_memo_trait_public_function_signature_schema_version binding.binder_depth binding.parameter_index
+
+//: selfhost_memo_trait_public_function_signature_named_type_hash_result: named type hash を stable nominal key から[作/つく]る
+fn selfhost_memo_trait_public_function_signature_named_type_hash_result %fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostNamedTypeId Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \nominal_table\nominal_id:
+    match selfhost_memo_trait_stable_nominal_key_table_find_result nominal_table nominal_id:
+        Result::Ok key:
+            selfhost_memo_trait_public_function_signature_nonzero_type_hash_result:
+                selfhost_memo_trait_public_function_signature_mix3 333003 selfhost_memo_trait_public_function_signature_schema_version key.nominal_key_hash
+        Result::Err e:
+            Result::Err selfhost_memo_trait_public_function_signature_nominal_error e
+
+//: selfhost_memo_trait_public_function_signature_type_hash_with_fuel_result: type arena record を stable type shape hash へ[投影/とうえい]する
+//:
+//: [契約/けいやく]:
+//: - `fuel` は malformed cyclic graph への防御境界です。正常な `SelfhostTypeArena` は木またはDAGとして終端します。
+//: - source text、span、display name は読まず、arena record と stable nominal key table だけを authority とします。
+fn selfhost_memo_trait_public_function_signature_type_hash_with_fuel_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostTypeId fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\type_id\fuel:
+    if:
+        le fuel 0
+        then:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::TraversalFuelExhausted
+        else:
+            match selfhost_type_arena_get_record arena type_id:
+                Option::Some record:
+                    match record:
+                        SelfhostTypeRecord::Primitive kind:
+                            selfhost_memo_trait_public_function_signature_primitive_type_hash_result kind
+                        SelfhostTypeRecord::Named named:
+                            selfhost_memo_trait_public_function_signature_named_type_hash_result nominal_table named.nominal_id
+                        SelfhostTypeRecord::Parameter parameter:
+                            selfhost_memo_trait_public_function_signature_parameter_type_hash_result parameter.binding
+                        SelfhostTypeRecord::Applied applied:
+                            selfhost_memo_trait_public_function_signature_applied_type_hash_result arena nominal_table applied sub fuel 1
+                        SelfhostTypeRecord::Function _function:
+                            selfhost_memo_trait_public_function_signature_function_type_hash_result arena nominal_table type_id sub fuel 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingTypeRecord
+
+//: selfhost_memo_trait_public_function_signature_function_args_hash_result: function 引数列の shape hash を[作/つく]る
+fn selfhost_memo_trait_public_function_signature_function_args_hash_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostTypeId fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\function_type\arg_count\idx\acc\fuel:
+    if:
+        ge idx arg_count
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_type_arena_function_arg arena function_type idx:
+                Option::Some arg_type:
+                    match selfhost_memo_trait_public_function_signature_type_hash_with_fuel_result arena nominal_table arg_type sub fuel 1:
+                        Result::Ok arg_hash:
+                            let next_acc %i32 selfhost_memo_trait_public_function_signature_mix3 acc add idx 1 arg_hash
+                            if:
+                                eq next_acc 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedTypeHashPlaceholder
+                                else:
+                                    selfhost_memo_trait_public_function_signature_function_args_hash_result arena nominal_table function_type arg_count add idx 1 next_acc sub fuel 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingFunctionArgument
+
+//: selfhost_memo_trait_public_function_signature_function_type_hash_result: function type hash を[作/つく]る
+fn selfhost_memo_trait_public_function_signature_function_type_hash_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostTypeId fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\function_type\fuel:
+    match selfhost_type_arena_function_arg_count arena function_type:
+        Option::Some arg_count:
+            match selfhost_type_arena_function_result arena function_type:
+                Option::Some result_type:
+                    match selfhost_memo_trait_public_function_signature_function_args_hash_result arena nominal_table function_type arg_count 0 (selfhost_memo_trait_public_function_signature_mix3 333004 selfhost_memo_trait_public_function_signature_schema_version arg_count) fuel:
+                        Result::Ok args_hash:
+                            match selfhost_memo_trait_public_function_signature_type_hash_with_fuel_result arena nominal_table result_type sub fuel 1:
+                                Result::Ok result_hash:
+                                    selfhost_memo_trait_public_function_signature_nonzero_type_hash_result:
+                                        selfhost_memo_trait_public_function_signature_mix4 333005 selfhost_memo_trait_public_function_signature_schema_version args_hash result_hash
+                                Result::Err result_error:
+                                    Result::Err result_error
+                        Result::Err args_error:
+                            Result::Err args_error
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingFunctionResult
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::FunctionSignatureTypeNotFunction
+
+//: selfhost_memo_trait_public_function_signature_applied_type_hash_result: applied named type hash を[作/つく]る
+fn selfhost_memo_trait_public_function_signature_applied_type_hash_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostAppliedTypeRecord fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\applied\fuel:
+    match selfhost_memo_trait_stable_nominal_key_table_find_result nominal_table applied.nominal_id:
+        Result::Ok key:
+            selfhost_memo_trait_public_function_signature_applied_payload_hash_result arena nominal_table applied key fuel
+        Result::Err e:
+            Result::Err selfhost_memo_trait_public_function_signature_nominal_error e
+
+//: selfhost_memo_trait_public_function_signature_applied_payload_hash_result: applied payload の key と args を fold する
+//:
+//: [目的/もくてき]:
+//: - `SelfhostAppliedTypeRecord` は arg accessor に必要な owner type id を直接持たないため、caller は applied record を読んだ root TypeId からこの helper へ進みます。
+//:
+//: [現状/げんじょう]:
+//: - applied record 単体から root TypeId を復元できないため、この helper は後続の typed arena accessor split で置き換える予定です。
+fn selfhost_memo_trait_public_function_signature_applied_payload_hash_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostAppliedTypeRecord fn SelfhostMemoTraitStableNominalKey fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\applied\key\fuel:
+    let arg_count %i32 selfhost_applied_type_arg_range_count applied.args
+    let start_hash %i32 selfhost_memo_trait_public_function_signature_mix4 333006 selfhost_memo_trait_public_function_signature_schema_version key.nominal_key_hash arg_count
+    selfhost_memo_trait_public_function_signature_applied_args_hash_from_range_result arena nominal_table applied.args arg_count 0 start_hash fuel
+
+//: selfhost_memo_trait_public_function_signature_applied_args_hash_from_range_result: applied type record の range から引数 hash を fold する
+fn selfhost_memo_trait_public_function_signature_applied_args_hash_from_range_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostAppliedTypeArgRange fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\args\arg_count\idx\acc\fuel:
+    if:
+        ge idx arg_count
+        then:
+            selfhost_memo_trait_public_function_signature_nonzero_type_hash_result acc
+        else:
+            if:
+                or:
+                    lt idx 0
+                    or:
+                        lt args.first_arg 0
+                        ge idx args.arg_count
+                then:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingAppliedArgument
+                else:
+                    match selfhost_type_arena_type_arg_at arena add args.first_arg idx:
+                        Option::Some arg_type:
+                            match selfhost_memo_trait_public_function_signature_type_hash_with_fuel_result arena nominal_table arg_type sub fuel 1:
+                                Result::Ok arg_hash:
+                                    let next_acc %i32 selfhost_memo_trait_public_function_signature_mix3 acc add idx 1 arg_hash
+                                    if:
+                                        eq next_acc 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedTypeHashPlaceholder
+                                        else:
+                                            selfhost_memo_trait_public_function_signature_applied_args_hash_from_range_result arena nominal_table args arg_count add idx 1 next_acc sub fuel 1
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingAppliedArgument
+
+//: selfhost_memo_trait_public_function_signature_traversal_fuel: type shape traversal の燃料を[作/つく]る
+fn selfhost_memo_trait_public_function_signature_traversal_fuel %fn &SelfhostTypeArena i32 \arena:
+    let record_count %i32 selfhost_type_arena_len arena
+    let function_arg_count %i32 selfhost_type_arena_function_arg_len arena
+    let type_arg_count %i32 selfhost_type_arena_type_arg_len arena
+    add 8 add record_count add function_arg_count type_arg_count
+
+//: selfhost_memo_trait_public_function_signature_shape_hash_result: function type と effect から signature shape hash を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public function signature の型と effect を、public surface payload の normalized declaration shape hash に使える stable hash へ変換します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(hash)`: root function type と effect から nonzero shape hash を作れました。
+//: - `Err(kind)`: root が function type ではない、arena record が欠けている、nominal key が無い、derived hash が placeholder などの拒否理由です。
+pub fn selfhost_memo_trait_public_function_signature_shape_hash_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostTypeId fn SelfhostEffectKind Result SelfhostMemoTraitPublicFunctionSignatureShapeHash SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind \arena\nominal_table\function_type\effect:
+    let fuel %i32 selfhost_memo_trait_public_function_signature_traversal_fuel arena
+    match selfhost_memo_trait_public_function_signature_function_type_hash_result arena nominal_table function_type fuel:
+        Result::Ok type_hash:
+            let effect_hash %i32 selfhost_memo_trait_public_function_signature_effect_code effect
+            let root_hash %i32 selfhost_memo_trait_public_function_signature_mix4 333101 selfhost_memo_trait_public_function_signature_schema_version type_hash effect_hash
+            if:
+                eq root_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedSignatureShapeHashPlaceholder
+                else:
+                    Result::Ok SelfhostMemoTraitPublicFunctionSignatureShapeHash selfhost_memo_trait_public_function_signature_schema_version root_hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_function_signature_visibility_result: public visibility を[検査/けんさ]する
+fn selfhost_memo_trait_public_function_signature_visibility_result %fn SelfhostModuleDeclarationVisibility Result unit SelfhostMemoTraitPublicFunctionSignatureErrorKind \visibility:
+    match visibility:
+        SelfhostModuleDeclarationVisibility::Public:
+            Result::Ok unit
+        SelfhostModuleDeclarationVisibility::Private:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::PrivateVisibilityRejected
+
+//: selfhost_memo_trait_public_function_signature_ordinal_result: declaration ordinal を[検査/けんさ]する
+fn selfhost_memo_trait_public_function_signature_ordinal_result %fn Option i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureErrorKind \ordinal:
+    match ordinal:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::DeclarationOrdinalPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::DeclarationOrdinalMissing
+
+//: selfhost_memo_trait_public_function_signature_stable_key_result: stable function key を[検査/けんさ]する
+fn selfhost_memo_trait_public_function_signature_stable_key_result %fn Option i32 Result i32 SelfhostMemoTraitPublicFunctionSignatureErrorKind \stable_key:
+    match stable_key:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyMissing
+
+//: selfhost_memo_trait_public_function_signature_payload_input_result: public function declaration payload input を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - public function signature producer が normalizer の public declaration payload input 境界へ渡す typed payload を作ります。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(input)`: kind は Function、stable key と normalized shape hash は nonzero です。
+//: - `Err(kind)`: visibility、ordinal、stable key、type shape のいずれかが public payload の契約を満たしません。
+pub fn selfhost_memo_trait_public_function_signature_payload_input_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostMemoTraitPublicFunctionSignatureInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicFunctionSignatureErrorKind \arena\nominal_table\input:
+    match selfhost_memo_trait_public_function_signature_visibility_result input.visibility:
+        Result::Ok _visibility_ok:
+            match selfhost_memo_trait_public_function_signature_stable_key_result input.stable_function_key_hash:
+                Result::Ok stable_key:
+                    match selfhost_memo_trait_public_function_signature_shape_hash_result arena nominal_table input.function_type input.effect:
+                        Result::Ok shape:
+                            Result::Ok SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function stable_key shape.root_hash
+                        Result::Err shape_error:
+                            Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::TypeHashRejected shape_error
+                Result::Err key_error:
+                    Result::Err key_error
+        Result::Err visibility_error:
+            Result::Err visibility_error
+
+//: selfhost_memo_trait_public_function_signature_evidence_result: public function declaration evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - stable public function signature producer の主 API です。
+//: - 成功時は normalizer partial stream が受け取れる `SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence` を返します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(evidence)`: ordinal と payload hash は検査済みです。
+//: - `Err(kind)`: public function signature input、type shape hash、payload hash のどこかが fail-closed に拒否されました。
+pub fn selfhost_memo_trait_public_function_signature_evidence_result %fn &SelfhostTypeArena fn &SelfhostMemoTraitStableNominalKeyTable fn SelfhostMemoTraitPublicFunctionSignatureInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind \arena\nominal_table\input:
+    match selfhost_memo_trait_public_function_signature_ordinal_result input.declaration_ordinal:
+        Result::Ok ordinal:
+            match selfhost_memo_trait_public_function_signature_payload_input_result arena nominal_table input:
+                Result::Ok payload_input:
+                    match selfhost_memo_trait_public_function_signature_payload_hash_result payload_input:
+                        Result::Ok payload_hash:
+                            Result::Ok SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Function ordinal payload_hash
+                        Result::Err payload_error:
+                            Result::Err SelfhostMemoTraitPublicFunctionSignatureErrorKind::PublicDeclarationPayloadRejected payload_error
+                Result::Err input_error:
+                    Result::Err input_error
+        Result::Err ordinal_error:
+            Result::Err ordinal_error
+
+//: selfhost_memo_trait_public_function_signature_type_hash_error_kind_eq: type hash error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_function_signature_type_hash_error_kind_eq %fn SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind fn SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::NominalKeyRejected nominal_error:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::NominalKeyRejected other_nominal_error:
+                    selfhost_memo_trait_canonical_fingerprint_error_kind_eq nominal_error other_nominal_error
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingTypeRecord:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingTypeRecord:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::FunctionSignatureTypeNotFunction:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::FunctionSignatureTypeNotFunction:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingFunctionArgument:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingFunctionArgument:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingFunctionResult:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingFunctionResult:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingAppliedArgument:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::MissingAppliedArgument:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::InvalidTypeParameterBinding:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::InvalidTypeParameterBinding:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::TraversalFuelExhausted:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::TraversalFuelExhausted:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedTypeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedTypeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedSignatureShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureTypeHashErrorKind::DerivedSignatureShapeHashPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_public_function_signature_error_kind_eq: function signature producer error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_function_signature_error_kind_eq %fn SelfhostMemoTraitPublicFunctionSignatureErrorKind fn SelfhostMemoTraitPublicFunctionSignatureErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::TypeHashRejected type_error:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::TypeHashRejected other_type_error:
+                    selfhost_memo_trait_public_function_signature_type_hash_error_kind_eq type_error other_type_error
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::PublicDeclarationPayloadRejected payload_error:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::PublicDeclarationPayloadRejected other_payload_error:
+                    selfhost_memo_trait_public_surface_normalizer_error_kind_eq payload_error other_payload_error
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::PrivateVisibilityRejected:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::PrivateVisibilityRejected:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::DeclarationOrdinalMissing:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::DeclarationOrdinalMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::DeclarationOrdinalPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::DeclarationOrdinalPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyMissing:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicFunctionSignatureErrorKind::StableFunctionKeyPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_public_function_signature_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_function_signature_stage0_summary_new %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind fn bool fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind SelfhostMemoTraitPublicFunctionSignatureStage0Summary \zero_arg_function\unit_arg_function\zero_and_unit_arg_differ\private_rejected\key_missing_rejected\non_function_rejected:
+    SelfhostMemoTraitPublicFunctionSignatureStage0Summary zero_arg_function unit_arg_function zero_and_unit_arg_differ private_rejected key_missing_rejected non_function_rejected
+
+//: selfhost_memo_trait_public_function_signature_stage0_add_zero_function: stage0 用 0 引数 function type を arena に[追加/ついか]する
+fn selfhost_memo_trait_public_function_signature_stage0_add_zero_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\result_type:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params:
+            selfhost_type_arena_add_function arena params result_type
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_public_function_signature_stage0_add_unary_function: stage0 用 unit 引数 function type を arena に[追加/ついか]する
+fn selfhost_memo_trait_public_function_signature_stage0_add_unary_function %impure fn SelfhostTypeArena impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostTypeArenaAlloc StdErrorKind \arena\arg_type\result_type:
+    let params_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match params_result:
+        Result::Ok params0:
+            match v::push params0 arg_type:
+                Result::Ok params1:
+                    selfhost_type_arena_add_function arena params1 result_type
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    selfhost_type_arena_free arena
+                    Result::Err error
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_memo_trait_public_function_signature_stage0_finish: stage0 owner を閉じて summary を[返/かえ]す
+fn selfhost_memo_trait_public_function_signature_stage0_finish %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostMemoTraitPublicFunctionSignatureStage0Summary Result SelfhostMemoTraitPublicFunctionSignatureStage0Summary StdErrorKind \arena\nominal_table\summary:
+    selfhost_type_arena_free arena
+    selfhost_memo_trait_stable_nominal_key_table_free nominal_table
+    Result::Ok summary
+
+//: selfhost_memo_trait_public_function_signature_stage0_compare_payload: 2 evidence の payload hash が異なるか[返/かえ]す
+fn selfhost_memo_trait_public_function_signature_stage0_compare_payload %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind bool \zero_result\unit_result:
+    match zero_result:
+        Result::Ok zero:
+            match unit_result:
+                Result::Ok unit_arg:
+                    not eq zero.payload_hash unit_arg.payload_hash
+                Result::Err _e:
+                    false
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_public_function_signature_stage0_from_arena: stage0 evidence を arena から[作/つく]る
+fn selfhost_memo_trait_public_function_signature_stage0_from_arena %impure fn SelfhostTypeArena impure fn SelfhostMemoTraitStableNominalKeyTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitPublicFunctionSignatureStage0Summary StdErrorKind \arena\nominal_table\unit_id\zero_function_id\unit_function_id:
+    let zero_input %SelfhostMemoTraitPublicFunctionSignatureInput selfhost_memo_trait_public_function_signature_input_new SelfhostModuleDeclarationVisibility::Public (some 1) (some 4101) zero_function_id SelfhostEffectKind::Pure
+    let unit_input %SelfhostMemoTraitPublicFunctionSignatureInput selfhost_memo_trait_public_function_signature_input_new SelfhostModuleDeclarationVisibility::Public (some 2) (some 4101) unit_function_id SelfhostEffectKind::Pure
+    let private_input %SelfhostMemoTraitPublicFunctionSignatureInput selfhost_memo_trait_public_function_signature_input_new SelfhostModuleDeclarationVisibility::Private (some 3) (some 4102) zero_function_id SelfhostEffectKind::Pure
+    let missing_key_input %SelfhostMemoTraitPublicFunctionSignatureInput selfhost_memo_trait_public_function_signature_input_new SelfhostModuleDeclarationVisibility::Public (some 4) none zero_function_id SelfhostEffectKind::Pure
+    let non_function_input %SelfhostMemoTraitPublicFunctionSignatureInput selfhost_memo_trait_public_function_signature_input_new SelfhostModuleDeclarationVisibility::Public (some 5) (some 4103) unit_id SelfhostEffectKind::Pure
+    let zero_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind selfhost_memo_trait_public_function_signature_evidence_result &arena &nominal_table zero_input
+    let unit_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind selfhost_memo_trait_public_function_signature_evidence_result &arena &nominal_table unit_input
+    let private_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind selfhost_memo_trait_public_function_signature_evidence_result &arena &nominal_table private_input
+    let missing_key_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind selfhost_memo_trait_public_function_signature_evidence_result &arena &nominal_table missing_key_input
+    let non_function_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicFunctionSignatureErrorKind selfhost_memo_trait_public_function_signature_evidence_result &arena &nominal_table non_function_input
+    let differ %bool selfhost_memo_trait_public_function_signature_stage0_compare_payload zero_result unit_result
+    selfhost_memo_trait_public_function_signature_stage0_finish arena nominal_table selfhost_memo_trait_public_function_signature_stage0_summary_new zero_result unit_result differ private_result missing_key_result non_function_result
+
+//: selfhost_memo_trait_public_function_signature_stage0: public function signature producer の smoke API
+//:
+//: [目的/もくてき]:
+//: - 0 引数 function type と unit 引数 function type を実際の `SelfhostTypeArena` に作り、hash が異なることを確認します。
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(summary)`: arena / nominal table の構築に成功し、代表 result が summary に入っています。
+//: - `Err(error)`: Vec / arena / nominal table の確保に失敗しました。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の型だけを構築するため O(1) です。
+pub fn selfhost_memo_trait_public_function_signature_stage0 %impure fn void Result SelfhostMemoTraitPublicFunctionSignatureStage0Summary StdErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_arena_add_primitive arena0 SelfhostPrimitiveTypeKind::Unit:
+                Result::Ok allocated_unit:
+                    let unit_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_unit
+                    let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_unit
+                    match selfhost_memo_trait_public_function_signature_stage0_add_zero_function arena1 unit_id:
+                        Result::Ok allocated_zero:
+                            let zero_function_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_zero
+                            let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_zero
+                            match selfhost_memo_trait_public_function_signature_stage0_add_unary_function arena2 unit_id unit_id:
+                                Result::Ok allocated_unit_function:
+                                    let unit_function_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated_unit_function
+                                    let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated_unit_function
+                                    match selfhost_memo_trait_stable_nominal_key_table_new:
+                                        Result::Ok nominal_table:
+                                            selfhost_memo_trait_public_function_signature_stage0_from_arena arena3 nominal_table unit_id zero_function_id unit_function_id
+                                        Result::Err e:
+                                            selfhost_type_arena_free arena3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

@@ -459,6 +459,40 @@ fn selfhost_memo_trait_neplproof_serializer_reject_kind_artifact_word %fn Selfho
             10
         SelfhostMemoTraitRejectKind::ParameterUnresolved:
             11
+        SelfhostMemoTraitRejectKind::CopyProofMissing:
+            12
+        SelfhostMemoTraitRejectKind::CopyProofImpure:
+            13
+        SelfhostMemoTraitRejectKind::CopyProofUnknown:
+            14
+        SelfhostMemoTraitRejectKind::DropProofMissing:
+            15
+        SelfhostMemoTraitRejectKind::DropProofImpure:
+            16
+        SelfhostMemoTraitRejectKind::DropProofUnknown:
+            17
+        SelfhostMemoTraitRejectKind::EqProofMissing:
+            18
+        SelfhostMemoTraitRejectKind::EqProofImpure:
+            19
+        SelfhostMemoTraitRejectKind::EqProofUnknown:
+            20
+        SelfhostMemoTraitRejectKind::HashProofMissing:
+            21
+        SelfhostMemoTraitRejectKind::HashProofImpure:
+            22
+        SelfhostMemoTraitRejectKind::HashProofUnknown:
+            23
+        SelfhostMemoTraitRejectKind::CacheReferenceEscape:
+            24
+        SelfhostMemoTraitRejectKind::ExternalHandle:
+            25
+        SelfhostMemoTraitRejectKind::OwnerToken:
+            26
+        SelfhostMemoTraitRejectKind::PublicMutableState:
+            27
+        SelfhostMemoTraitRejectKind::HazardUnknown:
+            28
 
 //: selfhost_memo_trait_neplproof_serializer_memo_result_artifact_word: memo trait result を artifact word へ[写/うつ]す
 fn selfhost_memo_trait_neplproof_serializer_memo_result_artifact_word %fn Result unit SelfhostMemoTraitRejectKind i32 \result:
