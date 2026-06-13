@@ -77,6 +77,7 @@ type CompilerMode = 'rust' | 'selfhost';
 
 type ShellOptions = {
     getCompilerMode?: () => string;
+    beforeWasmExecution?: () => Promise<string | null>;
 };
 
 type InterruptOptions = {
@@ -114,6 +115,7 @@ export class Shell {
     private currentProcessReject: ((reason?: any) => void) | null;
     private guiStdoutProtocolParser: GuiWebStdoutProtocolParser;
     private getCompilerModeOption: () => string;
+    private beforeWasmExecutionOption: () => Promise<string | null>;
     private guiInputListener: GuiWebInputEventListener;
     private disposed: boolean;
 
@@ -144,6 +146,9 @@ export class Shell {
         this.getCompilerModeOption = typeof options.getCompilerMode === 'function'
             ? options.getCompilerMode
             : () => 'rust';
+        this.beforeWasmExecutionOption = typeof options.beforeWasmExecution === 'function'
+            ? options.beforeWasmExecution
+            : async () => null;
         this.guiInputListener = {
             kind: 'gui-input-listener',
             onInputEvent: (event) => this.handleGuiInputEvent(event),
@@ -579,6 +584,12 @@ export class Shell {
     }
 
     private async runWorkerProcess(request: WorkerRequest, options: WorkerProcessOptions = {}): Promise<any> {
+        if (request.type === 'run-wasm') {
+            const blockedMessage = await this.beforeWasmExecutionOption();
+            if (blockedMessage) {
+                throw new Error(blockedMessage);
+            }
+        }
         if (this.stdinBuffer) {
             Atomics.store(this.stdinBuffer, 0, 0);
         }

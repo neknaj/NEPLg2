@@ -81,9 +81,14 @@ git diff --check
 
 変更:
 
-- Web VFS manifest に `fonts/HackGenConsoleNF-Regular.ttf` と license を登録する。
+- Web VFS manifest に canonical resource path `fonts/HackGenConsoleNF-Regular.ttf` と `fonts/HackGen-LICENSE.txt` を登録する。
+- Web VFS 内部 path は `/fonts/...` とし、canonical path とは別の transport 表現として扱う。
+- `web/src/gui-font/font-resource-vfs.ts` を追加し、bundled resource manifest、path normalization、VFS mount、typed mount error を持たせる。
+- Web Playground startup で mount promise を開始し、`neplg2 run` の直前に完了を待つ。失敗時は typed error を terminal に表示して実行を開始しない。
+- Compile-only path は runtime font bytes を要求しないため mount を待たない。
 - Native resource root の探索 contract を doc と source policy に追加する。
 - Bare は embedded blob provider が未設定なら unsupported を返す contract にする。
+- Source policy で、HackGen 専用 API、suffix match、silent success、binary/read-only file の compile overlay 混入を禁止する。
 
 検証:
 
@@ -92,6 +97,13 @@ npm --prefix web run build:ts
 node nodesrc/test_web_gui_font_rendering_contract.js
 git diff --check
 ```
+
+完了条件:
+
+- `web/src/fonts/HackGenConsoleNF-Regular.ttf` が `/fonts/HackGenConsoleNF-Regular.ttf` として VFS に read-only mount される。
+- `VFS.serializeForCompile()` が font binary と read-only license text を compiler overlay へ含めない。
+- `FetchUnavailable`、`InvalidResourcePath`、`NetworkError`、`HttpError`、`InvalidBytes`、`InvalidText`、`VfsWriteFailed` のいずれも typed error として扱われる。
+- Native / Bare / Headless の resource provider contract が doc と source policy で検査される。
 
 ## Phase F4: sfnt metadata parser
 

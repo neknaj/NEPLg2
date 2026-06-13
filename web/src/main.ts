@@ -1,5 +1,10 @@
 import { VFS } from './runtime/vfs.js';
 import { readCompilerAssetsFromDocument } from './runtime/compiler-assets.js';
+import {
+    mountBundledGuiFontResources,
+    type GuiFontResourceMountError,
+    type GuiFontResourceMountResult,
+} from './gui-font/font-resource-vfs.js';
 import './editor-core/bridge.js';
 import './editor-core/language-analysis.js';
 import { PlaygroundPanelManager } from './workspace/panel-manager.js';
@@ -19,6 +24,7 @@ function startApp() {
     startFlag = true;
 
     const vfs = new VFS();
+    const guiFontResourceMountPromise: Promise<GuiFontResourceMountResult> = mountBundledGuiFontResources(vfs);
     const mountTextFile = (path: string, content: unknown, options: { readOnly?: boolean } = {}) => {
         const normalizedPath = String(path);
         const text = String(content ?? '').replace(/\r\n?/g, '\n');
@@ -101,11 +107,17 @@ function startApp() {
         vfs,
         createNeplProvider: () => new NEPLg2LanguageProvider({ vfs }),
         getCompilerMode: () => compilerMode,
+        beforeWasmExecution: guiFontResourceExecutionPreflight,
         cursorSpan,
         analysisSpan,
         terminalStatusSpan,
     });
     panelManager.redraw();
+    guiFontResourceMountPromise.then((result) => {
+        if (!result.ok) {
+            terminalStatusSpan.textContent = `gui-font:${result.error.kind}`;
+        }
+    });
 
     const openInitialDocument = () => {
         const initialPath = vfs.exists('/examples/rpn.nepl') ? '/examples/rpn.nepl' : '/README';
@@ -121,8 +133,11 @@ function startApp() {
         panelManager.executeInFocusedTerminal(command);
     }
 
-    function runCurrentFile() {
+    async function runCurrentFile() {
         panelManager.saveFocusedEditorTab();
+        if (!(await ensureGuiFontResourcesForRun())) {
+            return;
+        }
         const activePath = panelManager.getActiveEditorTabPath() || '/README';
         executeCommand(`neplg2 run -i ${activePath}`);
     }
@@ -146,7 +161,61 @@ function startApp() {
         terminalStatusSpan.textContent = `wasi-target:${compilerMode}`;
     }
 
-    runBtn.addEventListener('click', runCurrentFile);
+    async function ensureGuiFontResourcesForRun(): Promise<boolean> {
+        const preflightMessage = await guiFontResourceExecutionPreflight();
+        if (!preflightMessage) {
+            return true;
+        }
+        const result = await guiFontResourceMountPromise;
+        if (result.ok) {
+            return true;
+        }
+
+        panelManager.ensureTerminalLeaf();
+        const terminal = panelManager.getFocusedTerminalRuntime();
+        if (terminal) {
+            terminal.terminal.print([
+                { text: 'error[gui.font_resource.mount]', color: '#ff7b72' },
+                { text: ': ', color: '#c9d1d9' },
+                { text: preflightMessage, color: '#c9d1d9' },
+            ]);
+        } else {
+            console.error('[Playground] GUI font resource mount failed:', result.error);
+        }
+        terminalStatusSpan.textContent = `gui-font:${result.error.kind}`;
+        return false;
+    }
+
+    async function guiFontResourceExecutionPreflight(): Promise<string | null> {
+        const result = await guiFontResourceMountPromise;
+        if (result.ok) {
+            return null;
+        }
+        return formatGuiFontResourceMountError(result.error);
+    }
+
+    function formatGuiFontResourceMountError(error: GuiFontResourceMountError): string {
+        switch (error.kind) {
+            case 'FetchUnavailable':
+                return `FetchUnavailable: fetch unavailable for ${error.resourcePath}`;
+            case 'InvalidResourcePath':
+                return `InvalidResourcePath: invalid resource path ${error.resourcePath}: ${error.reason}`;
+            case 'NetworkError':
+                return `NetworkError: network error for ${error.resourcePath}: ${error.message}`;
+            case 'HttpError':
+                return `HttpError: http ${error.status} for ${error.resourcePath}`;
+            case 'InvalidBytes':
+                return `InvalidBytes: invalid binary resource ${error.resourcePath}: ${error.message}`;
+            case 'InvalidText':
+                return `InvalidText: invalid text resource ${error.resourcePath}: ${error.message}`;
+            case 'VfsWriteFailed':
+                return `VfsWriteFailed: VFS write failed for ${error.vfsPath}: ${error.message}`;
+        }
+    }
+
+    runBtn.addEventListener('click', () => {
+        void runCurrentFile();
+    });
     compileBtn.addEventListener('click', compileCurrentFile);
     helpBtn.addEventListener('click', () => executeCommand('help'));
     editorHelpBtn.addEventListener('click', (event) => {

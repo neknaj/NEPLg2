@@ -93,6 +93,7 @@ export class CanvasTerminal {
         // Dependencies - initialize Shell last
         this.shell = new Shell(this, (options as any).vfs || null, {
             getCompilerMode: (options as any).getCompilerMode,
+            beforeWasmExecution: (options as any).beforeWasmExecution,
         });
 
         this.blinkInterval = setInterval(() => {
