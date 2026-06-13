@@ -1,3 +1,36 @@
+# 2026-06-14 Agent2 Mandelbrot progressive video memory row-batch checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、host boundary、契約と現状実装の分離を確認し、Mandelbrot の formal video memory path を finite progressive row-batch checkpoint へ進めた。
+- 対象 branch: `web-gui-mandelbrot-progressive-rows-20260614`
+- classification: Web GUI Mandelbrot formal video memory progressive row batches / dirty rect publish / multi-frame fake host harness
+- 実装内容:
+  - `examples/gui_mandelbrot.nepl` に `--video-memory-progressive-once` と `--video-memory-progressive-test` を追加した。
+  - `--video-memory-progressive-test` は `mandelbrot_run_video_memory_progressive_once` を呼ぶ CI alias とし、別実装にはしない。
+  - `mandelbrot_video_memory_render_batch_present` は `acquire_write_frame -> write rows -> publish_rect -> present` の順序で 4 row batch を present する。
+  - batch end は sample height で clamp し、32x18 preview では最後の dirty rect が `y=16 height=2` になる。
+  - write error と `publish_rect` error は active frame を discard して元 error を返す。present error は publish 後なので close path へ渡す。
+  - `nodesrc/gui_video_memory_fake_host.js` は `surface.frames` による複数 frame 検査へ拡張した。既存 once / resize / loop harness は default full dirty 1 frame に正規化される。
+  - `nodesrc/test_web_gui_mandelbrot_video_memory_progressive_harness.js` を追加し、同一 surface の 5 frame、dirty rect、row range、no stdout / command-frame / `write_slot_bytes` / fill fallback を検査する。
+  - `nodesrc/test_web_gui_mandelbrot_transport_contract.js`、`nodesrc/run_source_policy_regressions.js`、`doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md` を更新し、finite row-batch checkpoint と FHD60 / formal tiled / real scheduler の残件を分けた。
+- subagent review:
+  - Boyle: 計画レビュー `PLAN_APPROVED`。実装後レビュー `IMPLEMENTATION_REVIEW_APPROVED`。fake host の複数 frame state machine、progressive test alias、discard error path、docs の完了範囲分離に blocker なし。
+- 検証:
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_progressive_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_resize_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_loop_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - pass: `rg -n "^[^/\r\n]*[()]" examples/gui_mandelbrot.nepl` no match。
+  - warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は既存 stdlib documentation gap `153 > 108` を警告した。今回追加の GUI / Mandelbrot source policy は pass。
+- 残件:
+  - progressive rendering を real scheduler / event loop 内 time slicing と接続する作業は未完了。
+  - FHD 60fps 実測、formal tiled transport、native formal `GuiHost.present` との統合は未完了。
+
 # 2026-06-14 Agent2 Mandelbrot formal video memory event loop checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、host boundary、event を application update が解釈する方針を確認し、Mandelbrot の formal video memory path を複数 event を扱う loop checkpoint へ進めた。

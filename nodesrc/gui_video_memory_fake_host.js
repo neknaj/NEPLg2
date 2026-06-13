@@ -18,16 +18,30 @@ function normalizeExpectedSurfaces(options) {
         surfaceId: options.surfaceId,
         frameId: options.frameId,
     }];
-    return surfaces.map((surface, index) => ({
-        width: surface.width,
-        height: surface.height,
-        slotCount: surface.slotCount || options.slotCount || 2,
-        windowId: surface.windowId || options.windowId || 1,
-        title: surface.title || options.title,
-        expectedRgbaRow: surface.expectedRgbaRow || options.expectedRgbaRow,
-        surfaceId: surface.surfaceId || (options.surfaceId || 1201) + index,
-        frameId: surface.frameId || (options.frameId || 4501) + index,
-    }));
+    return surfaces.map((surface, index) => {
+        const width = surface.width;
+        const height = surface.height;
+        const frameBase = surface.frameId || (options.frameId || 4501) + index * 100;
+        const frames = surface.frames || [{
+            frameId: frameBase,
+            dirty: { kind: "full" },
+            rows: { start: 0, end: height },
+        }];
+        return {
+            width,
+            height,
+            slotCount: surface.slotCount || options.slotCount || 2,
+            windowId: surface.windowId || options.windowId || 1,
+            title: surface.title || options.title,
+            expectedRgbaRow: surface.expectedRgbaRow || options.expectedRgbaRow,
+            surfaceId: surface.surfaceId || (options.surfaceId || 1201) + index,
+            frames: frames.map((frame, frameIndex) => ({
+                frameId: frame.frameId || frameBase + frameIndex,
+                dirty: frame.dirty || { kind: "full" },
+                rows: frame.rows || { start: 0, end: height },
+            })),
+        };
+    });
 }
 
 function createGuiVideoMemoryFakeHost(options) {
@@ -137,11 +151,12 @@ function createGuiVideoMemoryFakeHost(options) {
                         windowId: expected.windowId,
                         title: expected.title,
                         expectedRgbaRow: expected.expectedRgbaRow,
-                        frameId: expected.frameId,
+                        frames: expected.frames,
+                        nextFrameIndex: 0,
                         closed: false,
                         writingFrame: null,
                         publishedFrame: null,
-                        presented: false,
+                        presentedFrames: [],
                         rows: new Map(),
                     });
                     createdSurfaceIds.push(expected.surfaceId);
@@ -152,15 +167,17 @@ function createGuiVideoMemoryFakeHost(options) {
                     record("acquire", arguments);
                     const found = getSurface(requestedSurfaceId, "acquire");
                     if (!found.ok) return found.status;
-                    if (found.surface.writingFrame !== null) {
+                    if (found.surface.writingFrame !== null || found.surface.publishedFrame !== null) {
                         return HOST_RESOURCE_EXHAUSTED;
                     }
-                    if (found.surface.publishedFrame !== null) {
-                        return HOST_RESOURCE_EXHAUSTED;
+                    const expectedFrame = found.surface.frames[found.surface.nextFrameIndex];
+                    if (!expectedFrame) {
+                        return fail(`acquire after expected frame sequence for surface ${requestedSurfaceId}`);
                     }
-                    found.surface.writingFrame = found.surface.frameId;
-                    acquiredFrameIds.push(found.surface.frameId);
-                    return found.surface.frameId;
+                    found.surface.writingFrame = expectedFrame.frameId;
+                    found.surface.rows.clear();
+                    acquiredFrameIds.push(expectedFrame.frameId);
+                    return expectedFrame.frameId;
                 },
                 video_memory_write_slot_bytes() {
                     record("write-bytes", arguments);
@@ -173,7 +190,11 @@ function createGuiVideoMemoryFakeHost(options) {
                     if (found.surface.writingFrame !== requestedFrameId) {
                         return fail(`write-row without matching writing frame ${requestedFrameId}`);
                     }
-                    if (x !== 0 || rowWidth !== found.surface.width || y < 0 || y >= found.surface.height) {
+                    const expectedFrame = found.surface.frames[found.surface.nextFrameIndex];
+                    if (!expectedFrame) {
+                        return fail(`write-row after expected frame sequence for surface ${requestedSurfaceId}`);
+                    }
+                    if (x !== 0 || rowWidth !== found.surface.width || y < expectedFrame.rows.start || y >= expectedFrame.rows.end) {
                         return fail(`unexpected row geometry x=${x} y=${y} width=${rowWidth}`);
                     }
                     const read = readMemorySlice(srcPtr, rowWidth * 4);
@@ -208,13 +229,31 @@ function createGuiVideoMemoryFakeHost(options) {
                     if (found.surface.writingFrame !== requestedFrameId) {
                         return fail(`publish without matching writing frame ${requestedFrameId}`);
                     }
-                    if (dirtyKind !== 1 || x !== 0 || y !== 0 || dirtyWidth !== 0 || dirtyHeight !== 0) {
-                        return fail(`publish must use full dirty region, got ${dirtyKind}/${x}/${y}/${dirtyWidth}/${dirtyHeight}`);
+                    const expectedFrame = found.surface.frames[found.surface.nextFrameIndex];
+                    if (!expectedFrame) {
+                        return fail(`publish after expected frame sequence for surface ${requestedSurfaceId}`);
+                    }
+                    if (expectedFrame.dirty.kind === "full") {
+                        if (dirtyKind !== 1 || x !== 0 || y !== 0 || dirtyWidth !== 0 || dirtyHeight !== 0) {
+                            return fail(`publish must use full dirty region, got ${dirtyKind}/${x}/${y}/${dirtyWidth}/${dirtyHeight}`);
+                        }
+                    } else if (expectedFrame.dirty.kind === "rect") {
+                        if (
+                            dirtyKind !== 2
+                            || x !== expectedFrame.dirty.x
+                            || y !== expectedFrame.dirty.y
+                            || dirtyWidth !== expectedFrame.dirty.width
+                            || dirtyHeight !== expectedFrame.dirty.height
+                        ) {
+                            return fail(`publish must use rect dirty region, got ${dirtyKind}/${x}/${y}/${dirtyWidth}/${dirtyHeight}`);
+                        }
+                    } else {
+                        return fail(`unsupported expected dirty kind ${expectedFrame.dirty.kind}`);
                     }
                     assert.deepEqual(
                         Array.from(found.surface.rows.keys()).sort((a, b) => a - b),
-                        Array.from({ length: found.surface.height }, (_unused, row) => row),
-                        "publish must happen after every row is written",
+                        Array.from({ length: expectedFrame.rows.end - expectedFrame.rows.start }, (_unused, row) => expectedFrame.rows.start + row),
+                        "publish must happen after every expected dirty row is written",
                     );
                     found.surface.writingFrame = null;
                     found.surface.publishedFrame = requestedFrameId;
@@ -236,7 +275,9 @@ function createGuiVideoMemoryFakeHost(options) {
                     if (decodedTitle !== found.surface.title) {
                         return fail(`unexpected title ${decodedTitle}`);
                     }
-                    found.surface.presented = true;
+                    found.surface.presentedFrames.push(found.surface.publishedFrame);
+                    found.surface.publishedFrame = null;
+                    found.surface.nextFrameIndex += 1;
                     return HOST_OK;
                 },
                 video_memory_close_surface(requestedSurfaceId) {
@@ -246,8 +287,11 @@ function createGuiVideoMemoryFakeHost(options) {
                     if (found.surface.writingFrame !== null) {
                         return fail("close with an active writing frame");
                     }
-                    if (!found.surface.presented) {
-                        return fail("close before present");
+                    if (found.surface.publishedFrame !== null) {
+                        return fail("close with an unpublished presented frame");
+                    }
+                    if (found.surface.nextFrameIndex !== found.surface.frames.length) {
+                        return fail("close before expected frame sequence is presented");
                     }
                     found.surface.closed = true;
                     return HOST_OK;
@@ -320,11 +364,18 @@ function createGuiVideoMemoryFakeHost(options) {
         assert.deepEqual(violations, []);
         assert.equal(nextEventIndex, events.length, "fake host event sequence must be fully consumed");
         assert.equal(createdSurfaceIds.length, expectedSurfaces.length);
-        assert.equal(acquiredFrameIds.length, expectedSurfaces.length);
+        assert.equal(
+            acquiredFrameIds.length,
+            expectedSurfaces.reduce((total, surface) => total + surface.frames.length, 0),
+        );
 
         const expectedCallNames = [];
         for (const surface of expectedSurfaces) {
-            expectedCallNames.push("create", "acquire", ...Array.from({ length: surface.height }, () => "write-row"), "publish", "present", "close");
+            expectedCallNames.push("create");
+            for (const frame of surface.frames) {
+                expectedCallNames.push("acquire", ...Array.from({ length: frame.rows.end - frame.rows.start }, () => "write-row"), "publish", "present");
+            }
+            expectedCallNames.push("close");
         }
         assert.deepEqual(calls.map((call) => call.name), expectedCallNames);
 
@@ -332,24 +383,38 @@ function createGuiVideoMemoryFakeHost(options) {
         for (const surface of expectedSurfaces) {
             assert.deepEqual(calls[callIndex].args, [surface.width, surface.height, surface.slotCount]);
             callIndex += 1;
-            assert.deepEqual(calls[callIndex].args, [surface.surfaceId]);
-            callIndex += 1;
-            for (let y = 0; y < surface.height; y += 1) {
-                assert.deepEqual(calls[callIndex].args.slice(0, 5), [surface.surfaceId, surface.frameId, 0, y, surface.width]);
+            for (const frame of surface.frames) {
+                assert.deepEqual(calls[callIndex].args, [surface.surfaceId]);
+                callIndex += 1;
+                for (let y = frame.rows.start; y < frame.rows.end; y += 1) {
+                    assert.deepEqual(calls[callIndex].args.slice(0, 5), [surface.surfaceId, frame.frameId, 0, y, surface.width]);
+                    callIndex += 1;
+                }
+                if (frame.dirty.kind === "full") {
+                    assert.deepEqual(calls[callIndex].args, [surface.surfaceId, frame.frameId, 1, 0, 0, 0, 0]);
+                } else {
+                    assert.deepEqual(calls[callIndex].args, [
+                        surface.surfaceId,
+                        frame.frameId,
+                        2,
+                        frame.dirty.x,
+                        frame.dirty.y,
+                        frame.dirty.width,
+                        frame.dirty.height,
+                    ]);
+                }
+                callIndex += 1;
+                assert.equal(calls[callIndex].args[0], surface.windowId);
+                assert.equal(calls[callIndex].args[3], surface.surfaceId);
                 callIndex += 1;
             }
-            assert.deepEqual(calls[callIndex].args, [surface.surfaceId, surface.frameId, 1, 0, 0, 0, 0]);
-            callIndex += 1;
-            assert.equal(calls[callIndex].args[0], surface.windowId);
-            assert.equal(calls[callIndex].args[3], surface.surfaceId);
-            callIndex += 1;
             assert.deepEqual(calls[callIndex].args, [surface.surfaceId]);
             callIndex += 1;
             const actualSurface = surfaces.get(surface.surfaceId);
             assert.equal(actualSurface.closed, true);
             assert.equal(actualSurface.writingFrame, null);
-            assert.equal(actualSurface.publishedFrame, surface.frameId);
-            assert.equal(actualSurface.presented, true);
+            assert.equal(actualSurface.publishedFrame, null);
+            assert.deepEqual(actualSurface.presentedFrames, surface.frames.map((frame) => frame.frameId));
         }
 
         const lastSurface = expectedSurfaces[expectedSurfaces.length - 1];
@@ -367,13 +432,14 @@ function createGuiVideoMemoryFakeHost(options) {
         assert.equal(activeImports.nepl_gui_web.video_memory_present_surface(windowId, 0, 0, probeSurfaceId), HOST_INVALID_COMMAND);
         surfaces.delete(probeSurfaceId);
         for (const surface of expectedSurfaces) {
+            const probeFrame = surface.frames[0].frameId;
             assert.equal(activeImports.nepl_gui_web.video_memory_acquire_write_slot(surface.surfaceId), HOST_INVALID_COMMAND);
             assert.equal(
-                activeImports.nepl_gui_web.video_memory_write_rgba8888_row(surface.surfaceId, surface.frameId, 0, 0, surface.width, 0),
+                activeImports.nepl_gui_web.video_memory_write_rgba8888_row(surface.surfaceId, probeFrame, 0, 0, surface.width, 0),
                 HOST_INVALID_COMMAND,
             );
             assert.equal(
-                activeImports.nepl_gui_web.video_memory_publish_slot(surface.surfaceId, surface.frameId, 1, 0, 0, 0, 0),
+                activeImports.nepl_gui_web.video_memory_publish_slot(surface.surfaceId, probeFrame, 1, 0, 0, 0, 0),
                 HOST_INVALID_COMMAND,
             );
             assert.equal(activeImports.nepl_gui_web.video_memory_present_surface(surface.windowId, 0, 0, surface.surfaceId), HOST_INVALID_COMMAND);

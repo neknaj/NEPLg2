@@ -34,6 +34,8 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(mandelbrotSource, /--video-memory-resize-once/);
     assert.match(mandelbrotSource, /--video-memory-loop/);
     assert.match(mandelbrotSource, /--video-memory-loop-test/);
+    assert.match(mandelbrotSource, /--video-memory-progressive-once/);
+    assert.match(mandelbrotSource, /--video-memory-progressive-test/);
     assert.match(mandelbrotSource, /--test-video-memory-contract/);
     assert.match(mandelbrotSource, /MandelbrotMode::Responsive/);
     assert.match(mandelbrotSource, /fn mandelbrot_model_for_surface[\s\S]*mandelbrot_model_new sample_width sample_height 1 64 MandelbrotMode::Responsive/);
@@ -48,8 +50,12 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(mandelbrotSource, /gui_web_video_memory_create_surface/);
     assert.match(mandelbrotSource, /gui_web_video_memory_write_rgba8888_row/);
     assert.match(mandelbrotSource, /gui_web_video_memory_publish_full/);
+    assert.match(mandelbrotSource, /gui_web_video_memory_publish_rect/);
     assert.match(mandelbrotSource, /gui_web_video_memory_present_surface/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_open_rendered_surface/);
+    assert.match(mandelbrotSource, /fn mandelbrot_video_memory_publish_rect_present[\s\S]*gui_web_video_memory_publish_rect/);
+    assert.match(mandelbrotSource, /fn mandelbrot_video_memory_render_batch_present[\s\S]*mandelbrot_video_memory_publish_rect_present/);
+    assert.match(mandelbrotSource, /fn mandelbrot_run_video_memory_progressive_test[\s\S]*mandelbrot_run_video_memory_progressive_once/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_resize_once[\s\S]*gui_web_wait_event_result/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_resize_once_event[\s\S]*WindowEventKind::Resized[\s\S]*mandelbrot_video_memory_close_and_open_next/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_event_loop_with_limit[\s\S]*while running[\s\S]*gui_web_wait_event_result[\s\S]*WindowEventKind::Resized[\s\S]*mandelbrot_video_memory_close_and_open_next/);
@@ -89,18 +95,22 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(specSource, /legacy stdout protocol/);
     assert.match(specSource, /formal host import ABI/);
     assert.match(specSource, /`--video-memory-once`/);
+    assert.match(specSource, /`--video-memory-progressive-once`/);
     assert.match(specSource, /まだ NEPLg2 program から `DrawCommand` stream や tile \/ bitmap \/ row \/ RLE payload を JS \/ native host へ直接 export する全体正式 ABI ではない/);
     assert.match(specSource, /DrawCommand \/ tile presentation の formal host import ABI/);
     assert.match(planSource, /row payload/);
     assert.match(planSource, /正式 host import ABI/);
     assert.match(planSource, /`--video-memory-once`/);
+    assert.match(planSource, /`--video-memory-progressive-once`/);
     assert.match(planSource, /legacy transport/);
     assert.match(planSource, /legacy stdout interactive path は resize event を application update に取り込み/);
     assert.match(planSource, /`--video-memory-resize-once` は finite formal video memory resize\/recreate checkpoint/);
     assert.match(planSource, /`--video-memory-loop` は formal video memory surface を保持して typed event を待つ loop checkpoint/);
-    assert.match(planSource, /progressive rendering、FHD 60 fps 実測、formal tiled transport、real scheduler policy は後続 slice/);
+    assert.match(planSource, /`--video-memory-progressive-once` は row batch ごとの dirty rect publish を検査する finite checkpoint/);
+    assert.match(planSource, /FHD 60 fps 実測、formal tiled transport、real scheduler policy、event loop 内の time-sliced progressive scheduling は後続 slice/);
     assert.match(specSource, /Mandelbrot の finite video memory resize path は old surface close と resized surface recreate を検査する/);
     assert.match(specSource, /Mandelbrot の formal video memory event loop path は open surface を維持し、typed window resize event で old surface を close して resized surface を recreate する/);
+    assert.match(specSource, /Mandelbrot の progressive video memory path は row batch ごとに dirty rect を publish する/);
     assert.match(specSource, /formal tiled rendering、real scheduler policy/);
 
     return {
@@ -112,6 +122,7 @@ function runWebGuiMandelbrotTransportContractRegression() {
             "Mandelbrot responsive contract remains pure and does not render",
             "Mandelbrot video memory path has an explicit finite resize/recreate entrypoint",
             "Mandelbrot video memory loop keeps the formal surface alive across typed events",
+            "Mandelbrot progressive video memory path publishes dirty rectangles per row batch",
             "Mandelbrot has an opt-in formal video memory path that does not fallback to stdout transport",
             "Web stdout parser, host bridge, and bitmap rasterizer support rgba-row as a typed command",
             "docs keep stdout row payload distinct from the future formal host import ABI",
