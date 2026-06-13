@@ -25,6 +25,7 @@
 //: - HD button は 1280x720 logical surface に 1 logical pixel per sample の row payload を描きます。
 //: - resize event は drawable pixel size から model を作り直し、window 側で content を伸縮しない契約を固定します。
 //: - `--video-memory-once` は stdout path へ戻らない formal Web video memory host import の有限検査用 path です。
+//: - `--video-memory-loop` は formal Web video memory surface を開いたまま typed window event を待ち、resize で surface を作り直します。
 //:
 //: [実装/じっそう]:
 //: - fixed point scale 100 の i32 計算で escape iteration を求めます。
@@ -36,6 +37,7 @@
 //: - `--once` は CI 向けに軽量 preview mode で有限実行します。
 //: - interactive path は現 checkpoint では legacy stdout smoke transport を使います。
 //: - `--video-memory-once` は独立した opt-in path であり、host import が失敗しても stdout transport へ fallback しません。
+//: - `--video-memory-loop-test` の wait 回数上限は CI の停止条件であり、実際の scheduler policy ではありません。
 #entry main
 #indent 4
 #target std
@@ -521,6 +523,80 @@ fn mandelbrot_video_memory_resize_once %impure fn MandelbrotModel Result unit Gu
                         Option::None:
                             mandelbrot_video_memory_close_open_surface surface
 
+fn mandelbrot_video_memory_loop_wait_ms %fn void i32 \void:
+    60000
+
+fn mandelbrot_video_memory_loop_test_wait_count %fn void i32 \void:
+    5
+
+fn mandelbrot_video_memory_loop_interactive_wait_count %fn void i32 \void:
+    1073741824
+
+fn mandelbrot_video_memory_loop_finish_ok %impure fn &GuiWebVideoMemorySurface Result unit GuiError \surface:
+    let ok %Result unit GuiError Result::Ok unit
+    mandelbrot_video_memory_close_with_result surface ok
+
+fn mandelbrot_video_memory_event_loop_with_limit %impure fn MandelbrotModel impure fn i32 Result unit GuiError \initial_model\max_wait_count:
+    match mandelbrot_video_memory_open_rendered_surface initial_model:
+        Result::Err error:
+            Result::Err error
+        Result::Ok initial_surface:
+            let mut model %MandelbrotModel initial_model
+            let mut surface %GuiWebVideoMemorySurface initial_surface
+            let mut remaining %i32 max_wait_count
+            let mut running %bool true
+            let mut loop_result %Result unit GuiError Result::Ok unit
+            while running:
+                do:
+                    if:
+                        le remaining 0
+                        then:
+                            let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_ok &surface
+                            set loop_result close_result;
+                            set running false
+                        else:
+                            set remaining sub remaining 1;
+                            match gui_web_wait_event_result mandelbrot_video_memory_loop_wait_ms:
+                                Result::Err error:
+                                    let failed %Result unit GuiError Result::Err error
+                                    let close_result %Result unit GuiError mandelbrot_video_memory_close_with_result &surface failed
+                                    set loop_result close_result;
+                                    set running false
+                                Result::Ok event_result:
+                                    match event_result:
+                                        Option::Some web_event:
+                                            match gui_web_event_window &web_event:
+                                                Option::Some window:
+                                                    match window_event_kind &window:
+                                                        WindowEventKind::Resized:
+                                                            let next_model %MandelbrotModel mandelbrot_update_window model window
+                                                            match mandelbrot_video_memory_close_and_open_next &surface next_model:
+                                                                Result::Ok next_surface:
+                                                                    set surface next_surface;
+                                                                    set model next_model
+                                                                Result::Err error:
+                                                                    set loop_result Result::Err error;
+                                                                    set running false
+                                                        WindowEventKind::Focused:
+                                                            unit
+                                                        WindowEventKind::Unfocused:
+                                                            unit
+                                                        WindowEventKind::CloseRequested:
+                                                            let close_result %Result unit GuiError mandelbrot_video_memory_loop_finish_ok &surface
+                                                            set loop_result close_result;
+                                                            set running false
+                                                Option::None:
+                                                    unit
+                                        Option::None:
+                                            unit
+            loop_result
+
+fn mandelbrot_video_memory_event_loop %impure fn MandelbrotModel Result unit GuiError \initial_model:
+    mandelbrot_video_memory_event_loop_with_limit initial_model mandelbrot_video_memory_loop_interactive_wait_count
+
+fn mandelbrot_video_memory_loop_test %impure fn MandelbrotModel Result unit GuiError \initial_model:
+    mandelbrot_video_memory_event_loop_with_limit initial_model mandelbrot_video_memory_loop_test_wait_count
+
 fn mandelbrot_present_row_pixel %impure fn i32 impure fn i32 impure fn MandelbrotModel Result unit GuiError \x\y\model:
     let iter %i32 mandelbrot_cell_iter x y model
     let limit %i32 mandelbrot_model_iteration_limit &model
@@ -748,6 +824,12 @@ fn mandelbrot_has_video_memory_once_flag %impure fn void bool \void:
 fn mandelbrot_has_video_memory_resize_once_flag %impure fn void bool \void:
     mandelbrot_has_flag "--video-memory-resize-once"
 
+fn mandelbrot_has_video_memory_loop_flag %impure fn void bool \void:
+    mandelbrot_has_flag "--video-memory-loop"
+
+fn mandelbrot_has_video_memory_loop_test_flag %impure fn void bool \void:
+    mandelbrot_has_flag "--video-memory-loop-test"
+
 fn mandelbrot_has_hd_contract_flag %impure fn void bool \void:
     mandelbrot_has_flag "--test-hd-contract"
 
@@ -898,6 +980,20 @@ fn mandelbrot_run_video_memory_resize_once %impure fn MandelbrotModel unit \mode
         Result::Err _:
             println "mandelbrot video memory resize protocol error"
 
+fn mandelbrot_run_video_memory_loop %impure fn MandelbrotModel unit \model:
+    match mandelbrot_video_memory_event_loop model:
+        Result::Ok _:
+            unit
+        Result::Err _:
+            println "mandelbrot video memory loop protocol error"
+
+fn mandelbrot_run_video_memory_loop_test %impure fn MandelbrotModel unit \model:
+    match mandelbrot_video_memory_loop_test model:
+        Result::Ok _:
+            unit
+        Result::Err _:
+            println "mandelbrot video memory loop test protocol error"
+
 fn mandelbrot_event_loop %impure fn MandelbrotModel unit \initial_model:
     let mut model %MandelbrotModel initial_model
     let mut running %bool true
@@ -939,22 +1035,32 @@ fn main %impure fn void unit \void:
                             mandelbrot_run_video_memory_contract_test
                         else:
                             if:
-                                mandelbrot_has_video_memory_resize_once_flag
+                                mandelbrot_has_video_memory_loop_test_flag
                                 then:
-                                    mandelbrot_run_video_memory_resize_once video_memory_model
+                                    mandelbrot_run_video_memory_loop_test video_memory_model
                                 else:
                                     if:
-                                        mandelbrot_has_video_memory_once_flag
+                                        mandelbrot_has_video_memory_loop_flag
                                         then:
-                                            mandelbrot_run_video_memory_once video_memory_model
+                                            mandelbrot_run_video_memory_loop video_memory_model
                                         else:
                                             if:
-                                                mandelbrot_has_once_flag
+                                                mandelbrot_has_video_memory_resize_once_flag
                                                 then:
-                                                    mandelbrot_run_once model0
+                                                    mandelbrot_run_video_memory_resize_once video_memory_model
                                                 else:
-                                                    match mandelbrot_present_frame model0:
-                                                        Result::Ok _:
-                                                            mandelbrot_event_loop model0
-                                                        Result::Err _:
-                                                            println "mandelbrot gui protocol error"
+                                                    if:
+                                                        mandelbrot_has_video_memory_once_flag
+                                                        then:
+                                                            mandelbrot_run_video_memory_once video_memory_model
+                                                        else:
+                                                            if:
+                                                                mandelbrot_has_once_flag
+                                                                then:
+                                                                    mandelbrot_run_once model0
+                                                                else:
+                                                                    match mandelbrot_present_frame model0:
+                                                                        Result::Ok _:
+                                                                            mandelbrot_event_loop model0
+                                                                        Result::Err _:
+                                                                            println "mandelbrot gui protocol error"

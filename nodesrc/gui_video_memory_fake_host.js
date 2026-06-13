@@ -318,6 +318,7 @@ function createGuiVideoMemoryFakeHost(options) {
         assert.equal(result.stdout, "");
         assert.equal(result.stderr, "");
         assert.deepEqual(violations, []);
+        assert.equal(nextEventIndex, events.length, "fake host event sequence must be fully consumed");
         assert.equal(createdSurfaceIds.length, expectedSurfaces.length);
         assert.equal(acquiredFrameIds.length, expectedSurfaces.length);
 

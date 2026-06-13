@@ -32,6 +32,8 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(mandelbrotSource, /--test-responsive-contract/);
     assert.match(mandelbrotSource, /--video-memory-once/);
     assert.match(mandelbrotSource, /--video-memory-resize-once/);
+    assert.match(mandelbrotSource, /--video-memory-loop/);
+    assert.match(mandelbrotSource, /--video-memory-loop-test/);
     assert.match(mandelbrotSource, /--test-video-memory-contract/);
     assert.match(mandelbrotSource, /MandelbrotMode::Responsive/);
     assert.match(mandelbrotSource, /fn mandelbrot_model_for_surface[\s\S]*mandelbrot_model_new sample_width sample_height 1 64 MandelbrotMode::Responsive/);
@@ -50,6 +52,8 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_open_rendered_surface/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_resize_once[\s\S]*gui_web_wait_event_result/);
     assert.match(mandelbrotSource, /fn mandelbrot_video_memory_resize_once_event[\s\S]*WindowEventKind::Resized[\s\S]*mandelbrot_video_memory_close_and_open_next/);
+    assert.match(mandelbrotSource, /fn mandelbrot_video_memory_event_loop_with_limit[\s\S]*while running[\s\S]*gui_web_wait_event_result[\s\S]*WindowEventKind::Resized[\s\S]*mandelbrot_video_memory_close_and_open_next/);
+    assert.match(mandelbrotSource, /fn mandelbrot_video_memory_event_loop_with_limit[\s\S]*WindowEventKind::CloseRequested[\s\S]*mandelbrot_video_memory_loop_finish_ok/);
     assert.match(mandelbrotSource, /let row_command_count_ok %bool eq mandelbrot_command_count &model 658/);
     const videoMemorySlice = mandelbrotSource.slice(
         mandelbrotSource.indexOf("fn mandelbrot_video_memory_slot_count"),
@@ -93,9 +97,11 @@ function runWebGuiMandelbrotTransportContractRegression() {
     assert.match(planSource, /legacy transport/);
     assert.match(planSource, /legacy stdout interactive path は resize event を application update に取り込み/);
     assert.match(planSource, /`--video-memory-resize-once` は finite formal video memory resize\/recreate checkpoint/);
-    assert.match(planSource, /progressive rendering、長時間 scheduler、FHD 60 fps 実測、formal tiled transport は後続 slice/);
+    assert.match(planSource, /`--video-memory-loop` は formal video memory surface を保持して typed event を待つ loop checkpoint/);
+    assert.match(planSource, /progressive rendering、FHD 60 fps 実測、formal tiled transport、real scheduler policy は後続 slice/);
     assert.match(specSource, /Mandelbrot の finite video memory resize path は old surface close と resized surface recreate を検査する/);
-    assert.match(specSource, /long-running formal video memory scheduler/);
+    assert.match(specSource, /Mandelbrot の formal video memory event loop path は open surface を維持し、typed window resize event で old surface を close して resized surface を recreate する/);
+    assert.match(specSource, /formal tiled rendering、real scheduler policy/);
 
     return {
         ok: true,
@@ -105,6 +111,7 @@ function runWebGuiMandelbrotTransportContractRegression() {
             "Mandelbrot app model consumes window resize events as a typed update input",
             "Mandelbrot responsive contract remains pure and does not render",
             "Mandelbrot video memory path has an explicit finite resize/recreate entrypoint",
+            "Mandelbrot video memory loop keeps the formal surface alive across typed events",
             "Mandelbrot has an opt-in formal video memory path that does not fallback to stdout transport",
             "Web stdout parser, host bridge, and bitmap rasterizer support rgba-row as a typed command",
             "docs keep stdout row payload distinct from the future formal host import ABI",

@@ -1,3 +1,35 @@
+# 2026-06-14 Agent2 Mandelbrot formal video memory event loop checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed `Result` / enum、host boundary、event を application update が解釈する方針を確認し、Mandelbrot の formal video memory path を複数 event を扱う loop checkpoint へ進めた。
+- 対象 branch: `web-gui-mandelbrot-video-memory-loop-20260614`
+- classification: Web GUI Mandelbrot formal video memory event loop / surface recreate scheduler boundary / fake host multi-event harness
+- 実装内容:
+  - `examples/gui_mandelbrot.nepl` に `--video-memory-loop` と `--video-memory-loop-test` を追加した。
+  - `mandelbrot_video_memory_event_loop_with_limit` は formal video memory surface を開いたまま `gui_web_wait_event_result` で typed event を待つ。
+  - `WindowEventKind::Resized` は old surface close 成功後だけ resized model の surface を create / render / present し、current surface と model を差し替える。
+  - `Focused`、`Unfocused`、non-window event、timeout は current surface を維持する explicit no-op とした。
+  - `CloseRequested` と bounded wait count exhaustion は current surface を close して正常終了する。`--video-memory-loop-test` の wait count は CI の停止条件であり、real scheduler policy ではない。
+  - `nodesrc/mandelbrot_expected_rows.js` を追加し、once / resize / loop harness が同じ fixed point Mandelbrot expected row helper を使うようにした。
+  - `nodesrc/test_web_gui_mandelbrot_video_memory_loop_harness.js` を追加し、resize、focused、unfocused、resize、close-requested の sequence で 3 surface lifecycle と row payload、no stdout / command-frame / `write_frame_bytes` を検査する。
+  - `nodesrc/gui_video_memory_fake_host.js` は expected event sequence を全消費したことも検査する。
+  - `doc/neplg2/gui_standard_library_spec.md`、`doc/neplg2/gui_tui_implementation_plan.md`、`todo.md`、`nodesrc/test_web_gui_mandelbrot_transport_contract.js`、`nodesrc/run_source_policy_regressions.js` を更新した。
+- subagent review:
+  - Boyle: 計画レビュー `PLAN_APPROVED`。実装後レビュー `IMPLEMENTATION_REVIEW_APPROVED`。surface handle の mutable current は現状 `Copy` 前提で許容しつつ、old close -> next open -> set current の順序を harness と source policy で固定すること、bounded count を scheduler policy と混同しないことが条件だった。
+- 検証:
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_loop_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_resize_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_video_memory_harness.js`
+  - pass: `node nodesrc/test_web_gui_mandelbrot_transport_contract.js`
+  - pass: `node nodesrc/tests.js -i examples/gui_mandelbrot.nepl --no-tree -o tmp_gui_mandelbrot_contract.json -j 1 --dist web/dist --assert-io`
+  - pass: `npm --prefix web run build:ts`
+  - pass: `trunk build`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - pass: `rg -n "^[^/\r\n]*[()]" examples/gui_mandelbrot.nepl` no match。
+  - warn-only: `node nodesrc/run_source_policy_regressions.js --warn-only` は既存 stdlib documentation gap `153 > 108` を警告した。今回追加の GUI / Mandelbrot source policy は pass。
+- 残件:
+  - progressive rendering、FHD 60fps 実測、formal tiled transport、real scheduler policy、native formal `GuiHost.present` との統合は未完了。
+
 # 2026-06-14 Agent2 Mandelbrot formal video memory resize checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI docs の fallback 禁止、typed host boundary、application update が event を解釈する方針を確認し、Mandelbrot の formal video memory path を finite resize/recreate checkpoint へ進めた。

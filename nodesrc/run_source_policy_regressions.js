@@ -89,6 +89,7 @@ const checks = [
     "nodesrc/test_web_gui_video_memory_rows_example_contract.js",
     "nodesrc/test_web_gui_mandelbrot_video_memory_harness.js",
     "nodesrc/test_web_gui_mandelbrot_video_memory_resize_harness.js",
+    "nodesrc/test_web_gui_mandelbrot_video_memory_loop_harness.js",
     "nodesrc/test_web_gui_input_bridge.js",
     "nodesrc/test_web_gui_offscreen_headless_contract.js",
     "nodesrc/test_web_gui_font_rendering_contract.js",

@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createGuiVideoMemoryFakeHost } = require("./gui_video_memory_fake_host");
+const { createExpectedMandelbrotRgbaRow } = require("./mandelbrot_expected_rows");
 const { runSingle } = require("./run_test");
 
 const FIRST_WIDTH = 32;
@@ -26,57 +27,6 @@ function sourceBetween(source, startNeedle, endNeedle) {
     assert.notEqual(start, -1, `missing start needle: ${startNeedle}`);
     assert.notEqual(end, -1, `missing end needle: ${endNeedle}`);
     return source.slice(start, end);
-}
-
-function divS(numerator, denominator) {
-    return Math.trunc(numerator / denominator);
-}
-
-function u8(value) {
-    return ((value % 256) + 256) % 256;
-}
-
-function mandelbrotCx(width, x) {
-    return divS(x * 300, width - 1) - 220;
-}
-
-function mandelbrotCy(height, y) {
-    return divS(y * 220, height - 1) - 110;
-}
-
-function mandelbrotEscapeIteration(width, height, limit, x, y) {
-    const cx = mandelbrotCx(width, x);
-    const cy = mandelbrotCy(height, y);
-    let zx = 0;
-    let zy = 0;
-    let iter = 0;
-    while (true) {
-        const zx2 = zx * zx;
-        const zy2 = zy * zy;
-        if (zx2 + zy2 >= 40000 || iter >= limit) {
-            return iter;
-        }
-        const nextZx = divS(zx2, 100) - divS(zy2, 100) + cx;
-        const nextZy = divS(zx * zy * 2, 100) + cy;
-        zx = nextZx;
-        zy = nextZy;
-        iter += 1;
-    }
-}
-
-function expectedMandelbrotRgbaRow(width, height, limit) {
-    return (y) => {
-        const bytes = [];
-        for (let x = 0; x < width; x += 1) {
-            const iter = mandelbrotEscapeIteration(width, height, limit, x, y);
-            if (iter === limit) {
-                bytes.push(3, 7, 12, 255);
-            } else {
-                bytes.push(u8(24 + iter * 3), u8(52 + iter * 5), u8(98 + iter * 4), 255);
-            }
-        }
-        return bytes;
-    };
 }
 
 async function runWebGuiMandelbrotVideoMemoryResizeHarnessRegression() {
@@ -103,7 +53,7 @@ async function runWebGuiMandelbrotVideoMemoryResizeHarnessRegression() {
                 title: "NEPLg2 Mandelbrot Video Memory",
                 surfaceId: 1201,
                 frameId: 4501,
-                expectedRgbaRow: expectedMandelbrotRgbaRow(FIRST_WIDTH, FIRST_HEIGHT, FIRST_LIMIT),
+                expectedRgbaRow: createExpectedMandelbrotRgbaRow(FIRST_WIDTH, FIRST_HEIGHT, FIRST_LIMIT),
             },
             {
                 width: SECOND_WIDTH,
@@ -113,7 +63,7 @@ async function runWebGuiMandelbrotVideoMemoryResizeHarnessRegression() {
                 title: "NEPLg2 Mandelbrot Video Memory",
                 surfaceId: 1202,
                 frameId: 4502,
-                expectedRgbaRow: expectedMandelbrotRgbaRow(SECOND_WIDTH, SECOND_HEIGHT, SECOND_LIMIT),
+                expectedRgbaRow: createExpectedMandelbrotRgbaRow(SECOND_WIDTH, SECOND_HEIGHT, SECOND_LIMIT),
             },
         ],
         events: [
