@@ -1418,6 +1418,16 @@ producer stage0、operation proof stage0、recursive producer stage0 は、opera
 
 この checkpoint では trait impl table、method body purity、Drop なし proof の実計算はまだ行わない。今回固定したのは、後続 solver が計算した operation status を key/value 別の受理条件へ畳み込む record boundary である。nested aggregate traversal の memoization、operation fold の重複削減、layout lookup index 化は、この side payload contract を変えずに後から最適化できる。
 
+### 2026-06-13 MemoKey / MemoValue operation classifier checkpoint
+
+`memo_trait_operation_classifier.nepl` を追加し、Copy / Drop / Eq / Hash の trait application shape を operation evidence producer が消費できる `SelfhostMemoTraitOperationClassifierEvidence` へ変換する境界を作った。
+
+この classifier は、operation kind enum だけを信用しない。入力は operation trait source identity、type argument count、trait application shape hash であり、current trusted operation source registry に含まれる source identity であることと、source identity から再導出した shape hash が入力 shape hash と一致することを確認してから evidence を返す。source text、span、lexeme、display name、diagnostic、module path、HIR、Resource IR、backend artifact、proof store record は authority にしない。
+
+`SelfhostMemoTraitOperationClassifierEvidence` は classifier module が所有し、operation evidence producer はそれを一方向に import して消費する。これにより、classifier から下流 producer への逆依存を避ける。producer 側の impl header trait application shape との再照合は残し、classifier は operation trait application の分類、producer は impl header / target type shape / method body purity / Drop evidence の整合性検査、という二段階の fail-closed boundary にする。
+
+Phase 1 の current registry は compiler-known prepared fingerprint である。これは actual public surface materializer ではないため、後続では Copy / Drop / Eq / Hash trait definition source identity を public surface hash、stable trait definition key、normalized signature evidence から作る。type argument count は 0 だけを受理し、generic operation trait application は binder / argument identity が接続されるまで拒否する。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

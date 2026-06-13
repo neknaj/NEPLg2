@@ -413,6 +413,20 @@ accepted record は、`resolved_type_shape_hash` と impl header の target type
 
 残件は、trait impl table の探索、trait application shape から shape-bound trusted operation classifier evidence を作る実体、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact との接続である。
 
+## 2026-06-13 selfhost operation classifier checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_classifier.nepl` を追加し、Copy / Drop / Eq / Hash の operation trait source identity と trait application shape hash から `SelfhostMemoTraitOperationClassifierEvidence` を作る checker-layer classifier を接続した。
+
+`SelfhostMemoTraitOperationClassifierEvidence` は classifier module 側が所有し、`memo_trait_operation_evidence_producer.nepl` はそれを一方向 import して消費する。これにより、classifier が下流の operation evidence producer を import する逆依存を避ける。producer 側の impl header shape と classifier shape の二重照合は残し、classifier は「この trait application shape がどの operation trait か」を分類するだけに留める。
+
+classifier input は `SelfhostMemoTraitOperationSourceIdentity`、type argument count、`trait_application_shape_hash` である。accepted path は current trusted operation source registry に含まれる source identity と、source identity から再導出した shape hash が input shape hash と一致した場合だけである。operation kind enum 単独、trait 名文字列、method 名文字列、source text、span、lexeme、display name、diagnostic、module path、HIR、Resource IR、backend artifact、proof store record は authority にしない。
+
+Phase 1 current registry は compiler-known prepared fingerprint を使う。これは actual public surface materializer ではなく、後続で Copy / Drop / Eq / Hash trait definition source identity を public surface / stable definition key / normalized signature evidence から生成する実装へ置き換える境界である。type argument count は 0 だけを受理し、generic operation trait application は binder / argument identity が入るまで `TraitTypeArgumentUnsupported` で fail-closed にする。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_classifier_contract.js` を追加し、classifier evidence の所有 module、current registry の4 source validation、shape hash 再導出、missing / placeholder / mismatch rejection、untrusted source rejection、facade re-export 禁止、`nodesrc/selfhost_ty_sources.js` 登録禁止、line count / doc comment length cap 禁止を固定した。既存 `nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js` も、producer が classifier evidence type を所有しないDAGへ更新した。
+
+残件は、trait impl table の探索、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact との接続である。
+
 ## 2026-06-13 selfhost memo trait operation evidence transport checkpoint
 
 `memo_trait_operation_evidence.nepl` を追加し、Copy / Drop / Eq / Hash の trait operation evidence を `SelfhostTypeId`、operation kind、`SelfhostMemoTraitAggregateProofStatus` の typed table として運ぶ境界を固定した。

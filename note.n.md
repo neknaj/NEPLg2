@@ -1,3 +1,35 @@
+# 2026-06-13 Agent1 selfhost operation classifier checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、Copy / Drop / Eq / Hash の trait application 分類を source text や表示名ではなく typed source identity / shape hash / enum error で扱い、DAG、fail-closed、丁寧な doc comment、探索範囲を固定個数に閉じる方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。
+- 対象 branch: `work/selfhost-trait-operation-classifier`
+- classification: selfhost MemoKey / MemoValue structural purity / Copy-Drop-Eq-Hash operation trait classifier boundary
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_classifier.nepl` を追加し、operation trait source identity、current trusted operation source registry、trait application shape input、typed classifier error を定義した。
+  - classifier は current registry に含まれる Copy / Drop / Eq / Hash source identity と、source identity から再導出した trait application shape hash が input shape hash と一致した場合だけ `SelfhostMemoTraitOperationClassifierEvidence` を返す。
+  - `SelfhostMemoTraitOperationClassifierEvidence` は classifier module 側が所有し、`memo_trait_operation_evidence_producer.nepl` が一方向 import して消費する。classifier から producer への逆依存は置かない。
+  - Phase 1 current registry は compiler-known prepared fingerprint であり、actual public surface materializer ではない。この制限は doc comment と issue に明記し、後続で public surface hash / stable definition key / normalized signature evidence へ置き換える。
+- implementation:
+  - missing / placeholder fingerprint、untrusted source、negative / nonzero type argument count、missing / placeholder / mismatch shape hash、derived zero hash を `SelfhostMemoTraitOperationClassifierErrorKind` として分けた。
+  - 既存 `memo_trait_operation_evidence_producer.nepl` から classifier evidence struct / constructor を移動し、producer は classifier evidence を消費するだけにした。
+  - public `selfhost_memo_trait_operation_classifier_evidence_result` は caller supplied registry を受け取らず、current trusted registry を内部取得する input-only API にした。registry を受け取る helper と evidence constructor は module private に閉じた。
+  - producer stage0 は classifier constructor を直接呼ばず、trusted source registry、trait application shape hash 再導出、public classifier result API を通して classifier evidence を作るようにした。
+  - `nodesrc/test_selfhost_memo_trait_operation_classifier_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` へ登録した。
+  - `nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js` を新しいDAGに同期した。
+- subagent review:
+  - Tesla: pre-review で、caller supplied operation enum 単独、source text/span/display/path/diagnostic、HIR/Resource/backend/proof-storeをauthorityにしないこと、operation evidence producer側のshape二重照合を削らないこと、facade公開はfull orchestrationまで禁止することを要求。実装に反映した。
+  - Tesla: implementation review で Blocker / Required なし。public result API の caller supplied registry 経路消滅、private constructor、producer stage0 の public classifier result 経由、classifier shape と impl header trait shape の再照合、DAG を確認した。後続でよい事項として、Phase 1 prepared fingerprint を actual public surface / interface artifact 由来の source identity へ置き換えること、classifier 自身の stage0 に public wrapper 経由 accepted smoke を足すことが残った。
+- verify:
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_classifier_contract.js`
+  - pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_classifier.nepl --no-tree -o tmp/selfhost-operation-classifier.json -j 1 --dist web/dist --assert-io`
+  - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl --no-tree -o tmp/selfhost-operation-evidence-producer-after-classifier.json -j 1 --dist web/dist --assert-io`
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加・更新した selfhost operation classifier / producer contract は pass。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残存。
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+- residual:
+  - trait impl table 探索、method body purity checker、Drop なし proof generator、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、prechecked interface artifact 接続は後続 slice。
+
 # 2026-06-13 Agent2 GUI SFNT numeric metrics parser checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に合わせ、今回の slice では platform API / hidden fallback / raw sentinel を避け、`Option` / `Result` と enum error、前置記法の引数範囲が明確な実装、contract と現状実装の分離を守る。

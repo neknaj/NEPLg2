@@ -44,11 +44,13 @@ function assertOrdered(text, snippets, message) {
 }
 
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl";
+const classifierRelPath = "stdlib/neplg2/core/check/module/memo_trait_operation_classifier.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
 const tySourceListRelPath = "nodesrc/selfhost_ty_sources.js";
 const operationEvidenceRelPath = "stdlib/neplg2/core/ty/ty/memo_trait_operation_evidence.nepl";
 const source = read(relPath);
 const code = stripDocComments(source);
+const classifier = read(classifierRelPath);
 const facade = read(facadeRelPath);
 const tySourceList = read(tySourceListRelPath);
 const operationEvidence = read(operationEvidenceRelPath);
@@ -95,6 +97,11 @@ assert.doesNotMatch(
     /memo_trait_operation_evidence_producer/,
     "checker-layer producer must not be registered in the ty source list",
 );
+assert.match(
+    code,
+    /#import "\.\/memo_trait_operation_classifier" as \*/,
+    "operation evidence producer must import classifier-owned shape-bound evidence",
+);
 assert.ok(
     operationEvidence.includes("この module は Drop なし proof を推測で作りません"),
     "ty operation evidence transport must keep Drop proof derivation outside the table layer",
@@ -125,13 +132,23 @@ assertOrdered(
     "drop evidence must distinguish no-drop, pure-drop, missing, impure, unknown, and not-required states",
 );
 assertOrdered(
-    source,
+    classifier,
     [
         "pub struct SelfhostMemoTraitOperationClassifierEvidence:",
         "operation %SelfhostMemoTraitOperationEvidenceKind",
         "classified_trait_application_shape_hash %Option i32",
     ],
-    "trait-operation classifier evidence must bind the classified operation to the trait application shape it inspected",
+    "trait-operation classifier evidence must be owned by the classifier module and bind the classified operation to the trait application shape it inspected",
+);
+assert.doesNotMatch(
+    code,
+    /pub struct SelfhostMemoTraitOperationClassifierEvidence|pub fn selfhost_memo_trait_operation_classifier_evidence_new/,
+    "operation evidence producer must not own classifier evidence types or constructors",
+);
+assert.doesNotMatch(
+    code,
+    /selfhost_memo_trait_operation_classifier_evidence_new/,
+    "operation evidence producer must not call the classifier evidence constructor directly",
 );
 assertOrdered(
     source,
@@ -306,6 +323,12 @@ assertOrdered(
 assertOrdered(
     source,
     [
+        "selfhost_memo_trait_operation_evidence_producer_stage0_classifier_result",
+        "selfhost_memo_trait_operation_trait_application_shape_hash_result source 0",
+        "selfhost_memo_trait_operation_classifier_evidence_result input",
+        "selfhost_memo_trait_operation_evidence_producer_stage0_classifier_shape_result copy_classifier",
+        "selfhost_memo_trait_operation_evidence_producer_stage0_impl_header_with_trait_shape copy_shape",
+        "selfhost_memo_trait_operation_evidence_producer_stage0_impl_header_with_trait_shape hash_shape",
         "accepted_input",
         "SelfhostMemoTraitOperationEvidenceKind::Copy",
         "copy_classifier",
@@ -322,9 +345,12 @@ assertOrdered(
         "target_mismatch_input",
         "some 7102",
         "classifier_shape_mismatch_input",
-        "copy_classifier_other_shape",
+        "SelfhostMemoTraitOperationEvidenceKind::Hash",
+        "hash_classifier",
+        "copy_header",
         "trait_operation_mismatch_input",
         "hash_classifier",
+        "hash_header",
         "eq_method_not_required_input",
         "drop_evidence_not_required_input",
         "generic_header_input",

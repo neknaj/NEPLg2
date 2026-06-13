@@ -1,0 +1,629 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_classifier
+//: Copy / Drop / Eq / Hash の trait application shape から、operation evidence producer が読む shape-bound classifier evidence を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - public impl header が持つ `trait_application_shape_hash` を、caller supplied の operation kind だけで信用しないための境界です。
+//: - trait application の stable trait source identity と type argument count から operation trait application shape hash を再導出し、入力の shape hash と一致した場合だけ `SelfhostMemoTraitOperationClassifierEvidence` を返します。
+//: - Copy / Drop / Eq / Hash の trusted source identity は `MemoKey` / `MemoValue` の source identity とは別の型で表し、memoization trait source と operation trait source を混同しないようにします。
+//:
+//: [契約/けいやく]:
+//: - accepted classifier evidence は、trusted operation source registry、operation trait source identity、type argument count、trait application shape hash だけから作ります。
+//: - `trait_application_shape_hash` は `some nonzero` でなければなりません。さらに operation trait source identity から再導出した shape hash と一致しなければなりません。
+//: - `trait_source` は current trusted registry に含まれる Copy / Drop / Eq / Hash source identity のどれかと完全一致する必要があります。operation kind だけ、trait name string だけ、method name string だけでは accepted classifier evidence を作りません。
+//: - Phase 1 の operation trait application は type argument count 0 だけを受理します。generic operation trait application は binder / argument identity の詳細 evidence が入るまで fail-closed にします。
+//: - source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record は accepted classifier authority に入りません。
+//:
+//: [現状/げんじょう]:
+//: - current trusted registry は compiler-known prepared fingerprint を返す Phase 1 境界です。actual public surface materializer から Copy / Drop / Eq / Hash trait source identity を作る実装は後続 stage で接続します。
+//: - trait impl table の探索、method body purity checker、Drop なし proof generator、generic impl binder / bound 詳細 evidence はこの module の外側で実装します。
+//: - facade にはまだ re-export しません。operation evidence orchestration が public impl header producer と method / drop evidence producer をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - current registry は固定 4 operation source identity だけを持つため O(1) 時間・O(1) 追加空間です。
+//: - classifier evidence 生成は 1 source identity と 1 shape hash の検査だけなので O(1) 時間・O(1) 追加空間です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_classifier" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_classifier_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_classifier_result_eq summary.copy_classifier SelfhostMemoTraitOperationEvidenceKind::Copy summary.copy_shape_hash
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_classifier_result_eq summary.hash_classifier SelfhostMemoTraitOperationEvidenceKind::Hash summary.hash_shape_hash
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_classifier_error_kind_eq (unwrap_err summary.shape_mismatch_rejected) SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_classifier_error_kind_eq (unwrap_err summary.untrusted_source_rejected) SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Copy
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_classifier_error_kind_eq (unwrap_err summary.missing_shape_rejected) SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_classifier_error_kind_eq (unwrap_err summary.type_argument_rejected) SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _e:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "operation classifier stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+
+//: SelfhostMemoTraitOperationSourceIdentity: Copy / Drop / Eq / Hash trait source の stable identity
+//:
+//: [目的/もくてき]:
+//: - operation trait source を、表示名や source path string ではなく、operation kind と stable fingerprint payload の組として保持します。
+//:
+//: [契約/けいやく]:
+//: - `operation` は Copy / Drop / Eq / Hash のどの trusted trait source かを表します。
+//: - `module_hash`、`symbol_hash`、`signature_hash` はそれぞれ module identity、stable trait symbol identity、public trait signature identity の fingerprint です。
+//: - fingerprint `0` は placeholder として扱い、accepted classifier evidence へ進めません。
+pub struct SelfhostMemoTraitOperationSourceIdentity:
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    module_hash %i32
+    symbol_hash %i32
+    signature_hash %i32
+
+//: SelfhostMemoTraitOperationClassifierEvidence: trait application shape に[結/むす]び[付/つ]いた operation classifier evidence
+//:
+//: [目的/もくてき]:
+//: - stable trait identity classifier が、どの trait application shape を Copy / Drop / Eq / Hash と判定したのかを typed evidence として保持します。
+//:
+//: [契約/けいやく]:
+//: - `classified_trait_application_shape_hash` は classifier が実際に読んだ trait application shape です。
+//: - operation evidence producer はこの shape と public impl header の `trait_application_shape_hash` を照合します。caller supplied operation kind だけで trait identity を認可してはいけません。
+pub struct SelfhostMemoTraitOperationClassifierEvidence:
+    operation %SelfhostMemoTraitOperationEvidenceKind
+    classified_trait_application_shape_hash %Option i32
+
+//: SelfhostMemoTraitOperationTrustedSourceRegistry: current compiler が信頼する operation trait source set
+//:
+//: [目的/もくてき]:
+//: - Copy / Drop / Eq / Hash の trusted source identity を 1 つの typed registry にまとめ、classifier が個別の raw fingerprint を直接信用しないようにします。
+//:
+//: [契約/けいやく]:
+//: - registry constructor は module private helper に留めます。外部 caller は current registry を `Result` API から取得します。
+pub struct SelfhostMemoTraitOperationTrustedSourceRegistry:
+    copy_source %SelfhostMemoTraitOperationSourceIdentity
+    drop_source %SelfhostMemoTraitOperationSourceIdentity
+    eq_source %SelfhostMemoTraitOperationSourceIdentity
+    hash_source %SelfhostMemoTraitOperationSourceIdentity
+
+//: SelfhostMemoTraitOperationTraitApplicationInput: classifier が読む trait application shape evidence
+//:
+//: [目的/もくてき]:
+//: - trait application term の stable trait source、type argument count、normalized shape hash を 1 record にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `trait_source` は trait application の head trait identity です。
+//: - `type_argument_count` は Phase 1 では 0 だけが accepted path です。
+//: - `trait_application_shape_hash` は別 stage が作った trait application shape hash であり、この module は同じ rule で再導出した hash と照合します。
+pub struct SelfhostMemoTraitOperationTraitApplicationInput:
+    trait_source %SelfhostMemoTraitOperationSourceIdentity
+    type_argument_count %i32
+    trait_application_shape_hash %Option i32
+
+//: SelfhostMemoTraitOperationClassifierErrorKind: operation classifier の拒否理由
+//:
+//: [目的/もくてき]:
+//: - source fingerprint、registry membership、type argument、shape hash のどこで拒否したかを typed enum として保持します。
+pub enum SelfhostMemoTraitOperationClassifierErrorKind:
+    SourceModuleFingerprintPlaceholder %SelfhostMemoTraitOperationEvidenceKind
+    SourceSymbolFingerprintPlaceholder %SelfhostMemoTraitOperationEvidenceKind
+    SourceSignatureFingerprintPlaceholder %SelfhostMemoTraitOperationEvidenceKind
+    TraitSourceNotTrusted %SelfhostMemoTraitOperationEvidenceKind
+    TraitTypeArgumentCountNegative
+    TraitTypeArgumentUnsupported
+    TraitApplicationShapeHashMissing
+    TraitApplicationShapeHashPlaceholder
+    TraitApplicationShapeHashMismatch
+    DerivedTraitApplicationShapeHashPlaceholder
+
+//: SelfhostMemoTraitOperationClassifierStage0Summary: operation classifier smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted Copy / Hash classifier と、shape mismatch、untrusted source、missing shape、unsupported type argument の fail-closed path をまとめます。
+pub struct SelfhostMemoTraitOperationClassifierStage0Summary:
+    copy_classifier %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind
+    hash_classifier %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind
+    shape_mismatch_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind
+    untrusted_source_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind
+    missing_shape_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind
+    type_argument_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind
+    copy_shape_hash %i32
+    hash_shape_hash %i32
+
+impl Clone for SelfhostMemoTraitOperationSourceIdentity:
+    fn clone %fn &SelfhostMemoTraitOperationSourceIdentity SelfhostMemoTraitOperationSourceIdentity \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationSourceIdentity:
+    fn copy_mark %fn SelfhostMemoTraitOperationSourceIdentity SelfhostMemoTraitOperationSourceIdentity \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationClassifierEvidence:
+    fn clone %fn &SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationClassifierEvidence:
+    fn copy_mark %fn SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationTrustedSourceRegistry:
+    fn clone %fn &SelfhostMemoTraitOperationTrustedSourceRegistry SelfhostMemoTraitOperationTrustedSourceRegistry \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationTrustedSourceRegistry:
+    fn copy_mark %fn SelfhostMemoTraitOperationTrustedSourceRegistry SelfhostMemoTraitOperationTrustedSourceRegistry \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationTraitApplicationInput:
+    fn clone %fn &SelfhostMemoTraitOperationTraitApplicationInput SelfhostMemoTraitOperationTraitApplicationInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationTraitApplicationInput:
+    fn copy_mark %fn SelfhostMemoTraitOperationTraitApplicationInput SelfhostMemoTraitOperationTraitApplicationInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationClassifierErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationClassifierErrorKind SelfhostMemoTraitOperationClassifierErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationClassifierErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationClassifierErrorKind SelfhostMemoTraitOperationClassifierErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitOperationClassifierStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationClassifierStage0Summary SelfhostMemoTraitOperationClassifierStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitOperationClassifierStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationClassifierStage0Summary SelfhostMemoTraitOperationClassifierStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_source_identity_new: operation source identity を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は field を束ねるだけです。trusted registry membership と fingerprint placeholder は classifier が検査します。
+pub fn selfhost_memo_trait_operation_source_identity_new %fn SelfhostMemoTraitOperationEvidenceKind fn i32 fn i32 fn i32 SelfhostMemoTraitOperationSourceIdentity \operation\module_hash\symbol_hash\signature_hash:
+    SelfhostMemoTraitOperationSourceIdentity operation module_hash symbol_hash signature_hash
+
+//: selfhost_memo_trait_operation_classifier_evidence_new: shape-bound classifier evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は typed field をまとめるだけです。shape missing / placeholder / derived shape との一致は classifier result API が検査します。
+fn selfhost_memo_trait_operation_classifier_evidence_new %fn SelfhostMemoTraitOperationEvidenceKind fn Option i32 SelfhostMemoTraitOperationClassifierEvidence \operation\classified_trait_application_shape_hash:
+    SelfhostMemoTraitOperationClassifierEvidence operation classified_trait_application_shape_hash
+
+//: selfhost_memo_trait_operation_trait_application_input_new: classifier input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `trait_application_shape_hash` の missing / placeholder / mismatch は classifier result API が `Result` で返します。
+pub fn selfhost_memo_trait_operation_trait_application_input_new %fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn Option i32 SelfhostMemoTraitOperationTraitApplicationInput \trait_source\type_argument_count\trait_application_shape_hash:
+    SelfhostMemoTraitOperationTraitApplicationInput trait_source type_argument_count trait_application_shape_hash
+
+//: selfhost_memo_trait_operation_trusted_source_registry_new: trusted registry を[作/つく]る
+fn selfhost_memo_trait_operation_trusted_source_registry_new %fn SelfhostMemoTraitOperationSourceIdentity fn SelfhostMemoTraitOperationSourceIdentity fn SelfhostMemoTraitOperationSourceIdentity fn SelfhostMemoTraitOperationSourceIdentity SelfhostMemoTraitOperationTrustedSourceRegistry \copy_source\drop_source\eq_source\hash_source:
+    SelfhostMemoTraitOperationTrustedSourceRegistry copy_source drop_source eq_source hash_source
+
+//: selfhost_memo_trait_operation_current_copy_source: Phase 1 current Copy trait source
+fn selfhost_memo_trait_operation_current_copy_source %fn void SelfhostMemoTraitOperationSourceIdentity \void:
+    selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Copy 520101 520102 520103
+
+//: selfhost_memo_trait_operation_current_drop_source: Phase 1 current Drop trait source
+fn selfhost_memo_trait_operation_current_drop_source %fn void SelfhostMemoTraitOperationSourceIdentity \void:
+    selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Drop 520201 520202 520203
+
+//: selfhost_memo_trait_operation_current_eq_source: Phase 1 current Eq trait source
+fn selfhost_memo_trait_operation_current_eq_source %fn void SelfhostMemoTraitOperationSourceIdentity \void:
+    selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Eq 520301 520302 520303
+
+//: selfhost_memo_trait_operation_current_hash_source: Phase 1 current Hash trait source
+fn selfhost_memo_trait_operation_current_hash_source %fn void SelfhostMemoTraitOperationSourceIdentity \void:
+    selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Hash 520401 520402 520403
+
+//: selfhost_memo_trait_operation_source_fingerprint_result: source identity の placeholder を[検査/けんさ]する
+fn selfhost_memo_trait_operation_source_fingerprint_result %fn SelfhostMemoTraitOperationSourceIdentity Result unit SelfhostMemoTraitOperationClassifierErrorKind \source:
+    if:
+        eq source.module_hash 0
+        then:
+            Result::Err SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder source.operation
+        else:
+            if:
+                eq source.symbol_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder source.operation
+                else:
+                    if:
+                        eq source.signature_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder source.operation
+                        else:
+                            Result::Ok unit
+
+//: selfhost_memo_trait_operation_trusted_source_registry_current_result: current compiler の trusted operation source registry を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - Phase 1 の prepared fingerprint を typed registry に閉じ込め、classifier が operation kind だけを信用しないようにします。
+//:
+//: [現状/げんじょう]:
+//: - prepared fingerprint は後続の public surface materializer で actual trait definition source identity に置き換えます。
+pub fn selfhost_memo_trait_operation_trusted_source_registry_current_result %fn void Result SelfhostMemoTraitOperationTrustedSourceRegistry SelfhostMemoTraitOperationClassifierErrorKind \void:
+    let copy_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_current_copy_source
+    match selfhost_memo_trait_operation_source_fingerprint_result copy_source:
+        Result::Ok _copy_ok:
+            let drop_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_current_drop_source
+            match selfhost_memo_trait_operation_source_fingerprint_result drop_source:
+                Result::Ok _drop_ok:
+                    let eq_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_current_eq_source
+                    match selfhost_memo_trait_operation_source_fingerprint_result eq_source:
+                        Result::Ok _eq_ok:
+                            let hash_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_current_hash_source
+                            match selfhost_memo_trait_operation_source_fingerprint_result hash_source:
+                                Result::Ok _hash_ok:
+                                    Result::Ok selfhost_memo_trait_operation_trusted_source_registry_new copy_source drop_source eq_source hash_source
+                                Result::Err hash_error:
+                                    Result::Err hash_error
+                        Result::Err eq_error:
+                            Result::Err eq_error
+                Result::Err drop_error:
+                    Result::Err drop_error
+        Result::Err copy_error:
+            Result::Err copy_error
+
+//: selfhost_memo_trait_operation_source_identity_eq: operation source identity が同じか[返/かえ]す
+pub fn selfhost_memo_trait_operation_source_identity_eq %fn SelfhostMemoTraitOperationSourceIdentity fn SelfhostMemoTraitOperationSourceIdentity bool \a\b:
+    and:
+        selfhost_memo_trait_operation_evidence_kind_eq a.operation b.operation
+        and:
+            eq a.module_hash b.module_hash
+            and:
+                eq a.symbol_hash b.symbol_hash
+                eq a.signature_hash b.signature_hash
+
+//: selfhost_memo_trait_operation_trusted_source_for_operation: registry から operation kind に対応する trusted source を[取/と]る
+fn selfhost_memo_trait_operation_trusted_source_for_operation %fn SelfhostMemoTraitOperationTrustedSourceRegistry fn SelfhostMemoTraitOperationEvidenceKind SelfhostMemoTraitOperationSourceIdentity \registry\operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            registry.copy_source
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            registry.drop_source
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            registry.eq_source
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            registry.hash_source
+
+//: selfhost_memo_trait_operation_source_trusted_result: source identity が registry にあるか[検査/けんさ]する
+fn selfhost_memo_trait_operation_source_trusted_result %fn SelfhostMemoTraitOperationTrustedSourceRegistry fn SelfhostMemoTraitOperationSourceIdentity Result unit SelfhostMemoTraitOperationClassifierErrorKind \registry\source:
+    match selfhost_memo_trait_operation_source_fingerprint_result source:
+        Result::Ok _fingerprint_ok:
+            let expected %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_trusted_source_for_operation registry source.operation
+            if:
+                selfhost_memo_trait_operation_source_identity_eq source expected
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted source.operation
+        Result::Err fingerprint_error:
+            Result::Err fingerprint_error
+
+//: selfhost_memo_trait_operation_trait_application_shape_schema_version: operation trait application shape schema
+fn selfhost_memo_trait_operation_trait_application_shape_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_operation_kind_shape_code: operation kind を shape fold 用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_kind_shape_code %fn SelfhostMemoTraitOperationEvidenceKind i32 \operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            93011
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            93012
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            93013
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            93014
+
+//: selfhost_memo_trait_operation_classifier_mix2: classifier hash 用 2 field [混合/こんごう]
+fn selfhost_memo_trait_operation_classifier_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_operation_classifier_mix3: classifier hash 用 3 field [混合/こんごう]
+fn selfhost_memo_trait_operation_classifier_mix3 %fn i32 fn i32 fn i32 i32 \a\b\c:
+    mix xor selfhost_memo_trait_operation_classifier_mix2 a b c
+
+//: selfhost_memo_trait_operation_trait_application_shape_hash_result: operation trait source から shape hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - type argument count 0 だけを accepted path とします。
+//: - fingerprint が placeholder の source identity は shape hash 生成へ進めません。
+//: - derived hash が 0 の場合は accepted evidence にせず typed error へ戻します。
+pub fn selfhost_memo_trait_operation_trait_application_shape_hash_result %fn SelfhostMemoTraitOperationSourceIdentity fn i32 Result i32 SelfhostMemoTraitOperationClassifierErrorKind \source\type_argument_count:
+    if:
+        lt type_argument_count 0
+        then:
+            Result::Err SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative
+        else:
+            if:
+                gt type_argument_count 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported
+                else:
+                    match selfhost_memo_trait_operation_source_fingerprint_result source:
+                        Result::Ok _source_ok:
+                            let schema_version %i32 selfhost_memo_trait_operation_trait_application_shape_schema_version
+                            let operation_code %i32 selfhost_memo_trait_operation_kind_shape_code source.operation
+                            let source_hash %i32 selfhost_memo_trait_operation_classifier_mix3 source.module_hash source.symbol_hash source.signature_hash
+                            let header_hash %i32 selfhost_memo_trait_operation_classifier_mix3 schema_version operation_code type_argument_count
+                            let shape_hash %i32 selfhost_memo_trait_operation_classifier_mix2 header_hash source_hash
+                            if:
+                                eq shape_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder
+                                else:
+                                    Result::Ok shape_hash
+                        Result::Err source_error:
+                            Result::Err source_error
+
+//: selfhost_memo_trait_operation_classifier_input_shape_result: input shape hash を[取/と]り[出/だ]す
+fn selfhost_memo_trait_operation_classifier_input_shape_result %fn SelfhostMemoTraitOperationTraitApplicationInput Result i32 SelfhostMemoTraitOperationClassifierErrorKind \input:
+    match input.trait_application_shape_hash:
+        Option::Some shape_hash:
+            if:
+                eq shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder
+                else:
+                    Result::Ok shape_hash
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing
+
+//: selfhost_memo_trait_operation_classifier_evidence_with_registry_result: 検査済み registry で classifier evidence を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - current registry または将来の validated public-surface registry を使い、trait source と shape hash の一致を検査します。
+//:
+//: [契約/けいやく]:
+//: - この helper は module private です。public caller が任意 registry を trusted registry として注入する経路を作りません。
+fn selfhost_memo_trait_operation_classifier_evidence_with_registry_result %fn SelfhostMemoTraitOperationTrustedSourceRegistry fn SelfhostMemoTraitOperationTraitApplicationInput Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind \registry\input:
+    match selfhost_memo_trait_operation_source_trusted_result registry input.trait_source:
+        Result::Ok _trusted_ok:
+            match selfhost_memo_trait_operation_trait_application_shape_hash_result input.trait_source input.type_argument_count:
+                Result::Ok expected_shape_hash:
+                    match selfhost_memo_trait_operation_classifier_input_shape_result input:
+                        Result::Ok input_shape_hash:
+                            if:
+                                eq expected_shape_hash input_shape_hash
+                                then:
+                                    Result::Ok selfhost_memo_trait_operation_classifier_evidence_new input.trait_source.operation (some input_shape_hash)
+                                else:
+                                    Result::Err SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch
+                        Result::Err input_error:
+                            Result::Err input_error
+                Result::Err shape_error:
+                    Result::Err shape_error
+        Result::Err trusted_error:
+            Result::Err trusted_error
+
+//: selfhost_memo_trait_operation_classifier_evidence_result: trait application shape を operation classifier evidence に[変換/へんかん]する
+//:
+//: [目的/もくてき]:
+//: - trusted operation trait source と normalized shape hash が一致する場合だけ、operation evidence producer が読む shape-bound classifier evidence を作ります。
+//:
+//: [契約/けいやく]:
+//: - public API は current trusted registry を内部で取得します。caller supplied registry を受け取らないため、任意 registry による trust bypass を作りません。
+//: - input shape hash は source identity から再導出した shape hash と一致する必要があります。
+//: - 成功時の evidence は `SelfhostMemoTraitOperationClassifierEvidence` であり、operation evidence producer が impl header の trait application shape と再照合します。
+pub fn selfhost_memo_trait_operation_classifier_evidence_result %fn SelfhostMemoTraitOperationTraitApplicationInput Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind \input:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry input
+        Result::Err registry_error:
+            Result::Err registry_error
+
+//: selfhost_memo_trait_operation_classifier_error_kind_code: classifier error を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_classifier_error_kind_code %fn SelfhostMemoTraitOperationClassifierErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder _operation:
+            1
+        SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder _operation:
+            2
+        SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder _operation:
+            3
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted _operation:
+            4
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative:
+            5
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported:
+            6
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing:
+            7
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder:
+            8
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch:
+            9
+        SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder:
+            10
+
+//: selfhost_memo_trait_operation_classifier_payload_error_eq: operation payload 付き error を[比/くら]べる
+fn selfhost_memo_trait_operation_classifier_payload_error_eq %fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationEvidenceKind bool \a\b:
+    selfhost_memo_trait_operation_evidence_kind_eq a b
+
+//: selfhost_memo_trait_operation_classifier_error_kind_eq: classifier error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - source fingerprint error と untrusted source error は operation payload まで比較します。
+pub fn selfhost_memo_trait_operation_classifier_error_kind_eq %fn SelfhostMemoTraitOperationClassifierErrorKind fn SelfhostMemoTraitOperationClassifierErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder operation:
+            match b:
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder other_operation:
+                    selfhost_memo_trait_operation_classifier_payload_error_eq operation other_operation
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder:
+                    false
+        SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder operation:
+            match b:
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder other_operation:
+                    selfhost_memo_trait_operation_classifier_payload_error_eq operation other_operation
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder:
+                    false
+        SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder operation:
+            match b:
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder other_operation:
+                    selfhost_memo_trait_operation_classifier_payload_error_eq operation other_operation
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder:
+                    false
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted operation:
+            match b:
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceModuleFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSymbolFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::SourceSignatureFingerprintPlaceholder _other_operation:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted other_operation:
+                    selfhost_memo_trait_operation_classifier_payload_error_eq operation other_operation
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch:
+                    false
+                SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder:
+                    false
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentCountNegative:
+            eq selfhost_memo_trait_operation_classifier_error_kind_code a selfhost_memo_trait_operation_classifier_error_kind_code b
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitTypeArgumentUnsupported:
+            eq selfhost_memo_trait_operation_classifier_error_kind_code a selfhost_memo_trait_operation_classifier_error_kind_code b
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMissing:
+            eq selfhost_memo_trait_operation_classifier_error_kind_code a selfhost_memo_trait_operation_classifier_error_kind_code b
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashPlaceholder:
+            eq selfhost_memo_trait_operation_classifier_error_kind_code a selfhost_memo_trait_operation_classifier_error_kind_code b
+        SelfhostMemoTraitOperationClassifierErrorKind::TraitApplicationShapeHashMismatch:
+            eq selfhost_memo_trait_operation_classifier_error_kind_code a selfhost_memo_trait_operation_classifier_error_kind_code b
+        SelfhostMemoTraitOperationClassifierErrorKind::DerivedTraitApplicationShapeHashPlaceholder:
+            eq selfhost_memo_trait_operation_classifier_error_kind_code a selfhost_memo_trait_operation_classifier_error_kind_code b
+
+//: selfhost_memo_trait_operation_classifier_result_eq: classifier result の operation と shape hash を[確認/かくにん]する
+pub fn selfhost_memo_trait_operation_classifier_result_eq %fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn SelfhostMemoTraitOperationEvidenceKind fn i32 bool \result\operation\shape_hash:
+    match result:
+        Result::Ok evidence:
+            and:
+                selfhost_memo_trait_operation_evidence_kind_eq evidence.operation operation
+                match evidence.classified_trait_application_shape_hash:
+                    Option::Some actual_shape_hash:
+                        eq actual_shape_hash shape_hash
+                    Option::None:
+                        false
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_classifier_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_classifier_stage0_summary_new %fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind fn i32 fn i32 SelfhostMemoTraitOperationClassifierStage0Summary \copy_classifier\hash_classifier\shape_mismatch_rejected\untrusted_source_rejected\missing_shape_rejected\type_argument_rejected\copy_shape_hash\hash_shape_hash:
+    SelfhostMemoTraitOperationClassifierStage0Summary copy_classifier hash_classifier shape_mismatch_rejected untrusted_source_rejected missing_shape_rejected type_argument_rejected copy_shape_hash hash_shape_hash
+
+//: selfhost_memo_trait_operation_classifier_stage0: operation classifier の smoke API
+//:
+//: [目的/もくてき]:
+//: - current registry、shape derivation、trusted source membership、shape mismatch、missing shape、type argument unsupported を小さい入力で確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 固定個数の input だけを作るため O(1) です。
+pub fn selfhost_memo_trait_operation_classifier_stage0 %impure fn void Result SelfhostMemoTraitOperationClassifierStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            let copy_source %SelfhostMemoTraitOperationSourceIdentity registry.copy_source
+            let hash_source %SelfhostMemoTraitOperationSourceIdentity registry.hash_source
+            let untrusted_source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Copy 620101 620102 620103
+            match selfhost_memo_trait_operation_trait_application_shape_hash_result copy_source 0:
+                Result::Ok copy_shape_hash:
+                    match selfhost_memo_trait_operation_trait_application_shape_hash_result hash_source 0:
+                        Result::Ok hash_shape_hash:
+                            let copy_input %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new copy_source 0 some copy_shape_hash
+                            let hash_input %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new hash_source 0 some hash_shape_hash
+                            let shape_mismatch_input %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new copy_source 0 some hash_shape_hash
+                            let untrusted_input %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new untrusted_source 0 some copy_shape_hash
+                            let missing_shape_input %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new copy_source 0 none
+                            let type_argument_input %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new copy_source 1 some copy_shape_hash
+                            let copy_classifier %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry copy_input
+                            let hash_classifier %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry hash_input
+                            let shape_mismatch_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry shape_mismatch_input
+                            let untrusted_source_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry untrusted_input
+                            let missing_shape_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry missing_shape_input
+                            let type_argument_rejected %Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationClassifierErrorKind selfhost_memo_trait_operation_classifier_evidence_with_registry_result registry type_argument_input
+                            Result::Ok selfhost_memo_trait_operation_classifier_stage0_summary_new copy_classifier hash_classifier shape_mismatch_rejected untrusted_source_rejected missing_shape_rejected type_argument_rejected copy_shape_hash hash_shape_hash
+                        Result::Err _hash_shape_error:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _copy_shape_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _registry_error:
+            Result::Err StdErrorKind::InvalidOperation
