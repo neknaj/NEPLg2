@@ -359,6 +359,75 @@ Validation:
 
 F4f deliberately does not parse flags or x/y deltas. That means it only proves the topology prefix and non-empty point stream boundary. Later outline phases must validate repeat flags, coordinate stream length, contour closure, and composite recursion.
 
+### SFNT simple glyph point stream
+
+F4g adds a point stream range decoder without constructing point values. The decoder consumes the raw flags stream, expands repeat counts only for counting, and derives the x/y coordinate byte ranges.
+
+```text
+GuiSfntSimpleGlyphPointStream:
+    topology GuiSfntSimpleGlyphTopology
+    flag_data_offset i32
+    flag_data_length i32
+    x_data_offset i32
+    x_data_length i32
+    y_data_offset i32
+    y_data_length i32
+    trailing_data_offset i32
+    trailing_data_length i32
+```
+
+All offsets are relative to the `glyf` table. `flag_data_offset` equals `topology.point_data_offset`. `flag_data_length` is the raw consumed flag stream length, including repeat-count bytes; it is not the expanded logical point count.
+
+Flag scan state:
+
+```text
+logical_point_count
+raw_flag_cursor
+x_coordinate_byte_count
+y_coordinate_byte_count
+```
+
+Repeat semantics:
+
+- A flag byte always contributes one logical point.
+- If repeat bit 3 is set, the next byte is an additional repeat count.
+- The total run is `1 + repeat_count`.
+- `repeat_count = 0` is valid and means no additional logical point.
+- A run that crosses `point_count` is malformed.
+- Missing repeat count byte is malformed.
+
+Coordinate byte length is derived without decoding values:
+
+```text
+xShort == 1:
+    x bytes = 1
+xShort == 0 and xSame == 1:
+    x bytes = 0
+xShort == 0 and xSame == 0:
+    x bytes = 2
+
+yShort == 1:
+    y bytes = 1
+yShort == 0 and ySame == 1:
+    y bytes = 0
+yShort == 0 and ySame == 0:
+    y bytes = 2
+```
+
+When short is set, the same/positive bit controls sign, not byte length. F4g therefore records byte ranges only. Actual delta sign and cumulative coordinate reconstruction are F4h responsibilities.
+
+Range derivation:
+
+```text
+flag_data_offset = topology.point_data_offset
+x_data_offset = flag_data_offset + flag_data_length
+y_data_offset = x_data_offset + x_data_length
+trailing_data_offset = y_data_offset + y_data_length
+trailing_data_length = glyph_end - trailing_data_offset
+```
+
+`trailing_data_length < 0` is `MalformedGlyfRecord`. Non-negative trailing data is returned explicitly, not treated as hidden fallback. Later sanitizer or outline decode phases can decide whether non-zero padding is accepted.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
