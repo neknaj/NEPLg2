@@ -601,6 +601,64 @@ gui_sfnt_glyf_simple_point_with_tables
 
 This keeps table unwrap single-pass at the public boundary. F4j must not call platform font APIs, host text measurement, full outline builders, or hidden substitution paths.
 
+### SFNT simple glyph contour edge lookup
+
+F4k composes the F4i contour span and F4j contour-local point lookup into a topology point pair. The result is not a drawable line segment. It does not classify on-curve/off-curve combinations, insert implied on-curve points, build quadratic segments, decide winding, or rasterize pixels.
+
+```text
+GuiSfntSimpleGlyphContourEdge:
+    start GuiSfntSimpleGlyphContourPoint
+    end GuiSfntSimpleGlyphContourPoint
+    edge_index i32
+    next_contour_point_index i32
+```
+
+Public lookup:
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_edge:
+    &ByteBuf -> Option i32 -> GuiGlyphId -> i32 -> i32
+    -> Result GuiSfntSimpleGlyphContourEdge GuiSfntParseError
+```
+
+The lookup flow is:
+
+```text
+parse metadata
+    -> unwrap head / loca / glyf
+    -> gui_sfnt_glyf_simple_contour_span_with_tables
+    -> validate edge_index against span.point_count
+    -> next_contour_point_index = wrap(edge_index + 1, span.point_count)
+    -> gui_sfnt_glyf_simple_contour_point_with_tables for start
+    -> gui_sfnt_glyf_simple_contour_point_with_tables for end
+    -> return GuiSfntSimpleGlyphContourEdge
+```
+
+`edge_index` is contour-local and must equal `start.contour_point_index`. `next_contour_point_index` must equal `end.contour_point_index`. The nested `start.point.point_index` and `end.point.point_index` remain absolute within the glyph.
+
+The implementation must validate `edge_index` before decoding either endpoint. This keeps the F4k public contract stable: a valid glyph with a missing requested edge returns `MissingGlyphOutline` instead of exposing a later point decode or coordinate error.
+
+One-point contours return an explicit self-wrapping topology edge:
+
+```text
+edge_index = 0
+next_contour_point_index = 0
+start.contour_point_index = 0
+end.contour_point_index = 0
+start.point.point_index = end.point.point_index
+```
+
+This only preserves contour topology. The later segment builder decides whether the self-wrap contributes a visible segment or an unsupported outline condition.
+
+F4k uses internal table helpers, not public wrappers, after metadata is parsed:
+
+```text
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+```
+
+F4k must not allocate `Vec GuiSfntSimpleGlyphContourEdge`, call platform font APIs, use host text measurement, build full outlines, or substitute another rendering path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
