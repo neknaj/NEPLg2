@@ -1258,6 +1258,152 @@ pub fn gui_sfnt_simple_glyph_path_sink_event_pair_kind_at %fn &GuiSfntSimpleGlyp
     let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at pair slot
     gui_sfnt_simple_glyph_path_sink_event_kind &event
 
+//: GuiSfntSimpleGlyphPathContourCursor: contour traversal の 1 step 位置
+//:
+//: [目的/もくてき]:
+//: - glyph、contour、edge、slot を 1 つの typed cursor として[運/はこ]びます。
+//: - `edge_index` と `slot` を分け、single edge の first / second event を順に[読/よ]めるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathContourCursor:
+    glyph %GuiGlyphId
+    contour_index %i32
+    edge_index %i32
+    slot %GuiSfntSimpleGlyphPathSinkEventSlot
+
+impl Clone for GuiSfntSimpleGlyphPathContourCursor:
+    fn clone %fn &GuiSfntSimpleGlyphPathContourCursor GuiSfntSimpleGlyphPathContourCursor \cursor:
+        *cursor
+
+impl Copy for GuiSfntSimpleGlyphPathContourCursor:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathContourCursor GuiSfntSimpleGlyphPathContourCursor \cursor:
+        cursor
+
+//: gui_sfnt_simple_glyph_path_contour_cursor: contour cursor value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_cursor %fn GuiGlyphId fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphPathContourCursor \glyph\contour_index\edge_index\slot:
+    GuiSfntSimpleGlyphPathContourCursor glyph contour_index edge_index slot
+
+//: gui_sfnt_simple_glyph_path_contour_cursor_glyph: cursor の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_cursor_glyph %fn &GuiSfntSimpleGlyphPathContourCursor GuiGlyphId \cursor:
+    *field::get_ref cursor "glyph"
+
+//: gui_sfnt_simple_glyph_path_contour_cursor_contour_index: cursor の contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_cursor_contour_index %fn &GuiSfntSimpleGlyphPathContourCursor i32 \cursor:
+    *field::get_ref cursor "contour_index"
+
+//: gui_sfnt_simple_glyph_path_contour_cursor_edge_index: cursor の edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_cursor_edge_index %fn &GuiSfntSimpleGlyphPathContourCursor i32 \cursor:
+    *field::get_ref cursor "edge_index"
+
+//: gui_sfnt_simple_glyph_path_contour_cursor_slot: cursor の event slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_cursor_slot %fn &GuiSfntSimpleGlyphPathContourCursor GuiSfntSimpleGlyphPathSinkEventSlot \cursor:
+    *field::get_ref cursor "slot"
+
+//: GuiSfntSimpleGlyphPathContourNext: contour step の[次/つぎ]の[位置/いち]
+//:
+//: [目的/もくてき]:
+//: - step 後に contour 内の次 cursor へ[進/すす]むか、contour が[終/お]わったかを enum で[表/あらわ]します。
+//: - `Option` ではなく domain 名を持つ enum にし、`EndContour` を明示します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathContourNext:
+    Continue %GuiSfntSimpleGlyphPathContourCursor
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathContourNext:
+    fn clone %fn &GuiSfntSimpleGlyphPathContourNext GuiSfntSimpleGlyphPathContourNext \next:
+        *next
+
+impl Copy for GuiSfntSimpleGlyphPathContourNext:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathContourNext GuiSfntSimpleGlyphPathContourNext \next:
+        next
+
+//: GuiSfntSimpleGlyphPathContourStep: contour traversal の 1 event step
+//:
+//: [目的/もくてき]:
+//: - checked cursor で[読/よ]んだ sink event、dispatch kind、次状態を 1 value として[返/かえ]します。
+//: - 成功値に `EndContour` を含めるため、contour 終端は error でも silent no-op でもありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathContourStep:
+    cursor %GuiSfntSimpleGlyphPathContourCursor
+    event %GuiSfntSimpleGlyphPathSinkEvent
+    kind %GuiSfntSimpleGlyphPathSinkEventKind
+    next %GuiSfntSimpleGlyphPathContourNext
+
+impl Clone for GuiSfntSimpleGlyphPathContourStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathContourStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathContourStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathContourStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_contour_step: contour step value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_step %fn GuiSfntSimpleGlyphPathContourCursor fn GuiSfntSimpleGlyphPathSinkEvent fn GuiSfntSimpleGlyphPathSinkEventKind fn GuiSfntSimpleGlyphPathContourNext GuiSfntSimpleGlyphPathContourStep \cursor\event\kind\next:
+    GuiSfntSimpleGlyphPathContourStep cursor event kind next
+
+//: gui_sfnt_simple_glyph_path_contour_step_cursor: step の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_step_cursor %fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathContourCursor \step:
+    *field::get_ref step "cursor"
+
+//: gui_sfnt_simple_glyph_path_contour_step_event: step の sink event を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_step_event %fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathSinkEvent \step:
+    *field::get_ref step "event"
+
+//: gui_sfnt_simple_glyph_path_contour_step_kind: step の dispatch kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_step_kind %fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathSinkEventKind \step:
+    *field::get_ref step "kind"
+
+//: gui_sfnt_simple_glyph_path_contour_step_next: step の next state を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_step_next %fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathContourNext \step:
+    *field::get_ref step "next"
+
+//: gui_sfnt_simple_glyph_path_contour_next_from_cursor: 検証済み cursor の次状態を[計算/けいさん]する
+//:
+//: [契約/けいやく]:
+//: - caller は `span_point_count > 0` かつ `0 <= cursor.edge_index < span_point_count` を検証してから呼びます。
+//: - `First` は同じ edge の `Second` へ進み、`Second` は次 edge の `First` または `EndContour` へ進みます。
+//:
+//: neplg2:test[skip]
+fn gui_sfnt_simple_glyph_path_contour_next_from_cursor %fn &GuiSfntSimpleGlyphPathContourCursor fn i32 GuiSfntSimpleGlyphPathContourNext \cursor\span_point_count:
+    let glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph cursor
+    let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index cursor
+    let edge_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_edge_index cursor
+    let slot %GuiSfntSimpleGlyphPathSinkEventSlot gui_sfnt_simple_glyph_path_contour_cursor_slot cursor
+    match slot:
+        GuiSfntSimpleGlyphPathSinkEventSlot::First:
+            let next_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index edge_index GuiSfntSimpleGlyphPathSinkEventSlot::Second
+            GuiSfntSimpleGlyphPathContourNext::Continue next_cursor
+        GuiSfntSimpleGlyphPathSinkEventSlot::Second:
+            if:
+                eq add edge_index 1 span_point_count
+                then:
+                    GuiSfntSimpleGlyphPathContourNext::EndContour
+                else:
+                    let next_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index add edge_index 1 GuiSfntSimpleGlyphPathSinkEventSlot::First
+                    GuiSfntSimpleGlyphPathContourNext::Continue next_cursor
+
 //: gui_sfnt_simple_glyph_contour_edge_source_contour_index: edge が[属/ぞく]する contour index を[読/よ]む
 //:
 //: neplg2:test[skip]
@@ -2793,3 +2939,36 @@ pub fn gui_sfnt_lookup_simple_glyph_path_command_pair %fn &ByteBuf fn Option i32
         Result::Ok segment:
             let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment
             Result::Ok pair
+
+//: gui_sfnt_lookup_simple_glyph_path_contour_step: cursor 位置の sink event step を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - checked SFNT contour span と path command pair lookup を[合成/ごうせい]し、1 event step だけを[返/かえ]します。
+//: - next state は `Continue` / `EndContour` enum で[返/かえ]し、終端を error や no-op にしません。
+//:
+//: [注意/ちゅうい]:
+//: - `cursor.edge_index` が contour の edge 数外なら `MissingGlyphOutline` です。
+//: - off-curve contour-start synthesis はこの関数の責務ではなく、既存の `SkipNoSegment OffCurveStart` を保持します。
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_contour_step %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathContourCursor Result GuiSfntSimpleGlyphPathContourStep GuiSfntParseError \bytes\face_index\cursor:
+    let glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor
+    let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor
+    let edge_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_edge_index &cursor
+    let slot %GuiSfntSimpleGlyphPathSinkEventSlot gui_sfnt_simple_glyph_path_contour_cursor_slot &cursor
+    match gui_sfnt_lookup_simple_glyph_contour_span bytes face_index glyph contour_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok span:
+            let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+            match gui_sfnt_lookup_simple_glyph_path_command_pair bytes face_index glyph contour_index edge_index:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok pair:
+                    let event_pair %GuiSfntSimpleGlyphPathSinkEventPair gui_sfnt_simple_glyph_path_command_pair_sink_event_pair &pair
+                    let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot
+                    let kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &event
+                    let next %GuiSfntSimpleGlyphPathContourNext gui_sfnt_simple_glyph_path_contour_next_from_cursor &cursor span_point_count
+                    let step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_contour_step cursor event kind next
+                    Result::Ok step

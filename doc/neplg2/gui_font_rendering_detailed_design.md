@@ -996,6 +996,59 @@ The slot enum is the only selector. F4r must not accept an `i32` event index, be
 
 F4r must not allocate `Vec GuiSfntSimpleGlyphPathSinkEvent`, allocate `Vec GuiSfntSimpleGlyphPathSinkEventKind`, use `push`, expose `command_index`, `count`, `next`, mutable current point state, contour traversal, contour closure, off-curve contour-start synthesis, winding, fill rules, rasterization, render2d commands, host text measurement, or platform presentation.
 
+### SFNT simple glyph path contour traversal step
+
+F4s adds the first cursor-shaped traversal boundary above F4r. It advances exactly one sink event in a simple glyph contour. It is still not a full sink trait, not a path builder, not a `Vec` command stream, and not a renderer. Its responsibility is to make the next contour state explicit with enum data so that later sink ownership can remain deterministic and testable.
+
+```text
+GuiSfntSimpleGlyphPathContourCursor:
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+
+GuiSfntSimpleGlyphPathContourNext:
+    Continue GuiSfntSimpleGlyphPathContourCursor
+    EndContour
+
+GuiSfntSimpleGlyphPathContourStep:
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    event GuiSfntSimpleGlyphPathSinkEvent
+    kind GuiSfntSimpleGlyphPathSinkEventKind
+    next GuiSfntSimpleGlyphPathContourNext
+```
+
+The public lookup is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_contour_step bytes face_index cursor
+    -> glyph = cursor.glyph
+    -> contour_index = cursor.contour_index
+    -> edge_index = cursor.edge_index
+    -> slot = cursor.slot
+    -> span = gui_sfnt_lookup_simple_glyph_contour_span bytes face_index glyph contour_index
+    -> pair = gui_sfnt_lookup_simple_glyph_path_command_pair bytes face_index glyph contour_index edge_index
+    -> event_pair = gui_sfnt_simple_glyph_path_command_pair_sink_event_pair pair
+    -> event = gui_sfnt_simple_glyph_path_sink_event_pair_event_at event_pair slot
+    -> kind = gui_sfnt_simple_glyph_path_sink_event_kind event
+    -> next = private validated cursor-next helper using span.point_count
+    -> GuiSfntSimpleGlyphPathContourStep cursor event kind next
+```
+
+The next rule is fixed:
+
+```text
+First  -> Continue same glyph / same contour / same edge / Second
+Second -> Continue same glyph / same contour / next edge / First
+Second on final edge -> EndContour
+```
+
+`EndContour` is a successful step state, not an error and not `Option::None`. The lookup returns `Result::Err` only for parse, missing glyph, missing contour, or invalid edge range errors already reported by the lower checked lookups.
+
+The next helper must remain private unless it is changed to return `Result`. As a private helper, it may assume the public lookup has already checked `span_point_count > 0` and `0 <= edge_index < span_point_count`. Exposing a total public helper over unchecked raw cursor data would make invalid states appear statically valid, which conflicts with the static-checking policy.
+
+F4s deliberately leaves off-curve contour-start synthesis unchanged. The current `SkipNoSegment OffCurveStart` event remains a typed event. Contour closure insertion, actual sink ownership, outline allocation, path repair, rasterization, render2d command emission, font fallback, and platform presentation are later phases.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
