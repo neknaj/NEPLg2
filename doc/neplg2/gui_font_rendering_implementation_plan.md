@@ -1193,6 +1193,57 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4aa: sfnt simple glyph path sink action start item
+
+目的:
+
+- F4x の first action step helper と F4z の action step item helper を接続し、contour の first action item を読む public helper を追加する。
+- F4aa 自体は新しい validation authority、new item type、contour-wide traversal、real sink mutation にはならない。
+- `Result::Err` は parse/range/table error の伝播にだけ使い、policy reject や contour terminal state は F4x/F4z の typed value として残す。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item`
+- helper signature は次にする。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item:
+    &ByteBuf
+    Option i32
+    GuiGlyphId
+    i32
+    &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError
+```
+
+- helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy` を 1 回だけ呼ぶ。
+- start step が `Result::Err error` ならそのまま `Result::Err error` を返す。
+- start step が `Result::Ok start_step` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy` を 1 回だけ呼ぶ。
+- action step item lookup の `Result::Err error` はそのまま伝播し、`Result::Ok item` はそのまま返す。
+- helper は action payload を見ない。`Reject`、`NoAction`、`CloseContour`、`EndContour` などで traversal を変えない。
+- helper は start cursor helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、F4s/F4t より下位の lookup、metadata parser、`*_with_tables`、`Vec`、`push`、renderer、rasterizer、platform API を直接呼ばない。
+- Source policy で F4aa docs、helper body、F4x helper 1 回、F4z helper 1 回、禁止 helper、payload inspection 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の skipped byte-backed fixture を拡張する。
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy` を呼ぶ。
+  - item 内の stored step cursor が contour `0`、edge `0`、event slot `First`、action slot `Primary` であることを確認する。
+  - advance が `Continue next_step` で、next step cursor が same contour/edge/event の `Tail` であることを確認する。
+
+完了条件:
+
+- start item helper は F4x と F4z を value として合成し、同じ `GuiSfntSimpleGlyphPathSinkActionStepItem` を返す。
+- helper body は F4x helper と F4z helper 以外の lookup / payload / renderer / platform API に依存しない。
+- hidden fallback、silent no-op、new type duplication、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

@@ -3716,3 +3716,26 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_step_item %fn &ByteBuf fn O
             let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step
             let item %GuiSfntSimpleGlyphPathSinkActionStepItem gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance
             Result::Ok item
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_item: contour の first action item を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - contour-local action stream の開始 step を読み、checked advance と同じ item に[束/たば]ねます。
+//: - parse/range error は `Result::Err` で伝播し、policy reject は item 内の action payload として残します。
+//:
+//: [注意/ちゅうい]:
+//: - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` と `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` だけに委譲します。
+//: - action payload は見ません。`Reject`、`NoAction`、`CloseContour` の処理は後続 consumer の責務です。
+//: - contour-wide traversal、sink mutation、full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_item %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError \bytes\face_index\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok start_step:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok item:
+                    Result::Ok item

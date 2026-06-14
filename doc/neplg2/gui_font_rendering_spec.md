@@ -1055,6 +1055,35 @@ helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes fac
 
 F4z helper は action payload を見ない。`Reject`、`NoAction`、`CloseContour` の処理、start step composition、contour-wide traversal、event emission、sink mutation、allocation failure recovery は後続 phase の責務である。F4z は start cursor/start step helper、F4v action step lookup、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。
 
+### SFNT simple glyph path sink action start item
+
+F4aa は F4x の first action step lookup と F4z の action step item lookup を接続し、contour の最初の action item を読む public helper を追加する段階である。これは contour-wide traversal、iterator、real sink、callback、command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError
+```
+
+helper は次の 2 段だけを行う。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy
+    Err error -> Err error
+    Ok start_step:
+        gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy
+            Err error -> Err error
+            Ok item -> Ok item
+```
+
+`gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` は 1 回だけ呼び、`gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` も 1 回だけ呼ぶ。F4aa helper 自体は start cursor を作らず、action payload を読まず、`Reject` / `NoAction` / `CloseContour` で traversal を変えない。contour 終端は F4z item 内の `GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour` に残り、`Option::None` や hidden no-op へ変換しない。
+
+F4aa は action start cursor helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。検証と action payload construction の authority は F4x/F4z の既存境界に残す。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
