@@ -2336,6 +2336,43 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step
     let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance step
     gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary state status advance
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal: summary から[読/よ]む traversal control
+//:
+//: [目的/もくてき]:
+//: - summary に[保持/ほじ]された post-consume advance を、future loop が[扱/あつか]う traversal control として[取/と]り[出/だ]します。
+//: - `Continue` も[含/ふく]むため、contour 終端だけを[表/あらわ]す型ではありません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:
+    Continue %GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected %GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal \terminal:
+        *terminal
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal \terminal:
+        terminal
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal: summary の traversal control を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - summary の advance accessor を 1 回だけ[読/よ]み、同じ 3 分岐を summary terminal enum へ[写/うつ]します。
+//: - byte lookup、consumer next、payload direct match、loop、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal \summary:
+    let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance summary
+    match advance:
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue item:
+            GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason:
+            GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+            GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:

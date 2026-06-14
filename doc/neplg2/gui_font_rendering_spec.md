@@ -1378,6 +1378,33 @@ gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance step
 
 F4am は `advance` enum を新しく解釈しない。`Continue`、`Rejected`、`EndContour` の意味は F4ah の `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` contract に従う。F4am は `Result` / `Option`、byte-backed lookup、consumer item next、consume-once、start helper、action payload direct match、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer consume summary terminal
+
+F4an は `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary` に保持された `advance` を、future loop が読む traversal control state へ写す段階である。名前は `Terminal` だが `Continue` も含むため、contour 終端だけを表す型ではない。F4am が summary value を作るだけで `advance` を解釈しないのに対し、F4an は stored advance を 1 回だけ読み、loop 本体から `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` の storage detail を隠す。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal:
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    -> GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal
+```
+
+`summary_terminal` は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance summary` を 1 回だけ呼び、次の同型写像だけを行う。
+
+```text
+ApplyAdvance Continue item -> SummaryTerminal Continue item
+ApplyAdvance Rejected reason -> SummaryTerminal Rejected reason
+ApplyAdvance EndContour -> SummaryTerminal EndContour
+```
+
+F4an は `Result` / `Option`、byte-backed lookup、consumer item next、consume-once、start helper、metadata parser、lower glyf lookup、`*_with_tables`、action payload direct match、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。match 対象は `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけであり、action payload enum を覗かない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

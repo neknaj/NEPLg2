@@ -1037,17 +1037,17 @@ fn consume_once_reject_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerCon
                 GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
                     false
             let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count &apply_state
-            let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance &summary
-            let advance_ok %bool match advance:
-                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue _item:
+            let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal &summary
+            let terminal_ok %bool match terminal:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:
                     false
-                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:
                     match reason:
                         GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart:
                             true
-                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
                     false
-            and status_ok and count_ok advance_ok
+            and status_ok and count_ok terminal_ok
 
 fn consume_once_end_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError bool \result:
     match result:
@@ -1067,15 +1067,15 @@ fn consume_once_end_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsum
                 GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
                     true
             let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &apply_state
-            let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance &summary
-            let advance_ok %bool match advance:
-                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue _item:
+            let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal &summary
+            let terminal_ok %bool match terminal:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:
                     false
-                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected _reason:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected _reason:
                     false
-                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
                     true
-            and status_ok and count_ok advance_ok
+            and status_ok and count_ok terminal_ok
 
 fn main %impure fn void i32 \void:
     let bytes %ByteBuf io_bytebuf_empty
@@ -1416,9 +1416,9 @@ fn main %impure fn void i32 \void:
                         GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
                             false
                     let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &apply_state
-                    let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance &summary
-                    let advance_ok %bool match advance:
-                        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer:
+                    let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal &summary
+                    let terminal_ok %bool match terminal:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue next_consumer:
                             match gui_sfnt_simple_glyph_path_sink_action_consumer_item_action &next_consumer:
                                 GuiSfntSimpleGlyphPathSinkAction::EmitEvent _event:
                                     false
@@ -1428,11 +1428,11 @@ fn main %impure fn void i32 \void:
                                     false
                                 GuiSfntSimpleGlyphPathSinkAction::NoAction:
                                     true
-                        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected _reason:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected _reason:
                             false
-                        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
                             false
-                    and status_ok and count_ok advance_ok
+                    and status_ok and count_ok terminal_ok
             let terminal_consumer_item_next_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy:
                 Result::Err _error:
                     false

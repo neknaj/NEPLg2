@@ -1777,6 +1777,37 @@ This differs from F4al intentionally. F4al does not read `advance`, because it o
 
 F4am must not call byte-backed lookup helpers, consumer item next lookup, consume-once, start helpers, lower contour/curve lookup helpers, or metadata parser. It must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. It must not reinterpret the advance enum; `Continue`, `Rejected`, and `EndContour` remain the F4ah domain states.
 
+### SFNT simple glyph path sink action consumer consume summary terminal
+
+F4an adds the next pure projection above F4am. F4am creates a flat value and deliberately does not interpret the stored advance. The future loop still needs one stable API that reads the summary and returns traversal control without depending on the storage name or the F4ah enum directly. F4an provides that boundary.
+
+The value shape is:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+The helper shape is:
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary:
+    advance = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance summary
+    match advance:
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance Continue item:
+            GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal Continue item
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance Rejected reason:
+            GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance EndContour:
+            GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal EndContour
+```
+
+Although the public enum name ends with `Terminal`, it is the future loop's traversal control state and includes `Continue`. This avoids forcing loop code to re-match the lower stored advance enum, while keeping the operation allocation-free and deterministic.
+
+F4an must read `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance` exactly once. It must not call byte-backed lookup helpers, consumer item next lookup, consume-once, start helpers, lower contour/curve lookup helpers, metadata parser, or `*_with_tables`. It must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. Its only match target is `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

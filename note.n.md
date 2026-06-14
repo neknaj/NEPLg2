@@ -1,3 +1,25 @@
+# 2026-06-14 Agent2 GUI font sink action consume summary terminal checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、hidden fallback 禁止、platform 非依存、doc/test/source policy 分離方針を前提に、F4an: consumer consume summary terminal projection を追加した。
+- subagent plan review: Confucius から `PLAN_APPROVED` を受けた。F4an は F4am の stored advance を future loop 用 traversal control state へ写す pure projection であり、outline stream 本体、sink mutation、byte lookup、fallback、loop に踏み込まないため妥当とされた。
+- subagent plan review の指摘に従い、`Terminal` は名前として使うが `Continue` も含む traversal control projection であり、terminal-only value ではないことを doc に明記した。
+- subagent implementation review: Poincare から `REVIEW_APPROVED` を受けた。F4an の enum、Clone / Copy、summary advance accessor exact once、Continue / Rejected / EndContour の同型写像、lookup/start/consume/lower helper、payload match、loop、Vec/push、renderer/raster/platform/host fallback 非依存を確認された。
+- classification: GUI font SFNT simple glyph path sink action consumer consume summary terminal / stored advance traversal projection / no lookup / no loop / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4an を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal`、Clone / Copy、`gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal` を追加した。
+  - terminal helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance` を 1 回だけ読み、`GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` の `Continue` / `Rejected` / `EndContour` を同型写像する。
+  - helper は `Result` / `Option`、byte-backed lookup、consumer item next lookup、consume-once、start helper、lower lookup、metadata parser、`*_with_tables`、payload direct match、`Vec` / `push`、loop、renderer、rasterizer、platform API、host text API、font fallback を直接使わない。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ai synthetic fixture と F4ak byte-backed fixture で、Rejected / EndContour / Continue の検査を summary terminal helper 経由に置き換えた。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4an の docs / implementation source policy を追加した。F4am doctest coverage check は direct advance accessor または F4an terminal projection 経由を coverage として認めるよう調整した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 327/327 passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 10/10 passed。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass し、既存の `stdlib declaration doc gaps increased: 153 > 108` warning が残る。
+
 # 2026-06-14 Agent2 GUI font sink action consume summary value checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、hidden fallback 禁止、platform 非依存、doc/test/source policy 分離方針を前提に、F4am: consumer consume summary value を追加した。
