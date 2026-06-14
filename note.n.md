@@ -40,6 +40,91 @@
 - outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
 - F5h は x byte reader bridge であり、forged bad y ranges や contour endpoint validity は検査しない。各 owner boundary の phase がそれぞれの責務で typed error を返す。
 
+# 2026-06-14 Agent selfhost core type substitution traversal checkpoint
+
+## scope
+
+- branch: `work/selfhost-type-substitution-engine`
+- 対象 branch: `work/selfhost-type-substitution-engine`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / selfhost core type substitution traversal
+- classification: selfhost MemoKey / MemoValue generic substitution / core typed type traversal
+- decision: APPROVE after focused doctest, source policy, issue/doc/todo/note update, and subagent review remediation.
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7`
+- zenn_policy: 2026-06-14 に `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、詳細な日本語 doc comment、契約と現状の分離、行数 / doc comment 長制限禁止、試作段階でも雑な hash authority を残さない方針を守る。
+
+## policy/spec
+
+- AGENTS.md: 確認済み。根本原因修正、仕様確認、plan.md 非編集、note.n.md 更新、丁寧な doc comment、行数制限禁止、source policy と focused doctest を守る。
+- Result / Option: public API と内部 helper は `Result` で失敗を返し、missing / duplicate / invalid / owner failure を bool や sentinel に潰さない。
+- enum error: `SelfhostTypeSubstitutionErrorKind` に typed rejection reason を集約し、表示文言や source text を authority にしない。
+- match exhaustiveness: error equality は wildcard false fallback ではなく、variant code と payload slot の網羅 match で比較する。
+- pure / impure boundary: arena / step table / Vec owner を動かす helper は `impure fn` とし、hash / equality / table length の pure helper と分ける。
+- authority boundary: source text、span、display name、diagnostic、module path、public surface hash、HIR、Resource IR、backend、proof store、PrivateCache / PrivateState、prechecked artifact を substitution authority にしない。
+- owner/free: callee が失敗時に消費する owner を caller が再利用しないように、step table consumed、argument vector consumed、arena builder consumed の失敗 helper を分けた。
+- zero-cost/performance: 現在は binding duplicate validation が O(b*b)、parameter lookup が O(n*b)、applied / function rebuild が O(a) で、合計上界は O(b*b+n*b+a) である。binding table sorted index / duplicate validation index / lookup cache / substitution memo は contract を保って後続最適化へ回す。
+- doc comment: module、public struct / enum / fn、owner helper に目的、契約、現状、計算量、制約、doctest を日本語で書いた。
+- prototype/fail-closed: 試作段階でも raw hash authority や materializer acceptance を開かず、unsupported は後続 slice に残す。
+
+## implementation/test
+
+- `stdlib/neplg2/core/ty/ty/substitution.nepl` を追加し、generic substitution の core typed traversal boundary を実装した。
+- `SelfhostTypeSubstitutionBindingTable`、`SelfhostTypeSubstitutionStepTable`、`SelfhostTypeSubstitutionEvidence`、`SelfhostTypeSubstitutionResult`、`SelfhostTypeSubstitutionErrorKind` を追加した。
+- `SelfhostTypeArena` の `Primitive` / `Named` / `Parameter` / `Applied` / `Function` record を実際に走査し、binding table に一致する type parameter だけを replacement TypeId へ置換する。
+- `Applied` と `Function` は child TypeId を左から再帰置換し、置換後 child list から新しい type record を arena に追加する。
+- step stream は schema version、source TypeId、output TypeId、step kind、child count を hash material として再計算できる typed evidence にした。
+- `ty.nepl` facade から `ty/substitution.nepl` を export した。
+- `nodesrc/test_selfhost_type_substitution_contract.js` を追加し、source-derived authority 禁止、forbidden layer import 禁止、typed error enum、binding validation、TypeRecord dispatch、fuel guard、applied / function rebuild、step stream rehash、stage0 smoke、行数 / doc comment 長制限禁止を固定した。
+- source_policy: `nodesrc/test_selfhost_type_substitution_contract.js` と `nodesrc/run_source_policy_regressions.js` への登録で固定した。source policy は `nodesrc/selfhost_ty_sources.js` 登録、forbidden import、broken binding record read fail-closed、wildcard-free equality、行数制限 / doc comment 長制限禁止も確認する。
+- nodesrc/selfhost_zenn_review_response_check.js: subagent review response の確認形式として参照した。今回の note checkpoint はこの review gate が要求する `policy/spec`、`implementation/test`、`subagent review`、`warnings`、`verify` 証跡に合わせて記録する。
+
+## owner_boundary
+
+- `selfhost_type_substitution_push_step`、`selfhost_type_substitution_push_arg_result`、`selfhost_type_arena_add_applied_named`、`selfhost_type_arena_add_function` は失敗時にも一部 owner を消費する。
+- そのため、失敗 helper を `*_after_step_table_consumed`、`*_after_args_consumed`、`*_after_arena_builder_consumed` に分け、caller が消費済み owner を二重解放しないようにした。
+- focused doctest の初回 Resource IR failure はこの owner 契約漏れが原因だった。テストだけではなく、callee の owner 消費契約を関数境界として明示する形へ直した。
+
+## subagent review
+
+- subagent_review_ids: `019ec48a-0645-7c52-867f-a35bc0a435ad`, `019ebaff-ce3f-7093-a185-ffdc1f07e0e1`, `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`
+- subagent_review_count: 3
+
+- Descartes review: raw substituted shape hash を accepted authority にしないため、actual typed traversal boundary を先に作る判断は妥当と確認した。materializer は `GenericImplInstantiationUnsupported` を維持し、trait bound solver / coherence / accepted path は別 slice にするべきとされた。
+- Bohr review: 重大指摘なし。中程度指摘として、binding table read `None` を success にしている構造破損 fail-open、`nodesrc/run_source_policy_regressions.js` 登録漏れ、`nodesrc/selfhost_ty_sources.js` 登録漏れ、error equality の wildcard fallback が挙がった。
+- 反映: `BindingRecordReadFailed %i32` を追加し、find / duplicate probe / validate の `idx < len` read failure を typed error にした。`selfhost_ty_sources.js` と source policy regression runner へ登録し、error equality を variant code + payload slot の網羅 match へ置き換えた。
+- Popper final review: Blocker なし。Required として、binding duplicate validation が O(b*b) であるため `O(n*b+a)` だけでは計算量説明が不足すること、検証コマンドを PowerShell で再実行できる表記にすることが指摘された。
+- 反映: module doc、設計 doc、issue、note を `O(b*b+n*b+a)` に更新し、duplicate validation index は後続最適化として明示した。検証コマンドも `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node ...` 形式へ更新した。
+- Blocker: なし。
+- Non-blocker: binding table sorted index、duplicate validation index、lookup cache、substitution result memo、stage0 fixture 分割は後続最適化として扱える。
+- Question: checker-layer generic substitution shape producer へ接続するとき、substituted target / trait application shape をどの evidence record へ束ねるかは次 slice で確定する。
+- Approve: yes after Bohr review remediation and focused verification.
+
+## warnings
+
+- 既存 warning: `node nodesrc/run_source_policy_regressions.js --warn-only` では `nodesrc/test_stdlib_documentation_contract.js` の `stdlib declaration doc gaps increased: 161 > 108` warning と Node WASI ExperimentalWarning が残る。
+- 今回差分由来 warning: Bohr review 後の修正前に Zenn review gate の note 記録形式不足があったため、この checkpoint で `Zenn 記事`、`対象 branch`、`policy/spec`、`implementation/test`、`subagent review`、`warnings`、`verify` を追加した。
+
+## verify
+
+- 検証済み: `node nodesrc/test_selfhost_type_substitution_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_ty_split_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- 検証済み: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/substitution.nepl --no-tree -o tmp/selfhost-type-substitution-engine.json -j 1 --assert-io --dist web/dist`
+- 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- warn-only 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only`
+- 検証済み: `node nodesrc/issues.js check --dir issues`
+- 検証済み: `git diff --check`
+
+## residual
+
+- 次 slice: checker-layer generic substitution shape producer は、この core substitution evidence を消費し、substituted target / trait application shape を actual traversal output 由来にする。
+- materializer accepted path は、trait bound solver、generic coherence、generic instantiation evidence connector が揃うまで開かない。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- binding table sorted index、duplicate validation index、replacement lookup cache、substitution result memo、stage0 fixture 分割は、今回固定した typed traversal / owner cleanup / evidence schema contract を保って後続最適化として扱う。
+
 # 2026-06-14 Agent selfhost generic binder same-origin table hash checkpoint
 
 ## scope

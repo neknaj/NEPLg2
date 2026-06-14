@@ -1907,6 +1907,24 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitu
 
 この checkpoint でも actual type substitution engine、trait bound solver、generic coherence、materializer accepted path は開かない。materializer は引き続き detailed generic record を `GenericImplInstantiationUnsupported` で止める。table hash の sorted index 化、bound lookup cache、stage0 fixture 分割、trace lookup cache は今回固定した same-origin contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 Selfhost core type substitution traversal checkpoint
+
+`stdlib/neplg2/core/ty/ty/substitution.nepl` を追加し、selfhost compiler が generic substitution を hash 合成ではなく `SelfhostTypeArena` 上の typed traversal として扱うための core 境界を作った。
+
+この module は checker-layer generic materializer ではない。入力は `SelfhostTypeArena`、borrowed `SelfhostTypeSubstitutionBindingTable`、root `SelfhostTypeId` であり、output は更新済み arena、typed substitution step table、`SelfhostTypeSubstitutionEvidence` を束ねた owner result である。`Primitive` / `Named` は保持し、`Parameter` は binding table に一致する場合だけ replacement TypeId へ写す。`Applied` と `Function` は child TypeId を左から再帰的に置換し、置換後の child list から新しい type record を arena に追加する。
+
+accepted authority は arena 内の `SelfhostTypeRecord`、binding table 内の `SelfhostTypeParameterBinding` と replacement TypeId、schema 付き substitution step stream だけである。source text、span、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact は import せず、substitution evidence の authority にしない。
+
+失敗は `SelfhostTypeSubstitutionErrorKind` の enum data として保持する。invalid binding、duplicate binding、binding record read failure、missing replacement type、missing source type record、missing applied / function child、rebuild failure、traversal fuel exhaustion、step stream hash placeholder、evidence hash mismatch はそれぞれ別 variant で fail-closed にする。error display や bool flag へ潰さない。error equality は wildcard fallback を使わず、variant code と payload slot を網羅 match で正規化して比較する。
+
+所有権境界は Resource IR の static check を authority として設計した。`selfhost_type_substitution_push_step`、`selfhost_type_substitution_push_arg_result`、`selfhost_type_arena_add_applied_named`、`selfhost_type_arena_add_function` は失敗時に一部 owner を消費するため、caller 側では消費済み owner を再利用せず、`*_after_step_table_consumed`、`*_after_args_consumed`、`*_after_arena_builder_consumed` helper で残っている owner だけを閉じる。
+
+現在の計算量は、visited type node / edge 数を `n`、binding count を `b`、rebuild child count 合計を `a` とすると、binding duplicate validation が `O(b*b)`、parameter lookup が `O(n*b)`、applied / function rebuild が `O(a)` である。合計の上界は `O(b*b + n*b + a)` である。これは正しい authority boundary を先に固定するための単純な `Vec` table 実装であり、binding table の sorted index 化、duplicate validation index 化、replacement lookup cache、substitution result memo、stage0 fixture 分割は、この typed traversal / owner cleanup / evidence schema contract を保てるため後続最適化として扱う。
+
+subagent review では、`idx < len` の binding table read が `None` になった場合を success にしていると構造破損を fail-closed にできないこと、`ty.nepl` facade export と source list の登録が一致していないこと、source policy regression runner に個別 contract が載っていないこと、error equality の wildcard fallback が variant 追加漏れを隠すことが指摘された。同じ checkpoint 内で `BindingRecordReadFailed`、`selfhost_ty_sources.js` 登録、source policy regression 登録、wildcard-free equality policy を追加した。
+
+この checkpoint 後の残件は、checker-layer generic substitution shape producer へこの core substitution evidence を接続し、pre-substitution target / trait application shape から substituted target / trait application shape を実際の typed traversal output 由来にすることである。trait bound solver、generic coherence、generic instantiation evidence の materializer accepted path 接続、PrivateCache / PrivateState effect masking、prechecked artifact 接続はまだ開かない。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
