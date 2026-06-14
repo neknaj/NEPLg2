@@ -820,6 +820,13 @@ fn sfnt_step_result_is_missing_outline %fn Result GuiSfntSimpleGlyphPathContourS
                 _:
                     false
 
+fn sfnt_action_slot_is_primary %fn GuiSfntSimpleGlyphPathSinkActionSlot bool \slot:
+    match slot:
+        GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+            true
+        GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+            false
+
 fn main %impure fn void i32 \void:
     let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 1
     match build_sfnt_step_fixture:
@@ -862,6 +869,17 @@ fn main %impure fn void i32 \void:
                             false
                         GuiSfntSimpleGlyphPathSinkTailAction::CloseContour close:
                             eq 0 gui_sfnt_simple_glyph_path_contour_close_contour_index &close
+            let start_step_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_step &bytes none glyph 0 &sink_policy:
+                Result::Err _error:
+                    false
+                Result::Ok action_step:
+                    let action_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_step_cursor &action_step
+                    let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor &action_cursor
+                    let contour_ok %bool eq 0 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &contour_cursor
+                    let edge_ok %bool eq 0 gui_sfnt_simple_glyph_path_contour_cursor_edge_index &contour_cursor
+                    let event_slot_ok %bool sfnt_step_slot_matches gui_sfnt_simple_glyph_path_contour_cursor_slot &contour_cursor GuiSfntSimpleGlyphPathSinkEventSlot::First
+                    let action_slot_ok %bool sfnt_action_slot_is_primary gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot &action_cursor
+                    and contour_ok and edge_ok and event_slot_ok action_slot_ok
             io_bytebuf_free bytes
-            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok sink_ok
+            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok start_step_ok
 ```

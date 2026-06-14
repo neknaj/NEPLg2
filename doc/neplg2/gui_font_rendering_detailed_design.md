@@ -1301,6 +1301,30 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor bytes face_index glyp
 
 The byte-backed entry point validates only the contour span boundary by calling `gui_sfnt_lookup_simple_glyph_contour_span` exactly once. It must not call F4v action-step lookup, F4t sink-step lookup, F4s contour-step lookup, point/curve/path-command helpers, policy helpers, full outline allocation, renderer/platform APIs, rasterizers, host font measurement, or font fallback. This keeps F4w as the start-cursor authority and leaves action payload traversal to F4v.
 
+### SFNT simple glyph path sink action start step
+
+F4x adds the first-step entry point for callers that need the first action step rather than only the start cursor. It is a thin composition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy
+    -> start_cursor = gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index start_cursor policy
+```
+
+This helper deliberately does not call `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor`. The byte-backed start cursor helper validates contour span for cursor-only callers, while the action-step lookup already validates the same contour through the F4v -> F4t -> F4s path. Calling both would duplicate the contour span validation and would make F4x look like a new validation authority. F4x is not a new authority; it only connects the unchecked start cursor value to the existing checked action-step lookup.
+
+Error and policy taxonomy are inherited unchanged:
+
+```text
+parse/range/table error
+    -> Result::Err GuiSfntParseError
+
+policy reject
+    -> Result::Ok step where step.action = Reject reason
+```
+
+F4x must not call `gui_sfnt_lookup_simple_glyph_contour_span`, `gui_sfnt_lookup_simple_glyph_path_sink_step`, F4s contour-step lookup, lower point/curve/path helpers, metadata parser, internal table helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
