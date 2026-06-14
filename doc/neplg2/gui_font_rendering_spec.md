@@ -2677,6 +2677,109 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection
+
+F5t は F5s の classified item stream を後続 phase が owner として保持できるようにする allocator-backed collection boundary である。これは F5s drain-to-collection loop ではない。F5t は empty collection allocation、single item push、single item read だけを固定し、stream traversal、path command、raster mask、render command、platform API には進まない。
+
+F5t は F5b の `GuiSfntSimpleGlyphOutlineStorageLimit` を使わない。scalar slot storage の contour / edge / path command limit と、classified item collection の item limit は意味が違うためである。F5t は専用 limit を持つ。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:
+    max_items i32
+```
+
+allocation は次の順序を守る。
+
+```text
+1. capacity shape を検査する
+2. max_items > 0 を検査する
+3. capacity.point_count <= max_items を検査する
+4. vec::with_capacity point_count で item storage を確保する
+```
+
+allocation error は string ではなく enum と typed payload で返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind:
+    InvalidCapacity
+    InvalidLimit
+    CapacityRejected
+    ItemStorageAllocFailed
+```
+
+collection owner は次を保持する。owner なので `Clone` / `Copy` は実装しない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollection:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    items Vec GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count i32
+```
+
+`gui_sfnt_simple_glyph_outline_point_stream_item_collection_free` は collection owner を消費し、内部 `items` に対して `vec::free` を 1 回だけ呼ぶ。free は stream traversal、path/raster/render、platform API を呼ばない。
+
+push は次の順序を守る。
+
+```text
+1. capacity shape を検査する
+2. items.len == item_count を検査する
+3. items.cap == capacity.point_count を検査する
+4. item_count < capacity.point_count を検査する
+5. item.point.glyph == capacity.glyph を検査する
+6. item.point.point_index == item_count を検査する
+7. item.kind == kind_from_point item.point を検査する
+8. vec::push を 1 回だけ呼ぶ
+```
+
+`ItemKindMismatch` は public constructor で forged item を作れることへの fail-closed branch である。item payload の kind を信頼せず、F5q の `kind_from_point` を authority とする。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    CollectionFull
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    ItemStoragePushFailed
+```
+
+push error は collection owner、rejected item、error kind、lower `StdErrorKind` option を保持する。validation failure では lower error は `None`、`vec::push` failure では `Some StdErrorKind` である。`vec_push_error_kind` は `vec_push_error_vec` で owner を回収する前に読む。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    storage_error Option StdErrorKind
+```
+
+read は `Option` を public surface にしない。`Option::None` だけでは forged collection invariant、範囲外、missing slot が区別できないためである。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    ItemIndexOutOfRange
+    ItemStorageMissing
+```
+
+`gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item` は `Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError` を返す。
+
+F5t は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget
+lower byte / point readers
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

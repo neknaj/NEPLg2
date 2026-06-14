@@ -4498,6 +4498,467 @@ pub fn gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
                                                             set done true
     output
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit: classified item collection の[確保/かくほ][上限/じょうげん]
+//:
+//: [目的/もくてき]:
+//: - F5t の item `Vec` capacity だけを[制限/せいげん]し、F5b の scalar slot storage limit と[意味/いみ]を[混/ま]ぜないようにします。
+//: - `max_items` は glyph logical point 数に対する上限です。edge/path command や scalar slot count の上限ではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:
+    max_items %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit \limit:
+        *limit
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit \limit:
+        limit
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit: collection limit value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit %fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit \max_items:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit max_items
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit_max_items: item collection limit を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit_max_items %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit i32 \limit:
+    *field::get_ref limit "max_items"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollection: classified point item の allocator-backed owner
+//:
+//: [目的/もくてき]:
+//: - F5s の streaming item を、後続 path/raster phase が owner として[保持/ほじ]できるようにする境界です。
+//: - この owner は stream traversal、path command、raster mask、render command、platform API を[持/も]ちません。
+//:
+//: [注意/ちゅうい]:
+//: - `items` は `len == item_count`、`cap == capacity.point_count` を contract とします。
+//: - owner なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollection:
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    items %Vec GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count %i32
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind: collection allocation の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind:
+    InvalidCapacity
+    InvalidLimit
+    CapacityRejected
+    ItemStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError: allocation failure context
+//:
+//: [目的/もくてき]:
+//: - capacity と F5t 専用 limit を error payload に[残/のこ]し、caller が rejected reason を string 解析なしに[扱/あつか]えるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    limit %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error: allocation error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError \kind\capacity\limit:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError kind capacity limit
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_kind: allocation error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_capacity: allocation error capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_limit: allocation error limit を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error_limit %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit \error:
+    *field::get_ref error "limit"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity: collection capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection GuiSfntSimpleGlyphOutlineStorageCapacity \collection:
+    *field::get_ref collection "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count: stored item count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection i32 \collection:
+    *field::get_ref collection "item_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len: items Vec の len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection i32 \collection:
+    let items %&Vec GuiSfntSimpleGlyphOutlinePointStreamItem field::get_ref collection "items"
+    vec::len items
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap: items Vec の cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection i32 \collection:
+    let items %&Vec GuiSfntSimpleGlyphOutlinePointStreamItem field::get_ref collection "items"
+    vec::cap items
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc: empty classified item collection を[確保/かくほ]する
+//:
+//: [契約/けいやく]:
+//: - capacity shape、F5t 専用 limit、item storage allocation の順に[検査/けんさ]します。
+//: - `Vec` capacity は `capacity.point_count` であり、F5b の scalar slot count ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc %impure fn &GuiSfntSimpleGlyphOutlineStorageCapacity impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit Result GuiSfntSimpleGlyphOutlinePointStreamItemCollection GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError \capacity\limit:
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::InvalidCapacity *capacity *limit
+            Result::Err error
+        else:
+            let max_items %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit_max_items limit
+            if le max_items 0:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::InvalidLimit *capacity *limit
+                    Result::Err error
+                else:
+                    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity
+                    if gt point_count max_items:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::CapacityRejected *capacity *limit
+                            Result::Err error
+                        else:
+                            let items_result %Result Vec GuiSfntSimpleGlyphOutlinePointStreamItem StdErrorKind vec::with_capacity point_count
+                            match items_result:
+                                Result::Ok items:
+                                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollection *capacity items 0
+                                Result::Err _e:
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::ItemStorageAllocFailed *capacity *limit
+                                    Result::Err error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_free: collection owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_free %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection unit \collection:
+    vec::free field::get collection "items"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_kind_is: item kind 同士を enum branch で[比較/ひかく]する
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind_is %fn GuiSfntSimpleGlyphOutlinePointStreamItemKind fn GuiSfntSimpleGlyphOutlinePointStreamItemKind bool \observed\expected:
+    match observed:
+        GuiSfntSimpleGlyphOutlinePointStreamItemKind::OnCurve:
+            match expected:
+                GuiSfntSimpleGlyphOutlinePointStreamItemKind::OnCurve:
+                    true
+                _:
+                    false
+        GuiSfntSimpleGlyphOutlinePointStreamItemKind::OffCurve:
+            match expected:
+                GuiSfntSimpleGlyphOutlinePointStreamItemKind::OffCurve:
+                    true
+                _:
+                    false
+        GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOnCurve:
+            match expected:
+                GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOnCurve:
+                    true
+                _:
+                    false
+        GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOffCurve:
+            match expected:
+                GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOffCurve:
+                    true
+                _:
+                    false
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point: item kind が point 由来の分類と[一致/いっち]するか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - public constructor で forged item が[作/つく]られても、push 前に F5q の分類 contract へ[戻/もど]して[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point %fn &GuiSfntSimpleGlyphOutlinePointStreamItem bool \item:
+    let point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_outline_point_stream_item_point item
+    let observed %GuiSfntSimpleGlyphOutlinePointStreamItemKind gui_sfnt_simple_glyph_outline_point_stream_item_kind item
+    let expected %GuiSfntSimpleGlyphOutlinePointStreamItemKind gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point &point
+    gui_sfnt_simple_glyph_outline_point_stream_item_kind_is observed expected
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind: collection push [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    CollectionFull
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    ItemStoragePushFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError: collection push [失敗/しっぱい]時の owner recovery payload
+//:
+//: [目的/もくてき]:
+//: - validation failure と Vec push failure のどちらでも、collection owner と rejected item を[失/うしな]わず[返/かえ]します。
+//: - Vec push failure の underlying `StdErrorKind` は `Option` として[分離/ぶんり]し、validation failure では `None` にします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item %GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error: push error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphOutlinePointStreamItem fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError \collection\item\kind\storage_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError collection item kind storage_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind: push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item: rejected item を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError GuiSfntSimpleGlyphOutlinePointStreamItem \error:
+    *field::get_ref error "item"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error: lower Vec push failure kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection: error payload から collection owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollection \error:
+    field::get error "collection"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_push: classified item を collection 末尾へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - capacity shape、collection len/count/capacity、collection full、glyph/index/kind の順に[検査/けんさ]してから `vec::push` を 1 回だけ[呼/よ]びます。
+//: - kind は item payload を[信用/しんよう]せず、F5q の `kind_from_point` で point から再導出して[照合/しょうごう]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointStreamItem Result GuiSfntSimpleGlyphOutlinePointStreamItemCollection GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError \collection\item:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity &collection
+    let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count &collection
+    let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len &collection
+    let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap &collection
+    let none_storage_error %Option StdErrorKind none
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::InvalidCapacity none_storage_error
+            Result::Err error
+        else:
+            let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+            if ne items_len item_count:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::CollectionLengthMismatch none_storage_error
+                    Result::Err error
+                else:
+                    if ne items_cap point_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::CollectionCapacityMismatch none_storage_error
+                            Result::Err error
+                        else:
+                            if ge item_count point_count:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::CollectionFull none_storage_error
+                                    Result::Err error
+                                else:
+                                    let item_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_outline_point_stream_item_point &item
+                                    let item_glyph %GuiGlyphId gui_sfnt_simple_glyph_point_glyph &item_point
+                                    let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                                    let item_glyph_raw %i32 gui_glyph_id_raw &item_glyph
+                                    let capacity_glyph_raw %i32 gui_glyph_id_raw &capacity_glyph
+                                    if ne item_glyph_raw capacity_glyph_raw:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemGlyphMismatch none_storage_error
+                                            Result::Err error
+                                        else:
+                                            let point_index %i32 gui_sfnt_simple_glyph_point_index &item_point
+                                            if ne point_index item_count:
+                                                then:
+                                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemIndexMismatch none_storage_error
+                                                    Result::Err error
+                                                else:
+                                                    if not gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item:
+                                                        then:
+                                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemKindMismatch none_storage_error
+                                                            Result::Err error
+                                                        else:
+                                                            let items %Vec GuiSfntSimpleGlyphOutlinePointStreamItem field::get collection "items"
+                                                            match vec::push items item:
+                                                                Result::Ok next_items:
+                                                                    let next_count %i32 add item_count 1
+                                                                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollection capacity next_items next_count
+                                                                Result::Err e:
+                                                                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &e
+                                                                    let returned_items %Vec GuiSfntSimpleGlyphOutlinePointStreamItem vec::vec_push_error_vec e
+                                                                    let returned_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection GuiSfntSimpleGlyphOutlinePointStreamItemCollection capacity returned_items item_count
+                                                                    let storage_error %Option StdErrorKind some storage_error_value
+                                                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error returned_collection item GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemStoragePushFailed storage_error
+                                                                    Result::Err error
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind: collection read [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    ItemIndexOutOfRange
+    ItemStorageMissing
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError: collection read failure context
+//:
+//: [目的/もくてき]:
+//: - forged owner の length/capacity mismatch と単なる index 範囲外を `Option::None` に[畳/たた]まず、typed error として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    item_count %i32
+    requested_index %i32
+    items_len %i32
+    items_cap %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error: read error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \kind\capacity\item_count\requested_index\items_len\items_cap:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError kind capacity item_count requested_index items_len items_cap
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_kind: read error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_requested_index: read error の requested index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_requested_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError i32 \error:
+    *field::get_ref error "requested_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_item_count: read error の item count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_item_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError i32 \error:
+    *field::get_ref error "item_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_items_len: read error の Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_items_len %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError i32 \error:
+    *field::get_ref error "items_len"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_items_cap: read error の Vec cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error_items_cap %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError i32 \error:
+    *field::get_ref error "items_cap"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item: collection から item を typed error 付きで[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - capacity shape、`len == item_count`、`cap == point_count`、index range を[検査/けんさ]してから `vec::get` を 1 回だけ[呼/よ]びます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError \collection\index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection
+    let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection
+    let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::InvalidCapacity capacity item_count index items_len items_cap
+            Result::Err error
+        else:
+            let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+            if ne items_len item_count:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::CollectionLengthMismatch capacity item_count index items_len items_cap
+                    Result::Err error
+                else:
+                    if ne items_cap point_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::CollectionCapacityMismatch capacity item_count index items_len items_cap
+                            Result::Err error
+                        else:
+                            if or lt index 0 ge index item_count:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::ItemIndexOutOfRange capacity item_count index items_len items_cap
+                                    Result::Err error
+                                else:
+                                    let items %&Vec GuiSfntSimpleGlyphOutlinePointStreamItem field::get_ref collection "items"
+                                    match vec::get items index:
+                                        Option::Some item:
+                                            Result::Ok item
+                                        Option::None:
+                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::ItemStorageMissing capacity item_count index items_len items_cap
+                                            Result::Err error
+
 //: GuiSfntSimpleGlyphContourSpan: simple glyph の 1 contour が[参照/さんしょう]する point span
 //:
 //: [目的/もくてき]:

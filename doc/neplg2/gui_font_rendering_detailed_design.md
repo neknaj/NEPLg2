@@ -3366,6 +3366,83 @@ if F5r Ok End:
 
 Terminal-before-budget and budget-before-F5o are contract requirements. F5s must not call `gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`, lower point readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection boundary
+
+F5t adds the first allocator-backed owner for classified point stream items. It intentionally does not drain F5s into the collection. That loop remains a later phase because the collection owner contract, the push invariants, and the typed read surface must be stable before traversal and allocation are coupled.
+
+F5t uses a dedicated limit:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:
+    max_items i32
+```
+
+The dedicated limit is required because `GuiSfntSimpleGlyphOutlineStorageLimit` is about scalar outline storage regions, edge capacity, and path command capacity. Reusing it for a `Vec GuiSfntSimpleGlyphOutlinePointStreamItem` would let unrelated edge/path limits reject item collection allocation. F5t reads only `max_items` and compares it with `capacity.point_count`.
+
+Allocation order is fixed:
+
+```text
+capacity shape
+max_items > 0
+point_count <= max_items
+vec::with_capacity point_count
+```
+
+The collection owner is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollection:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    items Vec GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count i32
+```
+
+`items.len == item_count` and `items.cap == capacity.point_count` are owner invariants. The owner is not `Clone` or `Copy`.
+
+The free boundary consumes the collection owner and calls `vec::free` exactly once on the inner `items` Vec. Free does not inspect stream state and must not call path, raster, render, platform, or host APIs.
+
+The push boundary validates every public-constructor-forgeable invariant before mutating the `Vec`:
+
+```text
+capacity shape
+items.len == item_count
+items.cap == capacity.point_count
+item_count < capacity.point_count
+item.point.glyph == capacity.glyph
+item.point.point_index == item_count
+item.kind == kind_from_point item.point
+vec::push exactly once
+```
+
+`ItemKindMismatch` is important because `GuiSfntSimpleGlyphOutlinePointStreamItem` is a public struct and can be forged with a kind that does not match the point fields. The authority for the kind remains F5q `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`.
+
+Push error keeps both owner recovery and diagnostic data:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    storage_error Option StdErrorKind
+```
+
+Validation errors set `storage_error = None`. A lower `vec::push` failure sets `storage_error = Some error_kind`. The implementation must read `vec::vec_push_error_kind &e` before consuming `e` with `vec::vec_push_error_vec e`.
+
+The public read helper returns typed `Result`, not `Option`:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    ItemIndexOutOfRange
+    ItemStorageMissing
+```
+
+This avoids treating invariant failure, out-of-range request, and missing storage slot as the same `None`. The fixed read order is capacity shape, length invariant, capacity invariant, index range, then `vec::get` exactly once. In source policy terms, the read helper must call vec::get exactly once after every invariant check.
+
+F5t helper bodies may call `vec::with_capacity`, `vec::free`, `vec::len`, `vec::cap`, `vec::push`, and `vec::get`. They must not call F5s drain, F5r conversion, F5o point step, F5p point drain, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
