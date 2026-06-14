@@ -3501,8 +3501,9 @@ assert(
         guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step") &&
         guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state") &&
         guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status") &&
-        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance"),
-    "gui font sfnt path doctests must use F4am consume summary value",
+        (guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance") ||
+            guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal")),
+    "gui font sfnt path doctests must use F4am consume summary value directly or through F4an terminal projection",
 );
 const pathSinkActionConsumeSummaryConstructor = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary");
 assert(
@@ -3562,6 +3563,75 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F4am summary-from-step helper body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph path sink action consumer consume summary terminal[\s\S]*GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal[\s\S]*Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem[\s\S]*Rejected GuiSfntSimpleGlyphPathSinkRejectReason[\s\S]*F4an は `Result` \/ `Option`、byte-backed lookup/,
+    "font spec must define F4an consume summary traversal control projection and constraints",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph path sink action consumer consume summary terminal[\s\S]*F4an adds the next pure projection above F4am[\s\S]*Although the public enum name ends with `Terminal`, it is the future loop's traversal control state and includes `Continue`/,
+    "font detailed design must distinguish F4an traversal control from terminal-only state",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4an: sfnt simple glyph path sink action consumer consume summary terminal[\s\S]*stored advance の 3 分岐を 1 回だけ読み[\s\S]*summary terminal type は次の 3 variants を持つ/,
+    "font implementation plan must define F4an consume summary terminal projection",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:\s+Continue\s+%GuiSfntSimpleGlyphPathSinkActionConsumerItem\s+Rejected\s+%GuiSfntSimpleGlyphPathSinkRejectReason\s+EndContour/,
+    "alloc/gui/font/sfnt/glyf F4an must expose consume summary terminal enum variants",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:/,
+    "alloc/gui/font/sfnt/glyf F4an consume summary terminal must implement Clone and Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal") &&
+        guiFontSfntPathTests.includes("GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and use F4an consume summary terminal helper",
+);
+const pathSinkActionConsumeSummaryTerminal = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal");
+for (const fragment of [
+    "let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue item:",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason:",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour",
+]) {
+    assert(pathSinkActionConsumeSummaryTerminal.includes(fragment), `alloc/gui/font/sfnt/glyf F4an terminal helper must include ${fragment}`);
+}
+assert(
+    (pathSinkActionConsumeSummaryTerminal.match(/\bgui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4an terminal helper must read summary advance exactly once",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryTerminal,
+    /\bResult\b|\bOption\b|\bgui_sfnt_lookup_|\bgui_sfnt_simple_glyph_path_sink_action_consumer_item_next\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once\b|\bgui_sfnt_parse_metadata\b|\bgui_sfnt_glyf_|\bgui_sfnt_classify_simple_glyph_curve_segment\b|\b_with_tables\b/,
+    "alloc/gui/font/sfnt/glyf F4an terminal helper must not return Result/Option or call lookup/consume/start/lower/table helpers",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryTerminal,
+    /\b(?:Vec|push|action_index|command_index|loop_index|current_point|cursor|next_cursor|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4an terminal helper must not allocate, loop, inspect payload variants, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryTerminal,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4an terminal helper body must preserve NEPL prefix style without parentheses",
+);
+for (const fragment of [
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour",
+]) {
+    assert(guiFontSfntPathTests.includes(fragment), `gui font sfnt path doctests must cover F4an ${fragment}`);
+}
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

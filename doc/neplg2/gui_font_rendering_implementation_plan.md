@@ -1910,6 +1910,55 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4an: sfnt simple glyph path sink action consumer consume summary terminal
+
+目的:
+
+- `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary` に保持された post-consume advance を、future loop が読む traversal control state へ写す。
+- F4am は state / status / advance を束ねるだけで advance を解釈しない。F4an は stored advance の 3 分岐を 1 回だけ読み、loop 側が lower `ApplyAdvance` storage detail に直接依存しないようにする。
+- `Terminal` は名前として使うが `Continue` も含む。これは terminal-only value ではなく traversal control projection である。
+- F4an は contour-wide loop、iterator、real sink mutation、byte-backed lookup、command list、full outline allocation、renderer、rasterizer、platform API にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal`
+- summary terminal type は次の 3 variants を持つ。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+- `summary_terminal` は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance summary` を 1 回だけ呼ぶ。
+- `summary_terminal` は `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue item` を `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item` に写す。
+- `summary_terminal` は `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason` を `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason` に写す。
+- `summary_terminal` は `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour` を `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour` に写す。
+- helper は `Result`、`Option`、byte-backed lookup、consumer item next lookup、consume-once、start helper、F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec`、`push`、loop、current point、renderer、rasterizer、platform API、host text API、font fallback を直接使わない。
+- Source policy で F4an docs、summary terminal enum、Clone / Copy、helper exact advance accessor call count、3 分岐の同型写像、lookup / payload / renderer / platform API 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ai synthetic fixture を更新する。
+  - `Rejected` case と `NoAction` case で summary terminal helper を使い、Rejected / EndContour を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ak byte-backed fixture も更新する。
+  - start consume-once result から summary terminal helper を使い、Continue 分岐と次 consumer item の action を検査する。
+
+完了条件:
+
+- summary terminal は Continue / Rejected / EndContour を 1 value として持つ。
+- summary terminal helper は stored advance accessor を 1 回だけ読み、lower advance enum を同型写像する。
+- hidden fallback、silent no-op、new traversal counter、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
