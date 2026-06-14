@@ -2198,6 +2198,63 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step 
                 GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
                     GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour *step
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance: apply 後に 1 consumer item 進めた結果
+//:
+//: [目的/もくてき]:
+//: - future loop が次 consumer item、domain reject、contour 終端を enum として[受/う]け[取/と]れるようにします。
+//: - これは 1 step advance であり、contour-wide loop や sink mutation ではありません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue %GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected %GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \advance:
+        *advance
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \advance:
+        advance
+
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep: consumer item を 1 つ[消費/しょうひ]した結果
+//:
+//: [目的/もくてき]:
+//: - F4af の apply step と F4ah の advance を[同時/どうじ]に[保持/ほじ]します。
+//: - future loop が state / status と terminal / next item を[同時/どうじ]に[読/よ]めるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step: consume step を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step %fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep \apply_step\advance:
+    GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep apply_step advance
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step: apply step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep \step:
+    *field::get_ref step "apply_step"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance: advance を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \step:
+    *field::get_ref step "advance"
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -4106,6 +4163,25 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item %fn &ByteBuf 
             let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
             Result::Ok consumer_item
 
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item: contour の first consumer item を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - contour start item を 1 回だけ読み、F4ac consumer item helper へ 1 回だけ[渡/わた]します。
+//: - consume / apply / post-apply advance は行わず、future loop の初期入力だけを[作/つく]ります。
+//: - action payload、consumer item next、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError \bytes\face_index\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consumer_item:
+                    Result::Ok consumer_item
+
 //: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next: consumer item を 1 つ[進/すす]める
 //:
 //: [契約/けいやく]:
@@ -4125,3 +4201,65 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next %fn &Byt
                     Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
         GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
             Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance: apply 後に consumer stream を 1 step 進める
+//:
+//: [契約/けいやく]:
+//: - F4ag terminal 判定を 1 回だけ使い、`Rejected` と `EndContour` は domain terminal として `Result::Ok` で[返/かえ]します。
+//: - `Continue` の[場合/ばあい]だけ、保存済み action item next から F4ac consumer item lookup に 1 回だけ委譲します。
+//: - original consumer item は要求せず、F4af が保存した checked next を authority とします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError \bytes\face_index\step\policy:
+    match gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step:
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Continue continue_step:
+            let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step
+            match next:
+                GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:
+                    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_consumer_item:
+                            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer_item
+                GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Rejected reason:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour _end_step:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once: consumer item を 1 つ[消費/しょうひ]して[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F4af apply helper を 1 回だけ呼び、F4ah advance helper を 1 回だけ呼びます。
+//: - apply step を捨てず、advance と[同/おな]じ result value に[保持/ほじ]します。
+//: - loop、real sink、payload direct match、renderer / platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError \bytes\face_index\state\item\policy:
+    let apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index &apply_step policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok advance:
+            let consume_step %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance
+            Result::Ok consume_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once: contour の first consumer item を 1 つ[消費/しょうひ]する
+//:
+//: [契約/けいやく]:
+//: - F4aj start consumer item helper を 1 回だけ呼び、F4ai consume-once helper へ 1 回だけ[渡/わた]します。
+//: - apply step と advance を捨てず、F4ai の consume step をそのまま[返/かえ]します。
+//: - loop、real sink、payload direct match、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError \bytes\face_index\state\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok consumer_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &consumer_item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consume_step:
+                    Result::Ok consume_step

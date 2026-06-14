@@ -1600,6 +1600,132 @@ match status:
 
 F4ag must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call byte-backed lower lookup helpers. It must not allocate `Vec`, push commands, loop over contour data, inspect current point state, parse metadata, rasterize, render, call platform APIs, or call host text measurement.
 
+### SFNT simple glyph path sink action consumer apply advance
+
+F4ah is the first post-apply one-step advance boundary. It combines F4ag's terminal classification with F4ac lookup through the stored `GuiSfntSimpleGlyphPathSinkActionItemNext`. It is not a direct F4ad call, because F4ag/F4af intentionally no longer carry the original `GuiSfntSimpleGlyphPathSinkActionConsumerItem`.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index step policy:
+    terminal = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step
+
+    match terminal:
+        Rejected reason:
+            Ok Rejected reason
+
+        EndContour _:
+            Ok EndContour
+
+        Continue continue_step:
+            next = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next continue_step
+
+            match next:
+                Continue next_item:
+                    gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index next_item policy
+                        |> map Continue
+
+                EndContour:
+                    Ok EndContour
+```
+
+`Rejected` remains a domain terminal, not a parse error. `EndContour` remains a successful terminal. The only byte-backed lookup in this phase is the F4ac consumer item lookup for the stored `next_item` in the `Continue` branch.
+
+The apparent `Continue + EndContour` branch is defensive against future representation changes and keeps the function total over its input type. It must still return successful `EndContour`, not panic or silently skip.
+
+F4ah must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, because that helper requires the original consumer item and would obscure the F4ag/F4af ownership boundary. F4ah must not re-apply action payloads, match `GuiSfntSimpleGlyphPathSinkAction` variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, call lower contour/curve lookup helpers directly, rasterize, render, call platform APIs, or call host text measurement.
+
+### SFNT simple glyph path sink action consumer consume once
+
+F4ai composes F4af and F4ah into the smallest useful future-loop step. It consumes exactly one already-checked consumer item and resolves the immediate post-apply continuation, but it still does not own a loop and does not become a sink.
+
+The result must preserve both sides of the operation:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+```
+
+`apply_step` is not redundant. It carries the updated apply state and the consumed action status. Returning only `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` would hide whether the current item emitted an event, rejected, closed a contour, or consumed an explicit `NoAction`.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state item policy:
+    apply_step = gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item
+
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index apply_step policy:
+        Err error:
+            Err error
+
+        Ok advance:
+            Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep apply_step advance
+```
+
+F4ai must not call F4ag directly. F4ah owns terminal classification and stored-next advancement. F4ai must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` because it would bypass the F4af/F4ah split and would also lose the structured apply result unless wrapped again.
+
+F4ai must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, call lower contour/curve lookup helpers directly, rasterize, render, call platform APIs, or call host text measurement.
+
+### SFNT simple glyph path sink action start consumer item
+
+F4aj is the start boundary for the future consumer loop. It converts a glyph contour start into the first checked `GuiSfntSimpleGlyphPathSinkActionConsumerItem`, using the existing start-item and consumer-item contracts.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy:
+        Err error:
+            Err error
+
+        Ok item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index item policy:
+                Err error:
+                    Err error
+
+                Ok consumer_item:
+                    Ok consumer_item
+```
+
+F4aj intentionally does not create a new value type. The result type is the existing F4ac `GuiSfntSimpleGlyphPathSinkActionConsumerItem`, because the responsibility is only to provide a byte-backed entry point for the first consumer packet.
+
+“No advance” in F4aj means no F4ad consumer-item-next call, no F4af apply, no F4ah post-apply advance, and no F4ai consume-once call. F4ac still resolves the checked `GuiSfntSimpleGlyphPathSinkActionItemNext` needed to construct a consumer item. That resolution remains inside F4ac and does not make F4aj a traversal authority.
+
+F4aj must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once`. It must not call F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup helpers directly, inspect action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
+### SFNT simple glyph path sink action start consume once
+
+F4ak is the first start-to-consume boundary. It takes a byte-backed glyph contour start and an existing apply state, creates the first consumer item through F4aj, and consumes exactly that item through F4ai.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once bytes face_index state glyph contour_index policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:
+        Err error:
+            Err error
+
+        Ok consumer_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state consumer_item policy:
+                Err error:
+                    Err error
+
+                Ok consume_step:
+                    Ok consume_step
+```
+
+F4ak deliberately returns `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep`, not only `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`. The start boundary must preserve the same diagnostic and future-loop information as F4ai: the consumed action's apply state/status and the post-consume advance.
+
+F4ak is not a contour loop and not a real sink. It must not call F4aa/F4ac/F4ad/F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup helpers directly. It must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, inspect action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

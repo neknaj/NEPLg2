@@ -1240,6 +1240,99 @@ gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step:
 
 F4ag は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` を呼ばず、`GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` も作らない。保存済み `GuiSfntSimpleGlyphPathSinkActionItemNext` だけを読む。`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer apply advance
+
+F4ah は F4ag の terminal 判定を使い、apply 後の consumer stream を 1 step だけ進める byte-backed boundary である。これは contour-wide loop、iterator、real sink mutation、outline builder、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance:
+    bytes &ByteBuf
+    face_index Option i32
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step` を 1 回だけ呼ぶ。`Rejected reason` は `Result::Ok Rejected reason`、`EndContour` は `Result::Ok EndContour` として返す。どちらも malformed SFNT bytes ではないので `Result::Err` にはしない。
+
+`Continue continue_step` の場合だけ、`continue_step` に保存された `GuiSfntSimpleGlyphPathSinkActionItemNext` を読む。`Continue next_item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy` を 1 回だけ呼び、成功時は `Continue next_consumer_item` として返す。`EndContour` が出た場合は `EndContour` を成功 terminal として返す。
+
+F4ah は original `GuiSfntSimpleGlyphPathSinkActionConsumerItem` を要求しない。F4af が保存した checked next を authority として使う。したがって `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` は呼ばない。これは F4ad の direct wrapper ではなく、F4ag terminal と保存済み `ActionItemNext` から F4ac lookup へ接続する 1 step boundary である。
+
+F4ah は action payload を直接 `match` せず、apply をやり直さない。`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
+### SFNT simple glyph path sink action consumer consume once
+
+F4ai は 1 consumer item を「apply してから advance する」境界である。ただし、単に `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけを返してはいけない。F4af の apply step には更新後の apply state と status が含まれ、future loop や diagnostics がこれを読むためである。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once:
+    bytes &ByteBuf
+    face_index Option i32
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item` を 1 回だけ呼び、得られた `apply_step` を `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index &apply_step policy` へ 1 回だけ渡す。advance が `Result::Err` なら malformed SFNT parse/range failure としてそのまま返す。advance が `Result::Ok advance` なら、同じ `apply_step` と `advance` を `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` に束ねて返す。
+
+F4ai は F4ag を直接呼ばない。terminal classification は F4ah の責務である。F4ai は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`、F4ad/F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
+### SFNT simple glyph path sink action start consumer item
+
+F4aj は contour start から future sink consumer の初期 packet を作る byte-backed boundary である。これは F4aa の start item と F4ac の consumer item を合成するだけで、consume、apply、post-apply advance、contour-wide loop、real sink mutation は行わない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy` を 1 回だけ呼ぶ。`Result::Err error` なら parse/range/table error としてそのまま返す。`Result::Ok item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &item policy` を 1 回だけ呼び、その結果をそのまま返す。
+
+ここで「advance しない」とは、F4ad の consumer item next、F4af apply、F4ah post-apply advance、F4ai consume once を呼ばないという意味である。F4ac は consumer item を作る契約上、checked `GuiSfntSimpleGlyphPathSinkActionItemNext` を内部で解決する。それは F4ac の責務であり、F4aj が新しい traversal authority を持つことではない。
+
+F4aj は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once`、F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
+### SFNT simple glyph path sink action start consume once
+
+F4ak は contour start から first consumer item を作り、その 1 item だけを consume する byte-backed boundary である。これは F4aj と F4ai の薄い合成であり、contour-wide loop、iterator、real sink mutation、full outline builder、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once:
+    bytes &ByteBuf
+    face_index Option i32
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy` を 1 回だけ呼ぶ。`Result::Err error` なら parse/range/table error としてそのまま返す。`Result::Ok consumer_item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &consumer_item policy` を 1 回だけ呼び、その結果をそのまま返す。
+
+F4ak の戻り値は F4ai と同じ `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` である。これにより、最初の action を consume した後の apply state / status と post-consume advance を両方保持する。`GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけへ縮約してはいけない。
+
+F4ak は F4aa/F4ac/F4ad/F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。`GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
