@@ -1380,6 +1380,26 @@ The explicit `stored_step = *step` copy is part of the contract. The helper must
 
 F4z must not call start cursor helpers, start step helpers, F4v action step lookup, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, inspect `Reject` / `NoAction` / `CloseContour`, or introduce a silent no-op path.
 
+### SFNT simple glyph path sink action start item
+
+F4aa adds a first-item entry point above F4x and F4z. It is useful for a future contour consumer that wants the first item directly, but it remains a narrow composition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy
+        Err error -> Err error
+        Ok start_step:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy
+                Err error -> Err error
+                Ok item -> Ok item
+```
+
+F4aa does not introduce a new data type. The result type is the F4z `GuiSfntSimpleGlyphPathSinkActionStepItem`, so the current step and checked advance remain the only item payload. This preserves the typed value boundary and avoids a parallel "start item" structure that would duplicate state.
+
+The helper must call `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` exactly once and `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` exactly once. It must not call the pure start-cursor helper, the byte-backed start-cursor helper, F4v action-step lookup, F4y advance helper, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback.
+
+F4aa itself does not inspect the action payload. `Reject`, `NoAction`, `CloseContour`, and `EndContour` remain typed states inside the F4x/F4z result path. This keeps parse/range/table failures as `Result::Err`, domain terminal states as enum values, and unsupported future behavior out of the helper instead of hiding it through fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

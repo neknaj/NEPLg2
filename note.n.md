@@ -60056,3 +60056,41 @@ MERGE_APPROVED
 
 - F4q は dispatch kind classification までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
 - ルビ付き日本語 example は font rasterization / text layout / window layout が実描画できる段階で実装する。
+
+## 2026-06-14 GUI font SFNT path sink action start item checkpoint
+
+### scope
+
+- branch: `gui-font-sink-action-start-item-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、fallible byte-backed boundary は `Result`、terminal/domain state は enum、payload decision は後続 consumer、platform / renderer / fallback は非依存とした。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4aa: SFNT simple glyph path sink action start item を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item` を追加した。
+- F4aa helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy` を 1 回だけ呼ぶ。
+- `Result::Err error` はそのまま伝播し、`Result::Ok start_step` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy` を 1 回だけ呼ぶ。
+- F4aa は新しい item type を追加せず、F4z の `GuiSfntSimpleGlyphPathSinkActionStepItem` をそのまま返す。
+- F4aa helper は start cursor construction、direct lower lookup、action payload inspection、contour traversal、`Option` fallback、`Vec` / `push`、renderer / rasterizer / platform API を使わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4aa の docs / implementation / source policy assertion を追加した。helper body の call count、禁止 helper、payload inspection 禁止、括弧なしを固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の skipped byte-backed fixture を `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item` 入口へ更新し、stored step が contour `0` / edge `0` / `First` / `Primary`、advance が `Continue` next step の `Tail` であることを確認した。
+
+### implementation_review
+
+- レビュー観点: duplicate helper definition、direct lower lookup bypass、start cursor construction inside F4aa、action payload inspection、traversal loop、Option / Vec fallback、renderer / rasterizer / platform leakage、NEPL parenthesis syntax。
+- 結果: blocker なし。F4aa は F4x start-step と F4z step-item を合成するだけで、validation authority と payload authority を増やしていない。
+- `tool_search` ではこの環境に subagent review 委譲ツールは露出しておらず、代替として source policy、focused doctest、diff review、全体 source policy regression により確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- F4aa は first action item の byte-backed entry point までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
