@@ -1109,6 +1109,31 @@ F4ab は action payload を読まない。`Reject`、`NoAction`、`CloseContour`
 
 F4ab は start cursor / start step / start item helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。検証と next step construction の authority は F4z item が保持する checked advance と F4z step item lookup に残す。
 
+### SFNT simple glyph path sink action consumer item
+
+F4ac は F4z/F4aa の action item から、future sink consumer が 1 action 分として読む packet を作る段階である。F4ab が「どこへ進むか」だけを返すのに対し、F4ac は「今回何を消費するか」と「次にどこへ進むか」を同じ typed value に束ねる。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item:
+    bytes &ByteBuf
+    face_index Option i32
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError
+```
+
+helper は `item.step` を current action の copy のためだけに読み、`gui_sfnt_simple_glyph_path_sink_action_step_action` で action を取得する。次状態は `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next` を 1 回だけ呼んで得る。`Result::Err` はそのまま伝播し、`Result::Ok next` の場合だけ `GuiSfntSimpleGlyphPathSinkActionConsumerItem action next` を返す。
+
+F4ac は real sink、iterator、contour-wide consumer、callback、mutable sink state、command list、full outline allocation、renderer、rasterizer ではない。`EmitEvent`、`Reject`、`NoAction`、`CloseContour` の payload は解釈せず、packet の `action` に保持する。unsupported や terminal を hidden fallback、silent no-op、`Option::None` に変換してはならない。
+
+F4ac は F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` helper、`Vec` / `push`、loop、renderer、rasterizer、platform API、host text measurement、font fallback を直接呼ばない。後続の real sink はこの packet を consume するが、この phase では consume policy、sink owner、allocation recovery、contour closure、winding / fill rule をまだ定義しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
