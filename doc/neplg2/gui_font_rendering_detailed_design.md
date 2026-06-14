@@ -1134,6 +1134,64 @@ gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index cursor policy
 
 It must not re-parse metadata itself, call internal table helpers directly, bypass F4s, allocate `Vec`, call renderer/platform APIs, rasterize, or consult host font fallback. The helper is only the boundary where checked bytes become a checked one-step sink decision.
 
+### SFNT simple glyph path sink action selection projection
+
+F4u projects an F4t sink step into one explicitly selected action. It is a selection/projection layer for a future sink. It does not mutate a sink, store a sink trait object, allocate an outline list, define callback ownership, repair paths, rasterize, emit render2d commands, or present to a platform backend.
+
+The action slot is a different axis from the event slot:
+
+```text
+GuiSfntSimpleGlyphPathSinkEventSlot:
+    First
+    Second
+
+GuiSfntSimpleGlyphPathSinkActionSlot:
+    Primary
+    Tail
+```
+
+`First` / `Second` selects one of the two command events generated for a contour edge. `Primary` / `Tail` selects one of the two F4t actions attached to an already materialized `GuiSfntSimpleGlyphPathSinkStep`. F4u must not collapse these slots into an integer, a shared enum, or a command index.
+
+The unified action value is:
+
+```text
+GuiSfntSimpleGlyphPathSinkAction:
+    EmitEvent GuiSfntSimpleGlyphPathSinkEvent
+    Reject GuiSfntSimpleGlyphPathSinkRejectReason
+    CloseContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+```
+
+`NoAction` is only the explicit projection of `GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction`. It is not a fallback path, not an unsupported-operation success, and not a hidden no-op. Primary action projection must never return `NoAction`.
+
+Pure projection helpers:
+
+```text
+gui_sfnt_simple_glyph_path_sink_primary_action_as_action primary_action
+    EmitEvent event -> GuiSfntSimpleGlyphPathSinkAction::EmitEvent event
+    Reject reason -> GuiSfntSimpleGlyphPathSinkAction::Reject reason
+
+gui_sfnt_simple_glyph_path_sink_tail_action_as_action tail_action
+    NoTailAction -> GuiSfntSimpleGlyphPathSinkAction::NoAction
+    CloseContour close -> GuiSfntSimpleGlyphPathSinkAction::CloseContour close
+
+gui_sfnt_simple_glyph_path_sink_step_action_at step slot
+    Primary -> primary_action_as_action step.primary_action
+    Tail -> tail_action_as_action step.tail_action
+```
+
+`gui_sfnt_simple_glyph_path_sink_step_action_at` is intentionally total over the two slot variants. It must not return `Option` or `Result`, expose `command_index`, accept a numeric action index, use a default arm, allocate `Vec`, call byte-backed lookup helpers, or duplicate F4t policy rules. It only reads the existing F4t action values and projects them into a unified action type.
+
+The byte-backed helper is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action bytes face_index cursor policy slot
+    -> sink_step = gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index cursor policy
+    -> gui_sfnt_simple_glyph_path_sink_step_action_at sink_step slot
+```
+
+The byte-backed helper must call `gui_sfnt_lookup_simple_glyph_path_sink_step` exactly once. It must not call `gui_sfnt_lookup_simple_glyph_path_contour_step`, `gui_sfnt_lookup_simple_glyph_path_command_pair`, lower contour/curve helpers, `gui_sfnt_parse_metadata`, internal `*_with_tables` helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback. Its only failure channel remains the F4t lookup's `Result::Err GuiSfntParseError`; policy rejection remains `Result::Ok GuiSfntSimpleGlyphPathSinkAction::Reject`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

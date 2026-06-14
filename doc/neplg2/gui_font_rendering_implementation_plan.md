@@ -926,6 +926,57 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4u: sfnt simple glyph path sink action selection projection
+
+目的:
+
+- F4t の `GuiSfntSimpleGlyphPathSinkStep` から、future sink が順に処理する action を enum slot で選べるようにする。
+- `Primary` / `Tail` の action 選択を、F4r/F4s の `First` / `Second` event slot から明確に分離する。
+- `NoTailAction` を明示的な `NoAction` に写し、fallback や silent no-op とは別の typed state として扱う。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionSlot`
+  - `GuiSfntSimpleGlyphPathSinkAction`
+  - action slot の `Clone` / `Copy`
+  - action の `Clone` / `Copy`
+  - `gui_sfnt_simple_glyph_path_sink_action_slot_is_primary`
+  - `gui_sfnt_simple_glyph_path_sink_action_slot_is_tail`
+  - `gui_sfnt_simple_glyph_path_sink_primary_action_as_action`
+  - `gui_sfnt_simple_glyph_path_sink_tail_action_as_action`
+  - `gui_sfnt_simple_glyph_path_sink_step_action_at`
+  - public `gui_sfnt_lookup_simple_glyph_path_sink_action`
+- `GuiSfntSimpleGlyphPathSinkActionSlot` は `Primary` / `Tail` だけを持つ。
+- `GuiSfntSimpleGlyphPathSinkAction` は `EmitEvent` / `Reject` / `CloseContour` / `NoAction` を持つ。
+- primary action projection は `EmitEvent` / `Reject` だけを返し、`NoAction` を返さない。
+- tail action projection は `NoTailAction -> NoAction`、`CloseContour -> CloseContour` だけを行う。
+- `gui_sfnt_simple_glyph_path_sink_step_action_at` は slot の網羅的 `match` で `Primary` または `Tail` を選ぶ。
+- byte-backed public helper は `gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功値に pure action projection を適用する。
+- F4u は `Vec`、`push`、numeric action index、command list、full outline allocation、rasterizer、render2d/backend/platform、font fallback、metadata unwrap bypass、`*_with_tables` bypass を使わない。
+- Source policy で F4u の type set、slot 軸の分離、primary が `NoAction` を返さないこと、tail の `NoAction` 限定、F4t lookup への 1 回委譲を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の cheap typed assertion を拡張する。
+  - `Primary` slot は primary action、`Tail` slot は tail action を選ぶ。
+  - `EmitEvent` / `Reject` / `CloseContour` / `NoAction` が明示的に区別される。
+  - `NoAction` は tail の `NoTailAction` だけから得られる。
+
+完了条件:
+
+- sink action selection は enum / match で表現され、数値 index や fallback branch を持たない。
+- `GuiSfntSimpleGlyphPathSinkActionSlot` は `GuiSfntSimpleGlyphPathSinkEventSlot` と混同されない。
+- primary action projection は `NoAction` を返さない。
+- policy reject は `Result::Err` ではなく `GuiSfntSimpleGlyphPathSinkAction::Reject` として保持される。
+- byte-backed helper は F4t lookup にだけ委譲し、下位 glyph/contour/curve helper を直接呼ばない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
