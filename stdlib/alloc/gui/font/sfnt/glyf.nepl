@@ -2373,6 +2373,26 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal 
         GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
             GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance: summary から 1 step [進/すす]めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は次に消費した action の summary を[持/も]ちます。
+//: - `Rejected` と `EndContour` は parse error ではなく、typed domain terminal として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
+    Continue %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected %GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance \advance:
+        *advance
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance \advance:
+        advance
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -4381,3 +4401,28 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once %fn &Byt
                     Result::Err error
                 Result::Ok consume_step:
                     Result::Ok consume_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once: summary から 1 step [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - summary の state と terminal traversal control を 1 回ずつ[読/よ]みます。
+//: - `Continue` の場合だけ次 consumer item を 1 回[消費/しょうひ]し、次 summary へ[変換/へんかん]します。
+//: - `Rejected` と `EndContour` は parse error ではなく `Result::Ok` の domain terminal として[返/かえ]します。
+//: - full loop、payload direct match、renderer / platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntParseError \bytes\face_index\summary\policy:
+    let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary
+    let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary
+    match terminal:
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consume_step:
+                    let next_summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour

@@ -1959,6 +1959,59 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4ao: sfnt simple glyph path sink action consumer consume summary advance once
+
+目的:
+
+- F4am/F4an の summary boundary を使い、future consumer loop の 1 step advance 境界を作る。
+- `Continue` の場合だけ次 consumer item を 1 つ消費し、次 summary を返す。
+- `Rejected` と `EndContour` は parse error ではなく、`Result::Ok` の domain terminal として返す。
+- F4ao は contour-wide loop、iterator、real sink mutation、byte-backed start traversal、command list、full outline allocation、renderer、rasterizer、platform API にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once`
+- summary advance type は次の 3 variants を持つ。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+- helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary` を 1 回だけ呼ぶ。
+- helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を 1 回だけ呼ぶ。
+- `Continue item` branch だけが `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &item policy` を 1 回だけ呼ぶ。
+- consume-once が `Result::Err error` を返した場合は、その parse error をそのまま返す。
+- consume-once が `Result::Ok consume_step` を返した場合は、`gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を 1 回だけ呼び、`Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary` を返す。
+- `Rejected reason` branch は `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason` を返す。
+- `EndContour` branch は `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour` を返す。
+- helper が直接使ってよい byte-backed lookup は Continue branch の consume-once helper だけである。
+- helper は start helper、start consume-once、consumer item next lookup、F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec`、`push`、full loop、current point、renderer、rasterizer、platform API、host text API、font fallback を直接使わない。
+- Source policy で F4ao docs、summary advance enum、Clone / Copy、helper exact call count、domain terminal `Result::Ok`、lookup / payload / renderer / platform API 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ai synthetic fixture を更新する。
+  - `Rejected` case と `NoAction` case で summary advance-once helper を使い、Rejected / EndContour が `Result::Ok` domain terminal として返ることを検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ak byte-backed fixture も更新する。
+  - first action summary から summary advance-once helper を使い、Continue が次 summary を返し、その次 summary が NoAction / EndContour になることを検査する。
+
+完了条件:
+
+- summary advance-once は full loop ではなく、1 summary から次 summary または domain terminal へ 1 step だけ進める。
+- parse error と domain terminal を混同しない。
+- hidden fallback、silent no-op、new traversal counter、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
