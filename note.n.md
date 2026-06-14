@@ -44,6 +44,44 @@
 - 後続 connector が projection evidence を消費する段階で、`projection_shape_hash` を field から再計算する verifier/helper を追加する。
 - stable nominal key table lookup の sorted index 化、projection result memo、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保てるため後から行える最適化として扱う。
 
+# 2026-06-14 Agent2 GUI font outline coordinate read checkpoint
+
+## scope
+
+- branch: `gui-font-full-point-plan-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5k の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point coordinate read の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5k の read-only boundary、full point value を返さない理由、private getter、validation order を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5k の実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointCoordinate`、`GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind`、`GuiSfntSimpleGlyphOutlinePointCoordinateReadError`、private scalar getter、coordinate read helper を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md` に success、out-of-range、not-ready readiness の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5k source policy を追加し、private `vec::get` helper と public read helper の禁止依存を検査するようにした。
+
+## subagent_review
+
+- Tesla plan review は `PLAN_APPROVED`。F5 storage から full `GuiSfntSimpleGlyphPoint` を復元せず、coordinate pair projection とする方針が承認された。
+- raw scalar slot `vec::get` helper は private に留め、公開 API は typed coordinate read helper だけにするよう指摘された。
+- `scalar_slots_len > y_slot_index` で readiness を検査し、その後 `vec::get` が `None` を返した場合は fallback ではなく structural mismatch として typed error にするよう指摘された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。実装は `scalar_slots_len <= y_slot_index` を `CoordinateNotReady` にしていたが、実装計画の説明が逆になっていたため修正し、source policy にも条件を追加した。
+- Tesla implementation review 2 回目は `REVIEW_APPROVED`。F5k readiness 条件の修正、source policy 固定、tmp JSON / `NUL` を commit しない運用が確認された。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md --no-tree -o tmp_gui_font_outline_point_coordinate_f5k.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5k.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5k は storage に存在する X/Y coordinate pair の read-only projection までであり、on-curve flag、end-of-contour flag、edge/path tag population、outline point stream、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-14 Agent2 GUI font PointY storage/read bridge checkpoint
 
 ## scope
@@ -63111,3 +63149,47 @@ MERGE_APPROVED
 - substituted output `SelfhostTypeId` から canonical type key / final shape hash を作る producer は未接続である。
 - trait bound solver、generic coherence、generic instantiation evidence の materializer accepted path への接続は未実装であり、materializer は引き続き fail-closed である。
 - PrivateCache / PrivateState effect masking、prechecked artifact 接続も未着手である。
+
+## 2026-06-14 GUI font outline doctest split checkpoint
+
+### scope
+
+- branch: `gui-font-outline-doctest-split-20260614`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: timeout を許すための fallback ではなく、巨大 doctest に複数 phase の責務が混在していた根本原因を分割した。`Result` / enum error、owner recovery、platform 非依存、contract と current implementation の分離を維持した。
+
+### implementation
+
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` を F5b storage owner 専用 doctest に戻した。
+- F5c scalar push、F5d region cursor、F5e/F5f contour endpoint、F5g PointX population、F5h PointX reader success/read failure/push failure を専用 doctest file に分割した。
+- PointX reader bridge は 1 file でも 180 秒 compile timeout になったため、success、read failure、push failure の scenario 単位へさらに分けた。aggregate reader doctest は残していない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は split file をすべて読み込み、F5b/F5c/F5d/F5e-F5f/F5g/F5h の test ownership を source policy として固定するようにした。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` の F5 doctest layout と F5c-F5j verification command を、実際の split file layout に合わせて更新した。
+- stdlib behavior は変更していない。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。F5c-F5j の検証 command が旧 storage file を指したままになること、source policy が split ownership を固定しないことを指摘された。
+- Tesla plan review 2: `PLAN_APPROVED`。F5b-F5j の phase-focused doctest layout と source policy ownership assertion の方針が承認された。
+- Tesla follow-up review 1: `PLAN_APPROVED`。PointX が単独 180 秒 timeout したため、F5g population と F5h reader bridge を分ける方針が承認された。
+- Tesla follow-up review 2: `PLAN_APPROVED`。F5h reader bridge がさらに単独 180 秒 timeout したため、success/read failure/push failure の scenario file に分ける方針が承認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_outline_storage_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_scalar_push.n.md --no-tree -o tmp_gui_font_outline_scalar_push_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_region_cursor.n.md --no-tree -o tmp_gui_font_outline_region_cursor_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_contour_endpoint.n.md --no-tree -o tmp_gui_font_outline_contour_endpoint_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x.n.md --no-tree -o tmp_gui_font_outline_point_x_population_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_success.n.md --no-tree -o tmp_gui_font_outline_point_x_reader_success_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_read_failure.n.md --no-tree -o tmp_gui_font_outline_point_x_reader_read_failure_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_push_failure.n.md --no-tree -o tmp_gui_font_outline_point_x_reader_push_failure_split_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md --no-tree -o tmp_gui_font_outline_point_y_split.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_split.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5 outline storage doctest の timeout root cause は phase / scenario split で解消したが、compiler compile time 自体は重い。parallel 実行では heavy doctest 同士が重なると timeout し得るため、CI や runner 側では heavy doctest の scheduling policy を別途改善する余地がある。
+- 次 slice では F5k 以降として PointX/PointY を束ねた full point decode boundary、edge/path tag population、outline point stream、raster mask、render2d command emission へ進む。

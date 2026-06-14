@@ -2485,6 +2485,213 @@ pub fn gui_sfnt_glyf_read_push_point_y %impure fn &ByteBuf impure fn GuiSfntTabl
                     let error %GuiSfntSimpleGlyphPointYReadPushError gui_sfnt_simple_glyph_point_y_read_push_error_push_failed returned_storage cursor point_index point_value push_error_kind_value region_error_kind storage_push_error_kind
                     Result::Err error
 
+//: GuiSfntSimpleGlyphOutlinePointCoordinate: outline storage から[読/よ]める x/y coordinate pair
+//:
+//: [目的/もくてき]:
+//: - F5 storage に[保存/ほぞん]済みの PointX / PointY scalar slot から、1 logical point の x/y だけを[運/はこ]びます。
+//: - on-curve flag と end-of-contour flag はこの型に[含/ふく]めません。まだ storage に[保存/ほぞん]されていない情報を[推測/すいそく]しないためです。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointCoordinate:
+    glyph %GuiGlyphId
+    point_index %i32
+    x %i32
+    y %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointCoordinate:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointCoordinate GuiSfntSimpleGlyphOutlinePointCoordinate \point:
+        *point
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointCoordinate:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointCoordinate GuiSfntSimpleGlyphOutlinePointCoordinate \point:
+        point
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate: coordinate pair value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate %fn GuiGlyphId fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointCoordinate \glyph\point_index\x\y:
+    GuiSfntSimpleGlyphOutlinePointCoordinate glyph point_index x y
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_glyph: coordinate の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_glyph %fn &GuiSfntSimpleGlyphOutlinePointCoordinate GuiGlyphId \point:
+    *field::get_ref point "glyph"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_index: logical point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_index %fn &GuiSfntSimpleGlyphOutlinePointCoordinate i32 \point:
+    *field::get_ref point "point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_x: x coordinate scalar を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_x %fn &GuiSfntSimpleGlyphOutlinePointCoordinate i32 \point:
+    *field::get_ref point "x"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_y: y coordinate scalar を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_y %fn &GuiSfntSimpleGlyphOutlinePointCoordinate i32 \point:
+    *field::get_ref point "y"
+
+//: GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind: coordinate read [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PointIndexOutOfRange
+    CoordinateNotReady
+    ScalarSlotMissing
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointCoordinateReadError: coordinate read failure の value-only context
+//:
+//: [目的/もくてき]:
+//: - read-only helper なので storage owner は[持/も]ちません。
+//: - capacity と observed slot count/len/cap を[保持/ほじ]し、既定値へ[置換/ちかん]せず[診断/しんだん]できるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointCoordinateReadError:
+    kind %GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    point_index %i32
+    scalar_slot_count %i32
+    scalar_slots_len %i32
+    scalar_slots_cap %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointCoordinateReadError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError GuiSfntSimpleGlyphOutlinePointCoordinateReadError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointCoordinateReadError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointCoordinateReadError GuiSfntSimpleGlyphOutlinePointCoordinateReadError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error: read error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error %fn GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointCoordinateReadError \kind\capacity\point_index\scalar_slot_count\scalar_slots_len\scalar_slots_cap:
+    GuiSfntSimpleGlyphOutlinePointCoordinateReadError kind capacity point_index scalar_slot_count scalar_slots_len scalar_slots_cap
+
+fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage %fn &GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind fn i32 GuiSfntSimpleGlyphOutlinePointCoordinateReadError \storage\kind\point_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage
+    let scalar_slot_count %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slot_count storage
+    let scalar_slots_len %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_len storage
+    let scalar_slots_cap %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap storage
+    gui_sfnt_simple_glyph_outline_point_coordinate_read_error kind capacity point_index scalar_slot_count scalar_slots_len scalar_slots_cap
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error_kind: read error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_kind %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error_capacity: error context の capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_capacity %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error_point_index: requested point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_point_index %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError i32 \error:
+    *field::get_ref error "point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error_scalar_slot_count: expected scalar slot count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_scalar_slot_count %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError i32 \error:
+    *field::get_ref error "scalar_slot_count"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error_scalar_slots_len: observed scalar slot len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_scalar_slots_len %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError i32 \error:
+    *field::get_ref error "scalar_slots_len"
+
+//: gui_sfnt_simple_glyph_outline_point_coordinate_read_error_scalar_slots_cap: observed scalar slot cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_coordinate_read_error_scalar_slots_cap %fn &GuiSfntSimpleGlyphOutlinePointCoordinateReadError i32 \error:
+    *field::get_ref error "scalar_slots_cap"
+
+fn gui_sfnt_simple_glyph_outline_storage_scalar_slot_get %fn &GuiSfntSimpleGlyphOutlineStorage fn i32 Option i32 \storage\index:
+    let scalar_slots %&Vec i32 field::get_ref storage "scalar_slots"
+    vec::get scalar_slots index
+
+//: gui_sfnt_simple_glyph_outline_storage_read_point_coordinate: storage から x/y coordinate pair を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - storage は borrow し、owner を[消費/しょうひ]しません。
+//: - `PointX` と `PointY` region が required y slot まで population 済みの場合だけ coordinate を[返/かえ]します。
+//: - full point flags、byte decode、path/raster/render、platform / host API へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_read_point_coordinate %fn &GuiSfntSimpleGlyphOutlineStorage fn i32 Result GuiSfntSimpleGlyphOutlinePointCoordinate GuiSfntSimpleGlyphOutlinePointCoordinateReadError \storage\point_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::StorageCapacityInvalid point_index
+            Result::Err error
+        else:
+            match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow _overflow_capacity:
+                    let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::StorageCapacityInvalid point_index
+                    Result::Err error
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits expected_scalar_slot_count:
+                    let scalar_slot_count %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slot_count storage
+                    if ne scalar_slot_count expected_scalar_slot_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::ScalarSlotCountMismatch point_index
+                            Result::Err error
+                        else:
+                            let scalar_slots_cap %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap storage
+                            if ne scalar_slots_cap scalar_slot_count:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::ScalarStorageCapacityMismatch point_index
+                                    Result::Err error
+                                else:
+                                    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                                    if or lt point_index 0 ge point_index point_count:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::PointIndexOutOfRange point_index
+                                            Result::Err error
+                                        else:
+                                            let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+                                            let x_slot_index %i32 add contour_count point_index
+                                            let y_slot_index %i32 add add contour_count point_count point_index
+                                            let scalar_slots_len %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_len storage
+                                            if le scalar_slots_len y_slot_index:
+                                                then:
+                                                    let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::CoordinateNotReady point_index
+                                                    Result::Err error
+                                                else:
+                                                    match gui_sfnt_simple_glyph_outline_storage_scalar_slot_get storage x_slot_index:
+                                                        Option::None:
+                                                            let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::ScalarSlotMissing point_index
+                                                            Result::Err error
+                                                        Option::Some x:
+                                                            match gui_sfnt_simple_glyph_outline_storage_scalar_slot_get storage y_slot_index:
+                                                                Option::None:
+                                                                    let error %GuiSfntSimpleGlyphOutlinePointCoordinateReadError gui_sfnt_simple_glyph_outline_point_coordinate_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind::ScalarSlotMissing point_index
+                                                                    Result::Err error
+                                                                Option::Some y:
+                                                                    let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                                                                    let coordinate %GuiSfntSimpleGlyphOutlinePointCoordinate gui_sfnt_simple_glyph_outline_point_coordinate glyph point_index x y
+                                                                    Result::Ok coordinate
+
 //: GuiSfntSimpleGlyphPoint: simple glyph の 1 logical point
 //:
 //: [目的/もくてき]:
