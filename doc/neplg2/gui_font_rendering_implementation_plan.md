@@ -1422,6 +1422,69 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4ae: sfnt simple glyph path sink action apply state
+
+目的:
+
+- F4ac/F4ad の consumer item が保持する `GuiSfntSimpleGlyphPathSinkAction` を 1 action だけ消費し、明示的な domain status と count state に変換する。
+- `Reject`、`CloseContour`、`NoAction` を hidden fallback や silent no-op にせず、enum status として future sink に渡せる境界を作る。
+- F4ae は contour-wide traversal、iterator、real sink mutation、callback、command list、full outline allocation、renderer、rasterizer にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionApplyStatus`
+  - `GuiSfntSimpleGlyphPathSinkActionApplyState`
+  - `GuiSfntSimpleGlyphPathSinkActionApplyStep`
+  - constructor / accessor helper
+  - `gui_sfnt_simple_glyph_path_sink_action_apply_state_new`
+  - `gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action`
+- enum は次にする。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    EmittedEvent GuiSfntSimpleGlyphPathSinkEvent
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    ClosedContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+```
+
+- state は次の 4 count を持つ。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionApplyState:
+    emitted_event_count i32
+    reject_count i32
+    close_contour_count i32
+    no_action_count i32
+```
+
+- helper は `GuiSfntSimpleGlyphPathSinkAction` を `match` し、各 variant で対応する count だけを `add count 1` する。
+- `Reject` は `Result::Err` へ変換しない。typed reject status として `Rejected reason` を返す。
+- `NoAction` は silent no-op ではない。`NoAction` status と `no_action_count + 1` を返す。
+- count state は diagnostic / contract 検査用であり、cursor、next state、traversal authority として使わない。
+- helper は F4ad consumer next、F4ac consumer item lookup、F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec`、`push`、loop、current point、renderer、rasterizer、platform API、host text API を直接呼ばない。
+- Source policy で F4ae docs、enum / struct、Clone/Copy、constructor / accessor、apply helper body、4 variant の count 更新、禁止 helper、`Result` / `Option` / allocation / renderer 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の typed doctest を拡張する。
+  - `EmitEvent`、`Reject`、`CloseContour`、`NoAction` を順に apply し、それぞれの status と count が明示的に更新されることを確認する。
+  - `NoAction` が test 上でも no-op ではなく `no_action_count` を進めることを確認する。
+
+完了条件:
+
+- action apply helper は 1 action を 1 status に変換し、1 counter だけを更新する。
+- `Rejected` と `NoAction` は成功系の domain status として保持される。
+- traversal authority は F4ac/F4ad に残り、F4ae は cursor / next state を決めない。
+- hidden fallback、silent no-op、new traversal loop、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

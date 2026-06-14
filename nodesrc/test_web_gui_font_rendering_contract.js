@@ -2857,6 +2857,91 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F4ad action consumer item next lookup body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph path sink action apply state[\s\S]*GuiSfntSimpleGlyphPathSinkActionApplyStatus[\s\S]*`NoAction` は silent no-op ではなく[\s\S]*traversal authority ではない/,
+    "font spec must define F4ae action apply status as explicit consumed status without traversal authority",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph path sink action apply state[\s\S]*first boundary that consumes the current action payload[\s\S]*`Rejected` is a domain status, not `Result::Err`[\s\S]*`NoAction` is also a consumed status/,
+    "font detailed design must define F4ae action consumption as typed status, not Result or no-op",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4ae: sfnt simple glyph path sink action apply state[\s\S]*`Reject` は `Result::Err` へ変換しない[\s\S]*`NoAction` は silent no-op ではない[\s\S]*traversal authority として使わない/,
+    "font implementation plan must define F4ae action apply state and forbid hidden no-op traversal state",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkActionApplyStatus:\s+EmittedEvent\s+%GuiSfntSimpleGlyphPathSinkEvent\s+Rejected\s+%GuiSfntSimpleGlyphPathSinkRejectReason\s+ClosedContour\s+%GuiSfntSimpleGlyphPathContourClose\s+NoAction/,
+    "alloc/gui/font/sfnt/glyf F4ae must expose typed action apply status",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathSinkActionApplyState:\s+emitted_event_count\s+%i32\s+reject_count\s+%i32\s+close_contour_count\s+%i32\s+no_action_count\s+%i32/,
+    "alloc/gui/font/sfnt/glyf F4ae must expose four-count action apply state",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathSinkActionApplyStep:\s+state\s+%GuiSfntSimpleGlyphPathSinkActionApplyState\s+status\s+%GuiSfntSimpleGlyphPathSinkActionApplyStatus/,
+    "alloc/gui/font/sfnt/glyf F4ae must expose state plus status apply step",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionApplyStatus:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionApplyStatus:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionApplyState:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionApplyState:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionApplyStep:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionApplyStep:/,
+    "alloc/gui/font/sfnt/glyf F4ae apply status/state/step must implement Clone and Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphPathSinkActionApplyState") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_new %fn void GuiSfntSimpleGlyphPathSinkActionApplyState") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_apply_step %fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiSfntSimpleGlyphPathSinkActionApplyStatus GuiSfntSimpleGlyphPathSinkActionApplyStep") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_apply_step_state %fn &GuiSfntSimpleGlyphPathSinkActionApplyStep GuiSfntSimpleGlyphPathSinkActionApplyState") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_apply_step_status %fn &GuiSfntSimpleGlyphPathSinkActionApplyStep GuiSfntSimpleGlyphPathSinkActionApplyStatus"),
+    "alloc/gui/font/sfnt/glyf F4ae must expose apply state/step constructors and accessors",
+);
+assert(
+    guiFontSfntPathTests.includes("action_apply_ok") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action") &&
+        guiFontSfntPathTests.includes("GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction") &&
+        guiFontSfntPathTests.includes("apply_state_counts_match &no_action_apply_state 1 1 1 1"),
+    "gui font sfnt path doctest must cover F4ae explicit action apply status and NoAction count",
+);
+const pathSinkActionApply = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action");
+for (const fragment of [
+    "let emitted_event_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &state",
+    "let reject_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count &state",
+    "let close_contour_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_close_contour_count &state",
+    "let no_action_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &state",
+    "GuiSfntSimpleGlyphPathSinkAction::EmitEvent event:",
+    "GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent event",
+    "GuiSfntSimpleGlyphPathSinkAction::Reject reason:",
+    "GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected reason",
+    "GuiSfntSimpleGlyphPathSinkAction::CloseContour close:",
+    "GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour close",
+    "GuiSfntSimpleGlyphPathSinkAction::NoAction:",
+    "GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction",
+]) {
+    assert(pathSinkActionApply.includes(fragment), `alloc/gui/font/sfnt/glyf F4ae action apply helper must include ${fragment}`);
+}
+for (const fragment of [
+    "gui_sfnt_simple_glyph_path_sink_action_apply_state add emitted_event_count 1 reject_count close_contour_count no_action_count",
+    "gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count add reject_count 1 close_contour_count no_action_count",
+    "gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count reject_count add close_contour_count 1 no_action_count",
+    "gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count reject_count close_contour_count add no_action_count 1",
+]) {
+    assert(pathSinkActionApply.includes(fragment), `alloc/gui/font/sfnt/glyf F4ae action apply helper must update exactly one count for ${fragment}`);
+}
+assertNoMatch(
+    pathSinkActionApply,
+    /\b(?:Result|Option|Vec|push|action_index|command_index|loop_index|current_point|cursor|next_cursor|GuiSfntSimpleGlyphPathSinkActionConsumerItem|GuiSfntSimpleGlyphPathSinkActionItemNext|GuiSfntSimpleGlyphPathSinkActionConsumerItemNext|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4ae action apply helper must not allocate, traverse, lookup, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathSinkActionApply,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4ae action apply helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,
