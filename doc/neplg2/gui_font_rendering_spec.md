@@ -2244,6 +2244,151 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point read
+
+F5n は F5k の coordinate、F5l の endpoint marker、F5m の flag marker を合成し、既存の `GuiSfntSimpleGlyphPoint` を read-only に作る boundary である。ここでは edge/path storage、outline stream、rasterizer、renderer、platform API、host text API へ進まない。
+
+F5n は storage と stream を混ぜて読むため、component read より前に shared precondition を検査する。
+
+```text
+1. storage capacity と stream topology を読む
+2. storage capacity shape を検査する
+3. storage glyph と stream glyph が一致することを検査する
+4. storage contour_count と stream contour_count が一致することを検査する
+5. storage point_count と stream point_count が一致することを検査する
+6. point_index が shared point_count の範囲内であることを検査する
+7. F5k coordinate read を 1 回だけ呼ぶ
+8. F5l endpoint marker read を 1 回だけ呼ぶ
+9. F5m flag marker read を 1 回だけ呼ぶ
+10. component glyph / point_index が shared request と一致することを fail-closed に検査する
+11. GuiSfntSimpleGlyphPoint を作る
+```
+
+shared precondition の失敗は component error に潰さない。たとえば `point_index == point_count` は `CoordinateReadFailed` ではなく、F5n の `PointIndexOutOfRange` として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    PointIndexOutOfRange
+    CoordinateReadFailed
+    EndpointMarkerReadFailed
+    FlagReadFailed
+    ComponentGlyphMismatch
+    ComponentPointIndexMismatch
+```
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadError:
+    kind GuiSfntSimpleGlyphOutlinePointReadErrorKind
+    point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    coordinate_error Option GuiSfntSimpleGlyphOutlinePointCoordinateReadError
+    endpoint_error Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError
+    flag_error Option GuiSfntParseError
+```
+
+F5n の成功値は次の既存型である。
+
+```text
+GuiSfntSimpleGlyphPoint:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+    on_curve bool
+    end_of_contour bool
+```
+
+F5n は次を直接呼ばない。
+
+```text
+vec::
+raw scalar slot getter
+x/y coordinate byte decode
+endpoint scalar scan loop
+flag scan loop
+edge / path helpers
+render / raster / platform / host APIs
+```
+
+### SFNT simple glyph outline point read step
+
+F5o は F5n の full point read boundary を、allocation なしの cursor step として反復できるようにする段階である。ここでは `Vec GuiSfntSimpleGlyphPoint` を作らず、edge/path storage、outline stream、rasterizer、renderer、platform API、host text API へ進まない。
+
+cursor は次に読む logical point index だけを持つ。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadCursor:
+    next_point_index i32
+```
+
+step は point を返す場合と、正常終端を返す場合を enum status で分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadStepStatus:
+    Point
+    End
+
+GuiSfntSimpleGlyphOutlinePointReadStep:
+    status GuiSfntSimpleGlyphOutlinePointReadStepStatus
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    next_cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    point Option GuiSfntSimpleGlyphPoint
+```
+
+`status = Point` のとき `point` は `Some` である。`status = End` のとき `point` は `None` であり、`cursor` と `next_cursor` はどちらも `point_count` を指す。終端は失敗ではない。ただし、終端成功を返す前に storage / stream の shared precondition は必ず検査する。これにより、forged storage / stream mismatch を `End` として隠さない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadStepErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    PointReadFailed
+
+GuiSfntSimpleGlyphOutlinePointReadStepError:
+    kind GuiSfntSimpleGlyphOutlinePointReadStepErrorKind
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    point_error Option GuiSfntSimpleGlyphOutlinePointReadError
+```
+
+`gui_sfnt_simple_glyph_outline_storage_read_point_step` は次の順序を守る。
+
+```text
+1. storage capacity と stream topology を読む
+2. storage capacity shape を検査する
+3. storage glyph と stream glyph が一致することを検査する
+4. storage contour_count と stream contour_count が一致することを検査する
+5. storage point_count と stream point_count が一致することを検査する
+6. cursor.next_point_index を読む
+7. next_point_index < 0 または next_point_index > point_count なら CursorOutOfRange
+8. next_point_index == point_count なら End step を返す
+9. next_point_index < point_count なら F5n を 1 回だけ呼ぶ
+10. F5n の失敗は PointReadFailed として保持する
+11. F5n の成功値を Some に入れ、next_cursor = next_point_index + 1 の Point step を返す
+```
+
+F5o は F5n だけに依存し、F5k / F5l / F5m やその下位 loop を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_point_coordinate
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop
+gui_sfnt_glyf_read_point_flag_from_stream_loop
+gui_sfnt_glyf_read_point_flag_run_or_continue
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
