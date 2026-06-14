@@ -453,7 +453,7 @@ fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result %
 fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitOperationDropNoEscapeProofTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \type_id\root\status:
     match selfhost_memo_trait_operation_drop_no_escape_proof_table_new:
         Result::Ok table0:
-            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id 750101 root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
             let record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key status
             selfhost_memo_trait_operation_drop_no_escape_proof_table_push table0 record
         Result::Err alloc_error:
@@ -463,7 +463,7 @@ fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_res
 fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof_table_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationDropNoEscapeProofTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \type_id\root:
     match selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result type_id root SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
         Result::Ok table1:
-            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id 750101 root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
             let record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven
             selfhost_memo_trait_operation_drop_no_escape_proof_table_push table1 record
         Result::Err e:

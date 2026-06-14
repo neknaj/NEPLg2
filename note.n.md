@@ -1,3 +1,61 @@
+# 2026-06-14 Agent selfhost Drop proof origin key hardening checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、source-derived authority 排除、pure core / impure owner boundary、探索範囲削減、丁寧な doc comment、試作段階でも設計負債を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / Drop no-escape proof key の module-local HIR root origin hardening
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl no-escape proof boundary
+- decision: MERGE_APPROVED after focused doctest, source policy warn-only run, issue/doc/todo update, and two subagent reviews.
+- policy/spec:
+  - `SelfhostHirExprId` は module-local な id なので、Drop impl fact と no-escape proof key は `SelfhostTypeId` と Drop body root だけでは proof reuse の境界として不足する。
+  - `body_module_fingerprint` を Drop impl fact と no-escape proof key に含め、`SelfhostTypeId + body_module_fingerprint + Drop body root + effect + original escape state` を no-escape proof の照合 key とする。
+  - `body_module_fingerprint == 0` は placeholder origin として Drop impl fact table push / no-escape proof table push の両方で fail-closed に拒否する。
+  - `body_module_fingerprint` は proof 成功の根拠ではなく、module-local root id の origin token である。proof authority は typed Drop impl fact と typed no-escape proof record に限定する。
+  - source text、span、lexeme、display name、diagnostic text、module path、root id だけから Drop body effect や no-escape を推測しない。
+- implementation/test:
+  - `SelfhostMemoTraitOperationDropImplFact` に `body_module_fingerprint` を保持し、builder / orchestrator / connector の引き回しを更新した。
+  - Drop impl fact table push は `body_module_fingerprint == 0` を `BodyModuleFingerprintPlaceholder` として拒否し、消費した table owner を閉じる。
+  - `SelfhostMemoTraitOperationDropNoEscapeProofKey` に `body_module_fingerprint` を追加し、proof key equality と fact key construction を更新した。
+  - no-escape proof table push は `body_module_fingerprint == 0` を `ProofBodyModuleFingerprintPlaceholder` として拒否し、消費した proof table owner を閉じる。
+  - Stage0 に「同じ `SelfhostTypeId` / root / effect / escape だが module fingerprint だけが違う proof は適用しない」確認を追加した。
+  - `memo_trait_operation_drop_impl_resolver.nepl` と `memo_trait_operation_drop_no_escape_gate.nepl` の error equality を nested match から variant code + payload code 比較へ置き換えた。これは variant 増加時の selfhost compile 探索範囲を抑えるための構造変更である。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md`、関連 source policy contract を更新した。
+- subagent_review:
+  - subagent review は McClintock と Popper の独立確認を採用した。
+  - subagent_review_ids: `019ec28c-fc1e-71a2-8fe3-396ab4d80401`, `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`
+  - subagent_review_count: 2
+  - McClintock の blocker: `body_module_fingerprint` が raw `i32` で placeholder `0` のまま通ると、module-local `SelfhostHirExprId` の proof key collision をまだ防げない。対応として Drop impl fact table push と no-escape proof table push で `0` を fail-closed に拒否した。
+  - Popper の required wording fix: `todo.md` の `Resource IR escape proof` stale 表現を `actual Resource IR no-escape proof producer` に正規化した。
+  - Popper の non-blocker: test failure message の Drop body root identity だけの表現を body module fingerprint と root identity の両方に更新した。
+  - re-review: blocker なし。McClintock は placeholder rejection、proof key equality、same-root different-module fixture、typed materializer origin propagation、docs/issues の proof boundary 説明を確認済みとした。
+- source_policy:
+  - required and updated.
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js` は body module fingerprint の doc / placeholder rejection / equality helper を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` は proof key の module fingerprint、proof table push の placeholder rejection、same-root different-module mismatch fixture、line count / doc comment length limit 禁止を確認する。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl -o tmp/selfhost_public_surface_drop_candidate_doctest.json --no-tree -j 1 --dist web/dist --assert-io` pass。直前に 60 秒 timeout していた module は 51 秒で通過した。
+  - 検証済み: `node nodesrc/tests.js -i ...7 selfhost Drop origin modules... -o tmp/selfhost_drop_origin_doctest.json --no-tree -j 1 --dist web/dist --assert-io` pass、7/7。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only`
+    - exit code は 0 である。
+    - 既存 warning として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` が残っている。
+    - 今回変更した selfhost contract 群は runner 内でも通過している。
+    - Node の WASI ExperimentalWarning は環境由来の既存 warning として扱う。
+- residual:
+  - actual Resource IR no-escape proof producer は未実装である。
+  - complete public surface 由来の no-drop absence proof boundary は未実装である。
+  - generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+  - Drop impl fact table / proof table の sorted index 化、stage0 fixture 分割、nested traversal memoization は、今回固定した typed origin / proof key / owner cleanup contract を保って後からできる最適化として扱う。
+
 # 2026-06-14 Agent selfhost public impl surface operation proof orchestrator checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed Result / enum error、match の網羅性、pure core / impure owner boundary、DAG、source-derived authority 排除、丁寧な doc comment、試作段階でも設計負債を残さない方針、行数制限 / doc comment 長制限禁止を守る。

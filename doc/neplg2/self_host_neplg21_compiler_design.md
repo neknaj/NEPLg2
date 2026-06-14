@@ -1703,7 +1703,11 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_f
 
 この checkpoint では `SelfhostMemoTraitOperationDropImplFact` に `body_root %SelfhostHirExprId` を追加し、Drop body identity を fact table に保持するようにした。`body_root` は HIR payload を走査する authority ではなく、Resource proof が対象にした Drop body と fact table の Drop body を照合するための typed identity payload である。Drop impl resolver、Drop impl fact table builder、operation body check resolver はこの field を保持するように更新した。
 
-no-escape proof key は `SelfhostTypeId`、`SelfhostHirExprId`、`SelfhostEffectKind`、`SelfhostEffectEscapeState` の組である。`SelfhostTypeId` だけで proof を再利用すると、同じ型に対する別 Drop body や別 effect summary の proof を流用できてしまうため禁止する。source text、span、lexeme、display name、diagnostic text、module path、payload hash、public surface hash は accepted authority にしない。
+2026-06-14 follow-up review では、`SelfhostHirExprId` が HIR module 内の expression table index であり、module をまたいだ安定 identity ではないことを確認した。そのため `SelfhostMemoTraitOperationDropImplFact` と `SelfhostMemoTraitOperationDropNoEscapeProofKey` に `body_module_fingerprint %i32` を追加し、Drop body root を「body module fingerprint + HIR root id」の組として扱うように強化した。これは Resource IR no-escape proof producer の実装ではなく、producer が将来作る proof status を誤った module の同じ root id へ再利用しないための typed origin boundary である。
+
+no-escape proof key は `SelfhostTypeId`、Drop body module fingerprint、Drop body root、`SelfhostEffectKind`、`SelfhostEffectEscapeState` の組である。`SelfhostTypeId` だけ、または `SelfhostTypeId + Drop body root` だけで proof を再利用すると、同じ型に対する別 Drop body、別 module の同じ HIR root index、別 effect summary の proof を流用できてしまうため禁止する。source text、span、lexeme、display name、diagnostic text、module path、payload hash、public surface hash は accepted authority にしない。
+
+`body_module_fingerprint == 0` は placeholder origin として拒否する。Drop impl fact table push は placeholder origin を持つ fact を受け取った時点で table owner を閉じて fail-closed にし、no-escape proof table push も placeholder origin を持つ proof record を保存しない。これにより、module-local HIR root id の衝突を避けるために追加した origin key が、未初期化または未 materialize の placeholder 値によって無効化されることを防ぐ。
 
 gate が proof lookup を行うのは `InternalAlloc + NotApplicable` の fact だけである。matching proof status が `Proven` なら `NoEscapeProven` へ更新し、`Refuted` なら `MayEscape` へ更新する。`Missing` / `Unknown`、または matching proof が無い場合は `NotApplicable` のまま残し、後続 purity gate が fail-closed に扱えるようにする。入力 fact がこの gate より前に `InternalAlloc + NoEscapeProven` を持っていた場合は `UnexpectedPreProvenNoEscape` として拒否し、別 boundary が no-escape を合成する bypass を認めない。`Pure` / `UnsafeMemory` / `ExternalIo` / `Nondet` は proof table を見ずに pass-through し、observable effect を弱めない。
 
@@ -1711,7 +1715,7 @@ gate が proof lookup を行うのは `InternalAlloc + NotApplicable` の fact �
 
 source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、proof key field、duplicate proof rejection、pre-proven input rejection、Missing / Unknown fail-closed、Drop evidence / aggregate proof / proof store 合成禁止、source-derived authority 禁止、Clone / Copy impl の typed-payload-only doc、line count / doc comment length cap 禁止を確認する。
 
-この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table の sorted index 化、type/body-root bucket 化、Drop impl fact table lookup の sorted index 化、HIR traversal explicit stack 化 / subtree memoization は、今回固定した key equality / duplicate rejection / fail-closed status contract を保って後から行える最適化として扱う。
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table の sorted index 化、type/module/root bucket 化、Drop impl fact table lookup の sorted index 化、HIR traversal explicit stack 化 / subtree memoization は、今回固定した key equality / origin equality / placeholder rejection / duplicate rejection / fail-closed status contract を保って後から行える最適化として扱う。
 
 ## 2026-06-14 MemoKey / MemoValue Drop candidate connector checkpoint
 

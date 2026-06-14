@@ -13,7 +13,7 @@
 //: - effect checker が失敗した場合、table owner はまだ resolver push に渡されていないため、この module が `selfhost_memo_trait_operation_drop_impl_table_free` で閉じます。
 //: - table push が失敗した場合、既存 resolver の `selfhost_memo_trait_operation_drop_impl_table_push` が `Vec` owner を回収して閉じます。この module は古い table owner を二重解放しません。
 //: - `Result::Err` を受け取った caller は、渡した table owner を再利用してはいけません。success / failure のどちらでも owner の責務はこの boundary 内で完結します。
-//: - accepted fact は `SelfhostTypeId`、HIR root、fuel、HIR payload の `SelfhostEffectKind` / child range、effect summary の `SelfhostEffectEscapeState` だけから作ります。source text、span、lexeme、display name、diagnostic text、module path から Drop の有無や purity を推測しません。
+//: - accepted fact は `SelfhostTypeId`、HIR module origin fingerprint、HIR root、fuel、HIR payload の `SelfhostEffectKind` / child range、effect summary の `SelfhostEffectEscapeState` だけから作ります。source text、span、lexeme、display name、diagnostic text、module path から Drop の有無や purity を推測しません。
 //: - この module は Drop evidence、operation evidence record、aggregate proof status、Resource IR no-escape proof、PrivateCache / PrivateState masking、backend artifact、proof store、public surface scanning を作りません。
 //:
 //: [現状/げんじょう]:
@@ -147,22 +147,24 @@ fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_table_error %fn Se
 //: selfhost_memo_trait_operation_drop_impl_fact_from_summary: effect summary を Drop impl fact へ[写/うつ]す
 //:
 //: [契約/けいやく]:
-//: - `summary` の effect / escape と、その summary が由来する Drop body root をそのまま fact に保持します。
+//: - `summary` の effect / escape と、その summary が由来する Drop body root と module origin をそのまま fact に保持します。
 //: - `InternalAlloc` の `NotApplicable` を `NoEscapeProven` に変えたり、`PureDrop` evidence を合成したりしません。
-fn selfhost_memo_trait_operation_drop_impl_fact_from_summary %fn SelfhostTypeId fn SelfhostHirExprId fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationDropImplFact \type_id\root\summary:
-    selfhost_memo_trait_operation_drop_impl_fact_new type_id root summary.effect summary.escape
+fn selfhost_memo_trait_operation_drop_impl_fact_from_summary %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationDropImplFact \type_id\body_module_fingerprint\root\summary:
+    selfhost_memo_trait_operation_drop_impl_fact_new type_id body_module_fingerprint root summary.effect summary.escape
 
 //: selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result: Drop impl body root 由来 fact を table owner へ[追加/ついか]する
 //:
 //: [契約/けいやく]:
 //: - `table` はこの関数が消費します。成功時は追加後の table owner を返します。
+//: - `body_module_fingerprint` は caller が public impl materializer / resolver record から渡す HIR arena origin です。`module` borrow の field から読み直さず、proof key はこの値と root id の両方を照合します。
+//: - `body_module_fingerprint == 0` は下位 Drop impl fact table push が placeholder origin として拒否します。
 //: - effect checker が失敗した場合は、`table` はまだ push に渡されていないため、この関数が必ず閉じます。
 //: - table push が失敗した場合は、resolver table push が owner buffer を回収して閉じるため、この関数は二重解放しません。
 //: - Drop impl absent proof、Drop evidence、operation evidence record、Resource IR no-escape proof はこの関数では作りません。
-pub fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind \table\module\type_id\root\fuel:
+pub fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind \table\module\type_id\body_module_fingerprint\root\fuel:
     match selfhost_memo_trait_operation_method_body_effect_check_result module root fuel:
         Result::Ok summary:
-            let fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_from_summary type_id root summary
+            let fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_from_summary type_id body_module_fingerprint root summary
             match selfhost_memo_trait_operation_drop_impl_table_push table fact:
                 Result::Ok next_table:
                     Result::Ok next_table
@@ -281,10 +283,10 @@ fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_len_and_fre
     Result::Ok table_record_count
 
 //: selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len: 1 件 push の len result を[作/つく]る
-fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn i32 Result Result i32 SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind StdErrorKind \module\type_id\root\fuel:
+fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId impure fn i32 Result Result i32 SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind StdErrorKind \module\type_id\body_module_fingerprint\root\fuel:
     match selfhost_memo_trait_operation_drop_impl_table_new:
         Result::Ok table:
-            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module type_id root fuel:
+            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module type_id body_module_fingerprint root fuel:
                 Result::Ok next_table:
                     Result::Ok selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_len_and_free next_table
                 Result::Err error:
@@ -293,12 +295,12 @@ fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push
             Result::Err StdErrorKind::InvalidOperation
 
 //: selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_two_push_len: 2 件連続 push の len result を[作/つく]る
-fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_two_push_len %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result Result i32 SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind StdErrorKind \module\type_id\pure_id\external_id:
+fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_two_push_len %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result Result i32 SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind StdErrorKind \module\type_id\body_module_fingerprint\pure_id\external_id:
     match selfhost_memo_trait_operation_drop_impl_table_new:
         Result::Ok table0:
-            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table0 module type_id pure_id 16:
+            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table0 module type_id body_module_fingerprint pure_id 16:
                 Result::Ok table1:
-                    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table1 module selfhost_type_id_new 9702 external_id 16:
+                    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table1 module selfhost_type_id_new 9702 body_module_fingerprint external_id 16:
                         Result::Ok table2:
                             Result::Ok selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_len_and_free table2
                         Result::Err error:
@@ -309,10 +311,10 @@ fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_two_push_le
             Result::Err StdErrorKind::InvalidOperation
 
 //: selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_push_and_resolve: push した Drop impl fact を resolver 経由で[読/よ]み[返/かえ]す
-fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_push_and_resolve %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId Result Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind StdErrorKind \module\type_id\root:
+fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_push_and_resolve %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn i32 impure fn SelfhostHirExprId Result Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind StdErrorKind \module\type_id\body_module_fingerprint\root:
     match selfhost_memo_trait_operation_drop_impl_table_new:
         Result::Ok table0:
-            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table0 module type_id root 16:
+            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table0 module type_id body_module_fingerprint root 16:
                 Result::Ok table1:
                     let check_result %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &table1 type_id
                     selfhost_memo_trait_operation_drop_impl_table_free table1
@@ -328,15 +330,16 @@ fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_push_and_re
 
 //: selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_finish: 構築済み HIR module で代表 push を[実行/じっこう]する
 fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_finish %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropImplFactTableBuilderStage0Summary StdErrorKind \module\pure_id\external_id\alloc_id\error_id\type_id:
-    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len &module type_id pure_id 16:
+    let body_module_fingerprint %i32 70101
+    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len &module type_id body_module_fingerprint pure_id 16:
         Result::Ok pure_push_len:
-            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_two_push_len &module type_id pure_id external_id:
+            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_two_push_len &module type_id body_module_fingerprint pure_id external_id:
                 Result::Ok external_after_pure_push_len:
-                    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_push_and_resolve &module type_id alloc_id:
+                    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_push_and_resolve &module type_id body_module_fingerprint alloc_id:
                         Result::Ok internal_alloc_check:
-                            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len &module type_id error_id 16:
+                            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len &module type_id body_module_fingerprint error_id 16:
                                 Result::Ok error_expr_rejected:
-                                    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len &module type_id selfhost_hir_expr_id_new 9999 16:
+                                    match selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_single_push_len &module type_id body_module_fingerprint selfhost_hir_expr_id_new 9999 16:
                                         Result::Ok missing_root_rejected:
                                             selfhost_hir_module_free module
                                             Result::Ok selfhost_memo_trait_operation_drop_impl_fact_table_builder_stage0_summary_new pure_push_len external_after_pure_push_len internal_alloc_check error_expr_rejected missing_root_rejected

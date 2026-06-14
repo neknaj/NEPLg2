@@ -96,9 +96,11 @@ assertOrdered(
 );
 assert.ok(
     source.includes("`SelfhostTypeId` だけを key にした proof reuse を禁止") &&
+        source.includes("body module fingerprint") &&
         source.includes("Drop body root") &&
-        source.includes("effect、元 escape state"),
-    "docs must explain that proof reuse is keyed by body identity and effect summary, not TypeId alone",
+        source.includes("effect、元 escape state") &&
+        source.includes("`body_module_fingerprint == 0`"),
+    "docs must explain that proof reuse is keyed by module origin, body identity, and effect summary, not TypeId alone",
 );
 assert.ok(
     source.includes("`InternalAlloc + NotApplicable` だけが proof lookup の対象") &&
@@ -178,11 +180,12 @@ assertOrdered(
     [
         "pub struct SelfhostMemoTraitOperationDropNoEscapeProofKey:",
         "type_id %SelfhostTypeId",
+        "body_module_fingerprint %i32",
         "body_root %SelfhostHirExprId",
         "effect %SelfhostEffectKind",
         "escape %SelfhostEffectEscapeState",
     ],
-    "proof key must include type, body root, effect, and original escape state",
+    "proof key must include type, module origin, body root, effect, and original escape state",
 );
 const keyBlock = topLevelBlock(source, "struct", "SelfhostMemoTraitOperationDropNoEscapeProofKey");
 assert.doesNotMatch(
@@ -194,11 +197,12 @@ assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_no_escape_proof_key_eq"),
     [
         "selfhost_type_id_eq a.type_id b.type_id",
+        "eq a.body_module_fingerprint b.body_module_fingerprint",
         "eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root",
         "selfhost_effect_kind_eq a.effect b.effect",
         "selfhost_memo_trait_operation_drop_no_escape_escape_state_eq a.escape b.escape",
     ],
-    "proof key equality must compare type, body root, effect, and escape",
+    "proof key equality must compare type, module origin, body root, effect, and escape",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_no_escape_proof_lookup_loop"),
@@ -210,6 +214,25 @@ assertOrdered(
         "some record.status",
     ],
     "proof lookup must reject duplicate matching proofs and must not use first-wins",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_drop_no_escape_proof_table_push"),
+    [
+        "eq record.key.body_module_fingerprint 0",
+        "selfhost_memo_trait_operation_drop_no_escape_proof_table_free table",
+        "Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofBodyModuleFingerprintPlaceholder",
+        "Result::Err e:",
+        "let error %StdErrorKind field::get e \"error\"",
+        "v::free v::vec_push_error_vec e",
+        "Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed error",
+    ],
+    "proof table push must reject placeholder module origins before storing proof records and must still recover Vec owners on push failure",
+);
+assert.ok(
+    source.includes("mismatched_module_check") &&
+        source.includes("other_body_module_fingerprint") &&
+        source.includes("mismatched_module_record"),
+    "stage0 must include a same-root different-module proof mismatch smoke",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_no_escape_transform_internal_alloc_result"),

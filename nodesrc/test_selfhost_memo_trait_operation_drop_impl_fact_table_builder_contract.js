@@ -224,7 +224,7 @@ assertOrdered(
     [
         "selfhost_memo_trait_operation_method_body_effect_check_result module root fuel",
         "Result::Ok summary:",
-        "selfhost_memo_trait_operation_drop_impl_fact_from_summary type_id root summary",
+        "selfhost_memo_trait_operation_drop_impl_fact_from_summary type_id body_module_fingerprint root summary",
         "selfhost_memo_trait_operation_drop_impl_table_push table fact",
         "Result::Ok next_table:",
         "Result::Ok next_table",
@@ -245,9 +245,9 @@ assert.doesNotMatch(
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_impl_fact_from_summary"),
     [
-        "selfhost_memo_trait_operation_drop_impl_fact_new type_id root summary.effect summary.escape",
+        "selfhost_memo_trait_operation_drop_impl_fact_new type_id body_module_fingerprint root summary.effect summary.escape",
     ],
-    "summary-to-fact helper must preserve root, effect, and escape without masking",
+    "summary-to-fact helper must preserve module origin, root, effect, and escape without masking",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_impl_fact_table_builder_error_kind_eq"),

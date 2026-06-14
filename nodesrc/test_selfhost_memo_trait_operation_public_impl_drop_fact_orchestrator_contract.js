@@ -250,7 +250,7 @@ assertOrdered(
     [
         "match record.method_body_root:",
         "Option::Some root:",
-        "selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module record.type_id root record.fuel",
+        "selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module record.type_id record.module_fingerprint root record.fuel",
         "Result::Ok next_table:",
         "Result::Ok next_table",
         "Result::Err builder_error:",

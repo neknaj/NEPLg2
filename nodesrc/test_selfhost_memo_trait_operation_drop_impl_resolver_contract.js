@@ -90,9 +90,9 @@ assert.ok(
     "docs must reject duplicate Drop impl facts instead of first-wins",
 );
 assert.ok(
-    source.includes("Drop body root id、typed effect kind、typed escape state") &&
+    source.includes("body module fingerprint、Drop body root id、typed effect kind、typed escape state") &&
         source.includes("HIR payload を走査せず、root id から effect や no-escape を推測しません"),
-    "docs must carry Drop body root identity while excluding HIR payload traversal as authority",
+    "docs must carry body module fingerprint and Drop body root identity while excluding HIR payload traversal as authority",
 );
 assert.doesNotMatch(
     facade,
@@ -129,11 +129,12 @@ assertOrdered(
         "Unknown",
         "pub struct SelfhostMemoTraitOperationDropImplFact:",
         "type_id %SelfhostTypeId",
+        "body_module_fingerprint %i32",
         "body_root %SelfhostHirExprId",
         "effect %SelfhostEffectKind",
         "escape %SelfhostEffectEscapeState",
     ],
-    "surface completeness and Drop impl fact must be typed values",
+    "surface completeness and Drop impl fact must include typed type, module origin, body root, effect, and escape values",
 );
 assertOrdered(
     source,
@@ -141,6 +142,7 @@ assertOrdered(
         "pub enum SelfhostMemoTraitOperationDropImplResolverErrorKind:",
         "TableAllocFailed %StdErrorKind",
         "RecordPushFailed %StdErrorKind",
+        "BodyModuleFingerprintPlaceholder",
         "RecordReadFailed %i32",
         "RecordDuplicate",
     ],
@@ -194,6 +196,9 @@ assertOrdered(
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_impl_table_push"),
     [
+        "eq fact.body_module_fingerprint 0",
+        "selfhost_memo_trait_operation_drop_impl_table_free table",
+        "Result::Err SelfhostMemoTraitOperationDropImplResolverErrorKind::BodyModuleFingerprintPlaceholder",
         "Result::Err e:",
         "let error %StdErrorKind field::get e \"error\"",
         "v::free v::vec_push_error_vec e",

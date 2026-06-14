@@ -6,10 +6,10 @@
 //: [目的/もくてき]:
 //: - `memo_trait_operation_public_impl_materializer` が作る typed public impl record table には、Copy / Drop / Eq / Hash の operation record が同じ table に混在します。
 //: - この module は、その table を Drop impl fact table 専用の入力として読み、trusted operation classifier で Drop と再確認された record だけを `memo_trait_operation_drop_impl_fact_table_builder` へ渡します。
-//: - Drop impl body root は typed HIR root id として受け取り、source text、method name string、trait name string、span、diagnostic text、module path から Drop body の有無や purity を推測しません。
+//: - Drop impl body root は record の module fingerprint と typed HIR root id の pair として受け取り、source text、method name string、trait name string、span、diagnostic text、module path から Drop body の有無や purity を推測しません。
 //:
 //: [契約/けいやく]:
-//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、`SelfhostHirModule` borrow、trusted operation classifier、Drop impl fact table builder だけです。
+//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、record に含まれる module fingerprint、`SelfhostHirModule` borrow、trusted operation classifier、Drop impl fact table builder だけです。
 //: - `record.trait_source.operation` は直接信用しません。trait source identity と trait application shape hash を classifier に通し、classifier evidence の operation が Drop の場合だけ Drop body root を読む対象にします。
 //: - non-Drop record は error ではなく skip します。Eq / Hash record が method body root を持つことは正常であり、この Drop 専用 module がそれを Drop body root と誤認してはいけません。
 //: - Drop record に `method_body_root = none` がある場合は `RequiredDropBodyRootMissing(index)` として fail-closed にします。Drop impl fact を欠落扱いにしたり、`NoDropRequired` や `PureDrop` を合成したりしません。
@@ -205,7 +205,7 @@ fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is
 fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_push_drop_record_result %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecord impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \table\module\record\index:
     match record.method_body_root:
         Option::Some root:
-            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module record.type_id root record.fuel:
+            match selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result table module record.type_id record.module_fingerprint root record.fuel:
                 Result::Ok next_table:
                     Result::Ok next_table
                 Result::Err builder_error:

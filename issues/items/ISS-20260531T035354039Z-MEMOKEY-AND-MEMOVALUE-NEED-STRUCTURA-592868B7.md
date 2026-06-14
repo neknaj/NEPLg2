@@ -295,7 +295,7 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_operation_eviden
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_drop_impl_fact_table_builder.nepl` を追加し、Drop impl body の typed HIR root から effect summary を作り、`SelfhostMemoTraitOperationDropImplFact` として complete surface 用 Drop impl fact table owner へ投入する checker-layer boundary を作った。
 
-この builder は `SelfhostTypeId`、HIR root、fuel、HIR payload の effect / child range、effect summary の escape state だけを authority にする。source text、span、lexeme、display name、diagnostic text、module path、method name string から Drop impl の存在や purity を推測しない。`InternalAlloc` は `NotApplicable` escape のまま保存し、Resource IR no-escape proof なしに `PureDrop` や `NoDropRequired` へ畳まない。
+この builder は `SelfhostTypeId`、Drop body module fingerprint、HIR root、fuel、HIR payload の effect / child range、effect summary の escape state だけを authority にする。source text、span、lexeme、display name、diagnostic text、module path、method name string から Drop impl の存在や purity を推測しない。`InternalAlloc` は `NotApplicable` escape のまま保存し、Resource IR no-escape proof なしに `PureDrop` や `NoDropRequired` へ畳まない。
 
 owner 契約として、effect checker rejection では未消費 Drop impl fact table owner を builder が閉じる。resolver table push rejection では既存 push boundary が owner cleanup を担当済みなので builder は二重解放しない。error は `EffectCheckRejected(SelfhostMemoTraitOperationMethodBodyEffectCheckerErrorKind)` と `TableRejected(SelfhostMemoTraitOperationDropImplResolverErrorKind)` の typed enum payload として保持し、bool や表示文字列へ潰さない。
 
@@ -323,7 +323,11 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_f
 
 この checkpoint では `SelfhostMemoTraitOperationDropImplFact` に `body_root %SelfhostHirExprId` を追加した。Drop body root は HIR payload を読んで purity を推測する authority ではなく、Resource IR proof producer が対象にした body identity と Drop fact table の body identity を照合するための typed payload である。Drop impl resolver、Drop impl fact table builder、operation body check resolver はこの field を保持するように更新した。
 
-no-escape proof key は `SelfhostTypeId`、Drop body root、effect、元 escape state をすべて含む。`SelfhostTypeId` だけを key にした proof reuse、source text / span / lexeme / display name / diagnostic text / module path / hash authority による proof acceptance は禁止する。
+2026-06-14 follow-up review では、`SelfhostHirExprId` が HIR module 内の expression table index であり、module をまたぐ stable identity ではないことを確認した。そのため Drop impl fact と no-escape proof key に `body_module_fingerprint` を追加し、Drop body identity を `body_module_fingerprint + body_root` の組に強化した。これは actual Resource IR no-escape proof producer ではなく、producer が後続で作る typed proof status を別 module の同じ root id に誤適用しないための origin boundary である。
+
+no-escape proof key は `SelfhostTypeId`、Drop body module fingerprint、Drop body root、effect、元 escape state をすべて含む。`SelfhostTypeId` だけ、または `SelfhostTypeId + Drop body root` だけを key にした proof reuse、source text / span / lexeme / display name / diagnostic text / module path / hash authority による proof acceptance は禁止する。
+
+`body_module_fingerprint == 0` は placeholder origin として扱い、Drop impl fact table push と no-escape proof table push の両方で fail-closed に拒否する。placeholder origin を受け入れると、module-local HIR root id を key に含めても別 module の proof status と衝突し得るため、この rejection は後続最適化ではなく現在の proof boundary の一部である。
 
 gate が更新できるのは `InternalAlloc + NotApplicable` だけである。matching proof が `Proven` なら `NoEscapeProven`、`Refuted` なら `MayEscape` へ写し、`Missing` / `Unknown` または record なしは `NotApplicable` のまま残す。pre-gate input がすでに `InternalAlloc + NoEscapeProven` なら `UnexpectedPreProvenNoEscape` として拒否し、別 boundary が no-escape を合成する bypass を fail-closed にする。`Pure` / `UnsafeMemory` / `ExternalIo` / `Nondet` は proof table を見ずに pass-through し、effect を弱めない。
 
@@ -331,7 +335,7 @@ gate が更新できるのは `InternalAlloc + NotApplicable` だけである。
 
 source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` で固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、proof key field、duplicate proof rejection、pre-proven input rejection、Missing / Unknown fail-closed、Drop proof / aggregate proof / proof store 合成禁止、source-derived authority 禁止、Clone / Copy impl の typed-payload-only doc、line count / doc comment length cap 禁止を確認する。
 
-この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table sorted index 化、type/body-root bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した typed proof key / fail-closed status contract を保って後からできる最適化として扱う。
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table sorted index 化、type/module/root bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した typed proof key / origin equality / placeholder rejection / fail-closed status contract を保って後からできる最適化として扱う。
 
 ## 2026-06-14 selfhost Drop candidate connector checkpoint
 
