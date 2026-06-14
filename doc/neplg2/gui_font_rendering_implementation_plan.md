@@ -1535,6 +1535,57 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4ag: sfnt simple glyph path sink action consumer apply terminal
+
+目的:
+
+- F4af の `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep` を future consumer loop が扱う typed terminal 判定に変換する。
+- `Rejected`、保存済み `EndContour`、保存済み `Continue` を enum で明示し、hidden fallback や silent skip を作らない。
+- F4ag は contour-wide loop、byte-backed next lookup、real sink mutation、renderer、rasterizer、platform API にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_reject_reason`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step`
+- enum は次にする。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+```
+
+- `Rejected reason` は malformed SFNT parse error ではなく domain terminal なので、`Result::Err` にはしない。
+- 保存済み `EndContour` は successful terminal なので、これも `Result::Err` にはしない。
+- `NoAction` は silent no-op ではないが、それだけで terminal にしない。`NoAction + Continue` は `Continue`、`NoAction + EndContour` は `EndContour` とする。
+- helper は F4af の `apply_step` と `next` だけを読む。
+- helper は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` も呼ばない。
+- helper は action payload を直接 `match` しない。reject reason の取り出しは `GuiSfntSimpleGlyphPathSinkActionApplyStatus` の分類だけに限定する。
+- helper は F4ad/F4ac byte-backed lookup、F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec`、`push`、loop、current point、renderer、rasterizer、platform API、host text API を直接呼ばない。
+- Source policy で F4ag docs、enum、Clone/Copy、reject reason helper、terminal helper、F4ad next helper 禁止、payload direct match 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の typed doctest を拡張する。
+  - `Rejected` status が保存済み `EndContour` より優先されることを確認する。
+  - 保存済み `EndContour` が successful terminal になることを確認する。
+  - `NoAction + Continue` が terminal ではなく `Continue` になることを確認する。
+
+完了条件:
+
+- consumer apply step は `Continue` / `Rejected` / `EndContour` の typed terminal 判定に分類される。
+- `Rejected` と `EndContour` を `Result::Err` に逃がさない。
+- F4ag は next consumer item lookup や traversal loop を実装しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
