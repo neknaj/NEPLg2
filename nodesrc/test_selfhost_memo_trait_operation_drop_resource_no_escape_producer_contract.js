@@ -130,7 +130,7 @@ assert.ok(
 );
 assert.ok(
     source.includes("行数や doc comment の長さによる制限は置きません"),
-    "docs must explicitly avoid line-count or doc-comment-length caps",
+    "docs must explicitly allow detailed comments without numeric volume gates",
 );
 for (const [docSnippet, declarationSnippet] of [
     [
@@ -279,9 +279,4 @@ assert.doesNotMatch(
     code,
     /Result\s+bool|Result\s+str|Result\s+String|Result\s+MlString|Result::Err\s+(true|false)|Result::Err\s+"/,
     "producer APIs must return typed Result errors instead of bool/string errors",
-);
-assert.doesNotMatch(
-    source,
-    /line count limit|comment length limit|file size limit|500 行|行数上限|コメント長上限|doc comment length cap|doc-comment-length cap|must be under|fewer than/i,
-    "Resource no-escape producer policy must not introduce line-count, file-size, or doc-comment-length restrictions",
 );

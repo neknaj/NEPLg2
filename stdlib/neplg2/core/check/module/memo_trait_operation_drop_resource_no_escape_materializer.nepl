@@ -1,0 +1,738 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_resource_no_escape_materializer
+//: Drop impl body の Resource traversal summary から Resource no-escape observation table を[作/つく]る checker-layer materializer です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_drop_resource_no_escape_producer` は typed observation table を Drop no-escape proof table へ変換します。
+//: - この module は、そのさらに前段として Resource graph traversal が後で作る typed summary table を受け取り、producer が読む `SelfhostMemoTraitOperationDropResourceNoEscapeTable` へ正規化します。
+//: - traversal の結果を bool や diagnostic string に潰さず、`AllTraversedPlacesPrivate` / `EscapingPlaceObserved` / `ResourceGraphMissing` / `TraversalUnsupported` を Resource observation status へ明示的に写します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord` の typed payload だけです。source text、span、lexeme、display name、module path、public surface hash、payload hash から no-escape を推測しません。
+//: - record key は `SelfhostTypeId`、body module fingerprint、Drop body root、effect、escape をすべて含みます。`SelfhostTypeId` だけの summary reuse は認めません。
+//: - `body_module_fingerprint == 0` は placeholder origin なので、traversal summary table への push と materializer loop の両方で fail-closed に拒否します。
+//: - `effect` は `InternalAlloc`、`escape` は `NotApplicable` だけを受理します。`Pure`、`UnsafeMemory`、`ExternalIo`、`Nondet`、または既に `NoEscapeProven` / `MayEscape` になった summary はこの boundary では observation 化しません。
+//: - 同じ key の traversal summary が複数ある場合は `TraversalRecordDuplicate` として拒否します。record order による first-wins は使いません。
+//: - `AllTraversedPlacesPrivate` は `NoEscapeProven`、`EscapingPlaceObserved` は `MayEscape`、`ResourceGraphMissing` は `Missing`、`TraversalUnsupported` は `Unknown` に写します。`Missing` / `Unknown` を pure に mask しません。
+//: - この module は proof table、proof store、Drop evidence、aggregate proof、generic binder、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。proof table 化は既存 producer が担当します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では full Resource IR graph traversal 本体はまだ別 stage に残します。この module は、その traversal が返す session-local typed summary と observation table の境界を固定します。
+//: - `reason` は traversal がなぜその status になったかを typed payload として保持しますが、この module は reason から status を再推論しません。status と reason の整合性を細かく証明するのは actual traversal 実装の責務です。
+//: - facade には re-export しません。full Resource proof orchestration が Drop fact builder、traversal、materializer、producer、no-escape gate、purity gate をまとめる段階で公開 API を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、計算量、owner cleanup を doc comment で明示することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - traversal summary record 数を n とすると、input table push の重複検査は現状 O(n) です。materializer loop の malformed direct table 検査は合計 O(n^2) 時間、output observation table に O(n) 空間です。
+//: - sorted index 化、module/body bucket 化、actual Resource graph traversal の child range index 化は、key equality、duplicate rejection、owner cleanup、fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_materializer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_producer" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_len_result_eq summary.materialized_len 4
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_eq summary.private_status SelfhostMemoTraitOperationDropResourceNoEscapeStatus::NoEscapeProven
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_eq summary.escape_status SelfhostMemoTraitOperationDropResourceNoEscapeStatus::MayEscape
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_eq summary.missing_status SelfhostMemoTraitOperationDropResourceNoEscapeStatus::Missing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_eq summary.unknown_status SelfhostMemoTraitOperationDropResourceNoEscapeStatus::Unknown
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordDuplicate
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.placeholder_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::BodyModuleFingerprintPlaceholder
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.effect_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEffectNotInternalAlloc SelfhostEffectKind::ExternalIo
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop Resource no-escape materializer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "./memo_trait_operation_drop_resource_no_escape_producer" as *
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus: Resource traversal summary の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - Resource graph traversal の成功、escape 発見、graph 欠落、未対応 traversal を typed enum として運びます。
+//: - bool だけでは `MayEscape` と `Missing` と `Unknown` が区別できず、pure mask の安全側失敗が崩れるため、この enum を使います。
+pub enum SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus:
+    AllTraversedPlacesPrivate
+    EscapingPlaceObserved
+    ResourceGraphMissing
+    TraversalUnsupported
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason: traversal status の typed reason
+//:
+//: [目的/もくてき]:
+//: - actual traversal 実装が、なぜその status を選んだかを source text ではなく enum payload として渡すための reason です。
+//: - Phase 1 の materializer は status のみを observation status へ写し、reason から結果を再計算しません。
+pub enum SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason:
+    PrivateLocalStateOnly
+    ReturnPlaceEscapes
+    PublicStoreEscapes
+    ResourceGraphUnavailable
+    UnsupportedResourceOperation
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord: Drop body 1 件に対する traversal summary
+//:
+//: [契約/けいやく]:
+//: - `type_id`、`body_module_fingerprint`、`body_root` は Drop impl fact と同じ body identity を表します。
+//: - `effect` / `escape` は traversal が対象にした元の effect summary です。Phase 1 では `InternalAlloc + NotApplicable` だけを受理します。
+//: - `status` は Resource graph traversal の判定結果です。この module は HIR や source に戻って status を作り直しません。
+//: - `reason` は説明用の typed payload であり、diagnostic string ではありません。
+pub struct SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    status %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus
+    reason %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable: traversal summary record の session-local owner table
+//:
+//: [契約/けいやく]:
+//: - table は `records` buffer を所有します。caller は materializer で使い終えたあと `selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free` で閉じます。
+//: - table は永続 artifact ではありません。`.neplproof` や prechecked metadata からの復元は別 boundary が担当します。
+pub struct SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable:
+    records %Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind: Resource traversal materializer の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - traversal summary table の構築、validation、duplicate detection、observation table 生成の失敗を enum として分けます。
+pub enum SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind:
+    TraversalRecordPushFailed %StdErrorKind
+    TraversalRecordReadFailed %i32
+    TraversalRecordDuplicate
+    BodyModuleFingerprintPlaceholder
+    TraversalEffectNotInternalAlloc %SelfhostEffectKind
+    TraversalEscapeNotApplicable %SelfhostEffectEscapeState
+    ObservationTableAllocFailed %StdErrorKind
+    ObservationTableRejected %SelfhostMemoTraitOperationDropResourceNoEscapeProducerErrorKind
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision: direct table scan での duplicate 判定
+//:
+//: [目的/もくてき]:
+//: - malformed direct table の earlier duplicate 検査結果を bool に潰さず、materializer loop が exhaustive match で分岐できるようにします。
+pub enum SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision:
+    UniqueSoFar
+    DuplicateFound
+
+//: SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary: materializer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - 4 種の traversal status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection を確認します。
+pub struct SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary:
+    materialized_len %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
+    private_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus
+    escape_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus
+    missing_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus
+    unknown_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus
+    duplicate_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
+    placeholder_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
+    effect_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
+
+//: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus: traversal status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は enum tag だけで owner buffer を含まないため、typed payload をそのまま返します。
+impl Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus:
+    fn clone %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus: traversal status の Copy marker
+//:
+//: [契約/けいやく]:
+//: - status copy は materializer loop の分岐用 tag copy であり、Resource graph owner や observation table owner を複製しません。
+impl Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason: traversal reason を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - reason は enum tag だけで owner buffer を含みません。diagnostic text や source span はここへ入れません。
+impl Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason:
+    fn clone %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason: traversal reason の Copy marker
+//:
+//: [契約/けいやく]:
+//: - reason copy は typed explanation tag の複製であり、Resource graph storage や diagnostic buffer の owner を複製しません。
+impl Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord: traversal record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は typed body identity、effect / escape、status / reason だけを持ち、Resource graph owner や proof store owner を含みません。
+impl Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord:
+    fn clone %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord: traversal record の Copy marker
+//:
+//: [契約/けいやく]:
+//: - record copy は validation と duplicate scan のための値複製です。table owner や Resource graph owner の copy ではありません。
+impl Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind: materializer error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は typed enum payload だけを持ち、input/output table owner は含みません。
+impl Clone for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind: materializer error の Copy marker
+//:
+//: [契約/けいやく]:
+//: - nested producer error も owner を含まない typed payload です。owner-bearing error が必要になった場合はこの Copy impl を削除します。
+impl Copy for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision: duplicate decision を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - decision は enum tag だけで owner buffer を含まないため、typed payload をそのまま返します。
+impl Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision:
+    fn clone %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision: duplicate decision の Copy marker
+//:
+//: [契約/けいやく]:
+//: - decision copy は materializer loop の分岐用 tag copy であり、input table owner や output observation table owner を複製しません。
+impl Copy for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary: smoke summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は doctest 用の `Result` と status 値だけを保持します。table owner は stage0 helper 内で閉じます。
+impl Clone for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary: smoke summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - doctest が summary field を複数回確認できるようにするための marker であり、owner lifecycle を緩めるものではありません。
+impl Copy for SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new: traversal summary record を[作/つく]る
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord \type_id\body_module_fingerprint\body_root\effect\escape\status\reason:
+    SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord type_id body_module_fingerprint body_root effect escape status reason
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_new: [空/から]の traversal summary table を[作/つく]る
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_new %impure fn void Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free: traversal summary table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len: traversal summary record 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_key_eq: 2 traversal record が同じ Drop body summary key か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_key_eq %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            eq a.body_module_fingerprint b.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                and:
+                    selfhost_effect_kind_eq a.effect b.effect
+                    selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_eq a.escape b.escape
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_validate_record_result: traversal summary record の受理条件を[確認/かくにん]する
+//:
+//: [契約/けいやく]:
+//: - validation は table push と materializer loop の両方で呼びます。外部から直接組み立てられた malformed table でも materializer が fail-closed に止まるためです。
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_validate_record_result %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord Result unit SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \record:
+    if:
+        eq record.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                selfhost_effect_kind_eq record.effect SelfhostEffectKind::InternalAlloc
+                then:
+                    match record.escape:
+                        SelfhostEffectEscapeState::NotApplicable:
+                            Result::Ok unit
+                        SelfhostEffectEscapeState::NoEscapeProven:
+                            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEscapeNotApplicable record.escape
+                        SelfhostEffectEscapeState::MayEscape:
+                            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEscapeNotApplicable record.escape
+                else:
+                    Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEffectNotInternalAlloc record.effect
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key_loop: input table 内の既存 key を[探/さが]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key_loop %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord fn i32 bool \table\record\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len table
+        then:
+            false
+        else:
+            let records %&Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_key_eq existing record
+                        then:
+                            true
+                        else:
+                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key_loop table record add idx 1
+                Option::None:
+                    true
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key: input table に同じ key があるか[返/かえ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord bool \table\record:
+    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key_loop table record 0
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push: traversal summary record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - record validation と duplicate rejection を push 境界で行います。
+//: - validation / duplicate 失敗時は、消費した table owner を閉じて typed error を返します。
+//: - Vec push 失敗時は `Vec` が返した owner を閉じ、`StdErrorKind` を保持します。
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \table\record:
+    match selfhost_memo_trait_operation_drop_resource_no_escape_materializer_validate_record_result record:
+        Result::Ok _unit:
+            if:
+                selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_contains_key &table record
+                then:
+                    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free table
+                    Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordDuplicate
+                else:
+                    let records %Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord field::get table "records"
+                    match v::push records record:
+                        Result::Ok next_records:
+                            Result::Ok SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable next_records
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordPushFailed error
+        Result::Err error:
+            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free table
+            Result::Err error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status: traversal status を Resource observation status へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `AllTraversedPlacesPrivate` だけが `NoEscapeProven` になります。
+//: - `EscapingPlaceObserved` は `MayEscape` として保存し、後続 gate が impure Drop として扱えるようにします。
+//: - `ResourceGraphMissing` / `TraversalUnsupported` は未証明 status として保存し、pure mask に使いません。
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostMemoTraitOperationDropResourceNoEscapeStatus \status:
+    match status:
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate:
+            SelfhostMemoTraitOperationDropResourceNoEscapeStatus::NoEscapeProven
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved:
+            SelfhostMemoTraitOperationDropResourceNoEscapeStatus::MayEscape
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing:
+            SelfhostMemoTraitOperationDropResourceNoEscapeStatus::Missing
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported:
+            SelfhostMemoTraitOperationDropResourceNoEscapeStatus::Unknown
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_to_observation_record: traversal summary を Resource observation record へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - body identity、effect、escape は traversal record からそのまま渡します。
+//: - reason から status を再推論せず、status enum の mapping だけを行います。
+fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_to_observation_record %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord SelfhostMemoTraitOperationDropResourceNoEscapeRecord \record:
+    let status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status record.status
+    selfhost_memo_trait_operation_drop_resource_no_escape_record_new record.type_id record.body_module_fingerprint record.body_root record.effect record.escape status
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_loop: direct table 内の earlier duplicate を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - `selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push` を通らず直接組まれた table でも、materializer loop が duplicate を検出できるようにします。
+fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_loop %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord fn i32 fn i32 Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \source\record\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision::UniqueSoFar
+        else:
+            let records %&Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord field::get_ref source "records"
+            match v::get records idx:
+                Option::Some existing:
+                    if:
+                        selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_key_eq existing record
+                        then:
+                            Result::Ok SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision::DuplicateFound
+                        else:
+                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_loop source record limit add idx 1
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_result: 現在 record より前に duplicate があるか[返/かえ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_result %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord fn i32 Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \source\record\limit:
+    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_loop source record limit 0
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_output_push_result: observation record を output table へ[追加/ついか]する
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_output_push_result %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTable impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord Result SelfhostMemoTraitOperationDropResourceNoEscapeTable SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \output\record:
+    let observation %SelfhostMemoTraitOperationDropResourceNoEscapeRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_to_observation_record record
+    match selfhost_memo_trait_operation_drop_resource_no_escape_table_push output observation:
+        Result::Ok next_output:
+            Result::Ok next_output
+        Result::Err producer_error:
+            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::ObservationTableRejected producer_error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materialize_loop: traversal summaries から observation table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materialize_loop %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTable impure fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable impure fn i32 Result SelfhostMemoTraitOperationDropResourceNoEscapeTable SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \output\source\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len source
+        then:
+            Result::Ok output
+        else:
+            let source_records %&Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord field::get_ref source "records"
+            match v::get source_records idx:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_drop_resource_no_escape_materializer_validate_record_result record:
+                        Result::Ok _unit:
+                            match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_duplicate_before_result source record idx:
+                                Result::Ok decision:
+                                    match decision:
+                                        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision::DuplicateFound:
+                                            selfhost_memo_trait_operation_drop_resource_no_escape_table_free output
+                                            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordDuplicate
+                                        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecision::UniqueSoFar:
+                                            match selfhost_memo_trait_operation_drop_resource_no_escape_materializer_output_push_result output record:
+                                                Result::Ok next_output:
+                                                    selfhost_memo_trait_operation_drop_resource_no_escape_materialize_loop next_output source add idx 1
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    selfhost_memo_trait_operation_drop_resource_no_escape_table_free output
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_resource_no_escape_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_drop_resource_no_escape_table_free output
+                    Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_table_result: traversal summary table を Resource no-escape observation table へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `source` は borrow です。この関数は source table を閉じません。
+//: - success の場合だけ caller は output observation table owner を受け取ります。
+//: - failure の場合、内部で作った output observation table owner はこの module または下位 observation table push 境界が閉じます。
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_table_result %impure fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable Result SelfhostMemoTraitOperationDropResourceNoEscapeTable SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \source:
+    match selfhost_memo_trait_operation_drop_resource_no_escape_table_new:
+        Result::Ok output0:
+            selfhost_memo_trait_operation_drop_resource_no_escape_materialize_loop output0 source 0
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::ObservationTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_effect_kind_code: effect kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            0
+        SelfhostEffectKind::InternalAlloc:
+            1
+        SelfhostEffectKind::UnsafeMemory:
+            2
+        SelfhostEffectKind::ExternalIo:
+            3
+        SelfhostEffectKind::Nondet:
+            4
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_code: escape state を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_code %fn SelfhostEffectEscapeState i32 \state:
+    match state:
+        SelfhostEffectEscapeState::NotApplicable:
+            0
+        SelfhostEffectEscapeState::NoEscapeProven:
+            1
+        SelfhostEffectEscapeState::MayEscape:
+            2
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_code: materializer error variant を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - この code は doctest / source policy 用の比較補助であり、diagnostic code や永続 artifact key ではありません。
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_code %fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordPushFailed _error:
+            1
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordReadFailed _idx:
+            2
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordDuplicate:
+            3
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+            4
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEffectNotInternalAlloc _effect:
+            5
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEscapeNotApplicable _escape:
+            6
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::ObservationTableAllocFailed _error:
+            7
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::ObservationTableRejected _producer_error:
+            8
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_payload_code: materializer error payload を比較用 code へ[写/うつ]す
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_payload_code %fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordPushFailed error:
+            selfhost_memo_trait_operation_drop_resource_no_escape_materializer_std_error_kind_code error
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordReadFailed idx:
+            idx
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordDuplicate:
+            0
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::BodyModuleFingerprintPlaceholder:
+            0
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEffectNotInternalAlloc effect:
+            selfhost_memo_trait_operation_drop_resource_no_escape_materializer_effect_kind_code effect
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEscapeNotApplicable escape:
+            selfhost_memo_trait_operation_drop_resource_no_escape_materializer_escape_state_code escape
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::ObservationTableAllocFailed error:
+            selfhost_memo_trait_operation_drop_resource_no_escape_materializer_std_error_kind_code error
+        SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::ObservationTableRejected producer_error:
+            add:
+                mul selfhost_memo_trait_operation_drop_resource_no_escape_producer_error_kind_code producer_error 100000
+                selfhost_memo_trait_operation_drop_resource_no_escape_producer_error_payload_code producer_error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_eq: materializer error が同じ分類と payload か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_eq %fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind bool \a\b:
+    and:
+        eq selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_code a selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_code b
+        eq selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_payload_code a selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_payload_code b
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_code: observation status を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_code %fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationDropResourceNoEscapeStatus::NoEscapeProven:
+            1
+        SelfhostMemoTraitOperationDropResourceNoEscapeStatus::MayEscape:
+            2
+        SelfhostMemoTraitOperationDropResourceNoEscapeStatus::Missing:
+            3
+        SelfhostMemoTraitOperationDropResourceNoEscapeStatus::Unknown:
+            4
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_eq: observation status が同じ variant か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_eq %fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus bool \a\b:
+    eq selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_code a selfhost_memo_trait_operation_drop_resource_no_escape_materializer_status_code b
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_len_result_eq: materialized len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_len_result_eq %fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq: materializer result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq %fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary \materialized_len\private_status\escape_status\missing_status\unknown_status\duplicate_rejected\placeholder_rejected\effect_rejected:
+    SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record: stage0 用 traversal summary record を[作/つく]る
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord \type_id\module_fingerprint\root\status\reason:
+    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new type_id module_fingerprint root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable status reason
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len: 1 traversal record push の length result を[作/つく]る
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \record:
+    match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table0 record:
+                Result::Ok table1:
+                    let table_len %i32 selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len &table1
+                    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free table1
+                    Result::Ok table_len
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_duplicate_len: duplicate input rejection を[確認/かくにん]する
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_duplicate_len %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \record:
+    match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table0 record:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table1 record:
+                        Result::Ok table2:
+                            let table_len %i32 selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len &table2
+                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free table2
+                            Result::Ok table_len
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_source_result: 4 status の traversal summary table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \type_id\root1\root2\root3\root4:
+    match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_new:
+        Result::Ok table0:
+            let private_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record type_id 770101 root1 SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+            match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table0 private_record:
+                Result::Ok table1:
+                    let escape_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record type_id 770101 root2 SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::ReturnPlaceEscapes
+                    match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table1 escape_record:
+                        Result::Ok table2:
+                            let missing_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record type_id 770101 root3 SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::ResourceGraphUnavailable
+                            match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table2 missing_record:
+                                Result::Ok table3:
+                                    let unknown_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record type_id 770101 root4 SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+                                    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push table3 unknown_record
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_materialized_len: materializer output len を[作/つく]る
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_materialized_len %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind \source:
+    match selfhost_memo_trait_operation_drop_resource_no_escape_materializer_table_result &source:
+        Result::Ok observations:
+            let observation_len %i32 selfhost_memo_trait_operation_drop_resource_no_escape_table_len &observations
+            selfhost_memo_trait_operation_drop_resource_no_escape_table_free observations
+            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free source
+            Result::Ok observation_len
+        Result::Err e:
+            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free source
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0: materializer の smoke API
+//:
+//: [目的/もくてき]:
+//: - traversal status mapping が bool に潰れないこと、output observation table が 4 件になること、duplicate / placeholder / effect mismatch が fail-closed になることを確認します。
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0 %impure fn void Result SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 7701
+    let root1 %SelfhostHirExprId selfhost_hir_expr_id_new 77011
+    let root2 %SelfhostHirExprId selfhost_hir_expr_id_new 77012
+    let root3 %SelfhostHirExprId selfhost_hir_expr_id_new 77013
+    let root4 %SelfhostHirExprId selfhost_hir_expr_id_new 77014
+    match selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_source_result type_id root1 root2 root3 root4:
+        Result::Ok source:
+            let materialized_len %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_materialized_len source
+            let private_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate
+            let escape_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved
+            let missing_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing
+            let unknown_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus selfhost_memo_trait_operation_drop_resource_no_escape_traversal_status_to_observation_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported
+            let duplicate_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record type_id 770101 root1 SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+            let duplicate_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_duplicate_len duplicate_record
+            let placeholder_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record type_id 0 root1 SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+            let placeholder_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len placeholder_record
+            let effect_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new type_id 770101 root1 SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+            let effect_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len effect_record
+            Result::Ok selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected
+        Result::Err _setup:
+            Result::Err StdErrorKind::InvalidOperation
