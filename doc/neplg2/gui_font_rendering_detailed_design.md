@@ -1192,6 +1192,81 @@ gui_sfnt_lookup_simple_glyph_path_sink_action bytes face_index cursor policy slo
 
 The byte-backed helper must call `gui_sfnt_lookup_simple_glyph_path_sink_step` exactly once. It must not call `gui_sfnt_lookup_simple_glyph_path_contour_step`, `gui_sfnt_lookup_simple_glyph_path_command_pair`, lower contour/curve helpers, `gui_sfnt_parse_metadata`, internal `*_with_tables` helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback. Its only failure channel remains the F4t lookup's `Result::Err GuiSfntParseError`; policy rejection remains `Result::Ok GuiSfntSimpleGlyphPathSinkAction::Reject`.
 
+### SFNT simple glyph path sink action traversal step
+
+F4v turns F4u action selection into a typed traversal step. It is still a contour-local value model, not a real sink. It does not mutate a sink, define callback ownership, allocate a command list, construct a full outline, repair paths, compute winding, rasterize, emit render2d commands, or present to a platform backend.
+
+The traversal cursor combines the existing contour event cursor and the action slot:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionCursor:
+    contour_cursor GuiSfntSimpleGlyphPathContourCursor
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+```
+
+The cursor intentionally carries the validated F4s contour cursor. It therefore contains the existing `contour_index` and `edge_index` through that nested value. F4v must not add a new numeric action index, command index, loop index, count field, or ad-hoc traversal counter. The action position is always the enum `GuiSfntSimpleGlyphPathSinkActionSlot`.
+
+The next state is:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionCursor
+    EndContour
+```
+
+`EndContour` is a successful terminal state of the contour-local action stream. It is not `Option::None`, not `Result::Err`, and not an implicit ignored event.
+
+The step value is:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStep:
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    sink_step GuiSfntSimpleGlyphPathSinkStep
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionNext
+```
+
+`action` and `next` are separate facts. `action` says what a future sink consumes. `next` says where traversal continues. Next-state computation must not inspect whether the action is `EmitEvent`, `Reject`, `CloseContour`, or `NoAction`.
+
+Pure traversal rules:
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_next_from_step sink_step action_slot
+    Primary:
+        source_step.cursor -> Continue same contour_cursor Tail
+
+    Tail:
+        source_step.next = Continue next_cursor
+            -> Continue next_cursor Primary
+
+        source_step.next = EndContour
+            -> EndContour
+```
+
+This means `Primary -> Tail` happens even when the primary action is `Reject`. It also means `Tail -> source_step.next` happens even when the tail action is `NoAction`. Reject handling and no-action handling belong to the consumer of the action payload, not to traversal.
+
+`gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` must compose F4u rather than duplicate it:
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step sink_step action_slot
+    -> cursor = GuiSfntSimpleGlyphPathSinkActionCursor source_step.cursor action_slot
+    -> action = gui_sfnt_simple_glyph_path_sink_step_action_at sink_step action_slot
+    -> next = gui_sfnt_simple_glyph_path_sink_action_next_from_step sink_step action_slot
+    -> GuiSfntSimpleGlyphPathSinkActionStep cursor sink_step action next
+```
+
+The byte-backed helper is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy
+    -> contour_cursor = cursor.contour_cursor
+    -> action_slot = cursor.action_slot
+    -> sink_step = gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index contour_cursor policy
+    -> gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step sink_step action_slot
+```
+
+The byte-backed helper must call `gui_sfnt_lookup_simple_glyph_path_sink_step` exactly once. It must not call F4s contour-step lookup, path command pair lookup, lower contour/curve helpers, `gui_sfnt_parse_metadata`, internal `*_with_tables` helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

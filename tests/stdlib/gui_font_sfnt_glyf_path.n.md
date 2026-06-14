@@ -619,6 +619,73 @@ fn action_is_no_action %fn &GuiSfntSimpleGlyphPathSinkStep bool \step:
         GuiSfntSimpleGlyphPathSinkAction::NoAction:
             true
 
+fn event_slot_matches %fn GuiSfntSimpleGlyphPathSinkEventSlot fn GuiSfntSimpleGlyphPathSinkEventSlot bool \actual\expected:
+    match actual:
+        GuiSfntSimpleGlyphPathSinkEventSlot::First:
+            match expected:
+                GuiSfntSimpleGlyphPathSinkEventSlot::First:
+                    true
+                GuiSfntSimpleGlyphPathSinkEventSlot::Second:
+                    false
+        GuiSfntSimpleGlyphPathSinkEventSlot::Second:
+            match expected:
+                GuiSfntSimpleGlyphPathSinkEventSlot::First:
+                    false
+                GuiSfntSimpleGlyphPathSinkEventSlot::Second:
+                    true
+
+fn action_slot_matches %fn GuiSfntSimpleGlyphPathSinkActionSlot fn GuiSfntSimpleGlyphPathSinkActionSlot bool \actual\expected:
+    match actual:
+        GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+            match expected:
+                GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+                    true
+                GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+                    false
+        GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+            match expected:
+                GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+                    true
+
+fn action_cursor_matches %fn &GuiSfntSimpleGlyphPathSinkActionCursor fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot fn GuiSfntSimpleGlyphPathSinkActionSlot bool \cursor\expected_contour\expected_edge\expected_event_slot\expected_action_slot:
+    let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor cursor
+    let contour_ok %bool eq expected_contour gui_sfnt_simple_glyph_path_contour_cursor_contour_index &contour_cursor
+    let edge_ok %bool eq expected_edge gui_sfnt_simple_glyph_path_contour_cursor_edge_index &contour_cursor
+    let event_slot_ok %bool event_slot_matches gui_sfnt_simple_glyph_path_contour_cursor_slot &contour_cursor expected_event_slot
+    let action_slot_ok %bool action_slot_matches gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot cursor expected_action_slot
+    and contour_ok and edge_ok and event_slot_ok action_slot_ok
+
+fn action_step_primary_next_is_tail_same_cursor %fn &GuiSfntSimpleGlyphPathSinkStep bool \step:
+    let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step step GuiSfntSimpleGlyphPathSinkActionSlot::Primary
+    let source_step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_sink_step_source_step step
+    let source_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_step_cursor &source_step
+    let expected_contour %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &source_cursor
+    let expected_edge %i32 gui_sfnt_simple_glyph_path_contour_cursor_edge_index &source_cursor
+    let expected_event_slot %GuiSfntSimpleGlyphPathSinkEventSlot gui_sfnt_simple_glyph_path_contour_cursor_slot &source_cursor
+    match gui_sfnt_simple_glyph_path_sink_action_step_next &action_step:
+        GuiSfntSimpleGlyphPathSinkActionNext::Continue cursor:
+            action_cursor_matches &cursor expected_contour expected_edge expected_event_slot GuiSfntSimpleGlyphPathSinkActionSlot::Tail
+        GuiSfntSimpleGlyphPathSinkActionNext::EndContour:
+            false
+
+fn action_step_tail_continues_to_primary %fn &GuiSfntSimpleGlyphPathSinkStep fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot bool \step\expected_contour\expected_edge\expected_event_slot:
+    let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step step GuiSfntSimpleGlyphPathSinkActionSlot::Tail
+    match gui_sfnt_simple_glyph_path_sink_action_step_next &action_step:
+        GuiSfntSimpleGlyphPathSinkActionNext::Continue cursor:
+            action_cursor_matches &cursor expected_contour expected_edge expected_event_slot GuiSfntSimpleGlyphPathSinkActionSlot::Primary
+        GuiSfntSimpleGlyphPathSinkActionNext::EndContour:
+            false
+
+fn action_step_tail_ends_contour %fn &GuiSfntSimpleGlyphPathSinkStep bool \step:
+    let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step step GuiSfntSimpleGlyphPathSinkActionSlot::Tail
+    match gui_sfnt_simple_glyph_path_sink_action_step_next &action_step:
+        GuiSfntSimpleGlyphPathSinkActionNext::Continue _cursor:
+            false
+        GuiSfntSimpleGlyphPathSinkActionNext::EndContour:
+            true
+
 fn build_skip_step %fn GuiGlyphId fn i32 fn i32 fn GuiSfntSimpleGlyphCurveNoSegmentReason fn GuiSfntSimpleGlyphPathContourNext GuiSfntSimpleGlyphPathContourStep \glyph\contour\edge\reason\next:
     let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor glyph contour edge GuiSfntSimpleGlyphPathSinkEventSlot::Second
     let skip_payload %GuiSfntSimpleGlyphPathSkipNoSegment gui_sfnt_simple_glyph_path_skip_no_segment contour edge reason
@@ -652,7 +719,11 @@ fn main %impure fn void i32 \void:
     let action_reject_ok %bool and action_is_reject_off_curve &reject_step action_is_no_action &reject_step
     let action_continue_ok %bool and action_is_emit_off_curve &continue_step action_is_no_action &continue_step
     let action_projection_ok %bool and action_slot_ok and action_keep_ok and action_reject_ok action_continue_ok
-    test_assertion_exit_code assert "path sink policy keeps reject and close tail exclusive" and keep_ok and reject_ok and continue_ok and single_point_ok action_projection_ok
+    let primary_traversal_ok %bool and action_step_primary_next_is_tail_same_cursor &keep_step action_step_primary_next_is_tail_same_cursor &reject_step
+    let continue_tail_traversal_ok %bool action_step_tail_continues_to_primary &continue_step 1 8 GuiSfntSimpleGlyphPathSinkEventSlot::First
+    let end_tail_traversal_ok %bool and action_step_tail_ends_contour &keep_step action_step_tail_ends_contour &reject_step
+    let action_traversal_ok %bool and primary_traversal_ok and continue_tail_traversal_ok end_tail_traversal_ok
+    test_assertion_exit_code assert "path sink policy keeps reject and close tail exclusive" and keep_ok and reject_ok and continue_ok and single_point_ok and action_projection_ok action_traversal_ok
 ```
 
 ## path contour step public lookup follows cursor next contract

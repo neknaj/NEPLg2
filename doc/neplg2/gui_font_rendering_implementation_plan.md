@@ -977,6 +977,60 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4v: sfnt simple glyph path sink action traversal step
+
+目的:
+
+- F4u の single action projection を、contour 内で順に読める typed traversal step へ拡張する。
+- future sink が `Primary -> Tail -> F4s source next` の順に action を読むための cursor / next / step を追加する。
+- real sink、callback、`Vec` command stream、full outline allocation、renderer、rasterizer、platform API はまだ導入しない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionCursor`
+  - `GuiSfntSimpleGlyphPathSinkActionNext`
+  - `GuiSfntSimpleGlyphPathSinkActionStep`
+  - constructor / accessor
+  - `Clone` / `Copy`
+  - `gui_sfnt_simple_glyph_path_sink_action_next_from_step`
+  - `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step`
+  - public `gui_sfnt_lookup_simple_glyph_path_sink_action_step`
+- `GuiSfntSimpleGlyphPathSinkActionCursor` は checked `GuiSfntSimpleGlyphPathContourCursor` と `GuiSfntSimpleGlyphPathSinkActionSlot` を持つ。
+- 新しい numeric action index、command index、loop index、count field、ad-hoc traversal counter は追加しない。既存 contour cursor 内の `contour_index` / `edge_index` は F4s の authority として保持する。
+- `GuiSfntSimpleGlyphPathSinkActionNext` は `Continue` / `EndContour` を持つ。contour 終端を `Option::None` や error で表さない。
+- next の規則は次とする。
+  - `Primary` は action payload に関係なく同じ contour cursor の `Tail` へ進む。
+  - `Tail` は action payload に関係なく `sink_step.source_step.next` に従う。
+  - `source_step.next = Continue next_cursor` なら `next_cursor Primary` へ進む。
+  - `source_step.next = EndContour` なら `EndContour` を返す。
+- `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` は F4u の `gui_sfnt_simple_glyph_path_sink_step_action_at` を使い、primary / tail action の中身を再分類しない。
+- byte-backed public helper は `gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功値を pure action-step helper に渡すだけにする。
+- F4v は `Vec`、`push`、numeric action index、command list、full outline allocation、rasterizer、render2d/backend/platform、font fallback、metadata unwrap bypass、`*_with_tables` bypass を使わない。
+- Source policy で F4v の type set、payload-independent traversal、F4u action projection reuse、F4t lookup への 1 回委譲、下位 glyph/contour/curve helper へ直接入らないことを固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の cheap typed assertion を拡張する。
+  - Primary は emit / reject に関係なく same contour cursor Tail へ進む。
+  - Tail は `Continue next_cursor` の場合に next cursor Primary へ進む。
+  - Tail は `EndContour` の場合に `EndContour` へ進む。
+  - Tail の `NoAction` は traversal stop ではなく、F4s source next に従う。
+
+完了条件:
+
+- traversal state は enum / struct payload として表現され、numeric action index を持たない。
+- action payload と next state は分離される。
+- next は action payload を見ず、action slot と F4s source step next だけから決まる。
+- byte-backed helper は F4t lookup にだけ委譲し、下位 helper を直接呼ばない。
+- F4v は full outline allocation、renderer、platform API、font fallback、off-curve start synthesis を導入しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
