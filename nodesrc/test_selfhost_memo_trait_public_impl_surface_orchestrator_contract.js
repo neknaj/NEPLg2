@@ -188,8 +188,9 @@ assert.ok(
         [
             "stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl",
             "stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl",
+            "stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl",
         ],
-        "surface state may only be consumed by checker-layer operation evidence and scanner-bound Drop candidate connectors and must remain out of facade-level public APIs",
+        "surface state may only be consumed by checker-layer operation evidence, scanner-bound Drop candidate, and owner-consuming operation proof orchestrator connectors and must remain out of facade-level public APIs",
     );
 }
 assertOrdered(

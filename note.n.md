@@ -1,3 +1,60 @@
+# 2026-06-14 Agent selfhost public impl surface operation proof orchestrator checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed Result / enum error、match の網羅性、pure core / impure owner boundary、DAG、source-derived authority 排除、丁寧な doc comment、試作段階でも設計負債を残さない方針、行数制限 / doc comment 長制限禁止を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / Drop 増補済み public impl surface state owner を既存 operation evidence / proof connector へ渡す checker-layer orchestration
+- classification: selfhost MemoKey / MemoValue structural purity / public impl surface operation proof orchestration
+- decision: MERGE_APPROVED after focused verification, full source policy warn-only run, issue/doc/todo/note update, and subagent review blocker handling.
+- policy/spec:
+  - accepted authority は Drop candidate connector が返した typed `SelfhostMemoTraitPublicImplSurfaceState` と、既存 operation evidence / proof connector の typed API に限定する。
+  - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、public surface hash だけから operation proof を推測しない。
+  - `public_surface_hash` は transport consistency guard であり、Drop body purity、no-escape、no-drop absence、operation proof の authority ではない。
+  - production path では `NoDropRequired`、`PureDrop`、method body `Pure`、aggregate `Proven`、fake operation impl candidate を合成しない。
+  - Resource IR proof producer、complete no-drop absence proof、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact はこの module の責務ではない。
+  - 行数制限、ファイル長制限、doc comment 長制限、コメント削減を目的にした検査は追加していない。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl` を追加した。
+  - Drop candidate 増補済み `SelfhostMemoTraitPublicImplSurfaceState` owner を、既存 `memo_trait_public_impl_operation_evidence_connector` の evidence / proof table API へ渡す。
+  - state owner consuming API は success / error の両方で `selfhost_memo_trait_public_impl_surface_state_free` を呼ぶ。返却された evidence / proof table owner は caller responsibility である。
+  - production path では `NoDropRequired`、`PureDrop`、method body `Pure`、aggregate `Proven`、fake operation impl candidate を合成しない。actual Resource IR no-escape proof producer と complete no-drop absence proof は後続 slice の責務に残した。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` を追加し、source policy runner に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、上位 orchestration 接続済みと残件を分けた。
+- subagent_review:
+  - subagent review は Popper と McClintock の独立確認を採用した。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec28c-fc1e-71a2-8fe3-396ab4d80401`
+  - subagent_review_count: 2
+  - Popper は、Resource IR no-escape proof producer や complete no-drop absence proof へ先に進むと authority boundary が混ざると指摘した。
+  - McClintock は、今回の slice を Drop 増補済み surface state から operation evidence / proof pipeline への薄い orchestration に限定し、proof store / PrivateCache / PrivateState / backend / prechecked artifact を直接 import しないことを Required とした。
+  - 対応として、no-drop absence proof と actual Resource IR no-escape proof producer は後続に戻し、今回の module は state owner consuming wrapper に限定した。
+  - Blocker: なし。
+  - Non-blocker: sorted index 化、solver traversal memoization、stage0 fixture 分割は contract-preserving 後続最適化として扱う。
+  - Question: なし。
+  - Approve: yes.
+  - nodesrc/selfhost_zenn_review_response_check.js: live subagent response was reviewed against the required categories; packet-file validation was not available because the response arrived through the agent status channel.
+- source_policy:
+  - required and updated.
+  - 新規 `nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、forbidden layer import、production proof/evidence 合成禁止、state owner cleanup、既存 connector 委譲、wildcard-free error equality、行数制限 / doc comment 長制限禁止を確認する。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_prototype_design_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl --no-tree -o tmp/selfhost-surface-operation-proof-orchestrator.json -j 1 --dist web/dist --assert-io` pass。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only`
+    - exit code は 0 である。
+    - 既存 warning として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` が残っている。
+    - 今回追加した surface operation proof orchestrator contract は runner 内でも通過している。
+    - Node の WASI ExperimentalWarning は環境由来の既存 warning として扱う。
+    - 今回差分由来 warning: なし。
+- residual:
+  - 次 slice: actual Resource IR no-escape proof producer は未実装である。
+  - complete public surface 由来の no-drop absence proof boundary は未実装である。
+  - generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+  - operation impl table lookup の sorted index 化、Drop proof table lookup の index 化、solver traversal memoization は、今回固定した typed authority / owner cleanup contract を保って後からできる最適化として扱う。
+
 # 2026-06-14 Agent selfhost public impl surface Drop candidate connector checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、DAG、source-derived authority 排除、public API の origin 境界、丁寧な doc comment、試作段階でも雑な設計を残さない方針を守る。
@@ -60952,3 +61009,52 @@ MERGE_APPROVED
 - complete public surface 由来の no-drop absence proof boundary は未実装である。`NoDropRequired` はこの connector で作らない。
 - operation evidence connector への Drop candidate 統合、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - materializer record table の operation bucket 化、proof table sorted index 化、Drop impl fact table lookup sorted index 化、operation impl table lookup sorted index 化は、今回固定した typed authority / owner / error contract を保って後からできる最適化として扱う。
+## 2026-06-14 selfhost public impl surface operation proof orchestrator checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / Option / enum error、match の網羅性、pure core / host boundary、DAG、source authority 禁止、性能と探索範囲の明示、丁寧な doc comment、試作段階でも設計負債を残さない方針、line count / doc comment length cap 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl` を追加した。
+- Drop candidate 増補済み `SelfhostMemoTraitPublicImplSurfaceState` owner を、既存 `memo_trait_public_impl_operation_evidence_connector` の evidence / proof table API へ渡す checker-layer orchestration とした。
+- `selfhost_memo_trait_public_impl_surface_operation_evidence_table_from_drop_augmented_surface_state_owner_result` と `selfhost_memo_trait_public_impl_surface_operation_proof_table_from_drop_augmented_surface_state_owner_result` は、success / error の両方で surface state owner を閉じる。返却された evidence / proof table owner は caller responsibility である。
+- production path では `NoDropRequired`、`PureDrop`、method body `Pure`、aggregate `Proven`、fake operation impl candidate を合成しない。これらは Drop candidate connector、purity gate、operation evidence producer、solver が typed evidence から作った値だけを運ぶ。
+- public surface hash は transport consistency guard であり、operation proof authority ではないと doc comment と source policy で明記した。
+- scanner output / AST records 起点の超長 curried API はこの slice から外した。既存 Drop candidate connector が scanner-bound state owner を作り、この module はその state owner の消費と operation pipeline 接続に責務を絞る。
+- `nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `todo.md` と対象 issue を更新し、Drop 増補済み surface state を full operation evidence / proof pipeline へ使う上位 orchestration は接続済みとした。
+
+### subagent_review
+
+- Popper review: actual Resource IR no-escape proof producer や complete no-drop absence proof へ先に進むと、proof producer / typed status consumer / operation evidence producer の authority boundary が混ざると指摘した。`CandidateMissing` や Drop table lookup miss から `NoDropRequired` を作る実装は不可と確認した。
+- McClintock review: 次 slice は `Drop 増補済み public impl surface state -> operation evidence/proof pipeline orchestration` に絞るべきと指摘した。Resource IR proof producer、proof store、PrivateCache / PrivateState、backend artifact、prechecked artifact を直接 import しないこと、`NoDropRequired` / `PureDrop` を orchestration で合成しないことを Required とした。
+- 対応として、no-drop absence proof と actual Resource IR no-escape proof producer は後続に戻し、今回の module は state owner consuming wrapper に限定した。
+
+### zenn_check
+
+- Result/Option: public API は `Result ... SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind` を返し、operation evidence connector の typed error を保持する。
+- enum error/display separation: error は `OperationEvidenceRejected` の enum payload で保持し、diagnostic text や bool に潰さない。
+- match exhaustiveness: orchestrator error equality は wildcard arm を使わず、variant 増加時に明示更新が必要な形にした。
+- pure/impure boundary: state owner と evidence / proof table owner を扱う public wrapper は impure。status summary equality と typed mapping helper は pure value mapping に閉じる。
+- authority boundary: source text、span、display name、module path、public surface hash 単独を authority にしない。operation proof は既存 evidence/proof connector に委譲する。
+- owner/free: state owner consuming API は success / error の両方で `selfhost_memo_trait_public_impl_surface_state_free` を呼ぶ。evidence table owner は stage0 summary 変換で閉じる。
+- zero-cost/performance: wrapper 自体は既存 connector 呼び出しと state cleanup のみ。operation table lookup sorted index 化、Drop proof table index 化、solver traversal memoization は contract-preserving 後続最適化として残す。
+- doc comment: module、public enum / struct / functions、重要 helper、Clone / Copy impl に日本語 doc comment を付けた。source policy で doc section と全 declaration doc comment を固定した。
+- prototype/fail-closed: no-drop absence proof と actual Resource IR no-escape proof producer は作らず、後続 stage に残した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl --no-tree -o tmp/selfhost-surface-operation-proof-orchestrator.json -j 1 --dist web/dist --assert-io`
+
+### residual
+
+- actual Resource IR no-escape proof producer は未実装である。
+- complete public surface 由来の no-drop absence proof boundary は未実装である。
+- generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- operation impl table lookup の sorted index 化、Drop proof table lookup の index 化、solver traversal memoization は、今回固定した typed authority / owner cleanup contract を保って後からできる最適化として扱う。

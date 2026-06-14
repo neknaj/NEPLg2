@@ -1741,6 +1741,8 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_can
 
 この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、Drop 増補済み surface state を full operation evidence pipeline へ使う上位 orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。non-Drop filter の record bucket 化、proof table sorted index 化、operation impl table sorted index 化、stage0 fixture 分割は、今回固定した scanner-output origin / owner / error contract を保って後からできる最適化として扱う。
 
+2026-06-14 follow-up では、Drop 増補済み surface state owner を既存 operation evidence / proof connector へ渡し、success / error の両方で state owner を閉じる上位 orchestration を追加した。この orchestration は proof producer ではなく、`NoDropRequired`、`PureDrop`、method body `Pure`、aggregate `Proven` を合成しない。actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は引き続き後続 slice の責務である。operation impl table lookup の sorted index 化、Drop proof table lookup の index 化、solver traversal memoization は、今回固定した typed authority / owner cleanup contract を保って後から置換できる最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

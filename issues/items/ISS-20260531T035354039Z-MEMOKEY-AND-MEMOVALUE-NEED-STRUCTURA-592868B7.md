@@ -56,6 +56,37 @@ Accepted tests should cover primitive scalar/unit/structural Copy values; reject
 
 Current Phase 1 regression is covered by `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`.
 
+## 2026-06-14 selfhost public impl surface operation proof orchestrator checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl` を追加し、Drop candidate 増補済み `SelfhostMemoTraitPublicImplSurfaceState` を既存 operation evidence / proof connector へ渡す上位 orchestration 境界を作った。
+
+今回の module は proof producer ではない。`NoDropRequired`、`PureDrop`、method body `Pure`、aggregate `Proven` は production path で合成せず、Drop candidate connector と operation evidence connector が作った typed evidence だけを運ぶ。public surface hash は transport consistency guard として扱い、operation proof の authority にはしない。
+
+公開入口は state owner を消費する形にした。`selfhost_memo_trait_public_impl_surface_operation_evidence_table_from_drop_augmented_surface_state_owner_result` と `selfhost_memo_trait_public_impl_surface_operation_proof_table_from_drop_augmented_surface_state_owner_result` は success / error の両方で surface state owner を閉じ、返却される evidence / proof table owner だけを caller responsibility とする。
+
+subagent review では、actual Resource IR no-escape proof producer や complete no-drop absence proof へ先に進むと authority boundary が混ざるため、Drop 増補済み surface state を既存 operation evidence/proof pipeline へ接続する薄い orchestration を先に閉じるべきだと確認された。レビューを受け、no-drop absence proof はこの checkpoint では作らず後続 slice に残した。また、scanner/AST records 起点の超長 curried API は型注釈境界が複雑化したため、既存 Drop candidate connector が返す state owner を消費する API へ責務を絞った。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / method-body / Drop resolver / candidate-builder / materializer internals / PrivateCache / PrivateState / prechecked artifact import 禁止、production path の `NoDropRequired` / `PureDrop` / method `Pure` / aggregate `Proven` / fake operation candidate 合成禁止、state owner cleanup、既存 connector への委譲、wildcard-free error equality、行数・doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_prototype_design_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl --no-tree -o tmp/selfhost-surface-operation-proof-orchestrator.json -j 1 --dist web/dist --assert-io`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - exit code は 0 である。
+  - 既存 warning として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` が残っている。
+  - 今回追加した `nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js` は runner 内でも通過している。
+  - Node の WASI ExperimentalWarning は環境由来の既存 warning として扱う。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_git_warning: `git diff --check`
+  - exit code は 0 である。
+  - Git の LF/CRLF warning は検査失敗ではない。
+
+この checkpoint 後も、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。operation impl table lookup の sorted index 化、Drop proof table lookup の index 化、solver traversal memoization は、今回固定した typed authority / owner cleanup 契約を保てるため後続最適化として扱う。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。

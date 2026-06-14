@@ -1,0 +1,398 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_surface_operation_proof_orchestrator
+//: Drop candidate [増補/ぞうほ][済/ず]み public impl surface state を、既存の operation evidence / operation proof pipeline へ[渡/わた]す checker-layer orchestration module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_surface_drop_candidate_connector` は scanner output の同じ origin から public surface hash、non-Drop operation candidate、Drop candidate を束ねた `SelfhostMemoTraitPublicImplSurfaceState` を作ります。
+//: - `memo_trait_public_impl_operation_evidence_connector` は surface state または operation impl table を、Copy / Drop / Eq / Hash の operation evidence table と既存 solver の proof table へ変換します。
+//: - この module は、その 2 つの境界を 1 つの上位入口として接続します。caller が Drop 増補済み state owner を operation pipeline に渡した後で閉じ忘れないように、state owner を消費する入口を提供します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は、Drop candidate connector が作った `SelfhostMemoTraitPublicImplSurfaceState` と、operation evidence connector の typed API だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、public surface hash だけから operation proof を推測しません。
+//: - `public_surface_hash` は transport consistency guard です。hash の非 0 性は空の struct literal を拒否する入口条件であり、Drop body purity、no-escape、no-drop absence、operation proof の authority ではありません。
+//: - この module は `NoDropRequired`、`PureDrop`、method body `Pure`、aggregate `Proven` を合成しません。これらは下位の Drop candidate connector、purity gate、operation evidence producer、solver が typed evidence から作った値だけを運びます。
+//: - state owner 入口では、Drop 増補 state owner をこの module が必ず閉じます。成功時に返す evidence / proof table owner は caller の責務です。
+//: - failure は operation evidence connector の typed error を保持し、文字列や bool に潰しません。Drop candidate connector の拒否は、state owner を作る前段の責務として別 enum のまま扱います。
+//: - Resource IR proof producer、complete no-drop absence proof producer、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact はこの module の責務ではありません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では、Drop no-escape proof table は caller supplied session-local proof table です。actual Resource IR no-escape proof producer は後続 slice で追加します。
+//: - complete public surface 由来の no-drop absence proof はまだ作りません。Drop candidate が無い場合は、既存 evidence connector と同じく Missing status へ fail-closed に畳まれます。
+//: - generic impl binder、bound detailed evidence、PrivateCache / PrivateState masking、prechecked artifact も後続 stage の責務です。
+//: - facade にはまだ re-export しません。selfhost compiler の proof orchestration が Resource proof と artifact boundary まで揃う段階で公開範囲を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。Zenn 方針に従い、目的、authority、禁止事項、owner cleanup、計算量、現状と後続責務を丁寧に記述します。
+//:
+//: [計算量/けいさんりょう]:
+//: - scanner / Drop candidate 増補の計算量は `memo_trait_public_impl_surface_drop_candidate_connector` の契約に従います。
+//: - operation evidence table 化は Copy / Drop / Eq / Hash の固定 4 operation を順に処理するため、operation impl table の候補数を n として現状 O(4n) 時間です。
+//: - proof table 化では既存 operation solver を呼びます。aggregate traversal の計算量は `memo_trait_operation_solver.nepl` の契約に従います。
+//: - operation impl table の sorted index 化、Drop proof table lookup の index 化、solver traversal memoization は、この module の typed authority と owner cleanup 契約を変えずに後続最適化として置換できます。
+//:
+//: neplg2:test
+//: ret: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stage0:
+//:         Result::Ok summary:
+//:             if:
+//:                 selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stage0_summary_eq summary
+//:                 then:
+//:                     0
+//:                 else:
+//:                     1
+//:         Result::Err _setup:
+//:             1
+//: ```
+
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/arena" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_layout" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_proof" as *
+#import "neplg2/core/ty/ty/memo_trait_producer" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_evidence_producer" as *
+#import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_public_impl_header" as *
+#import "./memo_trait_public_impl_operation_evidence_connector" as *
+#import "./memo_trait_public_impl_surface_orchestrator" as *
+
+//: SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary: stage0 が evidence table owner を閉じた後に保持する代表結果
+//:
+//: [目的/もくてき]:
+//: - wrapper が Drop 増補済み state から operation evidence table を作れたかを、owner-free な代表値として保持します。
+//: - `copy_status` と `drop_status` は evidence table lookup 境界を通した結果であり、table 欠落は Missing status として保持されます。
+pub struct SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary:
+    table_len %i32
+    copy_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+    drop_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+
+//: SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind: surface Drop 増補から operation pipeline への接続失敗分類
+//:
+//: [目的/もくてき]:
+//: - Drop candidate connector が拒否したのか、operation evidence / proof connector が拒否したのかを typed enum として保持します。
+//: - 表示文言は別境界で作るため、この enum は原因境界と nested typed error だけを運びます。
+pub enum SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+    OperationEvidenceRejected %SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind
+
+//: SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary: orchestration smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - Drop 増補済み state から Copy / Drop の Proven evidence が運ばれることを確認します。
+//: - hash 0 の state は operation evidence connector 側の typed rejection として保持されることを確認します。
+pub struct SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind
+    zero_hash_rejected %Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary: owner を含まない summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は evidence table owner を保持しません。owner cleanup は summary 作成前に完了しています。
+impl Clone for SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary: summary payload を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - `copy_status` と `drop_status` は typed enum payload であり、resource owner を保持しません。
+impl Copy for SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind: typed error payload を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - nested error を表示文字列へ潰さず、lower boundary の enum payload のまま保持します。
+impl Clone for SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind: owner を含まない error payload を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - error enum は state owner、evidence table owner、proof table owner を含みません。
+impl Copy for SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary: stage0 summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は owner cleanup 済みの代表値だけを保持します。
+impl Clone for SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary: stage0 summary を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - accepted / rejection payload は typed enum と scalar だけです。
+impl Copy for SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_summary_new: accepted summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_summary_new %fn i32 fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary \table_len\copy_status\drop_status:
+    SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary table_len copy_status drop_status
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind fn Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary \accepted\zero_hash_rejected:
+    SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary accepted zero_hash_rejected
+
+//: selfhost_memo_trait_public_impl_surface_operation_evidence_table_for_type_from_drop_augmented_surface_state_result: Drop 増補済み state borrow から operation evidence table owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `state` は borrow です。この関数は state owner を閉じません。
+//: - `NoDropRequired` や `PureDrop` は合成せず、state 内の operation impl candidate を既存 evidence connector へ渡すだけです。
+//: - hash 0、duplicate candidate、producer rejection、push failure は operation evidence connector の typed error として保持します。
+pub fn selfhost_memo_trait_public_impl_surface_operation_evidence_table_for_type_from_drop_augmented_surface_state_result %impure fn &SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \state\type_id:
+    match selfhost_memo_trait_public_impl_operation_evidence_table_for_type_from_surface_state_result state type_id:
+        Result::Ok evidence_table:
+            Result::Ok evidence_table
+        Result::Err operation_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind::OperationEvidenceRejected operation_error
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_table_for_type_from_drop_augmented_surface_state_result: Drop 増補済み state borrow を既存 solver へ[渡/わた]す
+//:
+//: [契約/けいやく]:
+//: - `state` は borrow です。この関数は state owner を閉じません。
+//: - evidence table の一時 owner cleanup と aggregate traversal は operation evidence connector / solver に委譲します。
+pub fn selfhost_memo_trait_public_impl_surface_operation_proof_table_for_type_from_drop_augmented_surface_state_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn &SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \types\layout_table\state\type_id\max_depth:
+    match selfhost_memo_trait_public_impl_operation_proof_table_for_type_from_surface_state_result types layout_table state type_id max_depth:
+        Result::Ok proof_table:
+            Result::Ok proof_table
+        Result::Err operation_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind::OperationEvidenceRejected operation_error
+
+//: selfhost_memo_trait_public_impl_surface_operation_evidence_table_from_drop_augmented_surface_state_owner_result: Drop 増補済み state owner を evidence table owner へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `state` はこの関数が消費します。success / operation connector rejection の両方で必ず閉じます。
+//: - evidence table owner を返す場合、caller が使用後に閉じます。
+pub fn selfhost_memo_trait_public_impl_surface_operation_evidence_table_from_drop_augmented_surface_state_owner_result %impure fn SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \state\type_id:
+    let result %Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+        selfhost_memo_trait_public_impl_surface_operation_evidence_table_for_type_from_drop_augmented_surface_state_result &state type_id
+    selfhost_memo_trait_public_impl_surface_state_free state
+    result
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_table_from_drop_augmented_surface_state_owner_result: Drop 増補済み state owner を proof table owner へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `state` はこの関数が消費します。success / proof connector rejection の両方で必ず閉じます。
+//: - proof table owner を返す場合、caller が使用後に閉じます。
+pub fn selfhost_memo_trait_public_impl_surface_operation_proof_table_from_drop_augmented_surface_state_owner_result %impure fn &SelfhostTypeArena impure fn &SelfhostMemoTraitLayoutEvidenceTable impure fn SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId impure fn i32 Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \types\layout_table\state\type_id\max_depth:
+    let result %Result SelfhostMemoTraitOperationProofTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+        selfhost_memo_trait_public_impl_surface_operation_proof_table_for_type_from_drop_augmented_surface_state_result types layout_table &state type_id max_depth
+    selfhost_memo_trait_public_impl_surface_state_free state
+    result
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_error_kind_eq: orchestrator error が同じ分類か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - wildcard arm は使いません。variant が増えた場合はこの equality 境界を明示的に更新します。
+//: - operation evidence connector rejection は lower boundary の equality helper へ委譲します。
+pub fn selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_error_kind_eq %fn SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind fn SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind::OperationEvidenceRejected a_operation:
+            match b:
+                SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind::OperationEvidenceRejected b_operation:
+                    selfhost_memo_trait_public_impl_operation_evidence_connector_error_kind_eq a_operation b_operation
+
+//: # Stage0 fixture
+//: 以下の helper は doctest 用の最小 fixture です。production path では candidate や Drop evidence をこの module で合成せず、Drop connector と operation evidence connector の public API だけを使います。
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_status_result_eq: status Result が期待 status か[返/かえ]す
+fn selfhost_memo_trait_public_impl_surface_operation_proof_status_result_eq %fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind fn SelfhostMemoTraitAggregateProofStatus bool \result\expected:
+    match result:
+        Result::Ok status:
+            selfhost_memo_trait_operation_evidence_status_eq status expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_accepted_summary_eq: accepted summary が期待範囲か[返/かえ]す
+fn selfhost_memo_trait_public_impl_surface_operation_proof_accepted_summary_eq %fn SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary fn i32 fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \summary\expected_len\expected_copy\expected_drop:
+    and:
+        eq summary.table_len expected_len
+        and:
+            selfhost_memo_trait_public_impl_surface_operation_proof_status_result_eq summary.copy_status expected_copy
+            selfhost_memo_trait_public_impl_surface_operation_proof_status_result_eq summary.drop_status expected_drop
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_result_summary_eq: Result payload が期待 summary か[返/かえ]す
+fn selfhost_memo_trait_public_impl_surface_operation_proof_result_summary_eq %fn Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind fn i32 fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \result\expected_len\expected_copy\expected_drop:
+    match result:
+        Result::Ok summary:
+            selfhost_memo_trait_public_impl_surface_operation_proof_accepted_summary_eq summary expected_len expected_copy expected_drop
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_result_error_eq: Result payload が期待 error か[返/かえ]す
+fn selfhost_memo_trait_public_impl_surface_operation_proof_result_error_eq %fn Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind fn SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _summary:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stage0_summary_eq: stage0 summary の代表 contract を[確認/かくにん]する
+//:
+//: [契約/けいやく]:
+//: - accepted は Copy と Drop の 2 record を持ち、どちらも Proven です。
+//: - zero hash は operation evidence connector の hash 0 rejection として保持されます。
+pub fn selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stage0_summary_eq %fn SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary bool \summary:
+    let accepted_ok %bool selfhost_memo_trait_public_impl_surface_operation_proof_result_summary_eq summary.accepted 2 SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven
+    let zero_hash_error %SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+        SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind::OperationEvidenceRejected SelfhostMemoTraitPublicImplOperationEvidenceConnectorErrorKind::PublicSurfaceHashMissing
+    let zero_hash_ok %bool selfhost_memo_trait_public_impl_surface_operation_proof_result_error_eq summary.zero_hash_rejected zero_hash_error
+    and accepted_ok zero_hash_ok
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_header: stage0 用 impl header input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - production path の header authority は scanner / materializer / producer が再検査します。この helper は doctest fixture だけで使います。
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_header %fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\trait_shape:
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9301 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 9401 some trait_shape 0 0
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_trait_application: stage0 用 trait application input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - trait source と shape hash は trusted registry から導出し、classifier の shape 検査を通します。
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_trait_application %fn SelfhostMemoTraitOperationSourceIdentity fn i32 SelfhostMemoTraitOperationTraitApplicationInput \source\shape_hash:
+    selfhost_memo_trait_operation_trait_application_input_new source 0 some shape_hash
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_candidate: stage0 用 operation impl candidate を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - Copy は method / Drop evidence を必要としないため `NotRequired` を渡します。
+//: - Drop は stage0 の Drop 増補済み state を表すため `PureDrop` を渡します。production function ではこの値を合成しません。
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_candidate %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 SelfhostMemoTraitOperationImplCandidate \type_id\operation\source\shape_hash\ordinal:
+    let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_header ordinal shape_hash
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_public_impl_surface_operation_proof_stage0_trait_application source shape_hash
+    let drop_evidence %SelfhostMemoTraitOperationDropEvidence:
+        match operation:
+            SelfhostMemoTraitOperationEvidenceKind::Copy:
+                SelfhostMemoTraitOperationDropEvidence::NotRequired
+            SelfhostMemoTraitOperationEvidenceKind::Drop:
+                SelfhostMemoTraitOperationDropEvidence::PureDrop
+            SelfhostMemoTraitOperationEvidenceKind::Eq:
+                SelfhostMemoTraitOperationDropEvidence::NotRequired
+            SelfhostMemoTraitOperationEvidenceKind::Hash:
+                SelfhostMemoTraitOperationDropEvidence::NotRequired
+    selfhost_memo_trait_operation_impl_candidate_new type_id operation header trait_application some 9401 SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired drop_evidence
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_push_result: stage0 candidate を table owner に[追加/ついか]する
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_push_result %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostMemoTraitOperationImplCandidate Result SelfhostMemoTraitOperationImplTable StdErrorKind \table\candidate:
+    match selfhost_memo_trait_operation_impl_table_push table candidate:
+        Result::Ok next_table:
+            Result::Ok next_table
+        Result::Err _push_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_shape_result: trusted operation source の shape hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 StdErrorKind \source:
+    match selfhost_memo_trait_operation_trait_application_shape_hash_result source 0:
+        Result::Ok shape_hash:
+            Result::Ok shape_hash
+        Result::Err _classifier_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_table_result: Copy / Drop candidate を持つ stage0 table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result SelfhostMemoTraitOperationImplTable StdErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_surface_operation_proof_stage0_shape_result registry.copy_source:
+        Result::Ok copy_shape:
+            match selfhost_memo_trait_public_impl_surface_operation_proof_stage0_shape_result registry.drop_source:
+                Result::Ok drop_shape:
+                    match selfhost_memo_trait_operation_impl_table_new:
+                        Result::Ok table0:
+                            let copy_candidate %SelfhostMemoTraitOperationImplCandidate:
+                                selfhost_memo_trait_public_impl_surface_operation_proof_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Copy registry.copy_source copy_shape 1
+                            match selfhost_memo_trait_public_impl_surface_operation_proof_stage0_push_result table0 copy_candidate:
+                                Result::Ok table1:
+                                    let drop_candidate %SelfhostMemoTraitOperationImplCandidate:
+                                        selfhost_memo_trait_public_impl_surface_operation_proof_stage0_candidate type_id SelfhostMemoTraitOperationEvidenceKind::Drop registry.drop_source drop_shape 2
+                                    selfhost_memo_trait_public_impl_surface_operation_proof_stage0_push_result table1 drop_candidate
+                                Result::Err copy_push_error:
+                                    Result::Err copy_push_error
+                        Result::Err _alloc_error:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err drop_shape_error:
+                    Result::Err drop_shape_error
+        Result::Err copy_shape_error:
+            Result::Err copy_shape_error
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_summary_from_table: evidence table owner を summary へ[変換/へんかん]して[閉/と]じる
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_summary_from_table %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary \table\type_id:
+    let table_len %i32 selfhost_memo_trait_operation_evidence_table_len &table
+    let copy_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+    let drop_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+    selfhost_memo_trait_operation_evidence_table_free table
+    selfhost_memo_trait_public_impl_surface_operation_proof_summary_new table_len copy_status drop_status
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_run_state: surface state owner を wrapper に渡して summary を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - success / error のどちらでも state owner をこの helper が閉じます。
+//: - evidence table owner は summary 変換時に閉じます。
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_run_state %impure fn SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind \state\type_id:
+    let result %Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind:
+        selfhost_memo_trait_public_impl_surface_operation_evidence_table_from_drop_augmented_surface_state_owner_result state type_id
+    match result:
+        Result::Ok evidence_table:
+            Result::Ok selfhost_memo_trait_public_impl_surface_operation_proof_stage0_summary_from_table evidence_table type_id
+        Result::Err error:
+            Result::Err error
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_accepted_result: Drop 増補済み state の accepted path を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_accepted_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind StdErrorKind \type_id\registry:
+    match selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_table_result type_id registry:
+        Result::Ok impls:
+            let state %SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceState 87301 impls
+            Result::Ok selfhost_memo_trait_public_impl_surface_operation_proof_stage0_run_state state type_id
+        Result::Err setup_error:
+            Result::Err setup_error
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_zero_hash_result: hash 0 rejection path を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_zero_hash_result %impure fn SelfhostTypeId Result Result SelfhostMemoTraitPublicImplSurfaceOperationProofAcceptedSummary SelfhostMemoTraitPublicImplSurfaceOperationProofOrchestratorErrorKind StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok impls:
+            let state %SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceState 0 impls
+            Result::Ok selfhost_memo_trait_public_impl_surface_operation_proof_stage0_run_state state type_id
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_with_registry: trusted operation registry から stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_with_registry %impure fn SelfhostMemoTraitOperationTrustedSourceRegistry Result SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary StdErrorKind \registry:
+    let type_id %SelfhostTypeId selfhost_type_id_new 21901
+    match selfhost_memo_trait_public_impl_surface_operation_proof_stage0_accepted_result type_id registry:
+        Result::Ok accepted:
+            match selfhost_memo_trait_public_impl_surface_operation_proof_stage0_zero_hash_result type_id:
+                Result::Ok zero_hash_rejected:
+                    Result::Ok selfhost_memo_trait_public_impl_surface_operation_proof_stage0_summary_new accepted zero_hash_rejected
+                Result::Err zero_hash_setup_error:
+                    Result::Err zero_hash_setup_error
+        Result::Err accepted_setup_error:
+            Result::Err accepted_setup_error
+
+//: selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stage0: Drop 増補済み surface state から operation evidence table へ進む smoke API
+//:
+//: [目的/もくてき]:
+//: - Copy / Drop candidate を持つ state が existing operation evidence connector を通り、Copy / Drop の Proven status を evidence table へ運ぶことを確認します。
+//: - hash 0 state は operation evidence connector の typed error として拒否されることを確認します。
+pub fn selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stage0 %impure fn void Result SelfhostMemoTraitPublicImplSurfaceOperationProofStage0Summary StdErrorKind \void:
+    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+        Result::Ok registry:
+            selfhost_memo_trait_public_impl_surface_operation_proof_stage0_with_registry registry
+        Result::Err _registry_error:
+            Result::Err StdErrorKind::InvalidOperation
