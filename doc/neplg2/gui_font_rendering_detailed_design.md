@@ -1353,6 +1353,33 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step
 
 F4y does not inspect `step.action`, primary action, tail action, or unified action payload variants. `Reject`, `NoAction`, and `CloseContour` are payloads for a future consumer; they do not change the traversal rule. F4y must not loop, allocate a command list, mutate a sink, repair contours, rasterize, or present to any platform.
 
+### SFNT simple glyph path sink action step item
+
+F4z packages the current action step and the checked advance result into a single value:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepItem:
+    step GuiSfntSimpleGlyphPathSinkActionStep
+    advance GuiSfntSimpleGlyphPathSinkActionStepAdvance
+```
+
+This is the first consumer-facing item boundary above F4y. It is deliberately not a contour iterator, not a sink trait, and not a command list. A later sink consumer can read `item.step.action` through the existing step accessor and use `item.advance` to decide whether the next item exists, but F4z itself does not interpret the action payload.
+
+The byte-backed helper is a narrow composition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index step policy
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy
+        Err error -> Err error
+        Ok advance:
+            stored_step = *step
+            Ok ActionStepItem stored_step advance
+```
+
+The explicit `stored_step = *step` copy is part of the contract. The helper must not store a borrowed reference in the item, because the item is a value that can be passed to later consumers without aliasing the caller-owned reference.
+
+F4z must not call start cursor helpers, start step helpers, F4v action step lookup, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, inspect `Reject` / `NoAction` / `CloseContour`, or introduce a silent no-op path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
