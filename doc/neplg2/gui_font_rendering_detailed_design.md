@@ -3283,6 +3283,89 @@ otherwise:
     PointStepInvariantInvalid
 ```
 
+## SFNT simple glyph outline point stream item drain boundary
+
+F5s adds a no-allocation drain boundary over the F5o point step and the F5r item step conversion. It emits no `Vec`, no path command list, no raster mask, and no render command. Its purpose is to let later phases advance the classified item stream by bounded work slices while preserving the same typed cursor semantics on Web, native, bare, and headless hosts.
+
+F5p and F5s share the same cursor precondition logic, but they do not share public drain errors. The shared logic is a private neutral validation helper:
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadCursorValidation:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    point_index i32
+    shared_point_count i32
+
+GuiSfntSimpleGlyphOutlinePointReadCursorValidationRejectKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+
+gui_sfnt_simple_glyph_outline_point_read_cursor_validate:
+    storage &GuiSfntSimpleGlyphOutlineStorage
+    stream GuiSfntSimpleGlyphPointStream
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    -> Result GuiSfntSimpleGlyphOutlinePointReadCursorValidation GuiSfntSimpleGlyphOutlinePointReadCursorValidationReject
+```
+
+The neutral helper is byte-free, path-free, render-free, raster-free, platform-free, and host-free. F5p converts its reject into `GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind`. F5s converts the same reject into `GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind`. This prevents F5s from depending on F5p public drain behavior while still avoiding duplicated precondition logic.
+
+The F5s summary and success value are:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary:
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+GuiSfntSimpleGlyphOutlinePointStreamItemDrain:
+    End GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary
+```
+
+The F5s error kind is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    PointStepReadFailed
+    ItemStepConvertFailed
+    ItemStepInvariantInvalid
+```
+
+`PointStepReadFailed` stores the F5o sub-error. `ItemStepConvertFailed` stores the F5r sub-error and the F5o step that failed conversion. `ItemStepInvariantInvalid` stores the F5o step and F5r item step that passed conversion but failed the drain-level defensive checks. That branch is expected to be unreachable when F5o and F5r are correct, but it remains part of the contract because public constructors and future internal edits can otherwise forge inconsistent values.
+
+The fixed F5s order is:
+
+```text
+validate shared cursor context
+if point_index == shared_point_count:
+    return End summary
+if remaining_steps <= 0:
+    return StepBudgetExhausted summary
+call F5o point step exactly once
+if F5o Err:
+    return PointStepReadFailed
+call F5r item step conversion exactly once
+if F5r Err:
+    return ItemStepConvertFailed
+if F5r Ok Item:
+    require item Some
+    require item_step.cursor.next_point_index == point_index
+    require item_step.next_cursor.next_point_index == point_index + 1
+    update cursor, items_read, last_item, remaining_steps
+if F5r Ok End:
+    return ItemStepInvariantInvalid
+```
+
+Terminal-before-budget and budget-before-F5o are contract requirements. F5s must not call `gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`, lower point readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
