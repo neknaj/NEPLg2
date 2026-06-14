@@ -109,7 +109,7 @@ pub struct SelfhostMemoTraitPublicImplHeaderShapeHash:
 //:
 //: [契約/けいやく]:
 //: - `Monomorphic` は `type_parameter_count = 0` かつ `type_parameter_bound_count = 0` の header だけで受理されます。
-//: - `Detailed(evidence)` は `SelfhostMemoTraitPublicImplGenericBinderEvidence` の count と nonzero shape hash を再検査してから header shape に混ぜます。
+//: - `Detailed(evidence)` は `SelfhostMemoTraitPublicImplGenericBinderEvidence` の count、nonzero table hash、nonzero shape hash を再検査してから header shape に混ぜます。
 //: - この enum は generic impl の semantic success、trait bound solving、operation candidate、proof record を表しません。
 pub enum SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence:
     Monomorphic
@@ -160,6 +160,8 @@ pub enum SelfhostMemoTraitPublicImplHeaderErrorKind:
     GenericBinderEvidenceUnexpected
     GenericBinderEvidenceParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
     GenericBinderEvidenceBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    GenericBinderEvidenceParameterTableHashPlaceholder
+    GenericBinderEvidenceBoundTableHashPlaceholder
     GenericBinderEvidenceHashPlaceholder
     StableImplKeyHashPlaceholder
     DerivedImplHeaderShapeHashPlaceholder
@@ -453,11 +455,21 @@ fn selfhost_memo_trait_public_impl_header_generic_binder_hash_result %fn i32 fn 
                                                     Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_parameter_bound_count evidence.type_parameter_bound_count
                                                 else:
                                                     if:
-                                                        eq evidence.shape_hash 0
+                                                        eq evidence.parameter_table_shape_hash 0
                                                         then:
-                                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceHashPlaceholder
+                                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterTableHashPlaceholder
                                                         else:
-                                                            Result::Ok evidence.shape_hash
+                                                            if:
+                                                                eq evidence.bound_table_shape_hash 0
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundTableHashPlaceholder
+                                                                else:
+                                                                    if:
+                                                                        eq evidence.shape_hash 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceHashPlaceholder
+                                                                        else:
+                                                                            Result::Ok evidence.shape_hash
 
 //: selfhost_memo_trait_public_impl_header_kind_supported_result: impl kind を[検査/けんさ]する
 //:
@@ -692,14 +704,18 @@ fn selfhost_memo_trait_public_impl_header_error_kind_code %fn SelfhostMemoTraitP
             17
         SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundCountMismatch _mismatch:
             18
-        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceHashPlaceholder:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterTableHashPlaceholder:
             19
-        SelfhostMemoTraitPublicImplHeaderErrorKind::StableImplKeyHashPlaceholder:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundTableHashPlaceholder:
             20
-        SelfhostMemoTraitPublicImplHeaderErrorKind::DerivedImplHeaderShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceHashPlaceholder:
             21
-        SelfhostMemoTraitPublicImplHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::StableImplKeyHashPlaceholder:
             22
+        SelfhostMemoTraitPublicImplHeaderErrorKind::DerivedImplHeaderShapeHashPlaceholder:
+            23
+        SelfhostMemoTraitPublicImplHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+            24
 
 //: selfhost_memo_trait_public_impl_header_count_mismatch_eq: generic binder count mismatch payload が同じか[返/かえ]す
 //:
@@ -757,7 +773,7 @@ fn selfhost_memo_trait_public_impl_header_stage0_input %fn i32 fn Option i32 fn 
 
 //: selfhost_memo_trait_public_impl_header_stage0_generic_binder_input: detailed binder evidence 付き generic smoke input を[作/つく]る
 fn selfhost_memo_trait_public_impl_header_stage0_generic_binder_input %fn void SelfhostMemoTraitPublicImplHeaderInput \void:
-    let evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8301
+    let evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8201 8202 8301
     selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 8 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 1 1 selfhost_memo_trait_public_impl_header_detailed_binder_evidence evidence
 
 //: selfhost_memo_trait_public_impl_header_stage0: public impl header producer の smoke API

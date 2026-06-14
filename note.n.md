@@ -1,3 +1,52 @@
+# 2026-06-14 Agent selfhost generic binder same-origin table hash checkpoint
+
+## scope
+
+- branch: `work/selfhost-generic-binder-same-origin`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- commit_policy: ユーザー指示に従い、stdlib 実装、source policy、doc、issue、todo、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、typed static authority、source text や display name 由来の authority 禁止、fail-closed、詳細な日本語 doc comment、行数 / doc comment 長制限禁止、試作段階では根本境界を優先する方針を維持した。
+
+## implementation
+
+- `SelfhostMemoTraitPublicImplGenericBinderEvidence` に `parameter_table_shape_hash` と `bound_table_shape_hash` を追加した。
+- binder producer は parameter table と bound table の typed field から table shape hash を導出し、root binder shape hash と同じ accepted evidence に保存する。
+- `selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result` を追加し、caller が渡した binder evidence、parameter table、bound table を producer と同じ規則で再計算して照合できるようにした。
+- generic substitution trace producer は binder same-origin gate を通してから trace evidence を作る。trace evidence は `generic_parameter_table_shape_hash` と `generic_bound_table_shape_hash` を保持する。
+- generic substitution shape producer は trace evidence 側の binder table hash と binder evidence 側の table hash を再検査する。
+- generic instantiation gate は substitution shape evidence 側の binder table hash と binder evidence 側の table hash を再検査する。
+- generic instantiation evidence は `generic_parameter_table_shape_hash` と `generic_bound_table_shape_hash` を final evidence に保持し、後続 materializer accepted path が instantiation evidence だけを読む段階でも same-origin 情報を失わないようにした。
+- public impl header の detailed binder evidence gate は parameter table shape hash / bound table shape hash の placeholder も typed enum error で拒否する。
+- public impl header / materializer の stage0 fixture は拡張された binder evidence arity に合わせた。materializer は引き続き detailed generic record を `GenericImplInstantiationUnsupported` で止める。
+- `core/option` import を generic substitution trace module に明示し、stage0 bound table fixture が `some` constructor に暗黙依存しないようにした。
+
+## subagent_review
+
+- Popper review: binder producer と同じ規則で canonical recomputation する方式が必要であり、trace 側へ hash 規則を複製するのではなく binder module helper を使うべきと指摘された。実装では binder module に same-origin helper を置き、trace producer がそれを呼ぶ形にした。
+- Descartes review: binder evidence と trace / shape / instantiation evidence に parameter table shape hash と bound table shape hash を運ばせ、consumer gate で再検査するべきと指摘された。実装では binder evidence、trace evidence、shape evidence に table hash を持たせ、shape / instantiation gate で照合するようにした。
+- Descartes final review: header detailed binder evidence の table hash placeholder 拒否と instantiation evidence への table hash 保持が Required として指摘された。同じ slice 内で header / instantiation implementation と source policy に反映した。
+
+## verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl --no-tree -o tmp/selfhost-generic-binder-same-origin.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl --no-tree -o tmp/selfhost-generic-substitution-trace-same-origin.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -o tmp/selfhost-generic-substitution-shape-table-hash.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -o tmp/selfhost-generic-instantiation-table-hash.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl --no-tree -o tmp/selfhost-public-impl-header-binder-table-hash.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --no-tree -o tmp/selfhost-materializer-generic-binder-table-hash.json -j 1`
+
+## residual
+
+- actual type substitution engine は未実装である。次 slice では pre-substitution target / trait application shape から substituted output shape を typed traversal と typed substitution step stream で生成する。
+- trait bound solver、generic coherence、generic instantiation evidence の materializer accepted path 接続、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- table hash lookup の index 化、trace lookup cache、bound lookup cache、stage0 fixture 分割は、今回固定した same-origin contract を保てるため後続最適化として扱う。
+
 # 2026-06-14 Agent selfhost generic substitution trace evidence checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、proof authority の段階分離、丁寧な doc comment、行数・doc comment 長制限禁止、試作段階でも雑な hash authority を残さない方針を守る。

@@ -595,7 +595,7 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_drop_unsupporte
 fn selfhost_memo_trait_operation_public_impl_materializer_stage0_generic_unsupported %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\target_shape_hash\copy_shape_hash:
     match selfhost_memo_trait_operation_public_impl_materializer_stage0_source_new:
         Result::Ok table0:
-            let evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8407
+            let evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8207 8208 8407
             let record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 740101 some 8 SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash registry.copy_source 0 some copy_shape_hash 1 1 selfhost_memo_trait_public_impl_header_detailed_binder_evidence evidence none 16
             match selfhost_memo_trait_operation_public_impl_materializer_record_table_push table0 record:
                 Result::Ok table1:

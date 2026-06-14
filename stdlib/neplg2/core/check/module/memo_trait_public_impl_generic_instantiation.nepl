@@ -110,13 +110,15 @@ pub struct SelfhostMemoTraitPublicImplGenericInstantiationInput:
 //:
 //: [契約/けいやく]:
 //: - `instantiation_shape_hash` は nonzero でなければ accepted evidence ではありません。
-//: - `generic_binder_shape_hash`、`type_argument_identity_hash`、substitution shape hash、substituted shape hash、bound solution hash は別々の producer 由来の typed material として保持します。
+//: - `generic_binder_shape_hash`、binder parameter / bound table hash、`type_argument_identity_hash`、substitution shape hash、substituted shape hash、bound solution hash は別々の producer 由来の typed material として保持します。
 pub struct SelfhostMemoTraitPublicImplGenericInstantiationEvidence:
     schema_version %i32
     type_parameter_count %i32
     type_argument_count %i32
     type_parameter_bound_count %i32
     generic_binder_shape_hash %i32
+    generic_parameter_table_shape_hash %i32
+    generic_bound_table_shape_hash %i32
     type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
     substitution_shape_hash %i32
     substituted_target_type_shape_hash %i32
@@ -130,6 +132,8 @@ pub enum SelfhostMemoTraitPublicImplGenericInstantiationErrorKind:
     BinderEvidenceHashPlaceholder
     TypeArgumentCountNegative
     TypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    BinderEvidenceParameterTableHashPlaceholder
+    BinderEvidenceBoundTableHashPlaceholder
     TypeArgumentIdentitySchemaPlaceholder
     TypeArgumentIdentityHashPlaceholder
     SubstitutionShapeSchemaPlaceholder
@@ -264,11 +268,21 @@ fn selfhost_memo_trait_public_impl_generic_instantiation_binder_hash_result %fn 
             Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceSchemaPlaceholder
         else:
             if:
-                eq evidence.shape_hash 0
+                eq evidence.parameter_table_shape_hash 0
                 then:
-                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceHashPlaceholder
+                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceParameterTableHashPlaceholder
                 else:
-                    Result::Ok evidence.shape_hash
+                    if:
+                        eq evidence.bound_table_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceBoundTableHashPlaceholder
+                        else:
+                            if:
+                                eq evidence.shape_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceHashPlaceholder
+                                else:
+                                    Result::Ok evidence.shape_hash
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_type_argument_identity_result: type argument identity hash を[検査/けんさ]する
 fn selfhost_memo_trait_public_impl_generic_instantiation_type_argument_identity_result %fn SelfhostMemoTraitStableTypeArgumentIdentityHash Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitPublicImplGenericInstantiationErrorKind \hash:
@@ -321,51 +335,61 @@ fn selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_resu
                                                     Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeBinderHashMismatch
                                                 else:
                                                     if:
-                                                        eq evidence.type_argument_identity_hash.schema_version 0
+                                                        not eq evidence.generic_parameter_table_shape_hash binder.parameter_table_shape_hash
                                                         then:
-                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeBinderHashMismatch
                                                         else:
                                                             if:
-                                                                eq evidence.type_argument_identity_hash.identity_hash 0
+                                                                not eq evidence.generic_bound_table_shape_hash binder.bound_table_shape_hash
                                                                 then:
-                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashPlaceholder
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeBinderHashMismatch
                                                                 else:
                                                                     if:
-                                                                        not eq evidence.type_argument_identity_hash.schema_version type_argument_hash.schema_version
+                                                                        eq evidence.type_argument_identity_hash.schema_version 0
                                                                         then:
-                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaMismatch
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder
                                                                         else:
                                                                             if:
-                                                                                not eq evidence.type_argument_identity_hash.identity_hash type_argument_hash.identity_hash
+                                                                                eq evidence.type_argument_identity_hash.identity_hash 0
                                                                                 then:
-                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashMismatch
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashPlaceholder
                                                                                 else:
                                                                                     if:
-                                                                                        eq evidence.pre_substitution_target_type_shape_hash 0
+                                                                                        not eq evidence.type_argument_identity_hash.schema_version type_argument_hash.schema_version
                                                                                         then:
-                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTargetTypeShapeHashPlaceholder
+                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaMismatch
                                                                                         else:
                                                                                             if:
-                                                                                                eq evidence.pre_substitution_trait_application_shape_hash 0
+                                                                                                not eq evidence.type_argument_identity_hash.identity_hash type_argument_hash.identity_hash
                                                                                                 then:
-                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTraitApplicationShapeHashPlaceholder
+                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashMismatch
                                                                                                 else:
                                                                                                     if:
-                                                                                                        eq evidence.substitution_trace_shape_hash 0
+                                                                                                        eq evidence.pre_substitution_target_type_shape_hash 0
                                                                                                         then:
-                                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionTraceShapeHashPlaceholder
+                                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTargetTypeShapeHashPlaceholder
                                                                                                         else:
                                                                                                             if:
-                                                                                                                eq evidence.substituted_target_type_shape_hash 0
+                                                                                                                eq evidence.pre_substitution_trait_application_shape_hash 0
                                                                                                                 then:
-                                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTargetTypeShapeHashPlaceholder
+                                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTraitApplicationShapeHashPlaceholder
                                                                                                                 else:
                                                                                                                     if:
-                                                                                                                        eq evidence.substituted_trait_application_shape_hash 0
+                                                                                                                        eq evidence.substitution_trace_shape_hash 0
                                                                                                                         then:
-                                                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTraitApplicationShapeHashPlaceholder
+                                                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionTraceShapeHashPlaceholder
                                                                                                                         else:
-                                                                                                                            Result::Ok evidence
+                                                                                                                            if:
+                                                                                                                                eq evidence.substituted_target_type_shape_hash 0
+                                                                                                                                then:
+                                                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTargetTypeShapeHashPlaceholder
+                                                                                                                                else:
+                                                                                                                                    if:
+                                                                                                                                        eq evidence.substituted_trait_application_shape_hash 0
+                                                                                                                                        then:
+                                                                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTraitApplicationShapeHashPlaceholder
+                                                                                                                                        else:
+                                                                                                                                            Result::Ok evidence
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_no_bounds_hash_result: bound なし case の solution hash を[作/つく]る
 fn selfhost_memo_trait_public_impl_generic_instantiation_no_bounds_hash_result %fn void Result i32 SelfhostMemoTraitPublicImplGenericInstantiationErrorKind \void:
@@ -459,14 +483,15 @@ pub fn selfhost_memo_trait_public_impl_generic_instantiation_evidence_result %fn
                                                     let schema %i32 selfhost_memo_trait_public_impl_generic_instantiation_schema_version
                                                     let type_argument_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_mix2 type_argument_hash.schema_version type_argument_hash.identity_hash
                                                     let substitution_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_mix4 491301 substitution_evidence.substitution_shape_hash substitution_evidence.substituted_target_type_shape_hash selfhost_memo_trait_public_impl_generic_instantiation_mix2 substitution_evidence.substituted_trait_application_shape_hash type_argument_material
-                                                    let binder_shape_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_mix2 binder_hash substitution_material
+                                                    let binder_table_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_mix2 input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash
+                                                    let binder_shape_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_mix4 binder_hash binder_table_material substitution_material type_argument_material
                                                     let root_hash %i32 selfhost_memo_trait_public_impl_generic_instantiation_mix4 491401 schema binder_shape_material bound_hash
                                                     if:
                                                         eq root_hash 0
                                                         then:
                                                             Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::DerivedInstantiationShapeHashPlaceholder
                                                         else:
-                                                            Result::Ok SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash type_argument_hash substitution_evidence.substitution_shape_hash substitution_evidence.substituted_target_type_shape_hash substitution_evidence.substituted_trait_application_shape_hash bound_hash root_hash
+                                                            Result::Ok SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash type_argument_hash substitution_evidence.substitution_shape_hash substitution_evidence.substituted_target_type_shape_hash substitution_evidence.substituted_trait_application_shape_hash bound_hash root_hash
                                                 Result::Err bound_error:
                                                     Result::Err bound_error
                                         Result::Err substitution_error:
@@ -491,60 +516,64 @@ fn selfhost_memo_trait_public_impl_generic_instantiation_error_kind_code %fn Sel
             3
         SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::TypeArgumentCountMismatch _:
             4
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::TypeArgumentIdentitySchemaPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceParameterTableHashPlaceholder:
             5
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::TypeArgumentIdentityHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BinderEvidenceBoundTableHashPlaceholder:
             6
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeSchemaPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::TypeArgumentIdentitySchemaPlaceholder:
             7
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::TypeArgumentIdentityHashPlaceholder:
             8
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeParameterCountMismatch _:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeSchemaPlaceholder:
             9
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentCountMismatch _:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeHashPlaceholder:
             10
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeParameterBoundCountMismatch _:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeParameterCountMismatch _:
             11
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeBinderHashMismatch:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentCountMismatch _:
             12
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeParameterBoundCountMismatch _:
             13
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeBinderHashMismatch:
             14
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaMismatch:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder:
             15
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashMismatch:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashPlaceholder:
             16
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTargetTypeShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentitySchemaMismatch:
             17
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTraitApplicationShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTypeArgumentIdentityHashMismatch:
             18
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionTraceShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTargetTypeShapeHashPlaceholder:
             19
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTargetTypeShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapePreTraitApplicationShapeHashPlaceholder:
             20
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTraitApplicationShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionTraceShapeHashPlaceholder:
             21
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundCountNegative:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTargetTypeShapeHashPlaceholder:
             22
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingRequired:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::SubstitutionShapeTraitApplicationShapeHashPlaceholder:
             23
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingUnexpected:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundCountNegative:
             24
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingUnsolved _:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingRequired:
             25
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingSchemaPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingUnexpected:
             26
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingCountMismatch _:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingUnsolved _:
             27
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingPolicyHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingSchemaPlaceholder:
             28
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingProofShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingCountMismatch _:
             29
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::DerivedBoundSolutionShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingPolicyHashPlaceholder:
             30
-        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::DerivedInstantiationShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::BoundSolvingProofShapeHashPlaceholder:
             31
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::DerivedBoundSolutionShapeHashPlaceholder:
+            32
+        SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::DerivedInstantiationShapeHashPlaceholder:
+            33
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_error_kind_eq: error kind が同じか[返/かえ]す
 pub fn selfhost_memo_trait_public_impl_generic_instantiation_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericInstantiationErrorKind fn SelfhostMemoTraitPublicImplGenericInstantiationErrorKind bool \a\b:
@@ -610,15 +639,15 @@ fn selfhost_memo_trait_public_impl_generic_instantiation_stage0_identity_hash %f
 //: - stage0 smoke は instantiation gate の再検査を確認するため、producer の accepted evidence と同じ構造を直接作ります。
 //: - production path では `memo_trait_public_impl_generic_substitution_shape` の producer がこの evidence を作り、instantiation gate はここで行う再検査によって producer 取り違えを防ぎます。
 fn selfhost_memo_trait_public_impl_generic_instantiation_stage0_substitution_evidence %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \binder\argument_count\argument_hash\pre_target\pre_trait\trace\target_shape\trait_shape\shape_hash:
-    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count binder.shape_hash argument_hash pre_target pre_trait trace target_shape trait_shape shape_hash
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash argument_hash pre_target pre_trait trace target_shape trait_shape shape_hash
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_stage0_substitution_evidence_with_binder_hash: binder hash 取り違え smoke 用 evidence を[作/つく]る
 fn selfhost_memo_trait_public_impl_generic_instantiation_stage0_substitution_evidence_with_binder_hash %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn i32 fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \binder\argument_count\argument_hash\generic_binder_shape_hash\shape_hash:
-    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count generic_binder_shape_hash argument_hash 9201 9301 9401 9501 9601 shape_hash
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count generic_binder_shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash argument_hash 9201 9301 9401 9501 9601 shape_hash
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_stage0_substitution_evidence_with_identity: type argument identity 取り違え smoke 用 evidence を[作/つく]る
 fn selfhost_memo_trait_public_impl_generic_instantiation_stage0_substitution_evidence_with_identity %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \binder\argument_count\argument_hash\shape_hash:
-    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count binder.shape_hash argument_hash 9201 9301 9401 9501 9601 shape_hash
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash argument_hash 9201 9301 9401 9501 9601 shape_hash
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_stage0_input: stage0 用 input を[作/つく]る
 fn selfhost_memo_trait_public_impl_generic_instantiation_stage0_input %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericInstantiationInput \binder\argument_count\argument_hash\substitution_evidence\bound_status:
@@ -626,8 +655,8 @@ fn selfhost_memo_trait_public_impl_generic_instantiation_stage0_input %fn Selfho
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_stage0: instantiation gate の代表 smoke を[返/かえ]す
 pub fn selfhost_memo_trait_public_impl_generic_instantiation_stage0 %fn void SelfhostMemoTraitPublicImplGenericInstantiationStage0Summary \void:
-    let generic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8301
-    let no_bound_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 0 8302
+    let generic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8201 8202 8301
+    let no_bound_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 0 8203 8204 8302
     let identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_instantiation_stage0_identity_hash 9101
     let identity_placeholder_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_instantiation_stage0_identity_hash 0
     let solved_evidence %SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence selfhost_memo_trait_public_impl_generic_bound_solving_evidence_new 1 1 9401 9501
