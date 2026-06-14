@@ -1267,6 +1267,40 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor polic
 
 The byte-backed helper must call `gui_sfnt_lookup_simple_glyph_path_sink_step` exactly once. It must not call F4s contour-step lookup, path command pair lookup, lower contour/curve helpers, `gui_sfnt_parse_metadata`, internal `*_with_tables` helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback.
 
+### SFNT simple glyph path sink action start cursor
+
+F4w adds the entry position for the F4v action traversal stream. The start cursor is not a glyph iterator, not a sink, not a first action lookup, and not a renderer command. It is a typed value that names the first action slot of one contour:
+
+```text
+contour cursor:
+    glyph = input glyph
+    contour_index = input contour_index
+    edge_index = 0
+    event_slot = First
+
+action cursor:
+    contour_cursor = contour cursor
+    action_slot = Primary
+```
+
+The pure constructor has no byte access:
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+    -> gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index 0 First
+    -> gui_sfnt_simple_glyph_path_sink_action_cursor contour_cursor Primary
+```
+
+This constructor is intentionally unchecked. It must not claim that the contour exists, that the contour has at least one point, or that a glyph record is well-formed. Those facts belong to the byte-backed entry point:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor bytes face_index glyph contour_index
+    -> gui_sfnt_lookup_simple_glyph_contour_span bytes face_index glyph contour_index
+    -> gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+```
+
+The byte-backed entry point validates only the contour span boundary by calling `gui_sfnt_lookup_simple_glyph_contour_span` exactly once. It must not call F4v action-step lookup, F4t sink-step lookup, F4s contour-step lookup, point/curve/path-command helpers, policy helpers, full outline allocation, renderer/platform APIs, rasterizers, host font measurement, or font fallback. This keeps F4w as the start-cursor authority and leaves action payload traversal to F4v.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -952,6 +952,32 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_step:
 
 byte-backed helper は action cursor から contour cursor と action slot を読み、`gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功した step に pure action step projection を適用する。下位の contour / curve / table helper、metadata unwrap、`*_with_tables` bypass、font fallback、renderer、platform API、rasterization、full outline allocation は行わない。
 
+### SFNT simple glyph path sink action start cursor
+
+F4w は F4v の action traversal に、contour-local action stream の開始 cursor を与える段階である。これは glyph outline の列挙、sink mutation、action payload lookup、policy evaluation、allocation、rasterization ではない。開始位置は必ず contour edge `0`、event slot `First`、action slot `Primary` である。
+
+public helper は pure constructor と byte-backed validated entry point に分ける。
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_start_cursor:
+    glyph GuiGlyphId
+    contour_index i32
+    -> GuiSfntSimpleGlyphPathSinkActionCursor
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntParseError
+```
+
+`gui_sfnt_simple_glyph_path_sink_action_start_cursor` は unchecked value constructor である。`GuiSfntSimpleGlyphPathContourCursor` を `edge_index = 0` / `GuiSfntSimpleGlyphPathSinkEventSlot::First` で作り、それを `GuiSfntSimpleGlyphPathSinkActionSlot::Primary` と合成する。byte 妥当性、contour 存在、point 数、span 範囲は検査しない。
+
+`gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor` は byte-backed entry point であり、`gui_sfnt_lookup_simple_glyph_contour_span` を 1 回だけ呼ぶ。成功した場合にだけ pure start cursor helper へ委譲する。最初の action payload は読まず、F4v action step lookup、F4t sink step lookup、F4s contour step lookup、point / curve / path command helper、sink policy、renderer、rasterizer、platform font API は呼ばない。
+
+この分離により、開始位置の型構成は cheap test で確認でき、byte 妥当性は既存 contour span contract に集約される。pure constructor が contour の存在や byte 妥当性を証明するものとして document してはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
