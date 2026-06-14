@@ -2438,3 +2438,46 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
+
+## Phase F5h: sfnt simple glyph point x byte reader bridge
+
+目的:
+
+- checked `GuiSfntSimpleGlyphPointStream` から 1 logical point の x coordinate だけを読み、F5g の `PointX` storage helper へ owner-preserving に接続する。
+- byte-backed x read failure と F5g push failure の error domain を enum で分離する。
+- y coordinate、endpoint array、contour span、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5h docs、read-before-mutate ordering、read failure と push failure の分離、owner 型の非 Clone / 非 Copy、x-only allowlist、full point / endpoint / render / platform 禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPointXReadPush`
+  - `GuiSfntSimpleGlyphPointXReadPushErrorKind`
+  - `GuiSfntSimpleGlyphPointXReadPushError`
+  - `gui_sfnt_glyf_read_push_point_x`
+- `GuiSfntSimpleGlyphPointXReadPush` と `GuiSfntSimpleGlyphPointXReadPushError` は storage owner を持つため `Clone` / `Copy` を実装しない。
+- success payload には cursor accessor と storage owner accessor を追加する。
+- x-only internal helper は bounded flag reads と `gui_sfnt_glyf_decode_x_delta` だけを使う。
+- `gui_sfnt_glyf_decode_y_delta`、full point decode state、endpoint read、contour span helper、public lookup wrapper、direct `Vec`、render/raster/platform/host API は使わない。
+- forged bad y range は F5h では検査しない。PointY / full point phase の責務として document する。
+- read failure では F5g push を呼ばず、point は `None`、parse error は `Some`、storage len は変更しない。
+- read success では `GuiSfntSimpleGlyphPointXSlot` を作り、F5g `gui_sfnt_simple_glyph_outline_storage_push_point_x` を 1 回だけ呼ぶ。
+- F5g push failure では rejected point、F5g error kind、F5d region error kind、F5c storage push error kind を owner 消費前に読む。
+- doctest は endpoint region を先に埋めてから PointX read/push success、read failure owner recovery、push failure endpoint preservation を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+完了条件:
+
+- 2 contours / 4 points の storage に contour endpoint 1, 3 を追加した後、byte-backed x reader から PointX point 0 と point 1 を追加でき、storage len が 4、cursor next index が 4 になる。
+- x byte range が壊れた stream では `ReadFailed` になり、point は `None`、parse error は `Some`、storage len が 2 のまま回収できる。
+- valid x read だが cursor が logical point 0 を指す状態で point_index 1 を push すると `PushFailed` になり、point は `Some`、lower F5g error kind が `Some PointIndexMismatch` になる。
+- source policy が x-only allowlist、read-before-mutate、F5g push 呼び出し回数、lower error metadata の owner 消費前読み取り、direct `vec::` 禁止、full point / endpoint / render / raster / platform / host API 禁止、owner 型の非 Clone / 非 Copy を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5h.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5h.json -j 1
+git diff --check
+```

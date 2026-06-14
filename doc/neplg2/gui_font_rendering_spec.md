@@ -1932,6 +1932,56 @@ GuiSfntSimpleGlyphPointXPushError:
 
 F5g は x coordinate region の storage contract だけを扱い、byte decode、y coordinate、edge generation、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
 
+### SFNT simple glyph point x byte reader bridge
+
+F5h は checked `GuiSfntSimpleGlyphPointStream` から 1 logical point の x coordinate だけを読み、F5g の `PointX` storage helper へ接続する。ここでは y coordinate、endpoint array、contour span、edge/path、rasterizer、renderer、platform API、host text API へ進まない。
+
+F5h は x-only boundary である。したがって forged stream の y range が壊れていても F5h は検査しない。y range validation は PointY / full point phase の責務である。同様に endpoint array failure は contour endpoint phase の責務であり、F5h の error domain へ混ぜない。
+
+success payload は storage owner と advanced PointX cursor を返す。
+
+```text
+GuiSfntSimpleGlyphPointXReadPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+```
+
+error payload も storage owner を返す。
+
+```text
+GuiSfntSimpleGlyphPointXReadPushErrorKind:
+    ReadFailed
+    PushFailed
+
+GuiSfntSimpleGlyphPointXReadPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point_index i32
+    point Option GuiSfntSimpleGlyphPointXSlot
+    kind GuiSfntSimpleGlyphPointXReadPushErrorKind
+    parse_error Option GuiSfntParseError
+    push_error_kind Option GuiSfntSimpleGlyphPointXPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphPointXReadPush` と `GuiSfntSimpleGlyphPointXReadPushError` は storage owner を持つため `Clone` / `Copy` にしない。error kind は value-only なので `Clone` / `Copy` でよい。
+
+`gui_sfnt_glyf_read_push_point_x` は次の順序を守る。
+
+```text
+1. point_index が stream topology の point_count 内であることを検査する
+2. flag stream と x delta stream だけを読み、target point までの累積 x を得る
+3. read failure なら storage mutation を呼ばず ReadFailed を返す
+4. read success なら GuiSfntSimpleGlyphPointXSlot を作る
+5. F5g の gui_sfnt_simple_glyph_outline_storage_push_point_x を 1 回だけ呼ぶ
+6. push failure なら point、F5g error kind、F5d error kind、F5c storage push error kind を読む
+7. lower error data を読んだ後で storage owner を回収する
+8. PushFailed を返す
+```
+
+F5h の x-only reader helper は bounded flag reads と `gui_sfnt_glyf_decode_x_delta` だけを使う。`gui_sfnt_glyf_decode_y_delta`、full point decode state、endpoint read、contour span read、path/raster/render/platform/host API は使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

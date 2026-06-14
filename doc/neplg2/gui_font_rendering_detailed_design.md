@@ -2384,6 +2384,80 @@ The F5d error kind and F5c push error kind must be read before consuming the own
 
 F5g must not call byte readers, `gui_sfnt_glyf_*` helpers, point stream construction, coordinate decode, path generation, rasterization, render2d, platform APIs, host text measurement, or direct `Vec` APIs. The only mutation call in the commit helper is `gui_sfnt_simple_glyph_outline_storage_push_region_scalar`.
 
+## SFNT simple glyph point x byte reader bridge boundary
+
+F5h connects the already checked point stream range to the F5g `PointX` storage mutation helper. It is deliberately x-only. It does not validate y ranges, endpoint arrays, contour spans, edges, paths, raster masks, render commands, or platform font APIs.
+
+The input stream may come from the F4g checked point stream lookup or from a test/virtualized caller. F5h trusts the stream shape except for the flag/x byte reads needed to compute the requested x coordinate. A forged stream with a bad y range is not rejected by F5h. That case belongs to the later PointY or full point decode phase.
+
+```text
+GuiSfntSimpleGlyphPointXReadPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphPointXReadPushErrorKind:
+    ReadFailed
+    PushFailed
+```
+
+The owner-bearing success and error payloads must not implement `Clone` or `Copy`. The success payload needs accessors for both advanced cursor and storage owner, because tests and later builders must be able to thread the linear storage owner without peeking into fields.
+
+The error payload keeps both failure domains separate:
+
+```text
+ReadFailed:
+    storage = original storage
+    cursor = original cursor
+    point_index = requested point index
+    point = None
+    parse_error = Some GuiSfntParseError
+    push_error_kind = None
+    region_error_kind = None
+    storage_push_error_kind = None
+
+PushFailed:
+    storage = recovered storage from F5g error
+    cursor = original cursor
+    point_index = requested point index
+    point = Some rejected PointX slot
+    parse_error = None
+    push_error_kind = Some F5g error kind
+    region_error_kind = F5g lower F5d error kind
+    storage_push_error_kind = F5g lower F5c error kind
+```
+
+The helper order is:
+
+```text
+read x from stream
+    if read failed:
+        return ReadFailed without calling F5g
+
+point = PointXSlot point_index x
+push point through F5g exactly once
+    if push failed:
+        read rejected point and lower metadata from F5g error
+        recover storage owner from F5g error
+        return PushFailed
+```
+
+The x-only reader may call only bounded flag reads and `gui_sfnt_glyf_decode_x_delta`. It must not call:
+
+```text
+gui_sfnt_glyf_decode_y_delta
+gui_sfnt_glyf_decode_point_from_stream
+gui_sfnt_glyf_decode_point_state_from_stream
+gui_sfnt_glyf_decode_point_state_from_flag_run
+gui_sfnt_glyf_decode_flag_run_state
+GuiSfntSimpleGlyphPointDecodeState
+gui_sfnt_glyf_point_is_contour_end
+gui_sfnt_glyf_read_contour_endpoint
+contour span helpers
+public gui_sfnt_lookup_* wrappers
+render / raster / platform / host APIs
+direct Vec APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

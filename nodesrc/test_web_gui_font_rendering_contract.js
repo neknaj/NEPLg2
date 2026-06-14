@@ -4721,6 +4721,125 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5g commit helper body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph point x byte reader bridge[\s\S]*x coordinate だけを読み[\s\S]*forged stream の y range が壊れていても F5h は検査しない[\s\S]*GuiSfntSimpleGlyphPointXReadPushErrorKind:[\s\S]*ReadFailed[\s\S]*PushFailed[\s\S]*gui_sfnt_glyf_read_push_point_x[\s\S]*gui_sfnt_glyf_decode_y_delta/,
+    "font spec must define F5h x-only byte reader bridge and y-range non-validation",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph point x byte reader bridge boundary[\s\S]*F5h connects[\s\S]*deliberately x-only[\s\S]*A forged stream with a bad y range is not rejected by F5h[\s\S]*The owner-bearing success and error payloads must not implement `Clone` or `Copy`[\s\S]*ReadFailed:[\s\S]*PushFailed:[\s\S]*gui_sfnt_glyf_decode_y_delta[\s\S]*gui_sfnt_glyf_read_contour_endpoint/,
+    "font detailed design must define F5h owner recovery and x-only banlist",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5h: sfnt simple glyph point x byte reader bridge[\s\S]*x-only allowlist[\s\S]*forged bad y range は F5h では検査しない[\s\S]*F5g `gui_sfnt_simple_glyph_outline_storage_push_point_x` を 1 回だけ呼ぶ[\s\S]*subagent review/,
+    "font implementation plan must define F5h source policy, y-range non-validation, and review gate",
+);
+const implementationPlanF5gIndex = implementationPlan.indexOf("## Phase F5g: sfnt simple glyph point x coordinate population");
+const implementationPlanF5hIndex = implementationPlan.indexOf("## Phase F5h: sfnt simple glyph point x byte reader bridge");
+assert(
+    implementationPlanF5gIndex >= 0 &&
+        implementationPlanF5hIndex > implementationPlanF5gIndex,
+    "font implementation plan must keep F5h after F5g",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPointXReadPush:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*cursor\s+%GuiSfntSimpleGlyphOutlineScalarRegionCursor[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphPointXReadPushErrorKind:[\s\S]*ReadFailed[\s\S]*PushFailed[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphPointXReadPushError:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*point_index\s+%i32[\s\S]*point\s+%Option GuiSfntSimpleGlyphPointXSlot[\s\S]*parse_error\s+%Option GuiSfntParseError/,
+    "alloc/gui/font/sfnt/glyf F5h must expose PointX read-push owner payloads and typed error kind",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointXReadPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointXReadPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointXReadPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointXReadPushError:/,
+    "alloc/gui/font/sfnt/glyf F5h owner-bearing read-push payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_glyf_read_push_point_x %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphPointStream impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 Result GuiSfntSimpleGlyphPointXReadPush GuiSfntSimpleGlyphPointXReadPushError") &&
+        guiFontSfntOutlineStorageTests.includes("point_x_read_push_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("point_x_read_failure_recovers_owner_ok") &&
+        guiFontSfntOutlineStorageTests.includes("point_x_read_push_failure_preserves_point_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5h PointX read-push helper",
+);
+const pointXReadPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_push_point_x");
+for (const fragment of [
+    "match gui_sfnt_glyf_read_point_x_from_stream bytes glyf stream point_index:",
+    "gui_sfnt_simple_glyph_point_x_read_push_error_read_failed storage cursor point_index parse_error_value",
+    "let point %GuiSfntSimpleGlyphPointXSlot gui_sfnt_simple_glyph_point_x_slot point_index x",
+    "match gui_sfnt_simple_glyph_outline_storage_push_point_x storage cursor point:",
+    "gui_sfnt_simple_glyph_point_x_read_push_error_push_failed returned_storage cursor point_index point_value push_error_kind_value region_error_kind storage_push_error_kind",
+    "let point_value %GuiSfntSimpleGlyphPointXSlot gui_sfnt_simple_glyph_point_x_push_error_point &push_error",
+    "let push_error_kind_value %GuiSfntSimpleGlyphPointXPushErrorKind gui_sfnt_simple_glyph_point_x_push_error_kind &push_error",
+    "let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_point_x_push_error_region_error_kind &push_error",
+    "let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_point_x_push_error_push_error_kind &push_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_x_push_error_storage push_error",
+]) {
+    assert(pointXReadPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5h public bridge must include ${fragment}`);
+}
+assert(
+    pointXReadPush.indexOf("match gui_sfnt_glyf_read_point_x_from_stream bytes glyf stream point_index:") <
+        pointXReadPush.indexOf("match gui_sfnt_simple_glyph_outline_storage_push_point_x storage cursor point:"),
+    "alloc/gui/font/sfnt/glyf F5h public bridge must read x before mutating storage",
+);
+assert(
+    (pointXReadPush.match(/\bgui_sfnt_simple_glyph_outline_storage_push_point_x\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5h public bridge must call F5g PointX push exactly once",
+);
+assert(
+    pointXReadPush.indexOf("let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_point_x_push_error_push_error_kind &push_error") <
+        pointXReadPush.indexOf("let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_x_push_error_storage push_error"),
+    "alloc/gui/font/sfnt/glyf F5h public bridge must read lower push error metadata before consuming owner",
+);
+assertNoMatch(
+    pointXReadPush,
+    /\b(?:vec::|gui_sfnt_glyf_decode_y_delta|gui_sfnt_glyf_decode_point_from_stream|gui_sfnt_glyf_decode_point_state_from_stream|gui_sfnt_glyf_decode_point_state_from_flag_run|gui_sfnt_glyf_decode_flag_run_state|GuiSfntSimpleGlyphPointDecodeState|gui_sfnt_glyf_point_is_contour_end|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_glyf_contour_span_from_topology|gui_sfnt_glyf_simple_contour_span_with_tables|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5h public bridge must not decode y/full points, read endpoints, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointXReadPush,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5h public bridge body must preserve NEPL prefix style without parentheses",
+);
+const pointXReadHelpers = [
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_x_run_state"),
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_x_from_flag_run"),
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_x_from_stream_loop"),
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_x_from_stream"),
+].join("\n");
+const allowedF5hGlyfCalls = new Set([
+    "gui_sfnt_glyf_read_point_x_run_state",
+    "gui_sfnt_glyf_read_point_x_from_flag_run",
+    "gui_sfnt_glyf_read_point_x_from_stream_loop",
+    "gui_sfnt_glyf_read_point_x_from_stream",
+    "gui_sfnt_glyf_read_u8_in_stream_range",
+    "gui_sfnt_glyf_decode_x_delta",
+    "gui_sfnt_glyf_flag_has_bit",
+]);
+const f5hGlyfCalls = [...pointXReadHelpers.matchAll(/\bgui_sfnt_glyf_[a-z0-9_]+\b/g)].map((match) => match[0]);
+const forbiddenF5hGlyfCalls = [...new Set(f5hGlyfCalls.filter((name) => !allowedF5hGlyfCalls.has(name)))];
+assert(
+    forbiddenF5hGlyfCalls.length === 0,
+    `alloc/gui/font/sfnt/glyf F5h x-only helpers must keep exact gui_sfnt_glyf allowlist; forbidden=${forbiddenF5hGlyfCalls.join(", ")}`,
+);
+for (const fragment of [
+    "let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream",
+    "let point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology",
+    "or lt point_index 0 ge point_index point_count",
+    "Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline",
+    "gui_sfnt_glyf_decode_x_delta bytes glyf stream flag x_cursor",
+    "gui_sfnt_glyf_read_u8_in_stream_range bytes glyf flag_start flag_length flag_cursor",
+]) {
+    assert(pointXReadHelpers.includes(fragment), `alloc/gui/font/sfnt/glyf F5h x-only helpers must include ${fragment}`);
+}
+assertNoMatch(
+    pointXReadHelpers,
+    /\b(?:vec::|gui_sfnt_glyf_decode_y_delta|gui_sfnt_glyf_decode_point_from_stream|gui_sfnt_glyf_decode_point_state_from_stream|gui_sfnt_glyf_decode_point_state_from_flag_run|gui_sfnt_glyf_decode_flag_run_state|GuiSfntSimpleGlyphPointDecodeState|gui_sfnt_glyf_point_is_contour_end|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_glyf_contour_span_from_topology|gui_sfnt_glyf_simple_contour_span_with_tables|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5h x-only helpers must not decode y/full points, read endpoints, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointXReadHelpers,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5h x-only helper bodies must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

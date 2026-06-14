@@ -1776,6 +1776,255 @@ pub fn gui_sfnt_simple_glyph_point_stream_trailing_data_offset %fn &GuiSfntSimpl
 pub fn gui_sfnt_simple_glyph_point_stream_trailing_data_length %fn &GuiSfntSimpleGlyphPointStream i32 \stream:
     *field::get_ref stream "trailing_data_length"
 
+//: GuiSfntSimpleGlyphPointXReadPush: byte-backed PointX read/push [成功/せいこう]時の owner と cursor
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPointXReadPush:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+//: gui_sfnt_simple_glyph_point_x_read_push: PointX read/push success payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiSfntSimpleGlyphPointXReadPush \storage\cursor:
+    GuiSfntSimpleGlyphPointXReadPush storage cursor
+
+//: gui_sfnt_simple_glyph_point_x_read_push_cursor: success payload の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_cursor %fn &GuiSfntSimpleGlyphPointXReadPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_storage: success payload から storage owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_storage %fn GuiSfntSimpleGlyphPointXReadPush GuiSfntSimpleGlyphOutlineStorage \pushed:
+    field::get pushed "storage"
+
+//: GuiSfntSimpleGlyphPointXReadPushErrorKind: PointX byte read/push [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPointXReadPushErrorKind:
+    ReadFailed
+    PushFailed
+
+impl Clone for GuiSfntSimpleGlyphPointXReadPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphPointXReadPushErrorKind GuiSfntSimpleGlyphPointXReadPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphPointXReadPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphPointXReadPushErrorKind GuiSfntSimpleGlyphPointXReadPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphPointXReadPushError: PointX byte read/push [失敗/しっぱい]時の owner recovery payload
+//:
+//: [目的/もくてき]:
+//: - x byte read failure と F5g push failure を enum で[分離/ぶんり]しつつ、storage owner を[返/かえ]します。
+//: - read failure では point は `None`、push failure では read 済み point を `Some` として[残/のこ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPointXReadPushError:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point_index %i32
+    point %Option GuiSfntSimpleGlyphPointXSlot
+    kind %GuiSfntSimpleGlyphPointXReadPushErrorKind
+    parse_error %Option GuiSfntParseError
+    push_error_kind %Option GuiSfntSimpleGlyphPointXPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error: PointX read/push error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 fn Option GuiSfntSimpleGlyphPointXSlot fn GuiSfntSimpleGlyphPointXReadPushErrorKind fn Option GuiSfntParseError fn Option GuiSfntSimpleGlyphPointXPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphPointXReadPushError \storage\cursor\point_index\point\kind\parse_error\push_error_kind\region_error_kind\storage_push_error_kind:
+    GuiSfntSimpleGlyphPointXReadPushError storage cursor point_index point kind parse_error push_error_kind region_error_kind storage_push_error_kind
+
+fn gui_sfnt_simple_glyph_point_x_read_push_error_read_failed %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 fn GuiSfntParseError GuiSfntSimpleGlyphPointXReadPushError \storage\cursor\point_index\parse_error_value:
+    let none_point %Option GuiSfntSimpleGlyphPointXSlot none
+    let parse_error %Option GuiSfntParseError some parse_error_value
+    let none_push_error %Option GuiSfntSimpleGlyphPointXPushErrorKind none
+    let none_region_error %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let none_storage_push_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_point_x_read_push_error storage cursor point_index none_point GuiSfntSimpleGlyphPointXReadPushErrorKind::ReadFailed parse_error none_push_error none_region_error none_storage_push_error
+
+fn gui_sfnt_simple_glyph_point_x_read_push_error_push_failed %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 fn GuiSfntSimpleGlyphPointXSlot fn GuiSfntSimpleGlyphPointXPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphPointXReadPushError \storage\cursor\point_index\point\push_error_kind_value\region_error_kind\storage_push_error_kind:
+    let point_option %Option GuiSfntSimpleGlyphPointXSlot some point
+    let none_parse_error %Option GuiSfntParseError none
+    let push_error_kind %Option GuiSfntSimpleGlyphPointXPushErrorKind some push_error_kind_value
+    gui_sfnt_simple_glyph_point_x_read_push_error storage cursor point_index point_option GuiSfntSimpleGlyphPointXReadPushErrorKind::PushFailed none_parse_error push_error_kind region_error_kind storage_push_error_kind
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_kind: read/push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_kind %fn &GuiSfntSimpleGlyphPointXReadPushError GuiSfntSimpleGlyphPointXReadPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_point: read 済み x slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_point %fn &GuiSfntSimpleGlyphPointXReadPushError Option GuiSfntSimpleGlyphPointXSlot \error:
+    *field::get_ref error "point"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_parse_error: byte read error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_parse_error %fn &GuiSfntSimpleGlyphPointXReadPushError Option GuiSfntParseError \error:
+    *field::get_ref error "parse_error"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_push_error_kind: lower F5g error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_push_error_kind %fn &GuiSfntSimpleGlyphPointXReadPushError Option GuiSfntSimpleGlyphPointXPushErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_region_error_kind: lower F5d error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_region_error_kind %fn &GuiSfntSimpleGlyphPointXReadPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_storage_push_error_kind: lower F5c push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_storage_push_error_kind %fn &GuiSfntSimpleGlyphPointXReadPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: gui_sfnt_simple_glyph_point_x_read_push_error_storage: error payload から storage owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_read_push_error_storage %fn GuiSfntSimpleGlyphPointXReadPushError GuiSfntSimpleGlyphOutlineStorage \error:
+    field::get error "storage"
+
+struct GuiSfntSimpleGlyphPointXDecodeState:
+    logical_index %i32
+    x_cursor %i32
+    x %i32
+
+impl Clone for GuiSfntSimpleGlyphPointXDecodeState:
+    fn clone %fn &GuiSfntSimpleGlyphPointXDecodeState GuiSfntSimpleGlyphPointXDecodeState \state:
+        *state
+
+impl Copy for GuiSfntSimpleGlyphPointXDecodeState:
+    fn copy_mark %fn GuiSfntSimpleGlyphPointXDecodeState GuiSfntSimpleGlyphPointXDecodeState \state:
+        state
+
+fn gui_sfnt_simple_glyph_point_x_decode_state %fn i32 fn i32 fn i32 GuiSfntSimpleGlyphPointXDecodeState \logical_index\x_cursor\x:
+    GuiSfntSimpleGlyphPointXDecodeState logical_index x_cursor x
+
+fn gui_sfnt_simple_glyph_point_x_decode_state_logical_index %fn &GuiSfntSimpleGlyphPointXDecodeState i32 \state:
+    *field::get_ref state "logical_index"
+
+fn gui_sfnt_simple_glyph_point_x_decode_state_x_cursor %fn &GuiSfntSimpleGlyphPointXDecodeState i32 \state:
+    *field::get_ref state "x_cursor"
+
+fn gui_sfnt_simple_glyph_point_x_decode_state_x %fn &GuiSfntSimpleGlyphPointXDecodeState i32 \state:
+    *field::get_ref state "x"
+
+fn gui_sfnt_glyf_read_point_x_run_state %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 fn GuiSfntSimpleGlyphPointXDecodeState Result GuiSfntSimpleGlyphPointXDecodeState GuiSfntParseError \bytes\glyf\stream\flag\remaining\state:
+    if:
+        le remaining 0
+        then:
+            Result::Ok state
+        else:
+            let x_cursor %i32 gui_sfnt_simple_glyph_point_x_decode_state_x_cursor &state
+            let current_x %i32 gui_sfnt_simple_glyph_point_x_decode_state_x &state
+            match gui_sfnt_glyf_decode_x_delta bytes glyf stream flag x_cursor:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok x_delta:
+                    let next_x_cursor %i32 add x_cursor gui_sfnt_simple_glyph_coordinate_delta_byte_length &x_delta
+                    let next_x %i32 add current_x gui_sfnt_simple_glyph_coordinate_delta_value &x_delta
+                    let next_logical_index %i32 add gui_sfnt_simple_glyph_point_x_decode_state_logical_index &state 1
+                    let next_state %GuiSfntSimpleGlyphPointXDecodeState gui_sfnt_simple_glyph_point_x_decode_state next_logical_index next_x_cursor next_x
+                    gui_sfnt_glyf_read_point_x_run_state bytes glyf stream flag sub remaining 1 next_state
+
+fn gui_sfnt_glyf_read_point_x_from_flag_run %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphPointXDecodeState Result i32 GuiSfntParseError \bytes\glyf\stream\target_index\flag\run_count\next_flag_cursor\state:
+    if:
+        le run_count 0
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MalformedGlyfRecord add gui_sfnt_table_record_offset &glyf next_flag_cursor
+        else:
+            let logical_index %i32 gui_sfnt_simple_glyph_point_x_decode_state_logical_index &state
+            let run_end_next %i32 add logical_index run_count
+            if:
+                lt target_index run_end_next
+                then:
+                    let target_count %i32 add sub target_index logical_index 1
+                    match gui_sfnt_glyf_read_point_x_run_state bytes glyf stream flag target_count state:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok target_state:
+                            Result::Ok gui_sfnt_simple_glyph_point_x_decode_state_x &target_state
+                else:
+                    match gui_sfnt_glyf_read_point_x_run_state bytes glyf stream flag run_count state:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_state:
+                            gui_sfnt_glyf_read_point_x_from_stream_loop bytes glyf stream target_index next_flag_cursor next_state
+
+fn gui_sfnt_glyf_read_point_x_from_stream_loop %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 fn i32 fn GuiSfntSimpleGlyphPointXDecodeState Result i32 GuiSfntParseError \bytes\glyf\stream\target_index\flag_cursor\state:
+    let flag_start %i32 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream
+    let flag_length %i32 gui_sfnt_simple_glyph_point_stream_flag_data_length &stream
+    match gui_sfnt_glyf_read_u8_in_stream_range bytes glyf flag_start flag_length flag_cursor:
+        Result::Err error:
+            Result::Err error
+        Result::Ok flag:
+            if:
+                gui_sfnt_glyf_flag_has_bit flag 8
+                then:
+                    let repeat_count_offset %i32 add flag_cursor 1
+                    match gui_sfnt_glyf_read_u8_in_stream_range bytes glyf flag_start flag_length repeat_count_offset:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok repeat_count:
+                            let run_count %i32 add repeat_count 1
+                            gui_sfnt_glyf_read_point_x_from_flag_run bytes glyf stream target_index flag run_count add flag_cursor 2 state
+                else:
+                    gui_sfnt_glyf_read_point_x_from_flag_run bytes glyf stream target_index flag 1 add flag_cursor 1 state
+
+fn gui_sfnt_glyf_read_point_x_from_stream %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn i32 Result i32 GuiSfntParseError \bytes\glyf\stream\point_index:
+    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+    let point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology
+    let flag_data_offset %i32 gui_sfnt_simple_glyph_point_stream_flag_data_offset &stream
+    if:
+        or lt point_index 0 ge point_index point_count
+        then:
+            Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline add gui_sfnt_table_record_offset &glyf flag_data_offset
+        else:
+            let initial_state %GuiSfntSimpleGlyphPointXDecodeState gui_sfnt_simple_glyph_point_x_decode_state 0 gui_sfnt_simple_glyph_point_stream_x_data_offset &stream 0
+            gui_sfnt_glyf_read_point_x_from_stream_loop bytes glyf stream point_index flag_data_offset initial_state
+
+//: gui_sfnt_glyf_read_push_point_x: x coordinate を[読/よ]み PointX region storage へ owner-preserving に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - F5h は x-only boundary です。y range、endpoint array、contour span は[検査/けんさ]しません。
+//: - x read failure は `ReadFailed`、F5g push failure は `PushFailed` として enum で[分離/ぶんり]します。
+//: - push failure では rejected point と lower error metadata を storage owner 消費より[前/まえ]に[読/よ]みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_glyf_read_push_point_x %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphPointStream impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 Result GuiSfntSimpleGlyphPointXReadPush GuiSfntSimpleGlyphPointXReadPushError \bytes\glyf\stream\storage\cursor\point_index:
+    match gui_sfnt_glyf_read_point_x_from_stream bytes glyf stream point_index:
+        Result::Err parse_error_value:
+            let error %GuiSfntSimpleGlyphPointXReadPushError gui_sfnt_simple_glyph_point_x_read_push_error_read_failed storage cursor point_index parse_error_value
+            Result::Err error
+        Result::Ok x:
+            let point %GuiSfntSimpleGlyphPointXSlot gui_sfnt_simple_glyph_point_x_slot point_index x
+            match gui_sfnt_simple_glyph_outline_storage_push_point_x storage cursor point:
+                Result::Ok pushed:
+                    let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_point_x_push_cursor &pushed
+                    let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_x_push_storage pushed
+                    let read_push %GuiSfntSimpleGlyphPointXReadPush gui_sfnt_simple_glyph_point_x_read_push next_storage next_cursor
+                    Result::Ok read_push
+                Result::Err push_error:
+                    let point_value %GuiSfntSimpleGlyphPointXSlot gui_sfnt_simple_glyph_point_x_push_error_point &push_error
+                    let push_error_kind_value %GuiSfntSimpleGlyphPointXPushErrorKind gui_sfnt_simple_glyph_point_x_push_error_kind &push_error
+                    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_point_x_push_error_region_error_kind &push_error
+                    let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_point_x_push_error_push_error_kind &push_error
+                    let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_x_push_error_storage push_error
+                    let error %GuiSfntSimpleGlyphPointXReadPushError gui_sfnt_simple_glyph_point_x_read_push_error_push_failed returned_storage cursor point_index point_value push_error_kind_value region_error_kind storage_push_error_kind
+                    Result::Err error
+
 //: GuiSfntSimpleGlyphPoint: simple glyph の 1 logical point
 //:
 //: [目的/もくてき]:

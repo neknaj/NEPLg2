@@ -1,3 +1,45 @@
+# 2026-06-14 Agent2 GUI font PointX byte reader bridge checkpoint
+
+## scope
+
+- branch: `gui-font-point-x-read-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5h の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、owner recovery、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph point x byte reader bridge の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5h の x-only boundary、owner recovery、禁止依存を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5h の実装順序と検証を追加した。
+- `GuiSfntSimpleGlyphPointXReadPush` と `GuiSfntSimpleGlyphPointXReadPushError` を追加し、storage owner と cursor を success / error payload から回収できるようにした。owner-bearing 型には `Clone` / `Copy` を実装しない。
+- `GuiSfntSimpleGlyphPointXReadPushErrorKind` は `ReadFailed` / `PushFailed` の typed enum として定義し、parse failure と storage push failure を文字列へ潰さない。
+- `gui_sfnt_glyf_read_point_x_from_stream` 系 helper は flag run と x byte range だけを読む。y delta、full point state、contour endpoint、contour span、render / raster / platform / host API には依存しない。
+- `gui_sfnt_glyf_read_push_point_x` は read 成功後に F5g point-x storage push を 1 回だけ呼ぶ。read failure では storage を変更せず、push failure では point value と lower error metadata を保持して owner を返す。
+- focused doctest に success、read failure owner recovery、push failure point preservation を追加した。success case は不正な y range を含む stream を使い、F5h が y range を検査しないことを明示した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5h source policy を追加し、x-only allowlist、forbidden helper、owner-bearing Clone / Copy 禁止、read-before-mutate、single push call を固定した。
+
+## subagent_review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。owner-bearing success / error payload の Clone / Copy 禁止、success accessor、x-only allowlist、full point / y / endpoint read 禁止、forged y range は F5h の責務外であることの明文化を要求された。
+- Tesla plan review 2 回目は `IMPLEMENTATION_APPROVED`。上記 blocker を設計と検証計画へ反映したうえで実装開始が認められた。
+- Tesla implementation review は `REVIEW_BLOCKED`。F5h section が implementation plan 上で F5g より前にあり、source policy もその順序を検出できていないことが blocker / required として指摘された。
+- F5h section を F5g の直後へ移動し、`nodesrc/test_web_gui_font_rendering_contract.js` に F5g before F5h ordering assertion を追加した。
+- Tesla follow-up review は `REVIEW_APPROVED`。F5h が F5g 直後にあり、source policy が `implementationPlanF5hIndex > implementationPlanF5gIndex` を検査することを確認済みである。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5h_final.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5h_final.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- PointY byte reader bridge、edge/path tag population、outline point decode into storage は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+- F5h は x byte reader bridge であり、forged bad y ranges や contour endpoint validity は検査しない。各 owner boundary の phase がそれぞれの責務で typed error を返す。
+
 # 2026-06-14 Agent selfhost generic binder same-origin table hash checkpoint
 
 ## scope
