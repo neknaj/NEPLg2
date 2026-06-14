@@ -251,6 +251,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js",
+    "nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_method_body_effect_checker_contract.js",

@@ -1,3 +1,74 @@
+# 2026-06-14 Agent selfhost public impl surface Drop candidate connector checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、DAG、source-derived authority 排除、public API の origin 境界、丁寧な doc comment、試作段階でも雑な設計を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / public impl scanner output から public surface hash と Drop candidate 増補済み operation impl table を同じ origin で作る wrapper boundary
+- classification: selfhost MemoKey / MemoValue structural purity / public impl surface Drop candidate connector boundary
+- decision: MERGE_APPROVED after focused verification, source policy update, docs / issue / todo update, and subagent review blocker handling.
+- policy/spec:
+  - `SelfhostMemoTraitPublicImplSurfaceState` と独立した materializer record table を public API で混ぜない。
+  - accepted authority は scanner output の typed `public_declarations` / `operation_records`、caller supplied dependency / re-export / seed evidence、module graph、typed HIR module borrow、Drop no-escape proof table borrow、既存 normalizer / hash / materializer / Drop connector boundary に限定する。
+  - `public_surface_hash` は transport value であり、Drop proof lookup、candidate acceptance、record coverage の authority にしない。
+  - non-Drop record だけを一時 table owner へ写して base materializer に渡し、Drop record は original scanner output の `operation_records` を下位 Drop candidate connector へ渡す。
+  - Resource IR proof producer、complete no-drop absence proof、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact はこの module で作らない。
+  - production path では `PureDrop` / `NoDropRequired` を直接合成しない。`NoDropRequired` は complete public surface 全体の探索結果から別 boundary が作る。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl` を追加した。
+  - `from_scanner_output_result` は `public_declarations` から hash を作り、同じ scanner output の `operation_records` から non-Drop base candidates と Drop candidates を作る。
+  - `from_ast_records_result` は AST + resolver records から scanner output owner を作り、downstream success / rejection の両方で scanner output owner を閉じる。
+  - `hash_from_scanner_output_result` は public declarations だけを読み、operation records や Drop proof table を hash material に混ぜない。
+  - base materializer に渡す non-Drop record table は wrapper 内の temporary owner であり、success / materializer rejection の両方で閉じる。
+  - Drop append の output candidate table owner cleanup は下位 `memo_trait_operation_drop_candidate_connector` の contract に従い、この wrapper は二重解放しない。
+- implementation/test:
+  - `nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` は、surface state の checker-layer 利用先として operation evidence connector と scanner-bound Drop candidate connector だけを許す allow-list へ更新した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、今回の wrapper 接続済み範囲と actual Resource IR proof producer / no-drop absence proof / generic binder / PrivateCache / PrivateState / prechecked artifact 残件を分けた。
+  - source_policy は facade private、`nodesrc/selfhost_ty_sources.js` 非登録、explicit import allow-list、forbidden layer import、scanner-output same-origin、split public state / record table API 禁止、public hash proof authority 禁止、production proof / evidence / `PureDrop` / `NoDropRequired` 合成禁止、source-derived authority 禁止、行数制限 / doc comment 長制限禁止を確認する。
+- subagent review:
+  - files_read: `memo_trait_public_impl_surface_drop_candidate_connector.nepl`; `memo_trait_public_impl_surface_orchestrator.nepl`; `memo_trait_operation_drop_candidate_connector.nepl`; `memo_trait_operation_drop_no_escape_gate.nepl`; related source policy tests; `doc/neplg2/self_host_neplg21_compiler_design.md`; target issue; `todo.md`; `note.n.md`.
+  - not_reviewed: full pipeline caller integration, actual Resource IR proof producer, complete no-drop absence proof boundary, generic impl binder, backend artifact, PrivateCache / PrivateState masking。
+  - base: HEAD before current wrapper contract / docs diff.
+  - head: working tree after public impl surface Drop candidate connector diff.
+  - subagent_review_ids: `019ebaff-ce3f-7093-a185-ffdc1f07e0e1`, `019ebb0d-bd4f-7851-91de-50dd4d16c88b`, `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`
+  - subagent_review_count: 3
+  - nodesrc/selfhost_zenn_review_response_check.js: live subagent response was reviewed against the required Blocker / Required / Non-blocker / Question / Approve categories; packet-file validation was not available because the response arrived through the agent status channel.
+  - Bohr / Tesla pre-review:
+    - Blocker: public API が surface state owner と独立 materializer record table borrow を同時に受ける設計では state/hash/table same-origin を保証できない。
+    - Blocker: base surface orchestrator は Drop record を拒否するので、base state を作ってから Drop record を後付けする設計では Drop surface が通らない。
+    - Required: new module は `&SelfhostMemoTraitPublicImplScannerOutput` または AST + resolver records から入り、同じ scanner output の `operation_records` を使うこと。
+    - Required: operation evidence connector を import せず、surface orchestrator / Drop candidate connector の責務境界を保つこと。
+  - Popper implementation review:
+    - Blocker: initial source policy の hash helper check が `drop_candidate` を関数名 / error 型名から拾って失敗していた。実装違反ではないため、同じ slice 内で hash helper 本体だけを検査するよう修正した。
+    - Required: 設計書と対象 issue に今回の scanner-output same-origin wrapper、public hash は proof authority ではないこと、operation evidence connector 前段であることを追記すること。対応済み。
+    - Non-blocker: wrapper stage0 は Proven / Missing の2経路だけであり、Refuted / Unknown / duplicate proof は下位 gate / connector contract で固定済みなので許容できる。公開範囲が広がる前に wrapper が下位 connector へ委譲するだけであることを source policy で固定するのがよい。対応済み。
+    - Question: なし。
+    - Approve: 実装本体は same-origin 境界、public hash transport、Resource/proof store/PrivateCache/PrivateState 直依存なしを満たすため approve。
+  - review response:
+    - source policy 過剰検出を修正し、`node nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` pass を確認した。
+    - doc / issue / todo を更新し、今回の wrapper と残件を durable record へ反映した。
+    - `019ec28c-fc1e-71a2-8fe3-396ab4d80401` への追加 review はタイムアウトしたため、完了レビューとしては扱わない。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-public-impl-surface-drop-candidate-connector-final.json` pass。
+  - source policy: added and focused checks pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した surface Drop candidate connector contract は runner 内でも pass。
+  - 既存 warning: Node WASI ExperimentalWarning、CRLF warning、full source policy の `stdlib declaration doc gaps increased: 153 > 108` baseline。
+  - 今回差分由来 warning: なし。
+  - new_warnings: none
+  - blockers: なし。
+  - questions: なし。
+  - approve: approved
+  - residual_risk: なし
+  - unexecuted_verification: none
+- residual:
+  - 次 slice: actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、Drop 増補済み surface state を full operation evidence pipeline へ使う上位 orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続。
+  - non-Drop filter の bucket 化、proof table sorted index 化、operation impl table sorted index 化、stage0 fixture 分割は、今回固定した scanner-output origin / owner / error contract を保って後からできる最適化として扱う。
+
 # 2026-06-14 Agent selfhost Drop no-escape proof gate checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査境界、source-derived authority 排除、DAG、fail-closed、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。

@@ -1,0 +1,586 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_surface_drop_candidate_connector
+//: public impl scanner output から、public surface hash と Drop candidate 増補済み operation impl table を同じ境界で[作/つく]る checker-layer connector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_surface_orchestrator` は scanner output から public surface hash と base operation impl table を作ります。
+//: - ただし base materializer は Resource IR no-escape proof が未接続だった段階の境界であり、Drop operation は fail-closed に拒否します。
+//: - この module は scanner output の同じ `operation_records` から、non-Drop record だけを base materializer へ渡し、Drop record を Drop candidate connector へ渡します。
+//: - caller が別々に作った surface state と materializer record table を混ぜられないように、公開入口は scanner output または AST + resolver records に限定します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は scanner output の typed field、caller supplied seed table、caller supplied dependency / re-export evidence、module graph、typed HIR module borrow、Drop no-escape proof table、既存 normalizer / hash / materializer / Drop connector boundary だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から public surface、operation、HIR root、proof status を推測しません。
+//: - `public_surface_hash` は scanner output 由来の public declarations と caller supplied typed evidence から計算された transport value です。Drop proof lookup、candidate acceptance、record coverage の authority には使いません。
+//: - Drop proof lookup と Drop candidate 追加は、同じ scanner output の `operation_records` borrow だけを読む下位 connector に委譲します。別 table の borrow を public API として受け取りません。
+//: - non-Drop filter table はこの module 内の一時 owner です。success / failure の両方で閉じ、返却 state には含めません。
+//: - Drop candidate connector が拒否した場合、渡した output candidate table owner は下位 connector が閉じます。この module は二重解放しません。
+//: - この module は Resource IR proof producer、complete no-drop absence proof、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では caller が session-local Drop no-escape proof table を渡します。actual Resource IR proof producer と complete public surface 由来の no-drop absence proof は後続 stage の責務です。
+//: - `NoDropRequired` はこの module では合成しません。Drop impl が存在しないことは complete public surface 全体の探索結果から別 boundary が作る proof であり、partial scanner output の推測対象ではありません。
+//: - facade にはまだ re-export しません。public proof orchestration が Resource proof と artifact boundary まで揃う段階で公開範囲を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、owner cleanup、計算量を明示することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - scanner output の record 数を m とすると、non-Drop filter は O(m) 時間です。classifier は trusted operation source registry の固定 operation identity を確認するため現行 O(1) です。
+//: - base materializer の計算量は `memo_trait_operation_public_impl_materializer` の契約に従います。
+//: - Drop candidate 増補の計算量は `memo_trait_operation_drop_candidate_connector` の契約に従い、現状は materializer record 数 m、Drop fact 数 d、proof record 数 p、candidate table lookup cost c に対して O(m + HIR traversal + d * p + m * c) です。
+//: - record bucket 化、proof table index 化、operation impl table sorted index 化は、この module の typed authority / owner / error contract を保ったまま後続最適化として置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_len_eq summary.proven 2
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_drop_evidence_eq summary.proven SelfhostMemoTraitOperationDropEvidence::PureDrop
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_drop_evidence_eq summary.missing SelfhostMemoTraitOperationDropEvidence::Unknown
+//:             let shown checks_print_report checks3
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "surface drop candidate connector stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/module/graph" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_policy" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_drop_candidate_connector" as *
+#import "./memo_trait_operation_drop_no_escape_gate" as *
+#import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_operation_purity_gate" as *
+#import "./memo_trait_public_impl_header" as *
+#import "./memo_trait_public_impl_scanner" as *
+#import "./memo_trait_public_impl_surface_orchestrator" as *
+#import "./memo_trait_public_surface_hash" as *
+#import "./memo_trait_public_surface_normalizer" as *
+#import "./memo_trait_source_evidence_producer" as *
+
+//: SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary: state owner を閉じた後に[保持/ほじ]する代表結果
+//:
+//: [目的/もくてき]:
+//: - public surface state owner を保持せず、hash、candidate 数、Eq lookup、Drop lookup 結果だけで accepted path を確認します。
+pub struct SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary:
+    public_surface_hash %i32
+    operation_impl_len %i32
+    eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+    drop_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+
+//: SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind: scanner-bound surface Drop 増補境界の拒否理由
+//:
+//: [目的/もくてき]:
+//: - scanner、public surface normalizer、public surface hash、operation record filter、base operation materializer、Drop candidate connector のどこが拒否したかを typed enum として保持します。
+pub enum SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+    ScannerRejected %SelfhostMemoTraitPublicImplScannerErrorKind
+    PublicSurfaceNormalizerRejected %SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
+    PublicSurfaceHashRejected %SelfhostMemoTraitPublicSurfaceHashErrorKind
+    PublicSurfaceHashMissing
+    OperationRecordFilterAllocFailed %StdErrorKind
+    OperationRecordFilterPushRejected %SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    OperationRecordFilterSourceReadFailed %i32
+    OperationRecordClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
+    BaseOperationMaterializerRejected %SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    DropCandidateConnectorRejected %SelfhostMemoTraitOperationDropCandidateConnectorErrorKind
+
+//: SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary: scanner-bound state 増補 smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary:
+    proven %Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind
+    missing %Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary: owner を含まない代表結果を[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary: summary payload をそのまま[返/かえ]す
+impl Copy for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind: typed error payload を[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind: owner を含まない error payload をそのまま[返/かえ]す
+impl Copy for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary: stage0 summary を[複製/ふくせい]する
+impl Clone for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary: stage0 summary payload をそのまま[返/かえ]す
+impl Copy for SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_record_operation_result: materializer record の operation kind を trusted classifier から[得/え]る
+//:
+//: [契約/けいやく]:
+//: - record の `trait_source` と shape hash だけを classifier input に写し、method name string や source text へ戻りません。
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_record_operation_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result SelfhostMemoTraitOperationEvidenceKind SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \record:
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput:
+        selfhost_memo_trait_operation_trait_application_input_new record.trait_source record.trait_type_argument_count record.trait_application_shape_hash
+    match selfhost_memo_trait_operation_classifier_evidence_result trait_application:
+        Result::Ok classifier:
+            Result::Ok classifier.operation
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordClassifierRejected classifier_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_operation_is_drop: operation kind が Drop か[返/かえ]す
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_operation_is_drop %fn SelfhostMemoTraitOperationEvidenceKind bool \operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            true
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_filter_loop: non-Drop record だけを一時 table へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `output` はこの関数が消費します。classifier failure / source read failure ではこの関数が閉じます。
+//: - push failure では lower record table push boundary が owner cleanup を担当するため、この関数は二重解放しません。
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_filter_loop %impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn i32 Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \output\source\index:
+    if:
+        ge index selfhost_memo_trait_operation_public_impl_materializer_record_table_len source
+        then:
+            Result::Ok output
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_record_operation_result record:
+                        Result::Ok operation:
+                            if:
+                                selfhost_memo_trait_public_impl_surface_drop_candidate_connector_operation_is_drop operation
+                                then:
+                                    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_filter_loop output source add index 1
+                                else:
+                                    match selfhost_memo_trait_operation_public_impl_materializer_record_table_push output record:
+                                        Result::Ok next_output:
+                                            selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_filter_loop next_output source add index 1
+                                        Result::Err push_error:
+                                            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordFilterPushRejected push_error
+                        Result::Err e:
+                            selfhost_memo_trait_operation_public_impl_materializer_record_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free output
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordFilterSourceReadFailed index
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_records_result: non-Drop base materializer 用 table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_records_result %impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \source:
+    match selfhost_memo_trait_operation_public_impl_materializer_record_table_new:
+        Result::Ok output0:
+            selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_filter_loop output0 source 0
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordFilterAllocFailed alloc_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_hash_from_scanner_output_result: scanner output の declaration stream から public surface hash を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - scanner output の `public_declarations` borrow だけを読み、operation records や Drop proof は hash material に混ぜません。
+//: - partial input item owner は hash success / failure の両方でこの関数が閉じます。
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_hash_from_scanner_output_result %impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostMemoTraitPublicImplScannerOutput Result i32 SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \graph\dependencies\reexports\seed_table\scanner_output:
+    let public_declarations %&Vec SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence field::get_ref scanner_output "public_declarations"
+    match selfhost_memo_trait_public_surface_normalizer_partial_input_items_result graph dependencies reexports public_declarations:
+        Result::Ok partial_items:
+            let hash_result %Result i32 SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+                match selfhost_memo_trait_public_surface_hash_from_seed_table_and_partial_items_result seed_table &partial_items:
+                    Result::Ok public_surface_hash:
+                        if:
+                            eq public_surface_hash 0
+                            then:
+                                Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::PublicSurfaceHashMissing
+                            else:
+                                Result::Ok public_surface_hash
+                    Result::Err hash_error:
+                        Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::PublicSurfaceHashRejected hash_error
+            v::free partial_items
+            hash_result
+        Result::Err normalizer_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::PublicSurfaceNormalizerRejected normalizer_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_from_scanner_output_result: scanner output から Drop 増補済み surface state owner を[作/つく]る
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(state)`: scanner output 由来の public surface hash と、non-Drop base candidates + Drop proof candidates を持つ state owner を返します。
+//: - `Err(...)`: 拒否境界を typed enum で返します。途中で作った owner はこの関数または下位 owner boundary が閉じます。
+pub fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_from_scanner_output_result %impure fn &SelfhostHirModule impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostMemoTraitPublicImplScannerOutput impure fn &SelfhostMemoTraitOperationDropNoEscapeProofTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \module\graph\dependencies\reexports\seed_table\scanner_output\proofs:
+    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_hash_from_scanner_output_result graph dependencies reexports seed_table scanner_output:
+        Result::Ok public_surface_hash:
+            let operation_records %&SelfhostMemoTraitOperationPublicImplMaterializerRecordTable field::get_ref scanner_output "operation_records"
+            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_non_drop_records_result operation_records:
+                Result::Ok base_records:
+                    match selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_result module &base_records:
+                        Result::Ok base_impls:
+                            selfhost_memo_trait_operation_public_impl_materializer_record_table_free base_records
+                            match selfhost_memo_trait_operation_drop_candidate_connector_append_from_records_result base_impls module operation_records proofs:
+                                Result::Ok next_impls:
+                                    Result::Ok SelfhostMemoTraitPublicImplSurfaceState public_surface_hash next_impls
+                                Result::Err connector_error:
+                                    Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::DropCandidateConnectorRejected connector_error
+                        Result::Err materializer_error:
+                            selfhost_memo_trait_operation_public_impl_materializer_record_table_free base_records
+                            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::BaseOperationMaterializerRejected materializer_error
+                Result::Err filter_error:
+                    Result::Err filter_error
+        Result::Err surface_error:
+            Result::Err surface_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_from_ast_records_result: AST と resolver records から scanner-bound Drop 増補 state を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `ast`、`records`、`module`、`graph`、`dependencies`、`reexports`、`proofs` はすべて borrow です。この関数は閉じません。
+//: - scanner output owner は、この関数が success / downstream rejection の両方で閉じます。
+//: - scanner が拒否した場合は downstream stage へ進まず、`ScannerRejected` として返します。
+pub fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_from_ast_records_result %impure fn &SelfhostHirModule impure fn &SelfhostModuleGraph impure fn &Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn &Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostMemoTraitStableSourceSeedTable impure fn &SelfhostModuleAst impure fn &SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn &SelfhostMemoTraitOperationDropNoEscapeProofTable Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \module\graph\dependencies\reexports\seed_table\ast\records\proofs:
+    match selfhost_memo_trait_public_impl_scanner_result ast records:
+        Result::Ok scanner_output:
+            let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+                selfhost_memo_trait_public_impl_surface_drop_candidate_connector_from_scanner_output_result module graph dependencies reexports seed_table &scanner_output proofs
+            selfhost_memo_trait_public_impl_scanner_output_free scanner_output
+            result
+        Result::Err scanner_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::ScannerRejected scanner_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_summary_from_state: state owner を summary へ[写/うつ]して[閉/と]じる
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_summary_from_state %impure fn SelfhostMemoTraitPublicImplSurfaceState impure fn SelfhostTypeId SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary \state\type_id:
+    let public_hash %i32 selfhost_memo_trait_public_impl_surface_state_public_surface_hash &state
+    let operation_len %i32 selfhost_memo_trait_public_impl_surface_state_operation_len &state
+    let operation_impls %&SelfhostMemoTraitOperationImplTable field::get_ref &state "operation_impls"
+    let eq_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind:
+        selfhost_memo_trait_operation_impl_candidate_for_type_operation_result operation_impls type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+    let drop_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind:
+        selfhost_memo_trait_operation_impl_candidate_for_type_operation_result operation_impls type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+    selfhost_memo_trait_public_impl_surface_state_free state
+    SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary public_hash operation_len eq_candidate drop_candidate
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_len_eq: accepted summary の candidate 数を[確認/かくにん]する
+pub fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_len_eq %fn Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok summary:
+            and:
+                not eq summary.public_surface_hash 0
+                eq summary.operation_impl_len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_drop_evidence_eq: accepted Drop candidate の evidence を[確認/かくにん]する
+pub fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_drop_evidence_eq %fn Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind fn SelfhostMemoTraitOperationDropEvidence bool \result\expected:
+    match result:
+        Result::Ok summary:
+            match summary.drop_candidate:
+                Result::Ok candidate:
+                    selfhost_memo_trait_operation_drop_evidence_eq candidate.drop_evidence expected
+                Result::Err _lookup_error:
+                    false
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_eq_candidate_present: accepted summary に Eq candidate があるか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_eq_candidate_present %fn Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind bool \result:
+    match result:
+        Result::Ok summary:
+            is_ok summary.eq_candidate
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind fn Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary \proven\missing:
+    SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary proven missing
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_span: fixture 用 source span を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_span %fn i32 SelfhostSourceSpan \start:
+    source_span_new_unchecked 0 start add start 1
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_seed_table: LocalMemoTrait seed table の fixture を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_seed_table %fn void SelfhostMemoTraitStableSourceSeedTable \void:
+    let table0 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_empty
+    let key_ordinal %Option i32 some 1
+    let key_signature %Option i32 some 9101
+    let value_ordinal %Option i32 some 2
+    let value_signature %Option i32 some 9102
+    let key_seed %SelfhostMemoTraitStableSourceTraitSeed selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoKeyTrait SelfhostModuleDeclarationVisibility::Public key_ordinal key_signature
+    let value_seed %SelfhostMemoTraitStableSourceTraitSeed selfhost_memo_trait_stable_source_trait_seed_new SelfhostMemoTraitSourceKind::MemoValueTrait SelfhostModuleDeclarationVisibility::Public value_ordinal value_signature
+    let table1 %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_stable_source_seed_table_add_record table0 key_seed
+    selfhost_memo_trait_stable_source_seed_table_add_record table1 value_seed
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_empty_dependency_vec_result: fixture 用 dependency vector owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_empty_dependency_vec_result %impure fn void Result Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \void:
+    let deps_result %Result Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence StdErrorKind v::new
+    match deps_result:
+        Result::Ok deps:
+            Result::Ok deps
+        Result::Err _alloc:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_empty_reexport_vec_result: fixture 用 re-export vector owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_empty_reexport_vec_result %impure fn void Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \void:
+    let reexports_result %Result Vec SelfhostMemoTraitPublicSurfaceReExportEvidence StdErrorKind v::new
+    match reexports_result:
+        Result::Ok reexports:
+            Result::Ok reexports
+        Result::Err _alloc:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_graph_result: fixture 用 module graph owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_graph_result %impure fn void Result SelfhostModuleGraph SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \void:
+    match selfhost_module_graph_new:
+        Result::Ok graph:
+            Result::Ok graph
+        Result::Err _alloc:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::PublicSurfaceNormalizerRejected SelfhostMemoTraitPublicSurfaceNormalizerErrorKind::InputVectorAllocationFailed
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_item: fixture 用 module item を declaration header 付きで[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_item %fn SelfhostModuleItemKind fn SelfhostModuleDeclarationKind fn SelfhostModuleDeclarationVisibility fn i32 SelfhostModuleItem \item_kind\decl_kind\visibility\start:
+    let span %SelfhostSourceSpan selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_span start
+    let header %SelfhostModuleDeclarationHeader selfhost_module_declaration_header_new decl_kind visibility span span none selfhost_syntax_range_empty selfhost_syntax_range_empty
+    selfhost_module_item_new_with_declaration item_kind "decl" header
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_push_result: AST push error を typed setup error へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_push_result %impure fn SelfhostModuleAst impure fn SelfhostModuleItem Result SelfhostModuleAst SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \ast\item:
+    match selfhost_module_ast_push ast item:
+        Result::Ok next_ast:
+            Result::Ok next_ast
+        Result::Err ast_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::ScannerRejected SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed ast_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_result: seed trait 2 件と public impl 2 件を持つ AST owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_result %impure fn void Result SelfhostModuleAst SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \void:
+    match selfhost_module_ast_new:
+        Result::Ok ast0:
+            let memo_key %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_item SelfhostModuleItemKind::TraitDecl SelfhostModuleDeclarationKind::Trait SelfhostModuleDeclarationVisibility::Public 10
+            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_push_result ast0 memo_key:
+                Result::Ok ast1:
+                    let memo_value %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_item SelfhostModuleItemKind::TraitDecl SelfhostModuleDeclarationKind::Trait SelfhostModuleDeclarationVisibility::Public 20
+                    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_push_result ast1 memo_value:
+                        Result::Ok ast2:
+                            let eq_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public 30
+                            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_push_result ast2 eq_impl:
+                                Result::Ok ast3:
+                                    let drop_impl %SelfhostModuleItem selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_item SelfhostModuleItemKind::ImplDecl SelfhostModuleDeclarationKind::Impl SelfhostModuleDeclarationVisibility::Public 40
+                                    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_push_result ast3 drop_impl
+                                Result::Err eq_error:
+                                    Result::Err eq_error
+                        Result::Err value_error:
+                            Result::Err value_error
+                Result::Err key_error:
+                    Result::Err key_error
+        Result::Err ast_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::ScannerRejected SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed ast_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_record_table_new_result: fixture 用 resolver record table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_record_table_new_result %impure fn void Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \void:
+    match selfhost_memo_trait_public_impl_scanner_resolver_record_table_new:
+        Result::Ok table:
+            Result::Ok table
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::ScannerRejected SelfhostMemoTraitPublicImplScannerErrorKind::ResolverRecordTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_shape_result: trusted operation source の shape hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \source:
+    match selfhost_memo_trait_operation_trait_application_shape_hash_result source 0:
+        Result::Ok shape_hash:
+            Result::Ok shape_hash
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordClassifierRejected classifier_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_push_record_result: resolver record fixture を table owner に[追加/ついか]する
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_push_record_result %impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn Option SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \table\type_id\source\trait_shape_hash\ordinal\method_body_root:
+    let declaration_ordinal %Option i32 some ordinal
+    let target_shape_hash %Option i32 some 9902
+    let trait_application_shape_hash %Option i32 some trait_shape_hash
+    let record %SelfhostMemoTraitPublicImplScannerResolverRecord:
+        selfhost_memo_trait_public_impl_scanner_resolver_record_new type_id 9901 declaration_ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl target_shape_hash source 0 trait_application_shape_hash 0 0 method_body_root 16
+    match selfhost_memo_trait_public_impl_scanner_resolver_record_table_push table record:
+        Result::Ok next_table:
+            Result::Ok next_table
+        Result::Err push_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::ScannerRejected push_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_record_table_result: Eq / Drop resolver record table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_record_table_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitPublicImplScannerResolverRecordTable SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \type_id\registry\eq_root\drop_root:
+    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_shape_result registry.eq_source:
+        Result::Ok eq_shape:
+            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_shape_result registry.drop_source:
+                Result::Ok drop_shape:
+                    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_record_table_new_result:
+                        Result::Ok table0:
+                            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_push_record_result table0 type_id registry.eq_source eq_shape 3 some eq_root:
+                                Result::Ok table1:
+                                    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_push_record_result table1 type_id registry.drop_source drop_shape 4 some drop_root
+                                Result::Err eq_push_error:
+                                    Result::Err eq_push_error
+                        Result::Err table_error:
+                            Result::Err table_error
+                Result::Err drop_shape_error:
+                    Result::Err drop_shape_error
+        Result::Err eq_shape_error:
+            Result::Err eq_shape_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_proof_table_result: proof status を指定して proof table owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_proof_table_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitOperationDropNoEscapeProofTable SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \type_id\root\status:
+    match selfhost_memo_trait_operation_drop_no_escape_proof_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+            let record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key status
+            match selfhost_memo_trait_operation_drop_no_escape_proof_table_push table0 record:
+                Result::Ok table1:
+                    Result::Ok table1
+                Result::Err proof_error:
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::DropCandidateConnectorRejected SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected proof_error
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::DropCandidateConnectorRejected SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_free_base: stage0 base owners をまとめて[閉/と]じる
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_free_base %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable unit \module\graph\ast\records:
+    selfhost_memo_trait_public_impl_scanner_resolver_record_table_free records
+    selfhost_module_ast_free ast
+    selfhost_module_graph_free graph
+    selfhost_hir_module_free module
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_owners: stage0 owner 群を[閉/と]じながら wrapper を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_owners %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostMemoTraitOperationDropNoEscapeProofTable impure fn SelfhostMemoTraitStableSourceSeedTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \module\graph\dependencies\reexports\ast\records\proofs\seed_table\type_id:
+    let result %Result SelfhostMemoTraitPublicImplSurfaceState SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+        selfhost_memo_trait_public_impl_surface_drop_candidate_connector_from_ast_records_result &module &graph &dependencies &reexports seed_table &ast &records &proofs
+    let summary %Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+        match result:
+            Result::Ok state:
+                Result::Ok selfhost_memo_trait_public_impl_surface_drop_candidate_connector_accepted_summary_from_state state type_id
+            Result::Err e:
+                Result::Err e
+    selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+    v::free reexports
+    v::free dependencies
+    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_free_base module graph ast records
+    summary
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_vectors: dependency / re-export owner と proof owner を使って wrapper を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_vectors %impure fn SelfhostHirModule impure fn SelfhostModuleGraph impure fn Vec SelfhostMemoTraitPublicSurfaceDependencyEvidence impure fn Vec SelfhostMemoTraitPublicSurfaceReExportEvidence impure fn SelfhostModuleAst impure fn SelfhostMemoTraitPublicImplScannerResolverRecordTable impure fn SelfhostMemoTraitOperationDropNoEscapeProofTable impure fn SelfhostTypeId Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \module\graph\dependencies\reexports\ast\records\proofs\type_id:
+    let seed_table %SelfhostMemoTraitStableSourceSeedTable selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_seed_table
+    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_owners module graph dependencies reexports ast records proofs seed_table type_id
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_proof_status: proof status ごとの wrapper path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_proof_status %impure fn SelfhostHirModule impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \module\eq_root\drop_root\type_id\registry\status:
+    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_graph_result:
+        Result::Ok graph:
+            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_ast_result:
+                Result::Ok ast:
+                    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_record_table_result type_id registry eq_root drop_root:
+                        Result::Ok records:
+                            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_proof_table_result type_id drop_root status:
+                                Result::Ok proofs:
+                                    match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_empty_dependency_vec_result:
+                                        Result::Ok dependencies:
+                                            match selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_empty_reexport_vec_result:
+                                                Result::Ok reexports:
+                                                    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_vectors module graph dependencies reexports ast records proofs type_id
+                                                Result::Err reexport_error:
+                                                    v::free dependencies
+                                                    selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                                                    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_free_base module graph ast records
+                                                    Result::Err reexport_error
+                                        Result::Err dependency_error:
+                                            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                                            selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_free_base module graph ast records
+                                            Result::Err dependency_error
+                                Result::Err proof_error:
+                                    selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_free_base module graph ast records
+                                    Result::Err proof_error
+                        Result::Err record_error:
+                            selfhost_module_ast_free ast
+                            selfhost_module_graph_free graph
+                            selfhost_hir_module_free module
+                            Result::Err record_error
+                Result::Err ast_error:
+                    selfhost_module_graph_free graph
+                    selfhost_hir_module_free module
+                    Result::Err ast_error
+        Result::Err graph_error:
+            selfhost_hir_module_free module
+            Result::Err graph_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_with_module: HIR module owner に Eq root と Drop root を追加して1つの proof status path を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_with_module %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \module\type_id\span\status:
+    match selfhost_hir_module_add_expr module selfhost_hir_expr_unit type_id span:
+        Result::Ok eq_alloc:
+            let eq_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &eq_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module eq_alloc
+            let drop_call %SelfhostHirExpr selfhost_hir_expr_call type_id span "alloc" selfhost_def_id_new 88201 type_id SelfhostEffectKind::InternalAlloc selfhost_hir_child_range_empty
+            match selfhost_hir_module_add_expr module1 drop_call:
+                Result::Ok drop_alloc:
+                    let drop_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &drop_alloc
+                    let module2 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module drop_alloc
+                    match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+                        Result::Ok registry:
+                            selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_run_with_proof_status module2 eq_root drop_root type_id registry status
+                        Result::Err classifier_error:
+                            selfhost_hir_module_free module2
+                            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordClassifierRejected classifier_error
+                Result::Err drop_alloc_error:
+                    Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordFilterAllocFailed drop_alloc_error
+        Result::Err eq_alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordFilterAllocFailed eq_alloc_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_once: proof status ごとに独立した HIR module fixture を[作/つく]って smoke を[実行/じっこう]する
+fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_once %impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \status:
+    let type_id %SelfhostTypeId selfhost_type_id_new 12801
+    let span %SelfhostSourceSpan selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_span 0
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_with_module module0 type_id span status
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind::OperationRecordFilterAllocFailed alloc_error
+
+//: selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0: scanner-bound surface state Drop candidate 増補の smoke API
+//:
+//: [目的/もくてき]:
+//: - AST + resolver records から scanner output を作り、同じ scanner output の `operation_records` から Eq base candidate と Drop candidate が作られることを確認します。
+//: - Proven no-escape proof では Drop candidate が `PureDrop` になり、Missing proof では同じ scanner output 由来の Drop candidate が `Unknown` に留まることを確認します。
+pub fn selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0 %impure fn void Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorStage0Summary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind \void:
+    let proven %Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+        selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_once SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven
+    let missing %Result SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorAcceptedSummary SelfhostMemoTraitPublicImplSurfaceDropCandidateConnectorErrorKind:
+        selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_once SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing
+    Result::Ok selfhost_memo_trait_public_impl_surface_drop_candidate_connector_stage0_summary_new proven missing

@@ -316,6 +316,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_candidate_con
 
 この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、operation evidence connector への Drop candidate 統合、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。materializer record table の operation bucket 化、proof table sorted index 化、Drop impl fact table lookup sorted index 化、operation impl table lookup sorted index 化は今回固定した typed authority / owner / error contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 selfhost public impl surface Drop candidate connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl` を追加し、public impl scanner output から public surface hash と Drop candidate 増補済み operation impl table を同じ checker-layer boundary で作る wrapper を接続した。
+
+この wrapper は、caller が別々に作った `SelfhostMemoTraitPublicImplSurfaceState` と materializer record table を混ぜる public API を作らない。`from_scanner_output_result` は同じ `SelfhostMemoTraitPublicImplScannerOutput` から `public_declarations` と `operation_records` を読み、`from_ast_records_result` は AST + resolver record table から scanner output owner を作って downstream success / rejection の両方で閉じる。public surface hash は `public_declarations` だけから計算し、operation / Drop proof の authority には使わない。
+
+base materializer が Drop record を fail-closed に拒否するため、wrapper 内で trusted classifier evidence による non-Drop filter を作った。non-Drop record だけを一時 table owner へ写して base materializer に渡し、Drop record は original scanner output の `operation_records` を下位 Drop candidate connector へ渡して処理する。一時 table owner は success / rejection の両方で閉じ、Drop candidate connector が拒否した場合の output candidate table owner cleanup は下位 connector の contract に従うため二重解放しない。
+
+この checkpoint でも Resource IR proof producer、complete no-drop absence proof、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact は作らない。production path で `PureDrop` / `NoDropRequired` を直接合成せず、`NoDropRequired` は complete public surface 全体を探索する別 boundary の責務として残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` で固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit import allow-list、forbidden layer import、scanner-output same-origin、hash helper が public declarations だけを読むこと、non-Drop filter、Drop append の順序、split public state / record table API 禁止、proof / evidence / `PureDrop` / `NoDropRequired` 合成禁止、source-derived authority 禁止、line count / doc comment length cap 禁止を確認する。既存 `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` は、surface state の checker-layer 利用先として operation evidence connector とこの scanner-bound Drop candidate connector だけを許す allow-list へ更新した。
+
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、Drop 増補済み surface state を full operation evidence pipeline へ使う上位 orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。non-Drop filter の bucket 化、proof table sorted index 化、operation impl table sorted index 化、stage0 fixture 分割は、今回固定した scanner-output origin / owner / error contract を保って後からできる最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

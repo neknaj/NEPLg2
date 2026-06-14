@@ -1,6 +1,6 @@
 # NEPLg2.1 セルフホストコンパイラ設計
 
-最終更新: 2026-06-13
+最終更新: 2026-06-14
 
 ## 位置づけ
 
@@ -1726,6 +1726,20 @@ accepted authority は typed materializer record field、trusted operation class
 source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / public surface / scanner / method-body fact / body-check / candidate-builder / PrivateCache / PrivateState import 禁止、operation evidence record / aggregate proof / proof store 合成禁止、production path の `PureDrop` / `NoDropRequired` 直接合成禁止、classifier-derived Drop filter、duplicate candidate probe、DropImplPresent gate、owner cleanup、source-derived authority 禁止、行数 / doc comment 長制限禁止を確認する。
 
 この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、operation evidence connector への Drop candidate 統合、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。materializer record table の operation bucket 化、proof table の sorted index 化、Drop impl fact table lookup の sorted index 化、operation impl table lookup の sorted index 化は、今回固定した typed authority / duplicate rejection / owner / error contract を保って後から行える最適化として扱う。
+
+## 2026-06-14 MemoKey / MemoValue public impl surface Drop candidate connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl` を追加し、public impl scanner output から full public surface hash と Drop candidate 増補済み operation impl table を同じ checker-layer boundary で作る wrapper を接続した。
+
+この wrapper の目的は、caller が別々に作った `SelfhostMemoTraitPublicImplSurfaceState` と `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` を混ぜてしまう退行を防ぐことである。公開入口は scanner output、または AST + resolver record table から scanner output を作る entry に限定する。public surface hash は scanner output の `public_declarations` だけを normalizer / hash composer へ渡して作り、operation candidate は同じ scanner output の `operation_records` から作る。Drop candidate 追加も同じ `operation_records` borrow を下位 Drop candidate connector へ渡すため、hash 側と operation 側の origin が分離しない。
+
+base materializer は Resource IR no-escape proof が未接続だった段階の境界なので、Drop record を渡すと fail-closed に拒否する。この wrapper は classifier evidence で `operation_records` を O(m) で走査し、non-Drop record だけを一時 table owner へ写して base materializer に渡す。Drop record は一時 table には入れず、original scanner output の record table を Drop candidate connector へ渡す。一時 table owner は success / materializer rejection の両方で閉じ、Drop candidate connector が受け取った output candidate table owner は下位 connector の owner contract に従って扱うため二重解放しない。
+
+`public_surface_hash` は transport value であり、Drop proof lookup、candidate acceptance、record coverage の authority にしない。この module は Resource IR proof producer、complete no-drop absence proof、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作らない。`NoDropRequired` は complete public surface 全体の探索結果から別 boundary が作る proof であり、この wrapper は `PureDrop` / `NoDropRequired` を直接合成しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、checker-layer import allow-list、Resource IR / backend / proof store / canonical key / operation evidence connector / body-check / candidate-builder / method-body / Drop resolver / PrivateCache / PrivateState import 禁止、scanner-output same-origin、hash helper が public declarations だけを読むこと、non-Drop filter、Drop candidate append の順序、public surface hash を proof authority にしないこと、production path の proof / evidence / `PureDrop` / `NoDropRequired` 合成禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、Drop 増補済み surface state を full operation evidence pipeline へ使う上位 orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。non-Drop filter の record bucket 化、proof table sorted index 化、operation impl table sorted index 化、stage0 fixture 分割は、今回固定した scanner-output origin / owner / error contract を保って後からできる最適化として扱う。
 
 ## 既存 issue との対応
 

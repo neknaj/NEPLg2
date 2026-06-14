@@ -185,8 +185,11 @@ assert.ok(
     );
     assert.deepEqual(
         externalUses,
-        ["stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl"],
-        "surface state may only be consumed by the checker-layer operation evidence connector and must remain out of facade-level public APIs",
+        [
+            "stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl",
+            "stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_drop_candidate_connector.nepl",
+        ],
+        "surface state may only be consumed by checker-layer operation evidence and scanner-bound Drop candidate connectors and must remain out of facade-level public APIs",
     );
 }
 assertOrdered(
