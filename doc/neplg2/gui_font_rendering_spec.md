@@ -1084,6 +1084,31 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph 
 
 F4aa は action start cursor helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。検証と action payload construction の authority は F4x/F4z の既存境界に残す。
 
+### SFNT simple glyph path sink action item next
+
+F4ab は F4z/F4aa で得た action item の checked advance を、次の action item または contour terminal state へ 1 段だけ解決する段階である。これは contour-wide loop、iterator owner、real sink mutation、callback、command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionStepItem
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_item_next:
+    bytes &ByteBuf
+    face_index Option i32
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を 1 回だけ読み、`Continue next_step` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy` を 1 回だけ呼ぶ。`EndContour` は successful terminal state なので `Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour` として返す。
+
+F4ab は action payload を読まない。`Reject`、`NoAction`、`CloseContour` は future sink consumer が消費する payload であり、次 item の有無を決める authority ではない。`EndContour` を `Result::Err`、`Option::None`、silent no-op、fallback branch に変換してはならない。
+
+F4ab は start cursor / start step / start item helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。検証と next step construction の authority は F4z item が保持する checked advance と F4z step item lookup に残す。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

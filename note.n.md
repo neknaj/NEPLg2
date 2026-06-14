@@ -60094,3 +60094,42 @@ MERGE_APPROVED
 ### residual
 
 - F4aa は first action item の byte-backed entry point までであり、real sink trait、contour-wide streaming traversal、full outline assembly、compound glyph、phantom points、hint instruction semantics、contour closure、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 GUI font SFNT path sink action item next checkpoint
+
+### scope
+
+- branch: `gui-font-sink-action-item-next-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、terminal state は enum、parse/range/table failure は `Result`、action payload は future sink consumer、platform / renderer / fallback は非依存とした。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4ab: SFNT simple glyph path sink action item next を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionItemNext` と `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next` を追加した。
+- `GuiSfntSimpleGlyphPathSinkActionItemNext` は `Continue GuiSfntSimpleGlyphPathSinkActionStepItem` と `EndContour` だけを持つ typed enum とし、`Clone` / `Copy` を実装した。
+- F4ab helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を 1 回だけ読む。
+- `Continue next_step` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy` を 1 回だけ呼び、`Result::Ok next_item` を `Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item` として返す。
+- `EndContour` は `Result::Err`、`Option::None`、silent no-op ではなく、`Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour` として返す。
+- F4ab helper は `item.step`、`GuiSfntSimpleGlyphPathSinkActionStep.next`、action payload、primary/tail action、start helper、F4x/F4y/F4v、lower lookup、metadata parser、`*_with_tables`、`Vec` / `push`、renderer / rasterizer / platform / host text API を直接読まない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4ab の enum / Clone/Copy / helper body / call count / 禁止 helper / payload inspection 禁止 / 括弧なし body の source policy assertion を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に synthetic terminal item が `EndContour` success を返すこと、byte-backed `start_item -> item_next` が `Continue next_item` を返し next item の stored step が `Tail` slot であることを確認する assertion を追加した。
+
+### subagent_review
+
+- Gibbs plan review: `PLAN_APPROVED`。F4ab は F4aa から F5 に進む前の one-item typed traversal boundary として妥当で、小さすぎる bandaid ではないと判断された。
+- Required として、`item.advance` だけを authority にすること、`EndContour` を success enum として返すこと、start/lower/F4x/F4y/F4v/Vec/renderer/platform への直接依存禁止、source policy と doctest の固定が挙げられた。
+- Locke implementation review: `APPROVED`。`item.advance` だけを読み、F4z step item lookup だけに委譲し、禁止された direct call や payload inspection、NEPL 括弧混入は見当たらないと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。既存 fixture が重いため 120 秒では一度 timeout し、360 秒 timeout で再実行して通過した。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 280/280 passed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。CRLF 変換 warning のみ。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- F4ab は checked action item を 1 つ進める boundary までであり、contour-wide loop、real sink trait、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。

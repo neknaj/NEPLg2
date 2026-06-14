@@ -1870,6 +1870,25 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_step_item_step %fn &GuiSfntSimpleG
 pub fn gui_sfnt_simple_glyph_path_sink_action_step_item_advance %fn &GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphPathSinkActionStepAdvance \item:
     *field::get_ref item "advance"
 
+//: GuiSfntSimpleGlyphPathSinkActionItemNext: action item を 1 つ[進/すす]めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は checked advance から[得/え]た次 item を[持/も]ちます。
+//: - `EndContour` は contour 内 action item stream の終端を成功値として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionItemNext:
+    Continue %GuiSfntSimpleGlyphPathSinkActionStepItem
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionItemNext:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionItemNext \next:
+        *next
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionItemNext:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionItemNext \next:
+        next
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3739,3 +3758,23 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_item %fn &ByteBuf fn 
                     Result::Err error
                 Result::Ok item:
                     Result::Ok item
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_item_next: action item を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - item の checked advance だけを[読/よ]み、`Continue` の[場合/ばあい]だけ次 item を[読/よ]みます。
+//: - `EndContour` は `Result::Err` ではなく成功値として[返/かえ]します。
+//: - action payload、start helper、F4y advance helper、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_item_next %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStepItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntParseError \bytes\face_index\item\policy:
+    let advance %GuiSfntSimpleGlyphPathSinkActionStepAdvance gui_sfnt_simple_glyph_path_sink_action_step_item_advance item
+    match advance:
+        GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_item:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item
+        GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
