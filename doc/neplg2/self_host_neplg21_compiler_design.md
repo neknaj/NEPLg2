@@ -1969,6 +1969,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete
 
 stage0 doctest は empty table accepted、connector schema placeholder、target final shape placeholder、exact duplicate、concrete overlap を確認する。focused doctest は pass しており、既存の connector / source policy も維持されている。この checkpoint 後も、generic instantiation / bound solver / projection connector / coherence evidence を materializer accepted path へ束ねる boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 
+## 2026-06-15 MemoKey / MemoValue generic materializer connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl` を追加し、generic public impl record と generic evidence 群を materializer accepted path へ渡す前の checker-layer preflight boundary を固定した。
+
+この connector は operation candidate を作らない。入力は `SelfhostMemoTraitOperationPublicImplMaterializerRecord`、`SelfhostMemoTraitPublicImplGenericBoundSolvingStatus`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence`、`SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` であり、accepted authority はこれらの typed field に限定する。HIR traversal result、Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact、source text、display name、diagnostic text は accepted material に入らない。
+
+この boundary の中心は、public constructible な evidence を後続 materializer がそのまま信用しないことである。record 側の `Detailed` generic binder evidence と instantiation evidence の parameter count / bound count / table hash / binder shape を照合し、materializer record の declaration ordinal と original target / trait shape を projection connector evidence と照合する。bound solving status は `NoBounds` / `AllSolved` / `Unsolved` を connector でも再検査する。`AllSolved` evidence は `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致する schema だけを受理し、そこから導出した bound solution hash が instantiation evidence の `bound_solution_shape_hash` と一致しなければ拒否する。
+
+projection connector evidence と concrete coherence evidence は schema、instantiation shape、connector shape、canonical target fingerprint / payload、canonical trait application fingerprint / payload、target final shape、trait application final shape を相互に照合する。さらに projection connector evidence と instantiation evidence の substitution shape hash、substituted target shape、substituted trait application shape も照合する。成功時の `SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence` は、record identity、generic binder material、bound solution hash、pre-substitution shape、instantiation / connector / coherence root、substituted target / trait shape、canonical target / trait material、final target / trait shape、materializer connector root hash を保持する。これは後続 candidate builder が読むための typed preflight summary であり、generic impl の accepted candidate そのものではない。
+
+この checkpoint でも `memo_trait_operation_public_impl_materializer.nepl` は detailed generic record を `GenericImplInstantiationUnsupported` で拒否する。generic accepted path を実際に開くには、今回の connector evidence を operation classifier、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof と同じ candidate construction boundary へ接続する必要がある。したがって、現時点では facade へ re-export せず、`nodesrc/selfhost_ty_sources.js` にも登録しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js` で固定する。facade 非公開、selfhost source list 非登録、materializer fail-closed 維持、forbidden layer import 禁止、typed evidence field、bound status 再検査、bound solving evidence schema exact match、stage0 unsolved-bound / schema-mismatch rejection、行数 / doc comment 長制限禁止を確認する。focused doctest は 240 秒 timeout で pass しているが、標準 60 秒 timeout は現行 Resource static check の探索空間で超え得る。schema exact match 追加後の最新実測 wall time は約 156 秒である。これは後からできる fixture 分割 / Resource 探索削減の性能課題であり、typed authority boundary を緩める理由にはしない。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

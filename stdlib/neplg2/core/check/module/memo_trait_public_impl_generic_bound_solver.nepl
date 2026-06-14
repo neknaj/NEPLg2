@@ -225,7 +225,7 @@ pub fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_push %im
 
 //: selfhost_memo_trait_public_impl_generic_bound_solver_schema_version: bound solver evidence schema version
 fn selfhost_memo_trait_public_impl_generic_bound_solver_schema_version %fn void i32 \void:
-    1
+    selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version
 
 //: selfhost_memo_trait_public_impl_generic_bound_solver_mix2: bound solver hash 用の 2 field [混合/こんごう]
 fn selfhost_memo_trait_public_impl_generic_bound_solver_mix2 %fn i32 fn i32 i32 \a\b:

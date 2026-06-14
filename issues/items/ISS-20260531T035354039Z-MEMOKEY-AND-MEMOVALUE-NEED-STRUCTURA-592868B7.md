@@ -1020,6 +1020,40 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-15 selfhost generic materializer connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl` を追加し、generic public impl の materializer record、bound solving status、generic instantiation evidence、projection connector evidence、concrete coherence evidence を materializer accepted path へ渡す前に照合する checker-layer connector を固定した。
+
+この connector は generic impl candidate acceptance そのものではない。accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecord`、`SelfhostMemoTraitPublicImplGenericBoundSolvingStatus`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence`、`SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` の typed field に限定する。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR traversal result、Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact は connector evidence の authority にしない。
+
+record は `Detailed` generic binder evidence を持つ必要がある。monomorphic record は既存 materializer の monomorphic path が扱うため、この connector では `RecordGenericBinderMonomorphic` として拒否する。detailed binder evidence の type parameter count、bound count、parameter table shape hash、bound table shape hash、binder shape hash は instantiation evidence と一致しなければならない。さらに connector は bound solving status を再検査し、`NoBounds` / `AllSolved` / `Unsolved` の状態から導出した bound solution hash が instantiation evidence の `bound_solution_shape_hash` と一致する場合だけ受理する。
+
+bound solving status は connector 側でも再検査する。`AllSolved` evidence は `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致する schema だけを受理し、schema placeholder、schema mismatch、count mismatch、policy hash placeholder、proof shape placeholder を別々の typed error として拒否する。
+
+projection connector evidence と coherence evidence は schema、instantiation shape hash、connector shape hash、canonical target fingerprint / payload、canonical trait application fingerprint / payload、target final shape、trait application final shape が一致しなければならない。projection connector evidence と instantiation evidence の substitution shape hash、substituted target shape、substituted trait application shape も照合する。materializer record 側の declaration ordinal、pre-substitution target shape、pre-substitution trait application shape も connector evidence の field と照合する。成功時の `SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence` は record identity、generic binder material、bound solution hash、pre-substitution shape、instantiation / connector / coherence root、substituted target / trait shape、canonical target / trait material、final target / trait shape、connector root hash を保持する。
+
+`memo_trait_operation_public_impl_materializer.nepl` の detailed generic record は、この checkpoint でも `GenericImplInstantiationUnsupported` のままである。今回の slice は typed preflight boundary であり、operation classifier、candidate builder、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof は呼ばない。後続 slice で materializer accepted path 本体へ接続するときに、この connector evidence と既存 classifier / purity / Resource proof boundary を同じ operation candidate construction に束ねる。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、materializer fail-closed 維持、forbidden layer import 禁止、result path の classifier / trusted source registry 非使用、typed evidence field、bound solving status 再検査、bound solving evidence schema exact match、instantiation / connector substitution shape 照合、canonical material field-by-field 照合、binder / record / connector / coherence mismatch の payload-aware error、stage0 の unsolved-bound / schema-mismatch rejection、行数 / doc comment 長制限禁止を確認する。
+
+subagent review では Tesla が、caller-supplied `AllSolved` summary をそのまま accepted path の根拠にしてはいけないこと、bound solving status を connector でも再検査し instantiation evidence の bound hash と照合すること、materializer の detailed generic acceptance はまだ開かないことを指摘した。Popper はこの slice を materializer acceptance ではなく preflight connector と位置づけ、typed materializer record / instantiation / projection / coherence を束ねる境界として進める判断を支持した。今回の実装は両方の指摘を反映している。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-materializer-connector.json`
+
+performance note:
+
+- `memo_trait_public_impl_generic_materializer_connector.nepl` focused doctest は compile が 60 秒標準 timeout を超え得るため、240 秒 timeout で semantic smoke を確認した。schema exact match 追加後の最新実測 wall time は約 156 秒である。これは owner-bearing stage0 fixture と既存 Resource static check の探索空間が主因であり、connector の authority boundary を緩める理由にはしない。stage0 fixture 分割、Resource initialized-state 探索範囲削減、generic table lookup index 化は、今回固定した typed preflight contract を保って後からできる最適化として扱う。
+
+この checkpoint 後の残件は、generic materializer connector evidence を `memo_trait_operation_public_impl_materializer` の accepted path 本体へ接続し、operation classifier / method body purity / Drop no-escape / aggregate proof と同じ operation candidate construction へ束ねることである。PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張は引き続き未実装である。
+
 ## 2026-06-14 selfhost Resource graph input scanner checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl` を追加し、actual Resource IR graph walker が将来返す typed walker event table を既存 traversal collector の `SelfhostDropResourceGraphInput` へ正規化する checker-layer scanner boundary を作った。

@@ -82,6 +82,7 @@
 //:
 //: [契約/けいやく]:
 //: - `schema_version` は solver evidence の schema です。0 は placeholder として拒否します。
+//: - 受理側は `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致する schema だけを受理します。
 //: - `solved_bound_count` は solver が解決済みとした bound 数です。binder evidence の `type_parameter_bound_count` と一致しなければなりません。
 //: - `solver_policy_hash` は solver policy / rule set の typed fingerprint です。表示名ではありません。
 //: - `proof_shape_hash` は bound solving が使った typed proof shape です。証明本文や診断文字列ではありません。
@@ -245,6 +246,14 @@ impl Clone for SelfhostMemoTraitPublicImplGenericInstantiationStage0Summary:
 impl Copy for SelfhostMemoTraitPublicImplGenericInstantiationStage0Summary:
     fn copy_mark %fn SelfhostMemoTraitPublicImplGenericInstantiationStage0Summary SelfhostMemoTraitPublicImplGenericInstantiationStage0Summary \self:
         self
+
+//: selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version: bound solving evidence schema
+//:
+//: [契約/けいやく]:
+//: - `AllSolved` status に含まれる public constructible evidence は、この schema と一致しなければ accepted authority になりません。
+//: - bound solver と materializer connector はこの helper を共有し、nonzero だけを根拠にしません。
+pub fn selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version %fn void i32 \void:
+    1
 
 //: selfhost_memo_trait_public_impl_generic_bound_solving_evidence_new: bound solving evidence を[作/つく]る
 pub fn selfhost_memo_trait_public_impl_generic_bound_solving_evidence_new %fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence \schema_version\solved_bound_count\solver_policy_hash\proof_shape_hash:
