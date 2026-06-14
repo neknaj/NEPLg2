@@ -62959,3 +62959,67 @@ MERGE_APPROVED
 
 - F5g は synthetic PointX coordinate slot population までであり、byte-backed x delta reader bridge、PointY coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
 - 次 slice では byte-backed x delta decode と PointX storage mutation の failure domain を分け、read failure と push failure を typed enum で分離する。
+
+## 2026-06-14 Selfhost generic substitution shape traversal evidence connector checkpoint
+
+### scope
+
+- branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: Result / enum error、typed evidence、source text や diagnostic text を authority にしないこと、materializer accepted path を十分な evidence が揃うまで fail-closed に保つこと、丁寧な doc comment を維持した。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl` の input / evidence を拡張し、target type と trait application の `SelfhostTypeSubstitutionEvidence` を別 field として保持するようにした。
+- producer 本体 `selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result` は input だけでなく target / trait application の `SelfhostTypeSubstitutionStepTable` borrow を受け取り、`selfhost_type_substitution_step_table_hash_result` で step stream hash を再計算してから evidence を受理する。
+- target / trait application それぞれで schema version、step hash placeholder、step count、binding count、root TypeId、output TypeId、step table hash mismatch を分離した typed error variant を追加した。
+- root hash material には substituted shape hash だけでなく、target / trait application の root TypeId、output TypeId、binding count、step count、step stream hash を混ぜるようにした。
+- Bohr review 後、target / trait application の step table 終端 record を読み、record.source_type_id / record.output_type_id が public evidence の root/output TypeId と一致することも fail-closed に検査するようにした。
+- `selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash` を追加し、accepted substitution shape evidence の root hash を field から再計算できる deterministic helper を提供した。
+- canonical type key / final shape hash projection は今回の module に混ぜず、substituted output `SelfhostTypeId` を後続 producer が扱う residual として残した。
+- `memo_trait_public_impl_generic_instantiation.nepl` の stage0 fixture evidence は、追加された substitution traversal component を保持する形へ追従した。
+- `SelfhostMemoTraitPublicImplGenericInstantiationEvidence` も target / trait application の traversal root TypeId、output TypeId、step count、step stream hash を保持し、instantiation root hash に混ぜるようにした。
+- instantiation gate は substitution shape evidence の field を再検査した後、producer module の deterministic helper で `substitution_shape_hash` を再計算して照合する。任意の nonzero hash を accepted authority にしない。
+- stage0 fixture の allocation / push / hash failure は `SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0ErrorKind` に分離し、production producer の error enum から外した。
+- Bohr final review 後、instantiation gate に `SubstitutionShapeSchemaMismatch` を追加し、public constructible な substitution shape evidence の schema が producer schema と完全一致することを hash 再計算前に検査するようにした。
+- substitution shape / instantiation の contract に error kind code の一意性検査を追加し、payload なし variant の fallback equality が code 衝突で別 variant を同一視しないように固定した。実装側では `SubstitutionTraceParameterTableShapeHashMismatch` / `SubstitutionTraceBoundTableShapeHashMismatch` の code 衝突を解消した。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` は、`ty/substitution` evidence consumption、canonical key / materializer / HIR / Resource IR / backend import 禁止、target / trait application 別の substitution evidence validation を検査するよう更新した。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` は、instantiation evidence が traversal component を落とさず保持することと、TypeId を persistent authority ではなく same-session typed link として扱うことを検査するよう更新した。
+
+### subagent_review
+
+- Descartes review: blocker なし。ただし public `SelfhostTypeSubstitutionEvidence` は値として構築可能なので、step table hash、schema、step count、binding count、root/output TypeId を fail-closed に再検査する必要があると指摘された。canonical projection をこの slice で混ぜないこと、materializer accepted authority と言い切らないことも指摘された。
+- Bohr review: blocker なし。canonical key projection は別 producer に分離し、今回の slice は target / trait の substitution evidence と step table の再検査に留めるべきと確認された。
+- Bohr follow-up review: blocker として、step table hash と evidence.root/output TypeId が終端 record に束縛されていないこと、instantiation gate が `substitution_shape_hash` を field から再計算していないことを指摘した。Required として stage0 setup error を production error enum と分けることも求めた。
+- Bohr follow-up fixes: target / trait terminal step verifier、substitution shape hash deterministic helper、instantiation final hash recheck、Stage0ErrorKind 分離、対応する contract を追加した。
+- Descartes final review: blocker なし。terminal step endpoint verification、root hash 再計算、Stage0 error enum 分離は Zenn 方針上の前回リスクを閉じていると確認した。temp failure log は commit 前 cleanup required。
+- Bohr final review: blocker として、instantiation gate が substitution shape evidence schema exact match を見ていないこと、substitution shape error code に衝突があり fallback equality が別 variant を同一視し得ることを指摘した。修正として `SubstitutionShapeSchemaMismatch` と schema exact match、error code uniqueness contract、衝突 code の解消を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl -n 1`
+- pass after traversal propagation: `node nodesrc/run_doctest.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl -n 1`
+- pass with extended timeout: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/run_doctest.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl -n 1`
+- pass after terminal-step / hash-recheck fix with extended timeout: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --dist web/dist -o tmp/selfhost-substitution-shape-long.json`
+- pass after hash-recheck fix with extended timeout: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --dist web/dist -o tmp/selfhost-instantiation-long.json`
+- pass after schema/code uniqueness fix: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass after schema/code uniqueness fix: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass after schema/code uniqueness fix with extended timeout: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --dist web/dist -o tmp/selfhost-substitution-shape-long.json`
+- pass after schema/code uniqueness fix with extended timeout: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --dist web/dist -o tmp/selfhost-instantiation-long.json`
+- pass: `git diff --check`
+
+### performance_observation
+
+- `memo_trait_public_impl_generic_substitution_shape.nepl` doctest は compile_ms 約 189.6s、`resource_static_initialized_moves` 約 184.0s、`resource_static_check` 約 188.0s だった。
+- `memo_trait_public_impl_generic_instantiation.nepl` doctest も traversal propagation 後に compile_ms 約 171.4s、`resource_static_initialized_moves` 約 160.9s、`resource_static_check` 約 167.7s だった。
+- terminal-step / hash-recheck fix 後の `memo_trait_public_impl_generic_substitution_shape.nepl` focused test は compile_ms 約 307.9s、`memo_trait_public_impl_generic_instantiation.nepl` focused test は compile_ms 約 151.5s だった。
+- schema/code uniqueness fix 後の focused test は、`memo_trait_public_impl_generic_substitution_shape.nepl` が compile_ms 約 318.8s、`memo_trait_public_impl_generic_instantiation.nepl` が compile_ms 約 174.4s だった。
+- これは今回追加した step table owner fixture と既存 Resource checker の探索空間が主因であり、semantic boundary の誤りではない。ただし default timeout では落ちる可能性が高いため、`ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E` に分離し、selfhost doctest の fixture 分割、Resource initialized-moves の探索範囲削減、または stage0 fixture を本番 producer contract から分離する性能 issue として追跡する。
+
+### residual
+
+- substituted output `SelfhostTypeId` から canonical type key / final shape hash を作る producer は未接続である。
+- trait bound solver、generic coherence、generic instantiation evidence の materializer accepted path への接続は未実装であり、materializer は引き続き fail-closed である。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続も未着手である。

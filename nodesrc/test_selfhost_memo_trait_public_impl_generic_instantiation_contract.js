@@ -53,6 +53,24 @@ function assertOrdered(text, snippets, message) {
     }
 }
 
+function assertNoDuplicateErrorKindCodes(src, functionName) {
+    const block = functionBlock(src, functionName);
+    const entries = [...block.matchAll(/ErrorKind::([A-Za-z0-9_]+)(?: _)?[^\n]*:\n\s+(\d+)/g)].map(
+        (match) => ({ variant: match[1], code: Number(match[2]) }),
+    );
+    assert.ok(entries.length > 0, `${functionName} must expose comparable error kind codes`);
+    const seen = new Map();
+    for (const entry of entries) {
+        const previous = seen.get(entry.code);
+        assert.equal(
+            previous,
+            undefined,
+            `${functionName} reuses code ${entry.code} for ${previous} and ${entry.variant}`,
+        );
+        seen.set(entry.code, entry.variant);
+    }
+}
+
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
 const tySourceListRelPath = "nodesrc/selfhost_ty_sources.js";
@@ -78,10 +96,13 @@ assertOrdered(
 assert.ok(
     source.includes("count だけや display string だけで accepted path へ進む退行を防ぎます") &&
         source.includes("evidence struct は public value として構築可能なので") &&
-        source.includes("pre-substitution target / trait application shape が public impl header の original shape と一致するかどうかは、materializer accepted path へ接続する後続 connector の責務です") &&
+        source.includes("substitution traversal の root/output TypeId、step count、step stream hash") &&
+        source.includes("substitution producer が導出した root hash も field から再計算して照合します") &&
+        source.includes("root / output TypeId は canonical type key ではありません") &&
+        source.includes("pre-substitution target / trait application shape が public impl header の original shape と一致するかどうか、substituted output TypeId から canonical type key / final shape hash を作るかどうかは、materializer accepted path へ接続する後続 connector の責務です") &&
         source.includes("この evidence は generic impl candidate acceptance の前段です") &&
         source.includes("既存 materializer の `GenericImplInstantiationUnsupported` はこの slice では維持します"),
-    "docs must reject count/display-only acceptance, explain public evidence revalidation and deferred header-shape matching, separate evidence from semantic candidate acceptance, and keep the materializer fail-closed",
+    "docs must reject count/display-only acceptance, explain public evidence revalidation, preserve substitution traversal components, require substitution hash recomputation, separate local TypeId links from canonical identity, explain deferred header-shape matching, separate evidence from semantic candidate acceptance, and keep the materializer fail-closed",
 );
 assert.ok(
     source.includes("source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted instantiation hash material に入りません"),
@@ -168,12 +189,20 @@ assertOrdered(
         "generic_bound_table_shape_hash %i32",
         "type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash",
         "substitution_shape_hash %i32",
+        "target_substitution_root_type_id %SelfhostTypeId",
+        "target_substitution_output_type_id %SelfhostTypeId",
+        "target_substitution_step_count %i32",
+        "target_substitution_step_stream_hash %i32",
         "substituted_target_type_shape_hash %i32",
+        "trait_application_substitution_root_type_id %SelfhostTypeId",
+        "trait_application_substitution_output_type_id %SelfhostTypeId",
+        "trait_application_substitution_step_count %i32",
+        "trait_application_substitution_step_stream_hash %i32",
         "substituted_trait_application_shape_hash %i32",
         "bound_solution_shape_hash %i32",
         "instantiation_shape_hash %i32",
     ],
-    "accepted evidence must preserve separate hashes and counts instead of collapsing everything to a single untyped hash",
+    "accepted evidence must preserve separate hashes, traversal TypeId links, step counts, and step hashes instead of collapsing everything to a single untyped hash",
 );
 assertOrdered(
     source,
@@ -188,7 +217,9 @@ assertOrdered(
         "TypeArgumentIdentitySchemaPlaceholder",
         "TypeArgumentIdentityHashPlaceholder",
         "SubstitutionShapeSchemaPlaceholder",
+        "SubstitutionShapeSchemaMismatch",
         "SubstitutionShapeHashPlaceholder",
+        "SubstitutionShapeHashMismatch",
         "SubstitutionShapeTypeParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
         "SubstitutionShapeTypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
         "SubstitutionShapeTypeParameterBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
@@ -200,7 +231,15 @@ assertOrdered(
         "SubstitutionShapePreTargetTypeShapeHashPlaceholder",
         "SubstitutionShapePreTraitApplicationShapeHashPlaceholder",
         "SubstitutionTraceShapeHashPlaceholder",
+        "SubstitutionShapeTargetRootTypeIdInvalid",
+        "SubstitutionShapeTargetOutputTypeIdInvalid",
+        "SubstitutionShapeTargetStepCountMissing",
+        "SubstitutionShapeTargetStepStreamHashPlaceholder",
         "SubstitutionShapeTargetTypeShapeHashPlaceholder",
+        "SubstitutionShapeTraitApplicationRootTypeIdInvalid",
+        "SubstitutionShapeTraitApplicationOutputTypeIdInvalid",
+        "SubstitutionShapeTraitApplicationStepCountMissing",
+        "SubstitutionShapeTraitApplicationStepStreamHashPlaceholder",
         "SubstitutionShapeTraitApplicationShapeHashPlaceholder",
         "BoundCountNegative",
         "BoundSolvingRequired",
@@ -231,10 +270,24 @@ assertOrdered(
     "binder gate must reject schema, parameter table hash, bound table hash, and root hash placeholders separately",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_final_result"),
+    [
+        "eq evidence.substituted_trait_application_shape_hash 0",
+        "SubstitutionShapeTraitApplicationShapeHashPlaceholder",
+        "selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash evidence",
+        "not eq recomputed_shape_hash evidence.substitution_shape_hash",
+        "SubstitutionShapeHashMismatch",
+        "Result::Ok evidence",
+    ],
+    "instantiation final substitution-shape gate must reject missing substituted trait shape and recompute the substitution root hash from evidence fields",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_result"),
     [
         "eq evidence.schema_version 0",
         "SubstitutionShapeSchemaPlaceholder",
+        "not eq evidence.schema_version selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version",
+        "SubstitutionShapeSchemaMismatch",
         "eq evidence.substitution_shape_hash 0",
         "SubstitutionShapeHashPlaceholder",
         "not eq evidence.type_parameter_count binder.type_parameter_count",
@@ -263,13 +316,27 @@ assertOrdered(
         "SubstitutionShapePreTraitApplicationShapeHashPlaceholder",
         "eq evidence.substitution_trace_shape_hash 0",
         "SubstitutionTraceShapeHashPlaceholder",
+        "lt selfhost_type_id_index evidence.target_substitution_root_type_id 0",
+        "SubstitutionShapeTargetRootTypeIdInvalid",
+        "lt selfhost_type_id_index evidence.target_substitution_output_type_id 0",
+        "SubstitutionShapeTargetOutputTypeIdInvalid",
+        "lt evidence.target_substitution_step_count 1",
+        "SubstitutionShapeTargetStepCountMissing",
+        "eq evidence.target_substitution_step_stream_hash 0",
+        "SubstitutionShapeTargetStepStreamHashPlaceholder",
         "eq evidence.substituted_target_type_shape_hash 0",
         "SubstitutionShapeTargetTypeShapeHashPlaceholder",
-        "eq evidence.substituted_trait_application_shape_hash 0",
-        "SubstitutionShapeTraitApplicationShapeHashPlaceholder",
-        "Result::Ok evidence",
+        "lt selfhost_type_id_index evidence.trait_application_substitution_root_type_id 0",
+        "SubstitutionShapeTraitApplicationRootTypeIdInvalid",
+        "lt selfhost_type_id_index evidence.trait_application_substitution_output_type_id 0",
+        "SubstitutionShapeTraitApplicationOutputTypeIdInvalid",
+        "lt evidence.trait_application_substitution_step_count 1",
+        "SubstitutionShapeTraitApplicationStepCountMissing",
+        "eq evidence.trait_application_substitution_step_stream_hash 0",
+        "SubstitutionShapeTraitApplicationStepStreamHashPlaceholder",
+        "selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_final_result evidence",
     ],
-    "instantiation gate must re-check schema, root hash, counts, binder hash, type argument identity, trace, and substituted shapes from substitution evidence",
+    "instantiation gate must re-check schema, root hash, counts, binder hash, type argument identity, trace, traversal TypeId links, step counts, step hashes, and then delegate final substituted-shape/root-hash verification",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_bound_solution_hash_result"),
@@ -318,6 +385,11 @@ assertOrdered(
         "selfhost_memo_trait_public_impl_generic_instantiation_bound_solution_hash_result input.generic_binder_evidence.type_parameter_bound_count input.bound_solving_status",
         "type_argument_hash.schema_version",
         "type_argument_hash.identity_hash",
+        "target_substitution_id_material",
+        "target_substitution_step_material",
+        "trait_substitution_id_material",
+        "trait_substitution_step_material",
+        "substitution_traversal_material",
         "substitution_evidence.substitution_shape_hash",
         "substitution_evidence.substituted_target_type_shape_hash",
         "substitution_evidence.substituted_trait_application_shape_hash",
@@ -327,6 +399,10 @@ assertOrdered(
         "SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash",
     ],
     "evidence API must validate argument count, binder evidence, type argument identity, substitution evidence, bound solving, and nonzero instantiation hash before success",
+);
+assertNoDuplicateErrorKindCodes(
+    source,
+    "selfhost_memo_trait_public_impl_generic_instantiation_error_kind_code",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_error_kind_eq"),
@@ -374,8 +450,8 @@ assert.doesNotMatch(
 );
 assert.doesNotMatch(
     topLevelBlock(source, "SelfhostMemoTraitPublicImplGenericInstantiationEvidence"),
-    /source|span|path|display|diagnostic|lexeme|SelfhostTypeId|DefId|FileId/,
-    "accepted evidence must not store source/display authority or session-local compiler ids",
+    /source|span|path|display|diagnostic|lexeme|DefId|FileId/,
+    "accepted evidence must not store source/display authority or non-type compiler-local ids",
 );
 assert.doesNotMatch(
     source,

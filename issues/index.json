@@ -1,9 +1,9 @@
 {
   "schema": "neplg2-issues/v1",
-  "generated_at": "2026-06-12T14:23:19.482Z",
+  "generated_at": "2026-06-14T14:18:10.537Z",
   "counts": {
-    "total": 1371,
-    "open": 59,
+    "total": 1372,
+    "open": 60,
     "resolved": 1312,
     "by_area": {
       "stdlib": {
@@ -17,8 +17,8 @@
         "resolved": 637
       },
       "selfhost": {
-        "total": 119,
-        "open": 4,
+        "total": 120,
+        "open": 5,
         "resolved": 115
       },
       "tools": {
@@ -288,7 +288,7 @@
       "priority": "P1",
       "type": "architecture",
       "created": "2026-05-31",
-      "updated": "2026-06-12",
+      "updated": "2026-06-14",
       "target": "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty",
       "legacy_id": "",
       "source": "",
@@ -548,6 +548,21 @@
       "legacy_id": "",
       "source": "",
       "file": "items/ISS-20260605T150033175Z-SELFHOST-COMPILER-DOC-COMMENTS-NEED--FF439E41.md"
+    },
+    {
+      "id": "ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E",
+      "title": "Selfhost substitution shape doctest compile time exceeds default timeout",
+      "area": "selfhost",
+      "status": "open",
+      "resolved": false,
+      "priority": "P1",
+      "type": "performance",
+      "created": "2026-06-14",
+      "updated": "2026-06-14",
+      "target": "stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl; stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl; nepl-core Resource static check; nodesrc/run_doctest.js",
+      "legacy_id": "",
+      "source": "",
+      "file": "items/ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E.md"
     },
     {
       "id": "ISS-20260520T152218366Z-NON-COPY-COLLECTION-PAYLOAD-SUPPORT--A6A88543",
