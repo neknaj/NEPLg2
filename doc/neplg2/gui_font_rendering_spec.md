@@ -1000,6 +1000,140 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_start_step:
 
 F4x は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor`、`gui_sfnt_lookup_simple_glyph_contour_span`、`gui_sfnt_lookup_simple_glyph_path_sink_step`、F4s/F4t より下位の lookup helper を直接呼ばない。検証と payload construction の authority は F4v action step lookup に集約する。
 
+### SFNT simple glyph path sink action step advance
+
+F4y は F4v の `GuiSfntSimpleGlyphPathSinkActionStep.next` を、byte-backed lookup 済みの次 step または contour 終端へ 1 段だけ進める段階である。これは loop traversal、iterator、real sink、full outline allocation、renderer、rasterizer ではない。
+
+terminal state は `Option::None` や `Result::Err` ではなく、専用 enum で表す。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionStep
+    EndContour
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance:
+    bytes &ByteBuf
+    face_index Option i32
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_step_next step` を読み、その enum だけを `match` する。
+
+```text
+next = Continue cursor
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step
+
+next = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour
+```
+
+`Result::Err` は `Continue cursor` の下位 action step lookup から来る parse/range/table error だけを伝播する。`EndContour` は successful terminal state であり、error ではない。policy reject は次 step の `action = Reject` payload として残り、F4y が `Reject` / `NoAction` / `CloseContour` を見て traversal を変えることは禁止する。
+
+F4y は start cursor helper、start step helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。
+
+### SFNT simple glyph path sink action step item
+
+F4z は現在の `GuiSfntSimpleGlyphPathSinkActionStep` と、F4y で byte-backed lookup 済みになった `GuiSfntSimpleGlyphPathSinkActionStepAdvance` を 1 つの typed item に束ねる段階である。これは後続の real sink / contour stream が読む 1 action 分の安定した入力単位であり、loop traversal、real sink mutation、callback、`Vec` command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepItem:
+    step GuiSfntSimpleGlyphPathSinkActionStep
+    advance GuiSfntSimpleGlyphPathSinkActionStepAdvance
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item:
+    bytes &ByteBuf
+    face_index Option i32
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy` にだけ委譲する。`Result::Err` はそのまま伝播し、`Result::Ok advance` なら現在 step を明示コピーして `GuiSfntSimpleGlyphPathSinkActionStepItem` に格納する。
+
+F4z helper は action payload を見ない。`Reject`、`NoAction`、`CloseContour` の処理、start step composition、contour-wide traversal、event emission、sink mutation、allocation failure recovery は後続 phase の責務である。F4z は start cursor/start step helper、F4v action step lookup、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。
+
+### SFNT simple glyph path sink action start item
+
+F4aa は F4x の first action step lookup と F4z の action step item lookup を接続し、contour の最初の action item を読む public helper を追加する段階である。これは contour-wide traversal、iterator、real sink、callback、command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError
+```
+
+helper は次の 2 段だけを行う。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy
+    Err error -> Err error
+    Ok start_step:
+        gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy
+            Err error -> Err error
+            Ok item -> Ok item
+```
+
+`gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` は 1 回だけ呼び、`gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` も 1 回だけ呼ぶ。F4aa helper 自体は start cursor を作らず、action payload を読まず、`Reject` / `NoAction` / `CloseContour` で traversal を変えない。contour 終端は F4z item 内の `GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour` に残り、`Option::None` や hidden no-op へ変換しない。
+
+F4aa は action start cursor helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。検証と action payload construction の authority は F4x/F4z の既存境界に残す。
+
+### SFNT simple glyph path sink action item next
+
+F4ab は F4z/F4aa で得た action item の checked advance を、次の action item または contour terminal state へ 1 段だけ解決する段階である。これは contour-wide loop、iterator owner、real sink mutation、callback、command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionStepItem
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_item_next:
+    bytes &ByteBuf
+    face_index Option i32
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を 1 回だけ読み、`Continue next_step` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy` を 1 回だけ呼ぶ。`EndContour` は successful terminal state なので `Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour` として返す。
+
+F4ab は action payload を読まない。`Reject`、`NoAction`、`CloseContour` は future sink consumer が消費する payload であり、次 item の有無を決める authority ではない。`EndContour` を `Result::Err`、`Option::None`、silent no-op、fallback branch に変換してはならない。
+
+F4ab は start cursor / start step / start item helper、F4v action step lookup、F4y advance helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。検証と next step construction の authority は F4z item が保持する checked advance と F4z step item lookup に残す。
+
+### SFNT simple glyph path sink action consumer item
+
+F4ac は F4z/F4aa の action item から、future sink consumer が 1 action 分として読む packet を作る段階である。F4ab が「どこへ進むか」だけを返すのに対し、F4ac は「今回何を消費するか」と「次にどこへ進むか」を同じ typed value に束ねる。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item:
+    bytes &ByteBuf
+    face_index Option i32
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError
+```
+
+helper は `item.step` を current action の copy のためだけに読み、`gui_sfnt_simple_glyph_path_sink_action_step_action` で action を取得する。次状態は `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next` を 1 回だけ呼んで得る。`Result::Err` はそのまま伝播し、`Result::Ok next` の場合だけ `GuiSfntSimpleGlyphPathSinkActionConsumerItem action next` を返す。
+
+F4ac は real sink、iterator、contour-wide consumer、callback、mutable sink state、command list、full outline allocation、renderer、rasterizer ではない。`EmitEvent`、`Reject`、`NoAction`、`CloseContour` の payload は解釈せず、packet の `action` に保持する。unsupported や terminal を hidden fallback、silent no-op、`Option::None` に変換してはならない。
+
+F4ac は F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` helper、`Vec` / `push`、loop、renderer、rasterizer、platform API、host text measurement、font fallback を直接呼ばない。後続の real sink はこの packet を consume するが、この phase では consume policy、sink owner、allocation recovery、contour closure、winding / fill rule をまだ定義しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

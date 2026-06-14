@@ -1325,6 +1325,141 @@ policy reject
 
 F4x must not call `gui_sfnt_lookup_simple_glyph_contour_span`, `gui_sfnt_lookup_simple_glyph_path_sink_step`, F4s contour-step lookup, lower point/curve/path helpers, metadata parser, internal table helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback.
 
+### SFNT simple glyph path sink action step advance
+
+F4y resolves one `GuiSfntSimpleGlyphPathSinkActionNext` value into either a checked next action step or a typed contour terminal state:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionStep
+    EndContour
+```
+
+The type is separate from `GuiSfntSimpleGlyphPathSinkActionNext` because `Next` contains only the next cursor, while `StepAdvance` contains the byte-backed lookup result for that cursor. Returning `Option GuiSfntSimpleGlyphPathSinkActionStep` would lose the domain reason for termination, and returning `Result::Err` for `EndContour` would confuse a successful terminal state with malformed font data.
+
+The helper is a one-step state transition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy
+    -> next = gui_sfnt_simple_glyph_path_sink_action_step_next step
+    -> match next
+        Continue cursor:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy
+                Err error -> Err error
+                Ok next_step -> Ok Continue next_step
+        EndContour:
+            Ok EndContour
+```
+
+F4y does not inspect `step.action`, primary action, tail action, or unified action payload variants. `Reject`, `NoAction`, and `CloseContour` are payloads for a future consumer; they do not change the traversal rule. F4y must not loop, allocate a command list, mutate a sink, repair contours, rasterize, or present to any platform.
+
+### SFNT simple glyph path sink action step item
+
+F4z packages the current action step and the checked advance result into a single value:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepItem:
+    step GuiSfntSimpleGlyphPathSinkActionStep
+    advance GuiSfntSimpleGlyphPathSinkActionStepAdvance
+```
+
+This is the first consumer-facing item boundary above F4y. It is deliberately not a contour iterator, not a sink trait, and not a command list. A later sink consumer can read `item.step.action` through the existing step accessor and use `item.advance` to decide whether the next item exists, but F4z itself does not interpret the action payload.
+
+The byte-backed helper is a narrow composition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index step policy
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy
+        Err error -> Err error
+        Ok advance:
+            stored_step = *step
+            Ok ActionStepItem stored_step advance
+```
+
+The explicit `stored_step = *step` copy is part of the contract. The helper must not store a borrowed reference in the item, because the item is a value that can be passed to later consumers without aliasing the caller-owned reference.
+
+F4z must not call start cursor helpers, start step helpers, F4v action step lookup, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, inspect `Reject` / `NoAction` / `CloseContour`, or introduce a silent no-op path.
+
+### SFNT simple glyph path sink action start item
+
+F4aa adds a first-item entry point above F4x and F4z. It is useful for a future contour consumer that wants the first item directly, but it remains a narrow composition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy
+        Err error -> Err error
+        Ok start_step:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy
+                Err error -> Err error
+                Ok item -> Ok item
+```
+
+F4aa does not introduce a new data type. The result type is the F4z `GuiSfntSimpleGlyphPathSinkActionStepItem`, so the current step and checked advance remain the only item payload. This preserves the typed value boundary and avoids a parallel "start item" structure that would duplicate state.
+
+The helper must call `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` exactly once and `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` exactly once. It must not call the pure start-cursor helper, the byte-backed start-cursor helper, F4v action-step lookup, F4y advance helper, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback.
+
+F4aa itself does not inspect the action payload. `Reject`, `NoAction`, `CloseContour`, and `EndContour` remain typed states inside the F4x/F4z result path. This keeps parse/range/table failures as `Result::Err`, domain terminal states as enum values, and unsupported future behavior out of the helper instead of hiding it through fallback.
+
+### SFNT simple glyph path sink action item next
+
+F4ab resolves the checked advance already stored in an F4z/F4aa action item. It is deliberately a one-item boundary, not a contour iterator and not a real sink. Its only job is to turn the item's stored `GuiSfntSimpleGlyphPathSinkActionStepAdvance` into either the next checked item or the contour terminal state:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionStepItem
+    EndContour
+```
+
+The public helper is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy
+    -> advance = gui_sfnt_simple_glyph_path_sink_action_step_item_advance item
+    -> match advance
+        Continue next_step:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy
+                Err error -> Err error
+                Ok next_item -> Ok Continue next_item
+
+        EndContour:
+            Ok EndContour
+```
+
+`EndContour` is not an error. It means that the contour-local action stream reached its successful terminal state. Returning `Option::None` would make this indistinguishable from "no value was produced", and returning `Result::Err` would confuse a valid terminal contour with malformed font data.
+
+F4ab must not inspect `item.step.action` or any nested `EmitEvent` / `Reject` / `NoAction` / `CloseContour` payload. Action payloads are what a future sink consumes; item-next only follows the checked traversal state that F4z already computed. This preserves the separation between "what to consume" and "where traversal continues".
+
+The helper must call `gui_sfnt_simple_glyph_path_sink_action_step_item_advance` exactly once. In the `Continue` branch it must call `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` exactly once. It must not call start helpers, action-step lookup, action-step advance lookup, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, or introduce a hidden no-op path.
+
+### SFNT simple glyph path sink action consumer item
+
+F4ac packages one checked action item for the future sink consumer. F4z stores the checked source item as `step + advance`, and F4ab turns `advance` into `Continue next_item` or `EndContour`. F4ac intentionally does not replace either boundary. It reads the current action from the stored step and composes it with F4ab's checked next state:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index item policy:
+    stored_step = gui_sfnt_simple_glyph_path_sink_action_step_item_step item
+    action = gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step
+
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy:
+        Err error:
+            Err error
+
+        Ok next:
+            Ok GuiSfntSimpleGlyphPathSinkActionConsumerItem action next
+```
+
+The explicit `stored_step` copy is part of the ownership contract. The consumer item stores values, not references to caller-owned storage. A later real sink can consume `action` and inspect `next` without relying on hidden mutable current-point state.
+
+F4ac is not a real sink, not an iterator, and not a contour-wide consumer. It does not call a callback, mutate a sink, allocate a command list, construct an outline, decide fill rules, rasterize, emit render2d commands, or present to a platform backend. It also does not classify the action payload: `EmitEvent`, `Reject`, `NoAction`, and `CloseContour` remain data in `GuiSfntSimpleGlyphPathSinkAction`.
+
+The helper must call `gui_sfnt_simple_glyph_path_sink_action_step_item_step` exactly once, `gui_sfnt_simple_glyph_path_sink_action_step_action` exactly once, and `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next` exactly once. It must not call F4z action item lookup, F4y action advance lookup, F4v action step lookup, F4x/F4aa start helpers, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, use numeric action indexes, or introduce hidden fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

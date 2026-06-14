@@ -1814,6 +1814,118 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_step_action %fn &GuiSfntSimpleGlyp
 pub fn gui_sfnt_simple_glyph_path_sink_action_step_next %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkActionNext \step:
     *field::get_ref step "next"
 
+//: GuiSfntSimpleGlyphPathSinkActionStepAdvance: 1 action step 進めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は byte-backed lookup 済みの次 action step を[持/も]ちます。
+//: - `EndContour` は contour 内 action stream の終端を成功値として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    Continue %GuiSfntSimpleGlyphPathSinkActionStep
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphPathSinkActionStepAdvance \advance:
+        *advance
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphPathSinkActionStepAdvance \advance:
+        advance
+
+//: GuiSfntSimpleGlyphPathSinkActionStepItem: action step と checked advance を[束/たば]ねた単位
+//:
+//: [目的/もくてき]:
+//: - 後続 sink が現在の action step と、byte-backed lookup 済みの次状態を同時に[読/よ]めるようにします。
+//: - contour 全体の走査、sink mutation、command list 生成は行いません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionStepItem:
+    step %GuiSfntSimpleGlyphPathSinkActionStep
+    advance %GuiSfntSimpleGlyphPathSinkActionStepAdvance
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionStepItem:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphPathSinkActionStepItem \item:
+        *item
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionStepItem:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphPathSinkActionStepItem \item:
+        item
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_item: action step item を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_item %fn GuiSfntSimpleGlyphPathSinkActionStep fn GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphPathSinkActionStepItem \step\advance:
+    GuiSfntSimpleGlyphPathSinkActionStepItem step advance
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_item_step: item の現在 step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_item_step %fn &GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphPathSinkActionStep \item:
+    *field::get_ref item "step"
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_item_advance: item の checked advance を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_item_advance %fn &GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphPathSinkActionStepAdvance \item:
+    *field::get_ref item "advance"
+
+//: GuiSfntSimpleGlyphPathSinkActionItemNext: action item を 1 つ[進/すす]めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は checked advance から[得/え]た次 item を[持/も]ちます。
+//: - `EndContour` は contour 内 action item stream の終端を成功値として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionItemNext:
+    Continue %GuiSfntSimpleGlyphPathSinkActionStepItem
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionItemNext:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionItemNext \next:
+        *next
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionItemNext:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionItemNext \next:
+        next
+
+//: GuiSfntSimpleGlyphPathSinkActionConsumerItem: future sink が 1 action として[読/よ]む packet
+//:
+//: [目的/もくてき]:
+//: - 現在の action payload と、checked next state を 1 value に[束/たば]ねます。
+//: - real sink、iterator、contour 全体の consumer、command list は[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    action %GuiSfntSimpleGlyphPathSinkAction
+    next %GuiSfntSimpleGlyphPathSinkActionItemNext
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionConsumerItem \item:
+        *item
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionConsumerItem \item:
+        item
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item: consumer item を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item %fn GuiSfntSimpleGlyphPathSinkAction fn GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionConsumerItem \action\next:
+    GuiSfntSimpleGlyphPathSinkActionConsumerItem action next
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item_action: consumer item の action を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_action %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkAction \item:
+    *field::get_ref item "action"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item_next: consumer item の next を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_next %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionItemNext \item:
+    *field::get_ref item "next"
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3616,3 +3728,108 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_step %fn &ByteBuf fn 
             Result::Err error
         Result::Ok action_step:
             Result::Ok action_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance: action step を 1 つ[進/すす]める
+//:
+//: [目的/もくてき]:
+//: - 現在 step の typed next state を[読/よ]み、次 step または `EndContour` を[返/かえ]します。
+//: - parse/range error は `Result::Err` で伝播し、contour 終端は `Result::Ok EndContour` として[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - action payload は見ません。`Reject`、`NoAction`、`CloseContour` の処理は consumer の責務です。
+//: - `Continue` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step` に委譲します。
+//: - loop traversal、full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntParseError \bytes\face_index\step\policy:
+    match gui_sfnt_simple_glyph_path_sink_action_step_next step:
+        GuiSfntSimpleGlyphPathSinkActionNext::Continue cursor:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_step:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step
+        GuiSfntSimpleGlyphPathSinkActionNext::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_step_item: action step と checked advance を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - 現在 step を保持し、F4y の checked advance と同じ item に[束/たば]ねます。
+//: - parse/range error は `Result::Err` で伝播し、`EndContour` は item 内の successful terminal state として残します。
+//:
+//: [注意/ちゅうい]:
+//: - action payload は見ません。現在 action の処理は後続 consumer の責務です。
+//: - `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance` にだけ委譲します。
+//: - start helper、loop traversal、full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_step_item %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError \bytes\face_index\step\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok advance:
+            let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step
+            let item %GuiSfntSimpleGlyphPathSinkActionStepItem gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance
+            Result::Ok item
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_item: contour の first action item を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - contour-local action stream の開始 step を読み、checked advance と同じ item に[束/たば]ねます。
+//: - parse/range error は `Result::Err` で伝播し、policy reject は item 内の action payload として残します。
+//:
+//: [注意/ちゅうい]:
+//: - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` と `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` だけに委譲します。
+//: - action payload は見ません。`Reject`、`NoAction`、`CloseContour` の処理は後続 consumer の責務です。
+//: - contour-wide traversal、sink mutation、full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_item %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError \bytes\face_index\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_step bytes face_index glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok start_step:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &start_step policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok item:
+                    Result::Ok item
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_item_next: action item を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - item の checked advance だけを[読/よ]み、`Continue` の[場合/ばあい]だけ次 item を[読/よ]みます。
+//: - `EndContour` は `Result::Err` ではなく成功値として[返/かえ]します。
+//: - action payload、start helper、F4y advance helper、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_item_next %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStepItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntParseError \bytes\face_index\item\policy:
+    let advance %GuiSfntSimpleGlyphPathSinkActionStepAdvance gui_sfnt_simple_glyph_path_sink_action_step_item_advance item
+    match advance:
+        GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_item:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item
+        GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item: action と checked next を[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - item の現在 step から action を[写/うつ]し、F4ab helper で next を[読/よ]みます。
+//: - action payload は[解釈/かいしゃく]せず、future sink consumer へ value として[渡/わた]します。
+//: - real sink、iterator、contour-wide consumer、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStepItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError \bytes\face_index\item\policy:
+    let stored_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_item_step item
+    let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok next:
+            let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
+            Result::Ok consumer_item
