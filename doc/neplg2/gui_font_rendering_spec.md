@@ -727,6 +727,42 @@ slot は enum なので、存在しない third event や負の index は型と�
 
 F4r は numeric `i32` index、`Option`、`Result`、`Vec`、`push`、command index、count、next、current point state、contour traversal、contour closure、off-curve contour-start synthesis、byte lookup、metadata parser、`*_with_tables` helper、curve classifier、renderer、rasterizer、render2d、platform API を導入しない。
 
+### SFNT simple glyph path contour traversal step
+
+F4s は F4r の typed slot selection の上に、1 contour 内の 1 sink event step だけを読む境界である。これは full outline builder ではなく、`Vec` による command list、mutable current point state、rasterizer、render2d、platform API へ進まない。cursor は glyph / contour / edge / slot を持ち、step は cursor、event、kind、next state を返す。
+
+```text
+GuiSfntSimpleGlyphPathContourCursor:
+    glyph GuiGlyphId
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+
+GuiSfntSimpleGlyphPathContourNext:
+    Continue GuiSfntSimpleGlyphPathContourCursor
+    EndContour
+
+GuiSfntSimpleGlyphPathContourStep:
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    event GuiSfntSimpleGlyphPathSinkEvent
+    kind GuiSfntSimpleGlyphPathSinkEventKind
+    next GuiSfntSimpleGlyphPathContourNext
+
+gui_sfnt_lookup_simple_glyph_path_contour_step:
+    bytes &ByteBuf
+    face_index Option i32
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    -> Result GuiSfntSimpleGlyphPathContourStep GuiSfntParseError
+```
+
+public lookup は `gui_sfnt_lookup_simple_glyph_contour_span` で contour と point count を検証し、`gui_sfnt_lookup_simple_glyph_path_command_pair` で cursor の edge を 1 回だけ path command pair に変換する。成功した pair は `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` に渡し、F4r の `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` と F4q の `gui_sfnt_simple_glyph_path_sink_event_kind` を使って event / kind を得る。
+
+next state は domain enum であり、contour の終端を `Option::None` や error で表さない。`slot First -> same edge Second`、`slot Second -> edge + 1 First or EndContour` が契約である。range 不正、glyph 欠落、table 破損だけが `Result::Err GuiSfntParseError` になる。成功した final event は `Result::Ok step` であり、`step.next = EndContour` で終端を表す。
+
+next 計算の pure helper は public contract ではなく、public lookup が `span_point_count > 0` と `0 <= edge_index < span_point_count` を検証した後だけ呼ぶ private helper である。検証されていない raw cursor に対して total public helper を見せてはならない。
+
+F4s は off-curve contour-start synthesis、contour closure command insertion、real path sink ownership、full outline allocation、font fallback、renderer command generation を扱わない。off-curve start は既存の `SkipNoSegment OffCurveStart` として typed event に残り、後続 phase が synthesis policy を決める。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
