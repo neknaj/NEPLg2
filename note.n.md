@@ -1,3 +1,55 @@
+# 2026-06-14 Agent selfhost Drop absence producer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、DAG 責務分割、fake proof / fake impl candidate 禁止、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限、doc comment 長制限、コメント削減を目的とする source policy は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / complete public surface state と Drop impl resolver の `DropImplAbsent` だけから `NoDropRequired` Drop evidence を作る no-drop absence producer boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl absence-only evidence boundary
+- decision: MERGE_APPROVED after focused doctest, source policy, Zenn review gate, issue/doc/todo/note update, and two independent subagent reviews.
+- policy/spec:
+  - accepted authority は `SelfhostMemoTraitOperationDropImplSurfaceState`、borrowed `SelfhostMemoTraitOperationDropImplTable`、`SelfhostTypeId`、既存 Drop impl resolver と purity gate の typed result だけである。
+  - `Complete` surface で resolver が exactly `DropImplAbsent` を返した場合だけ、purity gate の Drop operation evidence result を通し、`NoDropRequired` だけを success として受理する。
+  - `DropImplPresent`、`Missing`、`Unknown`、`NotRequired`、duplicate / table read failure / push failure など resolver rejection、purity gate rejection、gate の unexpected evidence は typed error として fail-closed にする。
+  - fake `SelfhostMemoTraitOperationImplCandidate`、fake public impl header、operation evidence record、aggregate proof status、proof store、backend / prechecked artifact は作らない。
+  - source text、span、lexeme、display name、diagnostic text、module path、public_surface_hash、payload hash、HIR body root、Resource IR graph、proof store record は no-drop absence proof の authority にしない。
+  - complete surface state は caller が渡す typed completion witness であり、空 table や lookup miss だけから `NoDropRequired` を作る設計ではない。
+  - generic impl / unresolved bound / unsupported pattern は後続 public surface orchestrator が `Unknown` または typed unsupported として扱う必要があり、complete absence と混同しない。
+  - 次 slice は no-drop absence evidence を operation evidence table へ増補する上位 connector、generic impl binder / bound detailed evidence、PrivateCache / PrivateState masking、prechecked artifact 接続を個別に扱う。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_producer.nepl` を追加した。
+  - `SelfhostMemoTraitOperationDropAbsenceProducerErrorKind` と stage0 summary を追加した。
+  - public API `selfhost_memo_trait_operation_drop_absence_evidence_result` は resolver result を受け、absence-only conversion helper と purity gate helper を通して `NoDropRequired` evidence へ写す。
+  - doctest は complete empty surface success、present rejection、missing / unknown surface rejection、duplicate resolver rejection を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+- subagent review:
+  - subagent review は policy/spec と implementation/test の 2 軸で扱った。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec48a-0645-7c52-867f-a35bc0a435ad`
+  - subagent_review_count: 2
+  - Blocker: なし。ただし fake impl candidate / fake public impl header で `NoDropRequired` を表現する設計は Blocker と確認されたため採用していない。
+  - Required: complete public surface witness と resolver `DropImplAbsent` を必須 authority にすること。対応済み。
+  - Required: `Missing` / `Unknown` / `DropImplPresent` / partial surface / duplicate / lookup miss を `NoDropRequired` にしないこと。対応済み。
+  - Required: source text / display / path / hash / public_surface_hash / proof store / Resource graph を proof authority にしないこと。対応済み。
+  - Required: `PureDrop`、aggregate proof、proof store、PrivateCache、PrivateState、prechecked artifact、backend に接続しないこと。対応済み。
+  - Non-blocker: Drop impl fact table sorted index、surface origin index、lookup cache、stage0 fixture 分割は今回の typed authority / fail-closed contract を保って後からできる最適化である。
+  - Question: 出力を operation impl table 増補ではなく operation evidence table 増補へつなぐか。今回の slice は evidence table 増補前の absence-only evidence boundary として閉じ、次 slice で上位 connector を設計する。
+  - Approve: yes.
+- source_policy:
+  - source_policy: added.
+  - 新規 source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、checker-layer import allow-list、Resource IR / backend / proof store / canonical key / public surface / scanner / materializer / method-body / Drop resource / PrivateCache / PrivateState import 禁止、operation evidence record / aggregate proof / proof store / private effect / backend / prechecked artifact 合成禁止、DropImplAbsent だけの success、present / missing / unknown / not-required fail-closed、resolver / purity gate typed error preservation、bool / string error 禁止、行数制限 / doc comment 長制限禁止を確認する。
+  - 個別 subagent review response は `nodesrc/selfhost_zenn_review_response_check.js --review-kind individual` 相当の Blocker / Required / Non-blocker / Question / Approve 分類で確認した。
+  - 最終記録は `nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record <note-or-issue.md>` の durable record 方針に合わせて `note.n.md` に残した。
+  - 既存 warning: `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108`、Node の WASI ExperimentalWarning、Git の LF/CRLF warning。
+  - 今回差分由来 warning: なし。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_producer.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-drop-absence-producer.json` pass。
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。新規 drop absence producer contract は runner 内でも pass。既存 warning は stdlib declaration doc gaps baseline だけである。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+
 # 2026-06-14 Agent selfhost Resource graph input scanner checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / struct / Result error、match の網羅性、source-derived authority 排除、pure checker boundary、探索範囲を scanner に限定する設計、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。

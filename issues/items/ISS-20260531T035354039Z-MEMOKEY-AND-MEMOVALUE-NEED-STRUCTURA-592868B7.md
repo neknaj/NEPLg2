@@ -87,6 +87,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_operatio
 
 この checkpoint 後も、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。operation impl table lookup の sorted index 化、Drop proof table lookup の index 化、solver traversal memoization は、今回固定した typed authority / owner cleanup 契約を保てるため後続最適化として扱う。
 
+## 2026-06-14 selfhost Drop absence producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_producer.nepl` を追加し、complete public impl surface 由来の「Drop impl が存在しない」状態だけを `SelfhostMemoTraitOperationDropEvidence::NoDropRequired` へ写す checker-layer producer boundary を作った。
+
+この producer は fake impl candidate を作らない。Drop impl が存在しない場合には public impl header、trait application、method body、Drop body が存在しないため、`SelfhostMemoTraitOperationImplCandidate` や fake header へ詰めると authority が壊れる。今回の出力は `SelfhostMemoTraitOperationDropEvidence` だけであり、operation evidence record、aggregate proof status、proof store、backend / prechecked artifact、PrivateCache / PrivateState masking には接続しない。
+
+accepted authority は `SelfhostMemoTraitOperationDropImplSurfaceState`、borrowed `SelfhostMemoTraitOperationDropImplTable`、`SelfhostTypeId`、既存 Drop impl resolver と purity gate の typed result だけである。`Complete` surface で resolver が `DropImplAbsent` を返した場合だけ、purity gate の Drop operation evidence result を通し、`NoDropRequired` だけを success として受理する。`DropImplPresent`、`Missing`、`Unknown`、`NotRequired`、duplicate / table read failure / push failure など resolver rejection、purity gate rejection、gate の unexpected evidence は typed error として fail-closed にする。
+
+subagent review では、`NoDropRequired` を fake impl candidate で表現しないこと、complete public surface witness と `DropImplAbsent` を必須 authority にすること、空 table / lookup miss / public surface hash だけを authority にしないこと、sorted index や lookup cache は後続最適化へ回すことが確認された。今回の producer は absence-only evidence boundary として閉じ、operation evidence table 増補や operation proof table 接続は後続 connector に残した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、checker-layer import allow-list、Resource IR / backend / proof store / canonical key / public surface / scanner / materializer / method-body / Drop resource / PrivateCache / PrivateState import 禁止、operation evidence record / aggregate proof / proof store / private effect / backend / prechecked artifact 合成禁止、DropImplAbsent だけの success、present / missing / unknown / not-required fail-closed、resolver / purity gate typed error preservation、bool / string error 禁止、行数 / doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_producer.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-drop-absence-producer.json`
+
+この checkpoint 後も、no-drop absence evidence を operation evidence table へ増補する上位 connector、actual Resource IR graph walker、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。

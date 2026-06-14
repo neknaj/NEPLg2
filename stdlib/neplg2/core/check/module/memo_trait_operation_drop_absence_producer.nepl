@@ -1,0 +1,422 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_absence_producer
+//: complete public impl surface から「Drop impl が[存在/そんざい]しない」ことを `NoDropRequired` evidence へ[変換/へんかん]する checker-layer producer です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_drop_impl_resolver` は、complete な Drop impl fact table で対象 type の Drop impl が 0 件である場合だけ `DropImplAbsent` check を返します。
+//: - `memo_trait_operation_purity_gate` は、`DropImplAbsent` check を `SelfhostMemoTraitOperationDropEvidence::NoDropRequired` へ写します。
+//: - この module は、その 2 つの境界を no-drop absence 専用入口として接続し、partial table の lookup miss、missing surface、unknown surface、present Drop impl から `NoDropRequired` が合成される退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationDropImplSurfaceState`、`SelfhostMemoTraitOperationDropImplTable`、`SelfhostTypeId`、既存 resolver / purity gate の typed result だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash、HIR body root、Resource IR graph、proof store record から no-drop absence を推測しません。
+//: - `Complete` surface で resolver が `DropImplAbsent` を返した場合だけ、purity gate を通して `NoDropRequired` を返します。
+//: - resolver が `DropImplPresent` を返した場合、この module は `PureDrop` へ進めません。pure Drop evidence は Drop body effect / Resource no-escape proof 側の責務であり、no-drop absence proof とは別です。
+//: - resolver が `Missing` / `Unknown` / `NotRequired` を返した場合は typed error として拒否します。これらを `NoDropRequired` に畳むことはありません。
+//: - resolver の duplicate / table read failure / placeholder rejection は nested typed error として保持します。bool や表示文字列には潰しません。
+//: - この module は operation evidence record、aggregate proof、proof store、generic binder、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では complete surface state は caller が渡します。将来の public surface orchestrator は、import / dependency / re-export / public impl header がすべて materialize されたときだけ `Complete` を渡します。
+//: - facade にはまだ re-export しません。operation evidence pipeline が no-drop absence proof と Drop Resource proof の両方を束ねる段階で公開範囲を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。Zenn 方針に従い、目的、契約、失敗条件、現状、計算量を明示します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 現状では resolver の table lookup に従い、Drop impl fact 数 n に対して O(n) 時間、O(1) 追加空間です。
+//: - Drop impl fact table の sorted index 化や type bucket 化は、complete surface authority、duplicate rejection、typed error contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_absence_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_impl_resolver" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_absence_producer_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_drop_absence_producer_evidence_result_eq summary.absent_evidence SelfhostMemoTraitOperationDropEvidence::NoDropRequired
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_drop_absence_producer_error_result_eq summary.present_rejected SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_drop_absence_producer_error_result_eq summary.missing_rejected SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_drop_absence_producer_error_result_eq summary.unknown_rejected SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown
+//:             let expected_duplicate %SelfhostMemoTraitOperationDropAbsenceProducerErrorKind SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected SelfhostMemoTraitOperationDropImplResolverErrorKind::RecordDuplicate
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_drop_absence_producer_error_result_eq summary.duplicate_rejected expected_duplicate
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop absence producer stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "core/math" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+#import "./memo_trait_operation_evidence_producer" as *
+#import "./memo_trait_operation_purity_gate" as *
+
+//: SelfhostMemoTraitOperationDropAbsenceProducerErrorKind: no-drop absence producer の typed error
+//:
+//: [目的/もくてき]:
+//: - Drop impl resolver と purity gate の失敗、そして no-drop absence 専用境界で拒否すべき present / incomplete status を enum として分けます。
+//:
+//: [契約/けいやく]:
+//: - `ResolverRejected` と `PurityGateRejected` は lower boundary の typed error を保持します。
+//: - `DropImplPresent` は Drop impl が存在するため、この module では `NoDropRequired` にできないことを表します。
+//: - `SurfaceMissing` / `SurfaceUnknown` は complete surface でないため、lookup miss を proof にできないことを表します。
+//: - `UnexpectedDropEvidence` は lower purity gate が `DropImplAbsent` から `NoDropRequired` 以外を返した場合の fail-closed guard です。
+pub enum SelfhostMemoTraitOperationDropAbsenceProducerErrorKind:
+    ResolverRejected %SelfhostMemoTraitOperationDropImplResolverErrorKind
+    PurityGateRejected %SelfhostMemoTraitOperationPurityGateErrorKind
+    DropImplPresent
+    SurfaceMissing
+    SurfaceUnknown
+    DropCheckNotRequired
+    UnexpectedDropEvidence %SelfhostMemoTraitOperationDropEvidence
+
+//: SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary: no-drop absence producer smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - complete absent success、present rejection、missing / unknown surface rejection、duplicate resolver rejection をまとめます。
+pub struct SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary:
+    absent_evidence %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind
+    present_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind
+    missing_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind
+    unknown_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind
+
+//: Clone for SelfhostMemoTraitOperationDropAbsenceProducerErrorKind: typed error payload を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - error は owner table を含みません。nested error も typed enum payload だけです。
+impl Clone for SelfhostMemoTraitOperationDropAbsenceProducerErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationDropAbsenceProducerErrorKind SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropAbsenceProducerErrorKind: error payload の Copy marker
+//:
+//: [契約/けいやく]:
+//: - owner-bearing error が必要になった場合は、この Copy impl を削除します。
+impl Copy for SelfhostMemoTraitOperationDropAbsenceProducerErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary: smoke summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は doctest 用の `Result` だけを持ち、table owner を保持しません。
+impl Clone for SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary: smoke summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - doctest が summary field を複数回確認できるようにするための marker であり、owner lifecycle を緩めるものではありません。
+impl Copy for SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_drop_absence_from_absent_check_result: `DropImplAbsent` check を `NoDropRequired` evidence へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - lower purity gate を必ず通します。ここで直接 `NoDropRequired` を返すと、operation 別 evidence gate を迂回する退行を隠しやすいためです。
+//: - lower gate が `NoDropRequired` 以外を返した場合は、gate contract の退行として typed error にします。
+fn selfhost_memo_trait_operation_drop_absence_from_absent_check_result %fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \check:
+    match selfhost_memo_trait_operation_purity_gate_drop_evidence_result SelfhostMemoTraitOperationEvidenceKind::Drop check:
+        Result::Ok evidence:
+            match evidence:
+                SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                    Result::Ok evidence
+                SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence evidence
+                SelfhostMemoTraitOperationDropEvidence::Missing:
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence evidence
+                SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence evidence
+                SelfhostMemoTraitOperationDropEvidence::Unknown:
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence evidence
+                SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence evidence
+        Result::Err gate_error:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected gate_error
+
+//: selfhost_memo_trait_operation_drop_absence_from_check_result: resolver check を no-drop absence evidence へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `DropImplAbsent` だけが success path です。
+//: - `DropImplPresent` は Drop body effect checker / Resource no-escape proof の経路で扱うべき状態なので、この module では拒否します。
+fn selfhost_memo_trait_operation_drop_absence_from_check_result %fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \check:
+    match check.kind:
+        SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent:
+            selfhost_memo_trait_operation_drop_absence_from_absent_check_result check
+        SelfhostMemoTraitOperationDropCheckKind::DropImplPresent:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent
+        SelfhostMemoTraitOperationDropCheckKind::Missing:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing
+        SelfhostMemoTraitOperationDropCheckKind::Unknown:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown
+        SelfhostMemoTraitOperationDropCheckKind::NotRequired:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_result: complete surface 由来の no-drop absence evidence を[作/つく]る
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(NoDropRequired)`: complete surface 全体で対象 type の Drop impl が 0 件であることを resolver が確認し、purity gate が Drop operation evidence として受理しました。
+//: - `Err(SurfaceMissing | SurfaceUnknown)`: surface が complete ではないため、Drop impl 欠落を proof にできません。
+//: - `Err(DropImplPresent)`: Drop impl が存在するため、no-drop absence proof では扱えません。
+//: - `Err(ResolverRejected(_))` / `Err(PurityGateRejected(_))`: lower boundary の構造的 failure です。
+pub fn selfhost_memo_trait_operation_drop_absence_evidence_result %fn SelfhostMemoTraitOperationDropImplSurfaceState fn &SelfhostMemoTraitOperationDropImplTable fn SelfhostTypeId Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \surface\table\type_id:
+    match selfhost_memo_trait_operation_drop_impl_resolve_result surface table type_id:
+        Result::Ok check:
+            selfhost_memo_trait_operation_drop_absence_from_check_result check
+        Result::Err resolver_error:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected resolver_error
+
+//: selfhost_memo_trait_operation_drop_absence_error_kind_code: error variant を比較用 code へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - code は doctest / source policy 用の比較補助です。diagnostic code や artifact key ではありません。
+fn selfhost_memo_trait_operation_drop_absence_error_kind_code %fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _resolver:
+            1
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _gate:
+            2
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+            3
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+            4
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+            5
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+            6
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _evidence:
+            7
+
+//: selfhost_memo_trait_operation_drop_absence_drop_evidence_code: Drop evidence を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_absence_drop_evidence_code %fn SelfhostMemoTraitOperationDropEvidence i32 \evidence:
+    match evidence:
+        SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+            1
+        SelfhostMemoTraitOperationDropEvidence::PureDrop:
+            2
+        SelfhostMemoTraitOperationDropEvidence::Missing:
+            3
+        SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+            4
+        SelfhostMemoTraitOperationDropEvidence::Unknown:
+            5
+        SelfhostMemoTraitOperationDropEvidence::NotRequired:
+            6
+
+//: selfhost_memo_trait_operation_drop_absence_error_payload_eq: error payload が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested resolver / purity gate error は lower boundary の equality helper で比較します。
+//: - payload が無い variant は true を返します。variant の一致は caller 側で別に確認します。
+fn selfhost_memo_trait_operation_drop_absence_error_payload_eq %fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected a_resolver:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected b_resolver:
+                    selfhost_memo_trait_operation_drop_impl_resolver_error_kind_eq a_resolver b_resolver
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _b_gate:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected a_gate:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _b_resolver:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected b_gate:
+                    selfhost_memo_trait_operation_purity_gate_error_kind_eq a_gate b_gate
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    true
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _b_resolver:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _b_gate:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    true
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _b_resolver:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _b_gate:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    true
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _b_resolver:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _b_gate:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    true
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _b_resolver:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _b_gate:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence a_evidence:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::UnexpectedDropEvidence b_evidence:
+                    let a_code %i32 selfhost_memo_trait_operation_drop_absence_drop_evidence_code a_evidence
+                    let b_code %i32 selfhost_memo_trait_operation_drop_absence_drop_evidence_code b_evidence
+                    eq a_code b_code
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected _b_resolver:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::PurityGateRejected _b_gate:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceUnknown:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropCheckNotRequired:
+                    false
+
+//: selfhost_memo_trait_operation_drop_absence_error_kind_eq: error が同じ分類と payload か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - variant code と nested payload を両方比較します。表示文字列は使いません。
+pub fn selfhost_memo_trait_operation_drop_absence_error_kind_eq %fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind bool \a\b:
+    let a_code %i32 selfhost_memo_trait_operation_drop_absence_error_kind_code a
+    let b_code %i32 selfhost_memo_trait_operation_drop_absence_error_kind_code b
+    and:
+        eq a_code b_code
+        selfhost_memo_trait_operation_drop_absence_error_payload_eq a b
+
+//: selfhost_memo_trait_operation_drop_absence_producer_evidence_result_eq: Result が期待 Drop evidence か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_absence_producer_evidence_result_eq %fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn SelfhostMemoTraitOperationDropEvidence bool \result\expected:
+    match result:
+        Result::Ok evidence:
+            let evidence_code %i32 selfhost_memo_trait_operation_drop_absence_drop_evidence_code evidence
+            let expected_code %i32 selfhost_memo_trait_operation_drop_absence_drop_evidence_code expected
+            eq evidence_code expected_code
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_absence_producer_error_result_eq: Result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_absence_producer_error_result_eq %fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn SelfhostMemoTraitOperationDropAbsenceProducerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_drop_absence_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_drop_absence_producer_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_producer_stage0_summary_new %fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary \absent_evidence\present_rejected\missing_rejected\unknown_rejected\duplicate_rejected:
+    SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary absent_evidence present_rejected missing_rejected unknown_rejected duplicate_rejected
+
+//: selfhost_memo_trait_operation_drop_absence_producer_stage0_duplicate: duplicate rejection までの smoke を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_producer_stage0_duplicate %impure fn SelfhostMemoTraitOperationDropImplTable impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \table\absent_evidence\present_rejected\missing_rejected\unknown_rejected\type_id:
+    let duplicate_root %SelfhostHirExprId selfhost_hir_expr_id_new 9302
+    let duplicate_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id 93001 duplicate_root SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    match selfhost_memo_trait_operation_drop_impl_table_push table duplicate_fact:
+        Result::Ok duplicate_table:
+            let duplicate_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind selfhost_memo_trait_operation_drop_absence_evidence_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &duplicate_table type_id
+            selfhost_memo_trait_operation_drop_impl_table_free duplicate_table
+            Result::Ok selfhost_memo_trait_operation_drop_absence_producer_stage0_summary_new absent_evidence present_rejected missing_rejected unknown_rejected duplicate_rejected
+        Result::Err resolver_error:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected resolver_error
+
+//: selfhost_memo_trait_operation_drop_absence_producer_stage0_present: present Drop impl rejection までの smoke を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_producer_stage0_present %impure fn SelfhostMemoTraitOperationDropImplTable impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \table\absent_evidence\missing_rejected\unknown_rejected\type_id:
+    let present_root %SelfhostHirExprId selfhost_hir_expr_id_new 9301
+    let present_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id 93001 present_root SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    match selfhost_memo_trait_operation_drop_impl_table_push table present_fact:
+        Result::Ok present_table:
+            let present_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind selfhost_memo_trait_operation_drop_absence_evidence_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &present_table type_id
+            selfhost_memo_trait_operation_drop_absence_producer_stage0_duplicate present_table absent_evidence present_rejected missing_rejected unknown_rejected type_id
+        Result::Err resolver_error:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected resolver_error
+
+//: selfhost_memo_trait_operation_drop_absence_producer_stage0: no-drop absence producer の smoke API
+//:
+//: [目的/もくてき]:
+//: - empty complete table だけが `NoDropRequired` へ進み、present / missing / unknown / duplicate は fail-closed になることを実行で確認します。
+pub fn selfhost_memo_trait_operation_drop_absence_producer_stage0 %impure fn void Result SelfhostMemoTraitOperationDropAbsenceProducerStage0Summary SelfhostMemoTraitOperationDropAbsenceProducerErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9301
+    match selfhost_memo_trait_operation_drop_impl_table_new:
+        Result::Ok table0:
+            let absent_evidence %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind selfhost_memo_trait_operation_drop_absence_evidence_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &table0 type_id
+            let missing_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind selfhost_memo_trait_operation_drop_absence_evidence_result SelfhostMemoTraitOperationDropImplSurfaceState::Missing &table0 type_id
+            let unknown_rejected %Result SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationDropAbsenceProducerErrorKind selfhost_memo_trait_operation_drop_absence_evidence_result SelfhostMemoTraitOperationDropImplSurfaceState::Unknown &table0 type_id
+            selfhost_memo_trait_operation_drop_absence_producer_stage0_present table0 absent_evidence missing_rejected unknown_rejected type_id
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::ResolverRejected SelfhostMemoTraitOperationDropImplResolverErrorKind::TableAllocFailed alloc_error
