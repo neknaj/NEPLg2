@@ -1,3 +1,41 @@
+# 2026-06-15 Agent2 GUI font outline point drain checkpoint
+
+## scope
+
+- branch: `gui-font-outline-point-drain-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5p の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point read drain budget の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5p の no-allocation budget drain、terminal-before-budget、budget-before-F5o、F5o invariant fail-closed を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5p の実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointReadDrainSummary`、`GuiSfntSimpleGlyphOutlinePointReadDrain`、`GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind`、`GuiSfntSimpleGlyphOutlinePointReadDrainError`、`gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget` を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md` に full End、partial budget exhausted、zero budget non-terminal、zero budget terminal、cursor too far、F5o step failure wrapping の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5p source policy を追加し、shared precondition、terminal-before-budget、budget-before-F5o、F5o exact one-call、Point + Some invariant、direct lower loop / path / render / raster / platform / host API 禁止を検査するようにした。
+
+## subagent_review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。F5p が non-terminal を証明した後に F5o `End` を返した場合に正常 `End` として返すと invariant failure が隠れるため、typed invariant error を追加するよう指摘された。
+- 計画を修正し、`StepReadFailed` と `StepInvariantInvalid` を分離し、F5o `Point` は `Option::Some point` のみ points_read を増やし、`Point` + `None` と unexpected `End` は `StepInvariantInvalid` にする方針にした。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。source policy で terminal-before-budget、budget-before-F5o、F5o exact one-call、lower helper / path / render / raster / platform / host API 禁止を固定する条件で実装開始可とされた。
+- 実装中に recursive helper が runtime doctest timeout を起こしたため、shared validation helper と bounded `while` body へ変更した。Tesla implementation review は `REVIEW_APPROVED`。terminal-before-budget、budget-before-F5o、positive-budget non-terminal path の F5o exact one-call、`Point Some` と exact `next_cursor == current + 1` だけが count increment すること、`Point None` / unexpected `End` / bad advance が `StepInvariantInvalid` になることを確認済みである。
+- `initial_drain` / `output` sentinel は observable fallback ではなく、`done` が false で始まり全 exit path が output を上書きするため current implementation では問題なしと確認された。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md --no-tree -o tmp_gui_font_outline_point_drain_f5p.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5p.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5p は no-allocation budget drain までであり、full point `Vec` collection、sink integration、edge/path tag population、outline point stream、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline point step checkpoint
 
 ## scope

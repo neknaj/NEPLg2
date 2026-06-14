@@ -2849,3 +2849,68 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5o.json -j 1
 git diff --check
 ```
+
+## Phase F5p: sfnt simple glyph outline point read drain budget
+
+目的:
+
+- F5o の point step を明示 budget 内で正常終端まで進める no-allocation drain boundary を追加する。
+- `End` と `StepBudgetExhausted` を success enum で分け、budget exhaustion を silent success や error にしない。
+- terminal check を budget check より前に置き、terminal cursor は budget 0 でも `End` にする。
+- non-terminal かつ budget exhausted の場合は F5o を呼ばず、hidden point read work をしない。
+- Vec、edge/path storage、outline stream、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5p docs、summary / drain / error 型、terminal-before-budget、budget-before-F5o、F5o exact one-call、Point Some before count increment、invariant failure、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointReadDrainSummary`
+  - `GuiSfntSimpleGlyphOutlinePointReadDrain`
+  - `GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointReadDrainError`
+  - private validation context / validation helper
+  - `gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget`
+- error kind は次を持つ。
+  - `StorageCapacityInvalid`
+  - `StorageStreamGlyphMismatch`
+  - `StorageStreamContourCountMismatch`
+  - `StorageStreamPointCountMismatch`
+  - `CursorOutOfRange`
+  - `StepReadFailed`
+  - `StepInvariantInvalid`
+- error payload は cursor、storage capacity、stream topology、optional F5o step error、optional F5o step value を保持する。
+- validation / drain は次の順序で行う。
+  - storage capacity と stream topology を読む
+  - capacity shape を検査する
+  - glyph、contour_count、point_count が一致することを検査する
+  - `point_index = cursor.next_point_index` を読む
+  - `point_index < 0` または `point_index > shared_point_count` なら `CursorOutOfRange`
+  - `point_index == shared_point_count` なら `End summary` を返す
+  - non-terminal かつ `remaining_steps <= 0` なら `StepBudgetExhausted summary` を返す
+  - non-terminal かつ budget positive の場合だけ F5o point step を 1 回だけ呼ぶ
+  - F5o `Err` は `StepReadFailed` と optional step error で保持する
+  - F5o `Ok Point` かつ `point Some` で、next cursor が現在 cursor から 1 点分だけ前進した場合だけ `points_read + 1`、`last_point Some point` へ進める
+  - F5o `Ok Point` かつ `point None`、next cursor が `current + 1` ではない Point、または F5o `Ok End` は `StepInvariantInvalid` と optional step value で fail-closed にする
+- 実装は recursive helper ではなく、local mutable state を持つ bounded `while` body にする。これは current NEPLg2.1 codegen で runtime doctest timeout を起こさず、将来の time-slice scheduling とも合わせやすい。
+- doctest は full drain End、partial budget exhausted、zero budget non-terminal、zero budget terminal、cursor too far、F5o/F5n flag repeat-overrun wrapping を検査する。
+- 実装前 plan review と実装後 implementation review を subagent で受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- valid storage + stream + cursor + sufficient budget から `End summary` を返し、cursor、points_read、last_point を確認できる。
+- non-terminal budget exhaustion は F5o を呼ばず `StepBudgetExhausted summary` を返す。
+- terminal cursor は budget 0 でも `End summary` を返す。
+- F5o read failure は `StepReadFailed` で保持される。
+- impossible F5o success shape は `StepInvariantInvalid` で fail-closed になる。
+- F5o `Point` が cursor を 1 点分だけ前進させない場合も `StepInvariantInvalid` で fail-closed になる。
+- source policy が F5p docs、error 型、terminal-before-budget、budget-before-F5o、F5o exact one-call、direct F5n/F5k/F5l/F5m / lower loop / `vec::` / path / render / raster / platform / host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md --no-tree -o tmp_gui_font_outline_point_drain_f5p.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5p.json -j 1
+git diff --check
+```

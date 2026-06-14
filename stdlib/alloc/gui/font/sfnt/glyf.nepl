@@ -3565,6 +3565,290 @@ pub fn gui_sfnt_simple_glyph_outline_storage_read_point_step %fn &ByteBuf fn Gui
                                                             let step %GuiSfntSimpleGlyphOutlinePointReadStep gui_sfnt_simple_glyph_outline_point_read_step GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point cursor next_cursor point
                                                             Result::Ok step
 
+//: GuiSfntSimpleGlyphOutlinePointReadDrainSummary: point read drain の停止状態
+//:
+//: [目的/もくてき]:
+//: - drain が停止した cursor と、この drain call で読んだ point 数を[保持/ほじ]します。
+//: - `last_point` は今回読んだ最後の point であり、1 点も読んでいない[場合/ばあい]は `None` です。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointReadDrainSummary:
+    cursor %GuiSfntSimpleGlyphOutlinePointReadCursor
+    points_read %i32
+    last_point %Option GuiSfntSimpleGlyphPoint
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointReadDrainSummary:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointReadDrainSummary GuiSfntSimpleGlyphOutlinePointReadDrainSummary \summary:
+        *summary
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointReadDrainSummary:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointReadDrainSummary GuiSfntSimpleGlyphOutlinePointReadDrainSummary \summary:
+        summary
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_summary: drain summary value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_summary %fn GuiSfntSimpleGlyphOutlinePointReadCursor fn i32 fn Option GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphOutlinePointReadDrainSummary \cursor\points_read\last_point:
+    GuiSfntSimpleGlyphOutlinePointReadDrainSummary cursor points_read last_point
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_summary_cursor: drain 停止 cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_summary_cursor %fn &GuiSfntSimpleGlyphOutlinePointReadDrainSummary GuiSfntSimpleGlyphOutlinePointReadCursor \summary:
+    *field::get_ref summary "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_summary_points_read: 読んだ point 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_summary_points_read %fn &GuiSfntSimpleGlyphOutlinePointReadDrainSummary i32 \summary:
+    *field::get_ref summary "points_read"
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_summary_last_point: 最後に読んだ point を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_summary_last_point %fn &GuiSfntSimpleGlyphOutlinePointReadDrainSummary Option GuiSfntSimpleGlyphPoint \summary:
+    *field::get_ref summary "last_point"
+
+//: GuiSfntSimpleGlyphOutlinePointReadDrain: budget drain の成功結果
+//:
+//: [目的/もくてき]:
+//: - `End` は point stream の正常終端です。
+//: - `StepBudgetExhausted` は現在の work slice が尽きたことを[表/あらわ]す typed terminal です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointReadDrain:
+    End %GuiSfntSimpleGlyphOutlinePointReadDrainSummary
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointReadDrainSummary
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointReadDrain:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointReadDrain GuiSfntSimpleGlyphOutlinePointReadDrain \drain:
+        *drain
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointReadDrain:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointReadDrain GuiSfntSimpleGlyphOutlinePointReadDrain \drain:
+        drain
+
+//: GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind: point drain [失敗/しっぱい]の typed reason
+//:
+//: [目的/もくてき]:
+//: - shared precondition、cursor、F5o read failure、F5o invariant failure を enum で[分離/ぶんり]します。
+//: - `StepInvariantInvalid` は不可能な成功値を fail-closed にするための error です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    StepReadFailed
+    StepInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointReadDrainError: point drain failure の value-only context
+//:
+//: [目的/もくてき]:
+//: - drain の shared context と、F5o 由来の error / impossible step value を[保持/ほじ]します。
+//: - storage owner を[持/も]たないため、owner recovery path はありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointReadDrainError:
+    kind %GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind
+    cursor %GuiSfntSimpleGlyphOutlinePointReadCursor
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology %GuiSfntSimpleGlyphTopology
+    step_error %Option GuiSfntSimpleGlyphOutlinePointReadStepError
+    step %Option GuiSfntSimpleGlyphOutlinePointReadStep
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointReadDrainError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointReadDrainError GuiSfntSimpleGlyphOutlinePointReadDrainError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointReadDrainError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointReadDrainError GuiSfntSimpleGlyphOutlinePointReadDrainError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_error: drain error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_error %fn GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind fn GuiSfntSimpleGlyphOutlinePointReadCursor fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphTopology fn Option GuiSfntSimpleGlyphOutlinePointReadStepError fn Option GuiSfntSimpleGlyphOutlinePointReadStep GuiSfntSimpleGlyphOutlinePointReadDrainError \kind\cursor\capacity\topology\step_error\step:
+    GuiSfntSimpleGlyphOutlinePointReadDrainError kind cursor capacity topology step_error step
+
+fn gui_sfnt_simple_glyph_outline_point_read_drain_error_empty %fn GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind fn GuiSfntSimpleGlyphOutlinePointReadCursor fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphTopology GuiSfntSimpleGlyphOutlinePointReadDrainError \kind\cursor\capacity\topology:
+    let step_error %Option GuiSfntSimpleGlyphOutlinePointReadStepError none
+    let step %Option GuiSfntSimpleGlyphOutlinePointReadStep none
+    gui_sfnt_simple_glyph_outline_point_read_drain_error kind cursor capacity topology step_error step
+
+fn gui_sfnt_simple_glyph_outline_point_read_drain_error_step_failed %fn GuiSfntSimpleGlyphOutlinePointReadCursor fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphTopology fn GuiSfntSimpleGlyphOutlinePointReadStepError GuiSfntSimpleGlyphOutlinePointReadDrainError \cursor\capacity\topology\step_error_value:
+    let step_error %Option GuiSfntSimpleGlyphOutlinePointReadStepError some step_error_value
+    let step %Option GuiSfntSimpleGlyphOutlinePointReadStep none
+    gui_sfnt_simple_glyph_outline_point_read_drain_error GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StepReadFailed cursor capacity topology step_error step
+
+fn gui_sfnt_simple_glyph_outline_point_read_drain_error_step_invariant %fn GuiSfntSimpleGlyphOutlinePointReadCursor fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphTopology fn GuiSfntSimpleGlyphOutlinePointReadStep GuiSfntSimpleGlyphOutlinePointReadDrainError \cursor\capacity\topology\step_value:
+    let step_error %Option GuiSfntSimpleGlyphOutlinePointReadStepError none
+    let step %Option GuiSfntSimpleGlyphOutlinePointReadStep some step_value
+    gui_sfnt_simple_glyph_outline_point_read_drain_error GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StepInvariantInvalid cursor capacity topology step_error step
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_error_kind: drain error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_error_kind %fn &GuiSfntSimpleGlyphOutlinePointReadDrainError GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_error_step_error: F5o sub-error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_error_step_error %fn &GuiSfntSimpleGlyphOutlinePointReadDrainError Option GuiSfntSimpleGlyphOutlinePointReadStepError \error:
+    *field::get_ref error "step_error"
+
+//: gui_sfnt_simple_glyph_outline_point_read_drain_error_step: invariant failure step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_read_drain_error_step %fn &GuiSfntSimpleGlyphOutlinePointReadDrainError Option GuiSfntSimpleGlyphOutlinePointReadStep \error:
+    *field::get_ref error "step"
+
+//: GuiSfntSimpleGlyphOutlinePointReadDrainValidation: drain loop の検証済み context
+//:
+//: [目的/もくてき]:
+//: - 再帰 loop から shared precondition の大きな分岐を分離し、loop は terminal / budget / F5o step の進行だけを扱います。
+//: - `point_index` と `shared_point_count` は検証済みであり、loop 側では追加の lower-level read を行いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphOutlinePointReadDrainValidation:
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology %GuiSfntSimpleGlyphTopology
+    point_index %i32
+    shared_point_count %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointReadDrainValidation:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointReadDrainValidation GuiSfntSimpleGlyphOutlinePointReadDrainValidation \validation:
+        *validation
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointReadDrainValidation:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointReadDrainValidation GuiSfntSimpleGlyphOutlinePointReadDrainValidation \validation:
+        validation
+
+fn gui_sfnt_simple_glyph_outline_point_read_drain_validation %fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphTopology fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointReadDrainValidation \capacity\topology\point_index\shared_point_count:
+    GuiSfntSimpleGlyphOutlinePointReadDrainValidation capacity topology point_index shared_point_count
+
+fn gui_sfnt_simple_glyph_outline_point_read_drain_validate %fn &GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphPointStream fn GuiSfntSimpleGlyphOutlinePointReadCursor Result GuiSfntSimpleGlyphOutlinePointReadDrainValidation GuiSfntSimpleGlyphOutlinePointReadDrainError \storage\stream\cursor:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage
+    let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_empty GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageCapacityInvalid cursor capacity topology
+            Result::Err error
+        else:
+            let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+            let topology_glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph &topology
+            if not gui_sfnt_simple_glyph_outline_point_read_glyphs_match &capacity_glyph &topology_glyph:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_empty GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageStreamGlyphMismatch cursor capacity topology
+                    Result::Err error
+                else:
+                    let capacity_contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+                    let topology_contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count &topology
+                    if ne capacity_contour_count topology_contour_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_empty GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageStreamContourCountMismatch cursor capacity topology
+                            Result::Err error
+                        else:
+                            let shared_point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                            let topology_point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology
+                            if ne shared_point_count topology_point_count:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_empty GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageStreamPointCountMismatch cursor capacity topology
+                                    Result::Err error
+                                else:
+                                    let point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &cursor
+                                    if or lt point_index 0 gt point_index shared_point_count:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_empty GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::CursorOutOfRange cursor capacity topology
+                                            Result::Err error
+                                        else:
+                                            Result::Ok gui_sfnt_simple_glyph_outline_point_read_drain_validation capacity topology point_index shared_point_count
+
+//: gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget: point read step を budget 内で[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - terminal 判定は budget 判定より[前/まえ]に[行/おこな]います。
+//: - non-terminal で `remaining_steps <= 0` の[場合/ばあい]、F5o を[呼/よ]ばず `StepBudgetExhausted` を[返/かえ]します。
+//: - F5o の不可能な成功形、または cursor が前進しない成功形は `StepInvariantInvalid` として fail-closed にします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget %fn &ByteBuf fn GuiSfntTableRecord fn GuiSfntSimpleGlyphPointStream fn &GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointReadCursor fn i32 Result GuiSfntSimpleGlyphOutlinePointReadDrain GuiSfntSimpleGlyphOutlinePointReadDrainError \bytes\glyf\stream\storage\cursor\remaining_steps:
+    let mut current_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor cursor
+    let mut current_points_read %i32 0
+    let mut current_last_point %Option GuiSfntSimpleGlyphPoint none
+    let mut current_remaining_steps %i32 remaining_steps
+    let mut done %bool false
+    let initial_summary %GuiSfntSimpleGlyphOutlinePointReadDrainSummary gui_sfnt_simple_glyph_outline_point_read_drain_summary cursor 0 current_last_point
+    let initial_drain %GuiSfntSimpleGlyphOutlinePointReadDrain GuiSfntSimpleGlyphOutlinePointReadDrain::StepBudgetExhausted initial_summary
+    let mut output %Result GuiSfntSimpleGlyphOutlinePointReadDrain GuiSfntSimpleGlyphOutlinePointReadDrainError Result::Ok initial_drain
+    while not done:
+        do:
+            match gui_sfnt_simple_glyph_outline_point_read_drain_validate storage stream current_cursor:
+                Result::Err error:
+                    set output Result::Err error
+                    set done true
+                Result::Ok validation:
+                    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity *field::get_ref &validation "capacity"
+                    let topology %GuiSfntSimpleGlyphTopology *field::get_ref &validation "topology"
+                    let point_index %i32 *field::get_ref &validation "point_index"
+                    let shared_point_count %i32 *field::get_ref &validation "shared_point_count"
+                    if eq point_index shared_point_count:
+                        then:
+                            let terminal_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_read_cursor shared_point_count
+                            let summary %GuiSfntSimpleGlyphOutlinePointReadDrainSummary gui_sfnt_simple_glyph_outline_point_read_drain_summary terminal_cursor current_points_read current_last_point
+                            set output Result::Ok GuiSfntSimpleGlyphOutlinePointReadDrain::End summary
+                            set done true
+                        else:
+                            if le current_remaining_steps 0:
+                                then:
+                                    let summary %GuiSfntSimpleGlyphOutlinePointReadDrainSummary gui_sfnt_simple_glyph_outline_point_read_drain_summary current_cursor current_points_read current_last_point
+                                    set output Result::Ok GuiSfntSimpleGlyphOutlinePointReadDrain::StepBudgetExhausted summary
+                                    set done true
+                                else:
+                                    match gui_sfnt_simple_glyph_outline_storage_read_point_step bytes glyf stream storage current_cursor:
+                                        Result::Err step_error_value:
+                                            let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_step_failed current_cursor capacity topology step_error_value
+                                            set output Result::Err error
+                                            set done true
+                                        Result::Ok step:
+                                            match gui_sfnt_simple_glyph_outline_point_read_step_status &step:
+                                                GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point:
+                                                    match gui_sfnt_simple_glyph_outline_point_read_step_point &step:
+                                                        Option::None:
+                                                            let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_step_invariant current_cursor capacity topology step
+                                                            set output Result::Err error
+                                                            set done true
+                                                        Option::Some point:
+                                                            let next_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_read_step_next_cursor &step
+                                                            let next_point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &next_cursor
+                                                            let expected_next_point_index %i32 add point_index 1
+                                                            if ne next_point_index expected_next_point_index:
+                                                                then:
+                                                                    let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_step_invariant current_cursor capacity topology step
+                                                                    set output Result::Err error
+                                                                    set done true
+                                                                else:
+                                                                    set current_cursor next_cursor
+                                                                    set current_points_read add current_points_read 1
+                                                                    set current_last_point some point
+                                                                    set current_remaining_steps sub current_remaining_steps 1
+                                                GuiSfntSimpleGlyphOutlinePointReadStepStatus::End:
+                                                    let error %GuiSfntSimpleGlyphOutlinePointReadDrainError gui_sfnt_simple_glyph_outline_point_read_drain_error_step_invariant current_cursor capacity topology step
+                                                    set output Result::Err error
+                                                    set done true
+    output
+
 //: GuiSfntSimpleGlyphContourSpan: simple glyph の 1 contour が[参照/さんしょう]する point span
 //:
 //: [目的/もくてき]:

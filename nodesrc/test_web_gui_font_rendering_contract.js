@@ -105,6 +105,7 @@ const guiFontSfntOutlinePointEndpointTests = read("tests/stdlib/gui_font_sfnt_gl
 const guiFontSfntOutlinePointFlagTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md");
 const guiFontSfntOutlinePointReadTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md");
 const guiFontSfntOutlinePointStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_step.n.md");
+const guiFontSfntOutlinePointDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -124,6 +125,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointFlagTests,
     guiFontSfntOutlinePointReadTests,
     guiFontSfntOutlinePointStepTests,
+    guiFontSfntOutlinePointDrainTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -6056,6 +6058,184 @@ assert(
         guiFontSfntOutlinePointStepTests.includes("Option::None") &&
         guiFontSfntOutlinePointStepTests.includes("Option::Some point"),
     "F5o point step focused doctest must cover point Some, terminal None, cursor too far, and wrapped F5n failure",
+);
+const specF5p = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point read drain budget"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5p は F5o の point step",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainSummary:",
+    "GuiSfntSimpleGlyphOutlinePointReadDrain:",
+    "StepBudgetExhausted",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:",
+    "StepReadFailed",
+    "StepInvariantInvalid",
+    "terminal check は budget check より前",
+    "budget check は F5o call より前",
+]) {
+    assert(specF5p.includes(fragment), `font spec F5p point drain must mention ${fragment}`);
+}
+const detailedF5p = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point read drain budget"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5p adds a no-allocation drain boundary over F5o",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainSummary:",
+    "StepBudgetExhausted",
+    "StepInvariantInvalid",
+    "F5o returns End after F5p proved cursor.next_point_index < point_count",
+    "F5o returns Point with point None",
+    "Terminal-before-budget",
+    "Budget-before-F5o",
+]) {
+    assert(detailedF5p.includes(fragment), `font detailed design F5p point drain must mention ${fragment}`);
+}
+const implementationPlanF5p = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5p: sfnt simple glyph outline point read drain budget"),
+    implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5p: sfnt simple glyph outline point read drain budget") + 1) < 0
+        ? implementationPlan.length
+        : implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5p: sfnt simple glyph outline point read drain budget") + 1),
+);
+for (const fragment of [
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainSummary",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind",
+    "StepReadFailed",
+    "StepInvariantInvalid",
+    "terminal-before-budget",
+    "budget-before-F5o",
+    "F5o point step を 1 回だけ呼ぶ",
+]) {
+    assert(implementationPlanF5p.includes(fragment), `font implementation plan F5p must mention ${fragment}`);
+}
+const pointDrainTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointReadDrainSummary:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphOutlinePointReadDrainSummary:",
+    "cursor %GuiSfntSimpleGlyphOutlinePointReadCursor",
+    "points_read %i32",
+    "last_point %Option GuiSfntSimpleGlyphPoint",
+    "pub enum GuiSfntSimpleGlyphOutlinePointReadDrain:",
+    "End %GuiSfntSimpleGlyphOutlinePointReadDrainSummary",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointReadDrainSummary",
+    "pub enum GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:",
+    "StorageCapacityInvalid",
+    "StorageStreamGlyphMismatch",
+    "StorageStreamContourCountMismatch",
+    "StorageStreamPointCountMismatch",
+    "CursorOutOfRange",
+    "StepReadFailed",
+    "StepInvariantInvalid",
+    "pub struct GuiSfntSimpleGlyphOutlinePointReadDrainError:",
+    "step_error %Option GuiSfntSimpleGlyphOutlinePointReadStepError",
+    "step %Option GuiSfntSimpleGlyphOutlinePointReadStep",
+    "struct GuiSfntSimpleGlyphOutlinePointReadDrainValidation:",
+    "point_index %i32",
+    "shared_point_count %i32",
+]) {
+    assert(pointDrainTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5p point drain types must include ${fragment}`);
+}
+const pointDrainValidation = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_read_drain_validate");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage",
+    "let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageStreamGlyphMismatch",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageStreamContourCountMismatch",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::StorageStreamPointCountMismatch",
+    "let point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &cursor",
+    "GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind::CursorOutOfRange",
+    "Result::Ok gui_sfnt_simple_glyph_outline_point_read_drain_validation capacity topology point_index shared_point_count",
+]) {
+    assert(pointDrainValidation.includes(fragment), `alloc/gui/font/sfnt/glyf F5p point drain validation must include ${fragment}`);
+}
+assertNoMatch(
+    pointDrainValidation,
+    /\b(?:vec::|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_simple_glyph_outline_storage_read_point_coordinate|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop|gui_sfnt_glyf_read_point_flag_from_stream_loop|gui_sfnt_glyf_read_point_flag_run_or_continue|gui_sfnt_glyf_decode_x_delta|gui_sfnt_glyf_decode_y_delta|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5p point drain validation must not call F5o, lower point readers, path/render/raster/platform/host APIs",
+);
+const pointDrainPublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget");
+for (const fragment of [
+    "let mut current_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor cursor",
+    "let mut current_points_read %i32 0",
+    "let mut current_last_point %Option GuiSfntSimpleGlyphPoint none",
+    "let mut current_remaining_steps %i32 remaining_steps",
+    "let mut done %bool false",
+    "while not done:",
+    "match gui_sfnt_simple_glyph_outline_point_read_drain_validate storage stream current_cursor:",
+    "Result::Err error:",
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity *field::get_ref &validation \"capacity\"",
+    "let topology %GuiSfntSimpleGlyphTopology *field::get_ref &validation \"topology\"",
+    "let point_index %i32 *field::get_ref &validation \"point_index\"",
+    "let shared_point_count %i32 *field::get_ref &validation \"shared_point_count\"",
+    "if eq point_index shared_point_count:",
+    "set output Result::Ok GuiSfntSimpleGlyphOutlinePointReadDrain::End summary",
+    "if le current_remaining_steps 0:",
+    "set output Result::Ok GuiSfntSimpleGlyphOutlinePointReadDrain::StepBudgetExhausted summary",
+    "match gui_sfnt_simple_glyph_outline_storage_read_point_step bytes glyf stream storage current_cursor:",
+    "gui_sfnt_simple_glyph_outline_point_read_drain_error_step_failed current_cursor capacity topology step_error_value",
+    "GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point:",
+    "Option::None:",
+    "gui_sfnt_simple_glyph_outline_point_read_drain_error_step_invariant current_cursor capacity topology step",
+    "Option::Some point:",
+    "let next_point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &next_cursor",
+    "let expected_next_point_index %i32 add point_index 1",
+    "if ne next_point_index expected_next_point_index:",
+    "set current_cursor next_cursor",
+    "set current_points_read add current_points_read 1",
+    "set current_last_point some point",
+    "set current_remaining_steps sub current_remaining_steps 1",
+    "GuiSfntSimpleGlyphOutlinePointReadStepStatus::End:",
+]) {
+    assert(pointDrainPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5p point drain public body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointDrainPublic,
+    [
+        "gui_sfnt_simple_glyph_outline_point_read_drain_validate",
+        "if eq point_index shared_point_count:",
+        "GuiSfntSimpleGlyphOutlinePointReadDrain::End",
+        "if le current_remaining_steps 0:",
+        "GuiSfntSimpleGlyphOutlinePointReadDrain::StepBudgetExhausted",
+        "gui_sfnt_simple_glyph_outline_storage_read_point_step",
+        "GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point:",
+        "Option::Some point:",
+        "add point_index 1",
+        "ne next_point_index expected_next_point_index",
+        "set current_points_read add current_points_read 1",
+        "set current_remaining_steps sub current_remaining_steps 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5p point drain must validate shared preconditions, return terminal before budget, check budget before F5o, and count only advancing Point Some",
+);
+assert(
+    (pointDrainPublic.match(/\bgui_sfnt_simple_glyph_outline_storage_read_point_step\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5p point drain public body must call F5o point step exactly once",
+);
+assertNoMatch(
+    pointDrainPublic,
+    /\b(?:vec::|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_simple_glyph_outline_storage_read_point_coordinate|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop|gui_sfnt_glyf_read_point_flag_from_stream_loop|gui_sfnt_glyf_read_point_flag_run_or_continue|gui_sfnt_glyf_decode_x_delta|gui_sfnt_glyf_decode_y_delta|gui_sfnt_glyf_decode_point_from_stream|gui_sfnt_glyf_decode_point_state_from_stream|gui_sfnt_glyf_decode_point_state_from_flag_run|gui_sfnt_glyf_decode_flag_run_state|GuiSfntSimpleGlyphPointDecodeState|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5p point drain public body must not use direct Vec, F5n/F5k/F5l/F5m, lower loops, x/y/full point decode, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointDrainPublic,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5p point drain public body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointDrainTests.includes("point_drain_full_end_ok") &&
+        guiFontSfntOutlinePointDrainTests.includes("point_drain_partial_budget_exhausted_ok") &&
+        guiFontSfntOutlinePointDrainTests.includes("point_drain_zero_budget_nonterminal_ok") &&
+        guiFontSfntOutlinePointDrainTests.includes("point_drain_zero_budget_terminal_ok") &&
+        guiFontSfntOutlinePointDrainTests.includes("point_drain_cursor_too_far_ok") &&
+        guiFontSfntOutlinePointDrainTests.includes("point_drain_wraps_step_read_failure_ok") &&
+        guiFontSfntOutlinePointDrainTests.includes("StepBudgetExhausted summary") &&
+        guiFontSfntOutlinePointDrainTests.includes("Option::None") &&
+        guiFontSfntOutlinePointDrainTests.includes("Option::Some point"),
+    "F5p point drain focused doctest must cover full End, partial/zero budget, terminal zero budget, cursor error, and wrapped step failure",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
