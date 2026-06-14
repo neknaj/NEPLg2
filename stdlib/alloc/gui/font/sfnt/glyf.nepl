@@ -2255,6 +2255,30 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step %
 pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \step:
     *field::get_ref step "advance"
 
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state: consume 後 state を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - consume step の apply step から、更新後 apply state だけを[取/と]り[出/だ]します。
+//: - advance、byte lookup、consumer next、payload direct match は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionApplyState \step:
+    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step step
+    let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+    gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status: consume した action status を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - consume step の apply step から、消費済み action の status だけを[取/と]り[出/だ]します。
+//: - advance、byte lookup、consumer next、payload direct match は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionApplyStatus \step:
+    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step step
+    let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+    gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:

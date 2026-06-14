@@ -1022,10 +1022,8 @@ fn consume_once_reject_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerCon
         Result::Err _error:
             false
         Result::Ok consume_step:
-            let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step &consume_step
-            let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
-            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
-            let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state &consume_step
+            let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status &consume_step
             let status_ok %bool match apply_status:
                 GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
                     false
@@ -1055,10 +1053,8 @@ fn consume_once_end_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsum
         Result::Err _error:
             false
         Result::Ok consume_step:
-            let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step &consume_step
-            let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
-            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
-            let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state &consume_step
+            let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status &consume_step
             let status_ok %bool match apply_status:
                 GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
                     false
@@ -1405,10 +1401,8 @@ fn main %impure fn void i32 \void:
                 Result::Err _error:
                     false
                 Result::Ok consume_step:
-                    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step &consume_step
-                    let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
-                    let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
-                    let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+                    let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state &consume_step
+                    let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status &consume_step
                     let status_ok %bool match apply_status:
                         GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
                             true

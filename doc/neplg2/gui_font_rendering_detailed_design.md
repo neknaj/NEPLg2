@@ -1726,6 +1726,32 @@ F4ak deliberately returns `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep`,
 
 F4ak is not a contour loop and not a real sink. It must not call F4aa/F4ac/F4ad/F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup helpers directly. It must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, inspect action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
 
+### SFNT simple glyph path sink action consumer consume step apply summary
+
+F4al adds stable public projections over `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep`. The future loop needs the updated apply state and the consumed action status, but it should not depend on the nested storage layout of F4ai and F4af.
+
+The state helper shape is:
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state step:
+    consumer_apply_step = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step step
+    inner_apply_step = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step consumer_apply_step
+    gui_sfnt_simple_glyph_path_sink_action_apply_step_state inner_apply_step
+```
+
+The status helper shape is:
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status step:
+    consumer_apply_step = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step step
+    inner_apply_step = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step consumer_apply_step
+    gui_sfnt_simple_glyph_path_sink_action_apply_step_status inner_apply_step
+```
+
+F4al deliberately does not read `advance`. The existing `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance` accessor remains the explicit API for terminal / next item state. Separating apply summary and advance keeps future loops from conflating consumed action diagnostics with traversal state.
+
+F4al must not call byte-backed lookup helpers, consumer item next, consume-once, start helpers, or lower contour/curve lookup helpers. It must not allocate `Vec`, push commands, own a loop, inspect action payload variants, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
