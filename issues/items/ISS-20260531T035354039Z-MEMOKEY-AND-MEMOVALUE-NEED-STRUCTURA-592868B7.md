@@ -230,6 +230,31 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instanti
 
 この checkpoint 後も、actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。substitution trace lookup cache、type argument substitution cache、bound lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 selfhost generic substitution trace evidence checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl` を追加し、generic substitution shape producer が raw `substitution_trace_shape_hash` を直接受け取る境界を閉じた。
+
+新しい trace evidence producer は `SelfhostMemoTraitPublicImplGenericBinderEvidence`、`SelfhostMemoTraitPublicImplGenericParameterTable`、`SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable`、`SelfhostMemoTraitStableTypeArgumentIdentity` の typed field だけを authority にする。`SelfhostMemoTraitStableTypeArgumentIdentityHash` の hash 値だけではなく、identity owner の entry vector から aggregate hash を再計算し、保存済み schema / identity hash と一致した場合だけ受理する。parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、argument ordinal、stable type argument identity entry の ordinal / schema / hash、canonical fingerprint schema / root hash、canonical payload schema / payload hash を照合し、source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は trace shape material に入れない。
+
+`memo_trait_public_impl_generic_substitution_shape.nepl` は `SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence` を input として受け取り、trace evidence の schema、root hash、binder hash、type parameter count、type argument count、bound count、schema 付き type argument identity、trace record count を再検査する。これにより、任意の nonzero trace hash を generic instantiation の root hash に混ぜる経路を閉じる。
+
+この checkpoint は actual type substitution engine ではない。output shape が実際の typed substitution traversal から来たことの証明、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は引き続き未実装である。
+
+subagent final review では、type argument identity owner 側の aggregate rehash と trace entry 照合は十分だと確認された。一方で、generic impl accepted path を開く前には、binder evidence と generic parameter / bound table の same-origin も追加で閉じる必要がある。現状の trace evidence は parameter ordinal、binding、stable symbol hash を parameter table と照合するが、その parameter / bound table 自体が `SelfhostMemoTraitPublicImplGenericBinderEvidence` の shape hash 由来であることまでは再証明しない。materializer はまだ `GenericImplInstantiationUnsupported` のままなので今回の Blocker ではないが、次の actual substitution engine / materializer accepted path 接続前の必須残件として扱う。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js` を追加し、既存 `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` を更新して固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、typed trace table / evidence / error enum、identity owner entry vector 由来の aggregate hash 再検査、trace entry と identity owner entry の一致検査、shape producer の raw trace option input 禁止、payload-aware error equality、materializer fail-closed 維持、行数 / doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-trace-identity-owner-120s.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-trace-identity-owner.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-shape-trace-evidence.json`
+
+通常 timeout の trace doctest は skip 済みであり、default run は source policy と skip contract を確認する。functional smoke は 120 秒 timeout の focused run で確認する。これは trace evidence の意味論を緩めるものではなく、現行 Resource static check の stage0 探索時間を後続最適化に回すための試作段階の検証分離である。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
