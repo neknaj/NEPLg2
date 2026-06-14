@@ -3849,6 +3849,94 @@ pub fn gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget %fn &ByteBu
                                                     set done true
     output
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemKind: 後続 outline stream が[読/よ]む point 分類
+//:
+//: [目的/もくてき]:
+//: - on-curve/off-curve と contour endpoint を 1 つの enum に[畳/たた]みます。
+//: - `EndOnCurve` / `EndOffCurve` は contour 終端を silent flag ではなく typed item kind として[運/はこ]びます。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemKind:
+    OnCurve
+    OffCurve
+    EndOnCurve
+    EndOffCurve
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemKind GuiSfntSimpleGlyphOutlinePointStreamItemKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemKind GuiSfntSimpleGlyphOutlinePointStreamItemKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItem: 1 full point と分類済み kind
+//:
+//: [目的/もくてき]:
+//: - F5p で読めた full point を、後続 contour/path/raster phase が O(1) value として[読/よ]むための境界です。
+//: - この型は point list、sink mutation、path command、raster mask、render command を[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItem:
+    point %GuiSfntSimpleGlyphPoint
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemKind
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItem:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItem \item:
+        *item
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItem:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItem \item:
+        item
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point: point を stream item kind に[分類/ぶんるい]する
+//:
+//: [契約/けいやく]:
+//: - `end_of_contour` を先に[見/み]て、endpoint は `EndOnCurve` / `EndOffCurve` として[返/かえ]します。
+//: - endpoint でない point だけを `OnCurve` / `OffCurve` に[分類/ぶんるい]します。
+//: - byte lookup、storage access、drain traversal、path/raster/render/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point %fn &GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphOutlinePointStreamItemKind \point:
+    let on_curve %bool gui_sfnt_simple_glyph_point_on_curve point
+    let end_of_contour %bool gui_sfnt_simple_glyph_point_end_of_contour point
+    match end_of_contour:
+        true:
+            match on_curve:
+                true:
+                    GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOnCurve
+                false:
+                    GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOffCurve
+        false:
+            match on_curve:
+                true:
+                    GuiSfntSimpleGlyphOutlinePointStreamItemKind::OnCurve
+                false:
+                    GuiSfntSimpleGlyphOutlinePointStreamItemKind::OffCurve
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item: point stream item を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - kind は呼び出し側から受け取らず、point payload から exactly once [導/みちび]きます。
+//: - 分類済み kind と元の point を同時に保持し、後続 phase が bool field へ[重複/ちょうふく][依存/いぞん]しないようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item %fn GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphOutlinePointStreamItem \point:
+    let kind %GuiSfntSimpleGlyphOutlinePointStreamItemKind gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point &point
+    GuiSfntSimpleGlyphOutlinePointStreamItem point kind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_point: item の full point を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_point %fn &GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphPoint \item:
+    *field::get_ref item "point"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_kind: item の分類済み kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemKind \item:
+    *field::get_ref item "kind"
+
 //: GuiSfntSimpleGlyphContourSpan: simple glyph の 1 contour が[参照/さんしょう]する point span
 //:
 //: [目的/もくてき]:
