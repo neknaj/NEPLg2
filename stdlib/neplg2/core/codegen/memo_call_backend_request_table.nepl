@@ -1,0 +1,648 @@
+#indent 4
+
+//: # codegen/memo_call_backend_request_table
+//: HIR tree から memoized function backend request manifest を[集/あつ]める module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_call_backend_request` が作る 1 件の typed request manifest を、codegen が消費しやすい owner table へ集約します。
+//: - HIR root expression から child range をたどり、`MemoizedFunctionValue` leaf だけを occurrence id 付き request に変換します。
+//: - 通常の `FnValue`、literal、変数参照などは backend cache materialization を要求しないので、error ではなく無視します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は HIR expression payload と `memo_call_backend_request` の typed request builder だけです。source text、関数名、`memo_call` 文字列、display name、span から request を推測しません。
+//: - `MemoizedFunctionValue` payload が壊れている場合は、既存 request builder の typed error kind と HIR expr id を `RequestRejected` に包んで fail-closed にします。
+//: - HIR `Error` payload、壊れた child range、存在しない root / child expression id、request table allocation / push 失敗、traversal fuel 枯渇は typed enum error にします。
+//: - この module は PrivateCache / PrivateState、Resource IR proof、proof store、prechecked artifact、`.neplobj`、Wasm / LLVM bytes、cache namespace を作りません。
+//: - `SelfhostMemoCallBackendRequestTable` は owner buffer です。caller は成功時に必ず `selfhost_memo_call_backend_request_table_free` で閉じます。失敗時はこの module が内部 owner を閉じます。
+//: - table entry の occurrence id は同じ underlying function を memoize する複数 leaf を区別するための session-local metadata です。永続 key や diagnostic span の代替として使いません。
+//:
+//: [現状/げんじょう]:
+//: - traversal fuel は root から訪問できる expression 総数の予算です。valid HIR arena は lowering が child range を後続 expression へ向けないため循環しませんが、public record から壊れた HIR を渡された場合でも総走査量を抑えます。
+//: - request table は session-local `DefId` / `TypeId` を含む manifest table であり、永続 artifact key ではありません。永続化には canonical type key、public surface hash、policy hash、stable source identity へ投影する別 boundary が必要です。
+//:
+//: [計算量/けいさんりょう]:
+//: - 到達する HIR expression 数を n、memoized leaf 数を m とすると、走査は O(n) 時間です。
+//: - table への push は償却 O(1) であり、追加空間は O(m) です。
+//: - sorted index、request stream compaction、subtree memoization は、この table / collector contract を保てるため後続最適化として扱えます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "alloc/collections/vec" as v
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_request" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_request_table" as *
+//:| #import "neplg2/core/hir/hir" as *
+//:| #import "neplg2/core/infra/span" as *
+//:| #import "neplg2/core/resolve/name_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "neplg2/core/ty/ty" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_call_backend_request_table_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check_eq_i32 2 summary.accepted_len
+//:             let checks2 checks_push checks1 check summary.first_identity_matches
+//:             let checks3 checks_push checks2 check summary.second_identity_matches
+//:             let checks4 checks_push checks3 check summary.occurrence_ids_distinct
+//:             let checks5 checks_push checks4 check selfhost_memo_call_backend_request_table_request_error_result_eq summary.type_mismatch_rejected SelfhostMemoCallBackendRequestErrorKind::ExpressionTypeMismatch
+//:             let checks6 checks_push checks5 check selfhost_memo_call_backend_request_table_range_invalid_result_eq summary.range_invalid_rejected SelfhostHirRangeBuildError::OutOfBounds
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "memo_call backend request table stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./memo_call_backend_request" as *
+
+//: SelfhostMemoCallBackendRequestTableEntry: memoized backend request の occurrence 付き entry
+//:
+//: [目的/もくてき]:
+//: - 同じ underlying function を複数の HIR leaf が memoize する場合でも、後続 backend が leaf ごとの private cache materialization を区別できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `memoized_expr_id` は session-local な occurrence metadata です。永続 cache key や diagnostic span の代替にしてはいけません。
+//: - accepted authority は `request` の typed field と borrowed HIR expression payload です。
+pub struct SelfhostMemoCallBackendRequestTableEntry:
+    memoized_expr_id %SelfhostHirExprId
+    request %SelfhostMemoCallBackendRequest
+
+impl Clone for SelfhostMemoCallBackendRequestTableEntry:
+    fn clone %fn &SelfhostMemoCallBackendRequestTableEntry SelfhostMemoCallBackendRequestTableEntry \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestTableEntry:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestTableEntry SelfhostMemoCallBackendRequestTableEntry \self:
+        self
+
+//: SelfhostMemoCallBackendRequestTable: memoized backend request manifest の owner table
+//:
+//: [契約/けいやく]:
+//: - `requests` は owner buffer です。この struct に `Clone` / `Copy` を実装してはいけません。
+//: - table は backend request stream であり、PrivateCache region、proof store record、prechecked artifact、Wasm / LLVM body fragment ではありません。
+pub struct SelfhostMemoCallBackendRequestTable:
+    requests %Vec SelfhostMemoCallBackendRequestTableEntry
+
+//: SelfhostMemoCallBackendRequestTraversalState: collector traversal の owner state
+//:
+//: [目的/もくてき]:
+//: - request table owner と残り traversal fuel を一緒に運び、sibling 間でも fuel を総量予算として thread します。
+//:
+//: [契約/けいやく]:
+//: - この state は owner です。成功時は table を取り出して caller に返し、失敗時は fail helper が table を閉じます。
+struct SelfhostMemoCallBackendRequestTraversalState:
+    table %SelfhostMemoCallBackendRequestTable
+    remaining_fuel %i32
+
+//: SelfhostMemoCallBackendRequestRejection: request builder rejection の collector payload
+//:
+//: [目的/もくてき]:
+//: - どの HIR expression occurrence で、どの request builder error が起きたかを 1 payload にまとめます。
+//:
+//: [契約/けいやく]:
+//: - `expr_id` は session-local occurrence metadata です。永続 key ではありません。
+//: - `kind` は下位 request builder の typed error kind であり、表示文字列へ変換しません。
+pub struct SelfhostMemoCallBackendRequestRejection:
+    expr_id %SelfhostHirExprId
+    kind %SelfhostMemoCallBackendRequestErrorKind
+
+impl Clone for SelfhostMemoCallBackendRequestRejection:
+    fn clone %fn &SelfhostMemoCallBackendRequestRejection SelfhostMemoCallBackendRequestRejection \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestRejection:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestRejection SelfhostMemoCallBackendRequestRejection \self:
+        self
+
+//: SelfhostMemoCallBackendRequestCollectorErrorKind: request table collection の失敗分類
+//:
+//: [目的/もくてき]:
+//: - allocation、push、壊れた HIR child reference、memoized payload rejection、fuel exhaustion を bool や文字列に潰さず、typed enum として返します。
+pub enum SelfhostMemoCallBackendRequestCollectorErrorKind:
+    RequestTableAllocFailed %StdErrorKind
+    RequestPushFailed %StdErrorKind
+    RootExpressionMissing %SelfhostHirExprId
+    ChildRangeInvalid %SelfhostHirRangeBuildError
+    ChildIdMissing %i32
+    ChildExpressionMissing %SelfhostHirExprId
+    InvalidHirExpr %SelfhostHirExprId
+    RequestRejected %SelfhostMemoCallBackendRequestRejection
+    TraversalFuelExhausted %SelfhostHirExprId
+
+//: SelfhostMemoCallBackendRequestTableStage0Summary: collector smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - owner table を閉じた後でも、accepted count、accepted request identity、代表的な rejection を検査できるようにします。
+pub struct SelfhostMemoCallBackendRequestTableStage0Summary:
+    accepted_len %i32
+    first_identity_matches %bool
+    second_identity_matches %bool
+    occurrence_ids_distinct %bool
+    type_mismatch_rejected %Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind
+    range_invalid_rejected %Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind
+
+impl Clone for SelfhostMemoCallBackendRequestCollectorErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendRequestCollectorErrorKind SelfhostMemoCallBackendRequestCollectorErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestCollectorErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestCollectorErrorKind SelfhostMemoCallBackendRequestCollectorErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendRequestTableStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendRequestTableStage0Summary SelfhostMemoCallBackendRequestTableStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendRequestTableStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendRequestTableStage0Summary SelfhostMemoCallBackendRequestTableStage0Summary \self:
+        self
+
+//: selfhost_memo_call_backend_request_table_new: [空/から]の request table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - codegen collector が request owner buffer を明示的に持てるようにします。
+pub fn selfhost_memo_call_backend_request_table_new %impure fn void Result SelfhostMemoCallBackendRequestTable SelfhostMemoCallBackendRequestCollectorErrorKind \void:
+    let requests_result %Result Vec SelfhostMemoCallBackendRequestTableEntry StdErrorKind v::new
+    match requests_result:
+        Result::Ok requests:
+            Result::Ok SelfhostMemoCallBackendRequestTable requests
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed e
+
+//: selfhost_memo_call_backend_request_table_free: request table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_call_backend_request_table_free %impure fn SelfhostMemoCallBackendRequestTable unit \table:
+    v::free field::get table "requests"
+
+//: selfhost_memo_call_backend_request_table_len: request 数を[返/かえ]す
+pub fn selfhost_memo_call_backend_request_table_len %fn &SelfhostMemoCallBackendRequestTable i32 \table:
+    let requests %&Vec SelfhostMemoCallBackendRequestTableEntry field::get_ref table "requests"
+    v::len requests
+
+//: selfhost_memo_call_backend_request_table_get_entry: request table の指定位置を occurrence 付きで[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - 後続 backend stage が table owner を動かさず、memoized HIR leaf と request manifest の対応を確認できるようにします。
+pub fn selfhost_memo_call_backend_request_table_get_entry %fn &SelfhostMemoCallBackendRequestTable fn i32 Option SelfhostMemoCallBackendRequestTableEntry \table\index:
+    let requests %&Vec SelfhostMemoCallBackendRequestTableEntry field::get_ref table "requests"
+    v::get requests index
+
+//: selfhost_memo_call_backend_request_table_get: request table の指定位置の request を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - focused test と後続 backend stage が、table owner を動かさず Copy な request record だけを読むための accessor です。
+pub fn selfhost_memo_call_backend_request_table_get %fn &SelfhostMemoCallBackendRequestTable fn i32 Option SelfhostMemoCallBackendRequest \table\index:
+    match selfhost_memo_call_backend_request_table_get_entry table index:
+        Option::Some entry:
+            some entry.request
+        Option::None:
+            none
+
+//: selfhost_memo_call_backend_request_table_entry_matches: entry が期待 occurrence と request identity を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest と後続 source policy が、同じ function identity の memoized leaf を expr id で区別できることを確認します。
+//:
+//: [契約/けいやく]:
+//: - diagnostic span や symbol は比較しません。occurrence id、DefId、function type、Pure effect、type argument count 0、request kind だけを確認します。
+pub fn selfhost_memo_call_backend_request_table_entry_matches %fn &SelfhostMemoCallBackendRequestTableEntry fn SelfhostHirExprId fn SelfhostDefId fn SelfhostTypeId bool \entry\expr_id\def_id\function_ty:
+    let expr_id_ok %bool eq selfhost_hir_expr_id_index *field::get_ref entry "memoized_expr_id" selfhost_hir_expr_id_index expr_id
+    let request %&SelfhostMemoCallBackendRequest field::get_ref entry "request"
+    and expr_id_ok selfhost_memo_call_backend_request_identity_matches request def_id function_ty
+
+//: selfhost_memo_call_backend_request_table_push: occurrence 付き request を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `table` はこの関数が消費します。成功時は追加後の owner を返します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、lower `StdErrorKind` を `RequestPushFailed` に残します。
+fn selfhost_memo_call_backend_request_table_push %impure fn SelfhostMemoCallBackendRequestTable impure fn SelfhostHirExprId impure fn SelfhostMemoCallBackendRequest Result SelfhostMemoCallBackendRequestTable SelfhostMemoCallBackendRequestCollectorErrorKind \table\expr_id\request:
+    let entry %SelfhostMemoCallBackendRequestTableEntry SelfhostMemoCallBackendRequestTableEntry expr_id request
+    let requests %Vec SelfhostMemoCallBackendRequestTableEntry field::get table "requests"
+    match v::push requests entry:
+        Result::Ok next_requests:
+            Result::Ok SelfhostMemoCallBackendRequestTable next_requests
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestPushFailed error
+
+//: selfhost_memo_call_backend_request_traversal_state_fail: collector failure で traversal owner を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - traversal の途中で fail-closed にする場合でも、蓄積済み request table owner を漏らさないようにします。
+fn selfhost_memo_call_backend_request_traversal_state_fail %impure fn SelfhostMemoCallBackendRequestTraversalState impure fn SelfhostMemoCallBackendRequestCollectorErrorKind Result SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestCollectorErrorKind \state\error:
+    selfhost_memo_call_backend_request_table_free field::get state "table"
+    Result::Err error
+
+//: selfhost_memo_call_backend_request_table_validate_child_range_result: child range を module child table に対して検証する
+//:
+//: [契約/けいやく]:
+//: - unchecked range をそのまま `get_child` の `Option::None` に潰さず、範囲構築 error を保持します。
+fn selfhost_memo_call_backend_request_table_validate_child_range_result %fn &SelfhostHirModule fn SelfhostHirChildRange Result SelfhostHirChildRange SelfhostMemoCallBackendRequestCollectorErrorKind \module\children:
+    let first_child %i32 selfhost_hir_child_range_first children
+    let child_count %i32 selfhost_hir_child_range_count children
+    let child_table_len %i32 selfhost_hir_module_child_len module
+    match selfhost_hir_child_range_new_bounded_result first_child child_count child_table_len:
+        Result::Ok validated:
+            Result::Ok validated
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::ChildRangeInvalid e
+
+//: selfhost_memo_call_backend_request_table_collect_child_range_loop_result: 検証済み child range を左から[走査/そうさ]する
+//:
+//: [契約/けいやく]:
+//: - child range はこの関数に入る前に bounded validation 済みでなければなりません。
+//: - child id が読めない場合は `ChildIdMissing(index)`、child expression record がない場合は child 側で `ChildExpressionMissing(expr_id)` にします。
+//: - child expression の request collection が失敗した場合、child 側が traversal state owner を閉じているため、この関数は二重 close しません。
+fn selfhost_memo_call_backend_request_table_collect_child_range_loop_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTraversalState impure fn SelfhostHirChildRange impure fn i32 impure fn i32 Result SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestCollectorErrorKind \module\state\children\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok state
+        else:
+            match selfhost_hir_module_get_child module children idx:
+                Option::Some child_expr_id:
+                    match selfhost_memo_call_backend_request_table_collect_child_expr_result module state child_expr_id:
+                        Result::Ok next_state:
+                            selfhost_memo_call_backend_request_table_collect_child_range_loop_result module next_state children add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_call_backend_request_traversal_state_fail state SelfhostMemoCallBackendRequestCollectorErrorKind::ChildIdMissing idx
+
+//: selfhost_memo_call_backend_request_table_collect_child_range_result: child range を検証してから[走査/そうさ]する
+fn selfhost_memo_call_backend_request_table_collect_child_range_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTraversalState impure fn SelfhostHirChildRange Result SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestCollectorErrorKind \module\state\children:
+    match selfhost_memo_call_backend_request_table_validate_child_range_result module children:
+        Result::Ok validated:
+            selfhost_memo_call_backend_request_table_collect_child_range_loop_result module state validated 0 selfhost_hir_child_range_count validated
+        Result::Err e:
+            selfhost_memo_call_backend_request_traversal_state_fail state e
+
+//: selfhost_memo_call_backend_request_table_collect_existing_expr_result: 取得済み HIR expression subtree から request table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 1 expression を確認し、memoized leaf なら request builder へ渡し、child を持つ expression なら child range を走査します。
+//:
+//: [契約/けいやく]:
+//: - non-memo leaf は正常に無視します。`FnValue` を memoized request に戻すことはありません。
+//: - HIR `Error` payload は accepted codegen input ではないため fail-closed にします。
+//: - `MemoizedFunctionValue` の validation は `selfhost_memo_call_backend_request_from_hir_expr_result` に委譲します。
+fn selfhost_memo_call_backend_request_table_collect_existing_expr_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTraversalState impure fn SelfhostHirExprId impure fn SelfhostHirExpr Result SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestCollectorErrorKind \module\state\expr_id\expr:
+    if:
+        le state.remaining_fuel 0
+        then:
+            selfhost_memo_call_backend_request_traversal_state_fail state SelfhostMemoCallBackendRequestCollectorErrorKind::TraversalFuelExhausted expr_id
+        else:
+            let next_fuel %i32 sub state.remaining_fuel 1
+            let table %SelfhostMemoCallBackendRequestTable field::get state "table"
+            let next_state %SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestTraversalState table next_fuel
+            match *field::get_ref &expr "payload":
+                SelfhostHirExprPayload::Error:
+                    selfhost_memo_call_backend_request_traversal_state_fail next_state SelfhostMemoCallBackendRequestCollectorErrorKind::InvalidHirExpr expr_id
+                SelfhostHirExprPayload::Unit:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::BoolLiteral _value:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::I32Literal _value:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::F32Literal _value:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::StrLiteral _value:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::Var _identity:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::FnValue _identity:
+                    Result::Ok next_state
+                SelfhostHirExprPayload::MemoizedFunctionValue _identity:
+                    match selfhost_memo_call_backend_request_from_hir_expr_result &expr:
+                        Result::Ok request:
+                            let remaining %i32 next_state.remaining_fuel
+                            let request_table %SelfhostMemoCallBackendRequestTable field::get next_state "table"
+                            match selfhost_memo_call_backend_request_table_push request_table expr_id request:
+                                Result::Ok pushed_table:
+                                    Result::Ok SelfhostMemoCallBackendRequestTraversalState pushed_table remaining
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err request_error:
+                            selfhost_memo_call_backend_request_traversal_state_fail next_state SelfhostMemoCallBackendRequestCollectorErrorKind::RequestRejected SelfhostMemoCallBackendRequestRejection expr_id request_error.kind
+                SelfhostHirExprPayload::Call call:
+                    selfhost_memo_call_backend_request_table_collect_child_range_result module next_state call.args
+                SelfhostHirExprPayload::Block children:
+                    selfhost_memo_call_backend_request_table_collect_child_range_result module next_state children
+                SelfhostHirExprPayload::If branches:
+                    selfhost_memo_call_backend_request_table_collect_child_range_result module next_state branches
+
+//: selfhost_memo_call_backend_request_table_collect_root_expr_result: root expression record を取得して走査する
+fn selfhost_memo_call_backend_request_table_collect_root_expr_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTraversalState impure fn SelfhostHirExprId Result SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestCollectorErrorKind \module\state\expr_id:
+    match selfhost_hir_module_get_expr module expr_id:
+        Option::Some expr:
+            selfhost_memo_call_backend_request_table_collect_existing_expr_result module state expr_id expr
+        Option::None:
+            selfhost_memo_call_backend_request_traversal_state_fail state SelfhostMemoCallBackendRequestCollectorErrorKind::RootExpressionMissing expr_id
+
+//: selfhost_memo_call_backend_request_table_collect_child_expr_result: child expression record を取得して走査する
+fn selfhost_memo_call_backend_request_table_collect_child_expr_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTraversalState impure fn SelfhostHirExprId Result SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestCollectorErrorKind \module\state\expr_id:
+    match selfhost_hir_module_get_expr module expr_id:
+        Option::Some expr:
+            selfhost_memo_call_backend_request_table_collect_existing_expr_result module state expr_id expr
+        Option::None:
+            selfhost_memo_call_backend_request_traversal_state_fail state SelfhostMemoCallBackendRequestCollectorErrorKind::ChildExpressionMissing expr_id
+
+//: selfhost_memo_call_backend_request_table_from_hir_root_result: HIR root から request table を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - codegen が function root expression を渡し、その subtree 内の memoized function backend materialization request をまとめて得る入口です。
+//:
+//: [契約/けいやく]:
+//: - `module` は borrow であり、この関数は閉じません。
+//: - 成功時は request table owner を caller に返します。失敗時は内部 table owner を閉じて error だけを返します。
+pub fn selfhost_memo_call_backend_request_table_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoCallBackendRequestTable SelfhostMemoCallBackendRequestCollectorErrorKind \module\root\fuel:
+    match selfhost_memo_call_backend_request_table_new:
+        Result::Ok table:
+            let state %SelfhostMemoCallBackendRequestTraversalState SelfhostMemoCallBackendRequestTraversalState table fuel
+            match selfhost_memo_call_backend_request_table_collect_root_expr_result module state root:
+                Result::Ok final_state:
+                    Result::Ok field::get final_state "table"
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_request_collector_error_code: collector error の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - equality helper が wildcard fallback を使わず、variant 追加時に match の網羅性検査で止まるようにします。
+fn selfhost_memo_call_backend_request_collector_error_code %fn SelfhostMemoCallBackendRequestCollectorErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed _e:
+            1
+        SelfhostMemoCallBackendRequestCollectorErrorKind::RequestPushFailed _e:
+            2
+        SelfhostMemoCallBackendRequestCollectorErrorKind::RootExpressionMissing _expr_id:
+            3
+        SelfhostMemoCallBackendRequestCollectorErrorKind::ChildRangeInvalid _kind:
+            4
+        SelfhostMemoCallBackendRequestCollectorErrorKind::ChildIdMissing _index:
+            5
+        SelfhostMemoCallBackendRequestCollectorErrorKind::ChildExpressionMissing _expr_id:
+            6
+        SelfhostMemoCallBackendRequestCollectorErrorKind::InvalidHirExpr _expr_id:
+            7
+        SelfhostMemoCallBackendRequestCollectorErrorKind::RequestRejected _rejection:
+            8
+        SelfhostMemoCallBackendRequestCollectorErrorKind::TraversalFuelExhausted _expr_id:
+            9
+
+//: selfhost_memo_call_backend_request_table_range_error_code: child range error の比較用 code を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - HIR range validator の失敗分類を doctest で表示文に依存せず比較します。
+fn selfhost_memo_call_backend_request_table_range_error_code %fn SelfhostHirRangeBuildError i32 \error:
+    match error:
+        SelfhostHirRangeBuildError::NegativeFirst:
+            1
+        SelfhostHirRangeBuildError::NegativeCount:
+            2
+        SelfhostHirRangeBuildError::NonCanonicalEmpty:
+            3
+        SelfhostHirRangeBuildError::EndOverflow:
+            4
+        SelfhostHirRangeBuildError::OutOfBounds:
+            5
+
+//: selfhost_memo_call_backend_request_table_range_error_eq: child range error が同じ分類か[返/かえ]す
+fn selfhost_memo_call_backend_request_table_range_error_eq %fn SelfhostHirRangeBuildError fn SelfhostHirRangeBuildError bool \a\b:
+    eq selfhost_memo_call_backend_request_table_range_error_code a selfhost_memo_call_backend_request_table_range_error_code b
+
+//: selfhost_memo_call_backend_request_table_request_error_result_eq: request builder rejection が期待分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が表示文ではなく `RequestRejected` の enum payload を確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `RequestRejected` 以外の collector error は false を返します。
+//: - `RequestRejected` の場合は nested request error kind まで比較します。
+pub fn selfhost_memo_call_backend_request_table_request_error_result_eq %fn Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind fn SelfhostMemoCallBackendRequestErrorKind bool \result\expected_request_error:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RequestPushFailed _e:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RootExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::ChildRangeInvalid _kind:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::ChildIdMissing _index:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::ChildExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::InvalidHirExpr _expr_id:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RequestRejected rejection:
+                    selfhost_memo_call_backend_request_error_kind_eq rejection.kind expected_request_error
+                SelfhostMemoCallBackendRequestCollectorErrorKind::TraversalFuelExhausted _expr_id:
+                    false
+
+//: selfhost_memo_call_backend_request_table_range_invalid_result_eq: child range rejection が期待分類か[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest が child range の不正を表示文字列ではなく typed payload で確認できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `ChildRangeInvalid` 以外の collector error は false を返します。
+//: - `ChildRangeInvalid` の場合は、range builder error kind を比較します。
+pub fn selfhost_memo_call_backend_request_table_range_invalid_result_eq %fn Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind fn SelfhostHirRangeBuildError bool \result\expected_range_error:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RequestPushFailed _e:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RootExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::ChildRangeInvalid range_error:
+                    selfhost_memo_call_backend_request_table_range_error_eq range_error expected_range_error
+                SelfhostMemoCallBackendRequestCollectorErrorKind::ChildIdMissing _index:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::ChildExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::InvalidHirExpr _expr_id:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::RequestRejected _rejection:
+                    false
+                SelfhostMemoCallBackendRequestCollectorErrorKind::TraversalFuelExhausted _expr_id:
+                    false
+
+//: selfhost_memo_call_backend_request_table_stage0_build_accepting_module: accepted smoke 用 HIR module を[作/つく]る
+fn selfhost_memo_call_backend_request_table_stage0_build_accepting_module %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result SelfhostHirModule StdErrorKind \function_ty\span\def_id:
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            let pure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "add" def_id function_ty SelfhostEffectKind::Pure
+            let first_memo_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span pure_identity
+            match selfhost_hir_module_add_expr module0 first_memo_expr:
+                Result::Ok first_memo_alloc:
+                    let first_memo_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &first_memo_alloc
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module first_memo_alloc
+                    let second_memo_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span pure_identity
+                    match selfhost_hir_module_add_expr module1 second_memo_expr:
+                        Result::Ok second_memo_alloc:
+                            let second_memo_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &second_memo_alloc
+                            let module2 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module second_memo_alloc
+                            let plain_expr %SelfhostHirExpr selfhost_hir_expr_fn_value function_ty span pure_identity
+                            match selfhost_hir_module_add_expr module2 plain_expr:
+                                Result::Ok plain_alloc:
+                                    let plain_id %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &plain_alloc
+                                    let module3 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module plain_alloc
+                                    let child_ids0 %Vec SelfhostHirExprId unwrap_ok v::new
+                                    let child_ids1 %Vec SelfhostHirExprId unwrap_ok v::push child_ids0 first_memo_id
+                                    let child_ids2 %Vec SelfhostHirExprId unwrap_ok v::push child_ids1 second_memo_id
+                                    let child_ids3 %Vec SelfhostHirExprId unwrap_ok v::push child_ids2 plain_id
+                                    match selfhost_hir_module_add_child_range module3 child_ids3:
+                                        Result::Ok range_alloc:
+                                            let child_range %SelfhostHirChildRange selfhost_hir_module_child_range_alloc_child_range &range_alloc
+                                            let module4 %SelfhostHirModule selfhost_hir_module_child_range_alloc_into_module range_alloc
+                                            let call_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "wrap" def_id function_ty SelfhostEffectKind::Pure child_range
+                                            match selfhost_hir_module_add_expr module4 call_expr:
+                                                Result::Ok root_alloc:
+                                                    Result::Ok selfhost_hir_module_expr_alloc_into_module root_alloc
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_request_table_stage0_accepting_result: accepted smoke を[実行/じっこう]する
+fn selfhost_memo_call_backend_request_table_stage0_accepting_result %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result SelfhostMemoCallBackendRequestTableStage0Summary SelfhostMemoCallBackendRequestCollectorErrorKind \function_ty\span\def_id:
+    match selfhost_memo_call_backend_request_table_stage0_build_accepting_module function_ty span def_id:
+        Result::Ok module:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 3
+            match selfhost_memo_call_backend_request_table_from_hir_root_result &module root 32:
+                Result::Ok table:
+                    let accepted_len %i32 selfhost_memo_call_backend_request_table_len &table
+                    let first_memo_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let second_memo_id %SelfhostHirExprId selfhost_hir_expr_id_new 1
+                    let first_identity_matches %bool match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some entry:
+                            selfhost_memo_call_backend_request_table_entry_matches &entry first_memo_id def_id function_ty
+                        Option::None:
+                            false
+                    let second_identity_matches %bool match selfhost_memo_call_backend_request_table_get_entry &table 1:
+                        Option::Some entry:
+                            selfhost_memo_call_backend_request_table_entry_matches &entry second_memo_id def_id function_ty
+                        Option::None:
+                            false
+                    let occurrence_ids_distinct %bool match selfhost_memo_call_backend_request_table_get_entry &table 0:
+                        Option::Some first_entry:
+                            match selfhost_memo_call_backend_request_table_get_entry &table 1:
+                                Option::Some second_entry:
+                                    not eq selfhost_hir_expr_id_index first_entry.memoized_expr_id selfhost_hir_expr_id_index second_entry.memoized_expr_id
+                                Option::None:
+                                    false
+                        Option::None:
+                            false
+                    selfhost_memo_call_backend_request_table_free table
+                    selfhost_hir_module_free module
+                    Result::Ok SelfhostMemoCallBackendRequestTableStage0Summary accepted_len first_identity_matches second_identity_matches occurrence_ids_distinct (Result::Ok 0) (Result::Ok 0)
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed e
+
+//: selfhost_memo_call_backend_request_table_stage0_type_mismatch_result: type mismatch rejection smoke を[実行/じっこう]する
+fn selfhost_memo_call_backend_request_table_stage0_type_mismatch_result %impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind \function_ty\other_ty\span\def_id:
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            let pure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "add" def_id function_ty SelfhostEffectKind::Pure
+            let bad_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value other_ty span pure_identity
+            match selfhost_hir_module_add_expr module0 bad_expr:
+                Result::Ok expr_alloc:
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module expr_alloc
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    match selfhost_memo_call_backend_request_table_from_hir_root_result &module1 root 8:
+                        Result::Ok table:
+                            selfhost_memo_call_backend_request_table_free table
+                            selfhost_hir_module_free module1
+                            Result::Ok 0
+                        Result::Err e:
+                            selfhost_hir_module_free module1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed e
+
+//: selfhost_memo_call_backend_request_table_stage0_range_invalid_result: invalid child range rejection smoke を[実行/じっこう]する
+fn selfhost_memo_call_backend_request_table_stage0_range_invalid_result %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind \function_ty\span\def_id:
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            let bad_range %SelfhostHirChildRange selfhost_hir_child_range_new_unchecked 99 1
+            let call_expr %SelfhostHirExpr selfhost_hir_expr_call function_ty span "wrap" def_id function_ty SelfhostEffectKind::Pure bad_range
+            match selfhost_hir_module_add_expr module0 call_expr:
+                Result::Ok expr_alloc:
+                    let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module expr_alloc
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    match selfhost_memo_call_backend_request_table_from_hir_root_result &module1 root 8:
+                        Result::Ok table:
+                            selfhost_memo_call_backend_request_table_free table
+                            selfhost_hir_module_free module1
+                            Result::Ok 0
+                        Result::Err e:
+                            selfhost_hir_module_free module1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendRequestCollectorErrorKind::RequestTableAllocFailed e
+
+//: selfhost_memo_call_backend_request_table_stage0: request table collector の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_call_backend_request_table_stage0 %impure fn void Result SelfhostMemoCallBackendRequestTableStage0Summary SelfhostMemoCallBackendRequestCollectorErrorKind \void:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 31
+    let function_ty %SelfhostTypeId selfhost_type_id_new 7
+    let other_ty %SelfhostTypeId selfhost_type_id_new 8
+    match selfhost_memo_call_backend_request_table_stage0_accepting_result function_ty span def_id:
+        Result::Ok accepted_summary:
+            let type_mismatch %Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind selfhost_memo_call_backend_request_table_stage0_type_mismatch_result function_ty other_ty span def_id
+            let range_invalid %Result i32 SelfhostMemoCallBackendRequestCollectorErrorKind selfhost_memo_call_backend_request_table_stage0_range_invalid_result function_ty span def_id
+            Result::Ok SelfhostMemoCallBackendRequestTableStage0Summary accepted_summary.accepted_len accepted_summary.first_identity_matches accepted_summary.second_identity_matches accepted_summary.occurrence_ids_distinct type_mismatch range_invalid
+        Result::Err e:
+            Result::Err e

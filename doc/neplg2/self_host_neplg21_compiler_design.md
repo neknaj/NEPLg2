@@ -2019,6 +2019,22 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_request_contract.js` 
 
 この checkpoint 後の残件は、memoized function value の sealed backend representation、private cache region / no-escape proof、identity observation ban、`MemoKey` / `MemoValue` aggregate proof と backend request の接続、prechecked artifact / `.neplobj` への stable key 投影である。backend request table の index 化や request stream compaction は、今回固定した typed manifest contract を保てるため後続最適化として扱う。
 
+## 2026-06-15 memo_call backend request table checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl` を追加し、borrowed `SelfhostHirModule` の root expression subtree から `MemoizedFunctionValue` leaf だけを typed backend request stream へ集める境界を作った。
+
+table entry は `memoized_expr_id` と `SelfhostMemoCallBackendRequest` を持つ。同じ `DefId` / `SelfhostTypeId` を指す memoized leaf が複数ある場合でも、後続の PrivateCache materialization は leaf occurrence ごとに別 cache を持つ必要があるため、collector は dedupe しない。`memoized_expr_id` は session-local occurrence metadata であり、永続 artifact key、diagnostic span、cache namespace の authority ではない。
+
+collector は `SelfhostHirExprPayload::MemoizedFunctionValue` branch に入った場合だけ `selfhost_memo_call_backend_request_from_hir_expr_result` を呼ぶ。通常の `FnValue`、literal、`Var` は backend cache materialization を要求しないため正常に無視する。一方で、HIR `Error` payload、root expression 欠落、child range 不正、child id 欠落、child expression 欠落、memoized payload rejection は typed enum error として fail-closed にする。
+
+child range は `selfhost_hir_child_range_new_bounded_result` で module child table 長に対して事前検証する。`selfhost_hir_module_get_child` の `Option::None` だけに頼ると、unchecked range 由来の範囲不正と child id 欠落が同じ失敗に潰れるためである。traversal fuel は再帰深さではなく訪問 expression 総数の予算として `SelfhostMemoCallBackendRequestTraversalState` に保持し、sibling 間で残量を thread する。これにより、壊れた HIR graph が横に広い場合でも探索量を上限付きにできる。
+
+`SelfhostMemoCallBackendRequestTable` は owner buffer であり `Clone` / `Copy` を実装しない。push は collector 内部 API に閉じ、外部 caller が forged request entry を直接 table へ投入できないようにする。成功時は caller が table owner を閉じ、失敗時は collector が部分 table owner を閉じる。push 失敗では `Vec` が返した owner を閉じ、`StdErrorKind` を `RequestPushFailed` に保存する。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_request_table_contract.js` で固定する。Resource IR、proof store、memo trait proof layer、PrivateCache / PrivateState、prechecked artifact、backend bytes、lower/check/compiler-known registry を import しないこと、`"memo_call"` 文字列、candidate display name、diagnostic symbol / span を authority にしないこと、child range bounded validation、global traversal fuel、HIR Error fail-closed、occurrence id 付き table entry、private push、owner cleanup、行数 / doc comment 長制限を追加しないことを確認する。
+
+この checkpoint 後も、sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban、prechecked artifact / `.neplobj` stable key 投影は未実装である。request table の sorted index 化、stream compaction、explicit stack traversal、subtree memoization、stage0 fixture 分割は、今回固定した occurrence identity / fail-closed / owner cleanup contract を保てるため後続最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

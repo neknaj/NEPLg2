@@ -111,3 +111,29 @@ request は `request_kind`、`source_function_def_id`、`function_ty`、`source_
 - function identity equality / hash / raw address / debug observation の禁止。
 - `MemoKey` / `MemoValue` aggregate proof と backend request の接続。
 - `.neplobj` / prechecked artifact 用 stable request key への投影。
+
+## 2026-06-15 selfhost backend request table checkpoint
+
+selfhost 側に `stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl` を追加し、borrowed HIR module の root expression subtree から memoized backend request manifest を owner table へ集める境界を作った。
+
+この checkpoint も sealed private cache backend representation そのものではない。private cache allocation、cache hit / miss、cache region identity、Resource IR `PrivateCache` proof、prechecked artifact、Wasm / LLVM bytes は作らない。目的は、backend 入力で `MemoizedFunctionValue` leaf を見落とさず、同じ `DefId` を指す複数 occurrence を後続 materialization が区別できる typed stream にすることである。
+
+table entry は `memoized_expr_id` と `SelfhostMemoCallBackendRequest` を保持する。`memoized_expr_id` は session-local occurrence metadata であり、永続 artifact key や diagnostic span の代替ではない。collector は `MemoizedFunctionValue` branch だけで request builder を呼び、通常の non-memo leaf は無視する。HIR `Error` payload、root expression 欠落、child range 不正、child id 欠落、child expression 欠落、memo request rejection、fuel exhaustion は typed enum error で fail-closed にする。
+
+child range は iteration 前に `selfhost_hir_child_range_new_bounded_result` で module child table 長に対して検証する。traversal fuel は深さではなく訪問 expression 総数の予算として sibling 間で thread する。push は private API とし、push 失敗では `Vec` が返した owner を閉じて `RequestPushFailed` に `StdErrorKind` を残す。
+
+subagent review では、request table entry に occurrence identity が必要であること、HIR `Error` を通常 non-memo として無視してはいけないこと、child range を事前検証すること、fuel を global traversal budget とすること、push を外部公開しないこと、失敗時の partial owner cleanup を source policy で固定することが blocker / required として指摘された。実装では、`SelfhostMemoCallBackendRequestTableEntry`、`SelfhostMemoCallBackendRequestTraversalState`、`SelfhostMemoCallBackendRequestRejection`、bounded child range validation、root / child missing の別 error、private push、source policy regression を追加して対応した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request-table.json`
+
+残件:
+
+- sealed memoized backend representation。
+- PrivateCache / PrivateState effect masking と Resource no-escape proof。
+- function identity equality / hash / raw address / debug observation の禁止。
+- `MemoKey` / `MemoValue` aggregate proof と request stream の接続。
+- `.neplobj` / prechecked artifact 用 stable request key への投影。
+- request table の sorted index 化、stream compaction、explicit stack traversal、stage0 fixture 分割。

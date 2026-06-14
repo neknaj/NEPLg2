@@ -63663,3 +63663,46 @@ MERGE_APPROVED
 - sealed memoized backend representation、private cache region allocation、hit / miss logic、identity observation ban は未実装である。
 - PrivateCache / PrivateState effect masking、Resource no-escape proof、MemoKey / MemoValue aggregate proof と backend request の接続、prechecked artifact / `.neplobj` stable key への投影は後続 slice で行う。
 - backend request table の sorted index 化や request stream compaction は、今回固定した typed request manifest contract を保てるため後続最適化として扱う。
+
+## 2026-06-15 selfhost memo_call backend request table checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、DAG、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl` を追加し、borrowed `SelfhostHirModule` の root expression subtree から `MemoizedFunctionValue` leaf だけを typed backend request table へ集める境界を作った。
+- `SelfhostMemoCallBackendRequestTableEntry` は `memoized_expr_id` と `SelfhostMemoCallBackendRequest` を保持する。同じ source function `DefId` / function type を指す複数 leaf でも、後続 PrivateCache materialization では別 occurrence として扱う必要があるため dedupe しない。
+- `memoized_expr_id` は session-local occurrence metadata であり、永続 artifact key、diagnostic span、cache namespace authority ではない。
+- collector は `MemoizedFunctionValue` branch でだけ `selfhost_memo_call_backend_request_from_hir_expr_result` を呼ぶ。通常の `FnValue`、literal、`Var` は backend cache materialization を要求しないので正常に無視する。
+- HIR `Error` payload、root expression 欠落、child range 不正、child id 欠落、child expression 欠落、memo request rejection、fuel exhaustion は `SelfhostMemoCallBackendRequestCollectorErrorKind` で fail-closed にする。
+- child range は `selfhost_hir_child_range_new_bounded_result` で module child table 長に対して事前検証する。unchecked range の範囲不正を `get_child None` へ潰さない。
+- traversal fuel は再帰深さではなく訪問 expression 総数の予算として `SelfhostMemoCallBackendRequestTraversalState` に保持し、sibling 間で残量を thread する。
+- table push は private API とし、外部 caller が forged request entry を直接 table へ投入できないようにした。push failure では `Vec` が返した owner を閉じ、`StdErrorKind` を `RequestPushFailed` に保持する。
+- `nodesrc/test_selfhost_memo_call_backend_request_table_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Tesla review: blocker として、request table entry に arena-local occurrence identity が必要であること、builder error を全exprで握りつぶしてはいけないことを指摘した。Required として、HIR `Error` payload の fail-closed、child range 事前検証、fuel の global traversal budget 化、root / child / range / request rejection の typed cause 分離、push の private 化、partial owner cleanup の source policy 固定が挙げられた。
+- Locke review: blocker なし。Required として、non-memo skip は通常 payload に限定し、`UnsupportedExprKind` 相当の HIR `Error` sentinel は fail-close すること、child range bounded validation、`get_child None` と `get_expr None` の別 error、request rejection で nested builder kind を保持すること、push failure owner cleanup を doc / source policy に固定することが挙げられた。
+- 対応として、`SelfhostMemoCallBackendRequestTableEntry`、`SelfhostMemoCallBackendRequestTraversalState`、`SelfhostMemoCallBackendRequestRejection`、`ChildRangeInvalid`、`ChildIdMissing`、`ChildExpressionMissing`、`InvalidHirExpr`、global fuel threading、private push、bounded range validation、occurrence 2 件の stage0 smoke、source policy regression を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request_table.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request-table.json`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 180 秒で timeout した。今回追加した direct source policy と関連 request / Zenn gate policy は個別に通っているため、全体 runner の既存長時間化として扱い、残った runner process は停止した。
+
+### performance_observation
+
+- focused doctest の compile wall time は約 175 秒だった。これは今回追加した semantic boundary の失敗ではなく、owner-bearing stage0 fixture と現行 Resource static check の cold compile 探索空間に属する。
+- request table の sorted index 化、stream compaction、explicit stack traversal、subtree memoization、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した occurrence identity / fail-closed / owner cleanup contract を保てるため後続最適化として扱う。
+
+### residual
+
+- sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
+- `MemoKey` / `MemoValue` aggregate proof と request stream の接続、prechecked artifact / `.neplobj` stable key 投影は後続 slice で行う。
