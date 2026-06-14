@@ -103,6 +103,7 @@ const guiFontSfntOutlinePointYTests = read("tests/stdlib/gui_font_sfnt_glyf_outl
 const guiFontSfntOutlinePointCoordinateTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md");
 const guiFontSfntOutlinePointEndpointTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_endpoint.n.md");
 const guiFontSfntOutlinePointFlagTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md");
+const guiFontSfntOutlinePointReadTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -120,6 +121,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointCoordinateTests,
     guiFontSfntOutlinePointEndpointTests,
     guiFontSfntOutlinePointFlagTests,
+    guiFontSfntOutlinePointReadTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -5782,6 +5784,141 @@ assert(
         guiFontSfntOutlinePointFlagTests.includes("point_flag_read_repeat_overrun_ok") &&
         guiFontSfntOutlinePointFlagTests.includes("point_flag_read_missing_repeat_ok"),
     "F5m point flag focused doctest must cover no-repeat, repeat, out-of-range, repeat overrun, and missing repeat",
+);
+const specF5n = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point read"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5n は F5k の coordinate、F5l の endpoint marker、F5m の flag marker を合成",
+    "shared precondition",
+    "PointIndexOutOfRange",
+    "CoordinateReadFailed",
+    "EndpointMarkerReadFailed",
+    "FlagReadFailed",
+    "GuiSfntSimpleGlyphPoint:",
+    "raw scalar slot getter",
+]) {
+    assert(specF5n.includes(fragment), `font spec F5n point read must mention ${fragment}`);
+}
+const detailedF5n = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point read boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5n is the first F5 boundary that returns the existing full point value",
+    "F5k coordinate read",
+    "F5l endpoint marker read",
+    "F5m flag marker read",
+    "StorageStreamGlyphMismatch",
+    "PointIndexOutOfRange",
+    "Only after those checks may the helper call F5k, F5l, and F5m",
+    "Each component helper is called exactly once",
+]) {
+    assert(detailedF5n.includes(fragment), `font detailed design F5n point read boundary must mention ${fragment}`);
+}
+const implementationPlanF5n = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5n: sfnt simple glyph outline point read composition"),
+    implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5n: sfnt simple glyph outline point read composition") + 1) < 0
+        ? implementationPlan.length
+        : implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5n: sfnt simple glyph outline point read composition") + 1),
+);
+for (const fragment of [
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind",
+    "PointIndexOutOfRange",
+    "F5k coordinate read を 1 回だけ呼ぶ",
+    "F5l endpoint marker read を 1 回だけ呼ぶ",
+    "F5m flag marker read を 1 回だけ呼ぶ",
+    "component glyph / point_index を fail-closed に再検査する",
+]) {
+    assert(implementationPlanF5n.includes(fragment), `font implementation plan F5n must mention ${fragment}`);
+}
+const pointReadTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointReadErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub enum GuiSfntSimpleGlyphOutlinePointReadErrorKind:",
+    "StorageCapacityInvalid",
+    "StorageStreamGlyphMismatch",
+    "StorageStreamContourCountMismatch",
+    "StorageStreamPointCountMismatch",
+    "PointIndexOutOfRange",
+    "CoordinateReadFailed",
+    "EndpointMarkerReadFailed",
+    "FlagReadFailed",
+    "ComponentGlyphMismatch",
+    "ComponentPointIndexMismatch",
+    "pub struct GuiSfntSimpleGlyphOutlinePointReadError:",
+    "coordinate_error %Option GuiSfntSimpleGlyphOutlinePointCoordinateReadError",
+    "endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError",
+    "flag_error %Option GuiSfntParseError",
+]) {
+    assert(pointReadTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5n point read types must include ${fragment}`);
+}
+const pointRead = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_read_point");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage",
+    "let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind::StorageStreamGlyphMismatch",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind::StorageStreamContourCountMismatch",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind::StorageStreamPointCountMismatch",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind::PointIndexOutOfRange",
+    "match gui_sfnt_simple_glyph_outline_storage_read_point_coordinate storage point_index:",
+    "gui_sfnt_simple_glyph_outline_point_read_error_coordinate_failed point_index capacity topology coordinate_error_value",
+    "match gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker storage point_index:",
+    "gui_sfnt_simple_glyph_outline_point_read_error_endpoint_failed point_index capacity topology endpoint_error_value",
+    "match gui_sfnt_glyf_read_point_flag_from_stream bytes glyf stream point_index:",
+    "gui_sfnt_simple_glyph_outline_point_read_error_flag_failed point_index capacity topology flag_error_value",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind::ComponentGlyphMismatch",
+    "GuiSfntSimpleGlyphOutlinePointReadErrorKind::ComponentPointIndexMismatch",
+    "gui_sfnt_simple_glyph_point point_glyph point_index x y on_curve end_of_contour",
+]) {
+    assert(pointRead.includes(fragment), `alloc/gui/font/sfnt/glyf F5n public point read helper must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointRead,
+    [
+        "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid",
+        "StorageStreamGlyphMismatch",
+        "StorageStreamContourCountMismatch",
+        "StorageStreamPointCountMismatch",
+        "PointIndexOutOfRange",
+        "gui_sfnt_simple_glyph_outline_storage_read_point_coordinate",
+        "gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker",
+        "gui_sfnt_glyf_read_point_flag_from_stream",
+        "gui_sfnt_simple_glyph_point point_glyph point_index x y on_curve end_of_contour",
+    ],
+    "alloc/gui/font/sfnt/glyf F5n point read must validate shared preconditions before F5k/F5l/F5m and construct point last",
+);
+for (const [symbol, label] of [
+    ["gui_sfnt_simple_glyph_outline_storage_read_point_coordinate", "F5k coordinate read"],
+    ["gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker", "F5l endpoint marker read"],
+    ["gui_sfnt_glyf_read_point_flag_from_stream", "F5m flag marker read"],
+]) {
+    const matches = pointRead.match(new RegExp(`\\b${symbol}\\b`, "g")) || [];
+    assert(matches.length === 1, `alloc/gui/font/sfnt/glyf F5n point read must call ${label} exactly once`);
+}
+assertNoMatch(
+    pointRead,
+    /\b(?:vec::|gui_sfnt_simple_glyph_outline_storage_scalar_slot_get|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop|gui_sfnt_glyf_read_point_flag_from_stream_loop|gui_sfnt_glyf_read_point_flag_run_or_continue|gui_sfnt_glyf_decode_x_delta|gui_sfnt_glyf_decode_y_delta|gui_sfnt_glyf_decode_point_from_stream|gui_sfnt_glyf_decode_point_state_from_stream|gui_sfnt_glyf_decode_point_state_from_flag_run|gui_sfnt_glyf_decode_flag_run_state|GuiSfntSimpleGlyphPointDecodeState|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5n point read must not use direct Vec, scalar getter, lower loops, x/y/full point decode, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointRead,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5n point read body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointReadTests.includes("point_read_success_ok") &&
+        guiFontSfntOutlinePointReadTests.includes("point_read_glyph_mismatch_ok") &&
+        guiFontSfntOutlinePointReadTests.includes("point_read_out_of_range_ok") &&
+        guiFontSfntOutlinePointReadTests.includes("point_read_coordinate_not_ready_ok") &&
+        guiFontSfntOutlinePointReadTests.includes("point_read_endpoint_topology_invalid_ok") &&
+        guiFontSfntOutlinePointReadTests.includes("point_read_flag_repeat_overrun_ok"),
+    "F5n point read focused doctest must cover success, glyph mismatch, top-level out-of-range, coordinate, endpoint, and flag wrapping",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

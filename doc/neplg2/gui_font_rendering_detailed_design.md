@@ -2812,6 +2812,103 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+## SFNT simple glyph outline point read boundary
+
+F5n is the first F5 boundary that returns the existing full point value:
+
+```text
+GuiSfntSimpleGlyphPoint:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+    on_curve bool
+    end_of_contour bool
+```
+
+The helper is still read-only. It borrows `GuiSfntSimpleGlyphOutlineStorage`, reads the checked point stream, and composes only these previous boundaries:
+
+```text
+F5k coordinate read
+F5l endpoint marker read
+F5m flag marker read
+```
+
+It does not build path commands, edges, outline streams, masks, or render commands.
+
+The public helper is:
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_point:
+    ByteBuf
+    GuiSfntTableRecord
+    GuiSfntSimpleGlyphPointStream
+    GuiSfntSimpleGlyphOutlineStorage
+    point_index
+    -> Result GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphOutlinePointReadError
+```
+
+Because the helper mixes a storage-derived view and a stream-derived view, it must reject shared precondition failures before calling component readers:
+
+```text
+capacity = storage.capacity
+topology = stream.topology
+
+if capacity shape is invalid:
+    StorageCapacityInvalid
+
+if capacity.glyph != topology.glyph:
+    StorageStreamGlyphMismatch
+
+if capacity.contour_count != topology.contour_count:
+    StorageStreamContourCountMismatch
+
+if capacity.point_count != topology.point_count:
+    StorageStreamPointCountMismatch
+
+if point_index < 0 or point_index >= capacity.point_count:
+    PointIndexOutOfRange
+```
+
+Only after those checks may the helper call F5k, F5l, and F5m. The order is fixed:
+
+```text
+coordinate = F5k storage coordinate read
+endpoint_marker = F5l storage endpoint marker read
+flag_marker = F5m stream flag marker read
+```
+
+Each component helper is called exactly once. Later helpers are reached only after earlier helpers succeed. Their errors are wrapped in the F5n error payload:
+
+```text
+CoordinateReadFailed
+EndpointMarkerReadFailed
+FlagReadFailed
+```
+
+After the three component values are available, F5n checks that every component agrees with the shared request:
+
+```text
+component.glyph == capacity.glyph == topology.glyph
+component.point_index == point_index
+```
+
+These checks are intentionally defensive. They should be unreachable when F5k/F5l/F5m keep their contracts, but they prevent a future regression from silently assembling a mixed point.
+
+F5n must not call:
+
+```text
+vec::
+gui_sfnt_simple_glyph_outline_storage_scalar_slot_get
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop
+gui_sfnt_glyf_read_point_flag_from_stream_loop
+gui_sfnt_glyf_read_point_flag_run_or_continue
+gui_sfnt_glyf_decode_x_delta
+gui_sfnt_glyf_decode_y_delta
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

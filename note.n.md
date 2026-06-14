@@ -1,3 +1,40 @@
+# 2026-06-15 Agent2 GUI font outline point read checkpoint
+
+## scope
+
+- branch: `gui-font-outline-point-marker-read-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5n の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point read の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5n の shared precondition、F5k -> F5l -> F5m composition、component glyph/index fail-closed check を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5n の実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointReadErrorKind`、`GuiSfntSimpleGlyphOutlinePointReadError`、`gui_sfnt_simple_glyph_outline_storage_read_point` を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md` に success、storage/stream glyph mismatch、top-level point-index out-of-range、coordinate not-ready wrapping、endpoint topology invalid wrapping、flag repeat-overrun wrapping の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5n source policy を追加し、shared precondition before component reads、F5k -> F5l -> F5m exact one-call order、direct lower helper / path / render / raster / platform / host API へ進まないことを検査するようにした。
+
+## subagent_review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。shared `point_index` range failure を F5k の `CoordinateReadFailed` に分類すると error domain が崩れるため、top-level `PointIndexOutOfRange` を追加し component read 前に検査するよう指摘された。
+- 計画を修正し、capacity shape、storage/stream glyph、contour_count、point_count、point_index range を component read 前の shared precondition として固定した。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。top-level `PointIndexOutOfRange` により request precondition と component error wrapping が分離されたため実装開始可とされた。
+- Tesla implementation review は `REVIEW_APPROVED`。F5n helper が shared validation before component reads、top-level `PointIndexOutOfRange`、F5k/F5l/F5m exact one-call order、typed sub-error wrapping、lower decode/storage/path/render/platform API 禁止を満たすことを確認済みである。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md --no-tree -o tmp_gui_font_outline_point_read_f5n.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5n.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5n は single point value の read-only composition までであり、full point stream iteration、edge/path tag population、outline point stream、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font point flag marker checkpoint
 
 ## scope

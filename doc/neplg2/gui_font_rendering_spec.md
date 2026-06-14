@@ -2244,6 +2244,77 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point read
+
+F5n は F5k の coordinate、F5l の endpoint marker、F5m の flag marker を合成し、既存の `GuiSfntSimpleGlyphPoint` を read-only に作る boundary である。ここでは edge/path storage、outline stream、rasterizer、renderer、platform API、host text API へ進まない。
+
+F5n は storage と stream を混ぜて読むため、component read より前に shared precondition を検査する。
+
+```text
+1. storage capacity と stream topology を読む
+2. storage capacity shape を検査する
+3. storage glyph と stream glyph が一致することを検査する
+4. storage contour_count と stream contour_count が一致することを検査する
+5. storage point_count と stream point_count が一致することを検査する
+6. point_index が shared point_count の範囲内であることを検査する
+7. F5k coordinate read を 1 回だけ呼ぶ
+8. F5l endpoint marker read を 1 回だけ呼ぶ
+9. F5m flag marker read を 1 回だけ呼ぶ
+10. component glyph / point_index が shared request と一致することを fail-closed に検査する
+11. GuiSfntSimpleGlyphPoint を作る
+```
+
+shared precondition の失敗は component error に潰さない。たとえば `point_index == point_count` は `CoordinateReadFailed` ではなく、F5n の `PointIndexOutOfRange` として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    PointIndexOutOfRange
+    CoordinateReadFailed
+    EndpointMarkerReadFailed
+    FlagReadFailed
+    ComponentGlyphMismatch
+    ComponentPointIndexMismatch
+```
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadError:
+    kind GuiSfntSimpleGlyphOutlinePointReadErrorKind
+    point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    coordinate_error Option GuiSfntSimpleGlyphOutlinePointCoordinateReadError
+    endpoint_error Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError
+    flag_error Option GuiSfntParseError
+```
+
+F5n の成功値は次の既存型である。
+
+```text
+GuiSfntSimpleGlyphPoint:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+    on_curve bool
+    end_of_contour bool
+```
+
+F5n は次を直接呼ばない。
+
+```text
+vec::
+raw scalar slot getter
+x/y coordinate byte decode
+endpoint scalar scan loop
+flag scan loop
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
