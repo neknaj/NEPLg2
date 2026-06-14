@@ -2185,6 +2185,7 @@ git diff --check
   - F5k coordinate read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md`
   - F5l endpoint marker read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_endpoint.n.md`
   - F5m point flag marker read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md`
+  - F5n full point read composition: `tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md`
 
 ## Phase F5b: sfnt simple glyph outline scalar storage owner
 
@@ -2728,5 +2729,63 @@ git diff --check
 node nodesrc/test_web_gui_font_rendering_contract.js
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md --no-tree -o tmp_gui_font_outline_point_flag_f5m.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5m.json -j 1
+git diff --check
+```
+
+## Phase F5n: sfnt simple glyph outline point read composition
+
+目的:
+
+- F5k coordinate、F5l endpoint marker、F5m flag marker を合成し、既存 `GuiSfntSimpleGlyphPoint` を read-only に作る。
+- storage と stream の shared precondition を component read より前に検査し、要求範囲の失敗を component error に潰さない。
+- edge/path storage、outline stream、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5n docs、error kind、shared precondition order、F5k -> F5l -> F5m の exact one-call order、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointReadErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointReadError`
+  - `gui_sfnt_simple_glyph_outline_storage_read_point`
+- error kind は次を持つ。
+  - `StorageCapacityInvalid`
+  - `StorageStreamGlyphMismatch`
+  - `StorageStreamContourCountMismatch`
+  - `StorageStreamPointCountMismatch`
+  - `PointIndexOutOfRange`
+  - `CoordinateReadFailed`
+  - `EndpointMarkerReadFailed`
+  - `FlagReadFailed`
+  - `ComponentGlyphMismatch`
+  - `ComponentPointIndexMismatch`
+- error payload は requested `point_index`、storage capacity、stream topology、coordinate / endpoint / flag の optional sub-error を保持する。
+- validation / compose は次の順序で行う。
+  - storage capacity と stream topology を読む
+  - capacity shape を検査する
+  - glyph、contour_count、point_count が一致することを検査する
+  - `0 <= point_index < shared_point_count` を検査する
+  - F5k coordinate read を 1 回だけ呼ぶ
+  - F5l endpoint marker read を 1 回だけ呼ぶ
+  - F5m flag marker read を 1 回だけ呼ぶ
+  - component glyph / point_index を fail-closed に再検査する
+  - coordinate.x/y、flag.on_curve、endpoint.end_of_contour から `GuiSfntSimpleGlyphPoint` を作る
+- doctest は success、storage/stream glyph mismatch、top-level point-index out-of-range、coordinate not-ready wrapping、endpoint topology invalid wrapping、flag repeat-overrun wrapping を検査する。
+- 実装前 plan review と実装後 implementation review を subagent で受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- valid storage + stream から x/y、on-curve、end-of-contour を含む `GuiSfntSimpleGlyphPoint` を返せる。
+- storage と stream の glyph / contour_count / point_count mismatch は component read 前に top-level error になる。
+- `point_index == point_count` は `CoordinateReadFailed` ではなく `PointIndexOutOfRange` になる。
+- coordinate read failure、endpoint marker failure、flag read failure はそれぞれ別 error kind と optional sub-error で保持される。
+- source policy が F5n docs、error 型、shared precondition before component reads、F5k -> F5l -> F5m の exact one-call order、direct `vec::` / scalar getter / lower loop / x/y decode / endpoint scan / flag scan / path / render / raster / platform / host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md --no-tree -o tmp_gui_font_outline_point_read_f5n.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5n.json -j 1
 git diff --check
 ```
