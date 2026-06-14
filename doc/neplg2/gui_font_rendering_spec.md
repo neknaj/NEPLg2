@@ -1159,6 +1159,41 @@ F4ad は current action を読まず、`EmitEvent`、`Reject`、`NoAction`、`Cl
 
 F4ad は F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` helper、`Vec` / `push`、loop、current point state、renderer、rasterizer、platform API、host text measurement、font fallback を直接呼ばない。後続の contour-wide consumer は F4ad を繰り返し呼べるが、この phase では反復制御、sink owner、allocation recovery、winding / fill rule をまだ定義しない。
 
+### SFNT simple glyph path sink action apply state
+
+F4ae は F4ac/F4ad が運ぶ `GuiSfntSimpleGlyphPathSinkAction` を 1 個だけ消費し、domain status と diagnostic count を返す pure boundary である。これは real sink、contour-wide loop、outline builder、renderer、rasterizer、platform API ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    EmittedEvent GuiSfntSimpleGlyphPathSinkEvent
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    ClosedContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+
+GuiSfntSimpleGlyphPathSinkActionApplyState:
+    emitted_event_count i32
+    reject_count i32
+    close_contour_count i32
+    no_action_count i32
+
+GuiSfntSimpleGlyphPathSinkActionApplyStep:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    status GuiSfntSimpleGlyphPathSinkActionApplyStatus
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    action GuiSfntSimpleGlyphPathSinkAction
+    -> GuiSfntSimpleGlyphPathSinkActionApplyStep
+```
+
+helper は action を `match` し、`EmitEvent` は `EmittedEvent event` と `emitted_event_count + 1`、`Reject` は `Rejected reason` と `reject_count + 1`、`CloseContour` は `ClosedContour close` と `close_contour_count + 1`、`NoAction` は `NoAction` と `no_action_count + 1` を返す。増える count は常に 1 種類だけである。
+
+`Reject` は malformed font を表す parse error ではなく、policy が返した typed domain status なので `Result::Err` に変換しない。`NoAction` は silent no-op ではなく、「明示的に `NoAction` を消費した」status として保持する。
+
+F4ae の count は test / diagnostic / contract 検査用の集計であり、cursor、next state、traversal authority ではない。走査位置と次 item の authority は F4ac/F4ad の consumer item next に残す。F4ae は `Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
