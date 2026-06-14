@@ -1,0 +1,444 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_substitution_shape
+//: public generic trait impl の target type / trait application を、具体 type argument で substitution した結果の shape evidence として[検査/けんさ]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_generic_instantiation` は substituted target type shape と substituted trait application shape を要求しますが、その値を任意の nonzero hash として渡せる状態を長く残すと、generic impl の accepted path が弱くなります。
+//: - この module は actual substitution engine の前に、substitution 前の typed shape、stable type argument identity、substitution trace shape、substitution 後の typed shape を 1 record にまとめて検査します。
+//: - generic binder evidence、type argument identity、pre-substitution shape、substitution trace、substituted shape を分けて保持し、source text や display string から作った一時 hash が generic impl instantiation の authority になる退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted substitution shape material に入りません。
+//: - `generic_binder_evidence.schema_version` と `generic_binder_evidence.shape_hash` は nonzero でなければなりません。
+//: - この producer は generic substitution 専用です。`generic_binder_evidence.type_parameter_count` が 0 以下の input は monomorphic impl として別経路で扱うべきなので拒否します。
+//: - `type_argument_count` は非負で、`generic_binder_evidence.type_parameter_count` と一致しなければなりません。
+//: - `type_argument_identity_hash` は schema version と identity hash の両方が nonzero でなければなりません。hash value だけを authority として扱いません。
+//: - pre-substitution target / trait application shape、substitution trace shape、substituted target / trait application shape は、すべて `some(nonzero)` でなければなりません。
+//: - 成功した evidence は generic impl instantiation gate の input を強める材料です。actual type substitution engine、trait bound solver、generic coherence、operation candidate materializer、PrivateCache / PrivateState effect masking は後続 stage が別 evidence として検査します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では resolver / type checker が作るべき substitution trace shape の contract を先に固定します。
+//: - actual type substitution engine はまだ実装しません。そのため、この module の成功は「渡された substitution trace と output shape が typed material として揃っている」ことだけを意味します。
+//: - 既存 materializer の `GenericImplInstantiationUnsupported` はこの slice では維持します。operation candidate acceptance を広げるには、この evidence に加えて bound solving と coherence の evidence が必要です。
+//:
+//: [計算量/けいさんりょう]:
+//: - この module 自体は fixed-size evidence を検査して hash に畳み込むだけなので O(1) 時間・O(1) 追加空間です。
+//: - actual substitution engine の計算量は、型式木の大きさと generic parameter 数に依存しますが、この module の public contract からは分離します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_binder" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_impl_generic_substitution_shape_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq summary.monomorphic_rejected SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::GenericParameterCountMissing
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq summary.type_argument_mismatch SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new 2 1
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq summary.identity_placeholder SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentIdentityHashPlaceholder
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq summary.pre_target_missing SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTargetTypeShapeHashMissing
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq summary.trace_missing SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceShapeHashMissing
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq summary.substituted_trait_placeholder SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTraitApplicationShapeHashPlaceholder
+//:     let shown checks_print_report checks7
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
+#import "./memo_trait_public_impl_generic_binder" as *
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput: generic substitution shape producer の typed input
+//:
+//: [契約/けいやく]:
+//: - `generic_binder_evidence` は substitution environment の binder side authority です。count と shape hash を再検査します。
+//: - `type_argument_identity_hash` は concrete type argument side authority です。schema と hash を一緒に保持します。
+//: - pre-substitution shape は impl header 側の normalized shape で、substituted shape は concrete type argument を適用した後の normalized shape です。
+//: - `substitution_trace_shape_hash` は resolver / substitution engine が「どの binder にどの type argument を対応させたか」を表す typed trace fingerprint です。
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput:
+    generic_binder_evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence
+    type_argument_count %i32
+    type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
+    pre_substitution_target_type_shape_hash %Option i32
+    pre_substitution_trait_application_shape_hash %Option i32
+    substitution_trace_shape_hash %Option i32
+    substituted_target_type_shape_hash %Option i32
+    substituted_trait_application_shape_hash %Option i32
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence: accepted generic substitution shape evidence
+//:
+//: [契約/けいやく]:
+//: - `substitution_shape_hash` は schema、binder evidence、type argument identity、pre-substitution shape、trace shape、substituted shape を全て畳み込んだ nonzero hash です。
+//: - 各入力 hash は個別 field として残します。後続 stage は root hash だけでなく、どの producer がどの shape を作ったかを検査できます。
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence:
+    schema_version %i32
+    type_parameter_count %i32
+    type_argument_count %i32
+    type_parameter_bound_count %i32
+    generic_binder_shape_hash %i32
+    type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
+    pre_substitution_target_type_shape_hash %i32
+    pre_substitution_trait_application_shape_hash %i32
+    substitution_trace_shape_hash %i32
+    substituted_target_type_shape_hash %i32
+    substituted_trait_application_shape_hash %i32
+    substitution_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind: substitution shape producer の拒否理由
+//:
+//: [目的/もくてき]:
+//: - binder evidence、type argument identity、pre-substitution shape、trace shape、substituted shape、derived hash のどこで拒否したかを typed enum として保持します。
+pub enum SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind:
+    BinderEvidenceSchemaPlaceholder
+    BinderEvidenceHashPlaceholder
+    GenericParameterCountMissing
+    TypeParameterBoundCountNegative
+    TypeArgumentCountNegative
+    TypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    TypeArgumentIdentitySchemaPlaceholder
+    TypeArgumentIdentityHashPlaceholder
+    PreSubstitutionTargetTypeShapeHashMissing
+    PreSubstitutionTargetTypeShapeHashPlaceholder
+    PreSubstitutionTraitApplicationShapeHashMissing
+    PreSubstitutionTraitApplicationShapeHashPlaceholder
+    SubstitutionTraceShapeHashMissing
+    SubstitutionTraceShapeHashPlaceholder
+    SubstitutedTargetTypeShapeHashMissing
+    SubstitutedTargetTypeShapeHashPlaceholder
+    SubstitutedTraitApplicationShapeHashMissing
+    SubstitutedTraitApplicationShapeHashPlaceholder
+    DerivedSubstitutionShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary: substitution shape smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+    monomorphic_rejected %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+    type_argument_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+    identity_placeholder %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+    pre_target_missing %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+    trace_missing %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+    substituted_trait_placeholder %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_input_new: substitution shape input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は field をまとめるだけです。binder、type argument、shape hash の検査は producer 本体で行います。
+pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_input_new %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn Option i32 fn Option i32 fn Option i32 fn Option i32 fn Option i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput \generic_binder_evidence\type_argument_count\type_argument_identity_hash\pre_substitution_target_type_shape_hash\pre_substitution_trait_application_shape_hash\substitution_trace_shape_hash\substituted_target_type_shape_hash\substituted_trait_application_shape_hash:
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput generic_binder_evidence type_argument_count type_argument_identity_hash pre_substitution_target_type_shape_hash pre_substitution_trait_application_shape_hash substitution_trace_shape_hash substituted_target_type_shape_hash substituted_trait_application_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version: substitution shape evidence schema
+pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_mix2: substitution shape hash 用に 2 値を[混/ま]ぜる
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_mix4: substitution shape hash 用に 4 値を[混/ま]ぜる
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 (selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 a b) (selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 c d)
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_binder_hash_result: binder evidence を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_binder_hash_result %fn SelfhostMemoTraitPublicImplGenericBinderEvidence Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::BinderEvidenceSchemaPlaceholder
+        else:
+            if:
+                eq evidence.shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::BinderEvidenceHashPlaceholder
+                else:
+                    if:
+                        lt evidence.type_parameter_count 1
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::GenericParameterCountMissing
+                        else:
+                            if:
+                                lt evidence.type_parameter_bound_count 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeParameterBoundCountNegative
+                                else:
+                                    Result::Ok evidence.shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_type_argument_identity_result: type argument identity hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_type_argument_identity_result %fn SelfhostMemoTraitStableTypeArgumentIdentityHash Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
+    if:
+        eq hash.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentIdentitySchemaPlaceholder
+        else:
+            if:
+                eq hash.identity_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentIdentityHashPlaceholder
+                else:
+                    Result::Ok hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_pre_target_result: pre-substitution target shape hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_pre_target_result %fn Option i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
+    match hash:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTargetTypeShapeHashPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTargetTypeShapeHashMissing
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_pre_trait_result: pre-substitution trait application shape hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_pre_trait_result %fn Option i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
+    match hash:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTraitApplicationShapeHashPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTraitApplicationShapeHashMissing
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_trace_result: substitution trace shape hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_trace_result %fn Option i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
+    match hash:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceShapeHashPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceShapeHashMissing
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_target_result: substituted target shape hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_target_result %fn Option i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
+    match hash:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTargetTypeShapeHashPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTargetTypeShapeHashMissing
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_trait_result: substituted trait application shape hash を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_trait_result %fn Option i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
+    match hash:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTraitApplicationShapeHashPlaceholder
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTraitApplicationShapeHashMissing
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result: generic substitution shape evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - binder evidence と type argument count を照合してから、input / trace / output shape を検査します。
+//: - success は actual substitution の完全証明や operation candidate 生成ではありません。後続の actual engine はこの evidence の `substitution_trace_shape_hash` と output shape が、実際の typed substitution result から来たことをより強く証明します。
+pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \input:
+    if:
+        lt input.type_argument_count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountNegative
+        else:
+            if:
+                not eq input.generic_binder_evidence.type_parameter_count input.type_argument_count
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new input.generic_binder_evidence.type_parameter_count input.type_argument_count
+                else:
+                    match selfhost_memo_trait_public_impl_generic_substitution_shape_binder_hash_result input.generic_binder_evidence:
+                        Result::Ok binder_hash:
+                            match selfhost_memo_trait_public_impl_generic_substitution_shape_type_argument_identity_result input.type_argument_identity_hash:
+                                Result::Ok type_argument_hash:
+                                    match selfhost_memo_trait_public_impl_generic_substitution_shape_pre_target_result input.pre_substitution_target_type_shape_hash:
+                                        Result::Ok pre_target_hash:
+                                            match selfhost_memo_trait_public_impl_generic_substitution_shape_pre_trait_result input.pre_substitution_trait_application_shape_hash:
+                                                Result::Ok pre_trait_hash:
+                                                    match selfhost_memo_trait_public_impl_generic_substitution_shape_trace_result input.substitution_trace_shape_hash:
+                                                        Result::Ok trace_hash:
+                                                            match selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_target_result input.substituted_target_type_shape_hash:
+                                                                Result::Ok substituted_target_hash:
+                                                                    match selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_trait_result input.substituted_trait_application_shape_hash:
+                                                                        Result::Ok substituted_trait_hash:
+                                                                            let schema %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version
+                                                                            let type_argument_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 type_argument_hash.schema_version type_argument_hash.identity_hash
+                                                                            let input_shape_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 503101 pre_target_hash pre_trait_hash trace_hash
+                                                                            let output_shape_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 503201 substituted_target_hash substituted_trait_hash type_argument_material
+                                                                            let binder_count_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 binder_hash input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count
+                                                                            let binder_shape_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 binder_count_material type_argument_material
+                                                                            let root_hash %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 503301 schema selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 binder_shape_material input_shape_material output_shape_material
+                                                                            if:
+                                                                                eq root_hash 0
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::DerivedSubstitutionShapeHashPlaceholder
+                                                                                else:
+                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash type_argument_hash pre_target_hash pre_trait_hash trace_hash substituted_target_hash substituted_trait_hash root_hash
+                                                                        Result::Err substituted_trait_error:
+                                                                            Result::Err substituted_trait_error
+                                                                Result::Err substituted_target_error:
+                                                                    Result::Err substituted_target_error
+                                                        Result::Err trace_error:
+                                                            Result::Err trace_error
+                                                Result::Err pre_trait_error:
+                                                    Result::Err pre_trait_error
+                                        Result::Err pre_target_error:
+                                            Result::Err pre_target_error
+                                Result::Err identity_error:
+                                    Result::Err identity_error
+                        Result::Err binder_error:
+                            Result::Err binder_error
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_count_mismatch_eq: count mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_count_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_code: error kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_code %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::BinderEvidenceSchemaPlaceholder:
+            1
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::BinderEvidenceHashPlaceholder:
+            2
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::GenericParameterCountMissing:
+            3
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeParameterBoundCountNegative:
+            4
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountNegative:
+            5
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountMismatch _:
+            6
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentIdentitySchemaPlaceholder:
+            7
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentIdentityHashPlaceholder:
+            8
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTargetTypeShapeHashMissing:
+            9
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTargetTypeShapeHashPlaceholder:
+            10
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTraitApplicationShapeHashMissing:
+            11
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::PreSubstitutionTraitApplicationShapeHashPlaceholder:
+            12
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceShapeHashMissing:
+            13
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceShapeHashPlaceholder:
+            14
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTargetTypeShapeHashMissing:
+            15
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTargetTypeShapeHashPlaceholder:
+            16
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTraitApplicationShapeHashMissing:
+            17
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutedTraitApplicationShapeHashPlaceholder:
+            18
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::DerivedSubstitutionShapeHashPlaceholder:
+            19
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_eq: error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::TypeArgumentCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_shape_count_mismatch_eq mismatch other
+                _:
+                    false
+        _:
+            eq selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_code a selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary \accepted\monomorphic_rejected\type_argument_mismatch\identity_placeholder\pre_target_missing\trace_missing\substituted_trait_placeholder:
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary accepted monomorphic_rejected type_argument_mismatch identity_placeholder pre_target_missing trace_missing substituted_trait_placeholder
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_hash: stage0 用 type argument identity hash
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_hash %fn i32 SelfhostMemoTraitStableTypeArgumentIdentityHash \value:
+    SelfhostMemoTraitStableTypeArgumentIdentityHash 1 value
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input: stage0 用 input を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn Option i32 fn Option i32 fn Option i32 fn Option i32 fn Option i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput \binder\argument_count\argument_hash\pre_target\pre_trait\trace\substituted_target\substituted_trait:
+    selfhost_memo_trait_public_impl_generic_substitution_shape_input_new binder argument_count argument_hash pre_target pre_trait trace substituted_target substituted_trait
+
+//: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0: substitution shape producer の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0 %fn void SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary \void:
+    let generic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8301
+    let monomorphic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 0 0 8302
+    let identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_hash 9101
+    let identity_placeholder_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_hash 0
+    let accepted %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input generic_binder 2 identity_hash (some 9201) (some 9301) (some 9401) (some 9501) (some 9601)
+    let monomorphic_rejected %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input monomorphic_binder 0 identity_hash (some 9201) (some 9301) (some 9401) (some 9501) (some 9601)
+    let type_argument_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input generic_binder 1 identity_hash (some 9201) (some 9301) (some 9401) (some 9501) (some 9601)
+    let identity_placeholder %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input generic_binder 2 identity_placeholder_hash (some 9201) (some 9301) (some 9401) (some 9501) (some 9601)
+    let pre_target_missing %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input generic_binder 2 identity_hash none (some 9301) (some 9401) (some 9501) (some 9601)
+    let trace_missing %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input generic_binder 2 identity_hash (some 9201) (some 9301) none (some 9501) (some 9601)
+    let substituted_trait_placeholder %Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_result selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input generic_binder 2 identity_hash (some 9201) (some 9301) (some 9401) (some 9501) (some 0)
+    selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_summary_new accepted monomorphic_rejected type_argument_mismatch identity_placeholder pre_target_missing trace_missing substituted_trait_placeholder

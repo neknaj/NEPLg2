@@ -1853,6 +1853,22 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instanti
 
 この checkpoint 後の残件は、actual type substitution engine、substituted target / trait application shape producer、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。instantiation gate の内部 hash 計算は O(1) であり、solver table lookup、type substitution cache、bound lookup cache、stage0 fixture 分割は今回固定した typed authority / fail-closed contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue generic substitution shape producer checkpoint
+
+`memo_trait_public_impl_generic_substitution_shape.nepl` を追加し、generic impl instantiation gate が要求する substituted target type shape / substituted trait application shape を、任意の nonzero hash ではなく typed substitution shape evidence として扱うための前段境界を固定した。
+
+この producer は actual type substitution engine ではない。入力は `SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput` の typed field だけであり、generic binder evidence、type argument count、schema 付き stable type argument identity hash、pre-substitution target type shape hash、pre-substitution trait application shape hash、substitution trace shape hash、substituted target type shape hash、substituted trait application shape hash を分けて受け取る。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted substitution shape material に入らない。
+
+この producer は generic substitution 専用であるため、`generic_binder_evidence.type_parameter_count` が 0 以下の input は `GenericParameterCountMissing` として拒否する。monomorphic impl は既存 header / materializer の monomorphic path が担当し、generic substitution trace を持つものとして扱わない。`type_argument_count` は非負で、binder evidence の type parameter count と一致しなければならない。type argument identity は schema version と identity hash の両方を検査し、pre-substitution shape、trace shape、substituted shape はすべて `some(nonzero)` だけを受理する。
+
+success evidence は schema、type parameter count、type argument count、type parameter bound count、generic binder shape hash、type argument identity hash、pre-substitution shape、substitution trace shape、substituted shape、combined substitution shape hash を保持する。後続の actual substitution engine は、この trace shape と output shape が実際の typed substitution result から来たことをさらに強く証明する。今回の checkpoint では materializer の `GenericImplInstantiationUnsupported` は維持し、operation candidate acceptance を広げない。
+
+`substitution_trace_shape_hash` は stage0 では target type と trait application の substitution trace を束ねる単一 summary として扱う。actual substitution engine が typed trace table を持つ段階では、schema version を上げたうえで target substitution trace と trait application substitution trace を別 field に分けられる。この checkpoint は、trace が source text や display name から作られず、typed substitution step summary から来る必要がある、という authority 境界を先に固定する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、stable type argument identity / generic binder evidence import、HIR / Resource IR / backend / proof store / operation classifier / candidate builder / public impl header / private effect / prechecked artifact import 禁止、typed input / evidence / error enum、monomorphic rejection、payload-aware error equality、materializer fail-closed 維持、source-derived authority 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。substitution trace lookup cache、type argument substitution cache、bound lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

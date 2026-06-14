@@ -62233,3 +62233,72 @@ MERGE_APPROVED
 - unexecuted_verification: none
 - existing_warnings: nodesrc/test_stdlib_documentation_contract.js failed with exit code 1; stdlib declaration doc gaps increased: 153 > 108; Node WASI ExperimentalWarning
 - new_warnings: none
+
+## 2026-06-14 selfhost generic substitution shape producer checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-shape-producer`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を 2026-06-14 に再確認した。試作段階でも雑な暫定境界を残さず、typed struct / enum / Result error、source / display authority の排除、丁寧な日本語 doc comment、静的検査で失敗理由を明示する方針に従った。
+- commit_policy: 今回はユーザー指示に従い、generic substitution shape producer、専用 contract、設計文書、issue、todo を一つの粗めの checkpoint commit としてまとめる。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl` を追加した。
+- generic impl instantiation gate の前段として、pre-substitution target / trait application shape、schema 付き stable type argument identity、substitution trace shape、substituted target / trait application shape を typed evidence にまとめる境界を作った。
+- この producer は actual type substitution engine ではない。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted substitution shape material に入らない。
+- monomorphic input は `GenericParameterCountMissing` で拒否し、type argument count mismatch、binder schema/hash placeholder、type argument identity schema/hash placeholder、pre/trace/substituted shape の missing/placeholder、derived root hash placeholder を typed enum error として fail-closed に返す。
+- accepted evidence は schema、type parameter count、type argument count、type parameter bound count、generic binder shape hash、type argument identity hash、pre-substitution shape、trace shape、substituted shape、combined substitution shape hash を個別 field として保持する。
+- `substitution_trace_shape_hash` は stage0 では target type と trait application の substitution trace を束ねる単一 summary として扱う。actual substitution engine が typed trace table を持つ段階では、schema version を上げて target substitution trace と trait application substitution trace を別 field に分けられる。
+- 既存 materializer の `GenericImplInstantiationUnsupported` は維持した。今回の success evidence は generic impl candidate acceptance ではなく、後続の actual substitution engine / trait bound solver / coherence checker / materializer accepted path が要求する typed contract である。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` を追加し、runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、stable type argument identity / binder evidence import、forbidden layer import 禁止、typed input/evidence/error enum、monomorphic rejection、missing/placeholder 分離、payload-aware error equality、materializer fail-closed 維持、source/display authority 禁止、行数 / doc comment 長制限禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、generic substitution shape producer を接続済み境界へ移し、残件を actual type substitution engine / trait bound solver / generic coherence / materializer accepted path / PrivateCache / prechecked artifact へ絞った。
+
+### subagent_review
+
+- Popper review: Blocker なし。Required なし。typed field 分離、component hash 保持、monomorphic rejection、missing/placeholder 分離、materializer fail-closed 維持を確認し、Approve である。
+- Descartes review: Blocker なし。Required として、専用 contract に行数制限 / doc comment 長制限禁止、source/display/hash authority 禁止、payload-aware error equality、missing/placeholder 網羅を追加することを指摘した。contract と doc / issue の trace 境界説明を修正して対応済みである。
+- 両 review とも、今回の module は actual substitution proof や accepted materializer path ではなく、typed substitution shape evidence boundary として閉じるなら Approve である。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-shape.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --input tmp/selfhost-generic-substitution-shape-final-review.md --record note.n.md`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。今回追加した `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` は runner 内でも pass した。既存 warning として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` が残っている。Node の WASI ExperimentalWarning は環境由来の既存 warning として扱う。
+
+### residual
+
+- actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- 次 slice では、generic instantiation gate が raw substituted target / trait shape を受け続ける期間を短くするため、この substitution shape evidence を instantiation gate 入力へ接続するか、先に actual substitution engine の typed trace table を作るかを選ぶ。
+- substitution trace lookup cache、type argument substitution cache、bound lookup cache、stage0 fixture 分割、materializer record table の operation bucket 化は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
+
+### zenn_review_record
+
+- decision: MERGE_APPROVED
+- classification: Approve
+- approve: yes
+- source_policy: updated
+- policy/spec source_policy: updated
+- implementation/test source_policy: updated
+- review_scope.base: origin/main at branch creation
+- review_scope.head: current unstaged diff before checkpoint commit
+- files_read: AGENTS.md, plan.md, note.n.md, todo.md, doc/neplg2/self_host_neplg21_compiler_design.md, issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md, stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl, stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl, stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl, stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl, nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js
+- not_reviewed: actual type substitution engine; trait bound solver; generic coherence; materializer accepted generic path; PrivateCache / PrivateState effect masking; prechecked artifact implementation; full selfhost compiler runtime execution
+- subagent_review_ids: 019ec28d-37f7-77f0-a7e6-9e068d26cf1d, 019ec48a-0645-7c52-867f-a35bc0a435ad
+- subagent_review_count: 2
+- policy/spec: checked against https://zenn.dev/bem130/articles/1b352797de94e7 and AGENTS.md; Blocker none; Required source policy coverage fixed; Non-blocker future trace field split and substitution engine work; Question future instantiation gate connection; Approve current standalone producer
+- implementation/test: checked generic substitution shape producer, materializer fail-closed behavior, source policy contract, doctest smoke; Blocker none; Required source policy coverage fixed before commit; Non-blocker later materializer connection; Question next slice connection order; Approve
+- subagent review: Popper and Descartes reviewed policy/spec and implementation/test; Required findings were fixed before commit
+- verify: executed node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-shape.json; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --input tmp/selfhost-generic-substitution-shape-final-review.md --record note.n.md; node nodesrc/test_source_policy_no_line_count_limits.js; node nodesrc/issues.js check --dir issues; git diff --check; node nodesrc/run_source_policy_regressions.js --warn-only
+- residual_risk: none for the standalone producer; downstream accepted generic materialization remains intentionally unsupported
+- summary.questions: none
+- summary.residual_risk: none
+- unexecuted_verification: none
+- existing_warnings: nodesrc/test_stdlib_documentation_contract.js failed with exit code 1; stdlib declaration doc gaps increased: 153 > 108; Node WASI ExperimentalWarning
+- new_warnings: none

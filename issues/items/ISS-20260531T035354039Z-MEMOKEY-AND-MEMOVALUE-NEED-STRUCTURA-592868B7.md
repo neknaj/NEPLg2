@@ -187,6 +187,27 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instanti
 
 この checkpoint 後も、actual type substitution engine、substituted target / trait application shape producer、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 
+## 2026-06-14 selfhost generic substitution shape producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl` を追加し、generic impl instantiation gate に渡す substituted target / trait application shape を任意の nonzero hash として扱わないための typed substitution shape producer boundary を作った。
+
+この producer は actual type substitution engine ではない。accepted authority は `SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput` の typed field だけである。generic binder evidence、type argument count、schema 付き stable type argument identity、pre-substitution target / trait application shape、substitution trace shape、substituted target / trait application shape を分けて検査し、source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は authority にしない。
+
+generic substitution 専用境界なので、`type_parameter_count <= 0` は `GenericParameterCountMissing` で拒否する。`type_argument_count` の負数や binder count mismatch、type argument identity schema / hash placeholder、pre-substitution shape missing / placeholder、substitution trace missing / placeholder、substituted shape missing / placeholder、derived root hash placeholder は typed enum error として fail-closed にする。success evidence は binder hash、type parameter count、type argument count、schema 付き type argument identity、pre-substitution shape、trace shape、substituted shape、combined substitution shape hash を個別 field として保持する。
+
+この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。success evidence は generic impl candidate acceptance ではなく、後続の actual substitution engine / trait bound solver / coherence checker / materializer accepted path が要求する typed contract である。
+
+`substitution_trace_shape_hash` は stage0 では target type と trait application の substitution trace を束ねる単一 summary である。actual substitution engine が typed trace table を返す段階では、schema version を上げて target substitution trace と trait application substitution trace を別 field に分けられる。この checkpoint では、trace が source text や display name 由来ではなく typed substitution step summary 由来でなければならない、という authority 境界を固定する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、stable type argument identity / binder evidence import、forbidden layer import 禁止、typed input/evidence/error enum、monomorphic rejection、payload-aware error equality、materializer fail-closed 維持、行数 / doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-shape.json`
+
+この checkpoint 後も、actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。substitution trace lookup cache、type argument substitution cache、bound lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
