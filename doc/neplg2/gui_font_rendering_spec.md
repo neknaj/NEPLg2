@@ -3051,6 +3051,97 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection contour edge
+
+F5x は F5v の collection-backed contour span と F5w の collection-backed contour point を authority として、contour-local edge index から `GuiSfntSimpleGlyphContourEdge` を 1 本だけ取り出す境界である。F4 byte-backed contour edge lookup へ戻らず、collection に格納済みの point pair だけで topology edge を構成する。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+```
+
+success は既存 `GuiSfntSimpleGlyphContourEdge` を返す。
+
+```text
+GuiSfntSimpleGlyphContourEdge:
+    start GuiSfntSimpleGlyphContourPoint
+    end GuiSfntSimpleGlyphContourPoint
+    edge_index i32
+    next_contour_point_index i32
+```
+
+error は owner recovery payload ではない。collection は借用で読み、診断に必要な span failure、start/end point failure、start/end point value、collection shape を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind:
+    ContourSpanFailed
+    EdgeIndexOutOfRange
+    StartPointFailed
+    EndPointFailed
+    ContourEdgeInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind
+    contour_index i32
+    edge_index i32
+    next_contour_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    span Option GuiSfntSimpleGlyphContourSpan
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    start_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    end_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    start Option GuiSfntSimpleGlyphContourPoint
+    end Option GuiSfntSimpleGlyphContourPoint
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+F5x は次の順序を守る。
+
+```text
+1. collection から capacity / item_count / items_len / items_cap を読む
+2. F5v contour span lookup を exactly once 呼ぶ
+3. F5v error は ContourSpanFailed として span_error に保持する
+4. F5v success span について glyph、contour_index、start/end/count、capacity range を再検査する
+5. span invariant failure は ContourEdgeInvariantInvalid とし、start/end point は読まない
+6. edge_index range を F5w point lookup より前に検査する
+7. edge range failure は EdgeIndexOutOfRange とし、next_contour_point_index は -1 にする
+8. next_contour_point_index を edge_index + 1 から計算し、contour end では 0 に wrap する
+9. F5w contour point lookup を start / end の順で exactly twice 呼ぶ
+10. lower point error は StartPointFailed / EndPointFailed として start_error / end_error に保持する
+11. start span と end span が F5v span と一致することを再検査する
+12. start local index == edge_index、end local index == next_contour_point_index を再検査する
+13. start absolute index == span.start_point_index + edge_index を再検査する
+14. end absolute index == span.start_point_index + next_contour_point_index を再検査する
+15. success は gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index を返す
+```
+
+1 point contour は valid topology として扱う。`span.point_count == 1` かつ `edge_index == 0` の場合、`next_contour_point_index == 0` となり、start / end は同じ absolute point を参照する。この self-wrap は implicit close ではなく contour topology 上の edge として保持する。
+
+F5x は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -5973,6 +5973,297 @@ pub fn gui_sfnt_simple_glyph_contour_edge_index %fn &GuiSfntSimpleGlyphContourEd
 pub fn gui_sfnt_simple_glyph_contour_edge_next_local_index %fn &GuiSfntSimpleGlyphContourEdge i32 \edge:
     *field::get_ref edge "next_contour_point_index"
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind: collection-backed contour edge lookup の typed reason
+//:
+//: [目的/もくてき]:
+//: - F5v / F5w の lower boundary error と edge topology invariant failure を enum として[分/わ]けます。
+//: - edge index の[範囲/はんい] error は、start/end point lookup より[前/まえ]に[検出/けんしゅつ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind:
+    ContourSpanFailed
+    EdgeIndexOutOfRange
+    StartPointFailed
+    EndPointFailed
+    ContourEdgeInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError: contour edge lookup failure context
+//:
+//: [目的/もくてき]:
+//: - edge lookup の[失敗/しっぱい]を、span failure、edge index、start/end point failure、edge invariant failure のどこで[起/お]きたか[診断/しんだん]できるように[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind
+    contour_index %i32
+    edge_index %i32
+    next_contour_point_index %i32
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    span %Option GuiSfntSimpleGlyphContourSpan
+    span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    start %Option GuiSfntSimpleGlyphContourPoint
+    end %Option GuiSfntSimpleGlyphContourPoint
+    item_count %i32
+    items_len %i32
+    items_cap %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error: contour edge error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn Option GuiSfntSimpleGlyphContourSpan fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError fn Option GuiSfntSimpleGlyphContourPoint fn Option GuiSfntSimpleGlyphContourPoint fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \kind\contour_index\edge_index\next_contour_point_index\capacity\span\span_error\start_error\end_error\start\end\item_count\items_len\items_cap:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError kind contour_index edge_index next_contour_point_index capacity span span_error start_error end_error start end item_count items_len items_cap
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_kind: error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_contour_index: contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_contour_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError i32 \error:
+    *field::get_ref error "contour_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_edge_index: edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError i32 \error:
+    *field::get_ref error "edge_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_next_local_index: next contour-local index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_next_local_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError i32 \error:
+    *field::get_ref error "next_contour_point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_capacity: error capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_span: checked span option を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_span %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError Option GuiSfntSimpleGlyphContourSpan \error:
+    *field::get_ref error "span"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_span_error: lower span error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_span_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError \error:
+    *field::get_ref error "span_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_start_error: lower start point error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_start_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError \error:
+    *field::get_ref error "start_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_end_error: lower end point error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_end_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError \error:
+    *field::get_ref error "end_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_start: accepted start point option を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_start %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError Option GuiSfntSimpleGlyphContourPoint \error:
+    *field::get_ref error "start"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_end: accepted end point option を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_end %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError Option GuiSfntSimpleGlyphContourPoint \error:
+    *field::get_ref error "end"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_item_count: collection item count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_item_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError i32 \error:
+    *field::get_ref error "item_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_items_len: Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_items_len %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError i32 \error:
+    *field::get_ref error "items_len"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_items_cap: Vec cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_items_cap %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError i32 \error:
+    *field::get_ref error "items_cap"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \kind\contour_index\edge_index\next_contour_point_index\capacity\item_count\items_len\items_cap:
+    let span %Option GuiSfntSimpleGlyphContourSpan none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+    let end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+    let start %Option GuiSfntSimpleGlyphContourPoint none
+    let end %Option GuiSfntSimpleGlyphContourPoint none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error kind contour_index edge_index next_contour_point_index capacity span span_error start_error end_error start end item_count items_len items_cap
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_with_span_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphContourSpan fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \kind\contour_index\edge_index\next_contour_point_index\capacity\span_value\item_count\items_len\items_cap:
+    let span %Option GuiSfntSimpleGlyphContourSpan some span_value
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+    let end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+    let start %Option GuiSfntSimpleGlyphContourPoint none
+    let end %Option GuiSfntSimpleGlyphContourPoint none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error kind contour_index edge_index next_contour_point_index capacity span span_error start_error end_error start end item_count items_len items_cap
+
+fn gui_sfnt_simple_glyph_contour_point_matches_span %fn &GuiSfntSimpleGlyphContourPoint fn &GuiSfntSimpleGlyphContourSpan fn i32 bool \contour_point\span\expected_local_index:
+    let point_span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span contour_point
+    let point_span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &point_span
+    let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph span
+    let point_span_glyph_raw %i32 gui_glyph_id_raw &point_span_glyph
+    let span_glyph_raw %i32 gui_glyph_id_raw &span_glyph
+    let point_span_index %i32 gui_sfnt_simple_glyph_contour_span_index &point_span
+    let span_index %i32 gui_sfnt_simple_glyph_contour_span_index span
+    let point_span_start %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &point_span
+    let span_start %i32 gui_sfnt_simple_glyph_contour_span_start_point_index span
+    let point_span_end %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &point_span
+    let span_end %i32 gui_sfnt_simple_glyph_contour_span_end_point_index span
+    let point_span_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &point_span
+    let span_count %i32 gui_sfnt_simple_glyph_contour_span_point_count span
+    let local_index %i32 gui_sfnt_simple_glyph_contour_point_local_index contour_point
+    let glyph_ok %bool eq point_span_glyph_raw span_glyph_raw
+    let index_ok %bool eq point_span_index span_index
+    let start_ok %bool eq point_span_start span_start
+    let end_ok %bool eq point_span_end span_end
+    let count_ok %bool eq point_span_count span_count
+    let local_ok %bool eq local_index expected_local_index
+    and and glyph_ok index_ok and start_ok and end_ok and count_ok local_ok
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge: collection から contour-local edge を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - F5v contour span lookup を exactly once [呼/よ]び、span invariant を[再検査/さいけんさ]してから edge index を[判定/はんてい]します。
+//: - edge index が[範囲外/はんいがい]の[場合/ばあい]、start/end point は[読/よ]みません。
+//: - start/end は F5w contour point lookup だけで[読/よ]み、成功後に span、local index、absolute point index を[再検査/さいけんさ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \collection\contour_index\edge_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection
+    let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection
+    let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index:
+        Result::Err span_error_value:
+            let span %Option GuiSfntSimpleGlyphContourSpan none
+            let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError some span_error_value
+            let start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+            let end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+            let start %Option GuiSfntSimpleGlyphContourPoint none
+            let end %Option GuiSfntSimpleGlyphContourPoint none
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::ContourSpanFailed contour_index edge_index -1 capacity span span_error start_error end_error start end item_count items_len items_cap
+            Result::Err error
+        Result::Ok span:
+            let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+            let capacity_glyph_raw %i32 gui_glyph_id_raw &capacity_glyph
+            let capacity_point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+            let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span
+            let span_glyph_raw %i32 gui_glyph_id_raw &span_glyph
+            let span_index %i32 gui_sfnt_simple_glyph_contour_span_index &span
+            let span_start_point_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &span
+            let span_end_point_index %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &span
+            let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+            let expected_span_point_count %i32 add sub span_end_point_index span_start_point_index 1
+            let span_glyph_ok %bool eq span_glyph_raw capacity_glyph_raw
+            let span_index_ok %bool eq span_index contour_index
+            let span_start_ok %bool not lt span_start_point_index 0
+            let span_end_order_ok %bool not lt span_end_point_index span_start_point_index
+            let span_end_capacity_ok %bool lt span_end_point_index capacity_point_count
+            let span_point_count_ok %bool eq span_point_count expected_span_point_count
+            let span_identity_ok %bool and span_glyph_ok span_index_ok
+            let span_range_left_ok %bool and span_start_ok span_end_order_ok
+            let span_range_right_ok %bool and span_end_capacity_ok span_point_count_ok
+            let span_shape_ok %bool and span_identity_ok and span_range_left_ok span_range_right_ok
+            if not span_shape_ok:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_with_span_empty GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::ContourEdgeInvariantInvalid contour_index edge_index -1 capacity span item_count items_len items_cap
+                    Result::Err error
+                else:
+                    if or lt edge_index 0 ge edge_index span_point_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error_with_span_empty GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::EdgeIndexOutOfRange contour_index edge_index -1 capacity span item_count items_len items_cap
+                            Result::Err error
+                        else:
+                            let next_contour_point_index %i32 if:
+                                eq add edge_index 1 span_point_count
+                                then:
+                                    0
+                                else:
+                                    add edge_index 1
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index edge_index:
+                                Result::Err start_error_value:
+                                    let span_option %Option GuiSfntSimpleGlyphContourSpan some span
+                                    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+                                    let start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError some start_error_value
+                                    let end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+                                    let start %Option GuiSfntSimpleGlyphContourPoint none
+                                    let end %Option GuiSfntSimpleGlyphContourPoint none
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::StartPointFailed contour_index edge_index next_contour_point_index capacity span_option span_error start_error end_error start end item_count items_len items_cap
+                                    Result::Err error
+                                Result::Ok start:
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index next_contour_point_index:
+                                        Result::Err end_error_value:
+                                            let span_option %Option GuiSfntSimpleGlyphContourSpan some span
+                                            let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+                                            let start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+                                            let end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError some end_error_value
+                                            let start_option %Option GuiSfntSimpleGlyphContourPoint some start
+                                            let end %Option GuiSfntSimpleGlyphContourPoint none
+                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::EndPointFailed contour_index edge_index next_contour_point_index capacity span_option span_error start_error end_error start_option end item_count items_len items_cap
+                                            Result::Err error
+                                        Result::Ok end:
+                                            let start_matches_span %bool gui_sfnt_simple_glyph_contour_point_matches_span &start &span edge_index
+                                            let end_matches_span %bool gui_sfnt_simple_glyph_contour_point_matches_span &end &span next_contour_point_index
+                                            let start_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &start
+                                            let end_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &end
+                                            let start_absolute_point_index %i32 gui_sfnt_simple_glyph_point_index &start_point
+                                            let end_absolute_point_index %i32 gui_sfnt_simple_glyph_point_index &end_point
+                                            let expected_start_absolute_point_index %i32 add span_start_point_index edge_index
+                                            let expected_end_absolute_point_index %i32 add span_start_point_index next_contour_point_index
+                                            let start_absolute_ok %bool eq start_absolute_point_index expected_start_absolute_point_index
+                                            let end_absolute_ok %bool eq end_absolute_point_index expected_end_absolute_point_index
+                                            let start_ok %bool and start_matches_span start_absolute_ok
+                                            let end_ok %bool and end_matches_span end_absolute_ok
+                                            let edge_shape_ok %bool and start_ok end_ok
+                                            if not edge_shape_ok:
+                                                then:
+                                                    let span_option %Option GuiSfntSimpleGlyphContourSpan some span
+                                                    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+                                                    let start_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+                                                    let end_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+                                                    let start_option %Option GuiSfntSimpleGlyphContourPoint some start
+                                                    let end_option %Option GuiSfntSimpleGlyphContourPoint some end
+                                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind::ContourEdgeInvariantInvalid contour_index edge_index next_contour_point_index capacity span_option span_error start_error end_error start_option end_option item_count items_len items_cap
+                                                    Result::Err error
+                                                else:
+                                                    Result::Ok gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index
+
 //: GuiSfntSimpleGlyphCurveNoSegmentReason: topology edge が drawable segment を[持/も]たない理由
 //:
 //: [目的/もくてき]:

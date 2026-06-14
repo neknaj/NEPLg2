@@ -1,3 +1,47 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection contour edge checkpoint
+
+## scope
+
+- branch: `gui-font-collection-contour-edge-f5x-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5x の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection contour edge の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5x の collection-backed contour edge lookup、F5v exact one-call、F5w exact two-call、span invariant 再検査、edge range before point lookup、start/end invariant validation、one-point self-wrap を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5x の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge` と accessors を追加した。
+- F5x は F5v contour span lookup を exactly once 呼び、F5v success span の glyph、contour index、start/end/count、capacity range を edge index 判定より前に再検査する。
+- F5x は edge index が範囲外なら `EdgeIndexOutOfRange` を返し、F5w point lookup を呼ばない。
+- F5x は wrapped `next_contour_point_index` を計算し、1 point contour では start/end とも local index 0 を参照する。
+- F5x は F5w contour point lookup を start/end の順に exactly twice 呼び、lower failure を `StartPointFailed` / `EndPointFailed` として保持する。
+- F5x は start/end の span、local index、absolute point index を再検査し、成功時だけ `GuiSfntSimpleGlyphContourEdge` を返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md` に wrap success、second contour success、one-point self-wrap、span failure wrapping、edge index out of range、final endpoint topology failure propagation の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5x source policy を追加し、docs/API/F5v exact one-call/F5w exact two-call/span invariant before edge range/edge range before point lookup/start-end invariant/forbidden API/括弧なし prefix style を検査する。
+- `todo.md` の GUI font 残件を、F5x 完了後の curve classification / path tag population boundary へ更新した。
+
+## subagent review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5x error payload に `span_error`、`start_error`、`end_error`、start/end options を明示すること、start/end の span/local/absolute invariant を edge construction 前に固定すること、1 point contour self-wrap を doctest に入れることが必須指摘だった。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5x は F5v を authority とし、span invariant、edge range、wrapped next index、F5w start/end point lookup、start/end invariant validation の順で実装する方針が承認された。
+- Tesla implementation review は 1 回目 `REVIEW_BLOCKED`。指摘は F5x checkpoint が `note.n.md` 先頭にないことのみで、code / doctest contract blocker はなかった。
+- 指摘に従い、F5x scope、implementation summary、plan review result、implementation review status、verification、residual next boundary を `note.n.md` 先頭に追加した。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_edge_f5x.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_point_f5x_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5x.json -j 1` 724/724 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5x は collection-backed contour edge lookup までであり、collection-backed curve classification、path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection contour point checkpoint
 
 ## scope
