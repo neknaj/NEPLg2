@@ -21,11 +21,13 @@
   - producer は `selfhost_memo_trait_operation_drop_no_escape_proof_table_push` へだけ出力し、既存 gate 用 proof table に一方向で変換する。
   - doctest は 4 種の status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection を確認する。
   - `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - Ampere review の Required に従い、contract は全 top-level declaration の doc comment、Resource proof API / proof artifact / prechecked artifact import 禁止、行数 / doc comment 長 cap の negative check も確認するように強化した。
+  - `todo.md` は後続作業だけを残す運用に合わせ、今回完了した Resource no-escape producer 接続済み履歴を詳細記録から外し、完了記録はこの `note.n.md` と対象 issue / design doc 側に置いた。
   - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、今回接続した producer boundary と後続の actual Resource IR graph traversal evidence materializer を分けた。
 - subagent review:
-  - subagent review は Popper と McClintock の独立確認を採用した。
-  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec28c-fc1e-71a2-8fe3-396ab4d80401`
-  - subagent_review_count: 2
+  - subagent review は Popper、McClintock、Ampere の独立確認を採用した。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec28c-fc1e-71a2-8fe3-396ab4d80401`, `019ec1c8-5e90-7432-a695-6ecd59386196`
+  - subagent_review_count: 3
   - nodesrc/selfhost_zenn_review_response_check.js: live subagent response was reviewed against the required Blocker / Required / Non-blocker / Question / Approve categories; packet-file validation was not available because the response arrived through the agent status channel.
   - Blocker: `SelfhostMemoTraitOperationDropCheck` を producer 入力 authority にすると `type_id/body_module_fingerprint/body_root` が失われるため不可。対応として、producer 入力 record は typed body identity を持つ Resource no-escape observation に限定した。
   - Blocker: `EffectAllowedInContext` solver は `InternalAlloc + NoEscapeProven` を消費する consumer であり、`NotApplicable` から proof を作る producer ではない。対応として、この module は effect solver を import せず、Resource observation status から既存 proof table status へ写すだけにした。
@@ -33,6 +35,8 @@
   - Required: key は `type_id/body_module_fingerprint/body_root/effect/escape` の完全一致にし、placeholder と duplicate を producer 側でも拒否すること。対応済み。
   - Required: proof store / aggregate proof / operation evidence / PrivateCache / PrivateState / prechecked artifact へ接続しないこと。対応済み。
   - Required: doc comment に目的、入力 authority、生成しないもの、fail-closed 条件、計算量、後続最適化を明記し、行数制限やコメント抑制の検査を入れないこと。対応済み。
+  - Required: source policy は `proof/api/resource` や `proof/solver/resource` などの Resource proof leaf API、proof artifact / prechecked artifact 混入、private helper を含む top-level doc comment 欠落、行数 / doc comment 長 cap を検出すること。対応済み。
+  - Required: `todo.md` は今後作業だけを残す文書なので、この producer 接続済み履歴は `note.n.md` / issue / design doc に寄せること。対応済み。
   - Non-blocker: 現状の duplicate scan と proof push は線形走査であり、sorted index / bucket / memoization は typed key と fail-closed contract を保って後続最適化にできる。
   - Non-blocker: stage0 fixture が手動で observation record を作ることは許容できる。ただし production producer の authority と混同しない source policy が必要であり、今回追加した。
   - Question: なし。

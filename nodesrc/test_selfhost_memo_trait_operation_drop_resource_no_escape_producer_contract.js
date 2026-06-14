@@ -72,6 +72,24 @@ function assertDocBeforeTopLevel(src, docSnippet, declarationSnippet) {
     );
 }
 
+function assertEveryTopLevelDeclarationHasDoc(src) {
+    const lines = src.split("\n");
+    const topLevel = /^(?:pub\s+)?(?:fn|struct|enum|impl)\s+\S+/;
+    for (let i = 0; i < lines.length; i += 1) {
+        if (!topLevel.test(lines[i])) {
+            continue;
+        }
+        let cursor = i - 1;
+        while (cursor >= 0 && lines[cursor].trim() === "") {
+            cursor -= 1;
+        }
+        assert.ok(
+            cursor >= 0 && lines[cursor].trimStart().startsWith("//:"),
+            `top-level declaration must have an immediately preceding doc comment at line ${i + 1}: ${lines[i]}`,
+        );
+    }
+}
+
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_producer.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
 const tySourceListRelPath = "nodesrc/selfhost_ty_sources.js";
@@ -134,6 +152,7 @@ for (const [docSnippet, declarationSnippet] of [
 ]) {
     assertDocBeforeTopLevel(source, docSnippet, declarationSnippet);
 }
+assertEveryTopLevelDeclarationHasDoc(source);
 assert.doesNotMatch(
     facade,
     /memo_trait_operation_drop_resource_no_escape_producer/,
@@ -160,8 +179,8 @@ assertOrdered(
 );
 assert.doesNotMatch(
     code,
-    /#import ".*(?:backend|resource\/|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_public_surface|memo_trait_public_impl_header|memo_trait_operation_evidence_producer|memo_trait_operation_impl_table|memo_trait_public_impl_scanner|memo_trait_operation_public_impl_materializer|memo_trait_operation_purity_gate|private_cache|private_state)/,
-    "producer must not import backend, Resource graph internals, proof store/artifact, canonical-key, public-surface, evidence producer, impl table, scanner/materializer, purity gate, PrivateCache, or PrivateState layers",
+    /#import ".*(?:backend|resource\/|proof\/(?:api|solver|fact|query)\/resource|resource_tree|resource_graph|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_public_surface|memo_trait_public_impl_header|memo_trait_operation_evidence_producer|memo_trait_operation_impl_table|memo_trait_public_impl_scanner|memo_trait_operation_public_impl_materializer|memo_trait_operation_purity_gate|private_cache|private_state)/,
+    "producer must not import backend, Resource graph/proof internals, proof store/artifact, canonical-key, public-surface, evidence producer, impl table, scanner/materializer, purity gate, PrivateCache, or PrivateState layers",
 );
 assertOrdered(
     source,
@@ -253,11 +272,16 @@ assertOrdered(
 );
 assert.doesNotMatch(
     code,
-    /\b(SelfhostMemoTraitOperationDropEvidence|SelfhostMemoTraitOperationEvidenceRecord|SelfhostMemoTraitAggregateProof|SelfhostMemoTraitProofStore|SelfhostPrivateCache|SelfhostPrivateState|PrivateCache|PrivateState|NoDropRequired|PureDrop)\b/,
-    "producer must not synthesize Drop evidence, aggregate proof, proof-store values, or PrivateCache/PrivateState masking",
+    /\b(SelfhostMemoTraitOperationDropEvidence|SelfhostMemoTraitOperationEvidenceRecord|SelfhostMemoTraitAggregateProof|SelfhostMemoTraitProofStore|SelfhostMemoTraitProofArtifact|SelfhostPrivateCache|SelfhostPrivateState|PrivateCache|PrivateState|NoDropRequired|PureDrop|prechecked|Prechecked)\b/,
+    "producer must not synthesize Drop evidence, aggregate proof, proof-store/artifact values, prechecked artifacts, or PrivateCache/PrivateState masking",
 );
 assert.doesNotMatch(
     code,
     /Result\s+bool|Result\s+str|Result\s+String|Result\s+MlString|Result::Err\s+(true|false)|Result::Err\s+"/,
     "producer APIs must return typed Result errors instead of bool/string errors",
+);
+assert.doesNotMatch(
+    source,
+    /line count limit|comment length limit|file size limit|500 行|行数上限|コメント長上限|doc comment length cap|doc-comment-length cap|must be under|fewer than/i,
+    "Resource no-escape producer policy must not introduce line-count, file-size, or doc-comment-length restrictions",
 );
