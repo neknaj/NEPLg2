@@ -763,6 +763,84 @@ next 計算の pure helper は public contract ではなく、public lookup が 
 
 F4s は off-curve contour-start synthesis、contour closure command insertion、real path sink ownership、full outline allocation、font fallback、renderer command generation を扱わない。off-curve start は既存の `SkipNoSegment OffCurveStart` として typed event に残り、後続 phase が synthesis policy を決める。
 
+### SFNT simple glyph allocation-free path sink ownership boundary
+
+F4t は F4s の `GuiSfntSimpleGlyphPathContourStep` を、実際の path sink が 1 step ずつ消費できる ownership boundary へ写す段階である。これは real sink trait、full outline builder、`Vec` command stream、rasterizer、renderer command ではない。F4t の責務は、F4s step を「primary action」と「tail action」に分け、off-curve contour start と contour close の policy を enum data として明示することである。
+
+```text
+GuiSfntSimpleGlyphPathOffCurveStartPolicy:
+    KeepTypedSkip
+    RejectUnsupported
+
+GuiSfntSimpleGlyphPathClosurePolicy:
+    KeepOpen
+    EmitCloseAfterFinalEvent
+
+GuiSfntSimpleGlyphPathSinkPolicy:
+    off_curve_start_policy GuiSfntSimpleGlyphPathOffCurveStartPolicy
+    closure_policy GuiSfntSimpleGlyphPathClosurePolicy
+
+GuiSfntSimpleGlyphPathSinkRejectReason:
+    UnsupportedOffCurveStart
+
+GuiSfntSimpleGlyphPathSinkPrimaryAction:
+    EmitEvent GuiSfntSimpleGlyphPathSinkEvent
+    Reject GuiSfntSimpleGlyphPathSinkRejectReason
+
+GuiSfntSimpleGlyphPathContourClose:
+    glyph GuiGlyphId
+    contour_index i32
+
+GuiSfntSimpleGlyphPathSinkTailAction:
+    NoTailAction
+    CloseContour GuiSfntSimpleGlyphPathContourClose
+
+GuiSfntSimpleGlyphPathSinkStep:
+    source_step GuiSfntSimpleGlyphPathContourStep
+    primary_action GuiSfntSimpleGlyphPathSinkPrimaryAction
+    tail_action GuiSfntSimpleGlyphPathSinkTailAction
+```
+
+policy reject は `GuiSfntParseError` ではない。byte-backed helper の `Result::Err GuiSfntParseError` は F4s lookup 由来の parse / range error だけを表す。`RejectUnsupported` による拒否は `Result::Ok GuiSfntSimpleGlyphPathSinkStep` の `primary_action = Reject UnsupportedOffCurveStart` として返す。
+
+`GuiSfntSimpleGlyphPathOffCurveStartPolicy` が作用するのは `GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment OffCurveStart` だけである。`SinglePointContour` と `MissingLookahead` は F4l/F4s の typed success であり、`RejectUnsupported` でも `EmitEvent` のまま保持する。これにより unsupported off-curve contour-start synthesis を、他の no-segment reason に誤って広げない。
+
+tail action の規則は次で固定する。
+
+```text
+primary = Reject _
+    -> tail_action = NoTailAction
+
+primary = EmitEvent _ and step.next = Continue _
+    -> tail_action = NoTailAction
+
+primary = EmitEvent _ and step.next = EndContour and closure_policy = KeepOpen
+    -> tail_action = NoTailAction
+
+primary = EmitEvent _ and step.next = EndContour and closure_policy = EmitCloseAfterFinalEvent
+    -> tail_action = CloseContour glyph contour_index
+```
+
+つまり reject と close contour は同時に発生しない。`CloseContour` は final event 後だけの tail marker であり、途中の `Continue` step では絶対に発行しない。
+
+public pure helper と byte-backed helper は次である。
+
+```text
+gui_sfnt_simple_glyph_path_sink_step_from_contour_step:
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    step &GuiSfntSimpleGlyphPathContourStep
+    -> GuiSfntSimpleGlyphPathSinkStep
+
+gui_sfnt_lookup_simple_glyph_path_sink_step:
+    bytes &ByteBuf
+    face_index Option i32
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkStep GuiSfntParseError
+```
+
+byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_contour_step` を呼び、成功した F4s step を pure helper に渡すだけである。metadata unwrap、table helper bypass、renderer、platform API、font fallback、rasterization、full outline allocation は行わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

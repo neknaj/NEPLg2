@@ -1049,6 +1049,91 @@ The next helper must remain private unless it is changed to return `Result`. As 
 
 F4s deliberately leaves off-curve contour-start synthesis unchanged. The current `SkipNoSegment OffCurveStart` event remains a typed event. Contour closure insertion, actual sink ownership, outline allocation, path repair, rasterization, render2d command emission, font fallback, and platform presentation are later phases.
 
+### SFNT simple glyph allocation-free path sink ownership boundary
+
+F4t turns an F4s contour step into a sink-facing ownership decision. It is deliberately still a one-step value transformation. It does not own a real sink trait, allocate a path list, build an outline object, apply fill rules, rasterize, or emit render2d commands.
+
+The policy is split into two independent axes:
+
+```text
+GuiSfntSimpleGlyphPathOffCurveStartPolicy:
+    KeepTypedSkip
+    RejectUnsupported
+
+GuiSfntSimpleGlyphPathClosurePolicy:
+    KeepOpen
+    EmitCloseAfterFinalEvent
+
+GuiSfntSimpleGlyphPathSinkPolicy:
+    off_curve_start_policy GuiSfntSimpleGlyphPathOffCurveStartPolicy
+    closure_policy GuiSfntSimpleGlyphPathClosurePolicy
+```
+
+`off_curve_start_policy` only applies to `GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment OffCurveStart`. It must not reject `SinglePointContour` or `MissingLookahead`, because those states are already typed F4l/F4s success states and do not mean the sink is being asked to synthesize an implied contour start.
+
+The sink decision is represented as data:
+
+```text
+GuiSfntSimpleGlyphPathSinkRejectReason:
+    UnsupportedOffCurveStart
+
+GuiSfntSimpleGlyphPathSinkPrimaryAction:
+    EmitEvent GuiSfntSimpleGlyphPathSinkEvent
+    Reject GuiSfntSimpleGlyphPathSinkRejectReason
+
+GuiSfntSimpleGlyphPathContourClose:
+    glyph GuiGlyphId
+    contour_index i32
+
+GuiSfntSimpleGlyphPathSinkTailAction:
+    NoTailAction
+    CloseContour GuiSfntSimpleGlyphPathContourClose
+
+GuiSfntSimpleGlyphPathSinkStep:
+    source_step GuiSfntSimpleGlyphPathContourStep
+    primary_action GuiSfntSimpleGlyphPathSinkPrimaryAction
+    tail_action GuiSfntSimpleGlyphPathSinkTailAction
+```
+
+`Reject` is not `GuiSfntParseError`. Parse/range failure is still the responsibility of F4s lookup and remains the only reason the byte-backed F4t helper returns `Result::Err GuiSfntParseError`. Policy rejection stays in the successful payload so caller code can distinguish malformed font data from a configured sink capability refusal.
+
+The tail action depends on both the primary action and the F4s next state. This avoids the ambiguous state where a rejected final event also asks the sink to close the contour.
+
+```text
+if primary_action is Reject:
+    tail_action = NoTailAction
+
+else if step.next is Continue:
+    tail_action = NoTailAction
+
+else if step.next is EndContour and closure_policy is KeepOpen:
+    tail_action = NoTailAction
+
+else if step.next is EndContour and closure_policy is EmitCloseAfterFinalEvent:
+    tail_action = CloseContour glyph contour_index
+```
+
+`CloseContour` uses the glyph and contour index from `step.cursor`. It is a marker for the next sink layer, not a renderer command and not a coordinate-bearing path segment. The future real sink can map it to its own close-path operation or reject unsupported closure semantics with a separate typed result.
+
+The public pure helper is:
+
+```text
+gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy step
+    -> primary = gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step policy step
+    -> tail = gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step policy step primary
+    -> GuiSfntSimpleGlyphPathSinkStep step primary tail
+```
+
+The byte-backed helper is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index cursor policy
+    -> contour_step = gui_sfnt_lookup_simple_glyph_path_contour_step bytes face_index cursor
+    -> gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy contour_step
+```
+
+It must not re-parse metadata itself, call internal table helpers directly, bypass F4s, allocate `Vec`, call renderer/platform APIs, rasterize, or consult host font fallback. The helper is only the boundary where checked bytes become a checked one-step sink decision.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
