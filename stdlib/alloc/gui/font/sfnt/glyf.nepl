@@ -1926,6 +1926,167 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_action %fn &GuiSfntS
 pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_next %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionItemNext \item:
     *field::get_ref item "next"
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerItemNext: consumer item を 1 つ[進/すす]めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は checked next から[得/え]た次 consumer item を[持/も]ちます。
+//: - `EndContour` は contour 内 consumer item stream の終端を成功値として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    Continue %GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphPathSinkActionConsumerItemNext \next:
+        *next
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphPathSinkActionConsumerItemNext \next:
+        next
+
+//: GuiSfntSimpleGlyphPathSinkActionApplyStatus: 1 action を消費した結果
+//:
+//: [目的/もくてき]:
+//: - future sink が action payload を読んだ結果を typed status として[残/のこ]します。
+//: - `NoAction` は silent no-op ではなく、明示的に消費された status です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    EmittedEvent %GuiSfntSimpleGlyphPathSinkEvent
+    Rejected %GuiSfntSimpleGlyphPathSinkRejectReason
+    ClosedContour %GuiSfntSimpleGlyphPathContourClose
+    NoAction
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionApplyStatus GuiSfntSimpleGlyphPathSinkActionApplyStatus \status:
+        *status
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionApplyStatus GuiSfntSimpleGlyphPathSinkActionApplyStatus \status:
+        status
+
+//: GuiSfntSimpleGlyphPathSinkActionApplyState: action 消費数の pure state
+//:
+//: [目的/もくてき]:
+//: - `EmitEvent`、`Reject`、`CloseContour`、`NoAction` の消費数を[数/かぞ]えます。
+//: - この count は diagnostic / contract 用であり、traversal の authority ではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionApplyState:
+    emitted_event_count %i32
+    reject_count %i32
+    close_contour_count %i32
+    no_action_count %i32
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionApplyState:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionApplyState GuiSfntSimpleGlyphPathSinkActionApplyState \state:
+        *state
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionApplyState:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionApplyState GuiSfntSimpleGlyphPathSinkActionApplyState \state:
+        state
+
+//: GuiSfntSimpleGlyphPathSinkActionApplyStep: action 消費後の state と status
+//:
+//: [目的/もくてき]:
+//: - 1 action を消費した後の count state と、その action の status を[束/たば]ねます。
+//: - 次 cursor や checked continuation は F4ac/F4ad の consumer item 側に残します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionApplyStep:
+    state %GuiSfntSimpleGlyphPathSinkActionApplyState
+    status %GuiSfntSimpleGlyphPathSinkActionApplyStatus
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionApplyStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionApplyStep GuiSfntSimpleGlyphPathSinkActionApplyStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionApplyStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionApplyStep GuiSfntSimpleGlyphPathSinkActionApplyStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state: action apply state を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphPathSinkActionApplyState \emitted_event_count\reject_count\close_contour_count\no_action_count:
+    GuiSfntSimpleGlyphPathSinkActionApplyState emitted_event_count reject_count close_contour_count no_action_count
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state_new: 空の action apply state を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_new %fn void GuiSfntSimpleGlyphPathSinkActionApplyState \void:
+    GuiSfntSimpleGlyphPathSinkActionApplyState 0 0 0 0
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count: emitted event count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count %fn &GuiSfntSimpleGlyphPathSinkActionApplyState i32 \state:
+    *field::get_ref state "emitted_event_count"
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count: reject count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count %fn &GuiSfntSimpleGlyphPathSinkActionApplyState i32 \state:
+    *field::get_ref state "reject_count"
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state_close_contour_count: close contour count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_close_contour_count %fn &GuiSfntSimpleGlyphPathSinkActionApplyState i32 \state:
+    *field::get_ref state "close_contour_count"
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count: no action count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count %fn &GuiSfntSimpleGlyphPathSinkActionApplyState i32 \state:
+    *field::get_ref state "no_action_count"
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_step: action apply step を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_step %fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiSfntSimpleGlyphPathSinkActionApplyStatus GuiSfntSimpleGlyphPathSinkActionApplyStep \state\status:
+    GuiSfntSimpleGlyphPathSinkActionApplyStep state status
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_step_state: apply 後 state を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_step_state %fn &GuiSfntSimpleGlyphPathSinkActionApplyStep GuiSfntSimpleGlyphPathSinkActionApplyState \step:
+    *field::get_ref step "state"
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_step_status: apply status を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_step_status %fn &GuiSfntSimpleGlyphPathSinkActionApplyStep GuiSfntSimpleGlyphPathSinkActionApplyStatus \step:
+    *field::get_ref step "status"
+
+//: gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action: 1 action を state に[適用/てきよう]する
+//:
+//: [契約/けいやく]:
+//: - 1 回の適用で増える count は action variant に対応する 1 種類だけです。
+//: - `Reject` は parse error ではなく、`Rejected` status として[返/かえ]します。
+//: - `NoAction` は silent no-op ではなく、`NoAction` status と count 更新として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action %fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiSfntSimpleGlyphPathSinkAction GuiSfntSimpleGlyphPathSinkActionApplyStep \state\action:
+    let emitted_event_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &state
+    let reject_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count &state
+    let close_contour_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_close_contour_count &state
+    let no_action_count %i32 gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &state
+    match action:
+        GuiSfntSimpleGlyphPathSinkAction::EmitEvent event:
+            let next_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state add emitted_event_count 1 reject_count close_contour_count no_action_count
+            gui_sfnt_simple_glyph_path_sink_action_apply_step next_state GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent event
+        GuiSfntSimpleGlyphPathSinkAction::Reject reason:
+            let next_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count add reject_count 1 close_contour_count no_action_count
+            gui_sfnt_simple_glyph_path_sink_action_apply_step next_state GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected reason
+        GuiSfntSimpleGlyphPathSinkAction::CloseContour close:
+            let next_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count reject_count add close_contour_count 1 no_action_count
+            gui_sfnt_simple_glyph_path_sink_action_apply_step next_state GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour close
+        GuiSfntSimpleGlyphPathSinkAction::NoAction:
+            let next_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count reject_count close_contour_count add no_action_count 1
+            gui_sfnt_simple_glyph_path_sink_action_apply_step next_state GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3833,3 +3994,23 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item %fn &ByteBuf 
         Result::Ok next:
             let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
             Result::Ok consumer_item
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next: consumer item を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - consumer item の checked next だけを[読/よ]み、`Continue` の[場合/ばあい]だけ次 consumer item を[読/よ]みます。
+//: - `EndContour` は `Result::Err` ではなく成功値として[返/かえ]します。
+//: - current action payload、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntParseError \bytes\face_index\item\policy:
+    let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+    match next:
+        GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_consumer_item:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
+        GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour

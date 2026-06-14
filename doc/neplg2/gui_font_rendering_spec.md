@@ -1134,6 +1134,66 @@ F4ac は real sink、iterator、contour-wide consumer、callback、mutable sink 
 
 F4ac は F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` helper、`Vec` / `push`、loop、renderer、rasterizer、platform API、host text measurement、font fallback を直接呼ばない。後続の real sink はこの packet を consume するが、この phase では consume policy、sink owner、allocation recovery、contour closure、winding / fill rule をまだ定義しない。
 
+### SFNT simple glyph path sink action consumer item next
+
+F4ad は F4ac の consumer item を 1 段だけ進め、次の consumer item または contour terminal state を返す段階である。これは contour-wide loop、iterator owner、real sink mutation、callback、command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next:
+    bytes &ByteBuf
+    face_index Option i32
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item` を 1 回だけ読む。`Continue next_item` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy` を 1 回だけ呼び、`Result::Ok next_consumer_item` を `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item` として返す。`EndContour` は successful terminal state なので `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour` として返す。
+
+F4ad は current action を読まず、`EmitEvent`、`Reject`、`NoAction`、`CloseContour` payload を解釈しない。F4ad の authority は F4ac packet が保持する checked next state と、次 packet を構成する F4ac helper に限定する。terminal state を `Result::Err`、`Option::None`、silent no-op、fallback branch に変換してはならない。
+
+F4ad は F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` helper、`Vec` / `push`、loop、current point state、renderer、rasterizer、platform API、host text measurement、font fallback を直接呼ばない。後続の contour-wide consumer は F4ad を繰り返し呼べるが、この phase では反復制御、sink owner、allocation recovery、winding / fill rule をまだ定義しない。
+
+### SFNT simple glyph path sink action apply state
+
+F4ae は F4ac/F4ad が運ぶ `GuiSfntSimpleGlyphPathSinkAction` を 1 個だけ消費し、domain status と diagnostic count を返す pure boundary である。これは real sink、contour-wide loop、outline builder、renderer、rasterizer、platform API ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    EmittedEvent GuiSfntSimpleGlyphPathSinkEvent
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    ClosedContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+
+GuiSfntSimpleGlyphPathSinkActionApplyState:
+    emitted_event_count i32
+    reject_count i32
+    close_contour_count i32
+    no_action_count i32
+
+GuiSfntSimpleGlyphPathSinkActionApplyStep:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    status GuiSfntSimpleGlyphPathSinkActionApplyStatus
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    action GuiSfntSimpleGlyphPathSinkAction
+    -> GuiSfntSimpleGlyphPathSinkActionApplyStep
+```
+
+helper は action を `match` し、`EmitEvent` は `EmittedEvent event` と `emitted_event_count + 1`、`Reject` は `Rejected reason` と `reject_count + 1`、`CloseContour` は `ClosedContour close` と `close_contour_count + 1`、`NoAction` は `NoAction` と `no_action_count + 1` を返す。増える count は常に 1 種類だけである。
+
+`Reject` は malformed font を表す parse error ではなく、policy が返した typed domain status なので `Result::Err` に変換しない。`NoAction` は silent no-op ではなく、「明示的に `NoAction` を消費した」status として保持する。
+
+F4ae の count は test / diagnostic / contract 検査用の集計であり、cursor、next state、traversal authority ではない。走査位置と次 item の authority は F4ac/F4ad の consumer item next に残す。F4ae は `Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

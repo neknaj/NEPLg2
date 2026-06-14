@@ -1460,6 +1460,87 @@ F4ac is not a real sink, not an iterator, and not a contour-wide consumer. It do
 
 The helper must call `gui_sfnt_simple_glyph_path_sink_action_step_item_step` exactly once, `gui_sfnt_simple_glyph_path_sink_action_step_action` exactly once, and `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next` exactly once. It must not call F4z action item lookup, F4y action advance lookup, F4v action step lookup, F4x/F4aa start helpers, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, use numeric action indexes, or introduce hidden fallback.
 
+### SFNT simple glyph path sink action consumer item next
+
+F4ad advances a consumer item by one already checked continuation. It is deliberately above F4ac and below any real sink loop. The current item's action payload is not part of the traversal authority; only `item.next` decides whether a next consumer packet exists.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next bytes face_index item policy:
+    next = gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+
+    match next:
+        Continue next_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy:
+                Err error:
+                    Err error
+
+                Ok next_consumer_item:
+                    Ok Continue next_consumer_item
+
+        EndContour:
+            Ok EndContour
+```
+
+`EndContour` remains a successful terminal domain state. Returning `Option::None` would hide the difference between "no value exists" and "the contour stream completed"; returning `Result::Err` would confuse valid terminal state with malformed font data.
+
+F4ad is not a loop and not a sink. It does not consume actions, does not decide whether `Reject` stops rendering, does not turn `NoAction` into skip, and does not map `CloseContour` to a renderer command. Those decisions belong to a later real sink or explicit consumer policy.
+
+The helper must call `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next` exactly once and `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item` exactly once in the `Continue` branch. It must not call F4ab item-next lookup, F4z item lookup, F4y action advance lookup, F4v action step lookup, F4x/F4aa start helpers, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not read `item.action`, match action payload variants, allocate `Vec`, push into a command list, loop over a contour, or introduce hidden fallback.
+
+### SFNT simple glyph path sink action apply state
+
+F4ae is the first boundary that consumes the current action payload. F4ad intentionally keeps traversal authority separate and does not inspect `item.action`; F4ae accepts one `GuiSfntSimpleGlyphPathSinkAction` value and records what was consumed in a pure value state.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionApplyStatus:
+    EmittedEvent GuiSfntSimpleGlyphPathSinkEvent
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    ClosedContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+
+GuiSfntSimpleGlyphPathSinkActionApplyState:
+    emitted_event_count i32
+    reject_count i32
+    close_contour_count i32
+    no_action_count i32
+
+GuiSfntSimpleGlyphPathSinkActionApplyStep:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    status GuiSfntSimpleGlyphPathSinkActionApplyStatus
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action state action:
+    match action:
+        EmitEvent event:
+            state.emitted_event_count += 1
+            status = EmittedEvent event
+
+        Reject reason:
+            state.reject_count += 1
+            status = Rejected reason
+
+        CloseContour close:
+            state.close_contour_count += 1
+            status = ClosedContour close
+
+        NoAction:
+            state.no_action_count += 1
+            status = NoAction
+```
+
+Only one counter changes per call. The counter state is not a cursor, not a continuation token, and not a replacement for F4ac/F4ad checked next state. A future contour-wide consumer may pair F4ad traversal with F4ae consumption, but this phase does not own that loop.
+
+`Rejected` is a domain status, not `Result::Err`. It comes from a sink policy action selected from valid contour data and must stay distinguishable from malformed SFNT bytes. `NoAction` is also a consumed status, not an implicit skip or hidden no-op. Tests must match both variants explicitly.
+
+The implementation must stay allocation-free and side-effect-free. It must not call lookup helpers, parse metadata, allocate an outline, push render commands, inspect current point state, rasterize, call a renderer, call platform APIs, or perform host text measurement.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
