@@ -1149,6 +1149,50 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4z: sfnt simple glyph path sink action step item
+
+目的:
+
+- F4v の `GuiSfntSimpleGlyphPathSinkActionStep` と F4y の checked advance を、後続 sink consumer が読む 1 action 分の typed item として束ねる。
+- 現在 action step と次状態の lookup 結果を同時に渡せるようにしつつ、contour-wide traversal や real sink mutation には進まない。
+- `EndContour` は `GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour` として item 内に残し、`Option::None` や `Result::Err` に変換しない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionStepItem`
+  - `Clone` / `Copy`
+  - `gui_sfnt_simple_glyph_path_sink_action_step_item`
+  - `gui_sfnt_simple_glyph_path_sink_action_step_item_step`
+  - `gui_sfnt_simple_glyph_path_sink_action_step_item_advance`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item`
+- `GuiSfntSimpleGlyphPathSinkActionStepItem` は `step GuiSfntSimpleGlyphPathSinkActionStep` と `advance GuiSfntSimpleGlyphPathSinkActionStepAdvance` を持つ。
+- byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy` を 1 回だけ呼ぶ。
+- `Result::Err error` はそのまま伝播する。
+- `Result::Ok advance` では `let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step` により現在 step を明示コピーし、`GuiSfntSimpleGlyphPathSinkActionStepItem` を返す。
+- helper は action payload を見ない。`Reject`、`NoAction`、`CloseContour` などで traversal を変えない。
+- helper は start cursor/start step helper、F4v action step lookup、sink action lookup、sink step lookup、contour step lookup、F4s/F4t より下位の lookup、metadata parser、`*_with_tables`、`Vec`、`push`、renderer、rasterizer、platform API を直接呼ばない。
+- Source policy で F4z struct、Clone/Copy、constructor/accessor、helper body、F4y helper 1 回、禁止 helper、payload inspection 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` を拡張する。
+  - cheap assertion で synthetic action step と `EndContour` advance から item を作り、accessor で step と terminal advance を確認する。
+  - skipped byte-backed fixture で `start_step -> action_step_item` が `Continue next_step` を持ち、next step cursor が same contour/edge/event の `Tail` であることを確認する。
+
+完了条件:
+
+- action step item は現在 step と checked advance を value として保持する。
+- item helper は F4y helper だけに委譲し、lower lookup や start composition を行わない。
+- `Result` は byte parse/range/table error の伝播にだけ使われ、contour 終端や policy reject を error にしない。
+- hidden fallback、silent no-op、renderer/backend/platform dependency を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

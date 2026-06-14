@@ -1034,6 +1034,27 @@ next = EndContour
 
 F4y は start cursor helper、start step helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。
 
+### SFNT simple glyph path sink action step item
+
+F4z は現在の `GuiSfntSimpleGlyphPathSinkActionStep` と、F4y で byte-backed lookup 済みになった `GuiSfntSimpleGlyphPathSinkActionStepAdvance` を 1 つの typed item に束ねる段階である。これは後続の real sink / contour stream が読む 1 action 分の安定した入力単位であり、loop traversal、real sink mutation、callback、`Vec` command list、full outline allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepItem:
+    step GuiSfntSimpleGlyphPathSinkActionStep
+    advance GuiSfntSimpleGlyphPathSinkActionStepAdvance
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item:
+    bytes &ByteBuf
+    face_index Option i32
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy` にだけ委譲する。`Result::Err` はそのまま伝播し、`Result::Ok advance` なら現在 step を明示コピーして `GuiSfntSimpleGlyphPathSinkActionStepItem` に格納する。
+
+F4z helper は action payload を見ない。`Reject`、`NoAction`、`CloseContour` の処理、start step composition、contour-wide traversal、event emission、sink mutation、allocation failure recovery は後続 phase の責務である。F4z は start cursor/start step helper、F4v action step lookup、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

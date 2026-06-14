@@ -495,6 +495,20 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4y path sink action step advance contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path sink action step item",
+    "GuiSfntSimpleGlyphPathSinkActionStepItem:",
+    "step GuiSfntSimpleGlyphPathSinkActionStep",
+    "advance GuiSfntSimpleGlyphPathSinkActionStepAdvance",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_step_item:",
+    "helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy` にだけ委譲する",
+    "現在 step を明示コピーして",
+    "F4z helper は action payload を見ない",
+    "start step composition",
+    "F4z は start cursor/start step helper",
+]) {
+    assert(spec.includes(fragment), `font spec F4z path sink action step item contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -807,6 +821,22 @@ for (const fragment of [
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4y path sink action step advance contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path sink action step item",
+    "F4z packages the current action step and the checked advance result",
+    "GuiSfntSimpleGlyphPathSinkActionStepItem:",
+    "step GuiSfntSimpleGlyphPathSinkActionStep",
+    "advance GuiSfntSimpleGlyphPathSinkActionStepAdvance",
+    "not a contour iterator",
+    "F4z itself does not interpret the action payload",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index step policy",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy",
+    "stored_step = *step",
+    "must not store a borrowed reference",
+    "F4z must not call start cursor helpers",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4z path sink action step item contract must mention ${fragment}`);
+}
 assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
@@ -1103,6 +1133,23 @@ for (const fragment of [
     "start cursor/start step helper",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4y path sink action step advance contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4z:",
+    "sfnt simple glyph path sink action step item",
+    "GuiSfntSimpleGlyphPathSinkActionStepItem",
+    "gui_sfnt_simple_glyph_path_sink_action_step_item",
+    "gui_sfnt_simple_glyph_path_sink_action_step_item_step",
+    "gui_sfnt_simple_glyph_path_sink_action_step_item_advance",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_step_item",
+    "step GuiSfntSimpleGlyphPathSinkActionStep",
+    "advance GuiSfntSimpleGlyphPathSinkActionStepAdvance",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy",
+    "let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step",
+    "helper は action payload を見ない",
+    "start cursor/start step helper",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4z path sink action step item contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -2523,6 +2570,56 @@ assertNoMatch(
     pathSinkActionStepAdvanceLookup,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F4y action step advance lookup body must preserve NEPL prefix style without parentheses",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathSinkActionStepItem:\s+step\s+%GuiSfntSimpleGlyphPathSinkActionStep\s+advance\s+%GuiSfntSimpleGlyphPathSinkActionStepAdvance/,
+    "alloc/gui/font/sfnt/glyf F4z must expose action-step item as step plus checked advance",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionStepItem:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionStepItem:/,
+    "alloc/gui/font/sfnt/glyf F4z action-step item must implement Clone and Copy",
+);
+for (const pattern of [
+    /pub\s+fn\s+gui_sfnt_simple_glyph_path_sink_action_step_item\s+%fn\s+GuiSfntSimpleGlyphPathSinkActionStep\s+fn\s+GuiSfntSimpleGlyphPathSinkActionStepAdvance\s+GuiSfntSimpleGlyphPathSinkActionStepItem/,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_path_sink_action_step_item_step\s+%fn\s+&GuiSfntSimpleGlyphPathSinkActionStepItem\s+GuiSfntSimpleGlyphPathSinkActionStep/,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_path_sink_action_step_item_advance\s+%fn\s+&GuiSfntSimpleGlyphPathSinkActionStepItem\s+GuiSfntSimpleGlyphPathSinkActionStepAdvance/,
+]) {
+    assertMatch(allocFontSfntGlyfImpl, pattern, "alloc/gui/font/sfnt/glyf F4z must expose constructor and accessors for action-step item");
+}
+assert(
+    guiFontSfntPathTests.includes("action_step_item_ok") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_step_item item_step GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour") &&
+        guiFontSfntPathTests.includes("action_step_item_keeps_step_and_end") &&
+        guiFontSfntPathTests.includes("gui_sfnt_lookup_simple_glyph_path_sink_action_step_item &bytes none &action_step &sink_policy") &&
+        guiFontSfntPathTests.includes("start_item_ok"),
+    "gui font sfnt path doctest must cover F4z synthetic action-step item and byte-backed start-step item",
+);
+const pathSinkActionStepItemLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_sink_action_step_item");
+for (const fragment of [
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy",
+    "Result::Err error",
+    "Result::Ok advance:",
+    "let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step",
+    "gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance",
+    "Result::Ok item",
+]) {
+    assert(pathSinkActionStepItemLookup.includes(fragment), `alloc/gui/font/sfnt/glyf F4z action step item lookup must include ${fragment}`);
+}
+assert(
+    (pathSinkActionStepItemLookup.match(/\bgui_sfnt_lookup_simple_glyph_path_sink_action_step_advance\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4z action step item lookup must call F4y advance lookup exactly once",
+);
+assertNoMatch(
+    pathSinkActionStepItemLookup,
+    /\b(?:Option::None|Option::Some|Vec|push|action_index|command_index|loop_index|current_point|gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor|gui_sfnt_lookup_simple_glyph_path_sink_action_start_step|gui_sfnt_lookup_simple_glyph_path_sink_action\b|gui_sfnt_lookup_simple_glyph_path_sink_action_step\b|gui_sfnt_lookup_simple_glyph_path_sink_step|gui_sfnt_lookup_simple_glyph_path_contour_step|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_|gui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_point|contour_edge|curve_segment|path_command_pair)|gui_sfnt_classify_simple_glyph_curve_segment|gui_sfnt_simple_glyph_path_sink_action_step_action|gui_sfnt_simple_glyph_path_sink_step_action_at|gui_sfnt_simple_glyph_path_sink_step_primary_action|gui_sfnt_simple_glyph_path_sink_step_tail_action|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4z action step item lookup must only compose current step copy and F4y checked advance",
+);
+assertNoMatch(
+    pathSinkActionStepItemLookup,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4z action step item lookup body must preserve NEPL prefix style without parentheses",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
