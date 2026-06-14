@@ -63626,3 +63626,40 @@ MERGE_APPROVED
 
 - PrivateCache / PrivateState effect masking、prechecked artifact 接続、memo_call backend representation は未実装である。
 - generic accepted path を memo_call backend representation へ渡す時には、operation impl table を最終 proof authority と混同せず、aggregate proof / purity / Drop no-escape / backend identity の各境界を個別に検査する必要がある。
+
+## 2026-06-15 selfhost memo_call backend request manifest checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- related_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、DAG、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_request.nepl` を追加し、HIR `SelfhostHirExprPayload::MemoizedFunctionValue` を codegen / backend が読む typed request manifest へ変換する境界を作った。
+- accepted input は `MemoizedFunctionValue` payload だけにし、`FnValue`、`Call`、その他 non-memo payload はそれぞれ typed enum error で fail-closed にした。
+- request acceptance では `DefId` あり、monomorphic、`SelfhostEffectKind::Pure`、`SelfhostHirExpr.ty == identity.function_ty` を再検査する。
+- request record は `request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を authority field とし、`diagnostic_symbol` と `diagnostic_span` は診断用 metadata として明示した。
+- Resource IR、proof store、memo trait proof layer、PrivateCache / PrivateState、prechecked artifact、Wasm / LLVM bytes、lower/hir、checker、compiler-known primitive registry は import していない。
+- `nodesrc/test_selfhost_memo_call_backend_request_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md` と関連 issue に checkpoint を追記した。
+
+### subagent_review
+
+- Tesla review: blocker として、`symbol` / `span` / path / display name を request authority や cache namespace key に入れてはいけないこと、`DefId` / `TypeId` / `Span` は session-local なので永続 cache namespace にしないこと、codegen module で lower/hir や compiler-known registry を import して `memo_call` source identity 判定をやり直さないことが指摘された。
+- Tesla required 対応として、request field を `source_function_def_id` / `source_effect` / `diagnostic_symbol` / `diagnostic_span` に分け、cache namespace を作らず、`expr.ty == identity.function_ty` を再検査し、Resource / proof / PrivateCache / prechecked / backend bytes / source text authority / `"memo_call"` 文字列判定禁止を source policy に固定した。
+- Locke review: blocker なし。Required として、主入口を HIR expression にすること、`FnValue` / `Call` / nonmemo / missing DefId / generic / impure / type mismatch を typed error で分けること、`lower/hir/function_value.nepl` を import しないこと、request-only record に留めることが挙げられた。
+- Locke required 対応として、public main entry を `selfhost_memo_call_backend_request_from_hir_expr_result` にし、identity helper は module 内 helper に留め、payload kind と expression type mismatch を request boundary で検査するようにした。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request.json`
+
+### residual
+
+- sealed memoized backend representation、private cache region allocation、hit / miss logic、identity observation ban は未実装である。
+- PrivateCache / PrivateState effect masking、Resource no-escape proof、MemoKey / MemoValue aggregate proof と backend request の接続、prechecked artifact / `.neplobj` stable key への投影は後続 slice で行う。
+- backend request table の sorted index 化や request stream compaction は、今回固定した typed request manifest contract を保てるため後続最適化として扱う。

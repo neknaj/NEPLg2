@@ -928,6 +928,21 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-15 selfhost memo_call backend request manifest relation
+
+`ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7` 側の selfhost checkpoint として、HIR `MemoizedFunctionValue` を typed backend request manifest へ変換する `stdlib/neplg2/core/codegen/memo_call_backend_request.nepl` を追加した。
+
+この issue で扱う `MemoKey` / `MemoValue` structural proof は、memoized backend request を受け取った後に private cache key/value として利用できる型かを証明する前段である。今回の request manifest は `MemoKey` / `MemoValue` proof acceptance ではなく、`memo_call @func` 由来の function value を通常の `FnValue` と区別して backend materialization 要求へ渡す薄い境界である。
+
+request manifest は `source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を authority とし、`diagnostic_symbol` と `diagnostic_span` を proof / cache namespace / artifact key に使わない。`expr.ty == identity.function_ty`、DefId あり、monomorphic、Pure effect を再検査し、`FnValue`、`Call`、その他 non-memo payload を typed enum error で拒否する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request.json`
+
+この checkpoint 後も、MemoKey / MemoValue aggregate proof を backend request へ接続する boundary、PrivateCache / PrivateState effect masking、sealed backend representation、prechecked artifact への stable key 投影は未実装である。
+
 ## 2026-06-15 selfhost generic materializer connector checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl` を追加し、generic public impl の materializer record、bound solving status、generic instantiation evidence、projection connector evidence、concrete coherence evidence を materializer accepted path へ渡す前に照合する checker-layer connector を固定した。

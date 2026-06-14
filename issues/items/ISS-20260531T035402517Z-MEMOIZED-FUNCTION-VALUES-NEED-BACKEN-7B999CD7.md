@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-01
+updated: 2026-06-15
 target: "nepl-core/src/codegen; nepl-core/src/resource/lower_call.rs; nepl-core/src/resource/effect_check.rs"
 ---
 
@@ -88,3 +88,26 @@ backend が private cache storage を実際に持つ前に、sealed region が p
 function equality/hash/debug observation、cache stats/clear/ref API へ出ないことを Resource IR 側で
 証明する。`MemoizedFunctionValue` を plain function table value と同じ可観測結果へ lower している
 現 checkpoint は、sealed representation 完了ではなく fail-closed な足場として扱う。
+
+## 2026-06-15 selfhost backend request manifest checkpoint
+
+selfhost 側に `stdlib/neplg2/core/codegen/memo_call_backend_request.nepl` を追加し、HIR `MemoizedFunctionValue` を codegen / backend が読む typed request manifest へ変換する境界を作った。
+
+この checkpoint は sealed private cache backend representation そのものではない。private cache allocation、hit / miss、cache region identity、Resource IR `PrivateCache` proof、prechecked artifact、Wasm / LLVM bytes は作らない。目的は、backend 入力で `FnValue` と `MemoizedFunctionValue` を同化しない typed boundary を先に固定することである。
+
+accepted input は `SelfhostHirExprPayload::MemoizedFunctionValue(identity)` だけである。`FnValue` は `FnValueUnsupported`、`Call` は `CallUnsupported`、その他 non-memo payload は enum error で fail-closed にする。identity は `DefId` あり、monomorphic、`SelfhostEffectKind::Pure` でなければならず、`SelfhostHirExpr.ty` と identity の `function_ty` も一致しなければならない。
+
+request は `request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を authority field として保持する。`diagnostic_symbol` と `diagnostic_span` は診断用 metadata であり、accepted 判定、cache namespace、proof authority、永続 artifact key には使わない。`DefId` / `TypeId` / `Span` は session-local なので、`.neplobj` / `.neplproof` / `.neplmeta` の key にするには canonical type key、public surface hash、policy hash、stable source identity へ別途投影する必要がある。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_request.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-request.json`
+
+残件:
+
+- memoized function value の sealed backend representation。
+- PrivateCache / PrivateState region と Resource no-escape proof。
+- function identity equality / hash / raw address / debug observation の禁止。
+- `MemoKey` / `MemoValue` aggregate proof と backend request の接続。
+- `.neplobj` / prechecked artifact 用 stable request key への投影。

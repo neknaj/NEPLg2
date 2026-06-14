@@ -2005,6 +2005,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestr
 
 この checkpoint 後の残件は、PrivateCache / PrivateState effect masking、prechecked artifact 接続、memo_call backend representation である。generic connector lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した transport owner state / generic-aware materializer boundary を保ったまま後から実装できる最適化として扱う。
 
+## 2026-06-15 memo_call backend request manifest checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_request.nepl` を追加し、HIR の `SelfhostHirExprPayload::MemoizedFunctionValue` を codegen / backend が読む typed request manifest へ変換する境界を作った。
+
+この boundary は private cache backend 実装ではない。Wasm / LLVM bytes、cache allocation、hit / miss logic、cache namespace 永続化、PrivateCache / PrivateState Resource proof、prechecked artifact は作らない。今回固定したのは、通常の `FnValue` と `memo_call @func` 由来の `MemoizedFunctionValue` を backend input で同化しないための typed manifest である。
+
+accepted input は `SelfhostHirExprPayload::MemoizedFunctionValue(identity)` だけである。`FnValue` は `FnValueUnsupported`、`Call` は `CallUnsupported`、その他の non-memo payload は `NonMemoizedExpressionUnsupported` または `UnsupportedExprKind` として fail-closed にする。accepted identity は `DefId` を持ち、monomorphic で、`SelfhostEffectKind::Pure` であり、さらに `SelfhostHirExpr.ty` と identity の `function_ty` が一致していなければならない。これにより synthetic HIR が function identity と expression type を不整合にした場合も backend request へ流れない。
+
+request record は `SelfhostMemoCallBackendRequestKind::MemoCall`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を authority field として持つ。`diagnostic_symbol` と `diagnostic_span` は診断 / dump / source map 用 metadata であり、accepted 判定、proof authority、cache namespace、永続 artifact key には使わない。`SelfhostDefId`、`SelfhostTypeId`、`SelfhostSourceSpan` は現時点では session-local identity であるため、将来 `.neplobj` / `.neplproof` / `.neplmeta` へ渡すときは canonical type key、public surface hash、compiler policy hash、stable source identity と組み合わせた別 boundary が必要である。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_request_contract.js` で固定する。Resource IR、proof store、memo trait proof layer、PrivateCache / PrivateState、prechecked artifact、backend bytes、lower/hir、checker、compiler-known primitive registry を import しないこと、`"memo_call"` 文字列や candidate display name で acceptance しないこと、`expr.ty == identity.function_ty` を検査すること、error を enum variant に分けること、diagnostic metadata を identity matcher が読まないこと、行数 / doc comment 長制限を追加しないことを確認する。
+
+この checkpoint 後の残件は、memoized function value の sealed backend representation、private cache region / no-escape proof、identity observation ban、`MemoKey` / `MemoValue` aggregate proof と backend request の接続、prechecked artifact / `.neplobj` への stable key 投影である。backend request table の index 化や request stream compaction は、今回固定した typed manifest contract を保てるため後続最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
