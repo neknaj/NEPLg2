@@ -2035,6 +2035,20 @@ source policy は `nodesrc/test_selfhost_memo_call_backend_request_table_contrac
 
 この checkpoint 後も、sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban、prechecked artifact / `.neplobj` stable key 投影は未実装である。request table の sorted index 化、stream compaction、explicit stack traversal、subtree memoization、stage0 fixture 分割は、今回固定した occurrence identity / fail-closed / owner cleanup contract を保てるため後続最適化として扱う。
 
+## 2026-06-15 memo_call backend preflight checkpoint
+
+`stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl` を追加し、memoized backend request table を caller supplied authority として受け取らず、borrowed `SelfhostHirModule` と root expression から内部で request table を作って再照合する境界を作った。
+
+この checkpoint は sealed backend representation ではなく、sealed backend representation へ進む前の fail-closed preflight である。request table は owner buffer だが `pub struct` なので、後続 stage が request table だけを受け取る API にすると forged table や stale table を accepted path へ流せる。preflight は public entrypoint を `SelfhostHirModule` borrow、root `SelfhostHirExprId`、traversal fuel に限定し、`selfhost_memo_call_backend_request_table_from_hir_root_result` で table を内部構築する。
+
+構築した各 entry は `memoized_expr_id` から HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` を再実行した結果と `request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を照合する。`diagnostic_symbol`、`diagnostic_span`、関数表示名、`"memo_call"` 文字列は authority にしない。recheck で HIR expression が欠落した場合、builder が拒否した場合、typed field が一致しない場合は、それぞれ `RequestExpressionMissing`、`RequestRecheckRejected`、`RequestIdentityMismatch` として分ける。
+
+request が 0 件なら backend materialization は不要なので `SelfhostMemoCallBackendPreflightSummary` を返す。request が 1 件以上ある場合、現段階では `PrivateCacheProofUnavailable(expr_id)` を返して backend accepted path を開かない。subagent review では `ProofDeferred` や public constructible `Ready` evidence を `Ok` の plan table に入れると後続 backend が proof 未接続のまま実行可能 plan と誤認する、という blocker が示された。今回の実装では実行可能 plan table を作らず、non-empty request を typed error として止めることでこの指摘に対応した。
+
+source policy は `nodesrc/test_selfhost_memo_call_backend_preflight_contract.js` で固定する。public API が caller supplied request table を取らないこと、Resource IR / proof store / memo trait proof layer / PrivateCache / PrivateState / prechecked artifact / Wasm / LLVM bytes / artifact IO を import しないこと、HIR payload 再照合、typed field comparison、non-empty request の `PrivateCacheProofUnavailable`、owner table cleanup、`ProofDeferred` / `StableKeyReady` 相当の成功 path 禁止、行数 / doc comment 長制限を追加しないことを確認する。
+
+この checkpoint 後の残件は、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban、MemoKey / MemoValue aggregate proof と backend request の接続、prechecked artifact / `.neplobj` stable request key 投影である。preflight table recheck loop の sorted index 化や stage0 fixture 分割は、今回固定した HIR-root authority と fail-closed proof boundary を保てるため後続最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

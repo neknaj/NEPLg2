@@ -137,3 +137,26 @@ subagent review では、request table entry に occurrence identity が必要�
 - `MemoKey` / `MemoValue` aggregate proof と request stream の接続。
 - `.neplobj` / prechecked artifact 用 stable request key への投影。
 - request table の sorted index 化、stream compaction、explicit stack traversal、stage0 fixture 分割。
+
+## 2026-06-15 selfhost backend preflight checkpoint
+
+selfhost 側に `stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl` を追加し、memoized backend request stream を backend accepted path へ進める前に、HIR root から再収集・再照合する fail-closed preflight 境界を作った。
+
+この checkpoint は sealed private cache backend representation そのものではない。目的は、`SelfhostMemoCallBackendRequestTable` が public struct であることを踏まえ、caller supplied table を authority にする API を作らず、borrowed `SelfhostHirModule` と root `SelfhostHirExprId` から内部で request table を構築して検査することである。
+
+preflight は各 entry の `memoized_expr_id` から HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` を再実行する。再構築 request と table entry は `request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` で照合する。`diagnostic_symbol`、`diagnostic_span`、関数名、`"memo_call"` 文字列は authority にしない。
+
+request が 0 件なら backend materialization は不要として `SelfhostMemoCallBackendPreflightSummary` を返す。request が 1 件以上ある場合、PrivateCache / PrivateState effect masking、Resource no-escape proof、stable artifact key projection が未接続であるため、`PrivateCacheProofUnavailable(expr_id)` で fail-closed にする。subagent review で指摘された `ProofDeferred` を実行可能 plan に混ぜる危険を避けるため、現段階では accepted backend plan table を作らない。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_preflight_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-preflight.json`
+
+残件:
+
+- sealed memoized backend representation。
+- PrivateCache / PrivateState effect masking と Resource no-escape proof。
+- function identity equality / hash / raw address / debug observation の禁止。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / preflight の接続。
+- `.neplobj` / prechecked artifact 用 stable request key への投影。

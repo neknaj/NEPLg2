@@ -63706,3 +63706,44 @@ MERGE_APPROVED
 
 - sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
 - `MemoKey` / `MemoValue` aggregate proof と request stream の接続、prechecked artifact / `.neplobj` stable key 投影は後続 slice で行う。
+
+## 2026-06-15 selfhost memo_call backend preflight checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、DAG、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl` を追加し、caller supplied request table を accepted authority にしない memo_call backend preflight 境界を作った。
+- public entrypoint は borrowed `SelfhostHirModule`、root `SelfhostHirExprId`、traversal fuel を受け取り、内部で `selfhost_memo_call_backend_request_table_from_hir_root_result` を呼ぶ。public API が `SelfhostMemoCallBackendRequestTable` を受け取る経路は作っていない。
+- preflight は各 request entry の `memoized_expr_id` から HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` を再実行して、`request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を再照合する。
+- request 0 件は `SelfhostMemoCallBackendPreflightSummary` として成功する。request 非空は PrivateCache / PrivateState effect masking、Resource no-escape proof、stable artifact key projection がまだ接続されていないため、`PrivateCacheProofUnavailable(expr_id)` で fail-closed にする。
+- `diagnostic_symbol`、`diagnostic_span`、関数名、`"memo_call"` 文字列は authority として使わない。`nodesrc/test_selfhost_memo_call_backend_preflight_contract.js` で source policy を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Popper review: `ProofDeferred` を accepted backend plan に入れる設計は避け、実行不能な診断なら plan と別型に分けるべきと指摘した。request entry の再検査、source/display authority 禁止、Resource / proof / PrivateCache / prechecked / backend bytes import 禁止も required とした。
+- Tesla review: `SelfhostMemoCallBackendRequestTable` だけを authority とすると forged table 経路になるため、HIR root から内部で request table を作るか、各 `memoized_expr_id` を HIR payload と再照合する必要があると指摘した。`ProofDeferred` を `Ok` plan table に入れないこと、stable key ready を現段階で作らないこと、non-empty request は `ProofMissing` / `ProofUnavailable` で fail-closed にすることも required とした。
+- 対応として、実行可能 plan table は作らず、HIR-root public preflight、entry recheck、typed `PrivateCacheProofUnavailable`、source policy regression を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_preflight_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_preflight.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-memo-call-backend-preflight.json`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_table_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_call_backend_request_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 300 秒で timeout した。今回追加した direct policy と関連 request / Zenn / line-count guard は個別に pass しているため、全体 runner の既存長時間化として扱う。
+
+### residual
+
+- sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
+- `MemoKey` / `MemoValue` aggregate proof と preflight の接続、prechecked artifact / `.neplobj` stable request key への投影は後続 slice で行う。
+- preflight recheck loop の sorted index 化、stage0 fixture 分割、full source policy runner の長時間化解消は、今回固定した HIR-root authority / fail-closed proof boundary を保てるため後続最適化として扱う。
