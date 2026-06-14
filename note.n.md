@@ -428,6 +428,37 @@
   - actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
   - method body fact table lookup の sorted index 化は public API / error contract を保ったまま後からできる最適化として扱う。
   - 次 slice: actual expression method body checker または Drop body effect checker / Resource IR escape proof を、同じ typed effect summary / no-escape proof boundary へ接続する。
+# 2026-06-14 Agent2 GUI font sink event slot selection checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI/font docs の fallback 禁止、typed enum、platform 非依存、contract と current implementation の分離を確認し、F4q の sink event kind classification から F5 へ進む前の total slot selection boundary を追加した。
+- 対象 branch: `gui-font-sink-event-selection-20260614`
+- classification: GUI font SFNT simple glyph path sink event slot selection / no numeric index / no contour stream yet
+- 実装内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4r を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkEventSlot::First` / `Second` を追加し、`Clone` / `Copy` を実装した。
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` は slot の明示 `match` で first / second event accessor だけを使う。
+  - `gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at` は slot の明示 `match` で first / second kind accessor だけを使う。
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_kind_at` は `event_at` と F4q の `gui_sfnt_simple_glyph_path_sink_event_kind` だけを合成し、kind classification logic を重複させない。
+  - F4r では numeric `i32` index、`Option` / `Result`、`Vec` / `push`、command count、next pointer、current point state、contour traversal、closure、rasterizer、render2d、platform API、metadata parser、byte-backed lookup を導入していない。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に slot で first / second event と kind を取得する executable doctest assertion を追加した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4r の docs / implementation source policy を追加した。
+- subagent review:
+  - Boyle: 計画レビュー `PLAN_APPROVED`。slot enum は小さすぎる bandaid ではなく、不正 index を型で表現不能にできるため F5 前の妥当な境界と判断された。
+  - Required として `Clone` / `Copy`、明示 `match`、`event_pair_kind_at` の追加、numeric index と `Option` / `Result` / `Vec` / lookup / renderer / platform API の禁止、docs で contour stream ではないことの明記が指摘された。
+  - 実装では required を反映した。
+  - Boyle: 実装レビュー `IMPLEMENTATION_REVIEW_APPROVED`。`event_at` / `kind_pair_kind_at` の明示 `match`、`event_pair_kind_at` の `event_at` + F4q kind helper 合成、Vec / stream state / parser / lookup / rasterizer / platform API へ広げていないことが確認された。
+- 検証:
+  - pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+  - pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1`
+  - pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+  - pass: `node nodesrc/issues.js check --dir issues`
+  - pass: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存の `stdlib declaration doc gaps increased: 153 > 108` warning のみ。
+- residual:
+  - contour traversal、contour closure、off-curve contour-start synthesis、sink ownership、outline/rasterizer、render2d integration は未実装。
+  - `NUL` と `tmp_gui_*.json` は既存の未追跡一時ファイルであり commit 対象外のままにする。
+
 # 2026-06-14 Agent2 Web GUI formal timer request checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI redesign docs の fallback 禁止、typed `Result`、host boundary、契約と現状実装の分離を確認し、stdout timer line protocol に残っていた timer request を Web formal host import の最小 checkpoint へ移した。

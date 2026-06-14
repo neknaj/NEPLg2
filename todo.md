@@ -23,6 +23,7 @@
 - 既存 `platforms/wasix/tui` の raw ANSI / TTY / line buffer API を `platforms/gui/terminal` backend detail へ段階移行する
 - `features/tui` を互換 path として保ちながら、内部を `features/gui` + terminal backend へ差し替える
 - embedded backend の dirty region generic capacity / compression、display adapter、optional `FlushTarget`、polling input を追加して no_alloc contract を実機風に検査する
+- GUI font SFNT F4s として、F4r の slot selection の上に contour traversal / contour closure / off-curve contour-start synthesis / sink ownership boundary を、numeric index fallback や full `Vec` outline allocation に逃げずに設計・実装する
 
 2026-04-26 NEPLg2 Self-host
 

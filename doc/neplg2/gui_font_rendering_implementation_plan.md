@@ -773,6 +773,46 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4r: sfnt simple glyph path sink event indexed selection
+
+目的:
+
+- F4p/F4q の two-slot pair から、後続 sink が first / second event または kind を O(1) に選択できる typed boundary を追加する。
+- numeric index ではなく enum slot を使い、不正 event index を型として表現不能にする。
+- contour traversal、iterator、command count、current point state、rasterizer、render2d command はまだ作らない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkEventSlot`
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_event_at`
+  - `gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at`
+  - `gui_sfnt_simple_glyph_path_sink_event_pair_kind_at`
+- `GuiSfntSimpleGlyphPathSinkEventSlot` は `First` と `Second` だけを持ち、`Clone` / `Copy` を実装する。
+- `event_at` は slot を明示 `match` し、`First` なら `gui_sfnt_simple_glyph_path_sink_event_pair_first_event`、`Second` なら `gui_sfnt_simple_glyph_path_sink_event_pair_second_event` だけを使う。catch-all arm は使わない。
+- `kind_pair_kind_at` は slot を明示 `match` し、kind pair の first / second accessor だけを使う。catch-all arm は使わない。
+- `event_pair_kind_at` は `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` と `gui_sfnt_simple_glyph_path_sink_event_kind` の合成だけで実装する。kind classification logic を重複させない。
+- F4r では `i32` event index、`Option` / `Result`、`Vec`、`push`、command index、count、next、current point state、contour traversal、contour closure、off-curve contour-start synthesis、byte-backed lookup、metadata parser、`*_with_tables` helper、curve classifier、render2d/backend/platform、rasterizer、host text API を使わない。
+- Source policy で slot enum、no numeric index、total selection、event/kind accessor composition、no allocation/stream state、no lookup/parser/helper bypass を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の direct sink event doctest に、`First` / `Second` slot で event と kind を取得できる cheap typed assertion を追加する。
+
+完了条件:
+
+- `First` slot が first event / first kind を返す。
+- `Second` slot が second event / second kind を返す。
+- event pair から single slot kind を読む helper が event selection と F4q kind helper の合成だけで動く。
+- F4r は numeric index、full outline allocation、stream state、rasterizer、platform API、metadata unwrap bypass を使わない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

@@ -698,6 +698,35 @@ gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair pair
 
 F4q の pure helper は total であり、`Option` や `Result` を返さない。valid event は必ず既存 command を包んでいるため kind も必ず決まる。F4q は `Vec GuiSfntSimpleGlyphPathSinkEventKind`、`push`、command index、count、next、current point state、contour closure、winding、fill rule、byte lookup、metadata parser、`*_with_tables` helper、curve classifier、renderer、rasterizer、platform API を導入しない。
 
+### SFNT simple glyph path sink event indexed selection
+
+F4r は F4p/F4q の two-slot pair から、後続 sink が `First` または `Second` を O(1) に選択する境界である。これは numeric index を受け取る iterator ではなく、contour stream、command count、next pointer、current point state、contour closure を定義しない。
+
+```text
+GuiSfntSimpleGlyphPathSinkEventSlot:
+    First
+    Second
+
+gui_sfnt_simple_glyph_path_sink_event_pair_event_at:
+    pair GuiSfntSimpleGlyphPathSinkEventPair
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    -> GuiSfntSimpleGlyphPathSinkEvent
+
+gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at:
+    pair GuiSfntSimpleGlyphPathSinkEventKindPair
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    -> GuiSfntSimpleGlyphPathSinkEventKind
+
+gui_sfnt_simple_glyph_path_sink_event_pair_kind_at:
+    pair GuiSfntSimpleGlyphPathSinkEventPair
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    -> GuiSfntSimpleGlyphPathSinkEventKind
+```
+
+slot は enum なので、存在しない third event や負の index は型として表現できない。したがって F4r の selection helper は `Option` / `Result` を返さない。`event_pair_event_at` は slot を明示的に `match` し、`First` なら first event accessor、`Second` なら second event accessor だけを使う。`kind_pair_kind_at` も kind pair の first / second accessor だけを使う。`event_pair_kind_at` は `event_pair_event_at` と `gui_sfnt_simple_glyph_path_sink_event_kind` の合成だけであり、kind pair を作らずに single slot だけ dispatch したい caller のための total helper である。
+
+F4r は numeric `i32` index、`Option`、`Result`、`Vec`、`push`、command index、count、next、current point state、contour traversal、contour closure、off-curve contour-start synthesis、byte lookup、metadata parser、`*_with_tables` helper、curve classifier、renderer、rasterizer、render2d、platform API を導入しない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
