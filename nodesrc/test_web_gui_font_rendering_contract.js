@@ -107,6 +107,7 @@ const guiFontSfntOutlinePointReadTests = read("tests/stdlib/gui_font_sfnt_glyf_o
 const guiFontSfntOutlinePointStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_step.n.md");
 const guiFontSfntOutlinePointDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md");
 const guiFontSfntOutlinePointStreamItemTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md");
+const guiFontSfntOutlinePointStreamItemStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -128,6 +129,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStepTests,
     guiFontSfntOutlinePointDrainTests,
     guiFontSfntOutlinePointStreamItemTests,
+    guiFontSfntOutlinePointStreamItemStepTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -6375,6 +6377,162 @@ assert(
         guiFontSfntOutlinePointStreamItemTests.includes("point stream item accessor kind") &&
         guiFontSfntOutlinePointStreamItemTests.includes("point stream item accessor point index"),
     "F5q point stream item focused doctest must cover four classifications and accessors",
+);
+const specF5r = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item step"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5r は F5o",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:",
+    "Item",
+    "End",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:",
+    "PointStepInvariantInvalid",
+    "next_cursor.next_point_index == cursor.next_point_index + 1",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step",
+    "constructor だけ",
+]) {
+    assert(specF5r.includes(fragment), `font spec F5r point stream item step must mention ${fragment}`);
+}
+const detailedF5r = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item step boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5r converts",
+    "pure conversion boundary",
+    "next_cursor.next_point_index == cursor.next_point_index + 1",
+    "next_cursor.next_point_index == cursor.next_point_index",
+    "PointStepInvariantInvalid",
+    "may call `gui_sfnt_simple_glyph_outline_point_stream_item` exactly once",
+    "must not call `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` directly",
+]) {
+    assert(detailedF5r.includes(fragment), `font detailed design F5r point stream item step must mention ${fragment}`);
+}
+const implementationPlanF5r = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5r: sfnt simple glyph outline point stream item step from point step"),
+    implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5r: sfnt simple glyph outline point stream item step from point step") + 1) < 0
+        ? implementationPlan.length
+        : implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5r: sfnt simple glyph outline point stream item step from point step") + 1),
+);
+for (const fragment of [
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind",
+    "PointStepInvariantInvalid",
+    "next_cursor.next_point_index == cursor.next_point_index + 1",
+    "F5q constructor",
+    "F5q kind helper 直接呼び出し禁止",
+    "subagent",
+]) {
+    assert(implementationPlanF5r.includes(fragment), `font implementation plan F5r must mention ${fragment}`);
+}
+const pointStreamItemStepTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:",
+    "Item",
+    "End",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemStep:",
+    "status %GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus",
+    "cursor %GuiSfntSimpleGlyphOutlinePointReadCursor",
+    "next_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor",
+    "item %Option GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:",
+    "PointStepInvariantInvalid",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemStepError:",
+    "kind %GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind",
+    "step %GuiSfntSimpleGlyphOutlinePointReadStep",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_status",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_cursor",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_next_cursor",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_item",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_error",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_error_kind",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_error_step",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step",
+]) {
+    assert(pointStreamItemStepTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5r point stream item step API must include ${fragment}`);
+}
+const pointStreamItemStepFromPointStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step");
+for (const fragment of [
+    "let status %GuiSfntSimpleGlyphOutlinePointReadStepStatus gui_sfnt_simple_glyph_outline_point_read_step_status step",
+    "let cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_read_step_cursor step",
+    "let next_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_read_step_next_cursor step",
+    "let cursor_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &cursor",
+    "let next_cursor_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &next_cursor",
+    "GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point:",
+    "Option::None:",
+    "PointStepInvariantInvalid",
+    "Option::Some point:",
+    "let expected_next_index %i32 add cursor_index 1",
+    "if ne next_cursor_index expected_next_index:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item point",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus::Item",
+    "GuiSfntSimpleGlyphOutlinePointReadStepStatus::End:",
+    "Option::Some _point:",
+    "if ne next_cursor_index cursor_index:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus::End",
+]) {
+    assert(pointStreamItemStepFromPointStep.includes(fragment), `alloc/gui/font/sfnt/glyf F5r point stream item step conversion must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemStepFromPointStep,
+    [
+        "GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point:",
+        "Option::None:",
+        "PointStepInvariantInvalid",
+        "Option::Some point:",
+        "let expected_next_index %i32 add cursor_index 1",
+        "if ne next_cursor_index expected_next_index:",
+        "PointStepInvariantInvalid",
+        "gui_sfnt_simple_glyph_outline_point_stream_item point",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus::Item",
+        "GuiSfntSimpleGlyphOutlinePointReadStepStatus::End:",
+        "Option::Some _point:",
+        "PointStepInvariantInvalid",
+        "Option::None:",
+        "if ne next_cursor_index cursor_index:",
+        "PointStepInvariantInvalid",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus::End",
+    ],
+    "alloc/gui/font/sfnt/glyf F5r conversion must validate Point/End invariants before constructing item step",
+);
+assert(
+    (pointStreamItemStepFromPointStep.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5r conversion must call F5q item constructor exactly once",
+);
+assertNoMatch(
+    pointStreamItemStepFromPointStep,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point\b/,
+    "alloc/gui/font/sfnt/glyf F5r conversion must not call F5q kind helper directly",
+);
+assertNoMatch(
+    pointStreamItemStepFromPointStep,
+    /\b(?:ByteBuf|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphOutlineStorage|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_|gui_sfnt_lookup_|vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5r conversion must not use byte/SFNT lookup, storage/drain, Vec, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemStepFromPointStep,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5r conversion body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step point status") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step point next cursor") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step item kind") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step item point index") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step end status") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step end item none") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step point none invariant") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step end some invariant") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step point cursor invariant") &&
+        guiFontSfntOutlinePointStreamItemStepTests.includes("point stream item step end cursor invariant"),
+    "F5r point stream item step focused doctest must cover normal Point, normal End, point/end option invariants, and cursor invariants",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -2527,6 +2527,74 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item step
+
+F5r は F5o の `GuiSfntSimpleGlyphOutlinePointReadStep` を、F5q の `GuiSfntSimpleGlyphOutlinePointStreamItem` を持つ step に変換する pure boundary である。これは byte-backed reader ではなく、full point `Vec`、sink mutation、path command、raster mask、render command でもない。
+
+F5r の成功 status は、item を 1 つ読めた状態と終端を分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:
+    Item
+    End
+
+GuiSfntSimpleGlyphOutlinePointStreamItemStep:
+    status GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    next_cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+`status = Item` の場合、`item` は `Some` であり、`next_cursor.next_point_index == cursor.next_point_index + 1` である。`status = End` の場合、`item` は `None` であり、`next_cursor.next_point_index == cursor.next_point_index` である。
+
+F5r の error は invariant failure だけを表す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:
+    PointStepInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemStepError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind
+    step GuiSfntSimpleGlyphOutlinePointReadStep
+```
+
+変換 helper は次である。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step:
+    GuiSfntSimpleGlyphOutlinePointReadStep
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStepError
+```
+
+変換順序は固定する。
+
+```text
+1. F5o step の status、cursor、next_cursor、point を読む
+2. status = Point かつ point = Some point の場合、next cursor が cursor + 1 であることを検査する
+3. 検査に通った Point だけで F5q constructor を exactly once 呼び、Item step を返す
+4. status = End かつ point = None の場合、next cursor が cursor と同じであることを検査する
+5. 検査に通った End だけを End step として返す
+6. それ以外は PointStepInvariantInvalid を返す
+```
+
+F5r は F5q の `gui_sfnt_simple_glyph_outline_point_stream_item` constructor だけを呼ぶ。`gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` を直接呼んではならない。kind の導出は F5q constructor の契約であり、F5r が再実装しない。
+
+F5r は次を直接呼ばない。
+
+```text
+ByteBuf
+GuiSfntSimpleGlyphPointStream
+GuiSfntSimpleGlyphOutlineStorage
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_
+gui_sfnt_lookup_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
