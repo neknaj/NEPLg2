@@ -1,3 +1,77 @@
+# 2026-06-15 Agent selfhost generic concrete coherence checkpoint
+
+## scope
+
+- 対象 branch: `work/selfhost-substitution-shape-evidence-connector`
+- base: HEAD before checkpoint on current branch
+- head: working tree after generic concrete coherence checkpoint
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- AGENTS.md: `plan.md` 非編集、`note.n.md` 更新、丁寧な日本語 doc comment、root cause 修正、checkpoint commit 前の検証、行数制限 / doc comment 長制限禁止を確認した。
+- Zenn 記事: https://zenn.dev/bem130/articles/1b352797de94e7
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / generic instantiation projection connector evidence を materializer accepted path の前で exact duplicate / concrete collision に限定して照合する checker-layer concrete coherence boundary。
+- classification: selfhost MemoKey / MemoValue generic concrete coherence / materializer pre-acceptance evidence boundary
+- decision: materializer accepted path はまだ開かない。bound solver、projection connector、concrete coherence の各 evidence を束ねる accepted connector が揃うまで、`memo_trait_operation_public_impl_materializer.nepl` は detailed generic record を `GenericImplInstantiationUnsupported` のまま拒否する。
+- zenn_policy: `Result` / `Option` / enum error、match による網羅性、pure core と host / CLI boundary の分離、checker / HIR / Resource IR / backend authority 分離、探索範囲と cache key の明示、事前検査済み artifact 境界、丁寧な doc comment、契約と現状の分離、prototype でも公開境界を雑にしない方針を確認した。
+
+## policy/spec
+
+- `generic_concrete_coherence` は full generic coherence solver ではない。exact duplicate と concrete target / trait application collision だけを fail-closed に検査する。
+- accepted authority は connector evidence と typed existing record table に限定する。source text、span、display name、module path、public surface hash、HIR、Resource IR、backend、proof store、PrivateCache / PrivateState、prechecked artifact は authority にしない。
+- connector evidence は public constructible なので、schema、root hash placeholder、canonical fingerprint / payload schema と hash、final shape hash を coherence 側でも再検査する。
+- materializer accepted path はこの slice では開かない。`GenericImplInstantiationUnsupported` は維持し、次 slice で bound solver / connector / concrete coherence evidence を同時要求する accepted connector を作る。
+- 現状の O(n) table scan は semantic contract を固定するための単純実装であり、sorted index / bucket / merge cursor は contract-preserving optimization として後続で行える。
+
+## implementation/test
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_concrete_coherence.nepl` を追加した。
+- `SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable` は owner `Vec` table とし、shallow `Clone` / `Copy` を提供しない。
+- `SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` は declaration ordinal、instantiation shape hash、connector shape hash、target / trait application それぞれの canonical fingerprint / canonical payload hash / final shape hash、coherence root hash を保持する。
+- `selfhost_memo_trait_public_impl_generic_concrete_coherence_result` は connector evidence の schema、connector / instantiation / substitution / projection hash、final shape、canonical fingerprint / payload schema と hash を再検査してから、既存 table を O(n) で走査する。
+- 同じ declaration / connector / canonical material の再投入は `DuplicateExactMatch`、異なる declaration または異なる connector が同じ concrete target / trait application key へ到達する場合は `OverlapUnsupported` として fail-closed にする。
+- `selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version` を public にし、downstream exact schema check が nonzero check だけに退行しないようにした。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js` を追加し、source policy regression runner へ登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、generic concrete coherence 接続済みと、残る materializer accepted path connector / PrivateCache / prechecked artifact を分けて記録した。
+
+## subagent_review
+
+- subagent_review_ids: `019ebb0d-bd4f-7851-91de-50dd4d16c88b`; `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`
+- subagent_review_count: 2
+- Tesla と Popper に設計レビューを依頼した。
+- Popper は Blocker として、`generic coherence` という名前では full overlap / unification 済みと誤読できる点を指摘した。対応として file / source policy / type / function 名を `generic_concrete_coherence` / `GenericConcreteCoherence` に変更し、doc comment と設計文書に full overlap solver ではなく exact duplicate / concrete collision only であることを明記した。
+- Tesla は Required として、materializer accepted path を開かないこと、HIR / Resource / backend / proof store / private effect / prechecked artifact を import しないこと、connector evidence と canonical materialを typed authority にすること、duplicate / collision を enum error で分けることを求めた。今回の source policy と module doc comment はこの条件を固定する。
+- Non-blocker: coherence table の sorted index 化、trait-id bucket 化、merge cursor、stage0 fixture 分割は、canonical key / typed error / materializer fail-closed contract を保てるため後続最適化として扱う。
+- Question: generic blanket impl / where 条件 / specialization / full unification をどの solver stage で扱うかは後続設計対象であり、今回の concrete-only boundary では success にしない。
+- Approve: subagent の Blocker / Required を反映し、generic concrete coherence へ名称と contract を狭めた。materializer accepted path は開いていないため、この checkpoint の merge は可能と判断する。
+- subagent review で要求された full overlap / blanket impl / where 条件 / unification は後続 solver の責務として残し、今回の module は ambiguous な可能性を success にしない concrete-only boundary とした。
+
+## source_policy
+
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js` は pass。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js` は pass。
+- `nodesrc/test_source_policy_no_line_count_limits.js` は pass。
+- source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、materializer fail-closed 維持、forbidden layer import 禁止、connector schema exact match、canonical schema exact match、duplicate / overlap payload equality、owner table の shallow Clone / Copy 禁止、行数 / doc comment 長制限禁止を固定する。
+
+## verify
+
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- 検証済み: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_concrete_coherence.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-concrete-coherence.json`
+- 検証済み: `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- existing_warnings: git diff --check reports LF/CRLF working-copy warnings only
+- 既存 warning: `git diff --check` は LF/CRLF working-copy warning を表示するが、差分由来の trailing whitespace error はない。
+- 今回差分由来 warning: なし。
+
+## residual
+
+- residual_risk: none
+- unexecuted_verification: none
+- safety_state: materializer accepted path はまだ開いていないため、generic impl は detailed generic record のまま operation candidate 化されない。
+- 次 slice: generic instantiation / bound solver / projection connector / concrete coherence evidence を同時要求する materializer accepted path connector を追加し、その後に materializer の `GenericImplInstantiationUnsupported` を限定解除する。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- full generic overlap / blanket impl / where 条件 / specialization / unification solver は未実装であり、今回の concrete collision checker を success へ拡張せず別 boundary として設計する。
+- coherence table の sorted index 化、trait-id bucket 化、merge cursor、stage0 fixture 分割は、今回固定した canonical key / typed error / materializer fail-closed contract を保てるため後続最適化として扱う。
+
 # 2026-06-15 Agent selfhost generic instantiation projection connector checkpoint
 
 ## scope

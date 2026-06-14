@@ -217,7 +217,7 @@ pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connecto
     SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput expected_target expected_trait substitution_evidence instantiation_evidence projection_evidence
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version: connector evidence root の schema version
-fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version %fn void i32 \void:
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version %fn void i32 \void:
     1
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2: connector-local hash material を[畳/たた]み[込/こ]む fixed combiner

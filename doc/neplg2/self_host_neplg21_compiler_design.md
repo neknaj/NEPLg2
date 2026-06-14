@@ -1953,6 +1953,22 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instanti
 
 stage0 doctest は、意味論上の代表 smoke を持つ。ただし現行 selfhost owner-bearing fixture は Resource static check の探索時間が支配的で、60 秒 default timeout では compile timeout になり得る。これは connector の意味論を緩める理由にはせず、source policy と timeout-nonfatal focused run で semantic boundary を確認し、Resource static check の探索範囲削減は `ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E` 側の性能残件として扱う。
 
+## 2026-06-15 MemoKey / MemoValue generic concrete coherence checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_concrete_coherence.nepl` を追加し、generic instantiation projection connector evidence を materializer accepted path へ渡す前に、同じ concrete target / trait application へ複数の generic impl が到達していないことを検査する checker-layer 境界を作った。
+
+この coherence boundary は materializer accepted path ではない。入力は `SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence` と、caller が owner として持つ `SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable` に限定する。HIR、Resource IR、backend artifact、proof store、public impl materializer、PrivateCache / PrivateState、prechecked artifact は import せず、generic detailed record を operation candidate に変換しない。
+
+coherence key は、target の canonical fingerprint / canonical payload hash / final shape と、trait application の canonical fingerprint / canonical payload hash / final shape の組である。`connector_shape_hash` だけ、final shape だけ、あるいは表示名や source text を authority にしない。connector evidence は public struct として構築可能なので、schema、connector hash、instantiation / substitution / projection / final shape、canonical fingerprint / payload schema と hash をこの module でも再検査する。`selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version` は downstream exact schema check のため public にした。
+
+現段階の coherence checker は full overlap solver ではない。同じ declaration / connector / canonical material が再投入された場合は `DuplicateExactMatch` として拒否し、異なる declaration または異なる connector が同じ concrete target / trait application key に到達した場合は `OverlapUnsupported` として fail-closed にする。generic parameter を含む blanket impl 同士の包含関係や unification は後続 solver の責務として残す。
+
+record table は owner `Vec` を持つため shallow `Clone` / `Copy` を提供しない。record と evidence は fixed-size の schema 付き summary なので Copy 可能である。現状の table scan は O(n) 時間・O(1) 追加空間であり、sorted index、bucket 化、merge cursor は今回固定した canonical key / typed error / materializer fail-closed contract を保って後から置換できる最適化として扱う。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js` で固定する。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、materializer fail-closed 維持、connector schema exact match、canonical material schema exact match、duplicate / overlap の payload-aware error equality、owner table の shallow Clone / Copy 禁止、行数 / doc comment 長制限禁止を確認する。
+
+stage0 doctest は empty table accepted、connector schema placeholder、target final shape placeholder、exact duplicate、concrete overlap を確認する。focused doctest は pass しており、既存の connector / source policy も維持されている。この checkpoint 後も、generic instantiation / bound solver / projection connector / coherence evidence を materializer accepted path へ束ねる boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

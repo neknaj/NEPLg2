@@ -380,6 +380,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instanti
 - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
 - timeout_nonfatal: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl -o tmp/selfhost_instantiation_projection_connector_doctest_timeout_nonfatal.json --no-tree -j 1 --assert-io --timeout-nonfatal` は structured compile timeout のみで exit 0。semantic source policy は pass 済みであり、Resource static check の探索時間は `ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E` の性能残件として扱う。
 
+## 2026-06-15 selfhost generic concrete coherence checkpoint
+
+`memo_trait_public_impl_generic_concrete_coherence.nepl` を追加し、generic instantiation projection connector evidence を materializer accepted path へ渡す前に、既存 accepted generic impl record table と concrete coherence key を照合する checker-layer boundary を作った。
+
+この checkpoint は materializer accepted path ではない。入力は `SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence` と `SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable` に限定する。HIR、Resource IR、backend artifact、proof store、public impl materializer、PrivateCache / PrivateState、prechecked artifact は import せず、materializer は引き続き `GenericImplInstantiationUnsupported` で detailed generic record を拒否する。
+
+coherence key は target canonical fingerprint / payload hash / final shape と trait application canonical fingerprint / payload hash / final shape の組である。connector evidence は public constructible なので、schema、connector / instantiation / substitution / projection hash、final shape hash、canonical fingerprint / payload schema と hash を coherence 側でも再検査する。downstream exact schema check のため、connector schema version helper を public にした。
+
+現段階では full overlap / unification solver は作らない。同じ declaration / connector / canonical key が再投入された場合は `DuplicateExactMatch`、異なる declaration または異なる connector が同じ concrete key に到達した場合は `OverlapUnsupported` として fail-closed にする。これは accepted path を緩めるための暫定設計ではなく、generic blanket impl の包含関係や unification を実装する前に concrete collision を受理しないための typed boundary である。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_concrete_coherence.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-concrete-coherence.json`
+
+この checkpoint 後の残件は、generic instantiation / bound solver / projection connector / coherence evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。coherence table の sorted index 化、trait-id bucket 化、merge cursor、stage0 fixture 分割は、今回固定した canonical key / typed error / materializer fail-closed contract を保てるため後からできる最適化として扱う。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
