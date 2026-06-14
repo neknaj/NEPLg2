@@ -2182,6 +2182,7 @@ git diff --check
   - F5h PointX reader bridge read failure: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_read_failure.n.md`
   - F5h PointX reader bridge push failure: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_push_failure.n.md`
   - F5i/F5j PointY: `tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md`
+  - F5k coordinate read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md`
 
 ## Phase F5b: sfnt simple glyph outline scalar storage owner
 
@@ -2575,5 +2576,54 @@ git diff --check
 node nodesrc/test_web_gui_font_rendering_contract.js
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_y_f5j.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5j.json -j 1
+git diff --check
+```
+
+## Phase F5k: sfnt simple glyph outline point coordinate read
+
+目的:
+
+- F5b-F5j で population 済みの `PointX` / `PointY` scalar slot から、1 logical point の coordinate pair を read-only に取得する。
+- `GuiSfntSimpleGlyphPoint` の `on_curve` / `end_of_contour` はまだ F5 storage に存在しないため、この phase では full point value を返さない。
+- storage readiness、slot boundary、typed error を固定し、fallback coordinate、byte decode 再実行、renderer/rasterizer/platform 依存へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5k docs、private scalar getter、coordinate value、typed read error、validation order、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointCoordinate`
+  - `GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointCoordinateReadError`
+  - private `gui_sfnt_simple_glyph_outline_storage_scalar_slot_get`
+  - `gui_sfnt_simple_glyph_outline_storage_read_point_coordinate`
+- raw scalar slot getter は private にし、`vec::get` をここへ閉じ込める。unchecked public slot accessor は作らない。
+- public read helper は storage owner を borrow し、storage を mutate しない。
+- validation は次の順序で行う。
+  - capacity shape
+  - scalar slot count `Fits`
+  - `storage.scalar_slot_count == expected`
+  - `scalar_slots_cap == storage.scalar_slot_count`
+  - `0 <= point_index < point_count`
+  - `scalar_slots_len > y_slot_index`
+  - private getter で x slot と y slot を読む
+- `scalar_slots_len <= y_slot_index` は `CoordinateNotReady` として扱う。`scalar_slots_len > y_slot_index` で readiness が確認された後に private getter が `None` を返した場合は `ScalarSlotMissing` とする。
+- `GuiSfntSimpleGlyphOutlinePointCoordinate` と read error は value-only なので `Clone` / `Copy` を実装してよい。
+- doctest は既存 owner-preserving push API で endpoint、PointX、PointY を順に埋め、success、out-of-range、missing PointY readiness を検査する。
+- 実装前 plan review と実装後 implementation review を subagent で受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- 2 contours / 4 points の storage に endpoint 2 slots、PointX 4 slots、PointY 4 slots を追加した後、point 0 と point 1 の coordinate pair を読める。
+- `point_index == point_count` は `PointIndexOutOfRange` になる。
+- endpoint と PointX までしか埋まっていない storage では `CoordinateNotReady` になり、zero coordinate や byte decode fallback を返さない。
+- source policy が F5k docs、value/error 型、private `vec::get` helper、public helper validation order、direct `vec::` 禁止、byte/full point/endpoint/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md --no-tree -o tmp_gui_font_outline_point_coordinate_f5k.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5k.json -j 1
 git diff --check
 ```

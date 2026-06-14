@@ -2583,6 +2583,76 @@ render / raster / platform / host APIs
 direct Vec APIs
 ```
 
+## SFNT simple glyph outline point coordinate read boundary
+
+F5k projects already-populated outline storage into a typed coordinate pair. It is intentionally read-only: the storage owner is borrowed, no slot is appended, and no byte stream or renderer boundary is crossed.
+
+The value returned by this phase is not `GuiSfntSimpleGlyphPoint`. The storage built by F5b-F5j contains endpoint scalar values and x/y coordinates, but it does not yet contain the on-curve flag or the per-point end-of-contour bit. Returning a full point value would require invented defaults, which is fallback behavior. F5k therefore introduces a smaller value:
+
+```text
+GuiSfntSimpleGlyphOutlinePointCoordinate:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+```
+
+The read error is value-only and carries enough storage context for diagnostics without owning the storage:
+
+```text
+GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PointIndexOutOfRange
+    CoordinateNotReady
+    ScalarSlotMissing
+
+GuiSfntSimpleGlyphOutlinePointCoordinateReadError:
+    kind GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    point_index i32
+    scalar_slot_count i32
+    scalar_slots_len i32
+    scalar_slots_cap i32
+```
+
+The coordinate indexes are derived from the same region layout used by F5d:
+
+```text
+x_slot_index = contour_count + point_index
+y_slot_index = contour_count + point_count + point_index
+```
+
+Validation must be ordered so untrusted capacity and partial storage never flow into unchecked slot reads:
+
+```text
+capacity shape
+scalar slot count Fits
+storage scalar_slot_count == expected
+scalar_slots_cap == scalar_slot_count
+point_index range
+scalar_slots_len > y_slot_index
+private scalar slot get for x and y
+```
+
+Because the regions are populated sequentially, `scalar_slots_len > y_slot_index` proves that the matching x slot is also expected to be present. If `vec::get` returns `None` after this readiness check, the storage has an internal structural mismatch and the helper returns `ScalarSlotMissing`. It must not infer a zero coordinate or re-run byte decoding.
+
+Only the private scalar getter may call `vec::get`. The public read helper must not call:
+
+```text
+direct Vec APIs
+byte readers
+GuiSfntSimpleGlyphPointStream
+gui_sfnt_glyf_decode_x_delta
+gui_sfnt_glyf_decode_y_delta
+full point decode helpers
+endpoint readers
+contour span helpers
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

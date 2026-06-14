@@ -2084,6 +2084,64 @@ GuiSfntSimpleGlyphPointYReadPushError:
 
 F5j の y-only reader helper は bounded flag reads と `gui_sfnt_glyf_decode_y_delta` だけを使う。`gui_sfnt_glyf_decode_x_delta`、full point decode state、endpoint read、contour span read、path/raster/render/platform/host API は使わない。
 
+### SFNT simple glyph outline point coordinate read
+
+F5k は F5 storage に既に追加済みの `PointX` / `PointY` scalar slot から、1 logical point の coordinate pair だけを読み出す read-only boundary である。ここでは byte stream decode、flag decode、endpoint array、contour span、on-curve 判定、end-of-contour 判定、edge/path、rasterizer、renderer、platform API、host text API へ進まない。
+
+F5k は `GuiSfntSimpleGlyphPoint` を返さない。`GuiSfntSimpleGlyphPoint` は `on_curve` と `end_of_contour` を含む full point value であり、F5 storage にはその情報がまだ保持されていないためである。F5k は次の value-only 型を返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointCoordinate:
+    glyph GuiGlyphId
+    point_index i32
+    x i32
+    y i32
+```
+
+read failure は typed enum と value-only context で返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PointIndexOutOfRange
+    CoordinateNotReady
+    ScalarSlotMissing
+
+GuiSfntSimpleGlyphOutlinePointCoordinateReadError:
+    kind GuiSfntSimpleGlyphOutlinePointCoordinateReadErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    point_index i32
+    scalar_slot_count i32
+    scalar_slots_len i32
+    scalar_slots_cap i32
+```
+
+slot order は F5d/F5i と同じ固定 layout を使う。
+
+```text
+ContourEndpoint [0, contour_count)
+PointX          [contour_count, contour_count + point_count)
+PointY          [contour_count + point_count, contour_count + point_count + point_count)
+```
+
+`gui_sfnt_simple_glyph_outline_storage_read_point_coordinate` は次の順序を守る。
+
+```text
+1. storage capacity shape を検査する
+2. expected scalar slot count を計算する
+3. storage.scalar_slot_count == expected を検査する
+4. scalar_slots_cap == storage.scalar_slot_count を検査する
+5. point_index が 0 <= point_index < point_count であることを検査する
+6. y slot index が scalar_slots_len 内にあることを検査する
+7. private scalar slot getter で x slot と y slot を読む
+8. Some x / Some y なら coordinate value を返す
+9. readiness 検査後に None が返った場合は ScalarSlotMissing を返す
+```
+
+F5k の raw scalar slot getter は private helper であり、unchecked public accessor として公開しない。`vec::get` を使う場所はこの private helper に閉じ込める。`CoordinateNotReady` は storage がまだ required y slot まで埋まっていない状態を表し、fallback 値や zero coordinate を返してはいけない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
