@@ -3182,3 +3182,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5u.json -j 1
 git diff --check
 ```
+
+## Phase F5v: sfnt simple glyph outline point stream item collection contour span
+
+目的:
+
+- F5u/F5t の classified item collection owner から、byte-backed F4 helper に戻らず `GuiSfntSimpleGlyphContourSpan` を導出する。
+- partial collection、forged item、endpoint topology mismatch を typed `Result` で拒否する。
+- collection-backed contour point / edge / path population の前段として、contour span の authority を collection に固定する。
+- path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。`observed_contour_count == contour_count` だけでは endpoint `[1, 2]`、`point_count = 4` のような forged topology で最終 point がどの contour にも属さないため、最終 endpoint が `point_count - 1` であることを検査するよう指摘された。
+- 計画を修正し、`FinalContourEndMismatch`、`last_endpoint_index`、最終 endpoint check、endpoint `[1, 2]` forged topology doctest、source policy の ordered check を追加した。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。F5v は collection read helper だけで item を読み、byte-backed contour helper、direct `Vec`、path/render/raster/platform/host API へ進まない方針で実装を開始する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError`
+  - error constructor/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span`
+- F5v は `capacity shape`、`len == item_count`、`cap == point_count`、`item_count == point_count`、`contour_index` range を scan 前に検査する。
+- F5v は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item` だけで item を読み、各 item の glyph、point index、kind を再検査する。
+- F5v は requested contour の endpoint を見つけても scan を止めず、全 item scan 後に `target_found`、`observed_contour_count == contour_count`、`last_endpoint_index == point_count - 1`、derived span invariant を順に検査する。
+- doctest は two-contour success、partial collection rejection、contour index out of range、extra endpoint count mismatch、final endpoint mismatch、missing contour end を検査する。通常の public collection owner では `collection_read_item` の lower `ItemStorageMissing` は作れないため、`ItemReadFailed` branch は source policy で固定する。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5v は byte-backed `gui_sfnt_lookup_simple_glyph_contour_span` / `gui_sfnt_glyf_simple_contour_span_with_tables` / `gui_sfnt_glyf_read_contour_endpoint` を呼ばない。
+- F5v は `collection_read_item` を通して item を読み、direct `vec::` を使わない。
+- F5v は partial collection を `CollectionIncomplete` として拒否し、span を返さない。
+- F5v は item glyph/index/kind を再検査し、forged item を typed error にする。
+- F5v は endpoint count と final endpoint を両方検査し、`observed_contour_count == contour_count` だけで成功しない。
+- source policy が F5v docs、public API、collection read helper、item glyph/index/kind validation、target_found、contour count、final endpoint、span invariant、禁止 API、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_span_f5v.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_drain_f5v_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5v_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5v.json -j 1
+git diff --check
+```

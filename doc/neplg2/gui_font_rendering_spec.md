@@ -2875,6 +2875,97 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection contour span
+
+F5v は F5u/F5t の classified item collection owner から contour span を導出する境界である。これは byte-backed F4 contour span lookup への fallback ではない。collection に格納済みの item を authority とし、partial collection、forged item、endpoint topology mismatch を typed error として返す。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    -> Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+```
+
+success は既存 `GuiSfntSimpleGlyphContourSpan` を返す。
+
+```text
+GuiSfntSimpleGlyphContourSpan:
+    glyph GuiGlyphId
+    contour_index i32
+    start_point_index i32
+    end_point_index i32
+    point_count i32
+```
+
+F5v は collection を借用して読むだけなので、collection owner を消費しない。error は owner recovery payload ではないが、診断に必要な typed context を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    CollectionIncomplete
+    ContourIndexOutOfRange
+    ItemReadFailed
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    MissingContourEnd
+    ContourCountMismatch
+    FinalContourEndMismatch
+    ContourSpanInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    contour_index i32
+    item_index i32
+    observed_contour_count i32
+    last_endpoint_index i32
+    item_count i32
+    items_len i32
+    items_cap i32
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+F5v は次の順序を守る。
+
+```text
+1. capacity shape を検査する
+2. items.len == item_count を検査する
+3. items.cap == capacity.point_count を検査する
+4. item_count == capacity.point_count を検査する
+5. contour_index range を検査する
+6. index 0 から point_count - 1 まで全 item を collection_read_item で読む
+7. 各 item の glyph、point index、kind を再検査する
+8. EndOnCurve / EndOffCurve だけを contour endpoint として数える
+9. requested contour の start/end を記録しても scan は止めない
+10. scan 後に requested contour が見つかったことを検査する
+11. observed_contour_count == capacity.contour_count を検査する
+12. last_endpoint_index == capacity.point_count - 1 を検査する
+13. start/end から point_count を導出し、span invariant を検査してから success を返す
+```
+
+`observed_contour_count == capacity.contour_count` だけでは不十分である。例えば `contour_count = 2`、`point_count = 4`、endpoint が `[1, 2]` の forged collection は observed count が 2 でも point 3 がどの contour にも属さない。したがって F5v は最終 endpoint が必ず `point_count - 1` であることを `FinalContourEndMismatch` として検査する。
+
+F5v は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_glyf_read_contour_endpoint
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

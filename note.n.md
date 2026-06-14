@@ -1,3 +1,45 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection contour span checkpoint
+
+## scope
+
+- branch: `gui-font-outline-contour-collection-boundary-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5v の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection contour span の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5v の collection-backed contour topology lookup、full collection validation、final endpoint invariant、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5v の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` と accessors を追加した。
+- F5v は F5u/F5t が作った classified item collection だけを authority とし、byte-backed F4/F5 point reader、path/raster/render/platform/host API へ戻らない。
+- F5v は collection length / capacity / item count、contour index、各 item の glyph / point index / kind、target contour endpoint、observed contour count、最終 endpoint が `point_count - 1` であることを typed error として検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md` に 2 contour success、partial collection reject、contour index out of range、contour count mismatch、final endpoint mismatch、missing contour end の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5v source policy を追加し、docs/API/full collection validation/final endpoint invariant/F5t collection read exact path/byte-backed lookup 禁止/Vec・path・render・raster・platform・host API 禁止/括弧なし prefix style を検査する。
+
+## subagent_review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。target contour だけを返す設計では endpoints `[1, 2]` かつ `point_count = 4` のように最終点がどの contour にも属さない forged topology を見逃すため、scan 後に最終 contour endpoint が `point_count - 1` と一致することを検査する必要があると指摘された。
+- 計画を修正し、`FinalContourEndMismatch`、`last_endpoint_index` payload、全 item scan 後の final endpoint invariant、focused doctest と source policy を追加した。
+- Tesla follow-up plan review は `PLAN_APPROVED`。collection-backed topology lookup と final endpoint invariant を固定した上で実装開始が承認された。
+- Tesla implementation review は `REVIEW_APPROVED`。final endpoint invariant、owner-preserving/no-fallback boundary、source policy、focused doctest、`note.n.md` / `todo.md` の整合性に blocker はないと判断された。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_span_f5v_rerun.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='240000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_drain_f5v_rerun2.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5v_rerun.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5v_rerun.json -j 1`
+- pass: `git diff --check`
+- note: F5u 回帰は 180 秒設定の並列実行で一度 timeout したが、240 秒設定の isolated rerun で pass した。重い doctest の境界事象であり、F5v の semantic regression ではない。
+
+## residual
+
+- F5v は collection-backed contour span lookup までであり、contour point iterator、edge extraction、path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection drain checkpoint
 
 ## scope
