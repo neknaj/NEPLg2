@@ -862,6 +862,70 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4t: sfnt simple glyph allocation-free path sink ownership boundary
+
+目的:
+
+- F4s の `GuiSfntSimpleGlyphPathContourStep` を、real sink trait へ進む前の allocation-free sink decision に写す。
+- off-curve contour-start synthesis と contour closure insertion を、別々の typed policy として分離する。
+- policy reject を `GuiSfntParseError` に混ぜず、success payload 内の enum decision として保持する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathOffCurveStartPolicy`
+  - `GuiSfntSimpleGlyphPathClosurePolicy`
+  - `GuiSfntSimpleGlyphPathSinkPolicy`
+  - `GuiSfntSimpleGlyphPathSinkRejectReason`
+  - `GuiSfntSimpleGlyphPathSinkPrimaryAction`
+  - `GuiSfntSimpleGlyphPathContourClose`
+  - `GuiSfntSimpleGlyphPathSinkTailAction`
+  - `GuiSfntSimpleGlyphPathSinkStep`
+  - constructor / accessor
+  - `gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step`
+  - `gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step`
+  - `gui_sfnt_simple_glyph_path_sink_step_from_contour_step`
+  - public `gui_sfnt_lookup_simple_glyph_path_sink_step`
+- `GuiSfntSimpleGlyphPathOffCurveStartPolicy` は `KeepTypedSkip` / `RejectUnsupported` を持つ。
+- `GuiSfntSimpleGlyphPathClosurePolicy` は `KeepOpen` / `EmitCloseAfterFinalEvent` を持つ。
+- `RejectUnsupported` は `SkipNoSegment OffCurveStart` だけを `Reject UnsupportedOffCurveStart` に写す。`SinglePointContour` と `MissingLookahead` は emit する。
+- `GuiSfntSimpleGlyphPathSinkPrimaryAction` は `EmitEvent` / `Reject` を持ち、reject reason は dedicated enum にする。
+- `GuiSfntSimpleGlyphPathSinkTailAction` は `NoTailAction` / `CloseContour` を持つ。
+- tail action は次の規則にする。
+  - `Reject` なら常に `NoTailAction`
+  - `Continue` なら常に `NoTailAction`
+  - `EndContour` かつ `KeepOpen` なら `NoTailAction`
+  - `EndContour` かつ `EmitCloseAfterFinalEvent` かつ primary が emit なら `CloseContour`
+- `CloseContour` は source cursor の glyph / contour index だけを持つ marker とし、renderer command にはしない。
+- byte-backed public helper は `gui_sfnt_lookup_simple_glyph_path_contour_step` を呼び、成功値を pure sink-step helper に渡すだけにする。
+- F4t は `Vec`、`push`、command list、full outline allocation、rasterizer、render2d/backend/platform、font fallback、metadata unwrap bypass を使わない。
+- Source policy で F4t の type set、reject/close 排他、OffCurveStart 限定、EndContour 限定 close、F4s lookup 委譲を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に cheap typed assertion を追加する。
+  - keep policy は off-curve skip を emit し、final step だけ close marker を出す。
+  - reject policy は off-curve start を reject にし、final step でも close marker を出さない。
+  - `Continue` step は close marker を出さない。
+  - `RejectUnsupported` でも `SinglePointContour` は emit される。
+- F4s の skipped public lookup fixture に `gui_sfnt_lookup_simple_glyph_path_sink_step` の call を含め、source policy で byte-backed helper の存在を固定する。
+
+完了条件:
+
+- policy、primary action、tail action、sink step はすべて enum/struct payload として表現される。
+- policy reject は `Result::Err` ではなく `GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject` になる。
+- reject と close contour は同時に発生しない。
+- close contour は primary が emit で、かつ `step.next = EndContour` の場合だけ発生し得る。
+- off-curve policy は `OffCurveStart` だけに作用する。
+- F4t は full outline allocation、renderer、platform API、font fallback、off-curve start synthesis を導入しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

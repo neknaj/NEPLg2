@@ -1379,6 +1379,290 @@ pub fn gui_sfnt_simple_glyph_path_contour_step_kind %fn &GuiSfntSimpleGlyphPathC
 pub fn gui_sfnt_simple_glyph_path_contour_step_next %fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathContourNext \step:
     *field::get_ref step "next"
 
+//: GuiSfntSimpleGlyphPathOffCurveStartPolicy: off-curve contour start の sink policy
+//:
+//: [目的/もくてき]:
+//: - `SkipNoSegment OffCurveStart` を typed skip のまま sink へ[渡/わた]すか、unsupported decision として[止/と]めるかを[選/えら]びます。
+//: - policy は off-curve start だけに[作用/さよう]し、single point contour や missing lookahead は F4l/F4s の typed success のまま[保/たも]ちます。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathOffCurveStartPolicy:
+    KeepTypedSkip
+    RejectUnsupported
+
+impl Clone for GuiSfntSimpleGlyphPathOffCurveStartPolicy:
+    fn clone %fn &GuiSfntSimpleGlyphPathOffCurveStartPolicy GuiSfntSimpleGlyphPathOffCurveStartPolicy \policy:
+        *policy
+
+impl Copy for GuiSfntSimpleGlyphPathOffCurveStartPolicy:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathOffCurveStartPolicy GuiSfntSimpleGlyphPathOffCurveStartPolicy \policy:
+        policy
+
+//: GuiSfntSimpleGlyphPathClosurePolicy: contour end の tail event policy
+//:
+//: [目的/もくてき]:
+//: - `step.next = EndContour` の成功 step に対し、close marker を[出/だ]すかどうかを[決/き]めます。
+//: - `Continue` step では close marker を[出/だ]しません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathClosurePolicy:
+    KeepOpen
+    EmitCloseAfterFinalEvent
+
+impl Clone for GuiSfntSimpleGlyphPathClosurePolicy:
+    fn clone %fn &GuiSfntSimpleGlyphPathClosurePolicy GuiSfntSimpleGlyphPathClosurePolicy \policy:
+        *policy
+
+impl Copy for GuiSfntSimpleGlyphPathClosurePolicy:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathClosurePolicy GuiSfntSimpleGlyphPathClosurePolicy \policy:
+        policy
+
+//: GuiSfntSimpleGlyphPathSinkPolicy: simple glyph path sink への 1 step 変換 policy
+//:
+//: [目的/もくてき]:
+//: - off-curve start と contour closure を別々の enum policy として[運/はこ]びます。
+//: - sink ownership boundary の policy であり、font bytes や renderer state は[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkPolicy:
+    off_curve_start_policy %GuiSfntSimpleGlyphPathOffCurveStartPolicy
+    closure_policy %GuiSfntSimpleGlyphPathClosurePolicy
+
+impl Clone for GuiSfntSimpleGlyphPathSinkPolicy:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkPolicy GuiSfntSimpleGlyphPathSinkPolicy \policy:
+        *policy
+
+impl Copy for GuiSfntSimpleGlyphPathSinkPolicy:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkPolicy GuiSfntSimpleGlyphPathSinkPolicy \policy:
+        policy
+
+//: gui_sfnt_simple_glyph_path_sink_policy: sink policy value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_policy %fn GuiSfntSimpleGlyphPathOffCurveStartPolicy fn GuiSfntSimpleGlyphPathClosurePolicy GuiSfntSimpleGlyphPathSinkPolicy \off_curve_start_policy\closure_policy:
+    GuiSfntSimpleGlyphPathSinkPolicy off_curve_start_policy closure_policy
+
+//: gui_sfnt_simple_glyph_path_sink_policy_off_curve_start_policy: off-curve start policy を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_policy_off_curve_start_policy %fn &GuiSfntSimpleGlyphPathSinkPolicy GuiSfntSimpleGlyphPathOffCurveStartPolicy \policy:
+    *field::get_ref policy "off_curve_start_policy"
+
+//: gui_sfnt_simple_glyph_path_sink_policy_closure_policy: closure policy を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_policy_closure_policy %fn &GuiSfntSimpleGlyphPathSinkPolicy GuiSfntSimpleGlyphPathClosurePolicy \policy:
+    *field::get_ref policy "closure_policy"
+
+//: GuiSfntSimpleGlyphPathSinkRejectReason: sink policy による拒否理由
+//:
+//: [目的/もくてき]:
+//: - byte parse error ではなく、policy decision として sink が[受/う]けない event を[表/あらわ]します。
+//: - byte-backed lookup の `Result::Err` は F4s 由来の parse/range error に限定します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkRejectReason:
+    UnsupportedOffCurveStart
+
+impl Clone for GuiSfntSimpleGlyphPathSinkRejectReason:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkRejectReason GuiSfntSimpleGlyphPathSinkRejectReason \reason:
+        *reason
+
+impl Copy for GuiSfntSimpleGlyphPathSinkRejectReason:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkRejectReason GuiSfntSimpleGlyphPathSinkRejectReason \reason:
+        reason
+
+//: GuiSfntSimpleGlyphPathSinkPrimaryAction: sink がまず[処理/しょり]する action
+//:
+//: [目的/もくてき]:
+//: - event を emit する成功 action と、policy reject を enum で[分/わ]けます。
+//: - reject は `GuiSfntParseError` ではなく、成功値の中の policy decision です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkPrimaryAction:
+    EmitEvent %GuiSfntSimpleGlyphPathSinkEvent
+    Reject %GuiSfntSimpleGlyphPathSinkRejectReason
+
+impl Clone for GuiSfntSimpleGlyphPathSinkPrimaryAction:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkPrimaryAction GuiSfntSimpleGlyphPathSinkPrimaryAction \action:
+        *action
+
+impl Copy for GuiSfntSimpleGlyphPathSinkPrimaryAction:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkPrimaryAction GuiSfntSimpleGlyphPathSinkPrimaryAction \action:
+        action
+
+//: GuiSfntSimpleGlyphPathContourClose: contour close tail marker
+//:
+//: [目的/もくてき]:
+//: - final event の後に sink が contour close を[受/う]けるための marker です。
+//: - close の発行可否は policy と primary action により[決/き]まり、renderer command ではありません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathContourClose:
+    glyph %GuiGlyphId
+    contour_index %i32
+
+impl Clone for GuiSfntSimpleGlyphPathContourClose:
+    fn clone %fn &GuiSfntSimpleGlyphPathContourClose GuiSfntSimpleGlyphPathContourClose \close:
+        *close
+
+impl Copy for GuiSfntSimpleGlyphPathContourClose:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathContourClose GuiSfntSimpleGlyphPathContourClose \close:
+        close
+
+//: gui_sfnt_simple_glyph_path_contour_close: close marker value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_close %fn GuiGlyphId fn i32 GuiSfntSimpleGlyphPathContourClose \glyph\contour_index:
+    GuiSfntSimpleGlyphPathContourClose glyph contour_index
+
+//: gui_sfnt_simple_glyph_path_contour_close_glyph: close marker の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_close_glyph %fn &GuiSfntSimpleGlyphPathContourClose GuiGlyphId \close:
+    *field::get_ref close "glyph"
+
+//: gui_sfnt_simple_glyph_path_contour_close_contour_index: close marker の contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_contour_close_contour_index %fn &GuiSfntSimpleGlyphPathContourClose i32 \close:
+    *field::get_ref close "contour_index"
+
+//: GuiSfntSimpleGlyphPathSinkTailAction: primary action の後に sink が[受/う]ける tail action
+//:
+//: [目的/もくてき]:
+//: - close marker を final event 後だけに限定し、途中 step では `NoTailAction` にします。
+//: - primary action が reject の場合は常に `NoTailAction` です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkTailAction:
+    NoTailAction
+    CloseContour %GuiSfntSimpleGlyphPathContourClose
+
+impl Clone for GuiSfntSimpleGlyphPathSinkTailAction:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkTailAction GuiSfntSimpleGlyphPathSinkTailAction \action:
+        *action
+
+impl Copy for GuiSfntSimpleGlyphPathSinkTailAction:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkTailAction GuiSfntSimpleGlyphPathSinkTailAction \action:
+        action
+
+//: GuiSfntSimpleGlyphPathSinkStep: contour step を sink ownership boundary に[写/うつ]した value
+//:
+//: [目的/もくてき]:
+//: - F4s の source step、primary action、tail action を 1 value として[運/はこ]びます。
+//: - full outline allocation や renderer state は[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkStep:
+    source_step %GuiSfntSimpleGlyphPathContourStep
+    primary_action %GuiSfntSimpleGlyphPathSinkPrimaryAction
+    tail_action %GuiSfntSimpleGlyphPathSinkTailAction
+
+impl Clone for GuiSfntSimpleGlyphPathSinkStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphPathSinkStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathSinkStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphPathSinkStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_sink_step: sink step value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_step %fn GuiSfntSimpleGlyphPathContourStep fn GuiSfntSimpleGlyphPathSinkPrimaryAction fn GuiSfntSimpleGlyphPathSinkTailAction GuiSfntSimpleGlyphPathSinkStep \source_step\primary_action\tail_action:
+    GuiSfntSimpleGlyphPathSinkStep source_step primary_action tail_action
+
+//: gui_sfnt_simple_glyph_path_sink_step_source_step: source contour step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_step_source_step %fn &GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphPathContourStep \step:
+    *field::get_ref step "source_step"
+
+//: gui_sfnt_simple_glyph_path_sink_step_primary_action: primary action を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_step_primary_action %fn &GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphPathSinkPrimaryAction \step:
+    *field::get_ref step "primary_action"
+
+//: gui_sfnt_simple_glyph_path_sink_step_tail_action: tail action を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_step_tail_action %fn &GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphPathSinkTailAction \step:
+    *field::get_ref step "tail_action"
+
+//: gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step: F4s step から primary action を[決/き]める
+//:
+//: [契約/けいやく]:
+//: - `RejectUnsupported` は `SkipNoSegment OffCurveStart` だけを reject にします。
+//: - 他の `SkipNoSegment` reason と draw event は typed event のまま emit します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step %fn &GuiSfntSimpleGlyphPathSinkPolicy fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathSinkPrimaryAction \policy\step:
+    let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_contour_step_event step
+    let kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_contour_step_kind step
+    match kind:
+        GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:
+            GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event
+        GuiSfntSimpleGlyphPathSinkEventKind::LineTo:
+            GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event
+        GuiSfntSimpleGlyphPathSinkEventKind::QuadraticTo:
+            GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event
+        GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:
+            match reason:
+                GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour:
+                    GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event
+                GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart:
+                    let off_curve_start_policy %GuiSfntSimpleGlyphPathOffCurveStartPolicy gui_sfnt_simple_glyph_path_sink_policy_off_curve_start_policy policy
+                    match off_curve_start_policy:
+                        GuiSfntSimpleGlyphPathOffCurveStartPolicy::KeepTypedSkip:
+                            GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event
+                        GuiSfntSimpleGlyphPathOffCurveStartPolicy::RejectUnsupported:
+                            GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart
+                GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:
+                    GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event
+
+//: gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step: F4s step から tail action を[決/き]める
+//:
+//: [契約/けいやく]:
+//: - primary action が reject の場合は close policy に関係なく `NoTailAction` です。
+//: - close marker は primary が emit で、かつ `step.next = EndContour` の場合だけ[候補/こうほ]になります。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step %fn &GuiSfntSimpleGlyphPathSinkPolicy fn &GuiSfntSimpleGlyphPathContourStep fn &GuiSfntSimpleGlyphPathSinkPrimaryAction GuiSfntSimpleGlyphPathSinkTailAction \policy\step\primary_action:
+    match *primary_action:
+        GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject reason:
+            GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction
+        GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event:
+            let next %GuiSfntSimpleGlyphPathContourNext gui_sfnt_simple_glyph_path_contour_step_next step
+            match next:
+                GuiSfntSimpleGlyphPathContourNext::Continue cursor:
+                    GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction
+                GuiSfntSimpleGlyphPathContourNext::EndContour:
+                    let closure_policy %GuiSfntSimpleGlyphPathClosurePolicy gui_sfnt_simple_glyph_path_sink_policy_closure_policy policy
+                    match closure_policy:
+                        GuiSfntSimpleGlyphPathClosurePolicy::KeepOpen:
+                            GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction
+                        GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent:
+                            let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_step_cursor step
+                            let glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor
+                            let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor
+                            let close %GuiSfntSimpleGlyphPathContourClose gui_sfnt_simple_glyph_path_contour_close glyph contour_index
+                            GuiSfntSimpleGlyphPathSinkTailAction::CloseContour close
+
+//: gui_sfnt_simple_glyph_path_sink_step_from_contour_step: F4s step を sink step に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - policy reject は `Result::Err` ではなく `primary_action = Reject` として[返/かえ]します。
+//: - reject step の tail は必ず `NoTailAction` です。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_step_from_contour_step %fn &GuiSfntSimpleGlyphPathSinkPolicy fn &GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphPathSinkStep \policy\step:
+    let primary_action %GuiSfntSimpleGlyphPathSinkPrimaryAction gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step policy step
+    let tail_action %GuiSfntSimpleGlyphPathSinkTailAction gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step policy step &primary_action
+    let source_step %GuiSfntSimpleGlyphPathContourStep *step
+    gui_sfnt_simple_glyph_path_sink_step source_step primary_action tail_action
+
 //: gui_sfnt_simple_glyph_path_contour_next_from_cursor: 検証済み cursor の次状態を[計算/けいさん]する
 //:
 //: [契約/けいやく]:
@@ -2972,3 +3256,21 @@ pub fn gui_sfnt_lookup_simple_glyph_path_contour_step %fn &ByteBuf fn Option i32
                     let next %GuiSfntSimpleGlyphPathContourNext gui_sfnt_simple_glyph_path_contour_next_from_cursor &cursor span_point_count
                     let step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_contour_step cursor event kind next
                     Result::Ok step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_step: cursor 位置の contour step を sink ownership boundary に[写/うつ]す
+//:
+//: [目的/もくてき]:
+//: - F4s の byte-backed contour step lookup に policy decision を 1 回だけ[合成/ごうせい]します。
+//: - byte parse/range error は `Result::Err` として[伝播/でんぱ]し、policy reject は success payload 内の enum として[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_step %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathContourCursor fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkStep GuiSfntParseError \bytes\face_index\cursor\policy:
+    match gui_sfnt_lookup_simple_glyph_path_contour_step bytes face_index cursor:
+        Result::Err error:
+            Result::Err error
+        Result::Ok contour_step:
+            let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy &contour_step
+            Result::Ok sink_step
