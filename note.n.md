@@ -1,3 +1,65 @@
+# 2026-06-14 Agent selfhost Resource no-escape producer checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、source-derived authority 排除、pure core / impure owner boundary、探索範囲削減、丁寧な doc comment、試作段階でも設計負債を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / Resource IR typed no-escape observation table から Drop no-escape proof table を作る checker-layer producer boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl Resource no-escape proof producer boundary
+- decision: MERGE_APPROVED after focused doctest, source policy contracts, issue/doc/todo/note update, and subagent review blocker handling.
+- policy/spec:
+  - accepted authority は `SelfhostMemoTraitOperationDropResourceNoEscapeRecord` の typed payload だけである。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash、HIR effect summary だけから no-escape proof を合成しない。
+  - record key は `SelfhostTypeId + body_module_fingerprint + Drop body_root + SelfhostEffectKind + SelfhostEffectEscapeState` であり、`SelfhostTypeId` だけの proof reuse は認めない。
+  - `body_module_fingerprint == 0`、`effect != InternalAlloc`、`escape != NotApplicable`、同一 key の duplicate observation は producer 側で fail-closed に拒否する。
+  - `NoEscapeProven` は gate proof status の `Proven`、`MayEscape` は `Refuted`、`Missing` / `Unknown` は同名 status に写す。`Missing` / `Unknown` を pure に mask しない。
+  - この module は full Resource IR graph traversal ではない。Resource graph traversal から typed observation table を作る evidence materializer は次 slice に残す。
+  - `PureDrop`、`NoDropRequired`、operation evidence record、aggregate proof、proof store、generic binder、PrivateCache / PrivateState masking、prechecked artifact はこの slice で作らない。
+  - input table は borrow として producer が読む。producer は output proof table を所有して返し、output push 失敗時は既存 no-escape proof table boundary の owner cleanup contract に従う。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_producer.nepl` を追加した。
+  - `SelfhostMemoTraitOperationDropResourceNoEscapeStatus`、typed record table、typed error enum、duplicate decision enum、stage0 summary を追加した。
+  - input table push と producer loop の両方で placeholder / effect / escape / duplicate を検査し、table push 以外で構築された malformed table も producer 境界で拒否する。
+  - producer は `selfhost_memo_trait_operation_drop_no_escape_proof_table_push` へだけ出力し、既存 gate 用 proof table に一方向で変換する。
+  - doctest は 4 種の status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、今回接続した producer boundary と後続の actual Resource IR graph traversal evidence materializer を分けた。
+- subagent review:
+  - subagent review は Popper と McClintock の独立確認を採用した。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec28c-fc1e-71a2-8fe3-396ab4d80401`
+  - subagent_review_count: 2
+  - nodesrc/selfhost_zenn_review_response_check.js: live subagent response was reviewed against the required Blocker / Required / Non-blocker / Question / Approve categories; packet-file validation was not available because the response arrived through the agent status channel.
+  - Blocker: `SelfhostMemoTraitOperationDropCheck` を producer 入力 authority にすると `type_id/body_module_fingerprint/body_root` が失われるため不可。対応として、producer 入力 record は typed body identity を持つ Resource no-escape observation に限定した。
+  - Blocker: `EffectAllowedInContext` solver は `InternalAlloc + NoEscapeProven` を消費する consumer であり、`NotApplicable` から proof を作る producer ではない。対応として、この module は effect solver を import せず、Resource observation status から既存 proof table status へ写すだけにした。
+  - Blocker: source text / span / display name / public surface hash から `Proven` を合成する設計は不可。対応として、source policy で source-derived authority と HIR summary-only synthesis を禁止した。
+  - Required: key は `type_id/body_module_fingerprint/body_root/effect/escape` の完全一致にし、placeholder と duplicate を producer 側でも拒否すること。対応済み。
+  - Required: proof store / aggregate proof / operation evidence / PrivateCache / PrivateState / prechecked artifact へ接続しないこと。対応済み。
+  - Required: doc comment に目的、入力 authority、生成しないもの、fail-closed 条件、計算量、後続最適化を明記し、行数制限やコメント抑制の検査を入れないこと。対応済み。
+  - Non-blocker: 現状の duplicate scan と proof push は線形走査であり、sorted index / bucket / memoization は typed key と fail-closed contract を保って後続最適化にできる。
+  - Non-blocker: stage0 fixture が手動で observation record を作ることは許容できる。ただし production producer の authority と混同しない source policy が必要であり、今回追加した。
+  - Question: なし。
+  - Approve: yes.
+- source_policy:
+  - required and updated.
+  - 新規 `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js` は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、forbidden layer import、typed body identity fields、validation、duplicate rejection、status mapping、既存 proof table への一方向変換、Drop evidence / aggregate proof / proof store / PrivateCache / PrivateState / prechecked artifact 合成禁止、bool / string error 禁止、行数制限 / doc comment 長制限禁止を確認する。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は checkpoint 追加後の再実行で exit=0。残った warning は既存の `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` だけである。
+  - 既存 warning: Node の WASI ExperimentalWarning、Git の LF/CRLF warning、stdlib declaration doc gaps baseline。
+  - 今回差分由来 warning: なし。checkpoint 未記録 warning は作業順序上の一時状態であり、この checkpoint と focused Zenn gate 再確認で解消する。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_producer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-drop-resource-no-escape-producer.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_drop_candidate_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 warning は `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` だけである。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+  - 検証済み: `rg -n "Result bool|Result::Err \"|Result::Err true|Result::Err false" ...` no matches。
+- residual:
+  - 次 slice: actual Resource IR graph traversal から `SelfhostMemoTraitOperationDropResourceNoEscapeRecord` table を作る evidence materializer。
+  - complete public surface 由来の no-drop absence proof boundary は未実装である。
+  - generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+  - Resource no-escape observation table / proof table の sorted index 化、duplicate scan の bucket 化、stage0 fixture 分割は、今回固定した typed key / owner cleanup / fail-closed contract を保って後からできる最適化として扱う。
+
 # 2026-06-14 Agent selfhost Drop proof origin key hardening checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、source-derived authority 排除、pure core / impure owner boundary、探索範囲削減、丁寧な doc comment、試作段階でも設計負債を残さない方針を守る。

@@ -265,6 +265,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js",
+    "nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js",
     "nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js",

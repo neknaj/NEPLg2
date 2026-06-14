@@ -708,6 +708,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-14 Resource no-escape producer checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_producer.nepl` を追加し、Resource IR 側が作った typed no-escape observation table を既存の `SelfhostMemoTraitOperationDropNoEscapeProofTable` へ変換する checker-layer producer boundary を接続した。
+
+入力 record は `SelfhostTypeId`、body module fingerprint、Drop body root、`SelfhostEffectKind`、`SelfhostEffectEscapeState`、Resource no-escape status を持つ。producer は `InternalAlloc + NotApplicable` だけを受理し、`body_module_fingerprint == 0`、`effect != InternalAlloc`、`escape != NotApplicable`、同一 key の duplicate observation を fail-closed に拒否する。`NoEscapeProven` は `Proven`、`MayEscape` は `Refuted`、`Missing` / `Unknown` は同名 proof status へ写し、未証明 status を pure に mask しない。
+
+この checkpoint は full Resource IR graph traversal ではない。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash、HIR effect summary だけを authority にする proof synthesis 経路は作っていない。actual Resource IR graph traversal から `SelfhostMemoTraitOperationDropResourceNoEscapeRecord` table を作る evidence materializer は後続 slice に残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js` で固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit import allow-list、forbidden layer import、typed body identity fields、validation、duplicate rejection、status mapping、既存 proof table への一方向変換、Drop evidence / aggregate proof / proof store / PrivateCache / PrivateState / prechecked artifact 合成禁止、bool / string error 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR graph traversal から Resource no-escape observation table を作る evidence materializer、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Resource observation table / proof table の sorted index 化、duplicate scan の bucket 化、stage0 fixture 分割は、今回固定した typed key / owner cleanup / fail-closed contract を保って後からできる最適化として扱う。
+
 ## 2026-06-13 selfhost method body resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl` を追加し、`Eq` / `Hash` operation の method body effect fact table から `SelfhostMemoTraitOperationMethodBodyCheck` を作る checker-layer 境界を実装した。
