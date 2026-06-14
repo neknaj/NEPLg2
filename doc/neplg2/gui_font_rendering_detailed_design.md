@@ -1541,6 +1541,65 @@ Only one counter changes per call. The counter state is not a cursor, not a cont
 
 The implementation must stay allocation-free and side-effect-free. It must not call lookup helpers, parse metadata, allocate an outline, push render commands, inspect current point state, rasterize, call a renderer, call platform APIs, or perform host text measurement.
 
+### SFNT simple glyph path sink action consumer apply step
+
+F4af composes F4ac and F4ae without taking over F4ad traversal. A consumer item already contains the current action and the checked item-level continuation. F4af applies the current action to an apply state, then stores the resulting apply step next to the already stored continuation.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionApplyStep
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item:
+    action = gui_sfnt_simple_glyph_path_sink_action_consumer_item_action item
+    next = gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+    apply_step = gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action state action
+    GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep apply_step next
+```
+
+The helper is total because it receives typed values that have already crossed the byte-backed parsing boundary. Adding `Result` here would confuse malformed SFNT data with `Rejected` / `NoAction` domain status.
+
+`next` is the stored `GuiSfntSimpleGlyphPathSinkActionItemNext` value from the current consumer item. F4af must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` and must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, because that would resolve the next consumer packet and move F4ad's byte-backed traversal responsibility into this phase.
+
+F4af must not match `GuiSfntSimpleGlyphPathSinkAction` variants directly. Payload interpretation belongs to F4ae. It also must not allocate `Vec`, push a command, loop over a contour, track current point state, perform lower SFNT lookup, parse metadata, rasterize, render, call a platform backend, or call host text measurement.
+
+### SFNT simple glyph path sink action consumer apply terminal
+
+F4ag turns a single F4af apply step into a pure terminal classification for a future consumer loop. It deliberately does not become that loop. It also does not resolve the next byte-backed consumer item.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+```
+
+The helper reads the inner apply status first:
+
+```text
+status = gui_sfnt_simple_glyph_path_sink_action_apply_step_status step.apply_step
+
+match status:
+    Rejected reason:
+        Rejected reason
+
+    otherwise:
+        match step.next:
+            Continue _:
+                Continue step
+
+            EndContour:
+                EndContour step
+```
+
+`Rejected` has priority over stored next state because a policy rejection is a domain terminal. It is not a parse error and must not be wrapped as `Result::Err`. `EndContour` is also a domain terminal, but successful. `Continue` keeps the already computed F4af apply step so the future loop can inspect status and counts without recomputing payload interpretation.
+
+`NoAction` must not be treated as an implicit skip. Its terminal state is decided only by the stored next value. This preserves the distinction between "nothing was emitted by this action" and "the traversal has ended".
+
+F4ag must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call byte-backed lower lookup helpers. It must not allocate `Vec`, push commands, loop over contour data, inspect current point state, parse metadata, rasterize, render, call platform APIs, or call host text measurement.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
