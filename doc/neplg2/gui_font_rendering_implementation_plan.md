@@ -2183,6 +2183,8 @@ git diff --check
   - F5h PointX reader bridge push failure: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_push_failure.n.md`
   - F5i/F5j PointY: `tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md`
   - F5k coordinate read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md`
+  - F5l endpoint marker read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_endpoint.n.md`
+  - F5m point flag marker read: `tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md`
 
 ## Phase F5b: sfnt simple glyph outline scalar storage owner
 
@@ -2625,5 +2627,106 @@ git diff --check
 node nodesrc/test_web_gui_font_rendering_contract.js
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_coordinate.n.md --no-tree -o tmp_gui_font_outline_point_coordinate_f5k.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5k.json -j 1
+git diff --check
+```
+
+## Phase F5l: sfnt simple glyph outline point endpoint marker read
+
+目的:
+
+- F5e/F5f で population 済みの `ContourEndpoint` scalar region から、1 logical point が属する contour と end-of-contour marker を read-only に取得する。
+- endpoint topology 全体を検査してから成功し、partial success や hidden fallback を作らない。
+- flag byte、x/y coordinate、full point value、edge/path、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5l docs、endpoint marker value、typed read error、全 endpoint scan、final endpoint check、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointEndpointMarker`
+  - `GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError`
+  - private scan helper
+  - `gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker`
+- public read helper は storage owner を borrow し、storage を mutate しない。
+- validation は次の順序で行う。
+  - capacity shape
+  - scalar slot count `Fits`
+  - `storage.scalar_slot_count == expected`
+  - `scalar_slots_cap == storage.scalar_slot_count`
+  - `0 <= point_index < point_count`
+  - `scalar_slots_len >= contour_count`
+  - private getter で endpoint slot を contour 0 から final contour まで順に読む
+- scan helper は `found` state を持ち、最初に `point_index <= endpoint` になった contour / end flag を記録する。ただしそこで成功を返さず、final contour まで endpoint range、strict increase、final endpoint `point_count - 1` を検査する。
+- read helper は direct `Vec` API を呼ばず、F5k の private scalar slot getter を再利用する。
+- `GuiSfntSimpleGlyphOutlinePointEndpointMarker` と read error は value-only なので `Clone` / `Copy` を実装してよい。
+- doctest は既存 owner-preserving endpoint push API で success、out-of-range、not-ready を検査し、direct region push で forged `[1, 2]` endpoint topology を作って `EndpointTopologyInvalid` を検査する。
+- 実装前 plan review と実装後 implementation review を subagent で受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- endpoint `[1, 3]` の 2 contours / 4 points storage から、point 0/1/2/3 の contour index と end-of-contour marker を読める。
+- `point_index == point_count` は `PointIndexOutOfRange` になる。
+- endpoint region が空の storage では `EndpointNotReady` になる。
+- forged endpoint `[1, 2]` では point 0 でも success にならず、`EndpointTopologyInvalid` になる。
+- source policy が F5l docs、value/error 型、全 endpoint scan、final endpoint `point_count - 1` before success、direct `vec::` 禁止、byte/full point/coordinate/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_endpoint.n.md --no-tree -o tmp_gui_font_outline_point_endpoint_f5l.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5l.json -j 1
+git diff --check
+```
+
+## Phase F5m: sfnt simple glyph point flag marker read
+
+目的:
+
+- checked `GuiSfntSimpleGlyphPointStream` の flag range だけから、1 logical point の raw flag と on-curve marker を read-only に取得する。
+- F5 storage scalar layout には新しい `PointFlag` region を追加しない。既存 region boundary をこの phase で動かすと F5b から F5l の slot contract が崩れるためである。
+- x/y coordinate decode、full point decode、endpoint read、coordinate storage read、edge/path、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5m docs、flag marker value、repeat run overrun before success、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPointFlagMarker`
+  - `gui_sfnt_glyf_read_point_flag_from_stream`
+  - private flag run scan helper
+- read helper は storage owner を持たず、`Result GuiSfntSimpleGlyphPointFlagMarker GuiSfntParseError` を返す。
+- error は既存 parse error を使う。
+  - `point_index` out of range は `MissingGlyphOutline`
+  - missing repeat byte、repeat overrun、scan exhaustion は `MalformedGlyfRecord`
+- validation / scan は次の順序で行う。
+  - stream topology から `point_count` と glyph を読む
+  - `0 <= point_index < point_count`
+  - `flag_cursor = flag_data_offset`、`logical_index = 0`
+  - flag byte を `gui_sfnt_glyf_read_u8_in_stream_range` で読む
+  - repeat bit 8 がある場合は repeat count byte を同じ range helper で読む
+  - `run_count = repeat_count + 1` または `1`
+  - `logical_index + run_count <= point_count` を検査する
+  - overrun ではない場合だけ target が run 内かを判定する
+  - target が run 内なら raw flag と `gui_sfnt_glyf_flag_has_bit flag 1` を marker として返す
+- doctest は no-repeat on/off curve、repeat run、out-of-range、repeat overrun、missing repeat byte を検査する。
+- 実装前 plan review と実装後 implementation review を subagent で受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- no-repeat flag stream から on-curve / off-curve marker を読める。
+- repeat bit 8 の run 内 target が同じ raw flag と on-curve marker を返す。
+- `point_index == point_count` は `MissingGlyphOutline` になる。
+- repeat run が `point_count` を越える場合、target が run 内にあっても `MalformedGlyfRecord` になる。
+- repeat bit があるのに repeat count byte が range 外なら `MalformedGlyfRecord` になる。
+- source policy が F5m docs、value 型、repeat overrun before marker success、x/y decode/full point/endpoint/coordinate storage/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md --no-tree -o tmp_gui_font_outline_point_flag_f5m.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5m.json -j 1
 git diff --check
 ```
