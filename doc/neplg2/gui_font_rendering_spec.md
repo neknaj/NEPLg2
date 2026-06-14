@@ -1000,6 +1000,40 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_start_step:
 
 F4x は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor`、`gui_sfnt_lookup_simple_glyph_contour_span`、`gui_sfnt_lookup_simple_glyph_path_sink_step`、F4s/F4t より下位の lookup helper を直接呼ばない。検証と payload construction の authority は F4v action step lookup に集約する。
 
+### SFNT simple glyph path sink action step advance
+
+F4y は F4v の `GuiSfntSimpleGlyphPathSinkActionStep.next` を、byte-backed lookup 済みの次 step または contour 終端へ 1 段だけ進める段階である。これは loop traversal、iterator、real sink、full outline allocation、renderer、rasterizer ではない。
+
+terminal state は `Option::None` や `Result::Err` ではなく、専用 enum で表す。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionStep
+    EndContour
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance:
+    bytes &ByteBuf
+    face_index Option i32
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_step_next step` を読み、その enum だけを `match` する。
+
+```text
+next = Continue cursor
+    -> gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step
+
+next = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour
+```
+
+`Result::Err` は `Continue cursor` の下位 action step lookup から来る parse/range/table error だけを伝播する。`EndContour` は successful terminal state であり、error ではない。policy reject は次 step の `action = Reject` payload として残り、F4y が `Reject` / `NoAction` / `CloseContour` を見て traversal を変えることは禁止する。
+
+F4y は start cursor helper、start step helper、sink action lookup、sink step lookup、contour step lookup、下位 point / curve / path helper、metadata parser、`*_with_tables` helper、`Vec` / `push`、renderer、rasterizer、platform API を直接呼ばない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
