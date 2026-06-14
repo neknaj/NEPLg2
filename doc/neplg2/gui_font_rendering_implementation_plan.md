@@ -813,6 +813,55 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4s: sfnt simple glyph path contour traversal step
+
+目的:
+
+- F4r の typed slot selection を、1 contour 内の 1 event step traversal に接続する。
+- cursor / next / step を enum と struct で表し、`Option` や numeric index で終端や slot を表さない。
+- public lookup は range / parse error を `Result` で返し、contour end は成功値 `GuiSfntSimpleGlyphPathContourNext::EndContour` として返す。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathContourCursor`
+  - `GuiSfntSimpleGlyphPathContourNext`
+  - `GuiSfntSimpleGlyphPathContourStep`
+  - cursor / step constructor と accessor
+  - private `gui_sfnt_simple_glyph_path_contour_next_from_cursor`
+  - public `gui_sfnt_lookup_simple_glyph_path_contour_step`
+- `GuiSfntSimpleGlyphPathContourCursor` / `GuiSfntSimpleGlyphPathContourNext` / `GuiSfntSimpleGlyphPathContourStep` は `Clone` / `Copy` を実装する。
+- private next helper は、public lookup が `span_point_count > 0` と `0 <= edge_index < span_point_count` を検証した後だけ呼ぶ。public total helper にしない。
+- next helper は slot を明示 `match` し、`First` なら same edge `Second`、`Second` なら `edge + 1` の `First` または `EndContour` を返す。catch-all arm は使わない。
+- public lookup は `gui_sfnt_lookup_simple_glyph_contour_span` で contour span / point count を検証し、`gui_sfnt_lookup_simple_glyph_path_command_pair` で edge を path command pair に変換する。
+- public lookup は `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair`、`gui_sfnt_simple_glyph_path_sink_event_pair_event_at`、`gui_sfnt_simple_glyph_path_sink_event_kind`、private next helper を合成する。
+- F4s は `Vec`、`push`、command list、full outline allocation、rasterizer、render2d/backend/platform、font fallback、metadata unwrap bypass を使わない。
+- off-curve contour-start synthesis と contour closure insertion は F4s では行わず、既存 `SkipNoSegment OffCurveStart` を typed event として保持する。
+- Source policy で cursor / next / step 型、Clone / Copy、private next helper、public lookup composition、no fallback/no allocation/no renderer/no platform を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に constructor/accessor の cheap typed assertion と、最小 SFNT fixture を使う public `gui_sfnt_lookup_simple_glyph_path_contour_step` doctest を追加する。
+- public lookup doctest は `First -> Second`、`Second -> next edge First`、final `Second -> EndContour`、out-of-range edge の `GuiSfntParseErrorKind::MissingGlyphOutline` を直接検査する。
+- 現行 doctest runner では public glyf lookup fixture の compile が 60 秒制限を超えるため、public lookup fixture は `skip` とし、`nodesrc/test_web_gui_font_rendering_contract.js` で doctest 名、public call、typed error branch の存在を固定する。
+
+完了条件:
+
+- cursor は glyph / contour / edge / slot を保持し、accessor で読める。
+- step は cursor / event / kind / next を保持し、accessor で読める。
+- `First` は同じ edge の `Second` に進む。
+- final ではない `Second` は次 edge の `First` に進む。
+- final edge の `Second` は `EndContour` を返す。
+- public lookup は parse/range 不正だけ `Result::Err` にし、contour end は `Result::Ok step` の `EndContour` として返す。
+- F4s は full outline allocation、renderer、platform API、font fallback、off-curve contour-start synthesis を導入しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

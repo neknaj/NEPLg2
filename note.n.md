@@ -1,3 +1,26 @@
+# 2026-06-14 Agent2 GUI font contour traversal step checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result による失敗表現、platform 非依存、doc/test 分離方針を確認し、F4r の slot selection の上に F4s: simple glyph path contour traversal step を追加した。
+- subagent review: Boyle から `PLAN_APPROVED` を受け、`next_from_cursor` は public total helper にせず private helper とし、public lookup 側で contour span / edge range を検証してから呼ぶ指摘を反映した。
+- subagent implementation review: Copernicus から `APPROVED` を受けた。前回 required だった public lookup 直接検査は、skip fixture と source policy の固定で解消済みと判断された。
+- classification: GUI font SFNT simple glyph path contour traversal step / typed cursor-next-step / no full outline allocation / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4s を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathContourCursor`、`GuiSfntSimpleGlyphPathContourNext`、`GuiSfntSimpleGlyphPathContourStep`、constructor/accessor、private next helper、public `gui_sfnt_lookup_simple_glyph_path_contour_step` を追加した。
+  - `gui_sfnt_lookup_simple_glyph_path_contour_step` は `gui_sfnt_lookup_simple_glyph_contour_span`、`gui_sfnt_lookup_simple_glyph_path_command_pair`、F4p sink event pair、F4r event slot selection、F4q kind classificationを合成し、final event は `Result::Ok step` の `EndContour` として返す。
+  - off-curve contour-start synthesis と contour closure insertion は F4s では行わず、既存の `SkipNoSegment OffCurveStart` を typed event として保持した。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に cursor / step accessor と `Continue` / `EndContour` の cheap typed assertion を追加した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4s の docs / implementation source policy を追加した。
+  - `todo.md` の F4s 項目を F4t path sink ownership boundary へ進めた。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 6/6 passed。public lookup fixture は現行 compile 60 秒制限を超えるため `skip` とし、source policy で doctest 名、public call、typed error branch を固定した。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_curve.n.md --no-tree -o tmp_gui_font_sfnt_glyf_curve.json -j 1` は 6/6 passed。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 223/223 passed。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残る。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+
 # 2026-06-14 Agent2 GUI font sink event slot selection checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` と GUI/font docs の fallback 禁止、typed enum、platform 非依存、contract と current implementation の分離を確認し、F4q の sink event kind classification から F5 へ進む前の total slot selection boundary を追加した。
