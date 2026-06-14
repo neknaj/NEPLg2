@@ -5,7 +5,7 @@
 - 対象 branch: `work/selfhost-method-body-resolver`
 - 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / Resource traversal summary table から Resource no-escape observation table を作る checker-layer materializer boundary
 - classification: selfhost MemoKey / MemoValue structural purity / Drop impl Resource no-escape traversal materializer boundary
-- decision: MERGE_APPROVED after focused doctest, source policy contracts, issue/doc/todo/note update, and subagent review blocker handling.
+- decision: MERGE_APPROVED after focused doctest, source policy contracts, issue/doc/todo/note update, subagent review blocker handling, and follow-up smoke coverage for escape-state rejection.
 - policy/spec:
   - accepted authority は `SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord` の typed payload だけである。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash、HIR effect summary だけから no-escape observation を合成しない。
   - traversal record key は `SelfhostTypeId + body_module_fingerprint + Drop body_root + SelfhostEffectKind + SelfhostEffectEscapeState` であり、`SelfhostTypeId` だけの summary reuse は認めない。
@@ -20,15 +20,15 @@
   - `SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus`、typed reason enum、typed traversal record table、typed error enum、duplicate decision enum、stage0 summary を追加した。
   - input table push と materializer loop の両方で placeholder / effect / escape / duplicate を検査し、table push 以外で構築された malformed table も materializer 境界で拒否する。
   - materializer は `selfhost_memo_trait_operation_drop_resource_no_escape_table_push` へだけ出力し、既存 producer 用 observation table に一方向で変換する。
-  - doctest は 4 種の traversal status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection を確認する。
+  - doctest は 4 種の traversal status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection、escape mismatch rejection を確認する。
   - `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
   - source policy は producer module import から proof conversion API へ流れる退行を防ぐため、`producer_table_result`、no-escape proof table API、proof status mapping API の参照禁止も確認する。
   - 初回 `node nodesrc/run_source_policy_regressions.js --warn-only` で、新規 materializer contract と既存 producer contract に残っていた禁止語を含む禁止語検査が `nodesrc/test_source_policy_no_line_count_limits.js` に検出された。これは実装の意味論ではなく検査文言の方針違反であるため、個別 contract からその self-check を削除し、上位メタ検査に一本化した。
   - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、今回接続した materializer boundary と後続の actual Resource graph traversal scanner / evidence collector を分けた。
 - subagent review:
-  - subagent review は Popper、McClintock の実装前設計確認と、McClintock の実装後確認を採用した。
-  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec28c-fc1e-71a2-8fe3-396ab4d80401`
-  - subagent_review_count: 3
+  - subagent review は Popper、McClintock の実装前設計確認、McClintock の実装後確認、Popper / Tesla の follow-up 実装確認を採用した。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec28c-fc1e-71a2-8fe3-396ab4d80401`, `019ebb0d-bd4f-7851-91de-50dd4d16c88b`
+  - subagent_review_count: 5
   - nodesrc/selfhost_zenn_review_response_check.js: live subagent response was reviewed against the required Blocker / Required / Non-blocker / Question / Approve categories; packet-file validation was not available because the response arrived through the agent status channel.
   - Blocker: なし。
   - Required: materializer が producer module を import すると proof conversion API も見えるため、observation model を分離しない場合は source policy で `producer_table_result`、proof table API、proof status mapping API を禁止すること。対応済み。
@@ -38,16 +38,19 @@
   - Required: docs / issue / todo に「full Resource IR graph traversal ではない」「proof table に触らない」「後からできる最適化は sorted index / bucket 化」を明記すること。対応済み。
   - Non-blocker: actual graph traversal、sorted index 化、operation bucket 化、stage0 fixture 分割は後続でよい。
   - Non-blocker: `reason` と `status` の整合性は actual traversal 側の責務として残せる。今回の materializer は status を唯一の mapping authority にするため、矛盾する reason が proof 結果を変えない。
+  - Follow-up Required: Tesla から、実装本体は `TraversalEscapeNotApplicable` で fail-closed だが stage0 smoke と source policy が `escape != NotApplicable` の実行確認を固定していないと指摘された。`escape_rejected` summary field、doctest check、source policy の stage0 sequence check を追加して対応した。
+  - Follow-up Approve: Popper は追加実装前の境界について blocker / required なしとし、producer module import は現 slice では許容、将来 observation model/table の分離を Non-blocker とした。
   - Question: 次の actual traversal slice で、`status` と `reason` の対応を traversal producer 側で reject するかを決める。
   - Approve: yes.
 - source_policy:
   - required and updated.
-  - 新規 `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js` は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、forbidden layer import、typed body identity fields、typed status / reason enum、validation、duplicate rejection、status mapping、既存 observation table への一方向変換、proof conversion API / proof table API 禁止、Drop evidence / aggregate proof / proof store / PrivateCache / PrivateState / prechecked artifact 合成禁止、bool / string error 禁止、行数制限 / doc comment 長制限禁止を確認する。
+  - 新規 `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js` は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、forbidden layer import、typed body identity fields、typed status / reason enum、validation、duplicate rejection、status mapping、stage0 の effect / escape rejection、既存 observation table への一方向変換、proof conversion API / proof table API 禁止、Drop evidence / aggregate proof / proof store / PrivateCache / PrivateState / prechecked artifact 合成禁止、bool / string error 禁止、行数制限 / doc comment 長制限禁止を確認する。
   - 既存 warning: Node の WASI ExperimentalWarning、Git の LF/CRLF warning、stdlib declaration doc gaps baseline。
   - 今回差分由来 warning: 初回 source policy runner で検出された個別 contract の禁止語 self-check は修正済み。再実行後の今回差分由来 warning はなし。
 - verify:
   - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_materializer_contract.js` pass。
   - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_materializer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-drop-resource-no-escape-materializer.json` pass。
+  - 追加検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_materializer.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-drop-resource-no-escape-materializer-escape-review.json` pass。
   - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_producer_contract.js` pass。
   - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` pass。
   - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。

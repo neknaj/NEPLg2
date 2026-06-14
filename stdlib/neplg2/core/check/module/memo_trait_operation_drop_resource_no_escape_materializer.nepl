@@ -29,7 +29,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -38,6 +38,7 @@
 //: ##: [5] ok
 //: ##: [6] ok
 //: ##: [7] ok
+//: ##: [8] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -59,7 +60,8 @@
 //:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalRecordDuplicate
 //:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.placeholder_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::BodyModuleFingerprintPlaceholder
 //:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.effect_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEffectNotInternalAlloc SelfhostEffectKind::ExternalIo
-//:             let shown checks_print_report checks8
+//:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_result_eq summary.escape_rejected SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind::TraversalEscapeNotApplicable SelfhostEffectEscapeState::MayEscape
+//:             let shown checks_print_report checks9
 //:             checks_exit_code shown
 //:         Result::Err _setup:
 //:             let checks0 checks_new
@@ -151,7 +153,7 @@ pub enum SelfhostMemoTraitOperationDropResourceNoEscapeTraversalDuplicateDecisio
 //: SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary: materializer smoke の代表結果
 //:
 //: [目的/もくてき]:
-//: - 4 種の traversal status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection を確認します。
+//: - 4 種の traversal status mapping、duplicate rejection、placeholder rejection、effect mismatch rejection、escape mismatch rejection を確認します。
 pub struct SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary:
     materialized_len %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
     private_status %SelfhostMemoTraitOperationDropResourceNoEscapeStatus
@@ -161,6 +163,7 @@ pub struct SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summa
     duplicate_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
     placeholder_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
     effect_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
+    escape_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
 
 //: Clone for SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus: traversal status を値として[複製/ふくせい]する
 //:
@@ -635,8 +638,8 @@ pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_
             selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_eq error expected
 
 //: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary \materialized_len\private_status\escape_status\missing_status\unknown_status\duplicate_rejected\placeholder_rejected\effect_rejected:
-    SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected
+fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new %fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeStatus fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary \materialized_len\private_status\escape_status\missing_status\unknown_status\duplicate_rejected\placeholder_rejected\effect_rejected\escape_rejected:
+    SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected escape_rejected
 
 //: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record: stage0 用 traversal summary record を[作/つく]る
 fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_record %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord \type_id\module_fingerprint\root\status\reason:
@@ -713,7 +716,7 @@ fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_mat
 //: selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0: materializer の smoke API
 //:
 //: [目的/もくてき]:
-//: - traversal status mapping が bool に潰れないこと、output observation table が 4 件になること、duplicate / placeholder / effect mismatch が fail-closed になることを確認します。
+//: - traversal status mapping が bool に潰れないこと、output observation table が 4 件になること、duplicate / placeholder / effect mismatch / escape mismatch が fail-closed になることを確認します。
 pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0 %impure fn void Result SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary StdErrorKind \void:
     let type_id %SelfhostTypeId selfhost_type_id_new 7701
     let root1 %SelfhostHirExprId selfhost_hir_expr_id_new 77011
@@ -733,6 +736,8 @@ pub fn selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0
             let placeholder_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len placeholder_record
             let effect_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new type_id 770101 root1 SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
             let effect_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len effect_record
-            Result::Ok selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected
+            let escape_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new type_id 770101 root1 SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+            let escape_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len escape_record
+            Result::Ok selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected escape_rejected
         Result::Err _setup:
             Result::Err StdErrorKind::InvalidOperation

@@ -201,6 +201,17 @@ assertOrdered(
     ],
     "traversal summary record must carry typed body identity, effect, escape, status, and reason",
 );
+assertOrdered(
+    source,
+    [
+        "pub struct SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerStage0Summary:",
+        "duplicate_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind",
+        "placeholder_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind",
+        "effect_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind",
+        "escape_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind",
+    ],
+    "stage0 smoke summary must expose duplicate, placeholder, effect, and escape rejection results",
+);
 assert.doesNotMatch(
     topLevelBlock(source, "struct", "SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord"),
     /payload_hash|signature_hash|body_hash|public_surface|source_text|source_span|source_path|\bspan\b|\bpath\b|\bname\b|diagnostic|message|text/i,
@@ -274,6 +285,17 @@ assertOrdered(
         "selfhost_memo_trait_operation_drop_resource_no_escape_materializer_output_push_result output record",
     ],
     "materializer loop must revalidate direct table contents, reject malformed duplicates, and only then push observation records",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0"),
+    [
+        "let effect_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new type_id 770101 root1 SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable",
+        "let effect_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len effect_record",
+        "let escape_record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new type_id 770101 root1 SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape",
+        "let escape_rejected %Result i32 SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_push_len escape_record",
+        "selfhost_memo_trait_operation_drop_resource_no_escape_materializer_stage0_summary_new materialized_len private_status escape_status missing_status unknown_status duplicate_rejected placeholder_rejected effect_rejected escape_rejected",
+    ],
+    "stage0 smoke must execute both non-InternalAlloc and non-NotApplicable escape rejection paths",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_resource_no_escape_materializer_output_push_result"),
