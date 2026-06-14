@@ -1400,6 +1400,37 @@ The helper must call `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` 
 
 F4aa itself does not inspect the action payload. `Reject`, `NoAction`, `CloseContour`, and `EndContour` remain typed states inside the F4x/F4z result path. This keeps parse/range/table failures as `Result::Err`, domain terminal states as enum values, and unsupported future behavior out of the helper instead of hiding it through fallback.
 
+### SFNT simple glyph path sink action item next
+
+F4ab resolves the checked advance already stored in an F4z/F4aa action item. It is deliberately a one-item boundary, not a contour iterator and not a real sink. Its only job is to turn the item's stored `GuiSfntSimpleGlyphPathSinkActionStepAdvance` into either the next checked item or the contour terminal state:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionStepItem
+    EndContour
+```
+
+The public helper is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy
+    -> advance = gui_sfnt_simple_glyph_path_sink_action_step_item_advance item
+    -> match advance
+        Continue next_step:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_step_item bytes face_index &next_step policy
+                Err error -> Err error
+                Ok next_item -> Ok Continue next_item
+
+        EndContour:
+            Ok EndContour
+```
+
+`EndContour` is not an error. It means that the contour-local action stream reached its successful terminal state. Returning `Option::None` would make this indistinguishable from "no value was produced", and returning `Result::Err` would confuse a valid terminal contour with malformed font data.
+
+F4ab must not inspect `item.step.action` or any nested `EmitEvent` / `Reject` / `NoAction` / `CloseContour` payload. Action payloads are what a future sink consumes; item-next only follows the checked traversal state that F4z already computed. This preserves the separation between "what to consume" and "where traversal continues".
+
+The helper must call `gui_sfnt_simple_glyph_path_sink_action_step_item_advance` exactly once. In the `Continue` branch it must call `gui_sfnt_lookup_simple_glyph_path_sink_action_step_item` exactly once. It must not call start helpers, action-step lookup, action-step advance lookup, sink action lookup, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, or introduce a hidden no-op path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
