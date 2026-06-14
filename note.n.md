@@ -556,6 +556,93 @@
   - actual expression method body checker、Drop body effect checker / Resource IR escape proof、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice。
   - method body fact table lookup の sorted index 化は public API / error contract を保ったまま後からできる最適化として扱う。
   - 次 slice: actual expression method body checker または Drop body effect checker / Resource IR escape proof を、同じ typed effect summary / no-escape proof boundary へ接続する。
+# 2026-06-14 Agent2 GUI font sink action start step checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result による失敗表現、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4w の start cursor と F4v の action step lookup を接続する F4x: sink action start step を追加した。
+- subagent plan review: Lorentz から `APPROVED` を受けた。F4x は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor` を呼ばず、pure start cursor を作って existing checked action-step lookup に渡すことで contour span 検証の二重化を避ける方針とした。doc にはこの根拠を明記した。
+- subagent implementation review: Hilbert から初回 `CHANGES_REQUESTED` を受けた。F4x source-policy の禁止 regex に F4u public `gui_sfnt_lookup_simple_glyph_path_sink_action` が不足していたため追加し、再レビューで `APPROVED` を受けた。
+- classification: GUI font SFNT simple glyph path sink action start step / checked first action step entry point / no duplicate contour span validation / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4x を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` を追加した。
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_step` は `gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index` を 1 回呼び、`gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index start_cursor policy` へ 1 回だけ委譲する。
+  - `Result::Err` は下位 lookup の parse/range error として伝播し、policy reject は `Result::Ok` の action payload に残す。新しい error 変換や hidden success は追加していない。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の skipped byte-backed fixture に start step lookup を追加し、`Result::Ok action_step` の cursor が contour `0`、edge `0`、event slot `First`、action slot `Primary` であることを検査した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4x の docs / implementation source policy を追加した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 270/270 passed。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass した。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残る。
+
+# 2026-06-14 Agent2 GUI font sink action start cursor checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result による失敗表現、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4v の action traversal の上に F4w: sink action start cursor を追加した。
+- subagent plan review: Kierkegaard から `APPROVED` を受けた。pure start helper は unchecked value constructor、byte-backed helper は validated entry point として分けること、doc が pure cursor を byte 妥当性の証明として扱わないこと、byte-backed helper が contour span lookup だけへ委譲することを反映した。
+- subagent implementation review: Schrodinger から `APPROVED` を受けた。F4w が `edge 0` / `First` / `Primary` の typed start cursor だけを追加し、action payload lookup / sink policy / renderer / platform API に踏み込んでいないこと、cheap assertion と source-policy が境界を固定していることが確認された。
+- classification: GUI font SFNT simple glyph path sink action start cursor / unchecked pure cursor constructor / byte-backed contour span validation / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4w を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_path_sink_action_start_cursor` を追加した。これは contour cursor を `edge_index = 0` / `GuiSfntSimpleGlyphPathSinkEventSlot::First` で作り、`GuiSfntSimpleGlyphPathSinkActionSlot::Primary` と合成する unchecked value constructor である。
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor` を追加した。これは `gui_sfnt_lookup_simple_glyph_contour_span` へ 1 回だけ委譲し、成功した場合だけ pure start cursor helper を返す。
+  - byte-backed helper は action step lookup、sink step lookup、contour step lookup、sink policy、renderer、rasterizer、platform font API を呼ばない。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の existing cheap assertion を拡張し、contour `3`、edge `0`、event slot `First`、action slot `Primary` の開始 cursor を検査した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4w の docs / implementation source policy を追加した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 269/269 passed。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass した。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残る。
+
+# 2026-06-14 Agent2 GUI font sink action traversal checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result による失敗表現、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4u の sink action projection の上に F4v: path sink action traversal step を追加した。
+- subagent plan review: Banach から `APPROVED, with small contract fixes` を受けた。`next_contour_cursor` ではなく `next_cursor` として wording を修正すること、遷移は action payload と独立させること、`step_from_sink_step` は F4u projection を再利用すること、既存 contour cursor の index と新規 numeric action index 禁止を区別すること、`next_from_step` が primary/tail/action payload を読まないことを反映した。
+- subagent implementation review: Kepler から `APPROVED` を受けた。F4v が traversal-only であり、`Vec` / real sink / renderer / rasterizer / platform を持たないこと、payload-independent traversal、F4u projection reuse、F4t lookup への 1 回委譲が確認された。
+- classification: GUI font SFNT simple glyph path sink action traversal / typed action cursor / payload-independent next / no real sink mutation / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4v を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionCursor`、`GuiSfntSimpleGlyphPathSinkActionNext`、`GuiSfntSimpleGlyphPathSinkActionStep` と constructor / accessor / `Clone` / `Copy` を追加した。
+  - `gui_sfnt_simple_glyph_path_sink_action_next_from_step` は `Primary -> same contour cursor Tail`、`Tail -> source_step.next` の規則だけで next を決める。`Reject`、`NoAction`、`CloseContour` など action payload は見ない。
+  - `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` は F4u の `gui_sfnt_simple_glyph_path_sink_step_action_at` を使い、primary / tail action payload の再分類を行わない。
+  - public `gui_sfnt_lookup_simple_glyph_path_sink_action_step` は action cursor から contour cursor と action slot を読み、`gui_sfnt_lookup_simple_glyph_path_sink_step` へ 1 回だけ委譲して pure action-step helper に渡す。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の existing cheap assertion を拡張し、Primary が emit / reject に関係なく Tail へ進むこと、Tail が Continue なら next cursor Primary へ進むこと、Tail が EndContour なら typed EndContour を返すことを検査した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4v の docs / implementation source policy を追加した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。実測は約 113 秒。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 267/267 passed。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass した。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残る。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+
+# 2026-06-14 Agent2 GUI font sink action selection projection checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result による失敗表現、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4t の sink step の上に F4u: path sink action selection projection を追加した。
+- subagent plan review: Kant から `APPROVED` を受けた。F4u は real sink の mutation / ownership ではなく selection/projection として命名・記述すること、`GuiSfntSimpleGlyphPathSinkActionSlot` と `GuiSfntSimpleGlyphPathSinkEventSlot` を分離すること、`NoAction` は tail の `NoTailAction` 専用 projection として説明することを反映した。
+- subagent implementation review: Linnaeus から `APPROVED` を受けた。primary projection が `NoAction` を返さないこと、`action_at` が exhaustive enum match であること、byte-backed helper が F4t lookup へ 1 回だけ委譲すること、Vec / renderer / platform / rasterizer / font fallback が混入していないことが確認された。
+- classification: GUI font SFNT simple glyph path sink action selection projection / typed action slot / no real sink mutation / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4u を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionSlot`、`GuiSfntSimpleGlyphPathSinkAction`、slot predicate、primary / tail projection helper、`gui_sfnt_simple_glyph_path_sink_step_action_at`、public `gui_sfnt_lookup_simple_glyph_path_sink_action` を追加した。
+  - `GuiSfntSimpleGlyphPathSinkActionSlot::Primary` / `Tail` は、既存の `GuiSfntSimpleGlyphPathSinkEventSlot::First` / `Second` とは別の軸として扱う。
+  - primary action projection は `EmitEvent` / `Reject` だけを返し、`NoAction` を返さない。
+  - tail action projection は `NoTailAction` を明示的な `NoAction` に写し、`CloseContour` は marker として保持する。
+  - public byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_sink_step` に 1 回だけ委譲し、成功値に pure action projection を適用する。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の existing cheap assertion を拡張し、Primary / Tail slot、Emit / Reject / Close / NoAction の分岐を検査した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4u の docs / implementation source policy を追加した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。実測は約 124 秒。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 253/253 passed。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass した。既存の `stdlib declaration doc gaps increased: 153 > 108` warning は残る。
+
 # 2026-06-14 Agent2 GUI font path sink ownership boundary checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result による失敗表現、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4s の contour step の上に F4t: allocation-free path sink ownership boundary を追加した。

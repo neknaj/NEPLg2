@@ -841,6 +841,165 @@ gui_sfnt_lookup_simple_glyph_path_sink_step:
 
 byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_contour_step` を呼び、成功した F4s step を pure helper に渡すだけである。metadata unwrap、table helper bypass、renderer、platform API、font fallback、rasterization、full outline allocation は行わない。
 
+### SFNT simple glyph path sink action selection projection
+
+F4u は F4t の `GuiSfntSimpleGlyphPathSinkStep` から、future sink が順に消費する action を typed value として選択する projection である。これは real sink mutation、callback、full outline allocation、`Vec` command stream、renderer command、rasterizer ではない。F4u の責務は、F4t で分離した primary / tail action を同一の `GuiSfntSimpleGlyphPathSinkAction` 型に写し、slot による選択を enum / match で固定することである。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionSlot:
+    Primary
+    Tail
+
+GuiSfntSimpleGlyphPathSinkAction:
+    EmitEvent GuiSfntSimpleGlyphPathSinkEvent
+    Reject GuiSfntSimpleGlyphPathSinkRejectReason
+    CloseContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+```
+
+`GuiSfntSimpleGlyphPathSinkActionSlot` は F4r/F4s の `GuiSfntSimpleGlyphPathSinkEventSlot` とは別の軸である。`GuiSfntSimpleGlyphPathSinkEventSlot::First` / `Second` は contour edge 内の command event を選ぶ。`GuiSfntSimpleGlyphPathSinkActionSlot::Primary` / `Tail` は F4t sink step 内の action を選ぶ。両者を同じ enum や数値 index に統合してはならない。
+
+`NoAction` は `GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction` の明示的な projection だけを表す。fallback、silent no-op、unsupported feature の握りつぶしではない。primary action projection は `NoAction` を返さず、必ず `EmitEvent` または `Reject` を返す。
+
+public pure helper と byte-backed helper は次である。
+
+```text
+gui_sfnt_simple_glyph_path_sink_primary_action_as_action:
+    action &GuiSfntSimpleGlyphPathSinkPrimaryAction
+    -> GuiSfntSimpleGlyphPathSinkAction
+
+gui_sfnt_simple_glyph_path_sink_tail_action_as_action:
+    action &GuiSfntSimpleGlyphPathSinkTailAction
+    -> GuiSfntSimpleGlyphPathSinkAction
+
+gui_sfnt_simple_glyph_path_sink_step_action_at:
+    step &GuiSfntSimpleGlyphPathSinkStep
+    slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> GuiSfntSimpleGlyphPathSinkAction
+
+gui_sfnt_lookup_simple_glyph_path_sink_action:
+    bytes &ByteBuf
+    face_index Option i32
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> Result GuiSfntSimpleGlyphPathSinkAction GuiSfntParseError
+```
+
+`gui_sfnt_simple_glyph_path_sink_step_action_at` は `Primary` / `Tail` の網羅的 `match` だけで分岐する。`Option`、`Result`、数値 `command_index`、default branch は使わない。
+
+byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功した step に `gui_sfnt_simple_glyph_path_sink_step_action_at` を適用する。下位の contour / curve / table helper、metadata unwrap、`*_with_tables` bypass、font fallback、renderer、platform API、rasterization、full outline allocation は行わない。
+
+### SFNT simple glyph path sink action traversal step
+
+F4v は F4u の 1 action projection を、contour 内で順に読むための traversal step へ拡張する段階である。これは real sink mutation、callback、full outline allocation、`Vec` command stream、renderer command、rasterizer ではない。F4v の責務は、`Primary -> Tail -> F4s source next` の遷移を enum data として固定することである。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionCursor:
+    contour_cursor GuiSfntSimpleGlyphPathContourCursor
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+
+GuiSfntSimpleGlyphPathSinkActionNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionCursor
+    EndContour
+
+GuiSfntSimpleGlyphPathSinkActionStep:
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    sink_step GuiSfntSimpleGlyphPathSinkStep
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionNext
+```
+
+`GuiSfntSimpleGlyphPathSinkActionCursor` は既存の checked `GuiSfntSimpleGlyphPathContourCursor` と F4u の action slot を合成した cursor である。新しい数値 action index、command index、loop counter、ad-hoc traversal counter は導入しない。既存 contour cursor が持つ `contour_index` / `edge_index` は、F4s で検証される contour event traversal の authority として保持する。
+
+next の規則は action payload と独立している。
+
+```text
+action_slot = Primary
+    -> Continue same contour_cursor Tail
+
+action_slot = Tail and sink_step.source_step.next = Continue next_cursor
+    -> Continue next_cursor Primary
+
+action_slot = Tail and sink_step.source_step.next = EndContour
+    -> EndContour
+```
+
+`Primary -> Tail` は primary action が `EmitEvent` でも `Reject` でも同じである。`Tail -> source_step.next` は tail action が `CloseContour` でも `NoAction` でも同じである。action value は future sink が何を消費するかを表し、next value はどこへ進むかだけを表す。
+
+public pure helper と byte-backed helper は次である。
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_next_from_step:
+    sink_step &GuiSfntSimpleGlyphPathSinkStep
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> GuiSfntSimpleGlyphPathSinkActionNext
+
+gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step:
+    sink_step &GuiSfntSimpleGlyphPathSinkStep
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> GuiSfntSimpleGlyphPathSinkActionStep
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_step:
+    bytes &ByteBuf
+    face_index Option i32
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntParseError
+```
+
+`gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` は action selection を F4u の `gui_sfnt_simple_glyph_path_sink_step_action_at` に委譲し、primary / tail action の中身を再分類しない。
+
+byte-backed helper は action cursor から contour cursor と action slot を読み、`gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功した step に pure action step projection を適用する。下位の contour / curve / table helper、metadata unwrap、`*_with_tables` bypass、font fallback、renderer、platform API、rasterization、full outline allocation は行わない。
+
+### SFNT simple glyph path sink action start cursor
+
+F4w は F4v の action traversal に、contour-local action stream の開始 cursor を与える段階である。これは glyph outline の列挙、sink mutation、action payload lookup、policy evaluation、allocation、rasterization ではない。開始位置は必ず contour edge `0`、event slot `First`、action slot `Primary` である。
+
+public helper は pure constructor と byte-backed validated entry point に分ける。
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_start_cursor:
+    glyph GuiGlyphId
+    contour_index i32
+    -> GuiSfntSimpleGlyphPathSinkActionCursor
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntParseError
+```
+
+`gui_sfnt_simple_glyph_path_sink_action_start_cursor` は unchecked value constructor である。`GuiSfntSimpleGlyphPathContourCursor` を `edge_index = 0` / `GuiSfntSimpleGlyphPathSinkEventSlot::First` で作り、それを `GuiSfntSimpleGlyphPathSinkActionSlot::Primary` と合成する。byte 妥当性、contour 存在、point 数、span 範囲は検査しない。
+
+`gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor` は byte-backed entry point であり、`gui_sfnt_lookup_simple_glyph_contour_span` を 1 回だけ呼ぶ。成功した場合にだけ pure start cursor helper へ委譲する。最初の action payload は読まず、F4v action step lookup、F4t sink step lookup、F4s contour step lookup、point / curve / path command helper、sink policy、renderer、rasterizer、platform font API は呼ばない。
+
+この分離により、開始位置の型構成は cheap test で確認でき、byte 妥当性は既存 contour span contract に集約される。pure constructor が contour の存在や byte 妥当性を証明するものとして document してはならない。
+
+### SFNT simple glyph path sink action start step
+
+F4x は F4w の start cursor と F4v の action step lookup を接続し、contour の first action step を読む convenience entry point を追加する段階である。これは contour stream、real sink、full outline allocation、command list、renderer、rasterizer ではない。
+
+public helper は次である。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_step:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntParseError
+```
+
+この helper は `gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index` で unchecked start cursor を作り、`gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index start_cursor policy` を 1 回だけ呼ぶ。byte-backed start cursor helper は呼ばない。理由は、`gui_sfnt_lookup_simple_glyph_path_sink_action_step` が既に F4t/F4s 経由で contour span 検証、edge range 検証、path command lookup、policy decision を行うためである。ここで byte-backed start cursor helper を先に呼ぶと contour span 検証が二重になる。
+
+`Result::Err` は下位 action step lookup の parse/range error をそのまま伝播する。policy reject は `Result::Err` ではなく `Result::Ok GuiSfntSimpleGlyphPathSinkActionStep` の `action = Reject` payload として残る。F4x は error taxonomy を変更してはならない。
+
+F4x は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor`、`gui_sfnt_lookup_simple_glyph_contour_span`、`gui_sfnt_lookup_simple_glyph_path_sink_step`、F4s/F4t より下位の lookup helper を直接呼ばない。検証と payload construction の authority は F4v action step lookup に集約する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
