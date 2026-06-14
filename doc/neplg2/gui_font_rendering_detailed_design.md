@@ -3653,6 +3653,77 @@ The span invariant checks are visible in F5w even though F5v should already guar
 
 F5w may call F5v, `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point`, and item / point / span / capacity accessors. It must not call F4 byte-backed contour helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, edge/path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection contour edge boundary
+
+F5x is the collection-backed equivalent of the old F4k contour edge lookup. It composes F5v contour span lookup with two F5w contour point lookups. It does not call the byte-backed contour edge helper and does not consume the collection owner.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+```
+
+F5x intentionally accepts `contour_index` rather than a caller-provided `GuiSfntSimpleGlyphContourSpan`. `GuiSfntSimpleGlyphContourSpan` has a public constructor, so accepting it would allow callers to forge a span outside the collection topology. F5x must call F5v exactly once and use that checked span as its authority.
+
+The error payload is diagnostic data, not owner recovery:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeErrorKind
+    contour_index i32
+    edge_index i32
+    next_contour_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    span Option GuiSfntSimpleGlyphContourSpan
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    start_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    end_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    start Option GuiSfntSimpleGlyphContourPoint
+    end Option GuiSfntSimpleGlyphContourPoint
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+The required order is:
+
+```text
+1. Read collection capacity / item_count / items_len / items_cap for diagnostics.
+2. Call F5v collection contour span lookup exactly once.
+3. Convert F5v error to ContourSpanFailed with span_error Some.
+4. On F5v success, validate span.glyph == capacity.glyph.
+5. Validate span.contour_index == contour_index.
+6. Validate span.start_point_index >= 0.
+7. Validate span.end_point_index >= span.start_point_index.
+8. Validate span.end_point_index < capacity.point_count.
+9. Validate span.point_count == span.end_point_index - span.start_point_index + 1.
+10. Only after the span invariant succeeds, validate edge_index range.
+11. Compute next_contour_point_index = edge_index + 1, wrapping to 0 at span.point_count.
+12. Call F5w contour point lookup for start at edge_index.
+13. Call F5w contour point lookup for end at next_contour_point_index.
+14. Validate start span matches F5v span.
+15. Validate end span matches F5v span.
+16. Validate start local index == edge_index.
+17. Validate end local index == next_contour_point_index.
+18. Validate start absolute point index == span.start_point_index + edge_index.
+19. Validate end absolute point index == span.start_point_index + next_contour_point_index.
+20. Return gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index.
+```
+
+The span invariant checks are visible in F5x even though F5v should already guarantee them. This is the same fail-closed style as F5w: a lower-boundary impossible success shape must not be reclassified as `EdgeIndexOutOfRange`, and it must not flow into point lookup.
+
+`EdgeIndexOutOfRange` is only for caller edge-index mistakes after a valid span. It must be checked before F5w point lookup. The error stores `next_contour_point_index = -1` because no wrapped next index is part of the contract when the edge index is invalid.
+
+One-point contours are valid. For `span.point_count == 1` and `edge_index == 0`, `next_contour_point_index` is `0`, and start / end point to the same absolute point. F5x must preserve this topology value rather than discarding it as a no-segment or close command; curve classification and sink policy are later phases.
+
+`StartPointFailed` and `EndPointFailed` are defensive branches for forged or future collection owners that pass span checks but fail lower F5w point lookup. Normal public F5t/F5u/F5v/F5w collections should not reach them after F5v succeeds. They remain typed so future owner implementations do not replace them with unchecked point access.
+
+F5x may call F5v, F5w, point / span / edge / capacity accessors, and `gui_sfnt_simple_glyph_contour_edge`. It must not call F4 byte-backed contour helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
