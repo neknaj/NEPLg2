@@ -2389,6 +2389,85 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point read drain budget
+
+F5p は F5o の point step を、明示的な step budget 内で正常終端まで進める no-allocation drain boundary である。これは full point `Vec` や path/raster/render の実装ではない。後続の point collection、edge/path tag population、outline stream、raster mask、render2d command emission が再利用できる traversal contract を先に固定する。
+
+drain summary は、drain が停止した cursor、今回の drain call で読んだ point 数、最後に読んだ point を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadDrainSummary:
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    points_read i32
+    last_point Option GuiSfntSimpleGlyphPoint
+```
+
+drain の成功値は、正常終端と budget exhaustion を enum で分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadDrain:
+    End GuiSfntSimpleGlyphOutlinePointReadDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointReadDrainSummary
+```
+
+`StepBudgetExhausted` は失敗ではない。ただし silent success でもない。呼び出し側が次の work slice を要求できる typed terminal である。
+
+F5p は F5o の error をそのまま public error にせず、drain 固有 error に包む。これは F5o の通常失敗と、F5p が検出した F5o 成功値の invariant violation を分けるためである。
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    StepReadFailed
+    StepInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointReadDrainError:
+    kind GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    step_error Option GuiSfntSimpleGlyphOutlinePointReadStepError
+    step Option GuiSfntSimpleGlyphOutlinePointReadStep
+```
+
+`gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget` は次の順序を守る。
+
+```text
+1. storage capacity と stream topology を読む
+2. storage capacity shape を検査する
+3. storage glyph と stream glyph が一致することを検査する
+4. storage contour_count と stream contour_count が一致することを検査する
+5. storage point_count と stream point_count が一致することを検査する
+6. cursor.next_point_index を読む
+7. next_point_index < 0 または next_point_index > point_count なら CursorOutOfRange
+8. next_point_index == point_count なら End summary を返す
+9. non-terminal かつ remaining_steps <= 0 なら StepBudgetExhausted summary を返す
+10. non-terminal かつ remaining_steps > 0 の場合だけ F5o point step を 1 回呼ぶ
+11. F5o Err は StepReadFailed として保持する
+12. F5o Ok Point かつ point Some で、next cursor が現在 cursor から 1 点分だけ前進している場合だけ points_read を 1 増やして iteration を続ける
+13. F5o Ok Point かつ point None、next cursor が `current + 1` ではない Point、または F5o Ok End は StepInvariantInvalid として返す
+```
+
+つまり、terminal check は budget check より前、budget check は F5o call より前である。budget が尽きている non-terminal cursor では point read work を進めない。一方で、terminal cursor は budget 0 でも `End` として返す。
+
+F5p は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_simple_glyph_outline_storage_read_point_coordinate
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop
+gui_sfnt_glyf_read_point_flag_from_stream_loop
+gui_sfnt_glyf_read_point_flag_run_or_continue
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

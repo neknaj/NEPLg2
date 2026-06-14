@@ -3021,6 +3021,131 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+## SFNT simple glyph outline point read drain budget
+
+F5p adds a no-allocation drain boundary over F5o. It is a traversal contract, not a collection implementation. It does not allocate a full point list, mutate edge/path storage, synthesize path commands, rasterize glyphs, or emit render commands.
+
+The drain summary is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadDrainSummary:
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    points_read i32
+    last_point Option GuiSfntSimpleGlyphPoint
+```
+
+`cursor` is the next cursor where traversal stopped. `points_read` counts only point steps consumed by this drain call. `last_point` is `None` when no point was consumed, including terminal-start and zero-budget-start cases.
+
+The drain result is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadDrain:
+    End GuiSfntSimpleGlyphOutlinePointReadDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointReadDrainSummary
+```
+
+`StepBudgetExhausted` is a successful typed terminal for the current work slice. It is not a substitute for `End`, and callers must schedule another slice if they need a complete traversal.
+
+F5p has its own error value:
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    StepReadFailed
+    StepInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointReadDrainError:
+    kind GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    step_error Option GuiSfntSimpleGlyphOutlinePointReadStepError
+    step Option GuiSfntSimpleGlyphOutlinePointReadStep
+```
+
+`StepReadFailed` wraps an F5o `Result::Err`. `StepInvariantInvalid` is used only when F5o returns a success value that contradicts F5p's already validated non-terminal state or fails to advance by exactly one point:
+
+```text
+F5o returns End after F5p proved cursor.next_point_index < point_count
+F5o returns Point with point None
+F5o returns Point with next_cursor.next_point_index != current next_point_index + 1
+```
+
+Both cases are fail-closed invariant violations. They must not be converted into `End`, `StepBudgetExhausted`, or a point count increment.
+
+The public helper is:
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget:
+    ByteBuf
+    GuiSfntTableRecord
+    GuiSfntSimpleGlyphPointStream
+    GuiSfntSimpleGlyphOutlineStorage
+    GuiSfntSimpleGlyphOutlinePointReadCursor
+    remaining_steps
+    -> Result GuiSfntSimpleGlyphOutlinePointReadDrain GuiSfntSimpleGlyphOutlinePointReadDrainError
+```
+
+The implementation keeps the current drain summary fields as local mutable state inside one bounded `while` body:
+
+```text
+current_cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+current_points_read i32
+current_last_point Option GuiSfntSimpleGlyphPoint
+current_remaining_steps i32
+done bool
+```
+
+The shared storage/stream/cursor validation is split into a non-recursive validation helper before the terminal and budget checks. This keeps the iterative drain body small enough for current NEPLg2.1 codegen while preserving the same contract:
+
+```text
+validate shared preconditions
+if terminal: End
+else if budget exhausted: StepBudgetExhausted
+else call F5o once and advance state
+```
+
+The fixed order is:
+
+```text
+validate shared storage/stream preconditions
+validate cursor range, allowing cursor == point_count
+if cursor == point_count:
+    End summary
+if remaining_steps <= 0:
+    StepBudgetExhausted summary
+step = F5o read_point_step exactly once
+if step is Err:
+    StepReadFailed
+if step.status == Point and step.point == Some point:
+    recurse with next_cursor, points_read + 1, last_point = Some point, remaining_steps - 1
+if step.status == Point and step.point == None:
+    StepInvariantInvalid
+if step.status == End:
+    StepInvariantInvalid
+```
+
+Terminal-before-budget is required so `cursor == point_count` succeeds even with budget 0. Budget-before-F5o is required so non-terminal budget exhaustion does not perform hidden point read work.
+
+F5p must not call:
+
+```text
+vec::
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_simple_glyph_outline_storage_read_point_coordinate
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop
+gui_sfnt_glyf_read_point_flag_from_stream_loop
+gui_sfnt_glyf_read_point_flag_run_or_continue
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
