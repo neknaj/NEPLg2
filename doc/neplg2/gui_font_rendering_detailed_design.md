@@ -1642,6 +1642,38 @@ The apparent `Continue + EndContour` branch is defensive against future represen
 
 F4ah must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, because that helper requires the original consumer item and would obscure the F4ag/F4af ownership boundary. F4ah must not re-apply action payloads, match `GuiSfntSimpleGlyphPathSinkAction` variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, call lower contour/curve lookup helpers directly, rasterize, render, call platform APIs, or call host text measurement.
 
+### SFNT simple glyph path sink action consumer consume once
+
+F4ai composes F4af and F4ah into the smallest useful future-loop step. It consumes exactly one already-checked consumer item and resolves the immediate post-apply continuation, but it still does not own a loop and does not become a sink.
+
+The result must preserve both sides of the operation:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+```
+
+`apply_step` is not redundant. It carries the updated apply state and the consumed action status. Returning only `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` would hide whether the current item emitted an event, rejected, closed a contour, or consumed an explicit `NoAction`.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state item policy:
+    apply_step = gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item
+
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index apply_step policy:
+        Err error:
+            Err error
+
+        Ok advance:
+            Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep apply_step advance
+```
+
+F4ai must not call F4ag directly. F4ah owns terminal classification and stored-next advancement. F4ai must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` because it would bypass the F4af/F4ah split and would also lose the structured apply result unless wrapped again.
+
+F4ai must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, call lower contour/curve lookup helpers directly, rasterize, render, call platform APIs, or call host text measurement.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

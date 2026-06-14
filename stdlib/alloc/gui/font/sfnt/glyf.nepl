@@ -2218,6 +2218,43 @@ impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
     fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \advance:
         advance
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep: consumer item を 1 つ[消費/しょうひ]した結果
+//:
+//: [目的/もくてき]:
+//: - F4af の apply step と F4ah の advance を[同時/どうじ]に[保持/ほじ]します。
+//: - future loop が state / status と terminal / next item を[同時/どうじ]に[読/よ]めるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step: consume step を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step %fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep \apply_step\advance:
+    GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep apply_step advance
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step: apply step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep \step:
+    *field::get_ref step "apply_step"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance: advance を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \step:
+    *field::get_ref step "advance"
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -4171,3 +4208,20 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance %fn 
             Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason
         GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour _end_step:
             Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once: consumer item を 1 つ[消費/しょうひ]して[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F4af apply helper を 1 回だけ呼び、F4ah advance helper を 1 回だけ呼びます。
+//: - apply step を捨てず、advance と[同/おな]じ result value に[保持/ほじ]します。
+//: - loop、real sink、payload direct match、renderer / platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError \bytes\face_index\state\item\policy:
+    let apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index &apply_step policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok advance:
+            let consume_step %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance
+            Result::Ok consume_step

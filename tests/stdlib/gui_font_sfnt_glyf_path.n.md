@@ -999,6 +999,102 @@ fn main %impure fn void i32 \void:
     test_assertion_exit_code assert "path sink consumer apply advance keeps domain terminals as ok values" apply_advance_ok
 ```
 
+## path sink consumer consume once preserves apply result and advance
+
+neplg2:test[skip, stdio, normalize_newlines]
+exit_code: 0
+stdout: ""
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui/font/sfnt/glyf" as *
+#import "alloc/io" as *
+#import "core/gui/font" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn consume_once_reject_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError bool \result:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok consume_step:
+            let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step &consume_step
+            let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
+            let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+            let status_ok %bool match apply_status:
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected reason:
+                    match reason:
+                        GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart:
+                            true
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
+                    false
+            let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_reject_count &apply_state
+            let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance &consume_step
+            let advance_ok %bool match advance:
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue _item:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason:
+                    match reason:
+                        GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart:
+                            true
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                    false
+            and status_ok and count_ok advance_ok
+
+fn consume_once_end_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError bool \result:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok consume_step:
+            let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step &consume_step
+            let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+            let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
+            let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+            let status_ok %bool match apply_status:
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected _reason:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
+                    true
+            let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &apply_state
+            let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance &consume_step
+            let advance_ok %bool match advance:
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue _item:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected _reason:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                    true
+            and status_ok and count_ok advance_ok
+
+fn main %impure fn void i32 \void:
+    let bytes %ByteBuf io_bytebuf_empty
+    let none_face %Option i32 none
+    let policy %GuiSfntSimpleGlyphPathSinkPolicy gui_sfnt_simple_glyph_path_sink_policy GuiSfntSimpleGlyphPathOffCurveStartPolicy::RejectUnsupported GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent
+    let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state_new
+    let reject_action %GuiSfntSimpleGlyphPathSinkAction GuiSfntSimpleGlyphPathSinkAction::Reject GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart
+    let reject_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item reject_action GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+    let reject_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once &bytes none_face state &reject_item &policy
+    let no_action_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item GuiSfntSimpleGlyphPathSinkAction::NoAction GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+    let end_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once &bytes none_face state &no_action_item &policy
+    let reject_ok %bool consume_once_reject_ok reject_result
+    let end_ok %bool consume_once_end_ok end_result
+    let consume_once_ok %bool and reject_ok end_ok
+    test_assertion_exit_code assert "path sink consumer consume once preserves apply result and advance" consume_once_ok
+```
+
 ## path contour step public lookup follows cursor next contract
 
 neplg2:test[skip, stdio, normalize_newlines]
