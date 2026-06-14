@@ -273,44 +273,6 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
-## Phase F5f: sfnt simple glyph contour endpoint byte reader bridge
-
-目的:
-
-- 既存の checked `gui_sfnt_glyf_read_contour_endpoint` と F5e の `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を接続する。
-- byte-backed endpoint array reading と owner-preserving storage mutation の error domain を分ける。
-- x/y coordinate decode、flag decode、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
-
-変更:
-
-- 先に source policy を追加し、F5f docs、read-before-mutate ordering、read failure と push failure の分離、owner 型の非 Clone / 非 Copy、禁止 API を固定する。
-- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
-  - `GuiSfntSimpleGlyphContourEndpointReadPush`
-  - `GuiSfntSimpleGlyphContourEndpointReadPushErrorKind`
-  - `GuiSfntSimpleGlyphContourEndpointReadPushError`
-  - `gui_sfnt_glyf_read_push_contour_endpoint`
-- public helper は `gui_sfnt_glyf_read_contour_endpoint` を 1 回だけ呼び、read failure では F5e push を呼ばない。
-- read success では `GuiSfntSimpleGlyphContourEndpointSlot` を作り、F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を 1 回だけ呼ぶ。
-- F5e push failure では endpoint、F5e error kind、F5d region error kind、F5c storage push error kind を owner 消費前に読む。
-- doctest は byte-backed success、read failure owner recovery、push failure endpoint preservation を追加する。
-- 実装後に subagent review を受け、指摘があれば修正する。
-
-完了条件:
-
-- synthetic endpoint bytes から 2 contours / 4 points の endpoint 1, 3 を読み、storage len と cursor next index が 2、previous endpoint が 3 になる。
-- endpoint byte range が table 外なら `ReadFailed` になり、parse error が `Some`、endpoint が `None`、storage len が 0 のまま回収できる。
-- valid bytes だが F5e validation が失敗する場合は `PushFailed` になり、parse error が `None`、endpoint が `Some`、lower F5e error kind が `Some` になる。
-- source policy が read-before-mutate、F5e push 呼び出し回数、lower error metadata の owner 消費前読み取り、direct `vec::` 禁止、point decode/render/raster/platform/host API 禁止、owner 型の非 Clone / 非 Copy を検査する。
-
-検証:
-
-```powershell
-node nodesrc/test_web_gui_font_rendering_contract.js
-node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
-node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
-git diff --check
-```
-
 ## Phase F4f: sfnt simple glyph topology lookup
 
 目的:
@@ -2389,6 +2351,84 @@ git diff --check
 - final contour endpoint が `point_count - 1` でない場合は `FinalEndpointMismatch` になる。
 - PointX cursor を渡した場合は `CursorRegionMismatch` になり、storage cursor mismatch など下位 error に落ちない。
 - source policy が capacity/cursor/endpoint validation order、F5d region push 呼び出し回数、direct `vec::` 禁止、byte/render/raster/platform/host API 禁止、owner 型の非 Clone / 非 Copy を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
+## Phase F5f: sfnt simple glyph contour endpoint byte reader bridge
+
+目的:
+
+- 既存の checked `gui_sfnt_glyf_read_contour_endpoint` と F5e の `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を接続する。
+- byte-backed endpoint array reading と owner-preserving storage mutation の error domain を分ける。
+- x/y coordinate decode、flag decode、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5f docs、read-before-mutate ordering、read failure と push failure の分離、owner 型の非 Clone / 非 Copy、禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphContourEndpointReadPush`
+  - `GuiSfntSimpleGlyphContourEndpointReadPushErrorKind`
+  - `GuiSfntSimpleGlyphContourEndpointReadPushError`
+  - `gui_sfnt_glyf_read_push_contour_endpoint`
+- public helper は `gui_sfnt_glyf_read_contour_endpoint` を 1 回だけ呼び、read failure では F5e push を呼ばない。
+- read success では `GuiSfntSimpleGlyphContourEndpointSlot` を作り、F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を 1 回だけ呼ぶ。
+- F5e push failure では endpoint、F5e error kind、F5d region error kind、F5c storage push error kind を owner 消費前に読む。
+- doctest は byte-backed success、read failure owner recovery、push failure endpoint preservation を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+完了条件:
+
+- synthetic endpoint bytes から 2 contours / 4 points の endpoint 1, 3 を読み、storage len と cursor next index が 2、previous endpoint が 3 になる。
+- endpoint byte range が table 外なら `ReadFailed` になり、parse error が `Some`、endpoint が `None`、storage len が 0 のまま回収できる。
+- valid bytes だが F5e validation が失敗する場合は `PushFailed` になり、parse error が `None`、endpoint が `Some`、lower F5e error kind が `Some` になる。
+- source policy が read-before-mutate、F5e push 呼び出し回数、lower error metadata の owner 消費前読み取り、direct `vec::` 禁止、point decode/render/raster/platform/host API 禁止、owner 型の非 Clone / 非 Copy を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
+## Phase F5g: sfnt simple glyph point x coordinate population
+
+目的:
+
+- F5d の `PointX` region cursor を使い、typed x coordinate slot を owner-preserving に storage へ追加する。
+- scalar storage index と glyph logical point index を混同しない validation order を固定する。
+- byte-backed x decode、point flag decode、y coordinate、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5g docs、PointX slot type、success/error owner payload、validation order、owner 型の非 Clone / 非 Copy、禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPointXSlot`
+  - `GuiSfntSimpleGlyphPointXPush`
+  - `GuiSfntSimpleGlyphPointXPushErrorKind`
+  - `GuiSfntSimpleGlyphPointXPushError`
+  - `gui_sfnt_simple_glyph_outline_storage_push_point_x`
+- public helper は capacity shape と scalar slot count `Fits` を検査してから `point_count` を読む。
+- cursor well-formed validation と cursor/capacity boundary match は `logical_point_index = cursor.next_index - cursor.start` より前に行う。
+- `PointX` region であることを確認し、`point.point_index == logical_point_index`、`0 <= point.point_index < point_count` を検査する。
+- commit helper は F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び、F5d error を `RegionPushFailed` に owner-preserving に包む。
+- doctest は endpoint region を先に埋めてから PointX success、point index mismatch、wrong region を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+完了条件:
+
+- 2 contours / 4 points の storage に contour endpoint 1, 3 を追加した後、PointX point 0 と point 1 を追加でき、storage len が 4、cursor next index が 4 になる。
+- PointX cursor が logical point 0 を指す状態で slot point_index 1 を渡すと `PointIndexMismatch` になり、storage len が 2 のまま回収できる。
+- PointY cursor を渡した場合は `CursorRegionMismatch` になり、storage len が 2 のまま回収できる。
+- source policy が capacity/cursor/point validation order、F5d region push 呼び出し回数、direct `vec::` 禁止、`gui_sfnt_glyf_` / point decode / render / raster / platform / host API 禁止、owner 型の非 Clone / 非 Copy を検査する。
 
 検証:
 

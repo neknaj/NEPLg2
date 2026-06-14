@@ -62781,3 +62781,54 @@ MERGE_APPROVED
 
 - F5f は byte-backed contour endpoint reader bridge までであり、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
 - 次 slice では endpoint storage の次に、x coordinate region の population boundary へ進む。byte decode と storage mutation の failure domain を混ぜず、read failure と push failure を typed enum で分離する。
+
+## 2026-06-14 GUI font F5g point x coordinate population checkpoint
+
+### scope
+
+- branch: `gui-font-point-x-region-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、docs、source policy、stdlib 実装、doctest、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、owner recovery、platform 非依存、fallback 禁止、contract と current implementation の分離、unchecked public API の抑制を維持した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5g の simple glyph PointX coordinate population boundary を追加した。
+- F5g は F5d の `PointX` region cursor を使い、synthetic typed x coordinate slot を storage へ追加する段階であり、byte-backed x delta decode、y coordinate population、edge/path command generation、rasterizer、renderer、platform API、host text API には進まない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPointXSlot`、PointX push success/error payload、error kind、public PointX push helper、private commit helper を追加した。
+- public helper は storage capacity shape と scalar slot count `Fits` を検査してから `point_count` を読む。
+- cursor well-formed validation と `PointX` region validation の後、valid capacity との boundary match を確認してから `cursor.start` / `cursor.next_index` を読む。
+- `logical_point_index = cursor.next_index - cursor.start` を使い、scalar storage index と glyph logical point index を分離した。
+- point index equality は point index range より前に検査するため、cursor が logical point 0 を指す状態で slot point_index 1 を渡すと `PointIndexMismatch` になる。
+- commit helper は F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び、F5d error を `RegionPushFailed` として owner-preserving に包む。
+- F5d error の kind と F5c push error kind は region error owner を消費する前に読み取る。
+- `GuiSfntSimpleGlyphPointXPush` と `GuiSfntSimpleGlyphPointXPushError` は storage owner を持つため `Clone` / `Copy` を実装していない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5g source policy を追加し、docs、型、validation order、F5d push 1 回、direct `vec::` 禁止、byte decode/render/raster/platform/host API 禁止、owner-bearing payload の非 Clone / 非 Copy を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` に endpoint region を先に埋めた PointX success、point index mismatch、wrong region の doctest を追加した。
+
+### subagent_review
+
+- Tesla plan review: `IMPLEMENTATION_APPROVED`。F5f の次 boundary として PointX population を切り出す方針、`cursor.next_index - cursor.start` による logical point index 算出、capacity shape と scalar slot count `Fits` 後の cursor boundary validation、F5d region push 1 回、lower error metadata の owner 消費前読み取り、owner-bearing payload の非 Clone / 非 Copy、decode/render/platform/host API 禁止の source policy 固定が承認された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。F5g implementation plan section が F5f より前、かつ F5 outline-storage sequence より前に置かれていたため、F5e -> F5f -> F5g の順で outline-storage area に移動するよう指摘された。
+- Tesla implementation review 1 fixes: `doc/neplg2/gui_font_rendering_implementation_plan.md` の F5f/F5g section を F5e の直後へ移し、F5a -> F5b -> F5c -> F5d -> F5e -> F5f -> F5g の順序に修正した。
+- Tesla implementation review 2: `REVIEW_APPROVED`。implementation plan の phase ordering、source policy、diff check が pass し、blocker なしと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass with extended timeout: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5g_long.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5g.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass rerun: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5g_final.json -j 1`
+- pass rerun: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5g_final.json -j 1`
+- pass after `git rebase origin/main`: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after `git rebase origin/main`: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5g_rebased.json -j 1`
+- pass after `git rebase origin/main`: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5g_rebased.json -j 1`
+- pass after `git rebase origin/main`: `git diff --check origin/main..HEAD`
+- subagent pass: Tesla も source policy と changed-file diff check を再実行して pass と報告した。
+- note: default 60s timeout の `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` 単体実行は compile phase timeout になった。180s では pass するため、今回の追加による型エラーではなく、肥大化した単一doctestとrunner timeout閾値の問題として扱う。
+
+### residual
+
+- F5g は synthetic PointX coordinate slot population までであり、byte-backed x delta reader bridge、PointY coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では byte-backed x delta decode と PointX storage mutation の failure domain を分け、read failure と push failure を typed enum で分離する。

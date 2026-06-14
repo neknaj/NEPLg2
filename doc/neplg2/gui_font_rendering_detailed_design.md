@@ -2307,6 +2307,83 @@ The lower error metadata must be read before `returned_storage = storage from pu
 
 F5f must not call point stream construction, point coordinate decode, path generation, rasterization, render2d, platform APIs, host text measurement, or direct `Vec` APIs. The only allowed byte-side call in the bridge body is `gui_sfnt_glyf_read_contour_endpoint`.
 
+## SFNT simple glyph point x coordinate population boundary
+
+F5g adds the first coordinate-specific storage boundary. It accepts a typed x coordinate slot and appends its scalar value into the F5d `PointX` region.
+
+```text
+GuiSfntSimpleGlyphPointXSlot:
+    point_index i32
+    x i32
+```
+
+F5g does not read bytes. The point stream and x delta decoder already exist for older lookup APIs, but this phase deliberately stabilizes the storage mutation contract before wiring byte-backed x decode into the outline builder.
+
+The main risk is confusing scalar storage index with glyph logical point index. For a two-contour, four-point glyph, the `PointX` cursor starts at scalar slot 2:
+
+```text
+ContourEndpoint region: [0, 2)
+PointX region:          [2, 6)
+```
+
+Therefore:
+
+```text
+logical_point_index = cursor.next_index - cursor.start
+```
+
+This subtraction is valid only after:
+
+```text
+capacity shape is valid
+scalar slot count is Fits
+cursor is well formed
+cursor region is PointX
+cursor boundaries match the checked capacity
+```
+
+The validation order is fail-closed:
+
+```text
+capacity = storage.capacity
+
+if not shape_is_valid capacity:
+    Err StorageCapacityInvalid
+else if scalar_slot_count_check capacity is not Fits:
+    Err StorageCapacityInvalid
+else:
+    point_count = capacity.point_count
+
+    if not cursor_is_well_formed cursor:
+        Err CursorInvalid
+    else if cursor.region != PointX:
+        Err CursorRegionMismatch
+    else if cursor does not match checked capacity:
+        Err CursorRegionMismatch
+    else:
+        logical_point_index = cursor.next_index - cursor.start
+
+        if point.point_index != logical_point_index:
+            Err PointIndexMismatch
+        else if point.point_index < 0 or point.point_index >= point_count:
+            Err PointIndexOutOfRange
+        else:
+            commit through F5d region push exactly once
+```
+
+F5g wraps F5d region push failure without losing ownership:
+
+```text
+RegionPushFailed:
+    storage = recovered storage from F5d error
+    region_error_kind = Some F5d error kind
+    push_error_kind = F5d underlying push_error_kind
+```
+
+The F5d error kind and F5c push error kind must be read before consuming the owner-bearing F5d error via its storage accessor.
+
+F5g must not call byte readers, `gui_sfnt_glyf_*` helpers, point stream construction, coordinate decode, path generation, rasterization, render2d, platform APIs, host text measurement, or direct `Vec` APIs. The only mutation call in the commit helper is `gui_sfnt_simple_glyph_outline_storage_push_region_scalar`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

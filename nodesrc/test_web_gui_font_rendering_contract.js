@@ -4583,6 +4583,144 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5f bridge body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph point x coordinate population[\s\S]*logical_point_index = cursor\.next_index - cursor\.start[\s\S]*GuiSfntSimpleGlyphPointXSlot:[\s\S]*point_index i32[\s\S]*x i32[\s\S]*GuiSfntSimpleGlyphPointXPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*CursorInvalid[\s\S]*CursorRegionMismatch[\s\S]*PointIndexMismatch[\s\S]*PointIndexOutOfRange[\s\S]*RegionPushFailed[\s\S]*cursor boundary[\s\S]*checked capacity/,
+    "font spec must define F5g PointX population and logical point index mapping",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph point x coordinate population boundary[\s\S]*logical_point_index = cursor\.next_index - cursor\.start[\s\S]*capacity shape is valid[\s\S]*scalar slot count is Fits[\s\S]*cursor boundaries match the checked capacity[\s\S]*commit through F5d region push exactly once[\s\S]*The F5d error kind and F5c push error kind must be read before consuming/,
+    "font detailed design must define F5g PointX validation order and owner recovery ordering",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5g: sfnt simple glyph point x coordinate population[\s\S]*scalar storage index と glyph logical point index[\s\S]*`logical_point_index = cursor\.next_index - cursor\.start` より前[\s\S]*F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び[\s\S]*subagent review/,
+    "font implementation plan must define F5g source policy, point index mapping, and review gate",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPointXSlot:[\s\S]*point_index\s+%i32[\s\S]*x\s+%i32[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphPointXPush:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*cursor\s+%GuiSfntSimpleGlyphOutlineScalarRegionCursor[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphPointXPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*CursorInvalid[\s\S]*CursorRegionMismatch[\s\S]*PointIndexMismatch[\s\S]*PointIndexOutOfRange[\s\S]*RegionPushFailed[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphPointXPushError:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*point\s+%GuiSfntSimpleGlyphPointXSlot/,
+    "alloc/gui/font/sfnt/glyf F5g must expose PointX slot, owner success/error payloads, and typed error kind",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointXPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointXPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointXPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointXPushError:/,
+    "alloc/gui/font/sfnt/glyf F5g owner-bearing PointX payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_point_x %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointXSlot Result GuiSfntSimpleGlyphPointXPush GuiSfntSimpleGlyphPointXPushError") &&
+        guiFontSfntOutlineStorageTests.includes("point_x_push_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("point_x_index_mismatch_ok") &&
+        guiFontSfntOutlineStorageTests.includes("point_x_wrong_region_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5g PointX helpers",
+);
+const pointXPublicPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_point_x");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity &storage",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+    "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits _scalar_slot_count:",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+    "GuiSfntSimpleGlyphPointXPushErrorKind::CursorInvalid",
+    "GuiSfntSimpleGlyphOutlineScalarRegion::PointX:",
+    "GuiSfntSimpleGlyphPointXPushErrorKind::CursorRegionMismatch",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity:",
+    "let point_index %i32 gui_sfnt_simple_glyph_point_x_slot_point_index &point",
+    "let x %i32 gui_sfnt_simple_glyph_point_x_slot_x &point",
+    "let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor",
+    "let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor",
+    "let logical_point_index %i32 sub next_index start",
+    "if ne point_index logical_point_index:",
+    "GuiSfntSimpleGlyphPointXPushErrorKind::PointIndexMismatch",
+    "if or lt point_index 0 ge point_index point_count:",
+    "GuiSfntSimpleGlyphPointXPushErrorKind::PointIndexOutOfRange",
+    "gui_sfnt_simple_glyph_outline_storage_push_point_x_commit storage cursor point x",
+]) {
+    assert(pointXPublicPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5g public helper must include ${fragment}`);
+}
+for (const [before, after, message] of [
+    [
+        "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "shape validation must precede scalar slot count check",
+    ],
+    [
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+        "scalar slot count check must precede point_count read",
+    ],
+    [
+        "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+        "capacity point_count read must precede cursor validation",
+    ],
+    [
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity:",
+        "cursor well-formed validation must precede capacity boundary match",
+    ],
+    [
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity:",
+        "let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor",
+        "cursor/capacity boundary match must precede cursor start read for point semantics",
+    ],
+    [
+        "let logical_point_index %i32 sub next_index start",
+        "if ne point_index logical_point_index:",
+        "logical point index must be derived before point index sync check",
+    ],
+    [
+        "if ne point_index logical_point_index:",
+        "if or lt point_index 0 ge point_index point_count:",
+        "point index sync must precede range validation",
+    ],
+]) {
+    assert(pointXPublicPush.indexOf(before) >= 0 && pointXPublicPush.indexOf(before) < pointXPublicPush.indexOf(after), `alloc/gui/font/sfnt/glyf F5g public helper ${message}`);
+}
+assertNoMatch(
+    pointXPublicPush,
+    /\b(?:vec::|gui_sfnt_glyf_|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|decode_point|decode_x|decode_y|point_stream|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5g public helper must not decode points, use Vec directly, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointXPublicPush,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5g public helper body must preserve NEPL prefix style without parentheses",
+);
+const pointXCommit = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_point_x_commit");
+for (const fragment of [
+    "match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor x:",
+    "Result::Ok pushed:",
+    "let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_region_push_cursor &pushed",
+    "let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_storage pushed",
+    "GuiSfntSimpleGlyphPointXPushErrorKind::RegionPushFailed",
+    "let region_error_kind_value %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &region_error",
+    "let push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &region_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error",
+]) {
+    assert(pointXCommit.includes(fragment), `alloc/gui/font/sfnt/glyf F5g commit helper must include ${fragment}`);
+}
+assert(
+    (pointXCommit.match(/\bgui_sfnt_simple_glyph_outline_storage_push_region_scalar\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5g commit helper must call F5d region push exactly once",
+);
+assert(
+    pointXCommit.indexOf("let push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &region_error") <
+        pointXCommit.indexOf("let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error"),
+    "alloc/gui/font/sfnt/glyf F5g commit helper must read lower error data before consuming owner",
+);
+assertNoMatch(
+    pointXCommit,
+    /\b(?:vec::|gui_sfnt_glyf_|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|decode_point|decode_x|decode_y|point_stream|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5g commit helper must not decode points, use Vec directly, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointXCommit,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5g commit helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

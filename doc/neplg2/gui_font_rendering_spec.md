@@ -1866,6 +1866,72 @@ GuiSfntSimpleGlyphContourEndpointReadPushError:
 
 read failure では storage mutation が起きていないため、元の storage owner をそのまま返す。push failure では F5e が owner recovery を担当するため、F5f は F5e error から回収した storage owner を返す。どちらも silent fallback や no-op 成功にしない。
 
+### SFNT simple glyph point x coordinate population
+
+F5g は F5d の `PointX` region cursor を使い、simple glyph の x coordinate scalar を owner-preserving に追加する。ここでは byte-backed flag stream や x delta decode をまだ読まない。caller が typed x coordinate value を渡し、F5g は capacity、cursor、logical point index の contract を検査する。
+
+`PointX` region は contour endpoint region の後ろにあるため、cursor の `next_index` は scalar storage index であり、そのまま glyph logical point index ではない。
+
+```text
+logical_point_index = cursor.next_index - cursor.start
+```
+
+この変換は cursor が well-formed であり、cursor/capacity boundary が checked capacity と一致することを確認してからだけ行う。
+
+```text
+GuiSfntSimpleGlyphPointXSlot:
+    point_index i32
+    x i32
+```
+
+success payload は storage owner と advanced cursor を返す。
+
+```text
+GuiSfntSimpleGlyphPointXPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+```
+
+error payload も storage owner を返す。
+
+```text
+GuiSfntSimpleGlyphPointXPushErrorKind:
+    StorageCapacityInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    PointIndexMismatch
+    PointIndexOutOfRange
+    RegionPushFailed
+
+GuiSfntSimpleGlyphPointXPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point GuiSfntSimpleGlyphPointXSlot
+    kind GuiSfntSimpleGlyphPointXPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphPointXPush` と `GuiSfntSimpleGlyphPointXPushError` は storage owner を持つため `Clone` / `Copy` にしない。`GuiSfntSimpleGlyphPointXSlot` と error kind は value-only なので `Clone` / `Copy` でよい。
+
+`gui_sfnt_simple_glyph_outline_storage_push_point_x` は次の順序を守る。
+
+```text
+1. storage から capacity を読む
+2. capacity shape を検査する
+3. scalar_slot_count_check が Fits であることを検査する
+4. ここで初めて point_count を読む
+5. cursor が well-formed であることを検査する
+6. cursor region が PointX であることを検査する
+7. cursor boundary が checked capacity と一致することを検査する
+8. logical_point_index = cursor.next_index - cursor.start を計算する
+9. point.point_index == logical_point_index を検査する
+10. 0 <= point.point_index < point_count を検査する
+11. F5d の gui_sfnt_simple_glyph_outline_storage_push_region_scalar を 1 回だけ呼ぶ
+```
+
+F5g は x coordinate region の storage contract だけを扱い、byte decode、y coordinate、edge generation、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

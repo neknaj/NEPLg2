@@ -1479,6 +1479,217 @@ pub fn gui_sfnt_glyf_read_push_contour_endpoint %impure fn &ByteBuf impure fn Gu
                     let error %GuiSfntSimpleGlyphContourEndpointReadPushError gui_sfnt_simple_glyph_contour_endpoint_read_push_error_push_failed returned_storage cursor contour_index previous_endpoint endpoint_value push_error_kind_value region_error_kind storage_push_error_kind
                     Result::Err error
 
+//: GuiSfntSimpleGlyphPointXSlot: PointX region へ[追加/ついか]する typed x coordinate
+//:
+//: [目的/もくてき]:
+//: - glyph [全体/ぜんたい]の logical point index と x coordinate scalar を 1 つの value として[運/はこ]びます。
+//: - F5g では byte decode へは[進/すす]まず、既に得られた x scalar を PointX region へ[追加/ついか]する contract だけを[固定/こてい]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPointXSlot:
+    point_index %i32
+    x %i32
+
+impl Clone for GuiSfntSimpleGlyphPointXSlot:
+    fn clone %fn &GuiSfntSimpleGlyphPointXSlot GuiSfntSimpleGlyphPointXSlot \point:
+        *point
+
+impl Copy for GuiSfntSimpleGlyphPointXSlot:
+    fn copy_mark %fn GuiSfntSimpleGlyphPointXSlot GuiSfntSimpleGlyphPointXSlot \point:
+        point
+
+//: gui_sfnt_simple_glyph_point_x_slot: x coordinate slot value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_slot %fn i32 fn i32 GuiSfntSimpleGlyphPointXSlot \point_index\x:
+    GuiSfntSimpleGlyphPointXSlot point_index x
+
+//: gui_sfnt_simple_glyph_point_x_slot_point_index: x slot の logical point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_slot_point_index %fn &GuiSfntSimpleGlyphPointXSlot i32 \point:
+    *field::get_ref point "point_index"
+
+//: gui_sfnt_simple_glyph_point_x_slot_x: x slot の coordinate scalar を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_slot_x %fn &GuiSfntSimpleGlyphPointXSlot i32 \point:
+    *field::get_ref point "x"
+
+//: GuiSfntSimpleGlyphPointXPush: PointX push [成功/せいこう]時の owner と cursor
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPointXPush:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+//: gui_sfnt_simple_glyph_point_x_push: PointX push result を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiSfntSimpleGlyphPointXPush \storage\cursor:
+    GuiSfntSimpleGlyphPointXPush storage cursor
+
+//: gui_sfnt_simple_glyph_point_x_push_cursor: success payload の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_cursor %fn &GuiSfntSimpleGlyphPointXPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: gui_sfnt_simple_glyph_point_x_push_storage: success payload から storage owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_storage %fn GuiSfntSimpleGlyphPointXPush GuiSfntSimpleGlyphOutlineStorage \pushed:
+    field::get pushed "storage"
+
+//: GuiSfntSimpleGlyphPointXPushErrorKind: PointX push [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPointXPushErrorKind:
+    StorageCapacityInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    PointIndexMismatch
+    PointIndexOutOfRange
+    RegionPushFailed
+
+impl Clone for GuiSfntSimpleGlyphPointXPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphPointXPushErrorKind GuiSfntSimpleGlyphPointXPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphPointXPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphPointXPushErrorKind GuiSfntSimpleGlyphPointXPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphPointXPushError: PointX push [失敗/しっぱい]時の owner recovery payload
+//:
+//: [目的/もくてき]:
+//: - validation failure と F5d region push failure のどちらでも、storage owner、cursor、rejected point slot を[失/うしな]わず[返/かえ]します。
+//: - lower error は `Option` として[分離/ぶんり]し、validation failure では `None` にします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPointXPushError:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point %GuiSfntSimpleGlyphPointXSlot
+    kind %GuiSfntSimpleGlyphPointXPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    push_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_point_x_push_error: PointX push error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_error %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn GuiSfntSimpleGlyphPointXSlot fn GuiSfntSimpleGlyphPointXPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphPointXPushError \storage\cursor\point\kind\region_error_kind\push_error_kind:
+    GuiSfntSimpleGlyphPointXPushError storage cursor point kind region_error_kind push_error_kind
+
+fn gui_sfnt_simple_glyph_point_x_push_error_no_region %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn GuiSfntSimpleGlyphPointXSlot fn GuiSfntSimpleGlyphPointXPushErrorKind GuiSfntSimpleGlyphPointXPushError \storage\cursor\point\kind:
+    let none_region_error %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let none_push_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_point_x_push_error storage cursor point kind none_region_error none_push_error
+
+//: gui_sfnt_simple_glyph_point_x_push_error_kind: PointX push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_error_kind %fn &GuiSfntSimpleGlyphPointXPushError GuiSfntSimpleGlyphPointXPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_point_x_push_error_point: rejected x slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_error_point %fn &GuiSfntSimpleGlyphPointXPushError GuiSfntSimpleGlyphPointXSlot \error:
+    *field::get_ref error "point"
+
+//: gui_sfnt_simple_glyph_point_x_push_error_region_error_kind: lower F5d error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_error_region_error_kind %fn &GuiSfntSimpleGlyphPointXPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_point_x_push_error_push_error_kind: lower F5c push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_error_push_error_kind %fn &GuiSfntSimpleGlyphPointXPushError Option StdErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_point_x_push_error_storage: error payload から storage owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_point_x_push_error_storage %fn GuiSfntSimpleGlyphPointXPushError GuiSfntSimpleGlyphOutlineStorage \error:
+    field::get error "storage"
+
+fn gui_sfnt_simple_glyph_outline_storage_push_point_x_commit %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointXSlot impure fn i32 Result GuiSfntSimpleGlyphPointXPush GuiSfntSimpleGlyphPointXPushError \storage\cursor\point\x:
+    match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor x:
+        Result::Ok pushed:
+            let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_region_push_cursor &pushed
+            let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_storage pushed
+            let point_x_push %GuiSfntSimpleGlyphPointXPush gui_sfnt_simple_glyph_point_x_push next_storage next_cursor
+            Result::Ok point_x_push
+        Result::Err region_error:
+            let region_error_kind_value %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &region_error
+            let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind some region_error_kind_value
+            let push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &region_error
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error
+            let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error returned_storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::RegionPushFailed region_error_kind push_error_kind
+            Result::Err error
+
+//: gui_sfnt_simple_glyph_outline_storage_push_point_x: x coordinate を PointX region storage へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - capacity shape と scalar slot count を[検査/けんさ]してから point_count を[使/つか]います。
+//: - cursor/capacity boundary が一致するまで、cursor index を logical point index として[使/つか]いません。
+//: - logical point index は `cursor.next_index - cursor.start` であり、scalar storage index そのものではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_point_x %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointXSlot Result GuiSfntSimpleGlyphPointXPush GuiSfntSimpleGlyphPointXPushError \storage\cursor\point:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity &storage
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::StorageCapacityInvalid
+            Result::Err error
+        else:
+            match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits _scalar_slot_count:
+                    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                    if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:
+                        then:
+                            let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::CursorInvalid
+                            Result::Err error
+                        else:
+                            let region %GuiSfntSimpleGlyphOutlineScalarRegion gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor
+                            let is_point_x_region %bool match region:
+                                GuiSfntSimpleGlyphOutlineScalarRegion::PointX:
+                                    true
+                                _:
+                                    false
+                            if not is_point_x_region:
+                                then:
+                                    let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::CursorRegionMismatch
+                                    Result::Err error
+                                else:
+                                    if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::CursorRegionMismatch
+                                            Result::Err error
+                                        else:
+                                            let point_index %i32 gui_sfnt_simple_glyph_point_x_slot_point_index &point
+                                            let x %i32 gui_sfnt_simple_glyph_point_x_slot_x &point
+                                            let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+                                            let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+                                            let logical_point_index %i32 sub next_index start
+                                            if ne point_index logical_point_index:
+                                                then:
+                                                    let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::PointIndexMismatch
+                                                    Result::Err error
+                                                else:
+                                                    if or lt point_index 0 ge point_index point_count:
+                                                        then:
+                                                            let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::PointIndexOutOfRange
+                                                            Result::Err error
+                                                        else:
+                                                            gui_sfnt_simple_glyph_outline_storage_push_point_x_commit storage cursor point x
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow _overflow_capacity:
+                    let error %GuiSfntSimpleGlyphPointXPushError gui_sfnt_simple_glyph_point_x_push_error_no_region storage cursor point GuiSfntSimpleGlyphPointXPushErrorKind::StorageCapacityInvalid
+                    Result::Err error
+
 //: GuiSfntSimpleGlyphPointStream: simple glyph の raw point stream ranges
 //:
 //: [目的/もくてき]:
