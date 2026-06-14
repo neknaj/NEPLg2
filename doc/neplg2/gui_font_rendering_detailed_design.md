@@ -3146,6 +3146,66 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+## SFNT simple glyph outline point stream item classification boundary
+
+F5q adds the first no-allocation item boundary after full point read/drain. F5p can traverse points and retain the last point, but later contour/path/raster phases need a stable value that combines the original point payload with a typed stream classification. F5q provides that O(1) value.
+
+The new item kind is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemKind:
+    OnCurve
+    OffCurve
+    EndOnCurve
+    EndOffCurve
+```
+
+The item is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItem:
+    point GuiSfntSimpleGlyphPoint
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemKind
+```
+
+The constructor does not accept `kind` from callers. Accepting both a point and an externally supplied kind would allow inconsistent values such as an off-curve endpoint point paired with `OnCurve`. That would be fallback-like data corruption because later phases would need to choose which field to trust. F5q therefore derives kind from the point exactly once:
+
+```text
+kind = gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point point
+item = GuiSfntSimpleGlyphOutlinePointStreamItem point kind
+```
+
+The classification function is total and returns no `Result`:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point:
+    GuiSfntSimpleGlyphPoint
+    -> GuiSfntSimpleGlyphOutlinePointStreamItemKind
+```
+
+This is not a parser boundary, so there is no error to hide. Any invalid byte/storage state must already have been rejected by F5n/F5o/F5p before a full point reaches F5q.
+
+The fixed classification order is:
+
+```text
+on_curve = point.on_curve
+end_of_contour = point.end_of_contour
+if end_of_contour:
+    if on_curve:
+        EndOnCurve
+    else:
+        EndOffCurve
+else:
+    if on_curve:
+        OnCurve
+    else:
+        OffCurve
+```
+
+Endpoint is deliberately represented in the top-level kind. Later contour/path code should not need to re-read the endpoint boolean to distinguish a normal on-curve point from the final point of a contour.
+
+F5q must not call byte readers, storage readers, drain loops, path sink helpers, rasterizers, renderer commands, platform APIs, or host text APIs. It also must not allocate a point vector. It may only call the existing `GuiSfntSimpleGlyphPoint` field accessors and construct the item value.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

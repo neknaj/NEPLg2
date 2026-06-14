@@ -2914,3 +2914,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5p.json -j 1
 git diff --check
 ```
+
+## Phase F5q: sfnt simple glyph outline point stream item classification
+
+目的:
+
+- F5p で読める full point を、後続 outline stream / contour / path phase が O(1) value として読むための no-allocation item boundary を追加する。
+- `on_curve` と `end_of_contour` の組み合わせを `GuiSfntSimpleGlyphOutlinePointStreamItemKind` に分類し、後段が bool field を重複解釈しないようにする。
+- `EndOnCurve` / `EndOffCurve` を top-level variant として持ち、contour endpoint を silent flag にしない。
+- ByteBuf、SFNT lookup、storage、F5p drain loop、Vec、path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5q docs、item kind / item 型、classification order、constructor exact one classification、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItem`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_point`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_kind`
+- item kind は次を持つ。
+  - `OnCurve`
+  - `OffCurve`
+  - `EndOnCurve`
+  - `EndOffCurve`
+- constructor は外部 kind を受け取らず、`gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` を 1 回だけ呼んで kind を導く。
+- classification は次の順序で行う。
+  - `on_curve = gui_sfnt_simple_glyph_point_on_curve point`
+  - `end_of_contour = gui_sfnt_simple_glyph_point_end_of_contour point`
+  - `end_of_contour` が true なら `EndOnCurve` / `EndOffCurve`
+  - `end_of_contour` が false なら `OnCurve` / `OffCurve`
+- doctest は synthetic `GuiSfntSimpleGlyphPoint` を使い、4 分類と accessors を検査する。
+- 実装前 plan review と実装後 implementation review を subagent review として受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- 4 種類の `on_curve` / `end_of_contour` combination が enum variant に分類される。
+- endpoint point は通常 `OnCurve` / `OffCurve` ではなく `EndOnCurve` / `EndOffCurve` になる。
+- item constructor は point と分類済み kind を同時に保持し、外部 kind の不整合を受け付けない。
+- source policy が F5q docs、API、classification order、constructor exact one classification、ByteBuf / `GuiSfntSimpleGlyphPointStream` / storage / drain / `gui_sfnt_glyf_` / `gui_sfnt_lookup_` / `Vec` / path / render / raster / platform / host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_f5q.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5q.json -j 1
+git diff --check
+```

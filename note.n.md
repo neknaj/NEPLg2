@@ -1,3 +1,41 @@
+# 2026-06-15 Agent2 GUI font outline point stream item checkpoint
+
+## scope
+
+- branch: `gui-font-outline-point-stream-item-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5q の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item classification の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5q の no-allocation item boundary、外部 kind を受け取らない constructor、endpoint 優先の classification order を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5q の実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemKind`、`GuiSfntSimpleGlyphOutlinePointStreamItem`、`gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`、`gui_sfnt_simple_glyph_outline_point_stream_item` と accessors を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md` に on-curve、off-curve、end-on-curve、end-off-curve、accessor の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5q source policy を追加し、docs/API/classification order/constructor exact one classification/ByteBuf・storage・drain・Vec・path・render・raster・platform・host API 禁止を検査するようにした。
+
+## subagent_review
+
+- Tesla plan review は `PLAN_BLOCKED`。分類 helper 名が accessor と衝突すること、source policy で広い `point_stream` 文字列を禁止すると F5q 自身の `OutlinePointStreamItem` を誤検出することが指摘された。
+- 計画を修正し、分類 helper を `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`、accessor を `gui_sfnt_simple_glyph_outline_point_stream_item_kind` に分離した。
+- source policy は `point_stream` 文字列を広く禁止せず、`GuiSfntSimpleGlyphPointStream`、ByteBuf、storage/drain、byte/SFNT lookup、Vec、path/raster/render/platform/host API に禁止対象を絞った。
+- Tesla implementation review は `REVIEW_BLOCKED`。実装自体の blocker はなく、`verification_current` が pending のままという note discipline の不整合だけが指摘された。
+- 検証結果を pass に更新し、未追跡の focused doctest を commit に含める方針を確認した。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_f5q.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5q.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5q は point classification item までであり、full point `Vec` collection、sink integration、edge/path tag population、outline point stream traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline point drain checkpoint
 
 ## scope

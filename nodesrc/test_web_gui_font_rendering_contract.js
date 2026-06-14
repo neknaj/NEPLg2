@@ -106,6 +106,7 @@ const guiFontSfntOutlinePointFlagTests = read("tests/stdlib/gui_font_sfnt_glyf_o
 const guiFontSfntOutlinePointReadTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_read.n.md");
 const guiFontSfntOutlinePointStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_step.n.md");
 const guiFontSfntOutlinePointDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md");
+const guiFontSfntOutlinePointStreamItemTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -126,6 +127,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointReadTests,
     guiFontSfntOutlinePointStepTests,
     guiFontSfntOutlinePointDrainTests,
+    guiFontSfntOutlinePointStreamItemTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -6236,6 +6238,143 @@ assert(
         guiFontSfntOutlinePointDrainTests.includes("Option::None") &&
         guiFontSfntOutlinePointDrainTests.includes("Option::Some point"),
     "F5p point drain focused doctest must cover full End, partial/zero budget, terminal zero budget, cursor error, and wrapped step failure",
+);
+const specF5q = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item classification"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5q は F5p で読める full point",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind:",
+    "OnCurve",
+    "OffCurve",
+    "EndOnCurve",
+    "EndOffCurve",
+    "GuiSfntSimpleGlyphOutlinePointStreamItem:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point",
+    "外部から kind を受け取らない",
+    "end_of_contour が true",
+]) {
+    assert(specF5q.includes(fragment), `font spec F5q point stream item must mention ${fragment}`);
+}
+const detailedF5q = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item classification boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5q adds the first no-allocation item boundary",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItem:",
+    "The constructor does not accept `kind` from callers",
+    "derives kind from the point exactly once",
+    "The classification function is total and returns no `Result`",
+    "Endpoint is deliberately represented in the top-level kind",
+]) {
+    assert(detailedF5q.includes(fragment), `font detailed design F5q point stream item must mention ${fragment}`);
+}
+const implementationPlanF5q = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5q: sfnt simple glyph outline point stream item classification"),
+    implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5q: sfnt simple glyph outline point stream item classification") + 1) < 0
+        ? implementationPlan.length
+        : implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5q: sfnt simple glyph outline point stream item classification") + 1),
+);
+for (const fragment of [
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind",
+    "GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point",
+    "constructor は外部 kind を受け取らず",
+    "source policy",
+    "subagent review",
+]) {
+    assert(implementationPlanF5q.includes(fragment), `font implementation plan F5q must mention ${fragment}`);
+}
+const pointStreamItemTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemKind:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemKind:",
+    "OnCurve",
+    "OffCurve",
+    "EndOnCurve",
+    "EndOffCurve",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItem:",
+    "point %GuiSfntSimpleGlyphPoint",
+    "kind %GuiSfntSimpleGlyphOutlinePointStreamItemKind",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item %fn GuiSfntSimpleGlyphPoint GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_point",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind",
+]) {
+    assert(pointStreamItemTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5q point stream item API must include ${fragment}`);
+}
+const pointStreamItemKindFromPoint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point");
+for (const fragment of [
+    "let on_curve %bool gui_sfnt_simple_glyph_point_on_curve point",
+    "let end_of_contour %bool gui_sfnt_simple_glyph_point_end_of_contour point",
+    "match end_of_contour:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOnCurve",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind::EndOffCurve",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind::OnCurve",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemKind::OffCurve",
+]) {
+    assert(pointStreamItemKindFromPoint.includes(fragment), `alloc/gui/font/sfnt/glyf F5q kind classification must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemKindFromPoint,
+    [
+        "gui_sfnt_simple_glyph_point_on_curve",
+        "gui_sfnt_simple_glyph_point_end_of_contour",
+        "match end_of_contour:",
+        "true:",
+        "EndOnCurve",
+        "EndOffCurve",
+        "false:",
+        "OnCurve",
+        "OffCurve",
+    ],
+    "alloc/gui/font/sfnt/glyf F5q kind classification must prefer endpoint variants before normal curve variants",
+);
+assertNoMatch(
+    pointStreamItemKindFromPoint,
+    /\b(?:ByteBuf|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphOutlineStorage|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_|gui_sfnt_lookup_|vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5q kind classification must not use byte/SFNT lookup, storage/drain, Vec, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemKindFromPoint,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5q kind classification body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCtor = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item");
+for (const fragment of [
+    "let kind %GuiSfntSimpleGlyphOutlinePointStreamItemKind gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point &point",
+    "GuiSfntSimpleGlyphOutlinePointStreamItem point kind",
+]) {
+    assert(pointStreamItemCtor.includes(fragment), `alloc/gui/font/sfnt/glyf F5q item constructor must include ${fragment}`);
+}
+assert(
+    (pointStreamItemCtor.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5q item constructor must classify kind exactly once",
+);
+assertNoMatch(
+    pointStreamItemCtor,
+    /\b(?:ByteBuf|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphOutlineStorage|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_|gui_sfnt_lookup_|vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5q item constructor must not use byte/SFNT lookup, storage/drain, Vec, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemCtor,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5q item constructor body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemTests.includes("point stream item on curve") &&
+        guiFontSfntOutlinePointStreamItemTests.includes("point stream item off curve") &&
+        guiFontSfntOutlinePointStreamItemTests.includes("point stream item end on curve") &&
+        guiFontSfntOutlinePointStreamItemTests.includes("point stream item end off curve") &&
+        guiFontSfntOutlinePointStreamItemTests.includes("point stream item accessor kind") &&
+        guiFontSfntOutlinePointStreamItemTests.includes("point stream item accessor point index"),
+    "F5q point stream item focused doctest must cover four classifications and accessors",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

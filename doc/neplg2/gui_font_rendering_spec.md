@@ -2468,6 +2468,65 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item classification
+
+F5q は F5p で読める full point を、後続 outline stream / contour / path phase が直接読むための no-allocation item boundary である。これは point collection、path command、raster mask、render command ではない。
+
+point item kind は、on-curve/off-curve と contour endpoint を enum として表す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemKind:
+    OnCurve
+    OffCurve
+    EndOnCurve
+    EndOffCurve
+
+GuiSfntSimpleGlyphOutlinePointStreamItem:
+    point GuiSfntSimpleGlyphPoint
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemKind
+```
+
+`EndOnCurve` と `EndOffCurve` は contour 終端を typed value として運ぶための variant である。endpoint を後段が `bool` field から毎回推測する設計にしない。
+
+classification helper は `GuiSfntSimpleGlyphPoint` だけを読む。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point:
+    GuiSfntSimpleGlyphPoint
+    -> GuiSfntSimpleGlyphOutlinePointStreamItemKind
+
+gui_sfnt_simple_glyph_outline_point_stream_item:
+    GuiSfntSimpleGlyphPoint
+    -> GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+`gui_sfnt_simple_glyph_outline_point_stream_item` は外部から kind を受け取らない。kind は point payload から exactly once 導く。
+
+classification order は固定する。
+
+```text
+1. on_curve を読む
+2. end_of_contour を読む
+3. end_of_contour が true なら EndOnCurve / EndOffCurve を返す
+4. end_of_contour が false なら OnCurve / OffCurve を返す
+```
+
+F5q は次を直接呼ばない。
+
+```text
+ByteBuf
+GuiSfntSimpleGlyphPointStream
+GuiSfntSimpleGlyphOutlineStorage
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_
+gui_sfnt_lookup_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
