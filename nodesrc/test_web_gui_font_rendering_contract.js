@@ -4179,6 +4179,161 @@ assertMatch(
     /let\s+storage\s+%GuiSfntSimpleGlyphOutlineStorage\s+field::get\s+error\s+"storage"[\s\S]*let\s+scalar_value\s+%i32\s+field::get\s+error\s+"scalar_value"[\s\S]*let\s+error_kind\s+%StdErrorKind\s+field::get\s+error\s+"error"[\s\S]*callback storage scalar_value error_kind/,
     "alloc/gui/font/sfnt/glyf F5c push error eliminator must pass storage, scalar, and kind together",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph outline scalar region cursor[\s\S]*GuiSfntSimpleGlyphOutlineScalarRegion:[\s\S]*ContourEndpoint[\s\S]*PointX[\s\S]*PointY[\s\S]*Edge[\s\S]*PathCommandTag[\s\S]*GuiSfntSimpleGlyphOutlineRegionPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*StorageCursorMismatch[\s\S]*RegionFull[\s\S]*StoragePushFailed[\s\S]*scalar_slots_cap == scalar_slot_count[\s\S]*scalar_slots_len == cursor\.next_index[\s\S]*F5c の gui_sfnt_simple_glyph_outline_storage_push_scalar_slot を 1 回だけ呼ぶ/,
+    "font spec must define F5d scalar region cursor, fixed capacity invariant, and region push errors",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph outline scalar region cursor boundary[\s\S]*try_from_capacity capacity region:[\s\S]*shape_is_valid capacity[\s\S]*scalar_slot_count_check capacity[\s\S]*from_valid_capacity capacity region[\s\S]*scalar_slots_cap != scalar_slot_count[\s\S]*scalar_slots_len != cursor\.next_index[\s\S]*cursor\.next_index >= cursor\.end[\s\S]*call F5c push_scalar_slot exactly once/,
+    "font detailed design must define F5d fail-closed cursor construction and push validation order",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5d: sfnt simple glyph outline scalar region cursor[\s\S]*unchecked helper 非公開[\s\S]*scalar_slots_cap == scalar_slot_count[\s\S]*scalar_slots_len == cursor\.next_index[\s\S]*F5c `gui_sfnt_simple_glyph_outline_storage_push_scalar_slot` を 1 回だけ呼ぶ[\s\S]*subagent review/,
+    "font implementation plan must define F5d source policy, fixed capacity invariant, and review gate",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphOutlineScalarRegion:[\s\S]*ContourEndpoint[\s\S]*PointX[\s\S]*PointY[\s\S]*Edge[\s\S]*PathCommandTag[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineScalarRegionCursor:[\s\S]*region\s+%GuiSfntSimpleGlyphOutlineScalarRegion[\s\S]*start\s+%i32[\s\S]*end\s+%i32[\s\S]*next_index\s+%i32[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphOutlineRegionPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*CursorInvalid[\s\S]*CursorRegionMismatch[\s\S]*StorageCursorMismatch[\s\S]*RegionFull[\s\S]*StoragePushFailed/,
+    "alloc/gui/font/sfnt/glyf F5d must expose typed region, cursor, and region push error kind",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+fn\s+gui_sfnt_simple_glyph_outline_scalar_region_cursor_from_valid_capacity/,
+    "alloc/gui/font/sfnt/glyf F5d raw cursor boundary helper must not be public",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineRegionPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineRegionPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineRegionPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineRegionPushError:/,
+    "alloc/gui/font/sfnt/glyf F5d owner-bearing region push payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphOutlineScalarRegion Result GuiSfntSimpleGlyphOutlineScalarRegionCursor StdErrorKind") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_region_scalar %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 Result GuiSfntSimpleGlyphOutlineRegionPush GuiSfntSimpleGlyphOutlineRegionPushError") &&
+        guiFontSfntOutlineStorageTests.includes("outline_region_cursor_boundaries_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_region_push_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_region_full_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_region_storage_cursor_mismatch_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5d region cursor helpers",
+);
+const outlineRegionCursorTryFromCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity");
+for (const fragment of [
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:",
+    "Result::Err StdErrorKind::InvalidOperation",
+    "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check capacity:",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits _scalar_slot_count:",
+    "gui_sfnt_simple_glyph_outline_scalar_region_cursor_from_valid_capacity capacity region",
+    "Result::Err StdErrorKind::CapacityExceeded",
+]) {
+    assert(outlineRegionCursorTryFromCapacity.includes(fragment), `alloc/gui/font/sfnt/glyf F5d try cursor helper must include ${fragment}`);
+}
+assert(
+    outlineRegionCursorTryFromCapacity.indexOf("if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:") <
+        outlineRegionCursorTryFromCapacity.indexOf("match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check capacity:") &&
+        outlineRegionCursorTryFromCapacity.indexOf("match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check capacity:") <
+            outlineRegionCursorTryFromCapacity.indexOf("gui_sfnt_simple_glyph_outline_scalar_region_cursor_from_valid_capacity capacity region"),
+    "alloc/gui/font/sfnt/glyf F5d try cursor helper must validate capacity before raw boundary calculation",
+);
+assertNoMatch(
+    outlineRegionCursorTryFromCapacity,
+    /\b(?:Vec|vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5d try cursor helper must stay value-only and independent from byte-backed lookup, rendering, and host/platform APIs",
+);
+assertNoMatch(
+    outlineRegionCursorTryFromCapacity,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5d try cursor helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineRegionCursorFromValidCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_scalar_region_cursor_from_valid_capacity");
+for (const fragment of [
+    "let x_start %i32 contour_count",
+    "let y_start %i32 add x_start point_count",
+    "let edge_start %i32 add y_start point_count",
+    "let path_command_start %i32 add edge_start edge_count",
+    "let path_command_end %i32 add path_command_start path_command_count",
+    "GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:",
+    "gui_sfnt_simple_glyph_outline_scalar_region_cursor region 0 contour_count 0",
+    "GuiSfntSimpleGlyphOutlineScalarRegion::PathCommandTag:",
+    "gui_sfnt_simple_glyph_outline_scalar_region_cursor region path_command_start path_command_end path_command_start",
+]) {
+    assert(outlineRegionCursorFromValidCapacity.includes(fragment), `alloc/gui/font/sfnt/glyf F5d raw cursor helper must include ${fragment}`);
+}
+assertNoMatch(
+    outlineRegionCursorFromValidCapacity,
+    /\b(?:Vec|vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5d raw cursor helper must stay value-only and independent from byte-backed lookup, rendering, and host/platform APIs",
+);
+assertNoMatch(
+    outlineRegionCursorFromValidCapacity,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5d raw cursor helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineRegionPushScalar = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_region_scalar");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity &storage",
+    "let scalar_slot_count %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slot_count &storage",
+    "let scalar_slots_len %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_len &storage",
+    "let scalar_slots_cap %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap &storage",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+    "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits expected_scalar_slot_count:",
+    "if or ne scalar_slot_count expected_scalar_slot_count ne scalar_slots_cap scalar_slot_count:",
+    "GuiSfntSimpleGlyphOutlineRegionPushErrorKind::CursorInvalid",
+    "gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity",
+    "if ne scalar_slots_len next_index:",
+    "GuiSfntSimpleGlyphOutlineRegionPushErrorKind::StorageCursorMismatch",
+    "if ge next_index end:",
+    "GuiSfntSimpleGlyphOutlineRegionPushErrorKind::RegionFull",
+    "match gui_sfnt_simple_glyph_outline_storage_push_scalar_slot storage value:",
+    "GuiSfntSimpleGlyphOutlineRegionPushErrorKind::StoragePushFailed",
+]) {
+    assert(outlineRegionPushScalar.includes(fragment), `alloc/gui/font/sfnt/glyf F5d region push helper must include ${fragment}`);
+}
+for (const [before, after, message] of [
+    [
+        "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "shape validation must precede scalar slot count check",
+    ],
+    [
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "if or ne scalar_slot_count expected_scalar_slot_count ne scalar_slots_cap scalar_slot_count:",
+        "scalar slot count check must precede storage fixed-cap validation",
+    ],
+    [
+        "if or ne scalar_slot_count expected_scalar_slot_count ne scalar_slots_cap scalar_slot_count:",
+        "gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity",
+        "fixed-cap validation must precede cursor/capacity matching",
+    ],
+    [
+        "if ne scalar_slots_len next_index:",
+        "if ge next_index end:",
+        "storage/cursor sync must be checked before RegionFull",
+    ],
+    [
+        "if ge next_index end:",
+        "match gui_sfnt_simple_glyph_outline_storage_push_scalar_slot storage value:",
+        "RegionFull must be checked before the F5c push call",
+    ],
+]) {
+    assert(outlineRegionPushScalar.indexOf(before) >= 0 && outlineRegionPushScalar.indexOf(before) < outlineRegionPushScalar.indexOf(after), `alloc/gui/font/sfnt/glyf F5d region push helper ${message}`);
+}
+assert(
+    (outlineRegionPushScalar.match(/\bgui_sfnt_simple_glyph_outline_storage_push_scalar_slot\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5d region push helper must call F5c push exactly once",
+);
+assertNoMatch(
+    outlineRegionPushScalar,
+    /\b(?:vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5d region push helper must not call Vec directly, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    outlineRegionPushScalar,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5d region push helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

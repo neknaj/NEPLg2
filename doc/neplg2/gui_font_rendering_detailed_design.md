@@ -2108,6 +2108,71 @@ push_error_with error callback -> callback storage scalar_value error_kind
 
 The consuming storage accessor is convenient for Copy scalar payloads. The eliminator preserves the pattern used by owner-bearing collection APIs and is the preferred shape if later push errors carry non-Copy payloads.
 
+## SFNT simple glyph outline scalar region cursor boundary
+
+F5d adds typed cursor movement over the F5b scalar slot storage. The boundary is deliberately still below point decode and path command synthesis. It only answers "which fixed scalar region is being filled next" and "is the storage owner synchronized with that cursor".
+
+The region order is fixed:
+
+```text
+contour endpoints
+x coordinates
+y coordinates
+edges
+path command tags
+```
+
+The unchecked boundary helper is internal. Public cursor construction is fail-closed:
+
+```text
+try_from_capacity capacity region:
+    if not shape_is_valid capacity:
+        Err InvalidOperation
+    else:
+        match scalar_slot_count_check capacity:
+            Fits expected:
+                Ok from_valid_capacity capacity region
+            Overflow:
+                Err CapacityExceeded
+```
+
+This ordering matters because region start/end uses i32 addition. A forged capacity must not reach addition before shape validation and scalar slot count overflow checking have succeeded.
+
+`push_region_scalar` validates storage and cursor before mutation:
+
+```text
+capacity = storage.capacity
+scalar_slot_count = storage.scalar_slot_count
+scalar_slots_len = len storage.scalar_slots
+scalar_slots_cap = cap storage.scalar_slots
+
+if not shape_is_valid capacity:
+    Err StorageCapacityInvalid storage cursor value None
+else:
+    match scalar_slot_count_check capacity:
+        Fits expected:
+            if scalar_slot_count != expected:
+                Err StorageCapacityInvalid storage cursor value None
+            else if scalar_slots_cap != scalar_slot_count:
+                Err StorageCapacityInvalid storage cursor value None
+            else if not cursor_is_well_formed cursor:
+                Err CursorInvalid storage cursor value None
+            else if not cursor matches from_valid_capacity capacity cursor.region:
+                Err CursorRegionMismatch storage cursor value None
+            else if scalar_slots_len != cursor.next_index:
+                Err StorageCursorMismatch storage cursor value None
+            else if cursor.next_index >= cursor.end:
+                Err RegionFull storage cursor value None
+            else:
+                call F5c push_scalar_slot exactly once
+        Overflow:
+            Err StorageCapacityInvalid storage cursor value None
+```
+
+`scalar_slots_cap == scalar_slot_count` is checked before the F5c call. F5c is a general owner-preserving push helper, but F5d is a fixed outline-region boundary; allowing Vec growth here would hide a broken storage invariant. `scalar_slots_len == cursor.next_index` is checked before `RegionFull` so that forged full cursors over shorter storage are classified as `StorageCursorMismatch`, not as a legitimately full region.
+
+Both success and failure payloads return the storage owner. `GuiSfntSimpleGlyphOutlineRegionPush` and `GuiSfntSimpleGlyphOutlineRegionPushError` must not implement `Clone` or `Copy`. The cursor and error kind are value-only and may implement `Clone` / `Copy`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

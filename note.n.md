@@ -62594,3 +62594,49 @@ MERGE_APPROVED
 
 - F5c は scalar slot push boundary までであり、slot region cursor、region-specific append API、contour endpoint population、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
 - 次 slice では scalar slot storage に typed region cursor を重ね、contour endpoint / x / y / edge / path command tag の region 境界を enum と cursor value で表現する。region overflow は silent no-op ではなく typed error とし、storage owner を返す。
+
+## 2026-06-14 GUI font F5d outline scalar region cursor checkpoint
+
+### scope
+
+- branch: `gui-font-outline-region-cursor-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、docs、source policy、stdlib 実装、doctest、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、owner recovery、platform 非依存、fallback 禁止、contract と current implementation の分離、unchecked public API の抑制を維持した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5d の simple glyph outline scalar region cursor boundary を追加した。
+- F5d は F5b/F5c の single `Vec i32` storage owner に、contour endpoint、x、y、edge、path command tag の typed region cursor を重ねる段階であり、point decode、path command generation、rasterizer、renderer、platform API、host text API には進まない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlineScalarRegion`、`GuiSfntSimpleGlyphOutlineScalarRegionCursor`、checked cursor constructor、region push success/error payload、region push error kind、region push helper を追加した。
+- unchecked boundary helper は public にしていない。公開 API の `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity` は capacity shape と scalar slot count overflow を検査してから region boundary を計算する。
+- `GuiSfntSimpleGlyphOutlineRegionPush` と `GuiSfntSimpleGlyphOutlineRegionPushError` は storage owner を持つため `Clone` / `Copy` を実装していない。
+- `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` は capacity、`scalar_slot_count`、`scalar_slots_len`、`scalar_slots_cap` を読み、shape、scalar count、fixed Vec cap、cursor shape、cursor/capacity match、storage/cursor sync、region full の順に検査してから F5c push helper を 1 回だけ呼ぶ。
+- `scalar_slots_cap == scalar_slot_count` を F5c push より先に検査し、fixed-capacity region boundary で Vec growth に依存しない。
+- `scalar_slots_len == cursor.next_index` を `RegionFull` より前に検査するため、empty storage に full cursor を渡す forged case は `StorageCursorMismatch` になる。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5d source policy を追加し、docs、型、raw helper 非公開、validation order、F5c push 1 回、direct `vec::` 禁止、owner-bearing payload の非 Clone / 非 Copy、禁止 API を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` に cursor boundary、region push success、region full、storage cursor mismatch の doctest を追加した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。fixed region boundary の前に `scalar_slots_cap == scalar_slot_count` を検査しないと F5c push が Vec growth に落ちること、owner-bearing success payload の非 Clone / 非 Copy を source policy に固定すること、storage/cursor sync を `RegionFull` より先に検査することを指摘された。
+- Tesla plan review 2: `PLAN_BLOCKED`。public unchecked cursor boundary helper が forged / overflow capacity で i32 addition へ進む可能性を指摘された。
+- Tesla plan review 3: `IMPLEMENTATION_APPROVED`。public API を `try_from_capacity` にし、raw boundary helper を非 public にし、capacity shape と scalar slot count `Fits` の後でだけ boundary を計算する修正案が承認された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。source policy failure、trailing whitespace、F5d implementation plan section の誤配置、`note.n.md` 未更新を指摘された。
+- Tesla implementation review 1 fixes: source policy は再実行で pass、trailing whitespace は削除、F5d implementation plan section は F5b/F5c の直後へ移動、現在この section で note を更新している。
+- Tesla implementation review 2: `REVIEW_APPROVED`。source policy、outline storage doctest、`glyf.nepl` doctest、diff check が pass し、blocker なしと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5d.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5d.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5d_rerun.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5d_rerun.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- subagent pass: Tesla も source policy、追加 doctest、`glyf.nepl` doctest、changed-file diff check を再実行して pass と報告した。
+
+### residual
+
+- F5d は typed region cursor と owner-preserving region scalar push までであり、contour endpoint population、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では region cursor API を使って contour endpoint region の population helper へ進む。byte-backed glyph point stream からの decode へ入る前に、owner recovery と cursor advance の contract を維持する。

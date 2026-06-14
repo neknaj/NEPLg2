@@ -1667,6 +1667,81 @@ push_scalar_slot storage value:
 
 `vec_push_error_kind` は `vec_push_error_vec` が error owner を消費する前に読む。F5c は `vec::push` を 1 回だけ呼び、`vec::with_capacity`、`vec::free`、`vec::filled`、`vec::replace`、`vec::pop` は呼ばない。storage cleanup は F5b の `gui_sfnt_simple_glyph_outline_storage_free` を caller が明示的に呼ぶ。
 
+### SFNT simple glyph outline scalar region cursor
+
+F5d は F5b/F5c の 1 本の scalar slot storage に typed region cursor を重ねる。storage 自体は `Vec i32` owner のまま保ち、region は次の固定範囲だけを表す。
+
+```text
+GuiSfntSimpleGlyphOutlineScalarRegion:
+    ContourEndpoint
+    PointX
+    PointY
+    Edge
+    PathCommandTag
+
+GuiSfntSimpleGlyphOutlineScalarRegionCursor:
+    region GuiSfntSimpleGlyphOutlineScalarRegion
+    start i32
+    end i32
+    next_index i32
+```
+
+region boundary は、F5b の trusted capacity から次の順序で決まる。
+
+```text
+ContourEndpoint  0 .. contour_count
+PointX           contour_count .. contour_count + point_count
+PointY           contour_count + point_count .. contour_count + point_count + point_count
+Edge             contour_count + point_count + point_count .. contour_count + point_count + point_count + edge_count
+PathCommandTag   contour_count + point_count + point_count + edge_count .. scalar_slot_count
+```
+
+unchecked boundary constructor は public API にしない。公開 API は `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity` であり、capacity shape と scalar slot count overflow を検査してから cursor を返す。検査に失敗した場合は `Result::Err StdErrorKind::InvalidOperation` または `Result::Err StdErrorKind::CapacityExceeded` を返し、境界加算へ進まない。
+
+region push は storage owner、cursor、scalar value を受け取り、成功時は storage owner と進んだ cursor を返す。
+
+```text
+GuiSfntSimpleGlyphOutlineRegionPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlineRegionPushErrorKind:
+    StorageCapacityInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    StorageCursorMismatch
+    RegionFull
+    StoragePushFailed
+
+GuiSfntSimpleGlyphOutlineRegionPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    scalar_value i32
+    kind GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphOutlineRegionPush` と `GuiSfntSimpleGlyphOutlineRegionPushError` は storage owner を持つため `Clone` / `Copy` にしない。
+
+`gui_sfnt_simple_glyph_outline_storage_push_region_scalar` は次の順序を守る。
+
+```text
+1. capacity、scalar_slot_count、scalar_slots_len、scalar_slots_cap を storage から読む
+2. capacity shape を検査する
+3. scalar_slot_count_check が Fits であることを検査する
+4. storage.scalar_slot_count == expected_scalar_slot_count を検査する
+5. scalar_slots_cap == scalar_slot_count を検査する
+6. cursor が start <= next_index <= end を満たすか検査する
+7. cursor の region/start/end が checked capacity 由来の region boundary と一致するか検査する
+8. scalar_slots_len == cursor.next_index を検査する
+9. cursor.next_index < cursor.end を検査する
+10. F5c の gui_sfnt_simple_glyph_outline_storage_push_scalar_slot を 1 回だけ呼ぶ
+```
+
+`scalar_slots_len == cursor.next_index` は `RegionFull` より先に検査する。これにより、empty storage に full cursor を渡すような forged input は `RegionFull` ではなく `StorageCursorMismatch` として扱う。`scalar_slots_cap == scalar_slot_count` も F5c push より先に検査し、fixed-capacity region boundary の外で Vec growth が起きる実装にはしない。
+
+F5d は contour endpoint や x/y coordinate の意味をまだ解釈しない。byte-backed lookup、point decode、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
