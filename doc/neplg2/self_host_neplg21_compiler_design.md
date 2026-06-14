@@ -1925,6 +1925,18 @@ subagent review では、`idx < len` の binding table read が `None` になっ
 
 この checkpoint 後の残件は、checker-layer generic substitution shape producer へこの core substitution evidence を接続し、pre-substitution target / trait application shape から substituted target / trait application shape を実際の typed traversal output 由来にすることである。trait bound solver、generic coherence、generic instantiation evidence の materializer accepted path 接続、PrivateCache / PrivateState effect masking、prechecked artifact 接続はまだ開かない。
 
+## 2026-06-14 MemoKey / MemoValue generic substitution canonical projection checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection.nepl` を追加し、generic substitution shape evidence に保存された target / trait application の output `SelfhostTypeId` を canonical type key 由来の stable projection evidence へ写す checker-layer 境界を作った。
+
+この producer は `SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence` の schema、root hash placeholder、field 由来 root hash を再検査してから、`target_substitution_output_type_id` と `trait_application_substitution_output_type_id` を別々に canonical projection へ通す。projection は既存の `selfhost_canonical_type_key_project_from_arena`、`selfhost_memo_trait_canonical_type_fingerprint_result`、`selfhost_memo_trait_canonical_key_payload_hash_result` だけに委譲し、この module は canonical key の独自実装を持たない。成功時の evidence は source-local TypeId、schema 付き fingerprint、schema 付き payload hash、final shape hash を target / trait application それぞれに保持する。
+
+accepted authority は `SelfhostTypeArena`、`SelfhostMemoTraitStableNominalKeyTable`、substitution shape evidence の typed field に限定する。source text、span、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact は authority にしない。positive index でも caller が渡した arena に record が無い TypeId は `ProjectionRejected(MissingTypeRecord)` として拒否し、unresolved type parameter は canonical fingerprint の `TypeParameterUnsupported` として拒否する。ただし、この public API 単独では public constructible な substitution evidence の TypeId が substitution traversal と同じ arena owner から来たことまでは証明しない。同一 arena provenance は上流の owner boundary の precondition であり、materializer accepted path へ接続する後続 connector が再確認する。target 側と trait application 側は別 wrapper error に包み、payload を比較する equality で固定した。
+
+`projection_shape_hash` は session-local TypeId linkage も含む checker-layer root hash であり、永続 artifact の単独 authority ではない。永続 authority として扱う材料は、target / trait application それぞれの canonical fingerprint、canonical payload hash、final shape hash を schema 付き field として保持する部分である。target と trait application の hash material には別 domain tag を混ぜ、同じ canonical type の入れ替えや順序依存だけに頼る退行を防ぐ。
+
+この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。projection evidence は generic impl candidate acceptance ではなく、後続の trait bound solver、generic coherence、instantiation evidence connector、materializer accepted path が読む typed material である。stable nominal key table lookup の index 化、stage0 fixture 分割、projection result memo は、今回固定した schema / payload / fail-closed contract を保てるため後続最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

@@ -1,3 +1,49 @@
+# 2026-06-14 Agent selfhost generic substitution canonical projection checkpoint
+
+## scope
+
+- branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- slice: generic substitution shape evidence の output `SelfhostTypeId` を canonical type key / fingerprint / payload hash へ写す checker-layer projection producer。
+- zenn_policy: `Result` / enum error、match の網羅性、contract と current implementation の分離、丁寧な doc comment、行数 / doc comment 長制限禁止、prototype でも公開境界を雑にしない方針を確認して反映した。
+
+## implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection.nepl` を追加した。
+- producer は `SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence` の schema、root hash placeholder、field 由来 root hash を再検査してから、target / trait application の output `SelfhostTypeId` を既存 canonical projection API へ渡す。
+- success evidence は target / trait application ごとに source-local TypeId、schema 付き canonical fingerprint、schema 付き canonical payload hash、final shape hash を保持する。
+- `projection_shape_hash` には checker-session linkage と role-tagged target / trait material を混ぜる。ただしこれは session-local root hash であり、永続 artifact の単独 authority ではない。永続 authority は canonical fingerprint / payload hash / final shape hash の schema 付き field 群である。
+- public API 単独では public constructible evidence の TypeId が substitution traversal と同じ arena owner から来たことまでは証明しない。同一 arena provenance は上流 owner boundary の precondition として明記し、後続 materializer connector の再確認責務として残した。
+- positive index だが caller arena に record が無い TypeId は `TargetTypeRejected(ProjectionRejected(MissingTypeRecord))`、unresolved type parameter は `TargetTypeRejected(FingerprintRejected(TypeParameterUnsupported))` として typed payload 付きで fail-closed に拒否する。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js` を追加し、source policy regression runner へ登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、projection producer 接続済みと残る trait bound solver / generic coherence / materializer accepted path / PrivateCache / prechecked artifact を分離して記録した。
+
+## subagent_review
+
+- Bohr 1 回目 review: Blocker として、別 arena provenance をこの public API 単独で保証できないのに契約で拒否できると書いていた点を指摘。Required として、`projection_shape_hash` の session-local 性、target / trait role tag、positive missing record、type parameter unsupported、forbidden authority regex、materializer `GenericImplInstantiationUnsupported` 維持の固定を要求した。
+- 反映: same-arena は precondition へ下げ、doc / issue / source policy に明記した。`projection_shape_hash` は session-local root hash と明記した。target role tag `613311` と trait application role tag `613313` を追加し、stage0 で target / trait 入れ替え hash difference を確認した。missing record と type parameter unsupported の stage0/doctest/contractを追加した。forbidden authority regex と materializer fail-closed check を補強した。
+- Bohr 2 回目 review: Blocker / Required なし。Non-blocker として、将来 projection evidence を別 module が消費する段階では `projection_shape_hash` 再計算 verifier/helper を追加するとよい、という提案があった。現時点では materializer が消費せず standalone producer の戻り値に閉じているため後続残件とした。
+
+## verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='600000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-substitution-projection.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- timeout: `node nodesrc/run_source_policy_regressions.js --warn-only` は 600 秒で timeout。今回追加した contract と関連 contract は個別に通しており、全体 runner の重さは別の source policy 実行時間残件として扱う。
+
+## residual
+
+- trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary は未実装である。materializer は引き続き `GenericImplInstantiationUnsupported` で detailed generic record を拒否する。
+- `PrivateCache` / `PrivateState` effect masking、prechecked artifact 接続は未実装である。
+- 後続 connector が projection evidence を消費する段階で、`projection_shape_hash` を field から再計算する verifier/helper を追加する。
+- stable nominal key table lookup の sorted index 化、projection result memo、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保てるため後から行える最適化として扱う。
+
 # 2026-06-14 Agent2 GUI font PointY storage/read bridge checkpoint
 
 ## scope

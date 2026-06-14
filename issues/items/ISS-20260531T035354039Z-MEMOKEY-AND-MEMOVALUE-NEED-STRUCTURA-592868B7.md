@@ -307,6 +307,27 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitu
 - pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl --no-tree -o tmp/selfhost-public-impl-header-binder-table-hash.json -j 1`
 - pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --no-tree -o tmp/selfhost-materializer-generic-binder-table-hash.json -j 1`
 
+## 2026-06-14 selfhost generic substitution canonical projection checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection.nepl` を追加し、generic substitution shape evidence の output `SelfhostTypeId` を canonical type key / fingerprint / payload hash 由来の projection evidence へ写す standalone checker-layer producer を作った。
+
+この producer は public struct として構築可能な `SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence` をそのまま信用せず、schema、root hash placeholder、field からの root hash 再計算を再検査する。その後、target と trait application の output TypeId を別々に `selfhost_canonical_type_key_project_from_arena`、`selfhost_memo_trait_canonical_type_fingerprint_result`、`selfhost_memo_trait_canonical_key_payload_hash_result` へ通す。success evidence は target / trait application ごとに source-local TypeId、canonical fingerprint、canonical payload hash、final shape hash を保持する。
+
+accepted authority は `SelfhostTypeArena`、`SelfhostMemoTraitStableNominalKeyTable`、substitution shape evidence の typed field だけである。source text、span、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact は authority にしない。positive index だが caller が渡した arena に record が無い TypeId は `TargetTypeRejected(ProjectionRejected(MissingTypeRecord))`、unresolved type parameter は `TargetTypeRejected(FingerprintRejected(TypeParameterUnsupported))` として typed payload 付きで fail-closed に拒否する。ただし、この public API 単独では public constructible な substitution evidence の TypeId が substitution traversal と同じ arena owner から来たことまでは証明しない。同一 arena provenance は上流の owner boundary の precondition であり、materializer accepted path へ接続する後続 connector が再確認する。trait application 側は `TraitApplicationTypeRejected` に分け、どちらの projection が失敗したかを残す。
+
+`projection_shape_hash` は session-local TypeId linkage も含む checker-layer root hash であり、永続 artifact の単独 authority ではない。永続 authority として扱う材料は、target / trait application それぞれの canonical fingerprint、canonical payload hash、final shape hash を schema 付き field として保持する部分である。target と trait application の hash material には別 domain tag を混ぜ、同じ canonical type の入れ替えや順序依存だけに頼る退行を防ぐ。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、materializer fail-closed 維持、canonical API 委譲、temporary canonical arena cleanup、schema / hash 再検査、同一 arena provenance precondition の明記、session-local projection hash の明記、target / trait application の role-tagged distinct hash material、payload-aware error equality、source-derived authority 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。projection evidence は generic impl accepted path ではなく、後続の trait bound solver、generic coherence、instantiation evidence connector、materializer accepted path が読む typed material である。stable nominal key table lookup の sorted index 化、projection result memo、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保てるため後からできる最適化として扱う。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-substitution-projection.json`
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
