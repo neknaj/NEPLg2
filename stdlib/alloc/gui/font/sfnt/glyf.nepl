@@ -2255,6 +2255,87 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step %
 pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \step:
     *field::get_ref step "advance"
 
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state: consume 後 state を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - consume step の apply step から、更新後 apply state だけを[取/と]り[出/だ]します。
+//: - advance、byte lookup、consumer next、payload direct match は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionApplyState \step:
+    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step step
+    let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+    gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status: consume した action status を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - consume step の apply step から、消費済み action の status だけを[取/と]り[出/だ]します。
+//: - advance、byte lookup、consumer next、payload direct match は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionApplyStatus \step:
+    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step step
+    let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+    gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary: consume step の loop 入力 summary
+//:
+//: [目的/もくてき]:
+//: - consume 後の apply state、consumed action status、post-consume advance を 1 value に[束/たば]ねます。
+//: - future loop が F4ai/F4af/F4al の storage layout に直接[依存/いぞん]しないための読み取り境界です。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:
+    state %GuiSfntSimpleGlyphPathSinkActionApplyState
+    status %GuiSfntSimpleGlyphPathSinkActionApplyStatus
+    advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary \summary:
+        *summary
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary \summary:
+        summary
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary: consume summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary %fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiSfntSimpleGlyphPathSinkActionApplyStatus fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary \state\status\advance:
+    GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary state status advance
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state: summary の state を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionApplyState \summary:
+    *field::get_ref summary "state"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status: summary の status を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionApplyStatus \summary:
+    *field::get_ref summary "status"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance: summary の advance を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \summary:
+    *field::get_ref summary "advance"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step: consume step から summary を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F4al の apply state / status helper と consume step advance accessor を 1 回ずつ[読/よ]みます。
+//: - byte lookup、consumer next、payload direct match、loop、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary \step:
+    let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state step
+    let status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status step
+    let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance step
+    gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary state status advance
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
