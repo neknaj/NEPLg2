@@ -2692,6 +2692,249 @@ pub fn gui_sfnt_simple_glyph_outline_storage_read_point_coordinate %fn &GuiSfntS
                                                                     let coordinate %GuiSfntSimpleGlyphOutlinePointCoordinate gui_sfnt_simple_glyph_outline_point_coordinate glyph point_index x y
                                                                     Result::Ok coordinate
 
+//: GuiSfntSimpleGlyphOutlinePointEndpointMarker: endpoint storage から[読/よ]める contour marker
+//:
+//: [目的/もくてき]:
+//: - logical point が[属/ぞく]する contour index と、その point が contour endpoint かどうかを[運/はこ]びます。
+//: - flag byte や x/y coordinate は[読/よ]まず、ContourEndpoint region だけから[作/つく]る value です。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointEndpointMarker:
+    glyph %GuiGlyphId
+    point_index %i32
+    contour_index %i32
+    end_of_contour %bool
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointEndpointMarker:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarker GuiSfntSimpleGlyphOutlinePointEndpointMarker \marker:
+        *marker
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointEndpointMarker:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointEndpointMarker GuiSfntSimpleGlyphOutlinePointEndpointMarker \marker:
+        marker
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker: endpoint marker value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker %fn GuiGlyphId fn i32 fn i32 fn bool GuiSfntSimpleGlyphOutlinePointEndpointMarker \glyph\point_index\contour_index\end_of_contour:
+    GuiSfntSimpleGlyphOutlinePointEndpointMarker glyph point_index contour_index end_of_contour
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_glyph: marker の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_glyph %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarker GuiGlyphId \marker:
+    *field::get_ref marker "glyph"
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_index: marker の logical point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_index %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarker i32 \marker:
+    *field::get_ref marker "point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_contour_index: marker の contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_contour_index %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarker i32 \marker:
+    *field::get_ref marker "contour_index"
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_end_of_contour: endpoint marker を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_end_of_contour %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarker bool \marker:
+    *field::get_ref marker "end_of_contour"
+
+//: GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind: endpoint marker read [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PointIndexOutOfRange
+    EndpointNotReady
+    EndpointSlotMissing
+    EndpointTopologyInvalid
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError: endpoint marker read failure の value-only context
+//:
+//: [目的/もくてき]:
+//: - read-only helper なので storage owner は[持/も]ちません。
+//: - endpoint topology failure を文字列へ[潰/つぶ]さず、storage context と typed reason で[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError:
+    kind %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    point_index %i32
+    scalar_slot_count %i32
+    scalar_slots_len %i32
+    scalar_slots_cap %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error: endpoint marker read error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error %fn GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \kind\capacity\point_index\scalar_slot_count\scalar_slots_len\scalar_slots_cap:
+    GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError kind capacity point_index scalar_slot_count scalar_slots_len scalar_slots_cap
+
+fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage %fn &GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind fn i32 GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \storage\kind\point_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage
+    let scalar_slot_count %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slot_count storage
+    let scalar_slots_len %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_len storage
+    let scalar_slots_cap %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap storage
+    gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error kind capacity point_index scalar_slot_count scalar_slots_len scalar_slots_cap
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_kind: read error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_kind %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_point_index: requested point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_point_index %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError i32 \error:
+    *field::get_ref error "point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_scalar_slots_len: observed scalar slot len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_scalar_slots_len %fn &GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError i32 \error:
+    *field::get_ref error "scalar_slots_len"
+
+fn gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop %fn &GuiSfntSimpleGlyphOutlineStorage fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 fn bool fn i32 fn bool Result GuiSfntSimpleGlyphOutlinePointEndpointMarker GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \storage\capacity\point_index\contour_index\previous_endpoint\found\found_contour_index\found_end_of_contour:
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity
+    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity
+    if ge contour_index contour_count:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointTopologyInvalid point_index
+            Result::Err error
+        else:
+            match gui_sfnt_simple_glyph_outline_storage_scalar_slot_get storage contour_index:
+                Option::None:
+                    let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointSlotMissing point_index
+                    Result::Err error
+                Option::Some endpoint:
+                    if or lt endpoint 0 ge endpoint point_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointTopologyInvalid point_index
+                            Result::Err error
+                        else:
+                            if le endpoint previous_endpoint:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointTopologyInvalid point_index
+                                    Result::Err error
+                                else:
+                                    let contains_point %bool le point_index endpoint
+                                    let next_found %bool if:
+                                        found
+                                        then:
+                                            true
+                                        else:
+                                            contains_point
+                                    let next_found_contour_index %i32 if:
+                                        found
+                                        then:
+                                            found_contour_index
+                                        else:
+                                            if:
+                                                contains_point
+                                                then:
+                                                    contour_index
+                                                else:
+                                                    found_contour_index
+                                    let next_found_end_of_contour %bool if:
+                                        found
+                                        then:
+                                            found_end_of_contour
+                                        else:
+                                            if:
+                                                contains_point
+                                                then:
+                                                    eq point_index endpoint
+                                                else:
+                                                    found_end_of_contour
+                                    if eq add contour_index 1 contour_count:
+                                        then:
+                                            let last_point_index %i32 sub point_count 1
+                                            if ne endpoint last_point_index:
+                                                then:
+                                                    let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointTopologyInvalid point_index
+                                                    Result::Err error
+                                                else:
+                                                    if not next_found:
+                                                        then:
+                                                            let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointTopologyInvalid point_index
+                                                            Result::Err error
+                                                        else:
+                                                            let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph capacity
+                                                            let marker %GuiSfntSimpleGlyphOutlinePointEndpointMarker gui_sfnt_simple_glyph_outline_point_endpoint_marker glyph point_index next_found_contour_index next_found_end_of_contour
+                                                            Result::Ok marker
+                                        else:
+                                            gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop storage capacity point_index add contour_index 1 endpoint next_found next_found_contour_index next_found_end_of_contour
+
+//: gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker: storage から contour marker を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - storage は borrow し、owner を[消費/しょうひ]しません。
+//: - endpoint slot を final contour まで[検査/けんさ]し、final endpoint が `point_count - 1` である[場合/ばあい]だけ[成功/せいこう]します。
+//: - flag byte、coordinate、path/raster/render、platform / host API へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker %fn &GuiSfntSimpleGlyphOutlineStorage fn i32 Result GuiSfntSimpleGlyphOutlinePointEndpointMarker GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \storage\point_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity storage
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::StorageCapacityInvalid point_index
+            Result::Err error
+        else:
+            match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow _overflow_capacity:
+                    let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::StorageCapacityInvalid point_index
+                    Result::Err error
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits expected_scalar_slot_count:
+                    let scalar_slot_count %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slot_count storage
+                    if ne scalar_slot_count expected_scalar_slot_count:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::ScalarSlotCountMismatch point_index
+                            Result::Err error
+                        else:
+                            let scalar_slots_cap %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap storage
+                            if ne scalar_slots_cap scalar_slot_count:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::ScalarStorageCapacityMismatch point_index
+                                    Result::Err error
+                                else:
+                                    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                                    if or lt point_index 0 ge point_index point_count:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::PointIndexOutOfRange point_index
+                                            Result::Err error
+                                        else:
+                                            let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+                                            let scalar_slots_len %i32 gui_sfnt_simple_glyph_outline_storage_scalar_slots_len storage
+                                            if lt scalar_slots_len contour_count:
+                                                then:
+                                                    let error %GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError gui_sfnt_simple_glyph_outline_point_endpoint_marker_read_error_from_storage storage GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind::EndpointNotReady point_index
+                                                    Result::Err error
+                                                else:
+                                                    gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop storage &capacity point_index 0 -1 false -1 false
+
 //: GuiSfntSimpleGlyphPoint: simple glyph の 1 logical point
 //:
 //: [目的/もくてき]:
