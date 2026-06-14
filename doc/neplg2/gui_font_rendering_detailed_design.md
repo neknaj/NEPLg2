@@ -1674,6 +1674,33 @@ F4ai must not call F4ag directly. F4ah owns terminal classification and stored-n
 
 F4ai must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, call lower contour/curve lookup helpers directly, rasterize, render, call platform APIs, or call host text measurement.
 
+### SFNT simple glyph path sink action start consumer item
+
+F4aj is the start boundary for the future consumer loop. It converts a glyph contour start into the first checked `GuiSfntSimpleGlyphPathSinkActionConsumerItem`, using the existing start-item and consumer-item contracts.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy:
+        Err error:
+            Err error
+
+        Ok item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index item policy:
+                Err error:
+                    Err error
+
+                Ok consumer_item:
+                    Ok consumer_item
+```
+
+F4aj intentionally does not create a new value type. The result type is the existing F4ac `GuiSfntSimpleGlyphPathSinkActionConsumerItem`, because the responsibility is only to provide a byte-backed entry point for the first consumer packet.
+
+“No advance” in F4aj means no F4ad consumer-item-next call, no F4af apply, no F4ah post-apply advance, and no F4ai consume-once call. F4ac still resolves the checked `GuiSfntSimpleGlyphPathSinkActionItemNext` needed to construct a consumer item. That resolution remains inside F4ac and does not make F4aj a traversal authority.
+
+F4aj must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once`. It must not call F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup helpers directly, inspect action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

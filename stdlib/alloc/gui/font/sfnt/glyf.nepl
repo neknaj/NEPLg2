@@ -4163,6 +4163,25 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item %fn &ByteBuf 
             let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
             Result::Ok consumer_item
 
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item: contour の first consumer item を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - contour start item を 1 回だけ読み、F4ac consumer item helper へ 1 回だけ[渡/わた]します。
+//: - consume / apply / post-apply advance は行わず、future loop の初期入力だけを[作/つく]ります。
+//: - action payload、consumer item next、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError \bytes\face_index\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consumer_item:
+                    Result::Ok consumer_item
+
 //: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next: consumer item を 1 つ[進/すす]める
 //:
 //: [契約/けいやく]:

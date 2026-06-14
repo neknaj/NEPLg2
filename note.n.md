@@ -1,3 +1,26 @@
+# 2026-06-14 Agent2 GUI font sink action start consumer item checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、Result による失敗表現、enum / match、hidden fallback 禁止、platform 非依存、doc/test 分離方針を前提に、F4aj: sink action start consumer item を追加した。
+- subagent plan review: Tesla から `PLAN_APPROVED` を受けた。F4aj は F4aa start item と F4ac consumer item を薄く合成するだけで、新しい value type、loop、consume/apply/post-apply advance を持たないため妥当とされた。
+- subagent plan review の指摘に従い、F4aj の「advanceしない」は F4ad consumer item next、F4af apply、F4ah post-apply advance、F4ai consume once を呼ばないという意味であり、F4ac が consumer item contract として checked `GuiSfntSimpleGlyphPathSinkActionItemNext` を内部で読むこととは区別して文書化した。
+- subagent implementation review: Peirce から `REVIEW_APPROVED` を受けた。F4aj helper が F4aa を 1 回、F4ac を 1 回だけ呼び、consumer-next、consume/apply/advance、lower lookup、payload match、allocation/loop、renderer/platform/font fallback、括弧混入がないこと、F4ac 内部の checked next と F4aj の責務境界が doc に明記されていることを確認された。
+- classification: GUI font SFNT simple glyph path sink action start consumer item / start item plus consumer item boundary / no consume apply advance / no loop / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4aj を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item` を追加した。
+  - helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item` を 1 回だけ呼び、成功時に `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item` を 1 回だけ呼ぶ。
+  - helper は `Result::Err` をそのまま伝播し、`Result::Ok consumer_item` をそのまま返す。parse/range error と domain terminal を混同しない。
+  - helper は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、consumer item next、consume once、apply、post-apply advance、lower lookup、metadata parser、renderer、rasterizer、platform API、host text API、font fallback を直接使わない。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の skipped byte-backed public lookup fixture に `start_consumer_item_direct_ok` を追加した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4aj の docs / implementation source policy を追加した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 10/10 passed。初回 120 秒上限では timeout したが、長めの上限で通常完了した。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 316/316 passed。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass し、既存の `stdlib declaration doc gaps increased: 153 > 108` warning が残る。
+
 # 2026-06-14 Agent2 GUI font sink action consumer apply terminal checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result と domain status の分離、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4af の consumer apply step を future loop 用 terminal 判定へ分類する F4ag を追加した。
