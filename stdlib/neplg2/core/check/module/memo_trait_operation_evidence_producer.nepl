@@ -13,7 +13,7 @@
 //:
 //: [契約/けいやく]:
 //: - accepted operation evidence record は、`type_id`、operation kind、shape-bound trait-operation classifier、public impl header input、resolved type shape evidence、method body purity evidence、drop evidence だけから作ります。
-//: - `impl_header` は `selfhost_memo_trait_public_impl_header_evidence_result` を通して検査します。generic impl、inherent impl、private impl、placeholder target / trait shape は header producer 側の typed error を保持して拒否します。
+//: - `impl_header` は `selfhost_memo_trait_public_impl_header_evidence_result` を通して検査します。generic count-only header、inherent impl、private impl、placeholder target / trait shape は header producer 側の typed error を保持して拒否します。
 //: - `resolved_type_shape_hash` は `some nonzero` でなければなりません。さらに `impl_header.target_type_shape_hash` と一致しなければなりません。
 //: - `trait_operation.classified_trait_application_shape_hash` は `some nonzero` であり、`impl_header.trait_application_shape_hash` と一致しなければなりません。そのうえで `trait_operation.operation` と requested `operation` が同じ `SelfhostMemoTraitOperationEvidenceKind` でなければなりません。
 //: - `Copy` は marker operation なので method body と Drop evidence のどちらも `NotRequired` だけを受理します。`Eq` / `Hash` は method body evidence を必須にし、Drop evidence は `NotRequired` だけを受理します。`Drop` は Drop evidence を必須にし、method body は `NotRequired` だけを受理します。
@@ -23,7 +23,7 @@
 //:
 //: [現状/げんじょう]:
 //: - この slice では public impl header typed input、shape-bound trait operation classifier、method / drop evidence を operation table record へ接続します。
-//: - trait impl table の探索、trait application shape から operation classifier を作る実体、method body purity checker の実体、Drop なし proof の導出、generic impl binder / bound 詳細 evidence は後続 stage の責務です。
+//: - trait impl table の探索、trait application shape から operation classifier を作る実体、method body purity checker の実体、Drop なし proof の導出、generic impl binder / bound 詳細 evidence の scanner 接続は後続 stage の責務です。
 //: - facade にはまだ re-export しません。full public surface orchestration が public function / layout / impl / operation evidence producer をまとめる段階で公開 API を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -67,7 +67,7 @@
 //:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.trait_operation_mismatch_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::TraitOperationMismatch
 //:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.eq_method_not_required_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::MethodBodyEvidenceRequired
 //:             let checks9 checks_push checks8 check selfhost_memo_trait_operation_evidence_producer_error_kind_eq unwrap_err summary.drop_evidence_not_required_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::DropEvidenceRequired
-//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_evidence_producer_record_result_header_rejected_eq summary.generic_header_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericImplUnsupported
+//:             let checks10 checks_push checks9 check selfhost_memo_trait_operation_evidence_producer_record_result_header_rejected_eq summary.generic_header_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceMissing
 //:             let checks11 checks_push checks10 check selfhost_memo_trait_operation_evidence_producer_proof_record_has_missing_eq_and_impure_hash summary.proof_record
 //:             let shown checks_print_report checks11
 //:             checks_exit_code shown
@@ -776,14 +776,14 @@ fn selfhost_memo_trait_operation_evidence_producer_stage0_projection_from_result
 //: - `trait_shape` は operation classifier が trusted source から再導出した shape です。
 //: - stage0 でも固定値や constructor bypass ではなく、classifier が読んだ shape を impl header に渡します。
 fn selfhost_memo_trait_operation_evidence_producer_stage0_impl_header_with_trait_shape %fn i32 SelfhostMemoTraitPublicImplHeaderInput \trait_shape:
-    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some trait_shape 0 0
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some trait_shape 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
 
 //: selfhost_memo_trait_operation_evidence_producer_stage0_generic_header_with_trait_shape: generic rejected path 用 impl header input を classifier shape から[作/つく]る
 //:
 //: [契約/けいやく]:
 //: - generic rejection の smoke でも、trait shape は classifier 経由の値を使います。
 fn selfhost_memo_trait_operation_evidence_producer_stage0_generic_header_with_trait_shape %fn i32 SelfhostMemoTraitPublicImplHeaderInput \trait_shape:
-    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 2 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some trait_shape 1 0
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 2 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some trait_shape 1 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
 
 //: selfhost_memo_trait_operation_evidence_producer_stage0_input: stage0 input を[作/つく]る
 fn selfhost_memo_trait_operation_evidence_producer_stage0_input %fn SelfhostTypeId fn SelfhostMemoTraitOperationEvidenceKind fn SelfhostMemoTraitOperationClassifierEvidence fn SelfhostMemoTraitPublicImplHeaderInput fn Option i32 fn SelfhostMemoTraitOperationMethodBodyEvidence fn SelfhostMemoTraitOperationDropEvidence SelfhostMemoTraitOperationEvidenceProducerInput \type_id\operation\trait_operation\impl_header\resolved_type_shape_hash\method_body\drop_evidence:

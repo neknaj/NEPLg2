@@ -68,7 +68,7 @@ assert.ok(
     "docs must exclude source, display, diagnostic, HIR, Resource IR, backend, and proof store authority",
 );
 assert.ok(
-    source.includes("generic binder と bound environment は count だけでは identity にならないため、詳細 table が接続されるまで fail-closed") &&
+    source.includes("count だけでは受理せず、詳細 generic binder evidence の count と nonzero shape hash を必ず照合") &&
         source.includes("stable trait key と trait type argument identity を含む typed normalized hash"),
     "docs must reject count-only generic impl identity and require trait application shape to include stable trait identity",
 );
@@ -103,8 +103,18 @@ assertOrdered(
         "trait_application_shape_hash %Option i32",
         "type_parameter_count %i32",
         "type_parameter_bound_count %i32",
+        "generic_binder_evidence %SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence",
     ],
-    "producer input must carry only typed authority needed for stable impl key and normalized impl shape",
+    "producer input must carry typed authority needed for stable impl key, normalized impl shape, and generic binder evidence",
+);
+assertOrdered(
+    source,
+    [
+        "pub enum SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence:",
+        "Monomorphic",
+        "Detailed %SelfhostMemoTraitPublicImplGenericBinderEvidence",
+    ],
+    "producer must distinguish monomorphic headers from detailed generic binder evidence with an enum",
 );
 assertOrdered(
     source,
@@ -124,11 +134,16 @@ assertOrdered(
         "TypeParameterBoundCountNegative",
         "GenericImplUnsupported",
         "TypeParameterBoundUnsupported",
+        "GenericBinderEvidenceMissing",
+        "GenericBinderEvidenceUnexpected",
+        "GenericBinderEvidenceParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "GenericBinderEvidenceBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "GenericBinderEvidenceHashPlaceholder",
         "StableImplKeyHashPlaceholder",
         "DerivedImplHeaderShapeHashPlaceholder",
         "PublicDeclarationPayloadRejected %SelfhostMemoTraitPublicSurfaceNormalizerErrorKind",
     ],
-    "producer failures must keep visibility, key seed, impl kind, typed shape seed, count, derived shape, and payload failures separate",
+    "producer failures must keep visibility, key seed, impl kind, typed shape seed, generic binder evidence, derived shape, and payload failures separate",
 );
 assert.ok(
     source.includes("pub fn selfhost_memo_trait_public_impl_header_stable_key_hash_result %fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderKind Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind"),
@@ -137,6 +152,10 @@ assert.ok(
 assert.ok(
     source.includes("pub fn selfhost_memo_trait_public_impl_header_shape_hash_result %fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn Option i32 fn i32 fn i32 Result SelfhostMemoTraitPublicImplHeaderShapeHash SelfhostMemoTraitPublicImplHeaderErrorKind"),
     "producer must expose a normalized impl header shape hash boundary",
+);
+assert.ok(
+    source.includes("pub fn selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result %fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn Option i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence Result SelfhostMemoTraitPublicImplHeaderShapeHash SelfhostMemoTraitPublicImplHeaderErrorKind"),
+    "producer must expose a generic-binder-aware normalized impl header shape hash boundary",
 );
 assert.ok(
     source.includes("pub fn selfhost_memo_trait_public_impl_header_payload_input_result %fn SelfhostMemoTraitPublicImplHeaderInput Result SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicImplHeaderErrorKind"),
@@ -188,12 +207,39 @@ assertOrdered(
     "shape hash must validate trait impl kind, generic counts, target shape hash, and trait application shape hash before folding",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_header_generic_binder_hash_result"),
+    [
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:",
+        "GenericBinderEvidenceMissing",
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed evidence:",
+        "GenericBinderEvidenceUnexpected",
+        "GenericBinderEvidenceParameterCountMismatch",
+        "GenericBinderEvidenceBoundCountMismatch",
+        "GenericBinderEvidenceHashPlaceholder",
+        "Result::Ok evidence.shape_hash",
+    ],
+    "generic binder seed must reject count-only generic acceptance, count mismatches, and placeholder evidence hash",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result"),
+    [
+        "selfhost_memo_trait_public_impl_header_kind_supported_result kind",
+        "selfhost_memo_trait_public_impl_header_generic_binder_hash_result type_parameter_count type_parameter_bound_count generic_binder_evidence",
+        "generic_binder_hash",
+        "selfhost_memo_trait_public_impl_header_shape_seed_result target_type_shape_hash",
+        "selfhost_memo_trait_public_impl_header_shape_seed_result trait_application_shape_hash",
+        "generic_binder_hash",
+        "DerivedImplHeaderShapeHashPlaceholder",
+    ],
+    "generic-aware shape hash must include validated binder evidence hash in the folded shape material",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_header_payload_input_result"),
     [
         "selfhost_memo_trait_public_impl_header_visibility_result input.visibility",
         "selfhost_memo_trait_public_impl_header_ordinal_result input.declaration_ordinal",
         "selfhost_memo_trait_public_impl_header_stable_key_hash_result input.module_fingerprint ordinal input.kind",
-        "selfhost_memo_trait_public_impl_header_shape_hash_result input.kind input.target_type_shape_hash input.trait_application_shape_hash input.type_parameter_count input.type_parameter_bound_count",
+        "selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result input.kind input.target_type_shape_hash input.trait_application_shape_hash input.type_parameter_count input.type_parameter_bound_count input.generic_binder_evidence",
         "SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl stable_key.key_hash shape.root_hash",
     ],
     "payload input producer must validate visibility, ordinal, stable impl key, shape hash, and set declaration kind to Impl",
@@ -222,6 +268,38 @@ assertOrdered(
     "private payload hash helper must use only typed payload fields and preserve normalizer placeholder errors",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_header_stage0_generic_binder_input"),
+    [
+        "SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8301",
+        "selfhost_memo_trait_public_impl_header_detailed_binder_evidence evidence",
+    ],
+    "stage0 helper must build detailed generic binder evidence before accepting a generic header",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_header_count_mismatch_eq"),
+    [
+        "a.expected",
+        "b.expected",
+        "a.actual",
+        "b.actual",
+    ],
+    "producer must compare generic binder count mismatch payload fields, not only the variant",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_header_error_kind_eq"),
+    [
+        "GenericBinderEvidenceParameterCountMismatch mismatch:",
+        "GenericBinderEvidenceParameterCountMismatch other:",
+        "selfhost_memo_trait_public_impl_header_count_mismatch_eq mismatch other",
+        "GenericBinderEvidenceBoundCountMismatch mismatch:",
+        "GenericBinderEvidenceBoundCountMismatch other:",
+        "selfhost_memo_trait_public_impl_header_count_mismatch_eq mismatch other",
+        "PublicDeclarationPayloadRejected payload_error:",
+        "selfhost_memo_trait_public_surface_normalizer_error_kind_eq payload_error other_payload_error",
+    ],
+    "producer error equality must preserve generic binder mismatch payloads and normalizer rejection payloads",
+);
+assertOrdered(
     source,
     [
         "trait_input",
@@ -236,13 +314,15 @@ assertOrdered(
         "some 0",
         "generic_input",
         "1 0",
+        "generic_with_binder_input",
+        "selfhost_memo_trait_public_impl_header_stage0_generic_binder_input",
         "stable_key_inherent_result",
         "selfhost_memo_trait_public_impl_header_stable_key_hash_result 6101 8 SelfhostMemoTraitPublicImplHeaderKind::InherentImpl",
         "stable_key_ordinal_result",
         "selfhost_memo_trait_public_impl_header_stable_key_hash_result 6101 0 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl",
         "let differ %bool selfhost_memo_trait_public_impl_header_stage0_compare_payload",
     ],
-    "stage0 must exercise accepted trait impls, trait application difference, evidence rejection paths, and public stable key helper rejection paths",
+    "stage0 must exercise accepted trait impls, trait application difference, count-only generic rejection, detailed generic binder acceptance, and public stable key helper rejection paths",
 );
 assert.doesNotMatch(
     sourceCode,

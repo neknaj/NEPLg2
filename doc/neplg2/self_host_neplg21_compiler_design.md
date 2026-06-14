@@ -1821,6 +1821,22 @@ subagent review では、count だけで `GenericImplUnsupported` / `TypeParamet
 
 この checkpoint 後の残件は、generic binder evidence hash を public impl header shape / materializer record へ接続する boundary、trait bound solving、generic impl coherence、Rust Resource IR 相当の actual graph walker 本体、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。generic binder table の sorted index 化、bound lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed / shape hash contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue generic binder header evidence checkpoint
+
+`memo_trait_public_impl_header.nepl` に `SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence` を追加し、monomorphic header と detailed generic binder evidence を enum で分ける boundary を接続した。count だけで generic impl を accepted に戻すのではなく、`SelfhostMemoTraitPublicImplGenericBinderEvidence` の parameter count、bound count、nonzero shape hash を検査してから public impl header shape hash へ折り込む。
+
+既存の count-only `selfhost_memo_trait_public_impl_header_shape_hash_result` は fail-closed API として残す。`type_parameter_count > 0` は `GenericImplUnsupported`、`type_parameter_bound_count > 0` は `TypeParameterBoundUnsupported` のまま拒否する。generic-aware path は `selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result` だけであり、monomorphic input は `Monomorphic`、generic input は `Detailed(evidence)` を明示的に渡す。
+
+`memo_trait_operation_public_impl_materializer.nepl` の record も同じ generic binder evidence mode を保持するようにした。materializer は header validation を classifier / builder input 生成より先に通す。`Detailed` record は generic binder hash が妥当でも、generic instantiation、bound solving、substituted target type shape evidence が未接続であるため、operation impl candidate を作る前に `GenericImplInstantiationUnsupported` で拒否する。これにより、generic binder hash の有無と operation proof の成立を混同しない。
+
+`memo_trait_operation_public_impl_drop_fact_orchestrator.nepl` と `memo_trait_operation_drop_candidate_connector.nepl` も materializer record の generic binder evidence mode を保持する。Drop fact orchestrator は public impl header validation を classifier より前に行い、detailed generic record を Drop fact table へ投入する前に拒否する。Drop candidate connector は record から header input を再構成するときに `record.generic_binder_evidence` を使い、monomorphic evidence へ潰さない。
+
+この checkpoint の accepted authority は、public impl header input の typed field、detailed generic binder evidence、trusted trait operation classifier input、typed method body root identity だけである。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR 再探索、Resource IR、backend artifact、proof store record は generic binder header acceptance の authority ではない。
+
+subagent review では、generic count / bound count だけで materializer が `SelfhostMemoTraitOperationImplCandidate` を作ること、raw `i32` hash だけを generic binder evidence として扱うこと、generic instantiation / bound solving なしに operation proof へ進めることが Blocker と確認された。実装は typed enum evidence を record に持たせ、count-only path を fail-closed のまま残し、detailed generic record を operation candidate 化前で止める形にした。
+
+この checkpoint 後の残件は、generic impl instantiation、trait bound solving、substituted target type shape evidence、generic coherence、Rust Resource IR 相当の actual graph walker 本体、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。materializer record table の operation bucket 化、generic binder table の sorted index 化、bound lookup cache、stage0 fixture 分割は、今回固定した typed evidence / fail-closed / owner cleanup contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

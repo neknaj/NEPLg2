@@ -142,6 +142,32 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_c
 - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
 - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-binder.json`
 
+## 2026-06-14 selfhost generic binder header evidence checkpoint
+
+`memo_trait_public_impl_header.nepl` に `SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence` を追加し、monomorphic header と detailed generic binder evidence を typed enum で分けた。count-only path は引き続き fail-closed であり、generic-aware path だけが detailed binder evidence の count と nonzero shape hash を public impl header shape hash に折り込む。
+
+`memo_trait_operation_public_impl_materializer.nepl` の record も同じ generic binder evidence mode を保持するようにした。materializer は header validation を classifier / builder input 生成より先に通し、`Detailed` generic record は generic instantiation / bound solving / substituted target shape evidence が未接続であるため、operation candidate 構築前に `GenericImplInstantiationUnsupported` として拒否する。
+
+`memo_trait_operation_public_impl_drop_fact_orchestrator.nepl` と `memo_trait_operation_drop_candidate_connector.nepl` も record の generic binder evidence mode を保持するように更新した。Drop fact orchestrator は header validation を classifier より前に行い、detailed generic record を Drop fact table へ投入する前に拒否する。Drop candidate connector は header input 再構成時に `record.generic_binder_evidence` を使い、monomorphic evidence 固定へ戻さない。
+
+subagent review では、generic count / bound count だけで operation candidate を作ること、raw `i32` hash だけを binder evidence として扱うこと、generic instantiation / bound solving なしに proof へ進めることが Blocker と確認された。今回の実装は typed enum evidence を使い、count-only API を fail-closed のまま残し、detailed generic record を operation candidate 化前に止める。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-operation-evidence-producer-generic-binder-connect.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-operation-impl-table-generic-binder-connect.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-public-impl-drop-fact-orchestrator-generic-guard.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-drop-candidate-connector-generic-evidence.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-binder-header-affected-modules.json`
+
+この checkpoint 後も、generic impl instantiation、trait bound solving、substituted target type shape evidence、generic coherence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。

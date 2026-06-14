@@ -223,6 +223,13 @@ assert.doesNotMatch(
     "accepted production authority must not use call names, expression spans, source text, paths, or diagnostic text",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_drop_candidate_connector_header_input"),
+    [
+        "selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count record.generic_binder_evidence",
+    ],
+    "Drop candidate connector must preserve the materializer record generic binder evidence mode when rebuilding the header input",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_drop_candidate_connector_classifier_result"),
     [
         "selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input record",

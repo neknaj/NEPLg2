@@ -9,8 +9,9 @@
 //: - Drop impl body root は record の module fingerprint と typed HIR root id の pair として受け取り、source text、method name string、trait name string、span、diagnostic text、module path から Drop body の有無や purity を推測しません。
 //:
 //: [契約/けいやく]:
-//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、record に含まれる module fingerprint、`SelfhostHirModule` borrow、trusted operation classifier、Drop impl fact table builder だけです。
+//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、record に含まれる module fingerprint と generic binder evidence mode、`SelfhostHirModule` borrow、public impl header validator、trusted operation classifier、Drop impl fact table builder だけです。
 //: - `record.trait_source.operation` は直接信用しません。trait source identity と trait application shape hash を classifier に通し、classifier evidence の operation が Drop の場合だけ Drop body root を読む対象にします。
+//: - public impl header が invalid な record、count-only generic record、generic instantiation / bound solving が未接続な detailed generic record は Drop fact table へ進ませません。
 //: - non-Drop record は error ではなく skip します。Eq / Hash record が method body root を持つことは正常であり、この Drop 専用 module がそれを Drop body root と誤認してはいけません。
 //: - Drop record に `method_body_root = none` がある場合は `RequiredDropBodyRootMissing(index)` として fail-closed にします。Drop impl fact を欠落扱いにしたり、`NoDropRequired` や `PureDrop` を合成したりしません。
 //: - output `SelfhostMemoTraitOperationDropImplTable` owner はこの module が新規に作ります。success の場合だけ caller に返し、failure の場合はこの module または builder / resolver push boundary が閉じます。
@@ -19,7 +20,7 @@
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では actual public impl scanner / materializer 由来の Drop body root を Drop impl fact table owner へ流す境界だけを固定します。
-//: - Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState masking、prechecked artifact 接続は後続 stage の責務です。
+//: - Resource IR no-escape proof、pure Drop evidence gate、generic impl instantiation / bound solving、PrivateCache / PrivateState masking、prechecked artifact 接続は後続 stage の責務です。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が Drop impl fact table と Resource proof gate をまとめる段階で公開 API と DAG を再確認します。
 //:
 //: [計算量/けいさんりょう]:
@@ -91,7 +92,9 @@
 pub enum SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind:
     OutputTableAllocFailed %StdErrorKind
     SourceReadFailed %i32
+    HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind
     ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
+    GenericImplInstantiationUnsupported
     RequiredDropBodyRootMissing %i32
     BuilderRejected %SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind
 
@@ -162,6 +165,23 @@ impl Copy for SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summ
     fn copy_mark %fn SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary SelfhostMemoTraitOperationPublicImplDropFactOrchestratorStage0Summary \self:
         self
 
+//: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_header_result: materializer record の impl header を[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - record に入っている typed header field と generic binder evidence mode をそのまま使います。
+//: - count-only generic や detailed generic instantiation unsupported を Drop fact table へ進ませません。
+fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_header_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result unit SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind \record:
+    let header_input %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count record.generic_binder_evidence
+    match selfhost_memo_trait_public_impl_header_evidence_result header_input:
+        Result::Ok _evidence:
+            match record.generic_binder_evidence:
+                SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:
+                    Result::Ok unit
+                SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed _evidence:
+                    Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported
+        Result::Err header_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected header_error
+
 //: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_trait_application_input: materializer record から classifier input を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -229,18 +249,23 @@ fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop %impure
             let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref source "records"
             match v::get records index:
                 Option::Some record:
-                    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result record:
-                        Result::Ok classifier:
-                            if:
-                                selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is_drop classifier.operation
-                                then:
-                                    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_push_drop_record_result table module record index:
-                                        Result::Ok next_table:
-                                            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop next_table module source add index 1
-                                        Result::Err e:
-                                            Result::Err e
-                                else:
-                                    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop table module source add index 1
+                    match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_header_result record:
+                        Result::Ok _header_ok:
+                            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result record:
+                                Result::Ok classifier:
+                                    if:
+                                        selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is_drop classifier.operation
+                                        then:
+                                            match selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_push_drop_record_result table module record index:
+                                                Result::Ok next_table:
+                                                    selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop next_table module source add index 1
+                                                Result::Err e:
+                                                    Result::Err e
+                                        else:
+                                            selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop table module source add index 1
+                                Result::Err e:
+                                    selfhost_memo_trait_operation_drop_impl_table_free table
+                                    Result::Err e
                         Result::Err e:
                             selfhost_memo_trait_operation_drop_impl_table_free table
                             Result::Err e
@@ -304,7 +329,11 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_ki
                     selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_std_error_kind_eq a_alloc b_alloc
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _b_header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
                     false
@@ -316,7 +345,27 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_ki
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed b_read:
                     eq a_read b_read
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _b_header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
+                    false
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected a_header:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected b_header:
+                    selfhost_memo_trait_public_impl_header_error_kind_eq a_header b_header
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
                     false
@@ -328,8 +377,28 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_ki
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _b_header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected b_classifier:
                     selfhost_memo_trait_operation_classifier_error_kind_eq a_classifier b_classifier
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
+                    false
+        SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
+            match b:
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _b_header:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
+                    true
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _b_builder:
@@ -340,7 +409,11 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_ki
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _b_header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing b_index:
                     eq a_index b_index
@@ -352,7 +425,11 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_error_ki
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _b_read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _b_header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _b_classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _b_index:
                     false
@@ -420,7 +497,11 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_missing_
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing actual_index:
                     eq actual_index expected_index
@@ -438,8 +519,12 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifi
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected classifier_error:
                     selfhost_memo_trait_operation_classifier_error_kind_eq classifier_error expected
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _index:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::BuilderRejected _builder:
@@ -456,7 +541,11 @@ pub fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_builder_
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::HeaderRejected _header:
+                    false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::RequiredDropBodyRootMissing _index:
                     false
@@ -482,7 +571,7 @@ fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_shape
 
 //: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_record: stage0 用 public impl materializer record を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 fn i32 fn Option SelfhostHirExprId SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\method_body_root:
-    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 760101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 method_body_root 16
+    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 760101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence method_body_root 16
 
 //: selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new: stage0 source record table を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_source_new %impure fn void Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \void:

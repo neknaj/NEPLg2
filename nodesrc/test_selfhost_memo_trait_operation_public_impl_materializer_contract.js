@@ -75,8 +75,10 @@ assert.ok(
 );
 assert.ok(
     source.includes("Drop record が現れた場合、classifier で shape を確認したうえで builder input に写し") &&
-        source.includes("`DropOperationUnsupportedUntilResourceProof`"),
-    "docs must route Drop through the existing fail-closed builder boundary until Resource proof is connected",
+        source.includes("`DropOperationUnsupportedUntilResourceProof`") &&
+        source.includes("detailed generic binder evidence を持つ record は header evidence までは検査します") &&
+        source.includes("`GenericImplInstantiationUnsupported`"),
+    "docs must route Drop through the existing fail-closed builder boundary and stop generic records before operation candidate construction",
 );
 assert.doesNotMatch(
     facade,
@@ -94,9 +96,10 @@ assertOrdered(
         "#import \"./memo_trait_operation_classifier\" as *",
         "#import \"./memo_trait_operation_impl_candidate_builder\" as *",
         "#import \"./memo_trait_operation_impl_table\" as *",
+        "#import \"./memo_trait_public_impl_generic_binder\" as *",
         "#import \"./memo_trait_public_impl_header\" as *",
     ],
-    "materializer imports must go through classifier, candidate builder, impl table lookup helpers, and public impl header boundaries",
+    "materializer imports must go through classifier, candidate builder, impl table lookup helpers, generic binder evidence, and public impl header boundaries",
 );
 assert.doesNotMatch(
     code,
@@ -118,10 +121,11 @@ assertOrdered(
         "trait_application_shape_hash %Option i32",
         "type_parameter_count %i32",
         "type_parameter_bound_count %i32",
+        "generic_binder_evidence %SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence",
         "method_body_root %Option SelfhostHirExprId",
         "fuel %i32",
     ],
-    "materializer record must carry typed public impl header fields, classifier fields, method root, and fuel",
+    "materializer record must carry typed public impl header fields, generic binder evidence mode, classifier fields, method root, and fuel",
 );
 assertOrdered(
     source,
@@ -131,24 +135,29 @@ assertOrdered(
         "RecordPushFailed %StdErrorKind",
         "BuilderInputTableAllocFailed %StdErrorKind",
         "SourceReadFailed %i32",
+        "HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind",
+        "GenericImplInstantiationUnsupported",
         "ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind",
         "BuilderInputPushRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind",
         "CandidateBuilderRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind",
     ],
-    "materializer errors must distinguish setup, read, classifier, builder-input push, and candidate-builder failures",
+    "materializer errors must distinguish setup, read, header, generic-instantiation, classifier, builder-input push, and candidate-builder failures",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result"),
     [
         "selfhost_memo_trait_operation_public_impl_materializer_header_input record",
         "selfhost_memo_trait_operation_public_impl_materializer_trait_application_input record",
+        "selfhost_memo_trait_public_impl_header_evidence_result impl_header",
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:",
         "selfhost_memo_trait_operation_classifier_evidence_result trait_application",
         "Result::Ok classifier:",
         "selfhost_memo_trait_operation_impl_candidate_builder_input_new record.type_id classifier.operation impl_header trait_application record.target_type_shape_hash record.method_body_root record.fuel",
-        "Result::Err classifier_error:",
-        "ClassifierRejected classifier_error",
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed _binder_evidence:",
+        "GenericImplInstantiationUnsupported",
+        "HeaderRejected header_error",
     ],
-    "record materialization must derive operation from classifier evidence before constructing builder input",
+    "record materialization must validate the public impl header, stop detailed generic records before candidate construction, and derive operation from classifier evidence",
 );
 assert.doesNotMatch(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result"),
@@ -198,8 +207,9 @@ assertOrdered(
         "selfhost_memo_trait_operation_public_impl_materializer_classifier_rejected_result_eq",
         "selfhost_memo_trait_operation_public_impl_materializer_candidate_builder_rejected_result_eq",
         "selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_result_eq",
+        "selfhost_memo_trait_operation_public_impl_materializer_generic_unsupported_result_eq",
     ],
-    "materializer must expose a stage0 smoke API and typed assertion helpers for accepted, classifier rejection, builder rejection, and Drop unsupported paths",
+    "materializer must expose a stage0 smoke API and typed assertion helpers for accepted, classifier rejection, builder rejection, Drop unsupported, and generic unsupported paths",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_result_eq"),
@@ -219,9 +229,10 @@ assertOrdered(
         "selfhost_memo_trait_operation_public_impl_materializer_stage0_untrusted",
         "selfhost_memo_trait_operation_public_impl_materializer_stage0_duplicate",
         "selfhost_memo_trait_operation_public_impl_materializer_stage0_drop_unsupported",
-        "selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new accepted untrusted_rejected duplicate_rejected drop_unsupported",
+        "selfhost_memo_trait_operation_public_impl_materializer_stage0_generic_unsupported",
+        "selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported",
     ],
-    "stage0 must cover accepted records, classifier rejection, duplicate rejection, and Drop unsupported routing",
+    "stage0 must cover accepted records, classifier rejection, duplicate rejection, Drop unsupported routing, and generic operation instantiation rejection",
 );
 assert.doesNotMatch(
     source,

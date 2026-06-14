@@ -84,8 +84,8 @@ assert.ok(
     "docs must exclude source/display/diagnostic/module path/HIR/Resource/backend/proof-store authority",
 );
 assert.ok(
-    source.includes("trait impl table の探索、trait application shape から operation classifier を作る実体、method body purity checker の実体、Drop なし proof の導出、generic impl binder / bound 詳細 evidence は後続 stage の責務"),
-    "docs must mark scanner, purity checker, drop proof derivation, and generic impl evidence as later stages",
+    source.includes("trait impl table の探索、trait application shape から operation classifier を作る実体、method body purity checker の実体、Drop なし proof の導出、generic impl binder / bound 詳細 evidence の scanner 接続は後続 stage の責務"),
+    "docs must mark scanner, purity checker, drop proof derivation, and generic impl evidence scanner connection as later stages",
 );
 assert.doesNotMatch(
     facade,

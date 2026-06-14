@@ -21,7 +21,7 @@
 //: [現状/げんじょう]:
 //: - Phase 1 では候補 table は session-local `Vec` owner table です。永続 artifact や `.neplmeta` の authority にはしません。
 //: - method body / Drop effect fact から producer evidence を作る purity gate は接続済みです。
-//: - actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence、full public surface orchestration は後続 slice で接続します。
+//: - actual method body checker、Drop impl resolver、Copy / Drop / Eq / Hash pure evidence の実計算、generic impl binder / bound detailed evidence の scanner 接続、full public surface orchestration は後続 slice で接続します。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が public surface / method / Drop proof をまとめる段階で公開 API を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -57,7 +57,7 @@
 //:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_impl_table_error_kind_eq unwrap_err summary.missing_rejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing
 //:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_impl_table_error_kind_eq unwrap_err summary.duplicate_rejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
 //:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_impl_table_record_result_classifier_rejected_eq summary.classifier_rejected SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Copy
-//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq summary.producer_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericImplUnsupported
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq summary.producer_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceMissing
 //:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_impl_table_record_result_producer_rejected_eq summary.target_mismatch_rejected SelfhostMemoTraitOperationEvidenceProducerErrorKind::TargetTypeShapeMismatch
 //:             let shown checks_print_report checks6
 //:             checks_exit_code shown
@@ -478,7 +478,7 @@ fn selfhost_memo_trait_operation_impl_table_stage0_summary_new %fn Result Selfho
 
 //: selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target: stage0 用 impl header input を target shape 指定で[作/つく]る
 fn selfhost_memo_trait_operation_impl_table_stage0_impl_header_with_target %fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\target_shape\trait_shape\type_parameter_count:
-    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9301 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape some trait_shape type_parameter_count 0
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9301 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape some trait_shape type_parameter_count 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
 
 //: selfhost_memo_trait_operation_impl_table_stage0_impl_header: stage0 用 impl header input を[作/つく]る
 fn selfhost_memo_trait_operation_impl_table_stage0_impl_header %fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\trait_shape:

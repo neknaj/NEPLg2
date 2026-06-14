@@ -15,11 +15,11 @@
 //: - `visibility` は `Public` だけを受理します。private impl は public surface input ではないため typed error にします。
 //: - `module_fingerprint` と `declaration_ordinal` は stable impl key の材料です。0 や欠落を accepted identity として扱いません。
 //: - `target_type_shape_hash` と `trait_application_shape_hash` は、別 stage が typed type / trait application term から作った nonzero hash でなければなりません。source spelling や trait name string をこの module で直接 hash しません。
-//: - `type_parameter_count` と `type_parameter_bound_count` は、この slice では 0 だけを受理します。generic binder と bound environment は count だけでは identity にならないため、詳細 table が接続されるまで fail-closed にします。
+//: - `type_parameter_count` と `type_parameter_bound_count` が 0 でない場合は、count だけでは受理せず、詳細 generic binder evidence の count と nonzero shape hash を必ず照合します。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では caller supplied の typed target type shape hash と trait application shape hash を検査して impl header shape を作ります。
-//: - trait application term の完全正規化、generic binder table、generic bound table、method body purity、Drop なし proof、trait impl coherence table は後続 stage の責務です。
+//: - trait application term の完全正規化、generic binder table の source scanner、generic bound solving、method body purity、Drop なし proof、trait impl coherence table は後続 stage の責務です。
 //: - facade にはまだ re-export しません。full public surface orchestration が function / layout / impl / re-export producer をまとめる段階で公開 API を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -28,7 +28,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -39,6 +39,7 @@
 //: ##: [7] ok
 //: ##: [8] ok
 //: ##: [9] ok
+//: ##: [10] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -56,10 +57,11 @@
 //:     let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.private_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::PrivateVisibilityRejected
 //:     let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.trait_hash_missing_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashMissing
 //:     let checks7 checks_push checks6 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.target_hash_placeholder_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashPlaceholder
-//:     let checks8 checks_push checks7 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.generic_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericImplUnsupported
-//:     let checks9 checks_push checks8 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.stable_key_inherent_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::InherentImplUnsupported
-//:     let checks10 checks_push checks9 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.stable_key_ordinal_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::DeclarationOrdinalPlaceholder
-//:     let shown checks_print_report checks10
+//:     let checks8 checks_push checks7 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.generic_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceMissing
+//:     let checks9 checks_push checks8 check is_ok summary.generic_with_binder
+//:     let checks10 checks_push checks9 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.stable_key_inherent_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::InherentImplUnsupported
+//:     let checks11 checks_push checks10 check selfhost_memo_trait_public_impl_header_error_kind_eq unwrap_err summary.stable_key_ordinal_rejected SelfhostMemoTraitPublicImplHeaderErrorKind::DeclarationOrdinalPlaceholder
+//:     let shown checks_print_report checks11
 //:     checks_exit_code shown
 //: ```
 
@@ -69,6 +71,7 @@
 #import "core/result" as *
 #import "core/traits/copy" as *
 #import "neplg2/core/syntax/ast/module_ast" as *
+#import "./memo_trait_public_impl_generic_binder" as *
 #import "./memo_trait_public_surface_normalizer" as *
 
 //: SelfhostMemoTraitPublicImplHeaderKind: public impl header の[種類/しゅるい]
@@ -99,16 +102,30 @@ pub struct SelfhostMemoTraitPublicImplHeaderShapeHash:
     schema_version %i32
     root_hash %i32
 
+//: SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence: public impl header が[使/つか]う generic binder evidence の mode
+//:
+//: [目的/もくてき]:
+//: - monomorphic impl と detailed generic binder evidence を `Option` の有無だけにせず、enum として明示します。
+//:
+//: [契約/けいやく]:
+//: - `Monomorphic` は `type_parameter_count = 0` かつ `type_parameter_bound_count = 0` の header だけで受理されます。
+//: - `Detailed(evidence)` は `SelfhostMemoTraitPublicImplGenericBinderEvidence` の count と nonzero shape hash を再検査してから header shape に混ぜます。
+//: - この enum は generic impl の semantic success、trait bound solving、operation candidate、proof record を表しません。
+pub enum SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence:
+    Monomorphic
+    Detailed %SelfhostMemoTraitPublicImplGenericBinderEvidence
+
 //: SelfhostMemoTraitPublicImplHeaderInput: public trait impl header producer の typed input
 //:
 //: [目的/もくてき]:
-//: - visibility、module fingerprint、public declaration ordinal、impl kind、target type shape、trait application shape、generic binder / bound count を 1 record にまとめます。
+//: - visibility、module fingerprint、public declaration ordinal、impl kind、target type shape、trait application shape、generic binder / bound count、generic binder evidence mode を 1 record にまとめます。
 //:
 //: [契約/けいやく]:
 //: - `module_fingerprint` は module identity / public surface seed が既に安定化された fingerprint です。source path 文字列そのものではありません。
 //: - `declaration_ordinal` は full public surface input stream 上の 1-origin ordinal です。source byte offset や Vec index からこの module で推測しません。
 //: - `target_type_shape_hash` は impl target type term の typed normalized hash です。
 //: - `trait_application_shape_hash` は stable trait key と trait type argument identity を含む typed normalized hash です。`InherentImpl` ではこの field を読まず、kind を先に拒否します。
+//: - `generic_binder_evidence` は count-only generic acceptance を防ぐための mode です。generic count が 1 以上なら detailed evidence が必須です。
 pub struct SelfhostMemoTraitPublicImplHeaderInput:
     visibility %SelfhostModuleDeclarationVisibility
     module_fingerprint %i32
@@ -118,6 +135,7 @@ pub struct SelfhostMemoTraitPublicImplHeaderInput:
     trait_application_shape_hash %Option i32
     type_parameter_count %i32
     type_parameter_bound_count %i32
+    generic_binder_evidence %SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence
 
 //: SelfhostMemoTraitPublicImplHeaderErrorKind: public impl header producer の拒否理由
 //:
@@ -138,6 +156,11 @@ pub enum SelfhostMemoTraitPublicImplHeaderErrorKind:
     TypeParameterBoundCountNegative
     GenericImplUnsupported
     TypeParameterBoundUnsupported
+    GenericBinderEvidenceMissing
+    GenericBinderEvidenceUnexpected
+    GenericBinderEvidenceParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    GenericBinderEvidenceBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    GenericBinderEvidenceHashPlaceholder
     StableImplKeyHashPlaceholder
     DerivedImplHeaderShapeHashPlaceholder
     PublicDeclarationPayloadRejected %SelfhostMemoTraitPublicSurfaceNormalizerErrorKind
@@ -156,6 +179,7 @@ pub struct SelfhostMemoTraitPublicImplHeaderStage0Summary:
     trait_hash_missing_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind
     target_hash_placeholder_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind
     generic_rejected %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind
+    generic_with_binder %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind
     stable_key_inherent_rejected %Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind
     stable_key_ordinal_rejected %Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind
 
@@ -181,6 +205,14 @@ impl Clone for SelfhostMemoTraitPublicImplHeaderShapeHash:
 
 impl Copy for SelfhostMemoTraitPublicImplHeaderShapeHash:
     fn copy_mark %fn SelfhostMemoTraitPublicImplHeaderShapeHash SelfhostMemoTraitPublicImplHeaderShapeHash \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence \self:
         self
 
 impl Clone for SelfhostMemoTraitPublicImplHeaderInput:
@@ -211,8 +243,22 @@ impl Copy for SelfhostMemoTraitPublicImplHeaderStage0Summary:
 //:
 //: [契約/けいやく]:
 //: - この constructor は field をまとめるだけです。visibility、ordinal、hash seed、count の検査は producer 本体で行います。
-pub fn selfhost_memo_trait_public_impl_header_input_new %fn SelfhostModuleDeclarationVisibility fn i32 fn Option i32 fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn Option i32 fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \visibility\module_fingerprint\declaration_ordinal\kind\target_type_shape_hash\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count:
-    SelfhostMemoTraitPublicImplHeaderInput visibility module_fingerprint declaration_ordinal kind target_type_shape_hash trait_application_shape_hash type_parameter_count type_parameter_bound_count
+pub fn selfhost_memo_trait_public_impl_header_input_new %fn SelfhostModuleDeclarationVisibility fn i32 fn Option i32 fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn Option i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence SelfhostMemoTraitPublicImplHeaderInput \visibility\module_fingerprint\declaration_ordinal\kind\target_type_shape_hash\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\generic_binder_evidence:
+    SelfhostMemoTraitPublicImplHeaderInput visibility module_fingerprint declaration_ordinal kind target_type_shape_hash trait_application_shape_hash type_parameter_count type_parameter_bound_count generic_binder_evidence
+
+//: selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence: monomorphic header 用の binder mode
+//:
+//: [契約/けいやく]:
+//: - 既存の monomorphic call site はこの value を渡します。count 非 0 をこの mode で受理することはありません。
+pub fn selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence %fn void SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence \void:
+    SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic
+
+//: selfhost_memo_trait_public_impl_header_detailed_binder_evidence: detailed generic binder mode を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - evidence value を包むだけです。count と hash の検査は shape hash producer が行います。
+pub fn selfhost_memo_trait_public_impl_header_detailed_binder_evidence %fn SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence \evidence:
+    SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed evidence
 
 //: selfhost_memo_trait_public_impl_header_schema_version: impl header shape hash schema version
 //:
@@ -345,6 +391,74 @@ fn selfhost_memo_trait_public_impl_header_shape_seed_result %fn Option i32 fn Se
         Option::None:
             Result::Err missing_error
 
+//: selfhost_memo_trait_public_impl_header_no_generic_binder_shape_hash: monomorphic binder の stable seed
+//:
+//: [契約/けいやく]:
+//: - monomorphic impl でも header shape の fold material が generic impl と同じ field 構成になるよう、0 ではない domain seed を返します。
+fn selfhost_memo_trait_public_impl_header_no_generic_binder_shape_hash %fn void i32 \void:
+    252931
+
+//: selfhost_memo_trait_public_impl_header_generic_binder_hash_result: generic binder evidence の shape seed を[取/と]り[出/だ]す
+//:
+//: [目的/もくてき]:
+//: - count-only generic impl acceptance を防ぎ、詳細 binder evidence の shape hash だけを header shape material として使います。
+//:
+//: [契約/けいやく]:
+//: - `Monomorphic` は type parameter count と bound count がどちらも 0 の場合だけ accepted seed になります。
+//: - `Detailed` は evidence count と header count が一致し、evidence shape hash が nonzero の場合だけ accepted seed になります。
+//: - trait solving、operation candidate、Resource IR proof、PrivateCache / PrivateState masking には進みません。
+fn selfhost_memo_trait_public_impl_header_generic_binder_hash_result %fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence Result i32 SelfhostMemoTraitPublicImplHeaderErrorKind \type_parameter_count\type_parameter_bound_count\generic_binder_evidence:
+    if:
+        lt type_parameter_count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::TypeParameterCountNegative
+        else:
+            if:
+                lt type_parameter_bound_count 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::TypeParameterBoundCountNegative
+                else:
+                    match generic_binder_evidence:
+                        SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:
+                            if:
+                                eq type_parameter_count 0
+                                then:
+                                    if:
+                                        eq type_parameter_bound_count 0
+                                        then:
+                                            Result::Ok selfhost_memo_trait_public_impl_header_no_generic_binder_shape_hash
+                                        else:
+                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceMissing
+                                else:
+                                    Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceMissing
+                        SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed evidence:
+                            if:
+                                eq type_parameter_count 0
+                                then:
+                                    if:
+                                        eq type_parameter_bound_count 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceUnexpected
+                                        else:
+                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_parameter_count evidence.type_parameter_count
+                                else:
+                                    if:
+                                        not eq type_parameter_count evidence.type_parameter_count
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_parameter_count evidence.type_parameter_count
+                                        else:
+                                            if:
+                                                not eq type_parameter_bound_count evidence.type_parameter_bound_count
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_parameter_bound_count evidence.type_parameter_bound_count
+                                                else:
+                                                    if:
+                                                        eq evidence.shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceHashPlaceholder
+                                                        else:
+                                                            Result::Ok evidence.shape_hash
+
 //: selfhost_memo_trait_public_impl_header_kind_supported_result: impl kind を[検査/けんさ]する
 //:
 //: [契約/けいやく]:
@@ -433,6 +547,45 @@ pub fn selfhost_memo_trait_public_impl_header_shape_hash_result %fn SelfhostMemo
         Result::Err kind_error:
             Result::Err kind_error
 
+//: selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result: detailed generic binder evidence を[含/ふく]む impl header shape hash を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - generic impl の public surface header を count だけではなく validated binder evidence hash で区別します。
+//:
+//: [契約/けいやく]:
+//: - `generic_binder_evidence` は header count と照合してから fold します。
+//: - count-only API である `selfhost_memo_trait_public_impl_header_shape_hash_result` は後方の fail-closed smoke として残します。
+//: - operation evidence、aggregate proof、trait bound solving、Resource IR proof は作りません。
+pub fn selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result %fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn Option i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence Result SelfhostMemoTraitPublicImplHeaderShapeHash SelfhostMemoTraitPublicImplHeaderErrorKind \kind\target_type_shape_hash\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\generic_binder_evidence:
+    match selfhost_memo_trait_public_impl_header_kind_supported_result kind:
+        Result::Ok _kind_ok:
+            match selfhost_memo_trait_public_impl_header_generic_binder_hash_result type_parameter_count type_parameter_bound_count generic_binder_evidence:
+                Result::Ok generic_binder_hash:
+                    match selfhost_memo_trait_public_impl_header_shape_seed_result target_type_shape_hash SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashMissing SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashPlaceholder:
+                        Result::Ok target_hash:
+                            match selfhost_memo_trait_public_impl_header_shape_seed_result trait_application_shape_hash SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashMissing SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashPlaceholder:
+                                Result::Ok trait_hash:
+                                    let schema %i32 selfhost_memo_trait_public_impl_header_schema_version
+                                    let kind_hash %i32 selfhost_memo_trait_public_impl_header_kind_code kind
+                                    let left %i32 selfhost_memo_trait_public_impl_header_mix4 252921 schema kind_hash target_hash
+                                    let count_hash %i32 selfhost_memo_trait_public_impl_header_mix4 trait_hash type_parameter_count type_parameter_bound_count schema
+                                    let right %i32 selfhost_memo_trait_public_impl_header_mix2 count_hash generic_binder_hash
+                                    let root_hash %i32 selfhost_memo_trait_public_impl_header_mix2 left right
+                                    if:
+                                        eq root_hash 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplHeaderErrorKind::DerivedImplHeaderShapeHashPlaceholder
+                                        else:
+                                            Result::Ok SelfhostMemoTraitPublicImplHeaderShapeHash schema root_hash
+                                Result::Err trait_error:
+                                    Result::Err trait_error
+                        Result::Err target_error:
+                            Result::Err target_error
+                Result::Err generic_error:
+                    Result::Err generic_error
+        Result::Err kind_error:
+            Result::Err kind_error
+
 //: selfhost_memo_trait_public_impl_header_payload_input_result: public declaration payload input を[作/つく]る
 //:
 //: [目的/もくてき]:
@@ -449,7 +602,7 @@ pub fn selfhost_memo_trait_public_impl_header_payload_input_result %fn SelfhostM
                 Result::Ok ordinal:
                     match selfhost_memo_trait_public_impl_header_stable_key_hash_result input.module_fingerprint ordinal input.kind:
                         Result::Ok stable_key:
-                            match selfhost_memo_trait_public_impl_header_shape_hash_result input.kind input.target_type_shape_hash input.trait_application_shape_hash input.type_parameter_count input.type_parameter_bound_count:
+                            match selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result input.kind input.target_type_shape_hash input.trait_application_shape_hash input.type_parameter_count input.type_parameter_bound_count input.generic_binder_evidence:
                                 Result::Ok shape:
                                     Result::Ok SelfhostMemoTraitPublicSurfacePublicDeclarationPayloadInput SelfhostMemoTraitPublicSurfacePublicDeclarationKind::Impl stable_key.key_hash shape.root_hash
                                 Result::Err shape_error:
@@ -531,19 +684,48 @@ fn selfhost_memo_trait_public_impl_header_error_kind_code %fn SelfhostMemoTraitP
             13
         SelfhostMemoTraitPublicImplHeaderErrorKind::TypeParameterBoundUnsupported:
             14
-        SelfhostMemoTraitPublicImplHeaderErrorKind::StableImplKeyHashPlaceholder:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceMissing:
             15
-        SelfhostMemoTraitPublicImplHeaderErrorKind::DerivedImplHeaderShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceUnexpected:
             16
-        SelfhostMemoTraitPublicImplHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterCountMismatch _mismatch:
             17
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundCountMismatch _mismatch:
+            18
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceHashPlaceholder:
+            19
+        SelfhostMemoTraitPublicImplHeaderErrorKind::StableImplKeyHashPlaceholder:
+            20
+        SelfhostMemoTraitPublicImplHeaderErrorKind::DerivedImplHeaderShapeHashPlaceholder:
+            21
+        SelfhostMemoTraitPublicImplHeaderErrorKind::PublicDeclarationPayloadRejected _payload_error:
+            22
+
+//: selfhost_memo_trait_public_impl_header_count_mismatch_eq: generic binder count mismatch payload が同じか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - expected と actual の両方を比較します。variant だけの比較に戻すと、binder count と bound count の退行を source policy が検出できなくなります。
+fn selfhost_memo_trait_public_impl_header_count_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
 
 //: selfhost_memo_trait_public_impl_header_error_kind_eq: impl header producer error が同じか[返/かえ]す
 //:
 //: [契約/けいやく]:
-//: - payload rejection は normalizer error payload まで比較します。その他の variant は deterministic code で比較します。
+//: - generic binder count mismatch と payload rejection は nested payload まで比較します。その他の variant は deterministic code で比較します。
 pub fn selfhost_memo_trait_public_impl_header_error_kind_eq %fn SelfhostMemoTraitPublicImplHeaderErrorKind fn SelfhostMemoTraitPublicImplHeaderErrorKind bool \a\b:
     match a:
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceParameterCountMismatch other:
+                    selfhost_memo_trait_public_impl_header_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplHeaderErrorKind::GenericBinderEvidenceBoundCountMismatch other:
+                    selfhost_memo_trait_public_impl_header_count_mismatch_eq mismatch other
+                _:
+                    false
         SelfhostMemoTraitPublicImplHeaderErrorKind::PublicDeclarationPayloadRejected payload_error:
             match b:
                 SelfhostMemoTraitPublicImplHeaderErrorKind::PublicDeclarationPayloadRejected other_payload_error:
@@ -554,8 +736,8 @@ pub fn selfhost_memo_trait_public_impl_header_error_kind_eq %fn SelfhostMemoTrai
             eq selfhost_memo_trait_public_impl_header_error_kind_code a selfhost_memo_trait_public_impl_header_error_kind_code b
 
 //: selfhost_memo_trait_public_impl_header_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_public_impl_header_stage0_summary_new %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn bool fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind SelfhostMemoTraitPublicImplHeaderStage0Summary \trait_impl\other_trait_impl\trait_impls_differ\inherent_rejected\private_rejected\trait_hash_missing_rejected\target_hash_placeholder_rejected\generic_rejected\stable_key_inherent_rejected\stable_key_ordinal_rejected:
-    SelfhostMemoTraitPublicImplHeaderStage0Summary trait_impl other_trait_impl trait_impls_differ inherent_rejected private_rejected trait_hash_missing_rejected target_hash_placeholder_rejected generic_rejected stable_key_inherent_rejected stable_key_ordinal_rejected
+fn selfhost_memo_trait_public_impl_header_stage0_summary_new %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn bool fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind SelfhostMemoTraitPublicImplHeaderStage0Summary \trait_impl\other_trait_impl\trait_impls_differ\inherent_rejected\private_rejected\trait_hash_missing_rejected\target_hash_placeholder_rejected\generic_rejected\generic_with_binder\stable_key_inherent_rejected\stable_key_ordinal_rejected:
+    SelfhostMemoTraitPublicImplHeaderStage0Summary trait_impl other_trait_impl trait_impls_differ inherent_rejected private_rejected trait_hash_missing_rejected target_hash_placeholder_rejected generic_rejected generic_with_binder stable_key_inherent_rejected stable_key_ordinal_rejected
 
 //: selfhost_memo_trait_public_impl_header_stage0_compare_payload: 2 evidence の payload hash が異なるか[返/かえ]す
 fn selfhost_memo_trait_public_impl_header_stage0_compare_payload %fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind fn Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind bool \left_result\right_result:
@@ -571,7 +753,12 @@ fn selfhost_memo_trait_public_impl_header_stage0_compare_payload %fn Result Self
 
 //: selfhost_memo_trait_public_impl_header_stage0_input: stage0 用 input を[作/つく]る
 fn selfhost_memo_trait_public_impl_header_stage0_input %fn i32 fn Option i32 fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \ordinal\target_hash\kind\trait_hash\module_hash:
-    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public module_hash (some ordinal) kind target_hash trait_hash 0 0
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public module_hash (some ordinal) kind target_hash trait_hash 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
+
+//: selfhost_memo_trait_public_impl_header_stage0_generic_binder_input: detailed binder evidence 付き generic smoke input を[作/つく]る
+fn selfhost_memo_trait_public_impl_header_stage0_generic_binder_input %fn void SelfhostMemoTraitPublicImplHeaderInput \void:
+    let evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8301
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 8 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 1 1 selfhost_memo_trait_public_impl_header_detailed_binder_evidence evidence
 
 //: selfhost_memo_trait_public_impl_header_stage0: public impl header producer の smoke API
 //:
@@ -588,13 +775,15 @@ pub fn selfhost_memo_trait_public_impl_header_stage0 %fn void SelfhostMemoTraitP
     let inherent_input %SelfhostMemoTraitPublicImplHeaderInput:
         selfhost_memo_trait_public_impl_header_stage0_input 3 some 7101 SelfhostMemoTraitPublicImplHeaderKind::InherentImpl some 8101 6101
     let private_input %SelfhostMemoTraitPublicImplHeaderInput:
-        selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Private 6101 some 4 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 0 0
+        selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Private 6101 some 4 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
     let missing_trait_input %SelfhostMemoTraitPublicImplHeaderInput:
         selfhost_memo_trait_public_impl_header_stage0_input 5 some 7101 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl none 6101
     let placeholder_target_input %SelfhostMemoTraitPublicImplHeaderInput:
         selfhost_memo_trait_public_impl_header_stage0_input 6 some 0 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 8101 6101
     let generic_input %SelfhostMemoTraitPublicImplHeaderInput:
-        selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 7 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 1 0
+        selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 6101 some 7 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 7101 some 8101 1 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
+    let generic_with_binder_input %SelfhostMemoTraitPublicImplHeaderInput:
+        selfhost_memo_trait_public_impl_header_stage0_generic_binder_input
     let trait_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind:
         selfhost_memo_trait_public_impl_header_evidence_result trait_input
     let other_trait_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind:
@@ -609,9 +798,11 @@ pub fn selfhost_memo_trait_public_impl_header_stage0 %fn void SelfhostMemoTraitP
         selfhost_memo_trait_public_impl_header_evidence_result placeholder_target_input
     let generic_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind:
         selfhost_memo_trait_public_impl_header_evidence_result generic_input
+    let generic_with_binder_result %Result SelfhostMemoTraitPublicSurfacePublicDeclarationEvidence SelfhostMemoTraitPublicImplHeaderErrorKind:
+        selfhost_memo_trait_public_impl_header_evidence_result generic_with_binder_input
     let stable_key_inherent_result %Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind:
         selfhost_memo_trait_public_impl_header_stable_key_hash_result 6101 8 SelfhostMemoTraitPublicImplHeaderKind::InherentImpl
     let stable_key_ordinal_result %Result SelfhostMemoTraitPublicImplHeaderStableKeyHash SelfhostMemoTraitPublicImplHeaderErrorKind:
         selfhost_memo_trait_public_impl_header_stable_key_hash_result 6101 0 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl
     let differ %bool selfhost_memo_trait_public_impl_header_stage0_compare_payload trait_result other_trait_result
-    selfhost_memo_trait_public_impl_header_stage0_summary_new trait_result other_trait_result differ inherent_result private_result missing_trait_result placeholder_target_result generic_result stable_key_inherent_result stable_key_ordinal_result
+    selfhost_memo_trait_public_impl_header_stage0_summary_new trait_result other_trait_result differ inherent_result private_result missing_trait_result placeholder_target_result generic_result generic_with_binder_result stable_key_inherent_result stable_key_ordinal_result

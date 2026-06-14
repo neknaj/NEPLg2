@@ -62006,3 +62006,77 @@ MERGE_APPROVED
 ### residual
 
 - F4ai は 1 consumer item の consume-once boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 selfhost generic binder header evidence checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を 2026-06-14 に再確認した。typed enum、Result、静的検査、source/display authority の排除、試作段階でも雑な暫定設計を残さない方針に従い、count-only generic acceptance を許さない boundary として実装した。
+- sync: `origin/main` を merge し、`note.n.md` conflict は両側の記録を保持して解消した。merge checkpoint commit は `523581f81` で push 済み。
+
+### implementation
+
+- `memo_trait_public_impl_header.nepl` に `SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::{Monomorphic, Detailed}` を追加し、`SelfhostMemoTraitPublicImplHeaderInput` が generic binder evidence mode を保持するようにした。
+- count-only API の `selfhost_memo_trait_public_impl_header_shape_hash_result` は fail-closed のまま残し、generic-aware API の `selfhost_memo_trait_public_impl_header_shape_hash_with_generic_binder_result` だけが detailed binder evidence の count と nonzero shape hash を検査して header shape hash へ折り込む。
+- `selfhost_memo_trait_public_impl_header_error_kind_eq` は `GenericBinderEvidenceParameterCountMismatch` / `GenericBinderEvidenceBoundCountMismatch` の expected / actual payload まで比較するようにした。
+- `memo_trait_operation_public_impl_materializer.nepl` の record に generic binder evidence mode を追加し、header validation を classifier / builder input 生成より先に通すようにした。
+- detailed generic record は generic instantiation / bound solving / substituted target shape evidence が未接続であるため、operation candidate 構築前に `GenericImplInstantiationUnsupported` で拒否する。
+- `memo_trait_operation_public_impl_drop_fact_orchestrator.nepl` は header validation を classifier より前に行い、detailed generic record を Drop fact table へ投入する前に `GenericImplInstantiationUnsupported` で拒否する。
+- `memo_trait_operation_drop_candidate_connector.nepl` は header input 再構成時に `record.generic_binder_evidence` を使い、monomorphic evidence 固定へ戻らないようにした。
+- `memo_trait_operation_evidence_producer.nepl` と `memo_trait_operation_impl_table.nepl` の doctest 期待を、count-only generic rejection の新しい理由である `GenericBinderEvidenceMissing` へ更新した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、実装済みの generic binder header evidence 接続と、未実装の generic instantiation / bound solving / PrivateCache / PrivateState / prechecked artifact を分けて記録した。
+
+### subagent_review
+
+- Popper review: Blocker なし。Required として、generic public header の count-only accepted path を残さないこと、raw `i32` binder hash だけを evidence にしないこと、materializer は detailed evidence があっても generic substitution / bound solving / instantiated target shape evidence なしに operation candidate を作らないことを確認した。
+- Descartes review: 初回 Required として、`GenericBinderEvidenceParameterCountMismatch` / `GenericBinderEvidenceBoundCountMismatch` の payload 退行検出、Drop fact / Drop candidate 側の generic detailed evidence mode 一貫性を指摘した。
+- 対応: header error equality を payload-aware にし、contract test に expected / actual 比較を固定した。Drop fact orchestrator は header validation を classifier 前に通し、detailed generic record を Drop fact table construction 前に拒否する。Drop candidate connector は `record.generic_binder_evidence` を header input に渡す。
+- Descartes follow-up review: Blocker / Required なし。payload-aware equality と Drop generic fail-closed boundary が解消済みとして Approve。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_evidence_producer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_table_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_impl_candidate_builder_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_evidence_producer.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-operation-evidence-producer-generic-binder-connect.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_table.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-operation-impl-table-generic-binder-connect.json`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl -i stdlib/neplg2/core/check/module/memo_trait_operation_impl_candidate_builder.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_impl_operation_evidence_connector.nepl -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-binder-header-affected-modules.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。CRLF 変換 warning のみ。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。今回追加・更新した selfhost contracts は runner 上でも pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- generic binder evidence hash は public impl header / materializer / Drop fact / Drop candidate の fail-closed boundary へ接続済みだが、generic impl instantiation、trait bound solving、substituted target type shape evidence、generic coherence は未実装である。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続、Rust Resource IR 相当の actual graph walker 本体も未実装である。
+- materializer record table の operation bucket 化、generic binder table の sorted index 化、bound lookup cache、Drop fact table lookup index 化、stage0 fixture 分割は、今回固定した typed evidence / fail-closed / owner cleanup contract を保って後から行える最適化として扱う。
+
+### zenn_review_record
+
+- decision: MERGE_APPROVED
+- classification: Approve
+- approve: yes
+- source_policy: updated
+- files_read: AGENTS.md, plan.md, note.n.md, todo.md, doc/neplg2/self_host_neplg21_compiler_design.md, issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md, stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl, stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl, stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_drop_fact_orchestrator.nepl, stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl, nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js, nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js
+- not_reviewed: full selfhost compiler runtime execution; generic instantiation; trait bound solving; PrivateCache / PrivateState effect masking; prechecked artifact implementation
+- subagent_review_ids: 019ec28d-37f7-77f0-a7e6-9e068d26cf1d, 019ec48a-0645-7c52-867f-a35bc0a435ad
+- subagent_review_count: 2
+- policy/spec: checked against https://zenn.dev/bem130/articles/1b352797de94e7 and AGENTS.md; Blocker none; Non-blocker future generic solver work; Question none; Approve current fail-closed slice
+- implementation/test: checked stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl and related materializer / Drop fact / Drop candidate modules; Blocker none; Non-blocker runtime doctest can be added later; Question none; Approve after tests
+- subagent review: Popper and Descartes reviewed policy/spec and implementation/test; Required findings were fixed before commit
+- verify: executed node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js; node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/issues.js check --dir issues; git diff --check
+- residual_risk: none
+- unexecuted_verification: none
+- existing_warnings: node nodesrc/run_source_policy_regressions.js --warn-only reports existing stdlib documentation warning; stdlib declaration doc gaps increased: 153 > 108
+- new_warnings: none

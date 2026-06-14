@@ -108,8 +108,9 @@ assertOrdered(
 );
 assert.ok(
     source.includes("trusted operation classifier で Drop と再確認された record だけ") &&
-        source.includes("Drop impl fact table 専用の入力として読み"),
-    "docs must define this module as a classifier-confirmed Drop-only projection from materializer records",
+        source.includes("Drop impl fact table 専用の入力として読み") &&
+        source.includes("public impl header が invalid な record、count-only generic record、generic instantiation / bound solving が未接続な detailed generic record"),
+    "docs must define this module as a header-validated classifier-confirmed Drop-only projection from materializer records",
 );
 assert.ok(
     source.includes("record.trait_source.operation` は直接信用しません") &&
@@ -179,11 +180,13 @@ assertOrdered(
         "pub enum SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind:",
         "OutputTableAllocFailed %StdErrorKind",
         "SourceReadFailed %i32",
+        "HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind",
         "ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind",
+        "GenericImplInstantiationUnsupported",
         "RequiredDropBodyRootMissing %i32",
         "BuilderRejected %SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind",
     ],
-    "orchestrator errors must keep typed allocation, source read, classifier, required root, and builder failures",
+    "orchestrator errors must keep typed allocation, source read, header, classifier, generic unsupported, required root, and builder failures",
 );
 assert.doesNotMatch(
     topLevelBlock(source, "enum", "SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind"),
@@ -214,6 +217,19 @@ assert.doesNotMatch(
     code,
     /\b(?:call\.name|expr\.span|field::get(?:_ref)?\s+[^\n]*"(?:name|span|source|path|diagnostic|message|text)")/,
     "accepted input authority must not use call names, expression spans, source text, path, or diagnostic text",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_header_result"),
+    [
+        "selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count record.generic_binder_evidence",
+        "selfhost_memo_trait_public_impl_header_evidence_result header_input",
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:",
+        "Result::Ok unit",
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed _evidence:",
+        "GenericImplInstantiationUnsupported",
+        "HeaderRejected header_error",
+    ],
+    "header helper must validate record header fields, preserve generic binder evidence mode, and reject detailed generic records before Drop fact construction",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result"),
@@ -273,6 +289,8 @@ assertOrdered(
     [
         "v::get records index",
         "Option::Some record:",
+        "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_header_result record",
+        "Result::Ok _header_ok:",
         "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_classifier_result record",
         "Result::Ok classifier:",
         "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_operation_is_drop classifier.operation",
@@ -282,11 +300,13 @@ assertOrdered(
         "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_loop table module source add index 1",
         "Result::Err e:",
         "selfhost_memo_trait_operation_drop_impl_table_free table",
+        "Result::Err e:",
+        "selfhost_memo_trait_operation_drop_impl_table_free table",
         "Option::None:",
         "selfhost_memo_trait_operation_drop_impl_table_free table",
         "SourceReadFailed index",
     ],
-    "loop must classify before reading Drop root, skip non-Drop records, and clean up table on classifier/read failure",
+    "loop must validate the header before classifier use, classify before reading Drop root, skip non-Drop records, and clean up table on header/classifier/read failure",
 );
 assert.ok(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_stage0_accepted_source").includes(

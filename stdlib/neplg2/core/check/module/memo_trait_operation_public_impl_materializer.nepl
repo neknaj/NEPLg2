@@ -13,6 +13,8 @@
 //: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、`SelfhostHirModule` borrow、operation classifier、candidate builder boundary だけです。
 //: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、public surface hash から operation や HIR root を推測しません。
 //: - `type_id`、public impl header input、trait application input、resolved target shape、method body root、fuel は上流 materializer が型検査済み evidence として渡します。この module はそれらを raw source から再構築しません。
+//: - public impl header producer が header を拒否した場合は、candidate builder input を作らず `HeaderRejected` として fail-closed にします。
+//: - detailed generic binder evidence を持つ record は header evidence までは検査しますが、generic instantiation / bound solving が未接続であるため operation candidate へは流さず `GenericImplInstantiationUnsupported` として拒否します。
 //: - classifier が trait source と trait application shape の不一致を返した場合は、candidate builder input を作らず `ClassifierRejected` として fail-closed にします。
 //: - `source` record table と `module` は borrow です。この module はどちらも閉じません。
 //: - 内部で作る builder input table owner は、この module が success / failure の両方で閉じます。success の場合だけ output candidate table owner を caller へ返します。
@@ -21,7 +23,7 @@
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では actual AST / typed HIR public impl scanner はまだ未接続です。この module は、その scanner が作るべき typed record table の境界を先に固定します。
-//: - full public surface materialization、generic impl binder、trait coherence、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算は後続 slice の責務です。
+//: - full public surface materialization、generic impl instantiation、trait coherence、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算は後続 slice の責務です。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が public surface materializer と proof boundary をまとめる段階で公開範囲を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -31,7 +33,7 @@
 //:
 //: neplg2:test[stdio, normalize_newlines]
 //: stdout: mlstr:
-//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
 //: ##: [0] ok
 //: ##: [1] ok
 //: ##: [2] ok
@@ -39,6 +41,7 @@
 //: ##: [4] ok
 //: ##: [5] ok
 //: ##: [6] ok
+//: ##: [7] ok
 //: exit_code: 0
 //: ```neplg2
 //:| #entry main
@@ -60,7 +63,8 @@
 //:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_public_impl_materializer_classifier_rejected_result_eq summary.untrusted_rejected SelfhostMemoTraitOperationClassifierErrorKind::TraitSourceNotTrusted SelfhostMemoTraitOperationEvidenceKind::Copy
 //:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_public_impl_materializer_candidate_builder_rejected_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationImplCandidateBuilderErrorKind::CandidateDuplicate
 //:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_result_eq summary.drop_unsupported 0
-//:             let shown checks_print_report checks7
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_public_impl_materializer_generic_unsupported_result_eq summary.generic_unsupported
+//:             let shown checks_print_report checks8
 //:             checks_exit_code shown
 //:         Result::Err _setup:
 //:             let checks0 checks_new
@@ -83,6 +87,7 @@
 #import "./memo_trait_operation_classifier" as *
 #import "./memo_trait_operation_impl_candidate_builder" as *
 #import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_public_impl_generic_binder" as *
 #import "./memo_trait_public_impl_header" as *
 
 //: SelfhostMemoTraitOperationPublicImplMaterializerRecord: actual public impl materializer が渡す typed operation impl record
@@ -93,6 +98,7 @@
 //: [契約/けいやく]:
 //: - `type_id` は operation proof を求める対象型です。session-local id であり、永続 artifact identity ではありません。
 //: - `module_fingerprint`、`declaration_ordinal`、`visibility`、`impl_kind`、`target_type_shape_hash`、`trait_application_shape_hash`、`type_parameter_count`、`type_parameter_bound_count` は `SelfhostMemoTraitPublicImplHeaderInput` へそのまま写します。
+//: - `generic_binder_evidence` は header input へそのまま写します。materializer は source text や record order から generic binder を復元しません。
 //: - `trait_source` と `trait_type_argument_count` は classifier input へ渡します。operation kind はここから classifier が導出します。
 //: - `method_body_root` は operation-specific body root です。Eq / Hash では method body root、Drop では Drop impl body root を表します。Copy では通常 `none` です。この materializer の candidate-table path は root の有無を operation matrix として検査せず、candidate builder / Drop fact orchestrator など後続の専用 boundary に任せます。
 //: - `fuel` は HIR traversal 上限です。0 以下や過大値の意味付けは method body checker / builder 側の責務です。
@@ -108,6 +114,7 @@ pub struct SelfhostMemoTraitOperationPublicImplMaterializerRecord:
     trait_application_shape_hash %Option i32
     type_parameter_count %i32
     type_parameter_bound_count %i32
+    generic_binder_evidence %SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence
     method_body_root %Option SelfhostHirExprId
     fuel %i32
 
@@ -138,6 +145,8 @@ pub enum SelfhostMemoTraitOperationPublicImplMaterializerErrorKind:
     RecordPushFailed %StdErrorKind
     BuilderInputTableAllocFailed %StdErrorKind
     SourceReadFailed %i32
+    HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind
+    GenericImplInstantiationUnsupported
     ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
     BuilderInputPushRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
     CandidateBuilderRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
@@ -148,6 +157,7 @@ pub struct SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary:
     untrusted_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
     duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
     drop_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
+    generic_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
 
 impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerRecord:
     fn clone %fn &SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationPublicImplMaterializerRecord \self:
@@ -185,8 +195,8 @@ impl Copy for SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary:
 //:
 //: [契約/けいやく]:
 //: - constructor は typed field を束ねるだけです。public impl header の妥当性、trait source の trust、method root の operation matrix はそれぞれ既存の header / classifier / builder 境界が検査します。
-pub fn selfhost_memo_trait_operation_public_impl_materializer_record_new %fn SelfhostTypeId fn i32 fn Option i32 fn SelfhostModuleDeclarationVisibility fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn Option i32 fn i32 fn i32 fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\module_fingerprint\declaration_ordinal\visibility\impl_kind\target_type_shape_hash\trait_source\trait_type_argument_count\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\method_body_root\fuel:
-    SelfhostMemoTraitOperationPublicImplMaterializerRecord type_id module_fingerprint declaration_ordinal visibility impl_kind target_type_shape_hash trait_source trait_type_argument_count trait_application_shape_hash type_parameter_count type_parameter_bound_count method_body_root fuel
+pub fn selfhost_memo_trait_operation_public_impl_materializer_record_new %fn SelfhostTypeId fn i32 fn Option i32 fn SelfhostModuleDeclarationVisibility fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn Option i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\module_fingerprint\declaration_ordinal\visibility\impl_kind\target_type_shape_hash\trait_source\trait_type_argument_count\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\generic_binder_evidence\method_body_root\fuel:
+    SelfhostMemoTraitOperationPublicImplMaterializerRecord type_id module_fingerprint declaration_ordinal visibility impl_kind target_type_shape_hash trait_source trait_type_argument_count trait_application_shape_hash type_parameter_count type_parameter_bound_count generic_binder_evidence method_body_root fuel
 
 //: selfhost_memo_trait_operation_public_impl_materializer_record_table_new: [空/から]の materializer record table を[作/つく]る
 pub fn selfhost_memo_trait_operation_public_impl_materializer_record_table_new %impure fn void Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \void:
@@ -226,7 +236,7 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_record_table_push 
 //: [契約/けいやく]:
 //: - header field は record の typed payload だけから写します。source declaration text や module path へ戻りません。
 fn selfhost_memo_trait_operation_public_impl_materializer_header_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitPublicImplHeaderInput \record:
-    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count
+    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count record.generic_binder_evidence
 
 //: selfhost_memo_trait_operation_public_impl_materializer_trait_application_input: materializer record から classifier input を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_trait_application_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationTraitApplicationInput \record:
@@ -235,16 +245,26 @@ fn selfhost_memo_trait_operation_public_impl_materializer_trait_application_inpu
 //: selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result: 1 record を builder input へ[変換/へんかん]する
 //:
 //: [契約/けいやく]:
+//: - header producer を先に通し、visibility、ordinal、target shape、trait shape、generic binder evidence の検査を迂回しません。
+//: - detailed generic binder evidence 付き record は header shape としては有効でも、operation instantiation が未接続なので candidate builder へは渡しません。
 //: - operation kind は `record.trait_source.operation` を直接信用せず、classifier evidence の `operation` を使います。
 //: - classifier rejection では builder input を作りません。method body root や fuel の検査へ進める前に fail-closed にします。
 fn selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \record:
     let impl_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_public_impl_materializer_header_input record
     let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_public_impl_materializer_trait_application_input record
-    match selfhost_memo_trait_operation_classifier_evidence_result trait_application:
-        Result::Ok classifier:
-            Result::Ok selfhost_memo_trait_operation_impl_candidate_builder_input_new record.type_id classifier.operation impl_header trait_application record.target_type_shape_hash record.method_body_root record.fuel
-        Result::Err classifier_error:
-            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
+    match selfhost_memo_trait_public_impl_header_evidence_result impl_header:
+        Result::Ok _header_evidence:
+            match record.generic_binder_evidence:
+                SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:
+                    match selfhost_memo_trait_operation_classifier_evidence_result trait_application:
+                        Result::Ok classifier:
+                            Result::Ok selfhost_memo_trait_operation_impl_candidate_builder_input_new record.type_id classifier.operation impl_header trait_application record.target_type_shape_hash record.method_body_root record.fuel
+                        Result::Err classifier_error:
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
+                SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed _binder_evidence:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported
+        Result::Err header_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected header_error
 
 //: selfhost_memo_trait_operation_public_impl_materializer_builder_input_loop: record table から builder input table を[組/く]む
 //:
@@ -358,6 +378,10 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_classifier_rejecte
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected _builder:
@@ -379,6 +403,10 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_builder_
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputTableAllocFailed _alloc:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
@@ -406,14 +434,44 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_r
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
                     false
 
+//: selfhost_memo_trait_operation_public_impl_materializer_generic_unsupported_result_eq: detailed generic record が candidate 化前に[止/と]まったか[返/かえ]す
+pub fn selfhost_memo_trait_operation_public_impl_materializer_generic_unsupported_result_eq %fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind bool \result:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    true
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordPushFailed _push:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputTableAllocFailed _alloc:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected _builder:
+                    false
+
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new: stage0 summary を[作/つく]る
-fn selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new %fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary \accepted\untrusted_rejected\duplicate_rejected\drop_unsupported:
-    SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary accepted untrusted_rejected duplicate_rejected drop_unsupported
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new %fn Result SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind fn Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary \accepted\untrusted_rejected\duplicate_rejected\drop_unsupported\generic_unsupported:
+    SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported
 
 //: selfhost_memo_trait_operation_public_impl_materializer_accepted_summary_new: accepted summary を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_accepted_summary_new %fn i32 fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind fn Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary \len\copy_candidate\eq_candidate\hash_candidate:
@@ -421,7 +479,7 @@ fn selfhost_memo_trait_operation_public_impl_materializer_accepted_summary_new %
 
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_record: stage0 用 materializer record を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 fn i32 fn Option SelfhostHirExprId SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\method_body_root:
-    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 740101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 method_body_root 16
+    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 740101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence method_body_root 16
 
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_source_new: stage0 source record table を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_stage0_source_new %impure fn void Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \void:
@@ -533,6 +591,20 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_drop_unsupporte
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_trait_operation_public_impl_materializer_stage0_generic_unsupported: generic binder evidence 付き record が operation candidate 化前に[止/と]まる path
+fn selfhost_memo_trait_operation_public_impl_materializer_stage0_generic_unsupported %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationTrustedSourceRegistry impure fn i32 impure fn i32 Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\registry\target_shape_hash\copy_shape_hash:
+    match selfhost_memo_trait_operation_public_impl_materializer_stage0_source_new:
+        Result::Ok table0:
+            let evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8407
+            let record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 740101 some 8 SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash registry.copy_source 0 some copy_shape_hash 1 1 selfhost_memo_trait_public_impl_header_detailed_binder_evidence evidence none 16
+            match selfhost_memo_trait_operation_public_impl_materializer_record_table_push table0 record:
+                Result::Ok table1:
+                    selfhost_memo_trait_operation_public_impl_materializer_stage0_run_len_owned_source module table1
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_shape_result: operation source から shape hash を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_stage0_shape_result %fn SelfhostMemoTraitOperationSourceIdentity Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \source:
     match selfhost_memo_trait_operation_trait_application_shape_hash_result source 0:
@@ -547,8 +619,9 @@ fn selfhost_memo_trait_operation_public_impl_materializer_stage0_with_shapes %im
     let untrusted_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_untrusted &module type_id target_shape_hash copy_shape_hash
     let duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_duplicate &module type_id registry target_shape_hash copy_shape_hash
     let drop_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_drop_unsupported &module type_id registry target_shape_hash drop_shape_hash
+    let generic_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind selfhost_memo_trait_operation_public_impl_materializer_stage0_generic_unsupported &module type_id registry target_shape_hash copy_shape_hash
     selfhost_hir_module_free module
-    Result::Ok selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new accepted untrusted_rejected duplicate_rejected drop_unsupported
+    Result::Ok selfhost_memo_trait_operation_public_impl_materializer_stage0_summary_new accepted untrusted_rejected duplicate_rejected drop_unsupported generic_unsupported
 
 //: selfhost_memo_trait_operation_public_impl_materializer_stage0_registry: trusted registry から shape hash を[準備/じゅんび]する
 fn selfhost_memo_trait_operation_public_impl_materializer_stage0_registry %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\type_id\pure_root:

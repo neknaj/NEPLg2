@@ -263,7 +263,7 @@ pub fn selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_stag
 //: [契約/けいやく]:
 //: - production path の header authority は scanner / materializer / producer が再検査します。この helper は doctest fixture だけで使います。
 fn selfhost_memo_trait_public_impl_surface_operation_proof_stage0_impl_header %fn i32 fn i32 SelfhostMemoTraitPublicImplHeaderInput \declaration_ordinal\trait_shape:
-    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9301 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 9401 some trait_shape 0 0
+    selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 9301 some declaration_ordinal SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 9401 some trait_shape 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
 
 //: selfhost_memo_trait_public_impl_surface_operation_proof_stage0_trait_application: stage0 用 trait application input を[作/つく]る
 //:

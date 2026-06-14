@@ -171,9 +171,9 @@ impl Copy for SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary:
 //: selfhost_memo_trait_operation_drop_candidate_connector_header_input: materializer record から impl header input を[作/つく]る
 //:
 //: [契約/けいやく]:
-//: - record の typed header field だけを写します。source declaration text や module path は読みません。
+//: - record の typed header field と generic binder evidence mode だけを写します。source declaration text や module path は読みません。
 fn selfhost_memo_trait_operation_drop_candidate_connector_header_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitPublicImplHeaderInput \record:
-    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count
+    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count record.generic_binder_evidence
 
 //: selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input: materializer record から classifier input を[作/つく]る
 fn selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationTraitApplicationInput \record:
@@ -438,7 +438,7 @@ fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_summary_new %fn
 
 //: selfhost_memo_trait_operation_drop_candidate_connector_stage0_record: stage0 用 Drop materializer record を[作/つく]る
 fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 fn i32 fn SelfhostHirExprId SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\root:
-    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 750101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 some root 16
+    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 750101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence some root 16
 
 //: selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result: Drop record 1 件の source table を[作/つく]る
 fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\root:
@@ -522,7 +522,7 @@ fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_candi
                 Result::Ok proofs:
                     match selfhost_memo_trait_operation_impl_table_new:
                         Result::Ok output0:
-                            let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 750101 some 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash some drop_shape_hash 0 0
+                            let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 750101 some 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash some drop_shape_hash 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
                             let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new drop_source 0 some drop_shape_hash
                             let existing %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_candidate_new type_id SelfhostMemoTraitOperationEvidenceKind::Drop header trait_application some target_shape_hash SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::PureDrop
                             match selfhost_memo_trait_operation_impl_table_push output0 existing:
