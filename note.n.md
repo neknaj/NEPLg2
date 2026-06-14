@@ -60171,3 +60171,42 @@ MERGE_APPROVED
 ### residual
 
 - F4ac は future sink consumer が読む 1 action packet までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 GUI font SFNT path sink action consumer item next checkpoint
+
+### scope
+
+- branch: `gui-font-sink-action-consumer-next-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、terminal state は enum、parse/range/table failure は `Result`、current action payload は future sink consumer、platform / renderer / fallback は非依存とした。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4ad: SFNT simple glyph path sink action consumer item next を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` と `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` を追加した。
+- `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` は `Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem` と `EndContour` だけを持つ typed enum とし、`Clone` / `Copy` を実装した。
+- F4ad helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item` を 1 回だけ読む。
+- `Continue next_item` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy` を 1 回だけ呼び、`Result::Ok next_consumer_item` を `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item` として返す。
+- `EndContour` は `Result::Err`、`Option::None`、silent no-op ではなく、`Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour` として返す。
+- F4ad helper は current action、`EmitEvent` / `Reject` / `NoAction` / `CloseContour` payload、F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec` / `push` / loop / current point、renderer / rasterizer / platform / host text API を直接読まない。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に `terminal_consumer_item_next_ok` と `start_consumer_item_next_ok` を追加し、synthetic terminal consumer item が `EndContour` success を返すこと、byte-backed start consumer item が次の consumer item へ進み、その action が `NoAction` として保持されることを確認した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4ad の enum / Clone/Copy / helper body / call count / 禁止 helper / payload inspection 禁止 / 括弧なし body の source policy assertion を追加した。
+
+### subagent_review
+
+- Arendt plan review: `PLAN_APPROVED`。F4ad は F4ab の checked item advance と F4ac の consumer-facing action packet の次に必要な typed continuation boundary であり、loop や sink ではないため妥当とされた。
+- Required として、docs-first、typed enum + Clone/Copy、consumer item next accessor exactly once、F4ac continuation helper exactly once、`EndContour` を success enum として返すこと、payload inspection / direct lower lookup / Vec / renderer / platform / fallback 禁止、synthetic terminal と byte-backed Continue の doctest が挙げられた。
+- Singer implementation review: `APPROVED`。F4ad は typed `Continue` / `EndContour`、Clone/Copy、consumer-next read 1 回、F4ac-only continuation lookup、successful `EndContour`、payload inspection と lower/platform/fallback traversal なしを満たすと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 287/287 passed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。CRLF 変換 warning のみ。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- F4ad は consumer item を 1 つ進める typed continuation boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。

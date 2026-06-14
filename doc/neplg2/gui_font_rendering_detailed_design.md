@@ -1460,6 +1460,39 @@ F4ac is not a real sink, not an iterator, and not a contour-wide consumer. It do
 
 The helper must call `gui_sfnt_simple_glyph_path_sink_action_step_item_step` exactly once, `gui_sfnt_simple_glyph_path_sink_action_step_action` exactly once, and `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next` exactly once. It must not call F4z action item lookup, F4y action advance lookup, F4v action step lookup, F4x/F4aa start helpers, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not allocate `Vec`, push into a command list, loop over a contour, use numeric action indexes, or introduce hidden fallback.
 
+### SFNT simple glyph path sink action consumer item next
+
+F4ad advances a consumer item by one already checked continuation. It is deliberately above F4ac and below any real sink loop. The current item's action payload is not part of the traversal authority; only `item.next` decides whether a next consumer packet exists.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next bytes face_index item policy:
+    next = gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+
+    match next:
+        Continue next_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy:
+                Err error:
+                    Err error
+
+                Ok next_consumer_item:
+                    Ok Continue next_consumer_item
+
+        EndContour:
+            Ok EndContour
+```
+
+`EndContour` remains a successful terminal domain state. Returning `Option::None` would hide the difference between "no value exists" and "the contour stream completed"; returning `Result::Err` would confuse valid terminal state with malformed font data.
+
+F4ad is not a loop and not a sink. It does not consume actions, does not decide whether `Reject` stops rendering, does not turn `NoAction` into skip, and does not map `CloseContour` to a renderer command. Those decisions belong to a later real sink or explicit consumer policy.
+
+The helper must call `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next` exactly once and `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item` exactly once in the `Continue` branch. It must not call F4ab item-next lookup, F4z item lookup, F4y action advance lookup, F4v action step lookup, F4x/F4aa start helpers, sink step lookup, contour step lookup, lower point / curve / path helpers, metadata parser, `*_with_tables` helpers, renderer/platform APIs, rasterizers, host text measurement, or font fallback. It must not read `item.action`, match action payload variants, allocate `Vec`, push into a command list, loop over a contour, or introduce hidden fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
