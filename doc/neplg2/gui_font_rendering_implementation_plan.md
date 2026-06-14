@@ -3132,3 +3132,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5t.json -j 1
 git diff --check
 ```
+
+## Phase F5u: sfnt simple glyph outline point stream item collection drain
+
+目的:
+
+- F5s の classified item stream を F5t の collection owner へ owner-preserving に commit する。
+- F5s は `last_item` しか返さないため、F5u は F5s を caller budget でまとめて呼ばず、0 / 1 step budget の反復だけで進める。
+- collection owner を success/error のどちらでも失わず、push failure では lower push metadata と rejected item を保持する。
+- path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5s success invariant failure 時に lower F5s success value を error payload に保持すること、F5s budget を 0 / 1 に固定すること、push error metadata を owner 回収前に読むこと、public API だけで push failure doctest が可能かを明確にすることが指摘された。
+- 計画を修正し、`item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain`、local `step_budget` 0 / 1、push error kind / storage error / rejected item の回収順序、collection capacity 1 と stream point count 4 による public `CollectionFull` doctest を追加した。
+- 実装中に、terminal cursor と空 collection のような不整合が成功値にならないよう、`collection.item_count == cursor.next_point_index` の precondition と `CollectionCursorMismatch` を追加した。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。F5u は F5s drain と F5t push だけを呼び、lower step/point/path/render/platform API へ進まない方針で実装を開始する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError`
+  - summary constructor/accessors
+  - error constructor/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget`
+- doctest は full End、partial budget exhausted、zero budget non-terminal、zero budget terminal、lower F5s failure wrapping、public `CollectionPushFailed` via `CollectionFull` を検査する。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5u summary/error は collection owner を含むため `Clone` / `Copy` を実装しない。
+- F5u は `collection.item_count == cursor.next_point_index` を F5s 呼び出し前に検査し、不一致なら `CollectionCursorMismatch` として owner を返す。
+- F5u は `step_budget` を 0 / 1 だけにし、F5s に caller `remaining_steps` を直接渡さない。
+- F5u public body は F5s drain を source 上 exactly once 呼び、その引数に `step_budget` を渡す。
+- F5u public body は F5t collection push を source 上 exactly once 呼ぶ。
+- F5s `Err` は `ItemDrainFailed` になり、collection owner と lower error が失われない。
+- F5s `Ok` で `items_read` が 0 / 1 以外、budget 0 で item read、または `last_item None` の item read は `ItemDrainInvariantInvalid` になり、lower F5s success value が `item_drain_result` に残る。
+- F5t push failure では `push_error_kind`、`push_storage_error`、`rejected_item` を owner 回収前に読み、`CollectionPushFailed` として collection owner を返す。
+- source policy が F5u docs、budget 0 / 1、F5s exact one-call、F5t push exact one-call、push metadata before owner recovery、owner-bearing payload 非 Clone / 非 Copy、lower point/byte/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_drain_f5u.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5u_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5u.json -j 1
+git diff --check
+```

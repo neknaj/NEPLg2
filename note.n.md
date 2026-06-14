@@ -1,3 +1,49 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection drain checkpoint
+
+## scope
+
+- branch: `gui-font-outline-item-collection-drain-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5u の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5u の owner-preserving bridge、F5s 0 / 1 step budget、F5t push commit、push error metadata 回収順序を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5u の plan review 経緯、実装中に追加した collection/cursor precondition、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget` と accessors を追加した。
+- F5u は F5s に caller `remaining_steps` を直接渡さず、local `step_budget` を 0 / 1 にして F5s drain を source 上 exactly once 呼ぶ。
+- F5u は `collection.item_count == cursor.next_point_index` を F5s 呼び出し前に検査し、不一致は `CollectionCursorMismatch` として collection owner を保持して返す。
+- F5u は F5s success summary の `items_read` が 0 / 1 以外、budget 0 で item を返す形、または `items_read == 1` かつ `last_item == None` を `ItemDrainInvariantInvalid` として fail-closed にする。
+- F5u は F5t collection push failure で `push_error_kind`、`push_storage_error`、`rejected_item` を owner 回収前に読み、`CollectionPushFailed` として collection owner、commit cursor、commit item count、lower F5s success value を保持して返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md` に full End、partial budget、zero budget non-terminal、zero budget terminal、collection/cursor mismatch、lower F5s failure wrapping、public `CollectionFull` push failure の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5u source policy を追加し、docs/API/budget 0/1/F5s exact one-call/F5t push exact one-call/push metadata before owner recovery/owner-bearing payload 非 Clone・非 Copy/lower path 禁止/括弧なし prefix style を検査する。
+- `todo.md` から F5u 実装項目を削除し、次の contour / edge / path tag population boundary へ置き換えた。
+
+## subagent_review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5s success invariant failure 時に lower F5s success value を error payload に保持すること、F5s budget を 0 / 1 に固定すること、push error metadata を owner 回収前に読むこと、public API で push failure doctest が可能かを明確にすることが指摘された。
+- 計画を修正し、`item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain`、local `step_budget` 0 / 1、push error metadata 回収順序、collection capacity 1 と stream point count 4 による public `CollectionFull` doctest を追加した。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5u は F5s drain と F5t push だけを呼び、lower step/point/path/render/platform API へ進まない方針で実装開始が承認された。
+- 実装中に、terminal cursor と空 collection が成功値になる不整合を見つけ、`CollectionCursorMismatch` precondition を追加した。
+- Tesla implementation review は `REVIEW_BLOCKED`。コード、source policy、doctest の blocker はなく、`note.n.md` と `todo.md` が F5u 未実装のままだったことだけが指摘された。
+- `note.n.md` と `todo.md` を更新した follow-up review は `REVIEW_APPROVED`。F5u は merge-ready とされた。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_drain_f5u.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5u_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_f5u_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5u.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5u は classified item stream を collection owner へ commit する境界までであり、contour span / edge / path tag population、outline point stream traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline point stream item drain checkpoint
 
 ## scope
