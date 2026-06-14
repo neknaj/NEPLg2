@@ -1,0 +1,682 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_bound_solver
+//: public generic trait impl の bound table と solver proof table を[照合/しょうごう]し、generic instantiation gate が[読/よ]む bound solving status を[作/つく]る checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_generic_instantiation` は `AllSolved` status を受け取れる形になっていますが、caller が手で作った `AllSolved` をそのまま accepted authority にすると、generic bound を実際に解いた証明を通らずに instantiation evidence へ進めてしまいます。
+//: - この module は、generic binder producer が検査した bound table と、solver が提示する proof record table を同じ順序・同じ ordinal・同じ trait application shape で再照合し、全 bound が `Proven` の場合だけ `AllSolved` を返します。
+//: - bound がない場合は `NoBounds` を返します。bound があるのに proof が欠ける、未判定、反証、placeholder hash、別 shape の proof が混ざる場合は typed error として fail-closed にします。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitPublicImplGenericBinderEvidence`、`SelfhostMemoTraitPublicImplGenericParameterTable`、`SelfhostMemoTraitPublicImplGenericBoundTable`、`SelfhostMemoTraitPublicImplGenericBoundSolverProofTable`、`solver_policy_hash` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record、prechecked artifact は bound solving material に入りません。
+//: - binder evidence は parameter / bound table から producer と同じ規則で再計算され、schema、parameter table hash、bound table hash、root shape hash が一致しなければなりません。
+//: - proof table length は binder evidence の bound count と一致しなければなりません。proof record は bound table order と同じ 0-origin index に置かれ、`bound_ordinal`、`parameter_ordinal`、`trait_application_shape_hash`、`trait_type_argument_count` が対応する bound record と一致しなければなりません。
+//: - `Proven` 以外の proof status は accepted status へ畳み込みません。`Missing`、`Unknown`、`Refuted` はそれぞれ typed error として返します。
+//: - `solver_policy_hash` と proven proof の `proof_shape_hash` は nonzero でなければなりません。0 を許すと、どの solver rule set と proof shape で解いたかを後続 stage が区別できません。
+//: - この module の成功は generic impl materialization の許可ではありません。generic coherence、canonical projection connector、operation classifier、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof、PrivateCache / PrivateState effect masking は後続 stage が別 evidence として検査します。
+//: - `memo_trait_operation_public_impl_materializer` の `GenericImplInstantiationUnsupported` はこの slice では維持します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では solver が作る proof record table の transport boundary を固定します。actual trait selection、where 条件の探索、generic blanket impl の coherence 判定はまだ行いません。
+//: - proof table は session-local owner table です。永続 `.neplproof` artifact、`.neplmeta` interface artifact、prechecked stdlib artifact から復元する処理は後続 stage で扱います。
+//: - facade にはまだ re-export しません。instantiation evidence、coherence evidence、projection connector evidence が materializer accepted path へ接続される段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - bound 数を b とすると、現状の照合は O(b) 時間です。proof table は bound table と同じ順序で渡されるため、線形走査だけで済みます。
+//: - 追加空間は accumulator と loop index だけなので O(1) です。table owner は caller が持ち、この module は borrow で読みます。
+//: - 将来 proof table の sorted index 化や trait id bucket 化を行う場合でも、同一 bound table origin、order-independent duplicate rejection、typed error、derived proof shape hash の contract は維持します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_binder" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_generic_bound_solver_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check is_ok summary.accepted
+//:             let checks2 checks_push checks1 check is_ok summary.no_bounds_accepted
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq summary.proof_count_mismatch SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new 1 0
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq summary.proof_status_missing SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusMissing 1
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq summary.proof_shape_mismatch SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitApplicationShapeMismatch SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch 1 7101 9999
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq summary.policy_placeholder SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::SolverPolicyHashPlaceholder
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq summary.proof_hash_placeholder SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofShapeHashPlaceholder 1
+//:             let shown checks_print_report checks7
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "generic bound solver stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "./memo_trait_public_impl_generic_binder" as *
+#import "./memo_trait_public_impl_generic_instantiation" as *
+
+//: SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus: 1 bound proof の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - proof の成功、欠落、反証、未判定を bool に潰さず、solver boundary が fail-closed に分岐できるようにします。
+pub enum SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus:
+    Proven
+    Missing
+    Refuted
+    Unknown
+
+//: SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord: 1 generic bound に対応する typed proof
+//:
+//: [契約/けいやく]:
+//: - `bound_ordinal` と `parameter_ordinal` は binder bound table の対応 record と一致しなければなりません。
+//: - `trait_application_shape_hash` と `trait_type_argument_count` は bound producer が作った trait application shape と一致しなければなりません。
+//: - `status` が `Proven` の場合だけ `proof_shape_hash` を accepted proof material に混ぜます。
+pub struct SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord:
+    bound_ordinal %i32
+    parameter_ordinal %i32
+    trait_application_shape_hash %i32
+    trait_type_argument_count %i32
+    status %SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus
+    proof_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericBoundSolverProofTable: generic bound proof record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。caller は不要になった時点で `selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_free` で閉じます。
+//: - proof table は bound table と同じ順序で渡します。lookup cache や sorted index は後続最適化であり、現状の accepted contract には含めません。
+pub struct SelfhostMemoTraitPublicImplGenericBoundSolverProofTable:
+    records %Vec SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord
+
+//: SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch: bound proof と bound table の shape mismatch payload
+pub struct SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch:
+    bound_ordinal %i32
+    expected %i32
+    actual %i32
+
+//: SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind: bound solver boundary の拒否理由
+//:
+//: [目的/もくてき]:
+//: - table setup、binder same-origin、proof count、ordinal、shape、status、placeholder hash を typed enum として分けます。
+pub enum SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind:
+    ProofTableAllocFailed %StdErrorKind
+    ProofPushFailed %StdErrorKind
+    BinderEvidenceSameOriginRejected %SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    ProofRecordCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    BoundReadFailed %i32
+    ProofReadFailed %i32
+    BoundOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    ProofBoundOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    ProofParameterOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    BoundTraitApplicationShapeHashMissing %i32
+    BoundTraitApplicationShapeHashPlaceholder %i32
+    ProofTraitApplicationShapeMismatch %SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch
+    ProofTraitTypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch
+    SolverPolicyHashPlaceholder
+    ProofShapeHashPlaceholder %i32
+    ProofStatusMissing %i32
+    ProofStatusRefuted %i32
+    ProofStatusUnknown %i32
+    DerivedProofShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary: bound solver smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+    no_bounds_accepted %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+    proof_count_mismatch %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+    proof_status_missing %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+    proof_shape_mismatch %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+    policy_placeholder %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+    proof_hash_placeholder %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_proof_record_new: proof record を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_record_new %fn i32 fn i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus fn i32 SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord \bound_ordinal\parameter_ordinal\trait_application_shape_hash\trait_type_argument_count\status\proof_shape_hash:
+    SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord bound_ordinal parameter_ordinal trait_application_shape_hash trait_type_argument_count status proof_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_new: [空/から]の proof table を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_new %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundSolverProofTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericBoundSolverProofTable records
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_free: proof table owner を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_free %impure fn SelfhostMemoTraitPublicImplGenericBoundSolverProofTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_len: proof record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_len %fn &SelfhostMemoTraitPublicImplGenericBoundSolverProofTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_push: proof record を[追加/ついか]する
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_push %impure fn SelfhostMemoTraitPublicImplGenericBoundSolverProofTable impure fn SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord Result SelfhostMemoTraitPublicImplGenericBoundSolverProofTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericBoundSolverProofTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofPushFailed error
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_schema_version: bound solver evidence schema version
+fn selfhost_memo_trait_public_impl_generic_bound_solver_schema_version %fn void i32 \void:
+    selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_mix2: bound solver hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_bound_solver_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_mix4: 4 要素の fixed solver material を順序付きで[混/ま]ぜる
+fn selfhost_memo_trait_public_impl_generic_bound_solver_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_bound_solver_mix2 (selfhost_memo_trait_public_impl_generic_bound_solver_mix2 a b) (selfhost_memo_trait_public_impl_generic_bound_solver_mix2 c d)
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_new: shape mismatch payload を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_new %fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch \bound_ordinal\expected\actual:
+    SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch bound_ordinal expected actual
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_status_code: proof status を hash material へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_bound_solver_status_code %fn SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus i32 \status:
+    match status:
+        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Proven:
+            1
+        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Missing:
+            2
+        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Refuted:
+            3
+        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Unknown:
+            4
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_bound_shape_result: bound record の trait shape を[取/と]り[出/だ]す
+fn selfhost_memo_trait_public_impl_generic_bound_solver_bound_shape_result %fn SelfhostMemoTraitPublicImplGenericBound fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \bound\index:
+    match bound.trait_application_shape_hash:
+        Option::Some shape_hash:
+            if:
+                eq shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundTraitApplicationShapeHashPlaceholder index
+                else:
+                    Result::Ok shape_hash
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundTraitApplicationShapeHashMissing index
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_record_hash_result: 1 bound と 1 proof record の対応を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_bound_solver_record_hash_result %fn SelfhostMemoTraitPublicImplGenericBound fn SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \bound\proof\index:
+    let expected_bound_ordinal %i32 add index 1
+    if:
+        not eq bound.bound_ordinal expected_bound_ordinal
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index expected_bound_ordinal bound.bound_ordinal
+        else:
+            if:
+                not eq proof.bound_ordinal bound.bound_ordinal
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofBoundOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index bound.bound_ordinal proof.bound_ordinal
+                else:
+                    if:
+                        not eq proof.parameter_ordinal bound.parameter_ordinal
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofParameterOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index bound.parameter_ordinal proof.parameter_ordinal
+                        else:
+                            match selfhost_memo_trait_public_impl_generic_bound_solver_bound_shape_result bound index:
+                                Result::Ok bound_shape:
+                                    if:
+                                        not eq proof.trait_application_shape_hash bound_shape
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitApplicationShapeMismatch selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_new bound.bound_ordinal bound_shape proof.trait_application_shape_hash
+                                        else:
+                                            if:
+                                                not eq proof.trait_type_argument_count bound.trait_type_argument_count
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitTypeArgumentCountMismatch selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_new bound.bound_ordinal bound.trait_type_argument_count proof.trait_type_argument_count
+                                                else:
+                                                    match proof.status:
+                                                        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Proven:
+                                                            if:
+                                                                eq proof.proof_shape_hash 0
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofShapeHashPlaceholder proof.bound_ordinal
+                                                                else:
+                                                                    let status_material %i32 selfhost_memo_trait_public_impl_generic_bound_solver_status_code proof.status
+                                                                    let bound_material %i32 selfhost_memo_trait_public_impl_generic_bound_solver_mix4 proof.parameter_ordinal proof.bound_ordinal proof.trait_application_shape_hash proof.trait_type_argument_count
+                                                                    let proof_material %i32 selfhost_memo_trait_public_impl_generic_bound_solver_mix2 status_material proof.proof_shape_hash
+                                                                    Result::Ok selfhost_memo_trait_public_impl_generic_bound_solver_mix4 772101 index bound_material proof_material
+                                                        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Missing:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusMissing proof.bound_ordinal
+                                                        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Refuted:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusRefuted proof.bound_ordinal
+                                                        SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Unknown:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusUnknown proof.bound_ordinal
+                                Result::Err e:
+                                    Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_proof_hash_loop: bound / proof table を同じ順序で[畳/たた]み[込/こ]む
+fn selfhost_memo_trait_public_impl_generic_bound_solver_proof_hash_loop %fn &SelfhostMemoTraitPublicImplGenericBoundTable fn &SelfhostMemoTraitPublicImplGenericBoundSolverProofTable fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \bounds\proofs\index\n\acc:
+    if:
+        ge index n
+        then:
+            Result::Ok acc
+        else:
+            let bound_records %&Vec SelfhostMemoTraitPublicImplGenericBound field::get_ref bounds "records"
+            let proof_records %&Vec SelfhostMemoTraitPublicImplGenericBoundSolverProofRecord field::get_ref proofs "records"
+            match v::get bound_records index:
+                Option::Some bound:
+                    match v::get proof_records index:
+                        Option::Some proof:
+                            match selfhost_memo_trait_public_impl_generic_bound_solver_record_hash_result bound proof index:
+                                Result::Ok record_hash:
+                                    selfhost_memo_trait_public_impl_generic_bound_solver_proof_hash_loop bounds proofs (add index 1) n selfhost_memo_trait_public_impl_generic_bound_solver_mix2 acc record_hash
+                                Result::Err e:
+                                    Result::Err e
+                        Option::None:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofReadFailed index
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_status_result: proof table から bound solving status を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `binder_evidence` は parameter / bound table と same-origin でなければなりません。
+//: - bound がある場合だけ solver policy と proof table を読み、全 proof が `Proven` のときだけ `AllSolved` を返します。
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_status_result %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn &SelfhostMemoTraitPublicImplGenericParameterTable fn &SelfhostMemoTraitPublicImplGenericBoundTable fn &SelfhostMemoTraitPublicImplGenericBoundSolverProofTable fn i32 Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \binder_evidence\parameters\bounds\proofs\solver_policy_hash:
+    match selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result binder_evidence parameters bounds:
+        Result::Ok same_origin_binder:
+            let bound_count %i32 same_origin_binder.type_parameter_bound_count
+            let proof_count %i32 selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_len proofs
+            if:
+                eq bound_count 0
+                then:
+                    if:
+                        eq proof_count 0
+                        then:
+                            Result::Ok selfhost_memo_trait_public_impl_generic_bound_solving_no_bounds
+                        else:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new bound_count proof_count
+                else:
+                    if:
+                        not eq proof_count bound_count
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new bound_count proof_count
+                        else:
+                            if:
+                                eq solver_policy_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::SolverPolicyHashPlaceholder
+                                else:
+                                    match selfhost_memo_trait_public_impl_generic_bound_solver_proof_hash_loop bounds proofs 0 bound_count selfhost_memo_trait_public_impl_generic_bound_solver_mix4 772201 same_origin_binder.shape_hash same_origin_binder.bound_table_shape_hash solver_policy_hash:
+                                        Result::Ok proof_shape_hash:
+                                            if:
+                                                eq proof_shape_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::DerivedProofShapeHashPlaceholder
+                                                else:
+                                                    let evidence %SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence selfhost_memo_trait_public_impl_generic_bound_solving_evidence_new selfhost_memo_trait_public_impl_generic_bound_solver_schema_version bound_count solver_policy_hash proof_shape_hash
+                                                    Result::Ok selfhost_memo_trait_public_impl_generic_bound_solving_all_solved evidence
+                                        Result::Err e:
+                                            Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_count_mismatch_eq: count mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_bound_solver_count_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_ordinal_mismatch_eq: ordinal mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_bound_solver_ordinal_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch fn SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch bool \a\b:
+    let index_eq %bool eq a.index b.index
+    let expected_eq %bool eq a.expected b.expected
+    let actual_eq %bool eq a.actual b.actual
+    let head_eq %bool and index_eq expected_eq
+    and head_eq actual_eq
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_eq: shape mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch fn SelfhostMemoTraitPublicImplGenericBoundSolverShapeMismatch bool \a\b:
+    let bound_eq %bool eq a.bound_ordinal b.bound_ordinal
+    let expected_eq %bool eq a.expected b.expected
+    let actual_eq %bool eq a.actual b.actual
+    let head_eq %bool and bound_eq expected_eq
+    and head_eq actual_eq
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_code: payload なし error kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_code %fn SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTableAllocFailed _:
+            1
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofPushFailed _:
+            2
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected _:
+            3
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofRecordCountMismatch _:
+            4
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundReadFailed _:
+            5
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofReadFailed _:
+            6
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundOrdinalMismatch _:
+            7
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofBoundOrdinalMismatch _:
+            8
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofParameterOrdinalMismatch _:
+            9
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundTraitApplicationShapeHashMissing _:
+            10
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundTraitApplicationShapeHashPlaceholder _:
+            11
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitApplicationShapeMismatch _:
+            12
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitTypeArgumentCountMismatch _:
+            13
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::SolverPolicyHashPlaceholder:
+            14
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofShapeHashPlaceholder _:
+            15
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusMissing _:
+            16
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusRefuted _:
+            17
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusUnknown _:
+            18
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::DerivedProofShapeHashPlaceholder:
+            19
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_eq: error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected other:
+                    selfhost_memo_trait_public_impl_generic_binder_error_kind_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofRecordCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofRecordCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_bound_solver_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundOrdinalMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BoundOrdinalMismatch other:
+                    selfhost_memo_trait_public_impl_generic_bound_solver_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofBoundOrdinalMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofBoundOrdinalMismatch other:
+                    selfhost_memo_trait_public_impl_generic_bound_solver_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofParameterOrdinalMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofParameterOrdinalMismatch other:
+                    selfhost_memo_trait_public_impl_generic_bound_solver_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitApplicationShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitApplicationShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitTypeArgumentCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofTraitTypeArgumentCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_bound_solver_shape_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofShapeHashPlaceholder ordinal:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofShapeHashPlaceholder other:
+                    eq ordinal other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusMissing ordinal:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusMissing other:
+                    eq ordinal other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusRefuted ordinal:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusRefuted other:
+                    eq ordinal other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusUnknown ordinal:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::ProofStatusUnknown other:
+                    eq ordinal other
+                _:
+                    false
+        _:
+            eq selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_code a selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind bool \result\expected:
+    match result:
+        Result::Ok _status:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_bound_solver_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind fn Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary \accepted\no_bounds_accepted\proof_count_mismatch\proof_status_missing\proof_shape_mismatch\policy_placeholder\proof_hash_placeholder:
+    SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary accepted no_bounds_accepted proof_count_mismatch proof_status_missing proof_shape_mismatch policy_placeholder proof_hash_placeholder
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_parameters: bound あり stage0 用 parameter table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_parameters %impure fn void Result SelfhostMemoTraitPublicImplGenericParameterTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_parameter_table_new:
+        Result::Ok parameters0:
+            match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters0 selfhost_memo_trait_public_impl_generic_parameter_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) 7001 0 0:
+                Result::Ok parameters1:
+                    match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters1 selfhost_memo_trait_public_impl_generic_parameter_new 2 (selfhost_type_parameter_binding_new_unchecked 0 1) 7002 0 1:
+                        Result::Ok parameters2:
+                            Result::Ok parameters2
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_bounds: bound あり stage0 用 bound table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_bounds %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_bound_table_new:
+        Result::Ok bounds0:
+            match selfhost_memo_trait_public_impl_generic_bound_table_push bounds0 selfhost_memo_trait_public_impl_generic_bound_new 2 1 (some 7101) 1:
+                Result::Ok bounds1:
+                    Result::Ok bounds1
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_no_bound_parameters: bound なし stage0 用 parameter table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_no_bound_parameters %impure fn void Result SelfhostMemoTraitPublicImplGenericParameterTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_parameter_table_new:
+        Result::Ok parameters0:
+            match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters0 selfhost_memo_trait_public_impl_generic_parameter_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) 7003 0 0:
+                Result::Ok parameters1:
+                    Result::Ok parameters1
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_bounds: [空/から]の bound table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_bounds %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_bound_table_new:
+        Result::Ok bounds:
+            Result::Ok bounds
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_proofs: stage0 用 proof table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_proofs %impure fn SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus impure fn i32 impure fn i32 Result SelfhostMemoTraitPublicImplGenericBoundSolverProofTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \status\trait_shape\proof_hash:
+    match selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_new:
+        Result::Ok proofs0:
+            selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_push proofs0 selfhost_memo_trait_public_impl_generic_bound_solver_proof_record_new 1 2 trait_shape 1 status proof_hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_proofs: [空/から]の proof table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_proofs %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundSolverProofTable SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_new
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_eval_and_free: owner を閉じながら status を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_eval_and_free %impure fn SelfhostMemoTraitPublicImplGenericBinderEvidence impure fn SelfhostMemoTraitPublicImplGenericParameterTable impure fn SelfhostMemoTraitPublicImplGenericBoundTable impure fn SelfhostMemoTraitPublicImplGenericBoundSolverProofTable impure fn i32 Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \binder\parameters\bounds\proofs\policy_hash:
+    let result %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_status_result binder &parameters &bounds &proofs policy_hash
+    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+    selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+    selfhost_memo_trait_public_impl_generic_bound_solver_proof_table_free proofs
+    result
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case: bound あり stage0 case を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case %impure fn SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus impure fn i32 impure fn i32 impure fn i32 Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \status\trait_shape\proof_hash\policy_hash:
+    match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_parameters:
+        Result::Ok parameters:
+            match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_bounds:
+                Result::Ok bounds:
+                    match selfhost_memo_trait_public_impl_generic_binder_evidence_result 2 1 &parameters &bounds:
+                        Result::Ok binder:
+                            match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_proofs status trait_shape proof_hash:
+                                Result::Ok proofs:
+                                    selfhost_memo_trait_public_impl_generic_bound_solver_stage0_eval_and_free binder parameters bounds proofs policy_hash
+                                Result::Err e:
+                                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                                    selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                            selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+                Result::Err e:
+                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_count_mismatch_case: proof count mismatch case を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_count_mismatch_case %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_parameters:
+        Result::Ok parameters:
+            match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_bounds:
+                Result::Ok bounds:
+                    match selfhost_memo_trait_public_impl_generic_binder_evidence_result 2 1 &parameters &bounds:
+                        Result::Ok binder:
+                            match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_proofs:
+                                Result::Ok proofs:
+                                    selfhost_memo_trait_public_impl_generic_bound_solver_stage0_eval_and_free binder parameters bounds proofs 9801
+                                Result::Err e:
+                                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                                    selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                            selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+                Result::Err e:
+                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0_no_bound_case: bound なし stage0 case を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0_no_bound_case %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_build_no_bound_parameters:
+        Result::Ok parameters:
+            match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_bounds:
+                Result::Ok bounds:
+                    match selfhost_memo_trait_public_impl_generic_binder_evidence_result 1 0 &parameters &bounds:
+                        Result::Ok binder:
+                            match selfhost_memo_trait_public_impl_generic_bound_solver_stage0_empty_proofs:
+                                Result::Ok proofs:
+                                    selfhost_memo_trait_public_impl_generic_bound_solver_stage0_eval_and_free binder parameters bounds proofs 0
+                                Result::Err e:
+                                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                                    selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                            selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+                            Result::Err SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind::BinderEvidenceSameOriginRejected e
+                Result::Err e:
+                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_bound_solver_stage0: bound solver boundary の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_bound_solver_stage0 %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundSolverStage0Summary SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind \void:
+    let accepted %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Proven 7101 9701 9801
+    let no_bounds_accepted %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_no_bound_case
+    let proof_count_mismatch %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_count_mismatch_case
+    let proof_status_missing %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Missing 7101 9701 9801
+    let proof_shape_mismatch %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Proven 9999 9701 9801
+    let policy_placeholder %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Proven 7101 9701 0
+    let proof_hash_placeholder %Result SelfhostMemoTraitPublicImplGenericBoundSolvingStatus SelfhostMemoTraitPublicImplGenericBoundSolverErrorKind selfhost_memo_trait_public_impl_generic_bound_solver_stage0_bound_case SelfhostMemoTraitPublicImplGenericBoundSolverProofStatus::Proven 7101 0 9801
+    Result::Ok selfhost_memo_trait_public_impl_generic_bound_solver_stage0_summary_new accepted no_bounds_accepted proof_count_mismatch proof_status_missing proof_shape_mismatch policy_placeholder proof_hash_placeholder

@@ -1,0 +1,1362 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_materializer_connector
+//: generic public impl record と instantiation / projection / coherence evidence を operation materializer の[受理/じゅり][経路/けいろ]へ[渡/わた]す[前/まえ]に[照合/しょうごう]する checker-layer connector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_public_impl_materializer` の typed record は public impl declaration 由来の header 情報を持ちます。
+//: - `memo_trait_public_impl_generic_instantiation_projection_connector` は generic instantiation と canonical projection が同じ substitution authority から来ていることを検査します。
+//: - `memo_trait_public_impl_generic_concrete_coherence` は同じ concrete target / trait application へ複数の generic impl が到達していないことを検査します。
+//: - この module は、これらを同じ declaration / same binder / same original shape / same concrete shape として束ね、後続 materializer が読む 1 つの typed evidence にします。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecord`、`SelfhostMemoTraitPublicImplGenericBoundSolvingStatus`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence`、`SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR traversal result、Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact は accepted material に入りません。
+//: - record は `Detailed` generic binder evidence を持たなければなりません。`Monomorphic` record は既存 materializer の monomorphic path で扱うため、この connector では拒否します。
+//: - declaration ordinal、pre-substitution target shape、pre-substitution trait application shape は materializer record と connector evidence の間で一致しなければなりません。
+//: - detailed binder evidence の parameter count、bound count、parameter table hash、bound table hash、binder shape hash は instantiation evidence と一致しなければなりません。
+//: - bound solving status はこの connector でも `NoBounds` / `AllSolved` / `Unsolved` を再検査し、`AllSolved` evidence の schema が `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致し、derived bound solution hash が instantiation evidence の `bound_solution_shape_hash` と一致しなければなりません。
+//: - connector evidence と coherence evidence は schema、instantiation shape hash、connector shape hash、target final shape、trait application final shape、canonical target / trait material が一致しなければなりません。
+//: - この module は operation classifier、candidate builder、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof を呼びません。generic impl candidate acceptance の最終判断は後続 materializer integration の責務です。
+//: - `memo_trait_operation_classifier` の import は stage0 fixture が materializer record の trait source identity を作るためだけに使います。connector result path は classifier result や trusted registry を authority にしません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では evidence を束ねるだけです。`memo_trait_operation_public_impl_materializer` の `GenericImplInstantiationUnsupported` はこの slice でも維持します。
+//: - facade にはまだ re-export しません。generic materializer integration が operation candidate builder へ安全に接続される段階で公開範囲を再評価します。
+//: - hash formula は fixed-size field を束ねる小さな connector-local root です。後続で accepted path が実装されても、この evidence の field schema と error payload を変えずに candidate builder 接続だけを差し替えられます。
+//:
+//: [計算量/けいさんりょう]:
+//: - fixed-size record と evidence を照合するだけなので O(1) 時間・O(1) 追加空間です。
+//: - generic bound solving、substitution traversal、canonical projection、concrete coherence table lookup の計算量は、それぞれの producer / checker module の契約に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_impl_generic_materializer_connector_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq summary.monomorphic_rejected SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderMonomorphic
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq summary.declaration_mismatch selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_declaration_mismatch_error
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq summary.binder_mismatch selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder_mismatch_error
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq summary.coherence_mismatch selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence_mismatch_error
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq summary.bound_unsolved SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnsolved 1
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq summary.bound_schema_mismatch SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new 1 2
+//:     let shown checks_print_report checks7
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_public_impl_generic_binder" as *
+#import "./memo_trait_public_impl_generic_concrete_coherence" as *
+#import "./memo_trait_public_impl_generic_instantiation" as *
+#import "./memo_trait_public_impl_generic_instantiation_projection_connector" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence: materializer record と generic evidence 群を[束/たば]ねた accepted bridge evidence
+//:
+//: [契約/けいやく]:
+//: - `materializer_connector_shape_hash` は declaration、record header、binder evidence、instantiation / connector / coherence root を束ねた nonzero hash です。
+//: - `type_id` は session-local link です。永続 artifact identity や canonical type key ではありません。
+//: - この evidence 単独では operation impl candidate を作りません。後続 materializer integration が classifier / purity / Resource proof と合わせて最終受理します。
+pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
+    schema_version %i32
+    type_id %SelfhostTypeId
+    module_fingerprint %i32
+    declaration_ordinal %i32
+    type_parameter_count %i32
+    type_parameter_bound_count %i32
+    generic_binder_shape_hash %i32
+    generic_parameter_table_shape_hash %i32
+    generic_bound_table_shape_hash %i32
+    bound_solution_shape_hash %i32
+    pre_substitution_target_type_shape_hash %i32
+    pre_substitution_trait_application_shape_hash %i32
+    instantiation_shape_hash %i32
+    connector_shape_hash %i32
+    coherence_shape_hash %i32
+    substituted_target_type_shape_hash %i32
+    substituted_trait_application_shape_hash %i32
+    target_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    target_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    target_final_shape_hash %i32
+    trait_application_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    trait_application_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    trait_application_final_shape_hash %i32
+    materializer_connector_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch: expected / actual mismatch payload
+pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch:
+    expected %i32
+    actual %i32
+
+//: SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind: generic materializer connector の拒否理由
+//:
+//: [目的/もくてき]:
+//: - record header、generic binder、instantiation、connector、coherence のどこで不一致が起きたかを typed enum として分けます。
+pub enum SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind:
+    RecordDeclarationOrdinalMissing
+    RecordDeclarationOrdinalPlaceholder
+    RecordTargetShapeMissing
+    RecordTargetShapePlaceholder
+    RecordTraitApplicationShapeMissing
+    RecordTraitApplicationShapePlaceholder
+    RecordGenericBinderMonomorphic
+    RecordGenericBinderCountMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    RecordGenericBoundCountMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    RecordGenericParameterTableHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    RecordGenericBoundTableHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    RecordGenericBinderShapeHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    InstantiationSchemaPlaceholder
+    InstantiationSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    InstantiationShapeHashPlaceholder
+    BoundSolvingRequired
+    BoundSolvingUnexpected
+    BoundSolvingUnsolved %i32
+    BoundSolvingSchemaPlaceholder
+    BoundSolvingSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    BoundSolvingCountMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    BoundSolvingPolicyHashPlaceholder
+    BoundSolvingProofShapeHashPlaceholder
+    BoundSolutionShapeHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    DerivedBoundSolutionShapeHashPlaceholder
+    ConnectorSchemaPlaceholder
+    ConnectorSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorShapeHashPlaceholder
+    ConnectorInstantiationShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorSubstitutionShapeHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorSubstitutedTargetShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorSubstitutedTraitApplicationShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorTargetCanonicalFingerprintSchemaPlaceholder
+    ConnectorTargetCanonicalFingerprintSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorTargetCanonicalFingerprintHashPlaceholder
+    ConnectorTargetCanonicalPayloadSchemaPlaceholder
+    ConnectorTargetCanonicalPayloadSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorTargetCanonicalPayloadHashPlaceholder
+    ConnectorTargetFinalShapeHashPlaceholder
+    ConnectorTraitApplicationCanonicalFingerprintSchemaPlaceholder
+    ConnectorTraitApplicationCanonicalFingerprintSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorTraitApplicationCanonicalFingerprintHashPlaceholder
+    ConnectorTraitApplicationCanonicalPayloadSchemaPlaceholder
+    ConnectorTraitApplicationCanonicalPayloadSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    ConnectorTraitApplicationCanonicalPayloadHashPlaceholder
+    ConnectorTraitApplicationFinalShapeHashPlaceholder
+    RecordTargetShapeConnectorMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    RecordTraitApplicationShapeConnectorMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceSchemaPlaceholder
+    CoherenceSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceShapeHashPlaceholder
+    CoherenceDeclarationMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceInstantiationShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceConnectorShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTargetCanonicalFingerprintSchemaPlaceholder
+    CoherenceTargetCanonicalFingerprintSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTargetCanonicalFingerprintHashPlaceholder
+    CoherenceTargetCanonicalFingerprintHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTargetCanonicalPayloadSchemaPlaceholder
+    CoherenceTargetCanonicalPayloadSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTargetCanonicalPayloadHashPlaceholder
+    CoherenceTargetCanonicalPayloadHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTargetFinalShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTargetFinalShapeHashPlaceholder
+    CoherenceTraitApplicationCanonicalFingerprintSchemaPlaceholder
+    CoherenceTraitApplicationCanonicalFingerprintSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTraitApplicationCanonicalFingerprintHashPlaceholder
+    CoherenceTraitApplicationCanonicalFingerprintHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTraitApplicationCanonicalPayloadSchemaPlaceholder
+    CoherenceTraitApplicationCanonicalPayloadSchemaMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTraitApplicationCanonicalPayloadHashPlaceholder
+    CoherenceTraitApplicationCanonicalPayloadHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTraitApplicationFinalShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
+    CoherenceTraitApplicationFinalShapeHashPlaceholder
+    DerivedMaterializerConnectorShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary: connector smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+    monomorphic_rejected %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+    declaration_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+    binder_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+    coherence_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+    bound_unsolved %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+    bound_schema_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version: bridge evidence schema version
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new: mismatch payload を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new %fn i32 fn i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch \expected\actual:
+    SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch expected actual
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_mix2: connector-local hash material を[混/ま]ぜる
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_mix4: 4 field を順序付きで[畳/たた]み[込/こ]む
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 (selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 a b) (selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 c d)
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_record_declaration_ordinal_result: record の declaration ordinal を[取/と]り[出/だ]す
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_record_declaration_ordinal_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \record:
+    match record.declaration_ordinal:
+        Option::Some ordinal:
+            if:
+                le ordinal 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalPlaceholder
+                else:
+                    Result::Ok ordinal
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalMissing
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_record_target_shape_result: original target shape を[取/と]り[出/だ]す
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_record_target_shape_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \record:
+    match record.target_type_shape_hash:
+        Option::Some shape:
+            if:
+                eq shape 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapePlaceholder
+                else:
+                    Result::Ok shape
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeMissing
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_record_trait_shape_result: original trait application shape を[取/と]り[出/だ]す
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_record_trait_shape_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \record:
+    match record.trait_application_shape_hash:
+        Option::Some shape:
+            if:
+                eq shape 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapePlaceholder
+                else:
+                    Result::Ok shape
+        Option::None:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeMissing
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_valid_result: instantiation evidence の schema と root を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_valid_result %fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence Result SelfhostMemoTraitPublicImplGenericInstantiationEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \instantiation:
+    if:
+        eq instantiation.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationSchemaPlaceholder
+        else:
+            if:
+                not eq instantiation.schema_version selfhost_memo_trait_public_impl_generic_instantiation_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_public_impl_generic_instantiation_schema_version instantiation.schema_version
+                else:
+                    if:
+                        eq instantiation.instantiation_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationShapeHashPlaceholder
+                        else:
+                            Result::Ok instantiation
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_no_bounds_hash_result: bound なし status の solution hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_no_bounds_hash_result %fn void Result i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \void:
+    let hash %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 491101 selfhost_memo_trait_public_impl_generic_instantiation_schema_version 0 0
+    if:
+        eq hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedBoundSolutionShapeHashPlaceholder
+        else:
+            Result::Ok hash
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_solved_bound_hash_result: all-solved status の solution hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_solved_bound_hash_result %fn i32 fn SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence Result i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \expected_bound_count\evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaPlaceholder
+        else:
+            if:
+                not eq evidence.schema_version selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version evidence.schema_version
+                else:
+                    if:
+                        not eq evidence.solved_bound_count expected_bound_count
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingCountMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new expected_bound_count evidence.solved_bound_count
+                        else:
+                            if:
+                                eq evidence.solver_policy_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingPolicyHashPlaceholder
+                                else:
+                                    if:
+                                        eq evidence.proof_shape_hash 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingProofShapeHashPlaceholder
+                                        else:
+                                            let proof_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 evidence.solver_policy_hash evidence.proof_shape_hash
+                                            let hash %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 491201 evidence.schema_version evidence.solved_bound_count proof_material
+                                            if:
+                                                eq hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedBoundSolutionShapeHashPlaceholder
+                                                else:
+                                                    Result::Ok hash
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_bound_solution_hash_result: bound solving status を[検査/けんさ]して instantiation 用 hash を[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_bound_solution_hash_result %fn i32 fn SelfhostMemoTraitPublicImplGenericBoundSolvingStatus Result i32 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \expected_bound_count\status:
+    if:
+        lt expected_bound_count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingCountMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new 0 expected_bound_count
+        else:
+            match status:
+                SelfhostMemoTraitPublicImplGenericBoundSolvingStatus::NoBounds:
+                    if:
+                        eq expected_bound_count 0
+                        then:
+                            selfhost_memo_trait_public_impl_generic_materializer_connector_no_bounds_hash_result
+                        else:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingRequired
+                SelfhostMemoTraitPublicImplGenericBoundSolvingStatus::AllSolved evidence:
+                    if:
+                        eq expected_bound_count 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnexpected
+                        else:
+                            selfhost_memo_trait_public_impl_generic_materializer_connector_solved_bound_hash_result expected_bound_count evidence
+                SelfhostMemoTraitPublicImplGenericBoundSolvingStatus::Unsolved first_unsolved:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnsolved first_unsolved
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_connector_target_canonical_valid_result: connector target canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_connector_target_canonical_valid_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \connector:
+    if:
+        eq connector.target_canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintSchemaPlaceholder
+        else:
+            if:
+                not eq connector.target_canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_type_fingerprint_schema_version connector.target_canonical_fingerprint.schema_version
+                else:
+                    if:
+                        eq connector.target_canonical_fingerprint.root_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintHashPlaceholder
+                        else:
+                            if:
+                                eq connector.target_canonical_payload_hash.schema_version 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadSchemaPlaceholder
+                                else:
+                                    if:
+                                        not eq connector.target_canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_key_payload_schema_version connector.target_canonical_payload_hash.schema_version
+                                        else:
+                                            if:
+                                                eq connector.target_canonical_payload_hash.payload_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq connector.target_final_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetFinalShapeHashPlaceholder
+                                                        else:
+                                                            Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_connector_trait_canonical_valid_result: connector trait application canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_connector_trait_canonical_valid_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \connector:
+    if:
+        eq connector.trait_application_canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintSchemaPlaceholder
+        else:
+            if:
+                not eq connector.trait_application_canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_type_fingerprint_schema_version connector.trait_application_canonical_fingerprint.schema_version
+                else:
+                    if:
+                        eq connector.trait_application_canonical_fingerprint.root_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintHashPlaceholder
+                        else:
+                            if:
+                                eq connector.trait_application_canonical_payload_hash.schema_version 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadSchemaPlaceholder
+                                else:
+                                    if:
+                                        not eq connector.trait_application_canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_key_payload_schema_version connector.trait_application_canonical_payload_hash.schema_version
+                                        else:
+                                            if:
+                                                eq connector.trait_application_canonical_payload_hash.payload_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq connector.trait_application_final_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationFinalShapeHashPlaceholder
+                                                        else:
+                                                            Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_connector_valid_result: projection connector evidence の schema、root、canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_connector_valid_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \connector:
+    if:
+        eq connector.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaPlaceholder
+        else:
+            if:
+                not eq connector.schema_version selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version connector.schema_version
+                else:
+                    if:
+                        eq connector.connector_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorShapeHashPlaceholder
+                        else:
+                            match selfhost_memo_trait_public_impl_generic_materializer_connector_connector_target_canonical_valid_result connector:
+                                Result::Ok _target_unit:
+                                    match selfhost_memo_trait_public_impl_generic_materializer_connector_connector_trait_canonical_valid_result connector:
+                                        Result::Ok _trait_unit:
+                                            Result::Ok connector
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_target_canonical_valid_result: coherence target canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_target_canonical_valid_result %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \coherence:
+    if:
+        eq coherence.target_canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaPlaceholder
+        else:
+            if:
+                not eq coherence.target_canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_type_fingerprint_schema_version coherence.target_canonical_fingerprint.schema_version
+                else:
+                    if:
+                        eq coherence.target_canonical_fingerprint.root_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintHashPlaceholder
+                        else:
+                            if:
+                                eq coherence.target_canonical_payload_hash.schema_version 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaPlaceholder
+                                else:
+                                    if:
+                                        not eq coherence.target_canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_key_payload_schema_version coherence.target_canonical_payload_hash.schema_version
+                                        else:
+                                            if:
+                                                eq coherence.target_canonical_payload_hash.payload_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq coherence.target_final_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetFinalShapeHashPlaceholder
+                                                        else:
+                                                            Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_trait_canonical_valid_result: coherence trait application canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_trait_canonical_valid_result %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \coherence:
+    if:
+        eq coherence.trait_application_canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaPlaceholder
+        else:
+            if:
+                not eq coherence.trait_application_canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_type_fingerprint_schema_version coherence.trait_application_canonical_fingerprint.schema_version
+                else:
+                    if:
+                        eq coherence.trait_application_canonical_fingerprint.root_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintHashPlaceholder
+                        else:
+                            if:
+                                eq coherence.trait_application_canonical_payload_hash.schema_version 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaPlaceholder
+                                else:
+                                    if:
+                                        not eq coherence.trait_application_canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_canonical_key_payload_schema_version coherence.trait_application_canonical_payload_hash.schema_version
+                                        else:
+                                            if:
+                                                eq coherence.trait_application_canonical_payload_hash.payload_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq coherence.trait_application_final_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeHashPlaceholder
+                                                        else:
+                                                            Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_valid_result: coherence evidence の schema、root、canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_valid_result %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \coherence:
+    if:
+        eq coherence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceSchemaPlaceholder
+        else:
+            if:
+                not eq coherence.schema_version selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version coherence.schema_version
+                else:
+                    if:
+                        eq coherence.coherence_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceShapeHashPlaceholder
+                        else:
+                            match selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_target_canonical_valid_result coherence:
+                                Result::Ok _target_unit:
+                                    match selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_trait_canonical_valid_result coherence:
+                                        Result::Ok _trait_unit:
+                                            Result::Ok coherence
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_binder_valid_result: record の detailed binder と instantiation evidence を[照合/しょうごう]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_binder_valid_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \record\instantiation:
+    match record.generic_binder_evidence:
+        SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderMonomorphic
+        SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed binder:
+            if:
+                not eq record.type_parameter_count instantiation.type_parameter_count
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderCountMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.type_parameter_count record.type_parameter_count
+                else:
+                    if:
+                        not eq record.type_parameter_bound_count instantiation.type_parameter_bound_count
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBoundCountMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.type_parameter_bound_count record.type_parameter_bound_count
+                        else:
+                            if:
+                                not eq binder.parameter_table_shape_hash instantiation.generic_parameter_table_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericParameterTableHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.generic_parameter_table_shape_hash binder.parameter_table_shape_hash
+                                else:
+                                    if:
+                                        not eq binder.bound_table_shape_hash instantiation.generic_bound_table_shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBoundTableHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.generic_bound_table_shape_hash binder.bound_table_shape_hash
+                                        else:
+                                            if:
+                                                not eq binder.shape_hash instantiation.generic_binder_shape_hash
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderShapeHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.generic_binder_shape_hash binder.shape_hash
+                                                else:
+                                                    Result::Ok binder
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_canonical_match_result: connector と coherence の canonical material を[照合/しょうごう]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_canonical_match_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \connector\coherence:
+    if:
+        not eq connector.target_canonical_fingerprint.schema_version coherence.target_canonical_fingerprint.schema_version
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.target_canonical_fingerprint.schema_version coherence.target_canonical_fingerprint.schema_version
+        else:
+            if:
+                not eq connector.target_canonical_fingerprint.root_hash coherence.target_canonical_fingerprint.root_hash
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.target_canonical_fingerprint.root_hash coherence.target_canonical_fingerprint.root_hash
+                else:
+                    if:
+                        not eq connector.target_canonical_payload_hash.schema_version coherence.target_canonical_payload_hash.schema_version
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.target_canonical_payload_hash.schema_version coherence.target_canonical_payload_hash.schema_version
+                        else:
+                            if:
+                                not eq connector.target_canonical_payload_hash.payload_hash coherence.target_canonical_payload_hash.payload_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.target_canonical_payload_hash.payload_hash coherence.target_canonical_payload_hash.payload_hash
+                                else:
+                                    if:
+                                        not eq connector.trait_application_canonical_fingerprint.schema_version coherence.trait_application_canonical_fingerprint.schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.trait_application_canonical_fingerprint.schema_version coherence.trait_application_canonical_fingerprint.schema_version
+                                        else:
+                                            if:
+                                                not eq connector.trait_application_canonical_fingerprint.root_hash coherence.trait_application_canonical_fingerprint.root_hash
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.trait_application_canonical_fingerprint.root_hash coherence.trait_application_canonical_fingerprint.root_hash
+                                                else:
+                                                    if:
+                                                        not eq connector.trait_application_canonical_payload_hash.schema_version coherence.trait_application_canonical_payload_hash.schema_version
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.trait_application_canonical_payload_hash.schema_version coherence.trait_application_canonical_payload_hash.schema_version
+                                                        else:
+                                                            if:
+                                                                not eq connector.trait_application_canonical_payload_hash.payload_hash coherence.trait_application_canonical_payload_hash.payload_hash
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.trait_application_canonical_payload_hash.payload_hash coherence.trait_application_canonical_payload_hash.payload_hash
+                                                                else:
+                                                                    Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_match_result: coherence evidence と connector evidence を[照合/しょうごう]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_match_result %fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \declaration_ordinal\connector\coherence:
+    if:
+        not eq coherence.declaration_ordinal declaration_ordinal
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceDeclarationMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new declaration_ordinal coherence.declaration_ordinal
+        else:
+            if:
+                not eq coherence.instantiation_shape_hash connector.instantiation_shape_hash
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceInstantiationShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.instantiation_shape_hash coherence.instantiation_shape_hash
+                else:
+                    if:
+                        not eq coherence.connector_shape_hash connector.connector_shape_hash
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceConnectorShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.connector_shape_hash coherence.connector_shape_hash
+                        else:
+                            match selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_canonical_match_result connector coherence:
+                                Result::Ok _canonical_unit:
+                                    if:
+                                        not eq coherence.target_final_shape_hash connector.target_final_shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetFinalShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.target_final_shape_hash coherence.target_final_shape_hash
+                                        else:
+                                            if:
+                                                not eq coherence.trait_application_final_shape_hash connector.trait_application_final_shape_hash
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new connector.trait_application_final_shape_hash coherence.trait_application_final_shape_hash
+                                                else:
+                                                    Result::Ok unit
+                                Result::Err e:
+                                    Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_match_result: instantiation evidence と projection connector evidence を[照合/しょうごう]する
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_match_result %fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result unit SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \instantiation\connector:
+    if:
+        not eq connector.instantiation_shape_hash instantiation.instantiation_shape_hash
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInstantiationShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.instantiation_shape_hash connector.instantiation_shape_hash
+        else:
+            if:
+                not eq connector.substitution_shape_hash instantiation.substitution_shape_hash
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.substitution_shape_hash connector.substitution_shape_hash
+                else:
+                    if:
+                        not eq connector.substituted_target_type_shape_hash instantiation.substituted_target_type_shape_hash
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutedTargetShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.substituted_target_type_shape_hash connector.substituted_target_type_shape_hash
+                        else:
+                            if:
+                                not eq connector.substituted_trait_application_shape_hash instantiation.substituted_trait_application_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutedTraitApplicationShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new instantiation.substituted_trait_application_shape_hash connector.substituted_trait_application_shape_hash
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash: accepted bridge evidence の root hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence i32 \record\declaration_ordinal\target_shape\trait_shape\binder\bound_hash\connector\coherence:
+    let schema %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version
+    let type_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 selfhost_type_id_index record.type_id record.module_fingerprint
+    let declaration_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 schema declaration_ordinal target_shape trait_shape
+    let binder_table_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 binder.parameter_table_shape_hash binder.bound_table_shape_hash
+    let binder_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 record.type_parameter_count record.type_parameter_bound_count binder.shape_hash binder_table_material
+    let substituted_shape_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 connector.substituted_target_type_shape_hash connector.substituted_trait_application_shape_hash
+    let target_canonical_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 connector.target_canonical_fingerprint.schema_version connector.target_canonical_fingerprint.root_hash connector.target_canonical_payload_hash.schema_version connector.target_canonical_payload_hash.payload_hash
+    let trait_canonical_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 connector.trait_application_canonical_fingerprint.schema_version connector.trait_application_canonical_fingerprint.root_hash connector.trait_application_canonical_payload_hash.schema_version connector.trait_application_canonical_payload_hash.payload_hash
+    let final_shape_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 connector.target_final_shape_hash connector.trait_application_final_shape_hash target_canonical_material trait_canonical_material
+    let evidence_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 connector.instantiation_shape_hash connector.connector_shape_hash coherence.coherence_shape_hash selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 bound_hash connector.substitution_shape_hash substituted_shape_material final_shape_material
+    selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 819401 type_material declaration_material selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 binder_material evidence_material
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_result: record と generic evidence 群を[照合/しょうごう]し bridge evidence を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - この関数は operation candidate table を作りません。record と evidence 群の同一性だけを検査します。
+//: - success は「generic materializer accepted path の入力が揃った」ことを表し、method body purity / Resource proof / aggregate proof の成功を意味しません。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn SelfhostMemoTraitPublicImplGenericBoundSolvingStatus fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \record\bound_status\instantiation\connector\coherence:
+    match selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_valid_result instantiation:
+        Result::Ok checked_instantiation:
+            match selfhost_memo_trait_public_impl_generic_materializer_connector_connector_valid_result connector:
+                Result::Ok checked_connector:
+                    match selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_valid_result coherence:
+                        Result::Ok checked_coherence:
+                            match selfhost_memo_trait_public_impl_generic_materializer_connector_bound_solution_hash_result checked_instantiation.type_parameter_bound_count bound_status:
+                                Result::Ok bound_hash:
+                                    if:
+                                        not eq bound_hash checked_instantiation.bound_solution_shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new checked_instantiation.bound_solution_shape_hash bound_hash
+                                        else:
+                                            match selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_match_result checked_instantiation checked_connector:
+                                                Result::Ok _instantiation_unit:
+                                                    match selfhost_memo_trait_public_impl_generic_materializer_connector_record_declaration_ordinal_result record:
+                                                        Result::Ok declaration_ordinal:
+                                                            match selfhost_memo_trait_public_impl_generic_materializer_connector_record_target_shape_result record:
+                                                                Result::Ok target_shape:
+                                                                    match selfhost_memo_trait_public_impl_generic_materializer_connector_record_trait_shape_result record:
+                                                                        Result::Ok trait_shape:
+                                                                            if:
+                                                                                not eq target_shape checked_connector.pre_substitution_target_type_shape_hash
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeConnectorMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new checked_connector.pre_substitution_target_type_shape_hash target_shape
+                                                                                else:
+                                                                                    if:
+                                                                                        not eq trait_shape checked_connector.pre_substitution_trait_application_shape_hash
+                                                                                        then:
+                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeConnectorMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new checked_connector.pre_substitution_trait_application_shape_hash trait_shape
+                                                                                        else:
+                                                                                            match selfhost_memo_trait_public_impl_generic_materializer_connector_binder_valid_result record checked_instantiation:
+                                                                                                Result::Ok binder:
+                                                                                                    match selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_match_result declaration_ordinal checked_connector checked_coherence:
+                                                                                                        Result::Ok _unit:
+                                                                                                            let root_hash %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash record declaration_ordinal target_shape trait_shape binder bound_hash checked_connector checked_coherence
+                                                                                                            if:
+                                                                                                                eq root_hash 0
+                                                                                                                then:
+                                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedMaterializerConnectorShapeHashPlaceholder
+                                                                                                                else:
+                                                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version record.type_id record.module_fingerprint declaration_ordinal record.type_parameter_count record.type_parameter_bound_count binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash bound_hash target_shape trait_shape checked_instantiation.instantiation_shape_hash checked_connector.connector_shape_hash checked_coherence.coherence_shape_hash checked_instantiation.substituted_target_type_shape_hash checked_instantiation.substituted_trait_application_shape_hash checked_connector.target_canonical_fingerprint checked_connector.target_canonical_payload_hash checked_connector.target_final_shape_hash checked_connector.trait_application_canonical_fingerprint checked_connector.trait_application_canonical_payload_hash checked_connector.trait_application_final_shape_hash root_hash
+                                                                                                        Result::Err e:
+                                                                                                            Result::Err e
+                                                                                                Result::Err e:
+                                                                                                    Result::Err e
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq: mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq: error kind が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalMissing:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeMissing:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapePlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapePlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeMissing:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeMissing:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapePlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapePlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderMonomorphic:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderMonomorphic:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBoundCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBoundCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericParameterTableHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericParameterTableHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBoundTableHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBoundTableHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::InstantiationShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingRequired:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingRequired:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnexpected:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnexpected:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnsolved ordinal:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingUnsolved other:
+                    eq ordinal other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingPolicyHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingPolicyHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingProofShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolvingProofShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolutionShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::BoundSolutionShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedBoundSolutionShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedBoundSolutionShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInstantiationShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInstantiationShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutionShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutionShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutedTargetShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutedTargetShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutedTraitApplicationShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutedTraitApplicationShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalFingerprintHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetCanonicalPayloadHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetFinalShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetFinalShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalFingerprintHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationCanonicalPayloadHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationFinalShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationFinalShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeConnectorMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeConnectorMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeConnectorMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeConnectorMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceDeclarationMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceDeclarationMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceInstantiationShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceInstantiationShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceConnectorShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceConnectorShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalFingerprintHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetCanonicalPayloadHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetFinalShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetFinalShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetFinalShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTargetFinalShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalFingerprintHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationCanonicalPayloadHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeHashPlaceholder:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedMaterializerConnectorShapeHashPlaceholder:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedMaterializerConnectorShapeHashPlaceholder:
+                    true
+                _:
+                    false
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder: stage0 用 generic binder evidence
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder %fn i32 SelfhostMemoTraitPublicImplGenericBinderEvidence \delta:
+    SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8207 8208 add 8407 delta
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_record: stage0 用 materializer record
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_record %fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence SelfhostMemoTraitOperationPublicImplMaterializerRecord \binder_evidence:
+    let type_id %SelfhostTypeId selfhost_type_id_new 7701
+    let source %SelfhostMemoTraitOperationSourceIdentity selfhost_memo_trait_operation_source_identity_new SelfhostMemoTraitOperationEvidenceKind::Copy 520101 520102 520103
+    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 740101 some 8 SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some 719201 source 0 some 719203 1 1 binder_evidence none 16
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_instantiation: stage0 用 instantiation evidence
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_instantiation %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 SelfhostMemoTraitPublicImplGenericInstantiationEvidence \binder\bound_hash:
+    let identity %SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityHash 1 9101
+    SelfhostMemoTraitPublicImplGenericInstantiationEvidence selfhost_memo_trait_public_impl_generic_instantiation_schema_version 1 1 1 binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash identity 813021 813025 (selfhost_type_id_new 92011) (selfhost_type_id_new 95011) 1 813027 719301 (selfhost_type_id_new 93011) (selfhost_type_id_new 96011) 1 813029 719303 bound_hash 813011
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_fingerprint: stage0 用 canonical fingerprint
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_fingerprint %fn i32 SelfhostMemoTraitCanonicalTypeFingerprint \root_hash:
+    SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_canonical_type_fingerprint_schema_version root_hash
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_payload: stage0 用 canonical payload hash
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_payload %fn i32 SelfhostMemoTraitCanonicalKeyPayloadHash \payload_hash:
+    SelfhostMemoTraitCanonicalKeyPayloadHash selfhost_memo_trait_canonical_key_payload_schema_version payload_hash
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_connector: stage0 用 projection connector evidence
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_connector %fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn i32 fn i32 SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence \instantiation\target_final\trait_final:
+    let target_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_fingerprint 814101
+    let target_payload %SelfhostMemoTraitCanonicalKeyPayloadHash selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_payload 814201
+    let trait_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_fingerprint 814301
+    let trait_payload %SelfhostMemoTraitCanonicalKeyPayloadHash selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_payload 814401
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version instantiation.instantiation_shape_hash instantiation.substitution_shape_hash 813031 719201 719203 instantiation.substituted_target_type_shape_hash instantiation.substituted_trait_application_shape_hash target_fingerprint target_payload target_final trait_fingerprint trait_payload trait_final 813041
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence: stage0 用 coherence evidence
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence %fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence \declaration_ordinal\connector:
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version declaration_ordinal connector.instantiation_shape_hash connector.connector_shape_hash connector.target_canonical_fingerprint connector.target_canonical_payload_hash connector.target_final_shape_hash connector.trait_application_canonical_fingerprint connector.trait_application_canonical_payload_hash connector.trait_application_final_shape_hash 813051
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_declaration_mismatch_error: expected declaration mismatch
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_declaration_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \void:
+    SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceDeclarationMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new 8 9
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder_mismatch_error: expected binder mismatch
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \void:
+    SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordGenericBinderShapeHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new 8408 8407
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence_mismatch_error: expected coherence connector mismatch
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \void:
+    SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceConnectorShapeMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new 813041 813042
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary \accepted\monomorphic_rejected\declaration_mismatch\binder_mismatch\coherence_mismatch\bound_unsolved\bound_schema_mismatch:
+    SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary accepted monomorphic_rejected declaration_mismatch binder_mismatch coherence_mismatch bound_unsolved bound_schema_mismatch
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_stage0: connector の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_stage0 %fn void SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary \void:
+    let binder %SelfhostMemoTraitPublicImplGenericBinderEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder 0
+    let bad_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_binder 1
+    let record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_record selfhost_memo_trait_public_impl_header_detailed_binder_evidence binder
+    let monomorphic_record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_record selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
+    let bad_binder_record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_record selfhost_memo_trait_public_impl_header_detailed_binder_evidence binder
+    let solved_evidence %SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence selfhost_memo_trait_public_impl_generic_bound_solving_evidence_new 1 1 9401 9501
+    let bound_status %SelfhostMemoTraitPublicImplGenericBoundSolvingStatus selfhost_memo_trait_public_impl_generic_bound_solving_all_solved solved_evidence
+    let bad_schema_evidence %SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence selfhost_memo_trait_public_impl_generic_bound_solving_evidence_new 2 1 9401 9501
+    let bad_schema_status %SelfhostMemoTraitPublicImplGenericBoundSolvingStatus selfhost_memo_trait_public_impl_generic_bound_solving_all_solved bad_schema_evidence
+    match selfhost_memo_trait_public_impl_generic_materializer_connector_bound_solution_hash_result 1 bound_status:
+        Result::Ok bound_hash:
+            let instantiation %SelfhostMemoTraitPublicImplGenericInstantiationEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_instantiation binder bound_hash
+            let bad_instantiation %SelfhostMemoTraitPublicImplGenericInstantiationEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_instantiation bad_binder bound_hash
+            let connector %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_connector instantiation 719301 719303
+            let coherence %SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence 8 connector
+            let declaration_bad %SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_coherence 9 connector
+            let coherence_bad_connector %SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version 8 connector.instantiation_shape_hash add connector.connector_shape_hash 1 connector.target_canonical_fingerprint connector.target_canonical_payload_hash connector.target_final_shape_hash connector.trait_application_canonical_fingerprint connector.trait_application_canonical_payload_hash connector.trait_application_final_shape_hash coherence.coherence_shape_hash
+            let accepted %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result record bound_status instantiation connector coherence
+            let monomorphic_rejected %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result monomorphic_record bound_status instantiation connector coherence
+            let declaration_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result record bound_status instantiation connector declaration_bad
+            let binder_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result bad_binder_record bound_status bad_instantiation connector coherence
+            let coherence_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result record bound_status instantiation connector coherence_bad_connector
+            let unsolved_status %SelfhostMemoTraitPublicImplGenericBoundSolvingStatus selfhost_memo_trait_public_impl_generic_bound_solving_unsolved 1
+            let bound_unsolved %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result record unsolved_status instantiation connector coherence
+            let bound_schema_mismatch %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind selfhost_memo_trait_public_impl_generic_materializer_connector_result record bad_schema_status instantiation connector coherence
+            selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_summary_new accepted monomorphic_rejected declaration_mismatch binder_mismatch coherence_mismatch bound_unsolved bound_schema_mismatch
+        Result::Err setup:
+            let setup_error %Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind Result::Err setup
+            selfhost_memo_trait_public_impl_generic_materializer_connector_stage0_summary_new setup_error setup_error setup_error setup_error setup_error setup_error setup_error

@@ -63307,3 +63307,104 @@ MERGE_APPROVED
 
 - F5 outline storage doctest の timeout root cause は phase / scenario split で解消したが、compiler compile time 自体は重い。parallel 実行では heavy doctest 同士が重なると timeout し得るため、CI や runner 側では heavy doctest の scheduling policy を別途改善する余地がある。
 - 次 slice では F5k 以降として PointX/PointY を束ねた full point decode boundary、edge/path tag population、outline point stream、raster mask、render2d command emission へ進む。
+
+## 2026-06-15 selfhost generic bound solver checkpoint
+
+### scope
+
+- branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: `Result` / enum error / typed field authority / owner boundary / facade-private stage / 丁寧な doc comment を優先した。行数やdoc comment量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl` を追加した。
+- bound solver は generic binder evidence、parameter table、bound table、proof table、solver policy hash だけを accepted authority として扱う。
+- binder evidence は producer と同じ same-origin helper で再検査し、proof count、bound ordinal、parameter ordinal、trait application shape hash、trait type argument count、proof status、proof shape hash、solver policy hash を typed field として検査する。
+- `Proven` の proof だけを `AllSolved` に進め、`Missing` / `Refuted` / `Unknown`、count / ordinal / shape / hash / policy mismatch は typed error で fail-closed にした。
+- proof table は `Vec` owner を持つため `Clone` / `Copy` を実装しない。source policy でも shallow clone / copy の再導入を拒否する。
+- materializer accepted path は変更していない。detailed generic binder evidence は generic coherence と accepted candidate boundary が揃うまで `GenericImplInstantiationUnsupported` のままにする。
+
+### subagent_review
+
+- Popper review: bound solver evidence producer を次sliceにする判断を支持した。materializer accepted path を開くには bound solver と generic coherence が必要で、今回のsliceでは HIR / Resource / backend / proof store / private effect / prechecked artifact を持ち込まないことを求めた。
+- Tesla review: caller supplied `AllSolved` を accepted path の根拠にしてはいけないこと、generic coherence より先に bound solver evidence producer を置くこと、missing / unknown / refuted / ordinal / shape / duplicate などをtyped rejectに分けることを blocker / required として指摘した。今回の実装は materializer fail-closed を維持し、solver moduleをfacade-privateに保つ形で反映した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-generic-bound-solver.json`
+- pass: `git diff --check`
+
+### performance_observation
+
+- `memo_trait_public_impl_generic_bound_solver.nepl` focused doctest は compile_ms 約 78.9s、run_ms 約 0.05s、total_ms 約 78.9s だった。
+- この時間は owner-bearing stage0 fixture と既存 Resource static check の探索空間が主因であり、今回固定した semantic boundary の誤りではない。sorted index / lookup cache / fixture分割は contract を変えずに後続で実装できる最適化として扱う。
+
+### residual
+
+- generic coherence は未実装である。
+- bound solver evidence、instantiation evidence、projection evidence を materializer accepted path へ接続する境界は未実装である。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続は未着手である。
+
+## 2026-06-15 selfhost generic materializer connector checkpoint
+
+### scope
+
+- branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: Zenn 記事の `Result` / enum error、typed field authority、match による網羅、責務分割、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl` を追加した。
+- connector は `SelfhostMemoTraitOperationPublicImplMaterializerRecord`、`SelfhostMemoTraitPublicImplGenericBoundSolvingStatus`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence`、`SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` だけを accepted authority として扱う。
+- record は `Detailed` generic binder evidence を要求し、monomorphic record は既存 materializer の monomorphic path に任せるため `RecordGenericBinderMonomorphic` で拒否する。
+- binder evidence の parameter count、bound count、parameter table hash、bound table hash、binder shape hash を instantiation evidence と照合する。
+- bound solving status は connector でも `NoBounds` / `AllSolved` / `Unsolved` を再検査し、`AllSolved` evidence の schema が `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致し、導出した bound solution hash が instantiation evidence の `bound_solution_shape_hash` と一致する場合だけ受理する。
+- projection connector evidence と instantiation evidence の substitution shape hash、substituted target shape、substituted trait application shape を照合する。
+- projection connector evidence と concrete coherence evidence は schema、instantiation shape、connector shape、canonical target fingerprint / payload、canonical trait application fingerprint / payload、target final shape、trait application final shape を field-by-field で照合する。
+- accepted connector evidence は substituted target / trait shape と canonical target / trait material と final target / trait shape を別 field として保持する。次段 materializer integration が hash-only authority に落ちないための境界である。
+- materializer accepted path はまだ開いていない。`memo_trait_operation_public_impl_materializer.nepl` の detailed generic record は引き続き `GenericImplInstantiationUnsupported` で fail-closed にする。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js` を追加し、facade 非公開、selfhost source list 非登録、materializer fail-closed、forbidden layer import 禁止、typed field / error / result order、bound solving evidence schema exact match、stage0 unsolved-bound / schema-mismatch rejection、行数 / doc comment 長制限禁止を source policy として固定した。
+- `nodesrc/run_source_policy_regressions.js` に新しい source policy test を登録した。
+- `todo.md`、`doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md` を更新し、generic materializer connector の完了と次段の materializer accepted path 接続を記録した。
+
+### subagent_review
+
+- Tesla review: caller-supplied `AllSolved` summary をそのまま accepted path の根拠にしてはいけないこと、bound solving status を connector でも再検査して instantiation evidence の bound hash と照合すること、materializer の detailed generic acceptance はまだ開かないことを required として指摘した。今回の実装では `selfhost_memo_trait_public_impl_generic_materializer_connector_bound_solution_hash_result` と `BoundSolutionShapeHashMismatch` を追加して反映した。
+- Tesla final review blocker: connector / coherence evidence が public constructible なのに canonical target / trait fingerprint + payload と substitution shape を十分に再検査していないこと、accepted evidence が final shape だけを保持して次段を hash-only authority にし得ることを指摘した。今回の follow-up で connector / coherence canonical material の schema/hash placeholder と field mismatch を typed error に分け、instantiation / connector の substitution shape / substituted shape 照合を追加し、accepted evidence に substituted shape と canonical/final material を分けて保持するように修正した。
+- Popper review: この slice は materializer acceptance ではなく generic materializer connector / preflight boundary として進めるべきであり、typed materializer record、instantiation evidence、projection connector evidence、concrete coherence evidence を束ねる方針を支持した。operation classifier / candidate builder / Resource / backend / proof store / PrivateCache / prechecked artifact を持ち込まない方針を維持した。
+- Popper final review blocker: public constructible な `AllSolved` evidence について、schema_version が nonzero であることだけでは弱く、期待 schema と一致しなければ accepted authority に含めてはいけないと指摘した。今回の follow-up で instantiation module に `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` を公開し、bound solver と materializer connector の両方が同じ schema helper を使うようにした。connector では `BoundSolvingSchemaMismatch` を追加し、stage0 と source policy で schema mismatch rejection を固定した。
+- Popper re-review: Blocker なし。bound solving evidence schema helper の共有、connector の exact schema match、`BoundSolvingSchemaMismatch`、stage0 / source policy の schema mismatch rejection が Zenn 方針の enum / Result / typed field authority / 丁寧な contract comment に沿っていることを確認した。Tesla final review は既に Blocker なしで、schema fix 後の追加 re-review は timeout したため、Popper re-review と再検証を commit 判断に使う。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-materializer-connector.json`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-instantiation.json`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-generic-bound-solver.json`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+### performance_observation
+
+- `memo_trait_public_impl_generic_materializer_connector.nepl` focused doctest は 240 秒 timeout で pass した。schema exact match 追加後の最新実測 wall time は約 156 秒であり、標準 60 秒 timeout では失敗し得る。
+- 主因は owner-bearing stage0 fixture と既存 Resource static check の探索空間であり、今回固定した semantic connector boundary の誤りではない。stage0 fixture 分割、Resource initialized-state 探索範囲削減、generic table lookup index 化は、typed authority boundary を保って後からできる最適化として扱う。
+
+### residual
+
+- generic materializer connector evidence を `memo_trait_operation_public_impl_materializer` の accepted path 本体へ接続する作業は未実装である。
+- 接続時には operation classifier、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof と同じ operation candidate construction boundary へ束ねる必要がある。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張は未実装である。
