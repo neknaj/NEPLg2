@@ -246,6 +246,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_trait_public_type_layout_header_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js",
+    "nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js",
     "nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js",

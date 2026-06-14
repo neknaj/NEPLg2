@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-14
+updated: 2026-06-15
 target: "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty"
 ---
 
@@ -55,6 +55,37 @@ Define structural MemoKey and MemoValue rules that require pure Eq/Hash/Clone/Dr
 Accepted tests should cover primitive scalar/unit/structural Copy values; rejected tests should cover function keys, impure Eq/Hash/Clone/Drop, references, raw pointers, owner tokens, mutable/public state, external handles, and non-Copy values.
 
 Current Phase 1 regression is covered by `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`.
+
+## 2026-06-15 selfhost generic bound solver checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl` を追加し、generic binder evidence / parameter table / bound table / proof table / solver policy hash から `SelfhostMemoTraitPublicImplGenericBoundSolvingStatus` を作る checker-layer 境界を固定した。
+
+この checkpoint は materializer accepted path ではない。`memo_trait_operation_public_impl_materializer.nepl` は detailed generic binder evidence を引き続き `GenericImplInstantiationUnsupported` で拒否し、generic coherence と accepted candidate 生成は後続 slice に残す。bound solver は caller supplied な `AllSolved` を無条件に信じず、binder evidence を同じ parameter / bound table から再検査し、proof count、bound ordinal、parameter ordinal、trait application shape hash、trait type argument count、proof status、proof shape hash、solver policy hash を typed field として照合する。
+
+accepted authority は `SelfhostMemoTraitPublicImplGenericBinderEvidence`、`SelfhostMemoTraitPublicImplGenericParameterTable`、`SelfhostMemoTraitPublicImplGenericBoundTable`、`SelfhostMemoTraitPublicImplGenericBoundSolverProofTable`、`solver_policy_hash` に限定する。source text、span、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record、PrivateCache / PrivateState、prechecked artifact は bound solving material の authority にしない。
+
+proof status は `Proven` / `Missing` / `Refuted` / `Unknown` の enum に分ける。bound が無い場合は proof table が空のときだけ `NoBounds` を返し、bound がある場合はすべての proof record が `Proven` で、かつ derived proof shape hash が placeholder でない場合だけ `AllSolved` を返す。`Missing` / `Refuted` / `Unknown`、proof count mismatch、ordinal mismatch、shape mismatch、solver policy placeholder、proof hash placeholder は enum error として fail-closed にする。
+
+owner boundary として、proof table は `Vec` owner を持つため `Clone` / `Copy` を実装しない。source policy でも shallow clone / copy の再導入を拒否する。stage0 doctest は accepted no-bounds / accepted all-solved / proof count mismatch / missing status / shape mismatch / policy placeholder / proof hash placeholder を実行で固定した。
+
+subagent review では Popper と Tesla が同じ方針を求めた。materializer accepted path へ直行せず、まず generic trait bound solver evidence producer を小さく切り、HIR / Resource / backend / proof store / private effect / prechecked artifact を持ち込まず、materializer はこの slice では fail-closed のままにするべきという指摘である。この checkpoint はその要求に合わせ、generic coherence と accepted path 接続を後続へ残した。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。module-level doc comment、行数・doc comment length cap 禁止、typed status / record / error / stage0 summary、facade-private、`selfhost_ty_sources` 未登録、materializer fail-closed、source / HIR / Resource / backend / proof store / private effect / prechecked artifact import 禁止、proof table non-Clone / non-Copy を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_bound_solver_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_bound_solver.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-generic-bound-solver.json`
+- pass: `git diff --check`
+
+focused doctest は compile_ms 約 78.9s、run_ms 約 0.05s、total_ms 約 78.9s だった。これは今回の semantic boundary の誤りではなく、owner-bearing stage0 fixture と既存 Resource static check の探索空間に由来する性能残件として扱う。bound solver の contract は、sorted index / lookup cache / fixture 分割を後続最適化として入れても変わらない形にしている。
+
+この checkpoint 後の残件は、generic coherence、bound solver evidence と instantiation / projection evidence を materializer accepted path へ接続する境界、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。
 
 ## 2026-06-14 selfhost core type substitution traversal checkpoint
 
