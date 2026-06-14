@@ -381,6 +381,34 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4s path contour traversal step contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph allocation-free path sink ownership boundary",
+    "GuiSfntSimpleGlyphPathOffCurveStartPolicy:",
+    "KeepTypedSkip",
+    "RejectUnsupported",
+    "GuiSfntSimpleGlyphPathClosurePolicy:",
+    "EmitCloseAfterFinalEvent",
+    "GuiSfntSimpleGlyphPathSinkPolicy:",
+    "GuiSfntSimpleGlyphPathSinkRejectReason:",
+    "UnsupportedOffCurveStart",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction:",
+    "EmitEvent GuiSfntSimpleGlyphPathSinkEvent",
+    "Reject GuiSfntSimpleGlyphPathSinkRejectReason",
+    "GuiSfntSimpleGlyphPathSinkTailAction:",
+    "NoTailAction",
+    "CloseContour GuiSfntSimpleGlyphPathContourClose",
+    "policy reject は `GuiSfntParseError` ではない",
+    "`SinglePointContour` と `MissingLookahead`",
+    "reject と close contour は同時に発生しない",
+    "primary = Reject _",
+    "step.next = Continue _",
+    "step.next = EndContour",
+    "gui_sfnt_simple_glyph_path_sink_step_from_contour_step:",
+    "gui_sfnt_lookup_simple_glyph_path_sink_step:",
+    "gui_sfnt_lookup_simple_glyph_path_contour_step",
+]) {
+    assert(spec.includes(fragment), `font spec F4t path sink ownership boundary contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -587,6 +615,28 @@ for (const fragment of [
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4s path contour traversal step contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph allocation-free path sink ownership boundary",
+    "F4t turns an F4s contour step into a sink-facing ownership decision",
+    "GuiSfntSimpleGlyphPathOffCurveStartPolicy:",
+    "GuiSfntSimpleGlyphPathClosurePolicy:",
+    "GuiSfntSimpleGlyphPathSinkPolicy:",
+    "GuiSfntSimpleGlyphPathSinkRejectReason:",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction:",
+    "GuiSfntSimpleGlyphPathSinkTailAction:",
+    "off_curve_start_policy` only applies to `GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment OffCurveStart",
+    "`Reject` is not `GuiSfntParseError`",
+    "if primary_action is Reject:",
+    "tail_action = NoTailAction",
+    "else if step.next is Continue:",
+    "else if step.next is EndContour and closure_policy is EmitCloseAfterFinalEvent:",
+    "CloseContour glyph contour_index",
+    "gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy step",
+    "gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index cursor policy",
+    "It must not re-parse metadata itself",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4t path sink ownership boundary contract must mention ${fragment}`);
+}
 assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
@@ -780,6 +830,29 @@ for (const fragment of [
     "SkipNoSegment OffCurveStart",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4s path contour traversal step contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4t:",
+    "sfnt simple glyph allocation-free path sink ownership boundary",
+    "GuiSfntSimpleGlyphPathOffCurveStartPolicy",
+    "GuiSfntSimpleGlyphPathClosurePolicy",
+    "GuiSfntSimpleGlyphPathSinkPolicy",
+    "GuiSfntSimpleGlyphPathSinkRejectReason",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction",
+    "GuiSfntSimpleGlyphPathContourClose",
+    "GuiSfntSimpleGlyphPathSinkTailAction",
+    "GuiSfntSimpleGlyphPathSinkStep",
+    "gui_sfnt_simple_glyph_path_sink_step_from_contour_step",
+    "gui_sfnt_lookup_simple_glyph_path_sink_step",
+    "`RejectUnsupported` は `SkipNoSegment OffCurveStart` だけ",
+    "`Reject` なら常に `NoTailAction`",
+    "`Continue` なら常に `NoTailAction`",
+    "`EndContour` かつ `EmitCloseAfterFinalEvent` かつ primary が emit",
+    "policy reject は `Result::Err` ではなく",
+    "F4s の skipped public lookup fixture",
+    "no fallback/no allocation/no renderer/no platform",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4t path sink ownership boundary contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -1761,6 +1834,137 @@ assertNoMatch(
     pathContourStepLookup,
     /\b(?:Option::None|Option::Some|Vec|push|command_index|current_point|closure|winding|fill|gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
     "alloc/gui/font/sfnt/glyf F4s contour step lookup must not fallback, allocate, bypass metadata, render, rasterize, or call host/platform APIs",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathOffCurveStartPolicy:\s+KeepTypedSkip\s+RejectUnsupported/,
+    "alloc/gui/font/sfnt/glyf F4t must expose off-curve start policy as a two-state enum",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathClosurePolicy:\s+KeepOpen\s+EmitCloseAfterFinalEvent/,
+    "alloc/gui/font/sfnt/glyf F4t must expose closure policy as a two-state enum",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathSinkPolicy:[\s\S]*off_curve_start_policy\s+%GuiSfntSimpleGlyphPathOffCurveStartPolicy[\s\S]*closure_policy\s+%GuiSfntSimpleGlyphPathClosurePolicy/,
+    "alloc/gui/font/sfnt/glyf F4t must expose sink policy as separate off-curve and closure policies",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkRejectReason:\s+UnsupportedOffCurveStart/,
+    "alloc/gui/font/sfnt/glyf F4t must expose dedicated sink reject reasons",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkPrimaryAction:\s+EmitEvent\s+%GuiSfntSimpleGlyphPathSinkEvent\s+Reject\s+%GuiSfntSimpleGlyphPathSinkRejectReason/,
+    "alloc/gui/font/sfnt/glyf F4t must expose primary action as emit-or-reject enum",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathContourClose:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*contour_index\s+%i32/,
+    "alloc/gui/font/sfnt/glyf F4t must expose close contour marker without coordinates",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkTailAction:\s+NoTailAction\s+CloseContour\s+%GuiSfntSimpleGlyphPathContourClose/,
+    "alloc/gui/font/sfnt/glyf F4t must expose tail action as no-tail or close-contour enum",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathSinkStep:[\s\S]*source_step\s+%GuiSfntSimpleGlyphPathContourStep[\s\S]*primary_action\s+%GuiSfntSimpleGlyphPathSinkPrimaryAction[\s\S]*tail_action\s+%GuiSfntSimpleGlyphPathSinkTailAction/,
+    "alloc/gui/font/sfnt/glyf F4t must expose sink step with source step, primary action, and tail action",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathOffCurveStartPolicy:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathOffCurveStartPolicy:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathClosurePolicy:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathClosurePolicy:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkPolicy:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkPolicy:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkRejectReason:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkRejectReason:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkPrimaryAction:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkPrimaryAction:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathContourClose:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathContourClose:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkTailAction:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkTailAction:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkStep:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkStep:/,
+    "alloc/gui/font/sfnt/glyf F4t sink policy/action values must implement Clone and Copy",
+);
+assert(
+    guiFontSfntPathTests.includes("path sink policy keeps reject and close tail exclusive") &&
+        guiFontSfntPathTests.includes("primary_is_reject_off_curve") &&
+        guiFontSfntPathTests.includes("GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour") &&
+        guiFontSfntPathTests.includes("gui_sfnt_lookup_simple_glyph_path_sink_step &bytes none final_cursor &sink_policy"),
+    "gui font sfnt path doctest must cover F4t reject/close exclusivity, OffCurveStart-only reject policy, and byte-backed sink step lookup call",
+);
+const pathSinkPrimaryActionFromStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_path_contour_step_event step",
+    "gui_sfnt_simple_glyph_path_contour_step_kind step",
+    "GuiSfntSimpleGlyphPathSinkEventKind::MoveTo:",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event",
+    "GuiSfntSimpleGlyphPathSinkEventKind::SkipNoSegment reason:",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason::SinglePointContour:",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason::OffCurveStart:",
+    "gui_sfnt_simple_glyph_path_sink_policy_off_curve_start_policy policy",
+    "GuiSfntSimpleGlyphPathOffCurveStartPolicy::RejectUnsupported:",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart",
+    "GuiSfntSimpleGlyphCurveNoSegmentReason::MissingLookahead:",
+]) {
+    assert(pathSinkPrimaryActionFromStep.includes(fragment), `alloc/gui/font/sfnt/glyf F4t primary action helper must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkPrimaryActionFromStep,
+    /\b(?:Result|GuiSfntParseError|Vec|push|command_index|current_point|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4t primary action helper must stay pure, allocation-free, and policy-only",
+);
+const pathSinkTailActionFromStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step");
+for (const fragment of [
+    "match *primary_action:",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject reason:",
+    "GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction",
+    "GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event:",
+    "gui_sfnt_simple_glyph_path_contour_step_next step",
+    "GuiSfntSimpleGlyphPathContourNext::Continue cursor:",
+    "GuiSfntSimpleGlyphPathContourNext::EndContour:",
+    "gui_sfnt_simple_glyph_path_sink_policy_closure_policy policy",
+    "GuiSfntSimpleGlyphPathClosurePolicy::KeepOpen:",
+    "GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent:",
+    "gui_sfnt_simple_glyph_path_contour_step_cursor step",
+    "gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor",
+    "gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor",
+    "gui_sfnt_simple_glyph_path_contour_close glyph contour_index",
+    "GuiSfntSimpleGlyphPathSinkTailAction::CloseContour close",
+]) {
+    assert(pathSinkTailActionFromStep.includes(fragment), `alloc/gui/font/sfnt/glyf F4t tail action helper must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkTailActionFromStep,
+    /\b(?:Result|GuiSfntParseError|Vec|push|command_index|current_point|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4t tail action helper must not parse, allocate, render, rasterize, or call host/platform APIs",
+);
+const pathSinkStepFromContourStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_step_from_contour_step");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step policy step",
+    "gui_sfnt_simple_glyph_path_sink_tail_action_from_contour_step policy step &primary_action",
+    "source_step %GuiSfntSimpleGlyphPathContourStep *step",
+    "gui_sfnt_simple_glyph_path_sink_step source_step primary_action tail_action",
+]) {
+    assert(pathSinkStepFromContourStep.includes(fragment), `alloc/gui/font/sfnt/glyf F4t sink step helper must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkStepFromContourStep,
+    /\b(?:Result|GuiSfntParseError|Vec|push|command_index|current_point|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4t sink step helper must compose pure helpers only",
+);
+const pathSinkStepLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_sink_step");
+for (const fragment of [
+    "gui_sfnt_lookup_simple_glyph_path_contour_step bytes face_index cursor",
+    "Result::Err error",
+    "Result::Ok contour_step",
+    "gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy &contour_step",
+    "Result::Ok sink_step",
+]) {
+    assert(pathSinkStepLookup.includes(fragment), `alloc/gui/font/sfnt/glyf F4t sink step lookup must include ${fragment}`);
+}
+assert(
+    (pathSinkStepLookup.match(/\bgui_sfnt_lookup_simple_glyph_path_contour_step\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4t sink step lookup must call F4s contour step lookup exactly once",
+);
+assertNoMatch(
+    pathSinkStepLookup,
+    /\b(?:Option::None|Option::Some|Vec|push|command_index|current_point|gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_|gui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_span|contour_point|contour_edge|curve_segment|path_command_pair)|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4t sink step lookup must only delegate to F4s lookup and pure sink-step conversion",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
