@@ -1046,6 +1046,276 @@ pub fn gui_sfnt_simple_glyph_outline_storage_push_region_scalar %impure fn GuiSf
                     let error %GuiSfntSimpleGlyphOutlineRegionPushError gui_sfnt_simple_glyph_outline_region_push_error storage cursor value GuiSfntSimpleGlyphOutlineRegionPushErrorKind::StorageCapacityInvalid none_push_error
                     Result::Err error
 
+//: GuiSfntSimpleGlyphContourEndpointSlot: contour endpoint region へ[追加/ついか]する typed endpoint
+//:
+//: [目的/もくてき]:
+//: - `endPtsOfContours` 相当の endpoint value を、byte decode から[切/き]り[離/はな]した value として[扱/あつか]います。
+//: - F5e では endpoint の[順序/じゅんじょ]と final endpoint の contract だけを[検査/けんさ]し、x/y coordinate decode や path generation へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourEndpointSlot:
+    contour_index %i32
+    end_point_index %i32
+
+impl Clone for GuiSfntSimpleGlyphContourEndpointSlot:
+    fn clone %fn &GuiSfntSimpleGlyphContourEndpointSlot GuiSfntSimpleGlyphContourEndpointSlot \endpoint:
+        *endpoint
+
+impl Copy for GuiSfntSimpleGlyphContourEndpointSlot:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourEndpointSlot GuiSfntSimpleGlyphContourEndpointSlot \endpoint:
+        endpoint
+
+//: gui_sfnt_simple_glyph_contour_endpoint_slot: endpoint slot value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_slot %fn i32 fn i32 GuiSfntSimpleGlyphContourEndpointSlot \contour_index\end_point_index:
+    GuiSfntSimpleGlyphContourEndpointSlot contour_index end_point_index
+
+//: gui_sfnt_simple_glyph_contour_endpoint_slot_contour_index: endpoint の contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_slot_contour_index %fn &GuiSfntSimpleGlyphContourEndpointSlot i32 \endpoint:
+    *field::get_ref endpoint "contour_index"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_slot_end_point_index: endpoint の inclusive end point index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_slot_end_point_index %fn &GuiSfntSimpleGlyphContourEndpointSlot i32 \endpoint:
+    *field::get_ref endpoint "end_point_index"
+
+//: GuiSfntSimpleGlyphContourEndpointPush: contour endpoint push [成功/せいこう]時の owner と cursor
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourEndpointPush:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint %i32
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push: contour endpoint push result を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 GuiSfntSimpleGlyphContourEndpointPush \storage\cursor\previous_endpoint:
+    GuiSfntSimpleGlyphContourEndpointPush storage cursor previous_endpoint
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_cursor: success payload の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_cursor %fn &GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint: next endpoint 検査用の previous endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint %fn &GuiSfntSimpleGlyphContourEndpointPush i32 \pushed:
+    *field::get_ref pushed "previous_endpoint"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_storage: success payload から storage owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_storage %fn GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphOutlineStorage \pushed:
+    field::get pushed "storage"
+
+//: GuiSfntSimpleGlyphContourEndpointPushErrorKind: contour endpoint push [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphContourEndpointPushErrorKind:
+    StorageCapacityInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    ContourIndexMismatch
+    PreviousEndpointMismatch
+    EndpointOutOfRange
+    EndpointNotIncreasing
+    FinalEndpointMismatch
+    RegionPushFailed
+
+impl Clone for GuiSfntSimpleGlyphContourEndpointPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphContourEndpointPushErrorKind GuiSfntSimpleGlyphContourEndpointPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphContourEndpointPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourEndpointPushErrorKind GuiSfntSimpleGlyphContourEndpointPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphContourEndpointPushError: contour endpoint push [失敗/しっぱい]時の owner recovery payload
+//:
+//: [目的/もくてき]:
+//: - validation failure でも F5d region push failure でも、storage owner と endpoint value を[失/うしな]わず[返/かえ]します。
+//: - F5d/F5c 由来の error は `Option` に[閉/と]じ、validation failure と lower push failure を enum で[分離/ぶんり]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourEndpointPushError:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    endpoint %GuiSfntSimpleGlyphContourEndpointSlot
+    previous_endpoint %Option i32
+    kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    push_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error: contour endpoint push error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn GuiSfntSimpleGlyphContourEndpointSlot fn Option i32 fn GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphContourEndpointPushError \storage\cursor\endpoint\previous_endpoint\kind\region_error_kind\push_error_kind:
+    GuiSfntSimpleGlyphContourEndpointPushError storage cursor endpoint previous_endpoint kind region_error_kind push_error_kind
+
+fn gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn GuiSfntSimpleGlyphContourEndpointSlot fn Option i32 fn GuiSfntSimpleGlyphContourEndpointPushErrorKind GuiSfntSimpleGlyphContourEndpointPushError \storage\cursor\endpoint\previous_endpoint\kind:
+    let none_region_error %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let none_push_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_contour_endpoint_push_error storage cursor endpoint previous_endpoint kind none_region_error none_push_error
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error_kind: contour endpoint push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error_kind %fn &GuiSfntSimpleGlyphContourEndpointPushError GuiSfntSimpleGlyphContourEndpointPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error_endpoint: rejected endpoint value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error_endpoint %fn &GuiSfntSimpleGlyphContourEndpointPushError GuiSfntSimpleGlyphContourEndpointSlot \error:
+    *field::get_ref error "endpoint"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error_previous_endpoint: error payload の previous endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error_previous_endpoint %fn &GuiSfntSimpleGlyphContourEndpointPushError Option i32 \error:
+    *field::get_ref error "previous_endpoint"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind: lower F5d error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind %fn &GuiSfntSimpleGlyphContourEndpointPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind: lower F5c push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind %fn &GuiSfntSimpleGlyphContourEndpointPushError Option StdErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_push_error_storage: error payload から storage owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_push_error_storage %fn GuiSfntSimpleGlyphContourEndpointPushError GuiSfntSimpleGlyphOutlineStorage \error:
+    field::get error "storage"
+
+fn gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_commit %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphContourEndpointSlot impure fn Option i32 impure fn i32 Result GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphContourEndpointPushError \storage\cursor\endpoint\previous_endpoint\end_point_index:
+    match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor end_point_index:
+        Result::Ok pushed:
+            let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_region_push_cursor &pushed
+            let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_storage pushed
+            let contour_push %GuiSfntSimpleGlyphContourEndpointPush gui_sfnt_simple_glyph_contour_endpoint_push next_storage next_cursor end_point_index
+            Result::Ok contour_push
+        Result::Err region_error:
+            let region_error_kind_value %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &region_error
+            let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind some region_error_kind_value
+            let push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &region_error
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error
+            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error returned_storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::RegionPushFailed region_error_kind push_error_kind
+            Result::Err error
+
+fn gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_after_previous_check %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphContourEndpointSlot impure fn Option i32 impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphContourEndpointPushError \storage\cursor\endpoint\previous_endpoint\contour_index\end_point_index\contour_count\point_count:
+    let last_point_index %i32 sub point_count 1
+    if eq add contour_index 1 contour_count:
+        then:
+            if ne end_point_index last_point_index:
+                then:
+                    let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::FinalEndpointMismatch
+                    Result::Err error
+                else:
+                    gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_commit storage cursor endpoint previous_endpoint end_point_index
+        else:
+            if ge end_point_index last_point_index:
+                then:
+                    let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::EndpointOutOfRange
+                    Result::Err error
+                else:
+                    gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_commit storage cursor endpoint previous_endpoint end_point_index
+
+//: gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint: contour endpoint value を region storage へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - capacity shape と scalar slot count を[検査/けんさ]してから contour / point [数/すう]を[使/つか]います。
+//: - cursor well-formed validation を `next_index` の contour semantic より[前/まえ]に[行/おこな]います。
+//: - previous endpoint の[範囲/はんい]を monotonic comparison より[前/まえ]に[検査/けんさ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphContourEndpointSlot impure fn Option i32 Result GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphContourEndpointPushError \storage\cursor\endpoint\previous_endpoint:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity &storage
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:
+        then:
+            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::StorageCapacityInvalid
+            Result::Err error
+        else:
+            match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits _scalar_slot_count:
+                    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity
+                    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                    if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:
+                        then:
+                            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::CursorInvalid
+                            Result::Err error
+                        else:
+                            let region %GuiSfntSimpleGlyphOutlineScalarRegion gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor
+                            let is_contour_region %bool match region:
+                                GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:
+                                    true
+                                _:
+                                    false
+                            if not is_contour_region:
+                                then:
+                                    let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::CursorRegionMismatch
+                                    Result::Err error
+                                else:
+                                    let contour_index %i32 gui_sfnt_simple_glyph_contour_endpoint_slot_contour_index &endpoint
+                                    let end_point_index %i32 gui_sfnt_simple_glyph_contour_endpoint_slot_end_point_index &endpoint
+                                    let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+                                    if ne contour_index next_index:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::ContourIndexMismatch
+                                            Result::Err error
+                                        else:
+                                            if or lt contour_index 0 ge contour_index contour_count:
+                                                then:
+                                                    let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::ContourIndexMismatch
+                                                    Result::Err error
+                                                else:
+                                                    if or lt end_point_index 0 ge end_point_index point_count:
+                                                        then:
+                                                            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::EndpointOutOfRange
+                                                            Result::Err error
+                                                        else:
+                                                            match previous_endpoint:
+                                                                Option::None:
+                                                                    if ne contour_index 0:
+                                                                        then:
+                                                                            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::PreviousEndpointMismatch
+                                                                            Result::Err error
+                                                                        else:
+                                                                            gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_after_previous_check storage cursor endpoint previous_endpoint contour_index end_point_index contour_count point_count
+                                                                Option::Some previous:
+                                                                    if le contour_index 0:
+                                                                        then:
+                                                                            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::PreviousEndpointMismatch
+                                                                            Result::Err error
+                                                                        else:
+                                                                            let last_point_index %i32 sub point_count 1
+                                                                            if or lt previous 0 ge previous last_point_index:
+                                                                                then:
+                                                                                    let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::PreviousEndpointMismatch
+                                                                                    Result::Err error
+                                                                                else:
+                                                                                    if le end_point_index previous:
+                                                                                        then:
+                                                                                            let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::EndpointNotIncreasing
+                                                                                            Result::Err error
+                                                                                        else:
+                                                                                            gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_after_previous_check storage cursor endpoint previous_endpoint contour_index end_point_index contour_count point_count
+                GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow _overflow_capacity:
+                    let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::StorageCapacityInvalid
+                    Result::Err error
+
 //: GuiSfntSimpleGlyphPointStream: simple glyph の raw point stream ranges
 //:
 //: [目的/もくてき]:

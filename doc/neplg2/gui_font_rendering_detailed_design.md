@@ -2173,6 +2173,90 @@ else:
 
 Both success and failure payloads return the storage owner. `GuiSfntSimpleGlyphOutlineRegionPush` and `GuiSfntSimpleGlyphOutlineRegionPushError` must not implement `Clone` or `Copy`. The cursor and error kind are value-only and may implement `Clone` / `Copy`.
 
+## SFNT simple glyph contour endpoint population boundary
+
+F5e is the first semantic population boundary over the F5d contour endpoint region. It accepts a typed endpoint slot:
+
+```text
+GuiSfntSimpleGlyphContourEndpointSlot:
+    contour_index i32
+    end_point_index i32
+```
+
+The helper does not read `glyf` bytes. It is intentionally usable with synthetic endpoint values in doctests so the owner/cursor contract can be stabilized before byte-backed endpoint-array decoding is wired in.
+
+F5e keeps three invariants separate:
+
+```text
+storage capacity invariant
+cursor position invariant
+endpoint sequence invariant
+```
+
+The validation order is fail-closed:
+
+```text
+capacity = storage.capacity
+
+if not shape_is_valid capacity:
+    Err StorageCapacityInvalid
+else if scalar_slot_count_check capacity is not Fits:
+    Err StorageCapacityInvalid
+else:
+    contour_count = capacity.contour_count
+    point_count = capacity.point_count
+
+    if not cursor_is_well_formed cursor:
+        Err CursorInvalid
+    else if cursor.region != ContourEndpoint:
+        Err CursorRegionMismatch
+    else if endpoint.contour_index != cursor.next_index:
+        Err ContourIndexMismatch
+    else if endpoint.contour_index < 0 or endpoint.contour_index >= contour_count:
+        Err ContourIndexMismatch
+    else if endpoint.end_point_index < 0 or endpoint.end_point_index >= point_count:
+        Err EndpointOutOfRange
+    else:
+        previous must satisfy 0 <= previous < point_count - 1 when present
+        end_point_index must be greater than previous when present
+        validate final or non-final endpoint
+        commit through F5d region push exactly once
+```
+
+The previous endpoint contract is:
+
+```text
+None:
+    contour_index must be 0
+
+Some previous:
+    contour_index must be greater than 0
+    previous must satisfy 0 <= previous < point_count - 1
+    end_point_index must be greater than previous
+```
+
+The final endpoint contract is:
+
+```text
+if contour_index + 1 == contour_count:
+    end_point_index == point_count - 1
+else:
+    end_point_index < point_count - 1
+```
+
+The `point_count - 1` arithmetic happens only after capacity shape and scalar slot count validation. This prevents forged capacity values from reaching semantic endpoint checks before the lower storage contract has accepted the shape.
+
+F5e wraps F5d region push failure without losing ownership:
+
+```text
+RegionPushFailed:
+    storage = recovered storage from F5d error
+    region_error_kind = Some F5d error kind
+    push_error_kind = F5d underlying push_error_kind
+```
+
+Validation failures set `region_error_kind = None` and `push_error_kind = None`, because no lower region push was attempted. The success and error payloads own `GuiSfntSimpleGlyphOutlineStorage`, so neither implements `Clone` or `Copy`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

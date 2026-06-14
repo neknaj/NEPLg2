@@ -4334,6 +4334,169 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5d region push helper body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph contour endpoint population[\s\S]*GuiSfntSimpleGlyphContourEndpointSlot:[\s\S]*contour_index i32[\s\S]*end_point_index i32[\s\S]*GuiSfntSimpleGlyphContourEndpointPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*CursorInvalid[\s\S]*CursorRegionMismatch[\s\S]*FinalEndpointMismatch[\s\S]*RegionPushFailed[\s\S]*capacity validation[\s\S]*cursor well-formed validation[\s\S]*previous endpoint range/,
+    "font spec must define F5e contour endpoint population and validation ordering",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph contour endpoint population boundary[\s\S]*storage capacity invariant[\s\S]*cursor position invariant[\s\S]*endpoint sequence invariant[\s\S]*if not shape_is_valid capacity[\s\S]*scalar_slot_count_check capacity[\s\S]*contour_count = capacity\.contour_count[\s\S]*if not cursor_is_well_formed cursor[\s\S]*cursor\.region != ContourEndpoint[\s\S]*previous must satisfy 0 <= previous < point_count - 1[\s\S]*commit through F5d region push exactly once/,
+    "font detailed design must define F5e fail-closed capacity, cursor, previous endpoint, and commit ordering",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5e: sfnt simple glyph contour endpoint population[\s\S]*storage capacity を検査してから `contour_count` \/ `point_count` を読む[\s\S]*cursor well-formed validation[\s\S]*previous endpoint range[\s\S]*F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び[\s\S]*subagent review/,
+    "font implementation plan must define F5e source policy, validation ordering, and review gate",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphContourEndpointSlot:[\s\S]*contour_index\s+%i32[\s\S]*end_point_index\s+%i32[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphContourEndpointPush:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*cursor\s+%GuiSfntSimpleGlyphOutlineScalarRegionCursor[\s\S]*previous_endpoint\s+%i32[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphContourEndpointPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*CursorInvalid[\s\S]*CursorRegionMismatch[\s\S]*ContourIndexMismatch[\s\S]*PreviousEndpointMismatch[\s\S]*EndpointOutOfRange[\s\S]*EndpointNotIncreasing[\s\S]*FinalEndpointMismatch[\s\S]*RegionPushFailed/,
+    "alloc/gui/font/sfnt/glyf F5e must expose contour endpoint slot, owner success payload, and typed error kind",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphContourEndpointPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphContourEndpointPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphContourEndpointPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphContourEndpointPushError:/,
+    "alloc/gui/font/sfnt/glyf F5e owner-bearing contour endpoint payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphContourEndpointSlot impure fn Option i32 Result GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphContourEndpointPushError") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_push_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_non_final_last_point_rejected_ok") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_final_mismatch_ok") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_cursor_region_mismatch_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5e contour endpoint helpers",
+);
+const contourEndpointPublicPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity &storage",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::StorageCapacityInvalid",
+    "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits _scalar_slot_count:",
+    "let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::CursorInvalid",
+    "GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::CursorRegionMismatch",
+    "let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor",
+    "if ne contour_index next_index:",
+    "if or lt contour_index 0 ge contour_index contour_count:",
+    "if or lt end_point_index 0 ge end_point_index point_count:",
+    "Option::None:",
+    "if ne contour_index 0:",
+    "Option::Some previous:",
+    "if le contour_index 0:",
+    "let last_point_index %i32 sub point_count 1",
+    "if or lt previous 0 ge previous last_point_index:",
+    "if le end_point_index previous:",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::EndpointNotIncreasing",
+]) {
+    assert(contourEndpointPublicPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5e public helper must include ${fragment}`);
+}
+for (const [before, after, message] of [
+    [
+        "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "shape validation must precede scalar slot count check",
+    ],
+    [
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count &capacity",
+        "scalar slot count check must precede contour_count read",
+    ],
+    [
+        "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+        "capacity reads must precede cursor validation",
+    ],
+    [
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+        "let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor",
+        "cursor well-formed validation must precede next_index use",
+    ],
+    [
+        "if ne contour_index next_index:",
+        "if or lt contour_index 0 ge contour_index contour_count:",
+        "cursor/index sync must precede contour range validation",
+    ],
+    [
+        "if or lt contour_index 0 ge contour_index contour_count:",
+        "match previous_endpoint:",
+        "contour range validation must precede previous endpoint handling",
+    ],
+    [
+        "if or lt previous 0 ge previous last_point_index:",
+        "if le end_point_index previous:",
+        "previous endpoint range must precede monotonic comparison",
+    ],
+]) {
+    assert(contourEndpointPublicPush.indexOf(before) >= 0 && contourEndpointPublicPush.indexOf(before) < contourEndpointPublicPush.indexOf(after), `alloc/gui/font/sfnt/glyf F5e public helper ${message}`);
+}
+assertNoMatch(
+    contourEndpointPublicPush,
+    /\b(?:vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5e public helper must not call Vec directly, read bytes, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    contourEndpointPublicPush,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5e public helper body must preserve NEPL prefix style without parentheses",
+);
+const contourEndpointAfterPrevious = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_after_previous_check");
+for (const fragment of [
+    "let last_point_index %i32 sub point_count 1",
+    "if eq add contour_index 1 contour_count:",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::FinalEndpointMismatch",
+    "if ge end_point_index last_point_index:",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::EndpointOutOfRange",
+    "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_commit storage cursor endpoint previous_endpoint end_point_index",
+]) {
+    assert(contourEndpointAfterPrevious.includes(fragment), `alloc/gui/font/sfnt/glyf F5e final/non-final helper must include ${fragment}`);
+}
+assertNoMatch(
+    contourEndpointAfterPrevious,
+    /\b(?:vec::|gui_sfnt_simple_glyph_outline_storage_push_region_scalar|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5e final/non-final helper must not push, read bytes, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    contourEndpointAfterPrevious,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5e final/non-final helper body must preserve NEPL prefix style without parentheses",
+);
+const contourEndpointCommit = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint_commit");
+for (const fragment of [
+    "match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor end_point_index:",
+    "Result::Ok pushed:",
+    "let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_region_push_cursor &pushed",
+    "let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_storage pushed",
+    "GuiSfntSimpleGlyphContourEndpointPushErrorKind::RegionPushFailed",
+    "let region_error_kind_value %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &region_error",
+    "let push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &region_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error",
+]) {
+    assert(contourEndpointCommit.includes(fragment), `alloc/gui/font/sfnt/glyf F5e commit helper must include ${fragment}`);
+}
+assert(
+    (contourEndpointCommit.match(/\bgui_sfnt_simple_glyph_outline_storage_push_region_scalar\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5e commit helper must call F5d region push exactly once",
+);
+assert(
+    contourEndpointCommit.indexOf("let region_error_kind_value %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &region_error") <
+        contourEndpointCommit.indexOf("let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error"),
+    "alloc/gui/font/sfnt/glyf F5e commit helper must read lower error data before consuming owner",
+);
+assertNoMatch(
+    contourEndpointCommit,
+    /\b(?:vec::|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5e commit helper must not call Vec directly, read bytes, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    contourEndpointCommit,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5e commit helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

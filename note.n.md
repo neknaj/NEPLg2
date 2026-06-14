@@ -62640,3 +62640,51 @@ MERGE_APPROVED
 
 - F5d は typed region cursor と owner-preserving region scalar push までであり、contour endpoint population、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
 - 次 slice では region cursor API を使って contour endpoint region の population helper へ進む。byte-backed glyph point stream からの decode へ入る前に、owner recovery と cursor advance の contract を維持する。
+
+## 2026-06-14 GUI font F5e contour endpoint population checkpoint
+
+### scope
+
+- branch: `gui-font-contour-endpoint-region-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、docs、source policy、stdlib 実装、doctest、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、owner recovery、platform 非依存、fallback 禁止、contract と current implementation の分離、unchecked public API の抑制を維持した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5e の simple glyph contour endpoint population boundary を追加した。
+- F5e は F5d の contour endpoint region cursor を使い、synthetic typed endpoint value を storage に追加する段階であり、byte-backed endpoint array reading、point flag decode、x/y coordinate decode、edge/path command generation、rasterizer、renderer、platform API、host text API には進まない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphContourEndpointSlot`、contour endpoint push success/error payload、error kind、public contour endpoint push helper、private commit helper を追加した。
+- public helper は storage capacity shape と scalar slot count `Fits` を検査してから `contour_count` / `point_count` を読む。
+- cursor well-formed validation は `cursor.next_index` を contour semantic に使う前に行う。
+- endpoint contour index range は final/non-final classification より前に検査する。
+- previous endpoint range は `end_point_index > previous` の monotonic comparison より前に検査する。
+- commit helper は F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び、F5d error を `RegionPushFailed` として owner-preserving に包む。
+- `GuiSfntSimpleGlyphContourEndpointPush` と `GuiSfntSimpleGlyphContourEndpointPushError` は storage owner を持つため `Clone` / `Copy` を実装していない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5e source policy を追加し、docs、型、validation order、F5d push 1 回、direct `vec::` 禁止、byte/render/raster/platform/host API 禁止、owner-bearing payload の非 Clone / 非 Copy を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` に endpoint success、non-final endpoint at final point、final endpoint mismatch、forged PointX cursor region mismatch の doctest を追加した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。capacity validation 前に `contour_count` / `point_count` や `+ 1` / `- 1` arithmetic へ進む可能性、invalid cursor が `ContourIndexMismatch` へ誤分類される可能性、`contour_index >= contour_count` の未検査、forged previous endpoint の未検査を指摘された。
+- Tesla plan review 2: `IMPLEMENTATION_APPROVED`。capacity shape と scalar slot count `Fits` の後でだけ contour/point 数を使い、cursor well-formed、contour index range、previous endpoint range の順序を固定する修正案が承認された。
+- Tesla implementation review: `REVIEW_APPROVED`。F5e diff、source policy、outline storage doctest、`glyf.nepl` doctest、changed-file diff check が pass し、blocker なしと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5e.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5e.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5e_rerun.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5e_rerun.json -j 1`
+- pass after `git rebase origin/main`: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after `git rebase origin/main`: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5e_rebased.json -j 1`
+- pass after `git rebase origin/main`: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5e_rebased.json -j 1`
+- pass after `git rebase origin/main`: `git diff --check origin/main..HEAD`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- subagent pass: Tesla も source policy、追加 doctest、`glyf.nepl` doctest、changed-file diff check を再実行して pass と報告した。
+
+### residual
+
+- F5e は synthetic contour endpoint slot population までであり、byte-backed endpoint array reader との接続、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では checked byte-backed endpoint reader から F5e helper へ接続する。ただし byte lookup と storage mutation の owner recovery boundary を混ぜず、read failure と storage push failure を enum で分離する。

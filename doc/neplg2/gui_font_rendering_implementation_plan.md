@@ -2318,3 +2318,45 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
+
+## Phase F5e: sfnt simple glyph contour endpoint population
+
+目的:
+
+- F5d の contour endpoint region cursor を使い、typed contour endpoint slot を owner-preserving に storage へ追加する。
+- byte-backed endpoint array reading、point flag decode、x/y coordinate decode、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
+- capacity、cursor、endpoint sequence の validation order を source policy と doctest で固定する。
+
+変更:
+
+- 先に source policy を追加し、F5e docs、endpoint slot type、success/error owner payload、validation order、owner 型の非 Clone / 非 Copy、禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphContourEndpointSlot`
+  - `GuiSfntSimpleGlyphContourEndpointPush`
+  - `GuiSfntSimpleGlyphContourEndpointPushErrorKind`
+  - `GuiSfntSimpleGlyphContourEndpointPushError`
+  - `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint`
+- public helper は storage capacity を検査してから `contour_count` / `point_count` を読む。
+- cursor well-formed validation は `cursor.next_index` を読む前に行う。
+- endpoint contour index range は final/non-final classification より前に検査する。
+- previous endpoint range は `end_point_index > previous` より前に検査する。
+- commit helper は F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び、F5d error を `RegionPushFailed` に owner-preserving に包む。
+- doctest は success、non-final endpoint at last point、final endpoint mismatch、forged PointX cursor region mismatch を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+完了条件:
+
+- 2 contours / 4 points の synthetic endpoint 1, 3 を追加でき、storage len と cursor next index が 2、previous endpoint が 3 になる。
+- non-final contour が final point を endpoint にした場合は `EndpointOutOfRange` になる。
+- final contour endpoint が `point_count - 1` でない場合は `FinalEndpointMismatch` になる。
+- PointX cursor を渡した場合は `CursorRegionMismatch` になり、storage cursor mismatch など下位 error に落ちない。
+- source policy が capacity/cursor/endpoint validation order、F5d region push 呼び出し回数、direct `vec::` 禁止、byte/render/raster/platform/host API 禁止、owner 型の非 Clone / 非 Copy を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```

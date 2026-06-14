@@ -1742,6 +1742,76 @@ GuiSfntSimpleGlyphOutlineRegionPushError:
 
 F5d は contour endpoint や x/y coordinate の意味をまだ解釈しない。byte-backed lookup、point decode、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
 
+### SFNT simple glyph contour endpoint population
+
+F5e は F5d の contour endpoint region cursor を使い、simple glyph の contour endpoint slot を owner-preserving に追加する。ここでは byte-backed `glyf` endpoint array をまだ読まない。caller が typed endpoint value を渡し、F5e は capacity、cursor、endpoint sequence の contract を検査する。
+
+```text
+GuiSfntSimpleGlyphContourEndpointSlot:
+    contour_index i32
+    end_point_index i32
+```
+
+success payload は storage owner、advanced cursor、次の endpoint validation に使う previous endpoint を返す。
+
+```text
+GuiSfntSimpleGlyphContourEndpointPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint i32
+```
+
+error payload も storage owner を返す。
+
+```text
+GuiSfntSimpleGlyphContourEndpointPushErrorKind:
+    StorageCapacityInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    ContourIndexMismatch
+    PreviousEndpointMismatch
+    EndpointOutOfRange
+    EndpointNotIncreasing
+    FinalEndpointMismatch
+    RegionPushFailed
+
+GuiSfntSimpleGlyphContourEndpointPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    previous_endpoint Option i32
+    kind GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphContourEndpointPush` と `GuiSfntSimpleGlyphContourEndpointPushError` は storage owner を持つため `Clone` / `Copy` にしない。
+
+`gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` は次の順序を守る。
+
+```text
+1. storage から capacity を読む
+2. capacity shape を検査する
+3. scalar_slot_count_check が Fits であることを検査する
+4. ここで初めて contour_count と point_count を読む
+5. cursor が well-formed であることを検査する
+6. cursor region が ContourEndpoint であることを検査する
+7. endpoint.contour_index == cursor.next_index を検査する
+8. 0 <= endpoint.contour_index < contour_count を検査する
+9. 0 <= endpoint.end_point_index < point_count を検査する
+10. previous_endpoint が None なら contour_index == 0 を検査する
+11. previous_endpoint が Some なら contour_index > 0 を検査する
+12. previous endpoint 自体が 0 <= previous < point_count - 1 を満たすか検査する
+13. end_point_index > previous を検査する
+14. final contour なら end_point_index == point_count - 1 を検査する
+15. non-final contour なら end_point_index < point_count - 1 を検査する
+16. F5d の gui_sfnt_simple_glyph_outline_storage_push_region_scalar を 1 回だけ呼ぶ
+```
+
+capacity validation は `contour_count` / `point_count` の使用や `+ 1` / `- 1` arithmetic より先に行う。cursor well-formed validation は `cursor.next_index` を contour semantic に使うより先に行う。previous endpoint range は `end_point_index > previous` より先に検査する。
+
+F5e は endpoint array の意味だけを扱い、x/y coordinate、flag decode、edge generation、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
