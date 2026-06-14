@@ -1696,6 +1696,153 @@ pub fn gui_sfnt_simple_glyph_path_sink_step_action_at %fn &GuiSfntSimpleGlyphPat
             let tail_action %GuiSfntSimpleGlyphPathSinkTailAction gui_sfnt_simple_glyph_path_sink_step_tail_action step
             gui_sfnt_simple_glyph_path_sink_tail_action_as_action &tail_action
 
+//: GuiSfntSimpleGlyphPathSinkActionCursor: sink action stream の 1 位置
+//:
+//: [目的/もくてき]:
+//: - contour event cursor と action slot を合わせ、future sink が次に[読/よ]む action 位置を[表/あらわ]します。
+//: - mutable sink、callback、command list、renderer state は[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionCursor:
+    contour_cursor %GuiSfntSimpleGlyphPathContourCursor
+    action_slot %GuiSfntSimpleGlyphPathSinkActionSlot
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionCursor:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntSimpleGlyphPathSinkActionCursor \cursor:
+        *cursor
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionCursor:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntSimpleGlyphPathSinkActionCursor \cursor:
+        cursor
+
+//: gui_sfnt_simple_glyph_path_sink_action_cursor: sink action cursor を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_cursor %fn GuiSfntSimpleGlyphPathContourCursor fn GuiSfntSimpleGlyphPathSinkActionSlot GuiSfntSimpleGlyphPathSinkActionCursor \contour_cursor\action_slot:
+    GuiSfntSimpleGlyphPathSinkActionCursor contour_cursor action_slot
+
+//: gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor: contour cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor %fn &GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntSimpleGlyphPathContourCursor \cursor:
+    *field::get_ref cursor "contour_cursor"
+
+//: gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot: action slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot %fn &GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntSimpleGlyphPathSinkActionSlot \cursor:
+    *field::get_ref cursor "action_slot"
+
+//: GuiSfntSimpleGlyphPathSinkActionNext: sink action stream の次状態
+//:
+//: [目的/もくてき]:
+//: - `Continue` は次の action cursor を[持/も]ちます。
+//: - `EndContour` は contour 内 action stream の終端を typed state として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionNext:
+    Continue %GuiSfntSimpleGlyphPathSinkActionCursor
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionNext:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionNext GuiSfntSimpleGlyphPathSinkActionNext \next:
+        *next
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionNext:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionNext GuiSfntSimpleGlyphPathSinkActionNext \next:
+        next
+
+//: GuiSfntSimpleGlyphPathSinkActionStep: sink action と次状態を合わせた step
+//:
+//: [目的/もくてき]:
+//: - cursor、元の sink step、選択された action、次状態を 1 value として[運/はこ]びます。
+//: - action payload は「何を消費するか」、next は「どこへ進むか」を[分/わ]けます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionStep:
+    cursor %GuiSfntSimpleGlyphPathSinkActionCursor
+    sink_step %GuiSfntSimpleGlyphPathSinkStep
+    action %GuiSfntSimpleGlyphPathSinkAction
+    next %GuiSfntSimpleGlyphPathSinkActionNext
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkActionStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkActionStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_sink_action_step: sink action step value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step %fn GuiSfntSimpleGlyphPathSinkActionCursor fn GuiSfntSimpleGlyphPathSinkStep fn GuiSfntSimpleGlyphPathSinkAction fn GuiSfntSimpleGlyphPathSinkActionNext GuiSfntSimpleGlyphPathSinkActionStep \cursor\sink_step\action\next:
+    GuiSfntSimpleGlyphPathSinkActionStep cursor sink_step action next
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_cursor: action step の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_cursor %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkActionCursor \step:
+    *field::get_ref step "cursor"
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_sink_step: action step の元 sink step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_sink_step %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkStep \step:
+    *field::get_ref step "sink_step"
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_action: action step の action を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_action %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkAction \step:
+    *field::get_ref step "action"
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_next: action step の next を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_next %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkActionNext \step:
+    *field::get_ref step "next"
+
+//: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
+//:
+//: [契約/けいやく]:
+//: - `Primary` は action payload に関係なく、同じ contour cursor の `Tail` へ進みます。
+//: - `Tail` は action payload に関係なく、F4s source step の next state に従います。
+//: - `Continue next_cursor` は next cursor の `Primary` へ進みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_next_from_step %fn &GuiSfntSimpleGlyphPathSinkStep fn GuiSfntSimpleGlyphPathSinkActionSlot GuiSfntSimpleGlyphPathSinkActionNext \sink_step\action_slot:
+    let source_step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_sink_step_source_step sink_step
+    match action_slot:
+        GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+            let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_step_cursor &source_step
+            let next_action_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_cursor contour_cursor GuiSfntSimpleGlyphPathSinkActionSlot::Tail
+            GuiSfntSimpleGlyphPathSinkActionNext::Continue next_action_cursor
+        GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+            let contour_next %GuiSfntSimpleGlyphPathContourNext gui_sfnt_simple_glyph_path_contour_step_next &source_step
+            match contour_next:
+                GuiSfntSimpleGlyphPathContourNext::Continue next_cursor:
+                    let next_action_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_cursor next_cursor GuiSfntSimpleGlyphPathSinkActionSlot::Primary
+                    GuiSfntSimpleGlyphPathSinkActionNext::Continue next_action_cursor
+                GuiSfntSimpleGlyphPathContourNext::EndContour:
+                    GuiSfntSimpleGlyphPathSinkActionNext::EndContour
+
+//: gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step: sink step から action step を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - action は F4u の `gui_sfnt_simple_glyph_path_sink_step_action_at` で[選/えら]びます。
+//: - next は action payload を見ず、slot と F4s source step next だけで[決/き]めます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step %fn &GuiSfntSimpleGlyphPathSinkStep fn GuiSfntSimpleGlyphPathSinkActionSlot GuiSfntSimpleGlyphPathSinkActionStep \sink_step\action_slot:
+    let source_step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_sink_step_source_step sink_step
+    let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_step_cursor &source_step
+    let cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_cursor contour_cursor action_slot
+    let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_step_action_at sink_step action_slot
+    let next %GuiSfntSimpleGlyphPathSinkActionNext gui_sfnt_simple_glyph_path_sink_action_next_from_step sink_step action_slot
+    let stored_sink_step %GuiSfntSimpleGlyphPathSinkStep *sink_step
+    gui_sfnt_simple_glyph_path_sink_action_step cursor stored_sink_step action next
+
 //: gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step: F4s step から primary action を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3398,3 +3545,24 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action %fn &ByteBuf fn Option i32 
         Result::Ok sink_step:
             let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_step_action_at &sink_step slot
             Result::Ok action
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_step: cursor 位置の sink action step を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - byte-backed sink step lookup の成功値から、action と next を合わせた traversal step を[返/かえ]します。
+//: - parse/range error は `Result::Err` で伝播し、policy reject は `Result::Ok` の action payload に残します。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `gui_sfnt_lookup_simple_glyph_path_sink_step` にだけ委譲します。
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_step %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionCursor fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntParseError \bytes\face_index\cursor\policy:
+    let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor &cursor
+    let action_slot %GuiSfntSimpleGlyphPathSinkActionSlot gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot &cursor
+    match gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index contour_cursor policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok sink_step:
+            let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step &sink_step action_slot
+            Result::Ok action_step

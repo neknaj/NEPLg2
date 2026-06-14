@@ -890,6 +890,68 @@ gui_sfnt_lookup_simple_glyph_path_sink_action:
 
 byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功した step に `gui_sfnt_simple_glyph_path_sink_step_action_at` を適用する。下位の contour / curve / table helper、metadata unwrap、`*_with_tables` bypass、font fallback、renderer、platform API、rasterization、full outline allocation は行わない。
 
+### SFNT simple glyph path sink action traversal step
+
+F4v は F4u の 1 action projection を、contour 内で順に読むための traversal step へ拡張する段階である。これは real sink mutation、callback、full outline allocation、`Vec` command stream、renderer command、rasterizer ではない。F4v の責務は、`Primary -> Tail -> F4s source next` の遷移を enum data として固定することである。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionCursor:
+    contour_cursor GuiSfntSimpleGlyphPathContourCursor
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+
+GuiSfntSimpleGlyphPathSinkActionNext:
+    Continue GuiSfntSimpleGlyphPathSinkActionCursor
+    EndContour
+
+GuiSfntSimpleGlyphPathSinkActionStep:
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    sink_step GuiSfntSimpleGlyphPathSinkStep
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionNext
+```
+
+`GuiSfntSimpleGlyphPathSinkActionCursor` は既存の checked `GuiSfntSimpleGlyphPathContourCursor` と F4u の action slot を合成した cursor である。新しい数値 action index、command index、loop counter、ad-hoc traversal counter は導入しない。既存 contour cursor が持つ `contour_index` / `edge_index` は、F4s で検証される contour event traversal の authority として保持する。
+
+next の規則は action payload と独立している。
+
+```text
+action_slot = Primary
+    -> Continue same contour_cursor Tail
+
+action_slot = Tail and sink_step.source_step.next = Continue next_cursor
+    -> Continue next_cursor Primary
+
+action_slot = Tail and sink_step.source_step.next = EndContour
+    -> EndContour
+```
+
+`Primary -> Tail` は primary action が `EmitEvent` でも `Reject` でも同じである。`Tail -> source_step.next` は tail action が `CloseContour` でも `NoAction` でも同じである。action value は future sink が何を消費するかを表し、next value はどこへ進むかだけを表す。
+
+public pure helper と byte-backed helper は次である。
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_next_from_step:
+    sink_step &GuiSfntSimpleGlyphPathSinkStep
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> GuiSfntSimpleGlyphPathSinkActionNext
+
+gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step:
+    sink_step &GuiSfntSimpleGlyphPathSinkStep
+    action_slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> GuiSfntSimpleGlyphPathSinkActionStep
+
+gui_sfnt_lookup_simple_glyph_path_sink_action_step:
+    bytes &ByteBuf
+    face_index Option i32
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntParseError
+```
+
+`gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` は action selection を F4u の `gui_sfnt_simple_glyph_path_sink_step_action_at` に委譲し、primary / tail action の中身を再分類しない。
+
+byte-backed helper は action cursor から contour cursor と action slot を読み、`gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功した step に pure action step projection を適用する。下位の contour / curve / table helper、metadata unwrap、`*_with_tables` bypass、font fallback、renderer、platform API、rasterization、full outline allocation は行わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
