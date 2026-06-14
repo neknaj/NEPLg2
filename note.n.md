@@ -1,3 +1,41 @@
+# 2026-06-15 Agent2 GUI font point flag marker checkpoint
+
+## scope
+
+- branch: `gui-font-outline-flag-read-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5m の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph point flag marker read の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5m の flag-only boundary、repeat run overrun before success、storage scalar layout を変更しない理由を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5m の実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPointFlagMarker` と `gui_sfnt_glyf_read_point_flag_from_stream` を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md` に no-repeat、repeat run、out-of-range、repeat overrun、missing repeat の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5m source policy を追加し、x/y decode、full point decode、endpoint、coordinate storage、path、render、raster、host API へ進まないことを検査するようにした。
+
+## subagent_review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。repeat run overrun を target membership より前に検査しないと、forged repeat run が early target に partial success を返すと指摘された。
+- 計画を修正し、`logical_index + run_count <= point_count` を検査してから target が run 内かを判定する方針にした。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。新しい storage region を追加しない判断、`GuiSfntParseError` の利用、`MissingGlyphOutline` / `MalformedGlyfRecord` の使い分けが承認された。
+- Tesla implementation review は `REVIEW_APPROVED`。F5m が既存 scalar storage layout を変えず、byte-backed marker read 境界に留まること、repeat run overrun を marker success より前に検査すること、missing repeat byte を stream-range helper で `MalformedGlyfRecord` にすることを確認済みである。
+- Tesla follow-up review は `REVIEW_APPROVED`。current F5m が通過済み差分に戻っており、新規 doctest を commit に含め、`NUL` と temp JSON は除外することを確認済みである。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_flag.n.md --no-tree -o tmp_gui_font_outline_point_flag_f5m.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5m.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5m は byte-backed flag marker read-only projection までであり、coordinate + endpoint + flag からの full point assembly、edge/path tag population、outline point stream、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline endpoint marker checkpoint
 
 ## scope
