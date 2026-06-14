@@ -1485,6 +1485,56 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4af: sfnt simple glyph path sink action consumer apply step
+
+目的:
+
+- F4ac の `GuiSfntSimpleGlyphPathSinkActionConsumerItem` から current action を F4ae apply state に適用し、apply result と保存済み checked continuation を同じ value として運ぶ。
+- future loop / real sink が「今回の消費結果」と「次に進むための保存済み next」を同時に読める境界を作る。
+- F4af は byte-backed next lookup、contour-wide traversal、iterator、real sink mutation、callback、command list、full outline allocation、renderer、rasterizer にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep`
+  - constructor / accessor helper
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply`
+- struct は次にする。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionApplyStep
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+- helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_action item` を 1 回だけ読む。
+- helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item` を 1 回だけ読む。
+- helper は `gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action state action` を 1 回だけ呼ぶ。
+- helper は `apply_step` と `next` を `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep` に束ねる。
+- `next` は F4ac packet に保存されていた `GuiSfntSimpleGlyphPathSinkActionItemNext` であり、F4af が新しく決める traversal state ではない。
+- helper は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` も呼ばない。次 consumer item への byte-backed 解決は F4ad に残す。
+- helper は action payload を直接 `match` しない。payload 解釈は F4ae helper だけに委譲する。
+- helper は `Result`、`Option`、F4ad/F4ac byte-backed lookup、F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec`、`push`、loop、current point、renderer、rasterizer、platform API、host text API を直接呼ばない。
+- Source policy で F4af docs、struct、Clone/Copy、constructor / accessor、consumer item action accessor 1 回、consumer item next accessor 1 回、F4ae apply helper 1 回、F4ad next helper 禁止、payload match 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の typed doctest を拡張する。
+  - synthetic consumer item を `apply` し、status / state count と保存済み `next` が同時に読めることを確認する。
+  - `next` が `GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour` のまま保存され、`GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` へ変換されないことを確認する。
+
+完了条件:
+
+- consumer item apply helper は current action を F4ae helper へ委譲し、保存済み checked continuation をそのまま同梱する。
+- helper は F4ad の next resolution を呼ばず、traversal authority を持たない。
+- hidden fallback、silent no-op、payload direct match、new traversal loop、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

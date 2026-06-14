@@ -1541,6 +1541,30 @@ Only one counter changes per call. The counter state is not a cursor, not a cont
 
 The implementation must stay allocation-free and side-effect-free. It must not call lookup helpers, parse metadata, allocate an outline, push render commands, inspect current point state, rasterize, call a renderer, call platform APIs, or perform host text measurement.
 
+### SFNT simple glyph path sink action consumer apply step
+
+F4af composes F4ac and F4ae without taking over F4ad traversal. A consumer item already contains the current action and the checked item-level continuation. F4af applies the current action to an apply state, then stores the resulting apply step next to the already stored continuation.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionApplyStep
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item:
+    action = gui_sfnt_simple_glyph_path_sink_action_consumer_item_action item
+    next = gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+    apply_step = gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action state action
+    GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep apply_step next
+```
+
+The helper is total because it receives typed values that have already crossed the byte-backed parsing boundary. Adding `Result` here would confuse malformed SFNT data with `Rejected` / `NoAction` domain status.
+
+`next` is the stored `GuiSfntSimpleGlyphPathSinkActionItemNext` value from the current consumer item. F4af must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` and must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, because that would resolve the next consumer packet and move F4ad's byte-backed traversal responsibility into this phase.
+
+F4af must not match `GuiSfntSimpleGlyphPathSinkAction` variants directly. Payload interpretation belongs to F4ae. It also must not allocate `Vec`, push a command, loop over a contour, track current point state, perform lower SFNT lookup, parse metadata, rasterize, render, call a platform backend, or call host text measurement.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

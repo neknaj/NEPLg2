@@ -2087,6 +2087,57 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action %fn GuiSf
             let next_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state emitted_event_count reject_count close_contour_count add no_action_count 1
             gui_sfnt_simple_glyph_path_sink_action_apply_step next_state GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep: consumer item の action 消費結果
+//:
+//: [目的/もくてき]:
+//: - F4ae の apply step と、F4ac consumer item に保存された checked next を[束/たば]ねます。
+//: - 次 consumer item の lookup や traversal authority は[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep
+    next %GuiSfntSimpleGlyphPathSinkActionItemNext
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step: consumer apply step を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step %fn GuiSfntSimpleGlyphPathSinkActionApplyStep fn GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep \apply_step\next:
+    GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep apply_step next
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step: apply step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step %fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep GuiSfntSimpleGlyphPathSinkActionApplyStep \step:
+    *field::get_ref step "apply_step"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next: 保存済み checked next を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next %fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep GuiSfntSimpleGlyphPathSinkActionItemNext \step:
+    *field::get_ref step "next"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply: consumer item の action を[適用/てきよう]する
+//:
+//: [契約/けいやく]:
+//: - item の action を F4ae apply helper に 1 回だけ渡します。
+//: - item の next は保存済み continuation として[保持/ほじ]し、F4ad next lookup は呼びません。
+//: - action payload の直接 match、byte lookup、renderer / platform API は使いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply %fn GuiSfntSimpleGlyphPathSinkActionApplyState fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep \state\item:
+    let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_action_consumer_item_action item
+    let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+    let apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action state action
+    gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step apply_step next
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
