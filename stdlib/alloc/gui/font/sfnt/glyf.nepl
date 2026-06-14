@@ -2198,6 +2198,26 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step 
                 GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
                     GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour *step
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance: apply 後に 1 consumer item 進めた結果
+//:
+//: [目的/もくてき]:
+//: - future loop が次 consumer item、domain reject、contour 終端を enum として[受/う]け[取/と]れるようにします。
+//: - これは 1 step advance であり、contour-wide loop や sink mutation ではありません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue %GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected %GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \advance:
+        *advance
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance \advance:
+        advance
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -4125,3 +4145,29 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next %fn &Byt
                     Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
         GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
             Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance: apply 後に consumer stream を 1 step 進める
+//:
+//: [契約/けいやく]:
+//: - F4ag terminal 判定を 1 回だけ使い、`Rejected` と `EndContour` は domain terminal として `Result::Ok` で[返/かえ]します。
+//: - `Continue` の[場合/ばあい]だけ、保存済み action item next から F4ac consumer item lookup に 1 回だけ委譲します。
+//: - original consumer item は要求せず、F4af が保存した checked next を authority とします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError \bytes\face_index\step\policy:
+    match gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step:
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Continue continue_step:
+            let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step
+            match next:
+                GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:
+                    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_consumer_item:
+                            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer_item
+                GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Rejected reason:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour _end_step:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour

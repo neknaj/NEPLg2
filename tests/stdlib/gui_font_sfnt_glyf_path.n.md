@@ -936,6 +936,69 @@ fn main %impure fn void i32 \void:
     test_assertion_exit_code assert "path sink consumer apply terminal keeps typed domain states" consumer_apply_terminal_ok
 ```
 
+## path sink consumer apply advance keeps domain terminals as ok values
+
+neplg2:test[skip, stdio, normalize_newlines]
+exit_code: 0
+stdout: ""
+```neplg2
+#entry main
+#indent 4
+#target std
+
+#import "alloc/gui/font/sfnt/glyf" as *
+#import "alloc/io" as *
+#import "core/gui/font" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "std/test" as *
+
+fn apply_advance_rejects_off_curve %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError bool \result:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok advance:
+            match advance:
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue _item:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason:
+                    match reason:
+                        GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart:
+                            true
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                    false
+
+fn apply_advance_ends_contour %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError bool \result:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok advance:
+            match advance:
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue _item:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected _reason:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                    true
+
+fn main %impure fn void i32 \void:
+    let bytes %ByteBuf io_bytebuf_empty
+    let none_face %Option i32 none
+    let policy %GuiSfntSimpleGlyphPathSinkPolicy gui_sfnt_simple_glyph_path_sink_policy GuiSfntSimpleGlyphPathOffCurveStartPolicy::RejectUnsupported GuiSfntSimpleGlyphPathClosurePolicy::EmitCloseAfterFinalEvent
+    let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state_new
+    let reject_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart
+    let reject_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_apply_step state reject_status
+    let reject_consumer_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step reject_apply_step GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+    let reject_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance &bytes none_face &reject_consumer_step &policy
+    let no_action_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_apply_step state GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction
+    let end_consumer_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step no_action_step GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+    let end_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance &bytes none_face &end_consumer_step &policy
+    let reject_ok %bool apply_advance_rejects_off_curve reject_result
+    let end_ok %bool apply_advance_ends_contour end_result
+    let apply_advance_ok %bool if reject_ok end_ok false
+    test_assertion_exit_code assert "path sink consumer apply advance keeps domain terminals as ok values" apply_advance_ok
+```
+
 ## path contour step public lookup follows cursor next contract
 
 neplg2:test[skip, stdio, normalize_newlines]

@@ -60282,3 +60282,41 @@ MERGE_APPROVED
 ### residual
 
 - F4ad は consumer item を 1 つ進める typed continuation boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 GUI font SFNT path sink action consumer apply advance checkpoint
+
+### scope
+
+- branch: `gui-font-sink-action-consumer-apply-advance-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、apply 後の terminal state は enum、malformed SFNT parse failure は `Result`、domain reject / contour end は success value、platform / renderer / fallback は非依存とした。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4ah: SFNT simple glyph path sink action consumer apply advance を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` と `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance` を追加した。
+- `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` は `Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem`、`Rejected GuiSfntSimpleGlyphPathSinkRejectReason`、`EndContour` の typed enum とし、`Clone` / `Copy` を実装した。
+- F4ah helper は F4ag terminal helper を 1 回だけ呼び、`Rejected` と `EndContour` は `Result::Ok` の domain terminal として返す。
+- `Continue` の場合だけ F4af が保存した `GuiSfntSimpleGlyphPathSinkActionItemNext` を読み、`Continue next_item` なら F4ac の `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item` に 1 回だけ委譲する。
+- F4ah helper は original consumer item、F4ad next helper、F4ae apply helper、action payload direct match、F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec` / `push` / loop / current point、renderer / rasterizer / platform / host text API を直接使わない。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に F4ah contract doctest を追加し、現行 compiler の 60 秒 doctest 制限で byte-backed public lookup chain が timeout するため `skip` とした。実装 shape は source policy で固定し、runtime validation は既存 F4ag terminal doctest と `glyf.nepl` doctest に分けた。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4ah docs / enum / Clone/Copy / helper body / call count / 禁止 helper / payload inspection 禁止 / 括弧なし body の source policy assertion を追加した。
+
+### subagent_review
+
+- James plan review: `PLAN_APPROVED`。F4ah は F4ag terminal 判定と F4af の stored `GuiSfntSimpleGlyphPathSinkActionItemNext` から F4ac lookup へ接続する one-step boundary として妥当とされた。
+- Required として、F4ad next helper を呼ばないこと、domain terminal を `Result::Ok` に残すこと、source policy で one-step only / no loop / no Vec / no renderer / no fallback を固定することが挙げられた。
+- James implementation review: `REVIEW_APPROVED`。F4ag terminal helper 1 回、stored next のみの authority、F4ac lookup だけへの委譲、`Rejected` / `EndContour` の `Result::Ok` 保持、F4ad next helper / payload match / loop / `Vec` / renderer / rasterizer / platform / fallback なしを確認した。F4ah contract doctest の skip は、計画書に compiler timeout 理由を明記し source policy で exact call pattern を固定しているため許容された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 9/9 passed。F4ah byte-backed contract fixture は skip として扱った。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 310/310 passed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。CRLF 変換 warning のみ。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- F4ah は apply 後の consumer stream を 1 step 進める boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。

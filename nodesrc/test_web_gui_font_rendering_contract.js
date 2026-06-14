@@ -3098,6 +3098,84 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F4ag terminal helper body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph path sink action consumer apply advance[\s\S]*GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance[\s\S]*F4ag terminal[\s\S]*F4ac lookup/,
+    "font spec must define F4ah as one-step apply advance through F4ag terminal and F4ac lookup",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph path sink action consumer apply advance[\s\S]*not a direct F4ad call[\s\S]*must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`/,
+    "font detailed design must forbid F4ah from becoming a direct F4ad wrapper",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4ah: sfnt simple glyph path sink action consumer apply advance[\s\S]*F4ac lookup[\s\S]*F4ah は F4ad next helper や contour-wide loop を実装しない/,
+    "font implementation plan must define F4ah one-step apply advance and forbid F4ad next helper",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:\s+Continue\s+%GuiSfntSimpleGlyphPathSinkActionConsumerItem\s+Rejected\s+%GuiSfntSimpleGlyphPathSinkRejectReason\s+EndContour/,
+    "alloc/gui/font/sfnt/glyf F4ah must expose typed apply advance states",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:/,
+    "alloc/gui/font/sfnt/glyf F4ah apply advance must implement Clone and Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError"),
+    "alloc/gui/font/sfnt/glyf F4ah must expose byte-backed consumer apply advance helper",
+);
+assert(
+    guiFontSfntPathTests.includes("path sink consumer apply advance keeps domain terminals as ok values") &&
+        guiFontSfntPathTests.includes("apply_advance_rejects_off_curve") &&
+        guiFontSfntPathTests.includes("apply_advance_ends_contour") &&
+        guiFontSfntPathTests.includes("gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance"),
+    "gui font sfnt path doctest must cover F4ah domain terminal Ok values",
+);
+const pathSinkActionConsumerApplyAdvance = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Continue continue_step:",
+    "let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step",
+    "GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer_item",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Rejected reason:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour _end_step:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour",
+]) {
+    assert(pathSinkActionConsumerApplyAdvance.includes(fragment), `alloc/gui/font/sfnt/glyf F4ah apply advance helper must include ${fragment}`);
+}
+assert(
+    (pathSinkActionConsumerApplyAdvance.match(/\bgui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4ah helper must call F4ag terminal helper exactly once",
+);
+assert(
+    (pathSinkActionConsumerApplyAdvance.match(/\bgui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4ah helper must read stored action item next exactly once",
+);
+assert(
+    (pathSinkActionConsumerApplyAdvance.match(/\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4ah helper must call F4ac consumer item lookup exactly once",
+);
+assertNoMatch(
+    pathSinkActionConsumerApplyAdvance,
+    /\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_item_next\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_step_item\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_step_advance\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_step\b|\bgui_sfnt_lookup_simple_glyph_path_sink_step\b|\bgui_sfnt_lookup_simple_glyph_path_contour_step\b|\bgui_sfnt_parse_metadata\b|\bgui_sfnt_glyf_|\bgui_sfnt_classify_simple_glyph_curve_segment\b/,
+    "alloc/gui/font/sfnt/glyf F4ah helper must not call F4ad next helper or lower lookup helpers directly",
+);
+assertNoMatch(
+    pathSinkActionConsumerApplyAdvance,
+    /\b(?:Vec|push|action_index|command_index|loop_index|current_point|cursor|next_cursor|gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4ah helper must not allocate, loop, re-apply payloads, match payload variants, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathSinkActionConsumerApplyAdvance,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4ah helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,
