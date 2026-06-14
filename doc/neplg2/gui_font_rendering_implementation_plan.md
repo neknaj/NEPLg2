@@ -3017,3 +3017,55 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5r.json -j 1
 git diff --check
 ```
+
+## Phase F5s: sfnt simple glyph outline point stream item drain
+
+目的:
+
+- F5o の point step と F5r の classified item step conversion を、明示的な step budget 内で進める no-allocation drain boundary を追加する。
+- F5p と同じ shared cursor precondition を使うが、F5s は F5p public drain や F5p error conversion に依存しない。
+- terminal-before-budget、budget-before-F5o、F5o exactly once、F5r exactly once の順序を source policy と doctest で固定する。
+- F5o read failure、F5r conversion failure、F5s defensive invariant failure を別の error kind として保持する。
+- full point `Vec`、item list、sink mutation、path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5s が F5p private validation に直接依存する案は phase coupling として不適切であり、F5p/F5s 共通の neutral validation helper が必要と指摘された。
+- 計画を修正し、`GuiSfntSimpleGlyphOutlinePointReadCursorValidation`、`GuiSfntSimpleGlyphOutlinePointReadCursorValidationRejectKind`、`GuiSfntSimpleGlyphOutlinePointReadCursorValidationReject`、`gui_sfnt_simple_glyph_outline_point_read_cursor_validate` を private shared helper として追加する。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。neutral helper は private で byte/path/render-free とし、F5p/F5s はそれぞれ phase-specific error へ変換する方針で実装を開始する。
+- F5p の `gui_sfnt_simple_glyph_outline_point_read_drain_validate` は neutral helper の reject を F5p error kind へ変換し、既存 public drain behavior を維持する。
+- F5s は neutral helper の reject を F5s error kind へ変換し、F5p public drain を呼ばない。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrain`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrainError`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary_*` accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_error`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_error_*` accessors
+  - `gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget`
+- doctest は full End、partial budget exhausted、zero budget non-terminal、zero budget terminal、cursor out of range、wrapped F5o read failure を検査する。
+- defensive branch の `ItemStepConvertFailed` と `ItemStepInvariantInvalid` は削らない。前者は F5r が拒否した sub-error、後者は F5r 成功値を F5s が再検査した fail-closed branch である。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5p/F5s が shared cursor validation helper を共有し、F5s は F5p public drain を呼ばない。
+- terminal cursor は budget 0 でも `End` になる。
+- non-terminal かつ budget 0 は F5o/F5r を呼ばず `StepBudgetExhausted` になる。
+- non-terminal かつ budget positive では F5o point step を exactly once 呼び、その成功値を F5r conversion に exactly once 渡す。
+- `F5o Err` は `PointStepReadFailed`、`F5r Err` は `ItemStepConvertFailed`、F5r success shape の defensive mismatch は `ItemStepInvariantInvalid` になる。
+- source policy が F5s docs、neutral validation reuse、F5p public drain 非依存、F5o/F5r exact one-call、F5q kind helper 直接呼び出し禁止、direct Vec/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_f5s.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md --no-tree -o tmp_gui_font_outline_point_drain_f5s_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5s.json -j 1
+git diff --check
+```

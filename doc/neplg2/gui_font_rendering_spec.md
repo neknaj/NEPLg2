@@ -2595,6 +2595,88 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item drain
+
+F5s は F5o の point step と F5r の item step conversion を、明示的な step budget 内で進める classified item drain boundary である。これは full point `Vec`、item list、path command、raster mask、render command ではない。後続の contour/path/sink phase が同じ cursor contract を再利用できるように、classified item の streaming traversal だけを固定する。
+
+drain summary は、drain が停止した cursor、今回の drain call で読んだ item 数、最後に読んだ classified item を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary:
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+drain の成功値は、正常終端と budget exhaustion を enum で分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrain:
+    End GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary
+```
+
+`StepBudgetExhausted` は失敗ではない。non-terminal cursor で `remaining_steps <= 0` だったため、F5o/F5r を呼ばずに停止した typed terminal である。terminal cursor は budget 0 でも `End` になる。
+
+F5s の error は、共有 cursor 検証、F5o read failure、F5r conversion failure、F5s 自身の defensive invariant failure を分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    PointStepReadFailed
+    ItemStepConvertFailed
+    ItemStepInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    point_step_error Option GuiSfntSimpleGlyphOutlinePointReadStepError
+    item_step_error Option GuiSfntSimpleGlyphOutlinePointStreamItemStepError
+    point_step Option GuiSfntSimpleGlyphOutlinePointReadStep
+    item_step Option GuiSfntSimpleGlyphOutlinePointStreamItemStep
+```
+
+`ItemStepConvertFailed` は F5r が F5o step shape を不正として拒否した場合である。`ItemStepInvariantInvalid` は F5r の成功値を F5s が再検査した時の defensive failure であり、future internal change や forged constructor value に対する fail-closed branch として保持する。
+
+`gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget` は次の順序を守る。
+
+```text
+1. shared cursor validation helper で storage capacity と stream topology と cursor を検査する
+2. next_point_index == point_count なら End summary を返す
+3. non-terminal かつ remaining_steps <= 0 なら StepBudgetExhausted summary を返す
+4. non-terminal かつ remaining_steps > 0 の場合だけ F5o point step を 1 回呼ぶ
+5. F5o Err は PointStepReadFailed として保持する
+6. F5o Ok step は F5r item step conversion に 1 回だけ渡す
+7. F5r Err は ItemStepConvertFailed として保持する
+8. F5r Ok Item かつ item Some で、input cursor と next cursor が期待値に一致する場合だけ items_read を 1 増やして iteration を続ける
+9. F5r Ok Item かつ item None、cursor 不一致、next cursor 不一致、または non-terminal で F5r Ok End は ItemStepInvariantInvalid として返す
+```
+
+つまり、terminal check は budget check より前、budget check は F5o call より前である。F5s は F5p public drain を呼ばない。F5p/F5s は shared cursor validation helper を共有するが、それぞれ自分の error kind へ変換する。
+
+F5s は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_simple_glyph_outline_storage_read_point_coordinate
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop
+gui_sfnt_glyf_read_point_flag_from_stream_loop
+gui_sfnt_glyf_read_point_flag_run_or_continue
+gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
