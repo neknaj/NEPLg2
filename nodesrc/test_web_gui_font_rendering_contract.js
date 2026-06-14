@@ -80,11 +80,13 @@ const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
+const guiFontSfntOutlineStorageTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
     guiFontSfntOutlineCapacityTests,
+    guiFontSfntOutlineStorageTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -3975,6 +3977,135 @@ assertNoMatch(
     outlineCapacityCheckLimit,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5a limit helper body must preserve NEPL prefix style without parentheses",
+);
+assertMatch(
+    spec,
+    /SFNT simple glyph outline storage owner[\s\S]*GuiSfntSimpleGlyphOutlineStorage:[\s\S]*scalar_slots Vec i32[\s\S]*scalar_slot_count[\s\S]*contour_count[\s\S]*point_count[\s\S]*edge_count[\s\S]*path_command_count[\s\S]*InvalidCapacity[\s\S]*CapacityRejected[\s\S]*ScalarSlotCountOverflow[\s\S]*ScalarSlotStorageAllocFailed/,
+    "font spec must define F5b scalar storage owner, count formula, and typed allocation errors",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph outline storage owner boundary[\s\S]*shape_is_valid capacity[\s\S]*point_count <= 1073741823[\s\S]*path_command_count == point_count \* 2[\s\S]*staged residual subtraction[\s\S]*vec::free` once/,
+    "font detailed design must define F5b validation precedence, overflow guard, and single-owner cleanup",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5b: sfnt simple glyph outline scalar storage owner[\s\S]*InvalidCapacity[\s\S]*capacity_check = none[\s\S]*gui_sfnt_simple_glyph_outline_storage_capacity_check_limit[\s\S]*vec::with_capacity[\s\S]*vec::free/,
+    "font implementation plan must define F5b source policy, allocation ordering, and cleanup",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /#import\s+"alloc\/collections\/vec"\s+as\s+vec[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineStorage:[\s\S]*capacity\s+%GuiSfntSimpleGlyphOutlineStorageCapacity[\s\S]*scalar_slots\s+%Vec i32[\s\S]*scalar_slot_count\s+%i32[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphOutlineStorageAllocErrorKind:[\s\S]*InvalidCapacity[\s\S]*CapacityRejected[\s\S]*ScalarSlotCountOverflow[\s\S]*ScalarSlotStorageAllocFailed/,
+    "alloc/gui/font/sfnt/glyf F5b must expose storage owner and typed allocation error kind",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineStorage:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineStorage:/,
+    "alloc/gui/font/sfnt/glyf F5b storage owner must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid %fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check %fn &GuiSfntSimpleGlyphOutlineStorageCapacity GuiSfntSimpleGlyphOutlineScalarSlotCountCheck") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_alloc %impure fn &GuiSfntSimpleGlyphOutlineStorageCapacity impure fn &GuiSfntSimpleGlyphOutlineStorageLimit Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageAllocError") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_free %impure fn GuiSfntSimpleGlyphOutlineStorage unit") &&
+        guiFontSfntOutlineStorageTests.includes("outline_storage_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_storage_invalid_capacity_precedes_limit_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_storage_limit_reject_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_storage_scalar_overflow_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5b outline storage helpers",
+);
+const outlineStorageShapeIsValid = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid");
+for (const fragment of [
+    "let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity",
+    "if or or le contour_count 0 le point_count 0 gt contour_count point_count:",
+    "if gt point_count 1073741823:",
+    "let expected_path_command_count %i32 mul point_count 2",
+    "eq path_command_count expected_path_command_count",
+]) {
+    assert(outlineStorageShapeIsValid.includes(fragment), `alloc/gui/font/sfnt/glyf F5b shape helper must include ${fragment}`);
+}
+assert(
+    outlineStorageShapeIsValid.indexOf("if gt point_count 1073741823:") <
+        outlineStorageShapeIsValid.indexOf("let expected_path_command_count %i32 mul point_count 2"),
+    "alloc/gui/font/sfnt/glyf F5b shape helper must guard point_count before multiplication",
+);
+assertNoMatch(
+    outlineStorageShapeIsValid,
+    /\b(?:Vec|vec::|push|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5b shape helper must stay value-only and independent from byte-backed lookup, rendering, and host/platform APIs",
+);
+assertNoMatch(
+    outlineStorageShapeIsValid,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5b shape helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineStorageScalarSlotCountCheck = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check");
+for (const fragment of [
+    "let max_i32 %i32 2147483647",
+    "let remaining_after_contours %i32 sub max_i32 contour_count",
+    "let remaining_after_x %i32 sub remaining_after_contours point_count",
+    "let remaining_after_y %i32 sub remaining_after_x point_count",
+    "let remaining_after_edges %i32 sub remaining_after_y edge_count",
+    "let scalar_slot_count %i32 add contour_count add point_count add point_count add edge_count path_command_count",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow *capacity",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits scalar_slot_count",
+]) {
+    assert(outlineStorageScalarSlotCountCheck.includes(fragment), `alloc/gui/font/sfnt/glyf F5b scalar count helper must include ${fragment}`);
+}
+assertNoMatch(
+    outlineStorageScalarSlotCountCheck,
+    /\b(?:Vec|vec::|push|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5b scalar count helper must stay value-only and independent from byte-backed lookup, rendering, and host/platform APIs",
+);
+assertNoMatch(
+    outlineStorageScalarSlotCountCheck,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5b scalar count helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineStorageAlloc = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_alloc");
+assert(
+    outlineStorageAlloc.indexOf("if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:") >= 0 &&
+        outlineStorageAlloc.indexOf("gui_sfnt_simple_glyph_outline_storage_capacity_check_limit capacity limit") >= 0 &&
+        outlineStorageAlloc.indexOf("if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:") <
+            outlineStorageAlloc.indexOf("gui_sfnt_simple_glyph_outline_storage_capacity_check_limit capacity limit"),
+    "alloc/gui/font/sfnt/glyf F5b alloc helper must validate shape before capacity_check_limit",
+);
+for (const fragment of [
+    "GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::InvalidCapacity",
+    "let none_check %Option GuiSfntSimpleGlyphOutlineCapacityCheck none",
+    "GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::CapacityRejected",
+    "let some_checked %Option GuiSfntSimpleGlyphOutlineCapacityCheck some checked",
+    "GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotCountOverflow",
+    "let slots_result %Result Vec i32 StdErrorKind vec::with_capacity scalar_slot_count",
+    "GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotStorageAllocFailed",
+    "Result::Ok GuiSfntSimpleGlyphOutlineStorage *capacity slots scalar_slot_count",
+]) {
+    assert(outlineStorageAlloc.includes(fragment), `alloc/gui/font/sfnt/glyf F5b alloc helper must include ${fragment}`);
+}
+assert(
+    (outlineStorageAlloc.match(/\bvec::with_capacity\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5b alloc helper must call vec::with_capacity exactly once",
+);
+assertNoMatch(
+    outlineStorageAlloc,
+    /\b(?:vec::push|vec::pop|vec::filled|vec::replace|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5b alloc helper must not populate slots, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    outlineStorageAlloc,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5b alloc helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineStorageFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_free");
+assert(
+    (outlineStorageFree.match(/\bvec::free\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5b free helper must call vec::free exactly once",
+);
+assertNoMatch(
+    outlineStorageFree,
+    /\b(?:vec::push|vec::pop|vec::filled|vec::replace|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5b free helper must only release owned scalar storage",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

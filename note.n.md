@@ -62459,3 +62459,45 @@ MERGE_APPROVED
 - unexecuted_verification: none
 - existing_warnings: nodesrc/test_stdlib_documentation_contract.js failed with exit code 1; stdlib declaration doc gaps increased: 153 > 108; Node WASI ExperimentalWarning; Git LF/CRLF working-copy conversion warning
 - new_warnings: none
+
+## 2026-06-14 GUI font F5b outline scalar storage owner checkpoint
+
+### scope
+
+- branch: `gui-font-outline-storage-owner-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、docs、source policy、stdlib 実装、doctest、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: GUI/font docs に反映済みの `Result` / `Option`、enum error、owner recovery、platform 非依存、fallback 禁止、contract と current implementation の分離を維持した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5b の simple glyph outline scalar storage owner boundary を追加した。
+- F5b は F5a capacity から 1 本の `Vec i32` owner を確保する最初の allocation boundary であり、point decode、path command push、rasterizer、renderer、platform API、host text API には進まない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlineStorage`、allocation error kind/value、scalar slot count check、capacity shape validation、storage alloc/free、observer を追加した。
+- storage owner は `capacity`、`scalar_slots %Vec i32`、`scalar_slot_count` を持つ。owner なので `Clone` / `Copy` は実装していない。
+- `scalar_slot_count = contour_count + point_count + point_count + edge_count + path_command_count` とし、`Vec` は `len == 0` / `cap == scalar_slot_count` で確保する。
+- forged capacity は `CapacityRejected` より先に `InvalidCapacity` として返す。`capacity_check = none` はこの branch のみで、limit rejected / scalar overflow / allocation failure は `some checked` を返す。
+- scalar slot count overflow は `2147483647` から contour、x、y、edge、path command を staged residual guard で差し引いて検出し、overflow する場合は allocation を試みない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5b source policy を追加し、docs、型、shape validation order、`point_count <= 1073741823` before multiply、staged residual guard、`vec::with_capacity` 1 回、`vec::free` 1 回、storage owner の非 Copy / 非 Clone、禁止 API を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` を追加し、success、forged invalid capacity precedence、valid capacity limit rejection、scalar slot overflow を synthetic value だけで検査するようにした。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。`point_count > 429496729` だけでは `contour_count + 5 * point_count` 相当の i32 overflow を守れないため、staged residual guard が必要と指摘された。
+- Tesla plan review 2: `PLAN_BLOCKED`。forged capacity を `capacity_check_limit` へ先に渡すと、trusted capacity ではない値が `CapacityRejected` payload になり F5a invariant を壊すと指摘された。
+- Tesla plan review 3: `PLAN_APPROVED`。`shape_is_valid` を先頭に置き、`InvalidCapacity` を limit rejection より前に返し、`capacity_check = none` を invalid branch のみにする修正案が承認された。
+- Tesla implementation review: `REVIEW_APPROVED`。forged capacity precedence、`Some checked` の保持、scalar overflow guard、単一 `Vec i32` owner、storage owner の非 Copy / 非 Clone が維持されており blocker なしと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_capacity.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- subagent pass: Tesla も source policy、追加 doctest、`glyf.nepl` doctest、changed-file diff check を再実行して pass と報告した。
+
+### residual
+
+- F5b は empty scalar slot storage owner までであり、outline point decode、contour endpoint population、path command tag population、owner-preserving builder mutation、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では F5b storage owner を消費・返却する builder mutation API を追加し、push 失敗時にも storage owner と rejected scalar value が失われない contract を固定する。

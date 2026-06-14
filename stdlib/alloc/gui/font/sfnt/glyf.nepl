@@ -22,6 +22,7 @@
 #indent 4
 
 #import "alloc/io" as *
+#import "alloc/collections/vec" as vec
 #import "core/field" as field
 #import "core/gui/font" as *
 #import "core/math" as *
@@ -409,6 +410,245 @@ pub fn gui_sfnt_simple_glyph_outline_storage_capacity_check_limit %fn &GuiSfntSi
                                     GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected
                                 else:
                                     GuiSfntSimpleGlyphOutlineCapacityCheck::Fits *capacity
+
+//: GuiSfntSimpleGlyphOutlineStorage: simple glyph outline builder [用/よう]の scalar slot storage owner
+//:
+//: [目的/もくてき]:
+//: - F5a の trusted capacity から、後続 builder が contour endpoint、x/y coordinate、edge、path command tag を[入/い]れる[空/から] storage を[確保/かくほ]します。
+//: - この owner はまだ point decode、path command push、rasterize、render command 生成を[行/おこな]いません。
+//:
+//: [注意/ちゅうい]:
+//: - `scalar_slots` は `len == 0` で始まり、`cap == scalar_slot_count` です。
+//: - owner なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlineStorage:
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    scalar_slots %Vec i32
+    scalar_slot_count %i32
+
+//: GuiSfntSimpleGlyphOutlineStorageAllocErrorKind: outline storage allocation の[失敗/しっぱい][分類/ぶんるい]
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlineStorageAllocErrorKind:
+    InvalidCapacity
+    CapacityRejected
+    ScalarSlotCountOverflow
+    ScalarSlotStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlineStorageAllocErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineStorageAllocErrorKind GuiSfntSimpleGlyphOutlineStorageAllocErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlineStorageAllocErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineStorageAllocErrorKind GuiSfntSimpleGlyphOutlineStorageAllocErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlineStorageAllocError: allocation [失敗/しっぱい]で caller に[返/かえ]す typed context
+//:
+//: [目的/もくてき]:
+//: - capacity、limit、capacity check を typed value として[保持/ほじ]し、失敗 branch で入力 context が[消/き]えないようにします。
+//: - `InvalidCapacity` は forged capacity の shape 不正なので `capacity_check = none` とします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlineStorageAllocError:
+    kind %GuiSfntSimpleGlyphOutlineStorageAllocErrorKind
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    limit %GuiSfntSimpleGlyphOutlineStorageLimit
+    capacity_check %Option GuiSfntSimpleGlyphOutlineCapacityCheck
+
+impl Clone for GuiSfntSimpleGlyphOutlineStorageAllocError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageAllocError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlineStorageAllocError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageAllocError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_storage_alloc_error: allocation error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_alloc_error %fn GuiSfntSimpleGlyphOutlineStorageAllocErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphOutlineStorageLimit fn Option GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineStorageAllocError \kind\capacity\limit\capacity_check:
+    GuiSfntSimpleGlyphOutlineStorageAllocError kind capacity limit capacity_check
+
+//: gui_sfnt_simple_glyph_outline_storage_alloc_error_kind: allocation error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_alloc_error_kind %fn &GuiSfntSimpleGlyphOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageAllocErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_storage_alloc_error_capacity: error に[含/ふく]まれる capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_alloc_error_capacity %fn &GuiSfntSimpleGlyphOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_storage_alloc_error_limit: error に[含/ふく]まれる limit を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_alloc_error_limit %fn &GuiSfntSimpleGlyphOutlineStorageAllocError GuiSfntSimpleGlyphOutlineStorageLimit \error:
+    *field::get_ref error "limit"
+
+//: gui_sfnt_simple_glyph_outline_storage_alloc_error_capacity_check: error に[含/ふく]まれる capacity check を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_alloc_error_capacity_check %fn &GuiSfntSimpleGlyphOutlineStorageAllocError Option GuiSfntSimpleGlyphOutlineCapacityCheck \error:
+    *field::get_ref error "capacity_check"
+
+//: GuiSfntSimpleGlyphOutlineScalarSlotCountCheck: scalar slot count の[検査/けんさ][結果/けっか]
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlineScalarSlotCountCheck:
+    Fits %i32
+    Overflow %GuiSfntSimpleGlyphOutlineStorageCapacity
+
+impl Clone for GuiSfntSimpleGlyphOutlineScalarSlotCountCheck:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineScalarSlotCountCheck GuiSfntSimpleGlyphOutlineScalarSlotCountCheck \check:
+        *check
+
+impl Copy for GuiSfntSimpleGlyphOutlineScalarSlotCountCheck:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineScalarSlotCountCheck GuiSfntSimpleGlyphOutlineScalarSlotCountCheck \check:
+        check
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid: F5a capacity shape が[信頼/しんらい]できるか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - public constructor で forged capacity が[作/つく]られても、capacity exceeded として[包装/ほうそう]する[前/まえ]に[不正/ふせい]を[検出/けんしゅつ]します。
+//: - `point_count * 2` を[計算/けいさん]する[前/まえ]に `point_count <= 1073741823` を[確認/かくにん]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid %fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool \capacity:
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity
+    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity
+    if or or le contour_count 0 le point_count 0 gt contour_count point_count:
+        then false
+        else:
+            if gt point_count 1073741823:
+                then false
+                else:
+                    let edge_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_edge_count capacity
+                    let path_command_pair_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count capacity
+                    let path_command_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count capacity
+                    let expected_path_command_count %i32 mul point_count 2
+                    let edge_ok %bool eq edge_count point_count
+                    let pair_ok %bool eq path_command_pair_count point_count
+                    let command_ok %bool eq path_command_count expected_path_command_count
+                    and edge_ok and pair_ok command_ok
+
+//: gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check: scalar slot count が i32 に[収/おさ]まるか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - contour endpoint、x、y、edge、path command tag の slot 数を staged residual guard で[検査/けんさ]します。
+//: - overflow する[場合/ばあい]は allocation を[試/ため]さず enum branch を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check %fn &GuiSfntSimpleGlyphOutlineStorageCapacity GuiSfntSimpleGlyphOutlineScalarSlotCountCheck \capacity:
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity
+    let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity
+    let edge_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_edge_count capacity
+    let path_command_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count capacity
+    let max_i32 %i32 2147483647
+    if gt contour_count max_i32:
+        then GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow *capacity
+        else:
+            let remaining_after_contours %i32 sub max_i32 contour_count
+            if gt point_count remaining_after_contours:
+                then GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow *capacity
+                else:
+                    let remaining_after_x %i32 sub remaining_after_contours point_count
+                    if gt point_count remaining_after_x:
+                        then GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow *capacity
+                        else:
+                            let remaining_after_y %i32 sub remaining_after_x point_count
+                            if gt edge_count remaining_after_y:
+                                then GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow *capacity
+                                else:
+                                    let remaining_after_edges %i32 sub remaining_after_y edge_count
+                                    if gt path_command_count remaining_after_edges:
+                                        then GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow *capacity
+                                        else:
+                                            let scalar_slot_count %i32 add contour_count add point_count add point_count add edge_count path_command_count
+                                            GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits scalar_slot_count
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity: storage owner の trusted capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity %fn &GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageCapacity \storage:
+    *field::get_ref storage "capacity"
+
+//: gui_sfnt_simple_glyph_outline_storage_scalar_slot_count: scalar slot count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_scalar_slot_count %fn &GuiSfntSimpleGlyphOutlineStorage i32 \storage:
+    *field::get_ref storage "scalar_slot_count"
+
+//: gui_sfnt_simple_glyph_outline_storage_scalar_slots_len: scalar slot Vec の len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_scalar_slots_len %fn &GuiSfntSimpleGlyphOutlineStorage i32 \storage:
+    let scalar_slots %&Vec i32 field::get_ref storage "scalar_slots"
+    vec::len scalar_slots
+
+//: gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap: scalar slot Vec の cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap %fn &GuiSfntSimpleGlyphOutlineStorage i32 \storage:
+    let scalar_slots %&Vec i32 field::get_ref storage "scalar_slots"
+    vec::cap scalar_slots
+
+//: gui_sfnt_simple_glyph_outline_storage_alloc: F5a capacity から empty outline storage owner を[確保/かくほ]する
+//:
+//: [目的/もくてき]:
+//: - capacity shape、caller limit、scalar slot count、Vec allocation を typed Result で[分離/ぶんり]します。
+//: - `InvalidCapacity` は limit check より[前/まえ]に[返/かえ]し、forged capacity を trusted rejected payload に[変換/へんかん]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_alloc %impure fn &GuiSfntSimpleGlyphOutlineStorageCapacity impure fn &GuiSfntSimpleGlyphOutlineStorageLimit Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageAllocError \capacity\limit:
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:
+        then:
+            let none_check %Option GuiSfntSimpleGlyphOutlineCapacityCheck none
+            let error %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::InvalidCapacity *capacity *limit none_check
+            Result::Err error
+        else:
+            match gui_sfnt_simple_glyph_outline_storage_capacity_check_limit capacity limit:
+                GuiSfntSimpleGlyphOutlineCapacityCheck::Fits checked_capacity:
+                    let checked %GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck::Fits checked_capacity
+                    let some_checked %Option GuiSfntSimpleGlyphOutlineCapacityCheck some checked
+                    match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &checked_capacity:
+                        GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits scalar_slot_count:
+                            let slots_result %Result Vec i32 StdErrorKind vec::with_capacity scalar_slot_count
+                            match slots_result:
+                                Result::Ok slots:
+                                    Result::Ok GuiSfntSimpleGlyphOutlineStorage *capacity slots scalar_slot_count
+                                Result::Err _e:
+                                    let error %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotStorageAllocFailed checked_capacity *limit some_checked
+                                    Result::Err error
+                        GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Overflow overflow_capacity:
+                            let error %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::ScalarSlotCountOverflow overflow_capacity *limit some_checked
+                            Result::Err error
+                GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected:
+                    let checked %GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected
+                    let some_checked %Option GuiSfntSimpleGlyphOutlineCapacityCheck some checked
+                    let rejected_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_capacity_rejected_capacity &rejected
+                    let rejected_limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_capacity_rejected_limit &rejected
+                    let error %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::CapacityRejected rejected_capacity rejected_limit some_checked
+                    Result::Err error
+                GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology topology:
+                    let checked %GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology topology
+                    let some_checked %Option GuiSfntSimpleGlyphOutlineCapacityCheck some checked
+                    let error %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::InvalidCapacity *capacity *limit some_checked
+                    Result::Err error
+                GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow topology:
+                    let checked %GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow topology
+                    let some_checked %Option GuiSfntSimpleGlyphOutlineCapacityCheck some checked
+                    let error %GuiSfntSimpleGlyphOutlineStorageAllocError gui_sfnt_simple_glyph_outline_storage_alloc_error GuiSfntSimpleGlyphOutlineStorageAllocErrorKind::InvalidCapacity *capacity *limit some_checked
+                    Result::Err error
+
+//: gui_sfnt_simple_glyph_outline_storage_free: scalar slot storage owner を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_free %impure fn GuiSfntSimpleGlyphOutlineStorage unit \storage:
+    vec::free field::get storage "scalar_slots"
 
 //: GuiSfntSimpleGlyphPointStream: simple glyph の raw point stream ranges
 //:

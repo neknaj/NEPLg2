@@ -1553,6 +1553,79 @@ owner recovery contract:
 - 失敗 branch で point buffer、contour buffer、sink owner、font face owner を黙って捨ててはいけない。
 - 未対応 outline format、host font substitute、tofu glyph substitute、silent success への置換は禁止する。未対応 feature は typed unsupported として返す。
 
+### SFNT simple glyph outline storage owner
+
+F5b は F5a の trusted capacity から、後続 outline builder が使う empty scalar slot storage を確保する最初の owner boundary である。F5b は contour point を復元せず、Bezier command を発行せず、mask / bitmap / render2d command / platform resource を作らない。
+
+F5b の storage は 1 つの `Vec i32` owner だけを持つ。複数 Vec owner の部分確保失敗をこの段階に持ち込まず、失敗時の owner recovery surface を単純に保つためである。
+
+```text
+GuiSfntSimpleGlyphOutlineStorage:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    scalar_slots Vec i32
+    scalar_slot_count i32
+```
+
+`scalar_slot_count` は次の fixed formula である。
+
+```text
+scalar_slot_count =
+    contour_count
+    + point_count
+    + point_count
+    + edge_count
+    + path_command_count
+```
+
+内訳は contour endpoint slots、x coordinate slots、y coordinate slots、edge slots、path command tag slots である。F5b の時点では slot の意味だけを予約し、slot へ値を push しない。`Vec` の `len` は 0、`cap` は `scalar_slot_count` でなければならない。
+
+F5b は public constructor で作られた forged capacity も検出する。invalid capacity は capacity exceeded より先に返す。
+
+```text
+GuiSfntSimpleGlyphOutlineStorageAllocErrorKind:
+    InvalidCapacity
+    CapacityRejected
+    ScalarSlotCountOverflow
+    ScalarSlotStorageAllocFailed
+```
+
+```text
+GuiSfntSimpleGlyphOutlineStorageAllocError:
+    kind GuiSfntSimpleGlyphOutlineStorageAllocErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    limit GuiSfntSimpleGlyphOutlineStorageLimit
+    capacity_check Option GuiSfntSimpleGlyphOutlineCapacityCheck
+```
+
+`capacity_check = None` は `InvalidCapacity` のみである。`CapacityRejected`、`ScalarSlotCountOverflow`、`ScalarSlotStorageAllocFailed` は `Some checked` を持つ。これにより、capacity shape が不正な場合に misleading な `CapacityRejected` payload を作らない。
+
+F5b の allocation order:
+
+```text
+alloc capacity limit:
+    if not shape_is_valid capacity:
+        Err InvalidCapacity capacity limit None
+    else:
+        checked = check_limit capacity limit
+        match checked:
+            Rejected:
+                Err CapacityRejected capacity limit Some checked
+            Fits:
+                match scalar_slot_count_check capacity:
+                    Overflow:
+                        Err ScalarSlotCountOverflow capacity limit Some checked
+                    Fits scalar_slot_count:
+                        vec::with_capacity scalar_slot_count
+                            Ok slots:
+                                Ok storage capacity slots scalar_slot_count
+                            Err:
+                                Err ScalarSlotStorageAllocFailed capacity limit Some checked
+            other:
+                Err InvalidCapacity capacity limit Some checked
+```
+
+shape validation checks `point_count <= 1073741823` before comparing `path_command_count == point_count * 2`。`scalar_slot_count` は i32 上限 `2147483647` から staged residual guard で contour、x、y、edge、path command の順に差し引いて検査する。overflow する場合は allocation を試みない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

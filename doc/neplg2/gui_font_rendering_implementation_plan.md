@@ -2172,3 +2172,53 @@ git diff --check
 
 - F5a の capacity / owner recovery contract を保ったまま、owner-taking storage API、outline point stream、raster mask、render2d command へ順に接続する。
 - 未対応 feature は typed unsupported として返す。
+
+## Phase F5b: sfnt simple glyph outline scalar storage owner
+
+目的:
+
+- F5a の trusted capacity から、後続 outline builder が使う empty scalar slot storage owner を作る。
+- forged capacity を capacity exceeded と混同せず、`InvalidCapacity` を limit rejection より前に返す。
+- 複数 Vec owner の部分確保失敗を避けるため、F5b では 1 本の `Vec i32` scalar slot storage だけを確保する。
+- point decode、contour decode、path command push、renderer、rasterizer、platform API、host text API、font substitute へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5b docs、storage owner、error enum、shape validation、scalar overflow guard、allocation/free 回数、禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `alloc/collections/vec` を qualified import する。
+- 次の型を追加する。
+  - `GuiSfntSimpleGlyphOutlineStorage`
+  - `GuiSfntSimpleGlyphOutlineStorageAllocErrorKind`
+  - `GuiSfntSimpleGlyphOutlineStorageAllocError`
+  - `GuiSfntSimpleGlyphOutlineScalarSlotCountCheck`
+- `GuiSfntSimpleGlyphOutlineStorage` は `capacity`、`scalar_slots Vec i32`、`scalar_slot_count` を持つ owner であり、`Clone` / `Copy` を実装しない。
+- `scalar_slot_count` は `contour_count + point_count + point_count + edge_count + path_command_count` とする。
+- `gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid` は capacity shape を検査する。`point_count <= 1073741823` は `point_count * 2` 比較より前に確認する。
+- `gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check` は staged residual guard で i32 overflow を検出する。
+- `gui_sfnt_simple_glyph_outline_storage_alloc` は次の順序を守る。
+  - `shape_is_valid` が false なら `InvalidCapacity` と `capacity_check = none` を返す。
+  - shape が valid の場合だけ `gui_sfnt_simple_glyph_outline_storage_capacity_check_limit` を呼ぶ。
+  - `Rejected` は `CapacityRejected` と `capacity_check = some checked` を返す。
+  - `Fits` の場合だけ scalar slot count を検査する。
+  - scalar overflow は `ScalarSlotCountOverflow` と `capacity_check = some checked` を返す。
+  - `vec::with_capacity` は 1 回だけ呼ぶ。
+  - allocation failure は `ScalarSlotStorageAllocFailed` と `capacity_check = some checked` を返す。
+- `gui_sfnt_simple_glyph_outline_storage_free` は storage owner を消費し、`vec::free` を 1 回だけ呼ぶ。
+- doctest は synthetic capacity / limit だけで success、invalid forged capacity、limit rejection、scalar slot overflow を検査する。byte-backed font fixture、renderer、raster、platform、host font API は使わない。
+
+完了条件:
+
+- small topology から storage が確保され、`len == 0`、`cap == scalar_slot_count`、`scalar_slot_count` が formula 通りである。
+- forged invalid capacity は `CapacityRejected` ではなく `InvalidCapacity` になる。
+- limit exceeded は shape valid の場合だけ `CapacityRejected` になる。
+- scalar slot count overflow は allocation を試みず enum branch になる。
+- source policy が docs、型、allocation ordering、`Vec` 呼び出し回数、storage owner の非 Copy / 非 Clone、禁止 API を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```

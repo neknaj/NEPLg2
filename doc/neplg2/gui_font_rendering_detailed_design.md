@@ -1999,6 +1999,64 @@ F5a source policy:
 - `StepBudgetExhausted` is a continuation-required state, not capacity success.
 - All public states are enum / struct values, not strings.
 
+## SFNT simple glyph outline storage owner boundary
+
+F5b is the first allocation boundary after F5a. It converts a trusted outline capacity into one empty owner-backed scalar slot table. The storage is deliberately narrower than a complete outline representation:
+
+```text
+GuiSfntSimpleGlyphOutlineStorage:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    scalar_slots Vec i32
+    scalar_slot_count i32
+```
+
+F5b does not decode point coordinates, does not synthesize implied on-curve points, does not push path commands, does not rasterize, and does not call a renderer or host text API. Those operations start in later phases after owner recovery and time slicing are stable.
+
+The scalar slot count is:
+
+```text
+scalar_slot_count =
+    contour_count
+    + point_count
+    + point_count
+    + edge_count
+    + path_command_count
+```
+
+The five terms reserve contour endpoint slots, x coordinate slots, y coordinate slots, edge slots, and path command tag slots. The `Vec` is allocated with that capacity and `len = 0`; later builders populate it under their own mutation contract.
+
+Forged capacity values must not be converted into F5a `Rejected` payloads. A rejected payload means "trusted capacity exceeds caller limit", so F5b validates the capacity shape before limit comparison:
+
+```text
+shape_is_valid capacity:
+    contour_count > 0
+    point_count > 0
+    contour_count <= point_count
+    edge_count == point_count
+    path_command_pair_count == point_count
+    point_count <= 1073741823
+    path_command_count == point_count * 2
+```
+
+The `point_count <= 1073741823` check is evaluated before `point_count * 2`. If shape validation fails, allocation returns `InvalidCapacity` and `capacity_check = None`. This is the only branch where the error has no capacity check value.
+
+After shape validation, F5b calls `check_limit capacity limit`. `Rejected` is returned as `CapacityRejected` with `capacity_check = Some checked`. `Fits` proceeds to scalar slot count overflow checking. Unexpected `InvalidTopology` or `CommandCountOverflow` results are treated as `InvalidCapacity` with `Some checked`, because they cannot be produced by a valid direct limit check and indicate an invariant break.
+
+Scalar slot count overflow is checked by staged residual subtraction from `2147483647`:
+
+```text
+remaining = 2147483647
+subtract contour_count
+subtract point_count
+subtract point_count
+subtract edge_count
+subtract path_command_count
+```
+
+If any term is larger than the remaining capacity, the result is `ScalarSlotCountOverflow`. Only after all terms fit does F5b compute the final count using prefix `add` and call `Vec` allocation exactly once.
+
+Allocation failure returns `ScalarSlotStorageAllocFailed` with `capacity_check = Some checked`. Since F5b owns only one `Vec i32`, there is no partially allocated multi-owner aggregate to recover. `gui_sfnt_simple_glyph_outline_storage_free` consumes the storage and calls `vec::free` once.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
