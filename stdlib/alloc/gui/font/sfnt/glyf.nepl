@@ -1316,6 +1316,169 @@ pub fn gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint %impure fn Gu
                     let error %GuiSfntSimpleGlyphContourEndpointPushError gui_sfnt_simple_glyph_contour_endpoint_push_error_no_region storage cursor endpoint previous_endpoint GuiSfntSimpleGlyphContourEndpointPushErrorKind::StorageCapacityInvalid
                     Result::Err error
 
+//: GuiSfntSimpleGlyphContourEndpointReadPush: byte-backed endpoint push [成功/せいこう]時の owner と cursor
+//:
+//: [目的/もくてき]:
+//: - `glyf` endpoint array から[読/よ]んだ endpoint を F5e の contour endpoint storage boundary へ[接続/せつぞく]した結果を[保持/ほじ]します。
+//: - 成功 payload は storage owner を[持/も]つため `Clone` / `Copy` にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourEndpointReadPush:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint %i32
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push: byte-backed endpoint push result を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 GuiSfntSimpleGlyphContourEndpointReadPush \storage\cursor\previous_endpoint:
+    GuiSfntSimpleGlyphContourEndpointReadPush storage cursor previous_endpoint
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_cursor: success payload の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_cursor %fn &GuiSfntSimpleGlyphContourEndpointReadPush GuiSfntSimpleGlyphOutlineScalarRegionCursor \pushed:
+    *field::get_ref pushed "cursor"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_previous_endpoint: 次 endpoint 検査用 previous endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_previous_endpoint %fn &GuiSfntSimpleGlyphContourEndpointReadPush i32 \pushed:
+    *field::get_ref pushed "previous_endpoint"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_storage: success payload から storage owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_storage %fn GuiSfntSimpleGlyphContourEndpointReadPush GuiSfntSimpleGlyphOutlineStorage \pushed:
+    field::get pushed "storage"
+
+//: GuiSfntSimpleGlyphContourEndpointReadPushErrorKind: byte-backed endpoint bridge [失敗/しっぱい]の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphContourEndpointReadPushErrorKind:
+    ReadFailed
+    PushFailed
+
+impl Clone for GuiSfntSimpleGlyphContourEndpointReadPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphContourEndpointReadPushErrorKind GuiSfntSimpleGlyphContourEndpointReadPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphContourEndpointReadPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphContourEndpointReadPushErrorKind GuiSfntSimpleGlyphContourEndpointReadPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphContourEndpointReadPushError: byte read と storage push を[分離/ぶんり]した error payload
+//:
+//: [目的/もくてき]:
+//: - read failure では storage mutation を[行/おこな]わず、parse error と元の storage owner を[返/かえ]します。
+//: - push failure では読めた endpoint value と F5e/F5d/F5c の typed error metadata を owner 消費前に[保存/ほぞん]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphContourEndpointReadPushError:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    contour_index %i32
+    previous_endpoint %Option i32
+    kind %GuiSfntSimpleGlyphContourEndpointReadPushErrorKind
+    parse_error %Option GuiSfntParseError
+    endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error: byte-backed endpoint bridge error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 fn Option i32 fn GuiSfntSimpleGlyphContourEndpointReadPushErrorKind fn Option GuiSfntParseError fn Option GuiSfntSimpleGlyphContourEndpointSlot fn Option GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphContourEndpointReadPushError \storage\cursor\contour_index\previous_endpoint\kind\parse_error\endpoint\push_error_kind\region_error_kind\storage_push_error_kind:
+    GuiSfntSimpleGlyphContourEndpointReadPushError storage cursor contour_index previous_endpoint kind parse_error endpoint push_error_kind region_error_kind storage_push_error_kind
+
+fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_read_failed %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 fn Option i32 fn GuiSfntParseError GuiSfntSimpleGlyphContourEndpointReadPushError \storage\cursor\contour_index\previous_endpoint\parse_error_value:
+    let parse_error %Option GuiSfntParseError some parse_error_value
+    let none_endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot none
+    let none_push_error %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind none
+    let none_region_error %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let none_storage_push_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_contour_endpoint_read_push_error storage cursor contour_index previous_endpoint GuiSfntSimpleGlyphContourEndpointReadPushErrorKind::ReadFailed parse_error none_endpoint none_push_error none_region_error none_storage_push_error
+
+fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_push_failed %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn i32 fn Option i32 fn GuiSfntSimpleGlyphContourEndpointSlot fn GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphContourEndpointReadPushError \storage\cursor\contour_index\previous_endpoint\endpoint_value\push_error_kind_value\region_error_kind\storage_push_error_kind:
+    let none_parse_error %Option GuiSfntParseError none
+    let endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot some endpoint_value
+    let push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind some push_error_kind_value
+    gui_sfnt_simple_glyph_contour_endpoint_read_push_error storage cursor contour_index previous_endpoint GuiSfntSimpleGlyphContourEndpointReadPushErrorKind::PushFailed none_parse_error endpoint push_error_kind region_error_kind storage_push_error_kind
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_kind: bridge error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_kind %fn &GuiSfntSimpleGlyphContourEndpointReadPushError GuiSfntSimpleGlyphContourEndpointReadPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_parse_error: read failure の parse error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_parse_error %fn &GuiSfntSimpleGlyphContourEndpointReadPushError Option GuiSfntParseError \error:
+    *field::get_ref error "parse_error"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_endpoint: push failure で読めていた endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_endpoint %fn &GuiSfntSimpleGlyphContourEndpointReadPushError Option GuiSfntSimpleGlyphContourEndpointSlot \error:
+    *field::get_ref error "endpoint"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_push_error_kind: lower F5e error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_push_error_kind %fn &GuiSfntSimpleGlyphContourEndpointReadPushError Option GuiSfntSimpleGlyphContourEndpointPushErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_region_error_kind: lower F5d error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_region_error_kind %fn &GuiSfntSimpleGlyphContourEndpointReadPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_storage_push_error_kind: lower F5c push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_storage_push_error_kind %fn &GuiSfntSimpleGlyphContourEndpointReadPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: gui_sfnt_simple_glyph_contour_endpoint_read_push_error_storage: error payload から storage owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_contour_endpoint_read_push_error_storage %fn GuiSfntSimpleGlyphContourEndpointReadPushError GuiSfntSimpleGlyphOutlineStorage \error:
+    field::get error "storage"
+
+//: gui_sfnt_glyf_read_push_contour_endpoint: endpoint array を[読/よ]み storage へ owner-preserving に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - byte read は storage mutation より[前/まえ]に 1 回だけ[行/おこな]います。
+//: - read failure は `ReadFailed`、F5e push failure は `PushFailed` として enum で[分離/ぶんり]します。
+//: - push failure では endpoint value と lower error metadata を storage owner 消費より[前/まえ]に[読/よ]みます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_glyf_read_push_contour_endpoint %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphTopology impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn Option i32 Result GuiSfntSimpleGlyphContourEndpointReadPush GuiSfntSimpleGlyphContourEndpointReadPushError \bytes\glyf\topology\storage\cursor\contour_index\previous_endpoint:
+    match gui_sfnt_glyf_read_contour_endpoint bytes glyf topology contour_index:
+        Result::Err parse_error_value:
+            let error %GuiSfntSimpleGlyphContourEndpointReadPushError gui_sfnt_simple_glyph_contour_endpoint_read_push_error_read_failed storage cursor contour_index previous_endpoint parse_error_value
+            Result::Err error
+        Result::Ok end_point_index:
+            let endpoint %GuiSfntSimpleGlyphContourEndpointSlot gui_sfnt_simple_glyph_contour_endpoint_slot contour_index end_point_index
+            match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:
+                Result::Ok pushed:
+                    let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed
+                    let next_previous_endpoint %i32 gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed
+                    let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed
+                    let read_push %GuiSfntSimpleGlyphContourEndpointReadPush gui_sfnt_simple_glyph_contour_endpoint_read_push next_storage next_cursor next_previous_endpoint
+                    Result::Ok read_push
+                Result::Err push_error:
+                    let endpoint_value %GuiSfntSimpleGlyphContourEndpointSlot gui_sfnt_simple_glyph_contour_endpoint_push_error_endpoint &push_error
+                    let push_error_kind_value %GuiSfntSimpleGlyphContourEndpointPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error
+                    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error
+                    let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error
+                    let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error
+                    let error %GuiSfntSimpleGlyphContourEndpointReadPushError gui_sfnt_simple_glyph_contour_endpoint_read_push_error_push_failed returned_storage cursor contour_index previous_endpoint endpoint_value push_error_kind_value region_error_kind storage_push_error_kind
+                    Result::Err error
+
 //: GuiSfntSimpleGlyphPointStream: simple glyph の raw point stream ranges
 //:
 //: [目的/もくてき]:

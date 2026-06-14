@@ -62688,3 +62688,47 @@ MERGE_APPROVED
 
 - F5e は synthetic contour endpoint slot population までであり、byte-backed endpoint array reader との接続、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
 - 次 slice では checked byte-backed endpoint reader から F5e helper へ接続する。ただし byte lookup と storage mutation の owner recovery boundary を混ぜず、read failure と storage push failure を enum で分離する。
+
+## 2026-06-14 GUI font F5f contour endpoint byte reader bridge checkpoint
+
+### scope
+
+- branch: `gui-font-contour-endpoint-read-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、docs、source policy、stdlib 実装、doctest、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、owner recovery、platform 非依存、fallback 禁止、contract と current implementation の分離、unchecked public API の抑制を維持した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5f の simple glyph contour endpoint byte reader bridge を追加した。
+- F5f は既存の checked `gui_sfnt_glyf_read_contour_endpoint` と F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を接続する段階であり、point flag decode、x/y coordinate decode、edge/path command generation、rasterizer、renderer、platform API、host text API には進まない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphContourEndpointReadPush`、`GuiSfntSimpleGlyphContourEndpointReadPushErrorKind`、`GuiSfntSimpleGlyphContourEndpointReadPushError`、`gui_sfnt_glyf_read_push_contour_endpoint` を追加した。
+- public helper は `gui_sfnt_glyf_read_contour_endpoint` を storage mutation より前に 1 回だけ呼ぶ。
+- read failure では F5e push を呼ばず、元の storage owner、cursor、`ReadFailed`、`Some GuiSfntParseError`、`endpoint = None` を返す。
+- read success では endpoint slot を作り、F5e push helper を 1 回だけ呼ぶ。
+- F5e push failure では endpoint、F5e error kind、F5d region error kind、F5c storage push error kind を owner 消費前に読み、F5e error から recovered storage owner を取り出して `PushFailed` として返す。
+- `GuiSfntSimpleGlyphContourEndpointReadPush` と `GuiSfntSimpleGlyphContourEndpointReadPushError` は storage owner を持つため `Clone` / `Copy` を実装していない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5f source policy を追加し、docs、型、read-before-mutate ordering、read/push 呼び出し回数、lower metadata の owner 消費前読み取り、direct `vec::` 禁止、point decode/render/raster/platform/host API 禁止を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` に byte-backed success、read failure owner recovery、push failure endpoint preservation の doctest を追加した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。push failure branch で byte-read endpoint value が F5f error payload に残らないこと、source policy で allowed reader と他の `gui_sfnt_glyf_` call を分けて検査する必要があることを指摘された。
+- Tesla plan review 2: `IMPLEMENTATION_APPROVED`。`endpoint Option GuiSfntSimpleGlyphContourEndpointSlot` を error payload に追加し、push failure で endpoint / F5e error kind / F5d error kind / F5c error kind を owner 消費前に読む修正案が承認された。
+- Tesla implementation review: `REVIEW_APPROVED`。F5f bridge の read-before-mutate、read failure で F5e を呼ばないこと、read success で F5e を 1 回だけ呼ぶこと、F5e error owner 消費前に endpoint と lower metadata を読むこと、owner-bearing payload の非 Clone / 非 Copy、note 更新が確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5f.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5f.json -j 1`
+- pass rerun: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass rerun: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5f_rerun.json -j 1`
+- pass rerun: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5f_rerun.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- subagent pass: Tesla も focused checks と diff check を再実行して pass と報告した。
+
+### residual
+
+- F5f は byte-backed contour endpoint reader bridge までであり、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では endpoint storage の次に、x coordinate region の population boundary へ進む。byte decode と storage mutation の failure domain を混ぜず、read failure と push failure を typed enum で分離する。

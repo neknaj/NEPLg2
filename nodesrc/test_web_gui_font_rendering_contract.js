@@ -4497,6 +4497,92 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5e commit helper body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph contour endpoint byte reader bridge[\s\S]*GuiSfntSimpleGlyphContourEndpointReadPushErrorKind:[\s\S]*ReadFailed[\s\S]*PushFailed[\s\S]*ReadFailed[\s\S]*parse error[\s\S]*endpoint[\s\S]*None[\s\S]*PushFailed[\s\S]*endpoint value[\s\S]*lower error metadata[\s\S]*read failure[\s\S]*storage mutation/,
+    "font spec must define F5f contour endpoint byte reader bridge and separated error domains",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph contour endpoint byte reader bridge[\s\S]*byte read failure[\s\S]*ReadFailed[\s\S]*no F5e push was attempted[\s\S]*storage push failure[\s\S]*PushFailed[\s\S]*endpoint = Some read endpoint slot[\s\S]*The lower error metadata must be read before `returned_storage = storage from push_error`/,
+    "font detailed design must define F5f read-before-mutate and push error owner recovery ordering",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5f: sfnt simple glyph contour endpoint byte reader bridge[\s\S]*read failure と push failure の分離[\s\S]*`gui_sfnt_glyf_read_contour_endpoint` を 1 回だけ呼び[\s\S]*F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を 1 回だけ呼ぶ[\s\S]*owner 消費前に読む[\s\S]*subagent review/,
+    "font implementation plan must define F5f source policy, read/push call counts, and review gate",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphContourEndpointReadPush:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*cursor\s+%GuiSfntSimpleGlyphOutlineScalarRegionCursor[\s\S]*previous_endpoint\s+%i32[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphContourEndpointReadPushErrorKind:[\s\S]*ReadFailed[\s\S]*PushFailed[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphContourEndpointReadPushError:[\s\S]*parse_error\s+%Option\s+GuiSfntParseError[\s\S]*endpoint\s+%Option\s+GuiSfntSimpleGlyphContourEndpointSlot[\s\S]*push_error_kind\s+%Option\s+GuiSfntSimpleGlyphContourEndpointPushErrorKind/,
+    "alloc/gui/font/sfnt/glyf F5f must expose owner success/error payloads and separated read/push metadata",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphContourEndpointReadPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphContourEndpointReadPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphContourEndpointReadPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphContourEndpointReadPushError:/,
+    "alloc/gui/font/sfnt/glyf F5f owner-bearing read push payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_glyf_read_push_contour_endpoint %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphTopology impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn Option i32 Result GuiSfntSimpleGlyphContourEndpointReadPush GuiSfntSimpleGlyphContourEndpointReadPushError") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_read_push_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_read_failure_recovers_owner_ok") &&
+        guiFontSfntOutlineStorageTests.includes("contour_endpoint_read_push_failure_preserves_endpoint_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5f byte-backed contour endpoint bridge",
+);
+const contourEndpointReadPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_push_contour_endpoint");
+for (const fragment of [
+    "match gui_sfnt_glyf_read_contour_endpoint bytes glyf topology contour_index:",
+    "Result::Err parse_error_value:",
+    "gui_sfnt_simple_glyph_contour_endpoint_read_push_error_read_failed storage cursor contour_index previous_endpoint parse_error_value",
+    "Result::Ok end_point_index:",
+    "let endpoint %GuiSfntSimpleGlyphContourEndpointSlot gui_sfnt_simple_glyph_contour_endpoint_slot contour_index end_point_index",
+    "match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:",
+    "Result::Ok pushed:",
+    "let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed",
+    "let next_previous_endpoint %i32 gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed",
+    "let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed",
+    "Result::Err push_error:",
+    "let endpoint_value %GuiSfntSimpleGlyphContourEndpointSlot gui_sfnt_simple_glyph_contour_endpoint_push_error_endpoint &push_error",
+    "let push_error_kind_value %GuiSfntSimpleGlyphContourEndpointPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error",
+    "let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error",
+    "let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error",
+]) {
+    assert(contourEndpointReadPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5f bridge helper must include ${fragment}`);
+}
+for (const [before, after, message] of [
+    [
+        "match gui_sfnt_glyf_read_contour_endpoint bytes glyf topology contour_index:",
+        "match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:",
+        "must read endpoint before storage mutation",
+    ],
+    [
+        "let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error",
+        "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error",
+        "must read lower metadata before consuming F5e error owner",
+    ],
+]) {
+    assert(contourEndpointReadPush.indexOf(before) >= 0 && contourEndpointReadPush.indexOf(before) < contourEndpointReadPush.indexOf(after), `alloc/gui/font/sfnt/glyf F5f bridge ${message}`);
+}
+assert(
+    (contourEndpointReadPush.match(/\bgui_sfnt_glyf_read_contour_endpoint\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5f bridge must call the byte endpoint reader exactly once",
+);
+assert(
+    (contourEndpointReadPush.match(/\bgui_sfnt_simple_glyph_outline_storage_push_contour_endpoint\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5f bridge must call F5e contour endpoint push exactly once",
+);
+const contourEndpointReadPushWithoutAllowedReader = contourEndpointReadPush.replace(/\bgui_sfnt_glyf_read_contour_endpoint\b/g, "");
+assertNoMatch(
+    contourEndpointReadPushWithoutAllowedReader,
+    /\b(?:vec::|gui_sfnt_glyf_|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|decode_point|decode_x|decode_y|point_stream|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5f bridge must only call the allowed endpoint reader and must not decode points, use Vec directly, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    contourEndpointReadPush,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5f bridge body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

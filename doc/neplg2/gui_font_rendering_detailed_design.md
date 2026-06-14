@@ -2257,6 +2257,56 @@ RegionPushFailed:
 
 Validation failures set `region_error_kind = None` and `push_error_kind = None`, because no lower region push was attempted. The success and error payloads own `GuiSfntSimpleGlyphOutlineStorage`, so neither implements `Clone` or `Copy`.
 
+## SFNT simple glyph contour endpoint byte reader bridge
+
+F5f connects the already checked `glyf` endpoint-array reader to the F5e contour endpoint storage push. It is intentionally a bridge, not a full outline builder. It reads one endpoint from bytes and either returns a read error before mutation or delegates to F5e exactly once.
+
+The bridge keeps these failure domains separate:
+
+```text
+byte read failure
+    Result::Err ReadFailed
+    parse_error = Some GuiSfntParseError
+    endpoint = None
+    no F5e push was attempted
+    storage is the original storage owner
+
+storage push failure
+    Result::Err PushFailed
+    parse_error = None
+    endpoint = Some read endpoint slot
+    push_error_kind = Some F5e error kind
+    region_error_kind = F5d error kind when present
+    storage_push_error_kind = F5c error kind when present
+    storage is recovered from the F5e error owner
+```
+
+The helper order is fixed:
+
+```text
+match gui_sfnt_glyf_read_contour_endpoint bytes glyf topology contour_index:
+    Err parse_error:
+        return ReadFailed with original storage and cursor
+
+    Ok end_point_index:
+        endpoint = GuiSfntSimpleGlyphContourEndpointSlot contour_index end_point_index
+        match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:
+            Ok pushed:
+                return storage, advanced cursor, previous endpoint
+
+            Err push_error:
+                endpoint_value = endpoint from push_error
+                push_kind = kind from push_error
+                region_kind = region_error_kind from push_error
+                storage_push_kind = push_error_kind from push_error
+                returned_storage = storage from push_error
+                return PushFailed with returned_storage and metadata
+```
+
+The lower error metadata must be read before `returned_storage = storage from push_error`, because that accessor consumes the owner-bearing error. This ordering preserves both the byte-read endpoint value and the recovered storage owner.
+
+F5f must not call point stream construction, point coordinate decode, path generation, rasterization, render2d, platform APIs, host text measurement, or direct `Vec` APIs. The only allowed byte-side call in the bridge body is `gui_sfnt_glyf_read_contour_endpoint`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

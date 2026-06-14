@@ -1812,6 +1812,60 @@ capacity validation は `contour_count` / `point_count` の使用や `+ 1` / `- 
 
 F5e は endpoint array の意味だけを扱い、x/y coordinate、flag decode、edge generation、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
 
+### SFNT simple glyph contour endpoint byte reader bridge
+
+F5f は既存の checked `glyf` endpoint array reader と F5e の contour endpoint storage boundary を接続する。ここで初めて byte-backed `endPtsOfContours` を読むが、x/y coordinate、flag decode、edge/path command generation、rasterizer、renderer、platform API、host text API へは進まない。
+
+F5f の中心 contract は、byte lookup と storage mutation を同じ失敗状態に潰さないことである。
+
+```text
+GuiSfntSimpleGlyphContourEndpointReadPushErrorKind:
+    ReadFailed
+    PushFailed
+```
+
+success payload は storage owner、advanced cursor、次の endpoint validation に使う previous endpoint を返す。
+
+```text
+GuiSfntSimpleGlyphContourEndpointReadPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint i32
+```
+
+error payload も storage owner を返す。`ReadFailed` では parse error を保持し、endpoint は `None` である。`PushFailed` では読めた endpoint value と F5e/F5d/F5c の lower error metadata を保持し、parse error は `None` である。
+
+```text
+GuiSfntSimpleGlyphContourEndpointReadPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    contour_index i32
+    previous_endpoint Option i32
+    kind GuiSfntSimpleGlyphContourEndpointReadPushErrorKind
+    parse_error Option GuiSfntParseError
+    endpoint Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphContourEndpointReadPush` と `GuiSfntSimpleGlyphContourEndpointReadPushError` は storage owner を持つため `Clone` / `Copy` にしない。
+
+`gui_sfnt_glyf_read_push_contour_endpoint` は次の順序を守る。
+
+```text
+1. gui_sfnt_glyf_read_contour_endpoint を 1 回だけ呼ぶ
+2. read failure なら F5e push を呼ばず ReadFailed を返す
+3. read success なら GuiSfntSimpleGlyphContourEndpointSlot を作る
+4. gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint を 1 回だけ呼ぶ
+5. push success なら storage / cursor / previous_endpoint を返す
+6. push failure なら endpoint、F5e error kind、F5d error kind、F5c storage push error kind を読む
+7. lower error data を読んだ後で storage owner を回収する
+8. PushFailed を返す
+```
+
+read failure では storage mutation が起きていないため、元の storage owner をそのまま返す。push failure では F5e が owner recovery を担当するため、F5f は F5e error から回収した storage owner を返す。どちらも silent fallback や no-op 成功にしない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
