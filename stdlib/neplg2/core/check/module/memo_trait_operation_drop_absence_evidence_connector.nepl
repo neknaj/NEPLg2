@@ -1,0 +1,515 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_absence_evidence_connector
+//: complete public impl surface 由来の no-drop absence evidence を、既存の operation evidence table owner へ[増補/ぞうほ]する checker-layer connector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_drop_absence_producer` は、complete な Drop impl surface と Drop impl fact table から `SelfhostMemoTraitOperationDropEvidence::NoDropRequired` を作ります。
+//: - `memo_trait_operation_evidence.nepl` は、Copy / Drop / Eq / Hash の operation status を `SelfhostMemoTraitOperationEvidenceTable` に保存します。
+//: - この module はその 2 つの境界を接続し、no-drop absence を `Drop: Proven` record として後段 solver に渡せる形へ変換します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationDropAbsenceProducerErrorKind` を返す producer 境界、`SelfhostMemoTraitOperationEvidenceTable` の typed lookup / push API、`SelfhostTypeId`、`SelfhostMemoTraitOperationEvidenceKind::Drop` だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、payload hash、HIR body root、Resource IR graph、proof store record、prechecked artifact から no-drop proof を推測しません。
+//: - fake `SelfhostMemoTraitOperationImplCandidate` や fake public impl header は作りません。impl が無いことの証明を「impl がある」形の table に載せると、Drop body proof と absence proof の責務が混ざるためです。
+//: - `NoDropRequired` だけを `SelfhostMemoTraitOperationEvidenceKind::Drop` / `SelfhostMemoTraitAggregateProofStatus::Proven` に写します。`PureDrop` は Drop body effect / Resource no-escape proof 側の責務であり、この module では合成しません。
+//: - 追加前に同じ `SelfhostTypeId` / Drop の既存 record を lookup します。既存 record がある場合や duplicate がある場合は typed error として拒否し、record order による first-wins を許しません。
+//: - `Result::Err` で返る経路では、push boundary が owner を消費した場合を除き、この module が受け取った evidence table owner を閉じます。
+//: - この module は aggregate proof、proof store、generic impl binder、PrivateCache / PrivateState masking、backend artifact、prechecked artifact、solver proof table を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では Drop impl surface state と Drop impl table の same-origin は caller contract です。後続 orchestration boundary は、同じ scanner / materializer output から両方を作ってこの connector へ渡します。
+//: - facade にはまだ re-export しません。public impl surface、Drop Resource proof、no-drop absence proof、generic impl binder が同じ orchestration で束ねられる段階で公開範囲を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。Zenn 方針に従い、目的、契約、失敗条件、現状、計算量を明示します。
+//:
+//: [計算量/けいさんりょう]:
+//: - Drop record の事前 lookup は evidence record 数 n に対して O(n) 時間です。
+//: - no-drop absence producer は Drop impl fact 数 m に対して現状 O(m) 時間です。
+//: - push は `Vec` push の償却 O(1) です。追加空間は成功時に operation evidence record 1 件分です。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_absence_evidence_connector" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_absence_producer" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_impl_resolver" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+//:| #import "neplg2/core/ty/ty/memo_trait_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_result_eq summary.accepted_empty 1 SelfhostMemoTraitAggregateProofStatus::Missing SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Missing SelfhostMemoTraitAggregateProofStatus::Missing
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_result_eq summary.accepted_existing 4 SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Proven SelfhostMemoTraitAggregateProofStatus::Unknown SelfhostMemoTraitAggregateProofStatus::Missing
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_drop_absence_evidence_connector_error_result_eq summary.present_rejected SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::DropImplPresent
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_drop_absence_evidence_connector_error_result_eq summary.missing_rejected SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected SelfhostMemoTraitOperationDropAbsenceProducerErrorKind::SurfaceMissing
+//:             let duplicate_error %SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected SelfhostMemoTraitOperationEvidenceErrorKind::DuplicateRecord
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_drop_absence_evidence_connector_error_result_eq summary.duplicate_rejected duplicate_error
+//:             let existing_error %SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent SelfhostMemoTraitAggregateProofStatus::Proven
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_drop_absence_evidence_connector_error_result_eq summary.existing_drop_rejected existing_error
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop absence evidence connector stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "neplg2/core/ty/ty/memo_trait_producer" as *
+#import "./memo_trait_operation_drop_absence_producer" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+#import "./memo_trait_operation_evidence_producer" as *
+
+//: SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary: stage0 が owner を閉じた後に保持する代表 status
+//:
+//: [目的/もくてき]:
+//: - accepted path の table length と Copy / Drop / Eq / Hash status を、owner を持たない Copy payload として保持します。
+pub struct SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary:
+    table_len %i32
+    copy_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+    drop_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+    eq_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+    hash_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind
+
+//: SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind: no-drop absence evidence connector の typed error
+//:
+//: [目的/もくてき]:
+//: - absence producer、evidence table 事前 lookup / push、既存 Drop record、lower gate の退行を enum として分けます。
+//:
+//: [契約/けいやく]:
+//: - `AbsenceProducerRejected` は lower producer の typed error を保持します。
+//: - `EvidenceTableRejected` は duplicate / push failure など table consistency の失敗を保持します。
+//: - `DropEvidenceAlreadyPresent` は既に Drop status が存在するため absence connector が上書きしないことを表します。
+//: - `UnexpectedDropEvidence` は lower producer が `NoDropRequired` 以外を返した場合の fail-closed guard です。
+pub enum SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind:
+    AbsenceProducerRejected %SelfhostMemoTraitOperationDropAbsenceProducerErrorKind
+    EvidenceTableRejected %SelfhostMemoTraitOperationEvidenceErrorKind
+    DropEvidenceAlreadyPresent %SelfhostMemoTraitAggregateProofStatus
+    UnexpectedDropEvidence %SelfhostMemoTraitOperationDropEvidence
+
+//: SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary: connector smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - empty table 増補、既存 Copy / Eq / Hash 保持、present / missing surface rejection、duplicate / existing Drop rejection をまとめます。
+pub struct SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary:
+    accepted_empty %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind
+    accepted_existing %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind
+    present_rejected %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind
+    missing_rejected %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind
+    existing_drop_rejected %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind
+
+//: Clone for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary: owner を含まない summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は evidence table owner を含みません。owner cleanup は summary 作成前に完了しています。
+impl Clone for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary: stage0 summary payload を copyable として扱う
+//:
+//: [契約/けいやく]:
+//: - 各 field は scalar または typed enum result であり、resource owner を保持しません。
+impl Copy for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind: typed error payload を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - error は owner table を含みません。nested error も typed enum payload だけです。
+impl Clone for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind: error payload の Copy marker
+//:
+//: [契約/けいやく]:
+//: - owner-bearing error が必要になった場合は、この Copy impl を削除します。
+impl Copy for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary: stage0 summary を borrow から値へ戻す
+//:
+//: [契約/けいやく]:
+//: - summary は owner cleanup 済みの代表値だけを保持します。
+impl Clone for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary: stage0 summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - stage0 の各 result は owner を持たず、doctest が複数回参照できます。
+impl Copy for SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_preflight_result: Drop record の既存有無を[検査/けんさ]する
+//:
+//: [戻/もど]り[値/ち]:
+//: - `Ok(table)`: 対象 TypeId / Drop record が存在しません。caller は no-drop absence を追加できます。
+//: - `Err(DropEvidenceAlreadyPresent(_))`: 既存 Drop status があるため、absence connector は上書きしません。この関数は返る前に table owner を閉じます。
+//: - `Err(EvidenceTableRejected(_))`: duplicate など table consistency failure です。この関数は返る前に table owner を閉じます。
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_preflight_result %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind \table\type_id:
+    match selfhost_memo_trait_operation_evidence_status_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Drop:
+        Result::Ok status:
+            selfhost_memo_trait_operation_evidence_table_free table
+            Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent status
+        Result::Err evidence_error:
+            match evidence_error:
+                SelfhostMemoTraitOperationEvidenceErrorKind::RecordMissing:
+                    Result::Ok table
+                SelfhostMemoTraitOperationEvidenceErrorKind::DuplicateRecord:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected SelfhostMemoTraitOperationEvidenceErrorKind::DuplicateRecord
+                SelfhostMemoTraitOperationEvidenceErrorKind::RecordPushFailed push_error:
+                    selfhost_memo_trait_operation_evidence_table_free table
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected SelfhostMemoTraitOperationEvidenceErrorKind::RecordPushFailed push_error
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_push_no_drop_result: no-drop absence evidence を operation evidence table へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - producer が返した `NoDropRequired` を、solver が理解できる `Drop: Proven` operation evidence record へ写します。
+//:
+//: [契約/けいやく]:
+//: - 追加前に `selfhost_memo_trait_operation_drop_absence_evidence_connector_preflight_result` を通し、既存 Drop record と duplicate を拒否します。
+//: - producer が失敗した場合は、preflight 後の table owner をこの関数が閉じます。
+//: - push 失敗時は `selfhost_memo_trait_operation_evidence_table_push` が owner を消費しているため、この関数では追加の free を行いません。
+pub fn selfhost_memo_trait_operation_drop_absence_evidence_connector_push_no_drop_result %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostMemoTraitOperationDropImplSurfaceState impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind \table\surface\drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_preflight_result table type_id:
+        Result::Ok checked_table:
+            match selfhost_memo_trait_operation_drop_absence_evidence_result surface drop_table type_id:
+                Result::Ok evidence:
+                    match evidence:
+                        SelfhostMemoTraitOperationDropEvidence::NoDropRequired:
+                            let record %SelfhostMemoTraitOperationEvidenceRecord selfhost_memo_trait_operation_evidence_record_new type_id SelfhostMemoTraitOperationEvidenceKind::Drop SelfhostMemoTraitAggregateProofStatus::Proven
+                            match selfhost_memo_trait_operation_evidence_table_push checked_table record:
+                                Result::Ok next_table:
+                                    Result::Ok next_table
+                                Result::Err push_error:
+                                    Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected push_error
+                        SelfhostMemoTraitOperationDropEvidence::PureDrop:
+                            selfhost_memo_trait_operation_evidence_table_free checked_table
+                            Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence evidence
+                        SelfhostMemoTraitOperationDropEvidence::Missing:
+                            selfhost_memo_trait_operation_evidence_table_free checked_table
+                            Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence evidence
+                        SelfhostMemoTraitOperationDropEvidence::ImpureDrop:
+                            selfhost_memo_trait_operation_evidence_table_free checked_table
+                            Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence evidence
+                        SelfhostMemoTraitOperationDropEvidence::Unknown:
+                            selfhost_memo_trait_operation_evidence_table_free checked_table
+                            Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence evidence
+                        SelfhostMemoTraitOperationDropEvidence::NotRequired:
+                            selfhost_memo_trait_operation_evidence_table_free checked_table
+                            Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence evidence
+                Result::Err producer_error:
+                    selfhost_memo_trait_operation_evidence_table_free checked_table
+                    Result::Err SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected producer_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_summary_from_table: evidence table owner を summary へ[変換/へんかん]して[閉/と]じる
+//:
+//: [契約/けいやく]:
+//: - caller から受け取った owner はこの関数内で必ず閉じます。
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_summary_from_table %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary \table\type_id:
+    let table_len %i32 selfhost_memo_trait_operation_evidence_table_len &table
+    let copy_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Copy
+    let drop_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+    let eq_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Eq
+    let hash_status %Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind selfhost_memo_trait_operation_evidence_status_for_type_operation_or_missing_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Hash
+    selfhost_memo_trait_operation_evidence_table_free table
+    SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary table_len copy_status drop_status eq_status hash_status
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_error_kind_eq: connector error が同じ分類と payload か[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - nested producer / evidence table error は lower boundary の equality helper で比較します。
+//: - wildcard arm は使いません。variant が増えた場合はこの equality 境界を明示的に更新します。
+pub fn selfhost_memo_trait_operation_drop_absence_evidence_connector_error_kind_eq %fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected a_producer:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected b_producer:
+                    selfhost_memo_trait_operation_drop_absence_error_kind_eq a_producer b_producer
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected _b_table:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent _b_status:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected a_table:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected _b_producer:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected b_table:
+                    selfhost_memo_trait_operation_evidence_error_kind_eq a_table b_table
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent _b_status:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent a_status:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected _b_producer:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected _b_table:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent b_status:
+                    selfhost_memo_trait_operation_evidence_status_eq a_status b_status
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence _b_evidence:
+                    false
+        SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence a_evidence:
+            match b:
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::AbsenceProducerRejected _b_producer:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::EvidenceTableRejected _b_table:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::DropEvidenceAlreadyPresent _b_status:
+                    false
+                SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind::UnexpectedDropEvidence b_evidence:
+                    selfhost_memo_trait_operation_drop_absence_producer_evidence_result_eq Result::Ok a_evidence b_evidence
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_status_result_eq: status Result が期待 status か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_status_result_eq %fn Result SelfhostMemoTraitAggregateProofStatus SelfhostMemoTraitOperationEvidenceErrorKind fn SelfhostMemoTraitAggregateProofStatus bool \result\expected:
+    match result:
+        Result::Ok status:
+            selfhost_memo_trait_operation_evidence_status_eq status expected
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_summary_eq: accepted summary が期待 status か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_summary_eq %fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary fn i32 fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \summary\expected_len\expected_copy\expected_drop\expected_eq\expected_hash:
+    and:
+        eq summary.table_len expected_len
+        and:
+            selfhost_memo_trait_operation_drop_absence_evidence_connector_status_result_eq summary.copy_status expected_copy
+            and:
+                selfhost_memo_trait_operation_drop_absence_evidence_connector_status_result_eq summary.drop_status expected_drop
+                and:
+                    selfhost_memo_trait_operation_drop_absence_evidence_connector_status_result_eq summary.eq_status expected_eq
+                    selfhost_memo_trait_operation_drop_absence_evidence_connector_status_result_eq summary.hash_status expected_hash
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_result_eq: Result payload が期待 summary か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_result_eq %fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn i32 fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus fn SelfhostMemoTraitAggregateProofStatus bool \result\expected_len\expected_copy\expected_drop\expected_eq\expected_hash:
+    match result:
+        Result::Ok summary:
+            selfhost_memo_trait_operation_drop_absence_evidence_connector_accepted_summary_eq summary expected_len expected_copy expected_drop expected_eq expected_hash
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_error_result_eq: Result payload が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_absence_evidence_connector_error_result_eq %fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _summary:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_drop_absence_evidence_connector_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned: owned evidence table を増補して summary へ[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - lower public API が成功した場合だけ summary helper が owner を閉じます。
+//: - lower public API が失敗した場合は、その API が owner cleanup を完了しているため、この helper は追加 free をしません。
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostMemoTraitOperationDropImplSurfaceState impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind \table\surface\drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_push_no_drop_result table surface drop_table type_id:
+        Result::Ok next_table:
+            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_summary_from_table next_table type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result: stage0 用の空 evidence table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result %impure fn void Result SelfhostMemoTraitOperationEvidenceTable StdErrorKind \void:
+    match selfhost_memo_trait_operation_evidence_table_new:
+        Result::Ok table:
+            Result::Ok table
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result: stage0 用 record を table へ[追加/ついか]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result %impure fn SelfhostMemoTraitOperationEvidenceTable impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationEvidenceKind impure fn SelfhostMemoTraitAggregateProofStatus Result SelfhostMemoTraitOperationEvidenceTable StdErrorKind \table\type_id\operation\status:
+    let record %SelfhostMemoTraitOperationEvidenceRecord selfhost_memo_trait_operation_evidence_record_new type_id operation status
+    match selfhost_memo_trait_operation_evidence_table_push table record:
+        Result::Ok next_table:
+            Result::Ok next_table
+        Result::Err _e:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_existing_table_result: Copy / Eq / Hash を持つ stage0 table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_existing_table_result %impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result:
+        Result::Ok table0:
+            match selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result table0 type_id SelfhostMemoTraitOperationEvidenceKind::Copy SelfhostMemoTraitAggregateProofStatus::Proven:
+                Result::Ok table1:
+                    match selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result table1 type_id SelfhostMemoTraitOperationEvidenceKind::Eq SelfhostMemoTraitAggregateProofStatus::Unknown:
+                        Result::Ok table2:
+                            selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result table2 type_id SelfhostMemoTraitOperationEvidenceKind::Hash SelfhostMemoTraitAggregateProofStatus::Missing
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_drop_table_result: 既存 Drop record を持つ stage0 table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_drop_table_result %impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result:
+        Result::Ok table0:
+            selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result table0 type_id SelfhostMemoTraitOperationEvidenceKind::Drop SelfhostMemoTraitAggregateProofStatus::Proven
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_duplicate_drop_table_result: Drop duplicate stage0 table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_duplicate_drop_table_result %impure fn SelfhostTypeId Result SelfhostMemoTraitOperationEvidenceTable StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_drop_table_result type_id:
+        Result::Ok table1:
+            selfhost_memo_trait_operation_drop_absence_evidence_connector_push_stage0_record_result table1 type_id SelfhostMemoTraitOperationEvidenceKind::Drop SelfhostMemoTraitAggregateProofStatus::Missing
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_present_drop_table_result: present Drop impl fact table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_present_drop_table_result %impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropImplTable StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_drop_impl_table_new:
+        Result::Ok drop_table0:
+            let root %SelfhostHirExprId selfhost_hir_expr_id_new 9411
+            let fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id 94101 root SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+            match selfhost_memo_trait_operation_drop_impl_table_push drop_table0 fact:
+                Result::Ok drop_table:
+                    Result::Ok drop_table
+                Result::Err _resolver_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_empty: 空 table の accepted path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_empty %impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind StdErrorKind \drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned table SelfhostMemoTraitOperationDropImplSurfaceState::Complete drop_table type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_existing: 既存 Copy / Eq / Hash table の accepted path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_existing %impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind StdErrorKind \drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_existing_table_result type_id:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned table SelfhostMemoTraitOperationDropImplSurfaceState::Complete drop_table type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_missing: missing surface rejection を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_missing %impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind StdErrorKind \drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned table SelfhostMemoTraitOperationDropImplSurfaceState::Missing drop_table type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_duplicate: duplicate Drop rejection を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_duplicate %impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind StdErrorKind \drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_duplicate_drop_table_result type_id:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned table SelfhostMemoTraitOperationDropImplSurfaceState::Complete drop_table type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_existing_drop: existing Drop rejection を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_existing_drop %impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind StdErrorKind \drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_drop_table_result type_id:
+        Result::Ok table:
+            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned table SelfhostMemoTraitOperationDropImplSurfaceState::Complete drop_table type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_present: present Drop impl rejection を[実行/じっこう]して table owner を[閉/と]じる
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_present %impure fn SelfhostTypeId Result Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind StdErrorKind \type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_present_drop_table_result type_id:
+        Result::Ok present_drop_table:
+            match selfhost_memo_trait_operation_drop_absence_evidence_connector_empty_table_result:
+                Result::Ok table:
+                    let result %Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind selfhost_memo_trait_operation_drop_absence_evidence_connector_run_owned table SelfhostMemoTraitOperationDropImplSurfaceState::Complete &present_drop_table type_id
+                    selfhost_memo_trait_operation_drop_impl_table_free present_drop_table
+                    Result::Ok result
+                Result::Err e:
+                    selfhost_memo_trait_operation_drop_impl_table_free present_drop_table
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_summary_new %fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary \accepted_empty\accepted_existing\present_rejected\missing_rejected\duplicate_rejected\existing_drop_rejected:
+    SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary accepted_empty accepted_existing present_rejected missing_rejected duplicate_rejected existing_drop_rejected
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_after_empty: stage0 の後半を[実行/じっこう]して Drop impl table owner を[閉/と]じる
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_after_empty %impure fn SelfhostMemoTraitOperationDropImplTable impure fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind impure fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind impure fn Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorAcceptedSummary SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorErrorKind impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary StdErrorKind \drop_table\accepted_empty\accepted_existing\present_rejected\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_missing &drop_table type_id:
+        Result::Ok missing_rejected:
+            match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_duplicate &drop_table type_id:
+                Result::Ok duplicate_rejected:
+                    match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_existing_drop &drop_table type_id:
+                        Result::Ok existing_drop_rejected:
+                            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                            Result::Ok selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_summary_new accepted_empty accepted_existing present_rejected missing_rejected duplicate_rejected existing_drop_rejected
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_with_table: empty Drop impl table を使って代表 path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_with_table %impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary StdErrorKind \drop_table\type_id:
+    match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_empty &drop_table type_id:
+        Result::Ok accepted_empty:
+            match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_existing &drop_table type_id:
+                Result::Ok accepted_existing:
+                    match selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_run_present type_id:
+                        Result::Ok present_rejected:
+                            selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_after_empty drop_table accepted_empty accepted_existing present_rejected type_id
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_trait_operation_drop_impl_table_free drop_table
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_trait_operation_drop_impl_table_free drop_table
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0: no-drop absence evidence connector の smoke API
+//:
+//: [目的/もくてき]:
+//: - no-drop absence が `Drop: Proven` へ増補されること、既存 Copy / Eq / Hash を保持すること、present / missing / duplicate / existing Drop を fail-closed にすることを確認します。
+pub fn selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0 %impure fn void Result SelfhostMemoTraitOperationDropAbsenceEvidenceConnectorStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9401
+    match selfhost_memo_trait_operation_drop_impl_table_new:
+        Result::Ok drop_table:
+            selfhost_memo_trait_operation_drop_absence_evidence_connector_stage0_with_table drop_table type_id
+        Result::Err _alloc_error:
+            Result::Err StdErrorKind::InvalidOperation

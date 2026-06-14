@@ -1793,7 +1793,17 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_absence_produ
 
 subagent review では、`NoDropRequired` を fake impl candidate で表現しないこと、complete public surface witness と `DropImplAbsent` を必須 authority にすること、`Missing` / `Unknown` / `DropImplPresent` / partial surface / duplicate を fail-closed にすること、sorted index や lookup cache は後続最適化に回すことが Required / Non-blocker として確認された。今回の producer は evidence table 増補や operation proof table 接続までは行わず、absence-only evidence boundary として閉じる。
 
-この checkpoint 後の残件は、no-drop absence evidence を operation evidence table へ増補する上位 connector、Rust Resource IR 相当の actual graph walker 本体、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保って後から行える最適化として扱う。
+2026-06-14 Drop absence evidence connector checkpoint では、`memo_trait_operation_drop_absence_evidence_connector.nepl` を追加し、complete public impl surface 由来の no-drop absence evidence を既存 `SelfhostMemoTraitOperationEvidenceTable` owner へ増補する checker-layer connector boundary を接続した。
+
+この connector は owned operation evidence table、`SelfhostMemoTraitOperationDropImplSurfaceState`、borrowed `SelfhostMemoTraitOperationDropImplTable`、`SelfhostTypeId` を受け取り、追加前に同じ TypeId / Drop operation の既存 record を lookup する。既存 Drop record がある場合は `DropEvidenceAlreadyPresent(status)`、duplicate がある場合は `EvidenceTableRejected(DuplicateRecord)` として fail-closed にし、record order による first-wins を許さない。preflight / absence producer error の経路では connector が table owner を閉じ、push failure は evidence table push boundary が owner を消費するため二重解放しない。
+
+accepted authority は `memo_trait_operation_drop_absence_producer` の `Ok(NoDropRequired)` と operation evidence table の typed API だけである。fake `SelfhostMemoTraitOperationImplCandidate`、fake public impl header、public surface hash authority、source text / span / display / path authority、Resource IR graph、proof store、aggregate proof、PrivateCache / PrivateState、backend artifact、prechecked artifact は使わない。`NoDropRequired` だけを `SelfhostMemoTraitOperationEvidenceKind::Drop` / `SelfhostMemoTraitAggregateProofStatus::Proven` に写し、`PureDrop` は Drop body effect / Resource no-escape proof 側の責務としてこの module では合成しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_absence_evidence_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、minimal checker-layer import allow-list、fake candidate / fake header / impl table / public surface / Resource / backend / proof store / PrivateCache / PrivateState / prechecked import 禁止、existing Drop / duplicate preflight rejection、producer error owner cleanup、`NoDropRequired -> Drop/Proven` 変換、non-`NoDropRequired` fail-closed、typed error、wildcard-free equality、行数 / doc comment 長制限禁止を確認する。
+
+subagent review では、absence を既存 public impl operation connector の `CandidateMissing` path に混ぜないこと、`DropImplPresent` を成功扱いにしないこと、owner cleanup と duplicate rejection を connector contract と source policy に固定すること、fake candidate / fake public impl header / public surface hash authority を禁止することが Required として確認された。実装はこの指摘に従い、absence producer と operation evidence table の間だけを接続する小さい module にした。
+
+この checkpoint 後の残件は、Rust Resource IR 相当の actual graph walker 本体、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割、operation evidence table lookup の index 化は、今回固定した typed authority / fail-closed / owner cleanup contract を保って後から行える最適化として扱う。
 
 ## 既存 issue との対応
 

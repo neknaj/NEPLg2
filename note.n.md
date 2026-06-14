@@ -1,3 +1,50 @@
+# 2026-06-14 Agent selfhost Drop absence evidence connector checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、DAG 責務分割、fake proof / fake impl candidate 禁止、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限、doc comment 長制限、コメント削減を目的とする source policy は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / no-drop absence evidence を既存 operation evidence table の Drop/Proven record へ増補する connector boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl absence evidence table connector
+- decision: MERGE_APPROVED after focused doctest, source policy, Zenn review gate, issue/doc/todo/note update, and two independent subagent reviews.
+- policy/spec:
+  - accepted authority は `memo_trait_operation_drop_absence_producer` の `Ok(NoDropRequired)`、`SelfhostMemoTraitOperationEvidenceTable` の typed lookup / push API、`SelfhostTypeId`、`SelfhostMemoTraitOperationEvidenceKind::Drop` だけである。
+  - fake `SelfhostMemoTraitOperationImplCandidate`、fake public impl header、public_surface_hash authority、source text / span / display / path authority、Resource IR graph、proof store、aggregate proof、PrivateCache / PrivateState、backend artifact、prechecked artifact は使わない。
+  - 追加前に同じ TypeId / Drop record を lookup し、既存 record は `DropEvidenceAlreadyPresent(status)`、duplicate は `EvidenceTableRejected(DuplicateRecord)` として fail-closed にする。
+  - `NoDropRequired` だけを `SelfhostMemoTraitOperationEvidenceKind::Drop` / `SelfhostMemoTraitAggregateProofStatus::Proven` に写す。`PureDrop` は Drop body effect / Resource no-escape proof 側の責務であり、この module では合成しない。
+  - preflight / absence producer error の経路では connector が table owner を閉じる。push failure は evidence table push boundary が owner を消費するため、二重解放しない。
+  - 次 slice は generic impl binder / bound detailed evidence、PrivateCache / PrivateState masking、prechecked artifact 接続を個別に扱う。operation evidence table lookup index 化、Drop impl fact table sorted index 化、absence lookup cache、stage0 fixture 分割は contract を保てる後続最適化である。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_evidence_connector.nepl` を追加した。
+  - public API `selfhost_memo_trait_operation_drop_absence_evidence_connector_push_no_drop_result` は owned evidence table、Drop surface state、borrowed Drop impl table、TypeId を受け、preflight、absence producer、`Drop: Proven` record push を順に行う。
+  - doctest は empty table accepted、Copy / Eq / Hash 既存 record preservation、present Drop impl rejection、missing surface rejection、Drop duplicate rejection、existing Drop rejection を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_absence_evidence_connector_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+- subagent review:
+  - subagent review は policy/spec と implementation/test の 2 軸で扱った。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec48a-0645-7c52-867f-a35bc0a435ad`
+  - subagent_review_count: 2
+  - Blocker: 既存 `memo_trait_public_impl_operation_evidence_connector.nepl` の `CandidateMissing` から `NoDropRequired` を作る設計、fake impl candidate / fake public impl header を作る設計、public_surface_hash だけを absence authority にする設計は Blocker と確認されたため採用していない。
+  - Required: absence は別 connector / augmentor にし、complete surface + `DropImplAbsent` 由来の `NoDropRequired` だけを `Drop: Proven` record に変換すること。対応済み。
+  - Required: owner cleanup、push 前 duplicate / existing Drop preflight、table lookup duplicate rejection、typed error、fake candidate 禁止、source/span/display/path/hash authority 禁止、proof store / aggregate proof / PrivateCache / PrivateState / prechecked 禁止を source policy に固定すること。対応済み。
+  - Non-blocker: operation evidence table lookup index 化、Drop table bucket 化、origin 照合高速化、stage0 fixture 分割は後続最適化である。
+  - Question: surface state と Drop impl table の same-origin token は現行 lower table に無い。今回の module は caller contract とし、後続 orchestration boundary で同じ scanner / materializer output から両方を渡す責務として残した。
+  - Approve: yes.
+- source_policy:
+  - source_policy: added.
+  - 新規 source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、minimal checker-layer import allow-list、fake candidate / fake header / impl table / public surface / Resource / backend / proof store / PrivateCache / PrivateState / prechecked import 禁止、existing Drop / duplicate preflight rejection、producer error owner cleanup、`NoDropRequired -> Drop/Proven` 変換、non-`NoDropRequired` fail-closed、typed error、wildcard-free equality、行数 / doc comment 長制限禁止を確認する。
+  - 既存 warning: `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108`、Node の WASI ExperimentalWarning、Git の LF/CRLF warning。
+  - 今回差分由来 warning: なし。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_absence_evidence_connector_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_evidence_connector.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-drop-absence-evidence-connector.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_evidence_contract.js` pass。
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。新規 drop absence evidence connector contract は runner 内でも pass。既存 warning は stdlib declaration doc gaps baseline だけである。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+
 # 2026-06-14 Agent selfhost Drop absence producer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、DAG 責務分割、fake proof / fake impl candidate 禁止、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。

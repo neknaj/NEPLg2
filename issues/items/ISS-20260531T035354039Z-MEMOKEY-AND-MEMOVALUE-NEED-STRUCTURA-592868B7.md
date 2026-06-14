@@ -104,7 +104,24 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_absence_produ
 - pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_absence_producer_contract.js`
 - pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_producer.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-drop-absence-producer.json`
 
-この checkpoint 後も、no-drop absence evidence を operation evidence table へ増補する上位 connector、actual Resource IR graph walker、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
+## 2026-06-14 selfhost Drop absence evidence connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_evidence_connector.nepl` を追加し、complete public impl surface 由来の no-drop absence evidence を既存 `SelfhostMemoTraitOperationEvidenceTable` owner へ増補する checker-layer connector boundary を作った。
+
+public API `selfhost_memo_trait_operation_drop_absence_evidence_connector_push_no_drop_result` は、owned operation evidence table、`SelfhostMemoTraitOperationDropImplSurfaceState`、borrowed `SelfhostMemoTraitOperationDropImplTable`、`SelfhostTypeId` を受け取る。追加前に同じ TypeId / Drop operation の既存 record を lookup し、既存 Drop status は `DropEvidenceAlreadyPresent(status)`、duplicate は `EvidenceTableRejected(DuplicateRecord)` として fail-closed にする。preflight / absence producer error の経路では connector が table owner を閉じ、push failure は evidence table push boundary が owner を消費するため二重解放しない。
+
+accepted authority は `memo_trait_operation_drop_absence_producer` の `Ok(NoDropRequired)` と operation evidence table の typed API だけである。fake `SelfhostMemoTraitOperationImplCandidate`、fake public impl header、public surface hash authority、source text / span / display / path authority、Resource IR graph、proof store、aggregate proof、PrivateCache / PrivateState、backend artifact、prechecked artifact は使わない。`NoDropRequired` だけを `SelfhostMemoTraitOperationEvidenceKind::Drop` / `SelfhostMemoTraitAggregateProofStatus::Proven` に写し、`PureDrop` は Drop body effect / Resource no-escape proof 側の責務としてこの module では合成しない。
+
+subagent review では、absence を既存 public impl operation connector の `CandidateMissing` path に混ぜないこと、`DropImplPresent` を成功扱いにしないこと、owner cleanup と duplicate rejection を connector contract と source policy に固定すること、fake candidate / fake public impl header / public surface hash authority を禁止することが Required として確認された。実装はこの指摘に従い、absence producer と operation evidence table の間だけを接続する小さい module にした。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_absence_evidence_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、minimal checker-layer import allow-list、fake candidate / fake header / impl table / public surface / Resource / backend / proof store / PrivateCache / PrivateState / prechecked import 禁止、existing Drop / duplicate preflight rejection、producer error owner cleanup、`NoDropRequired -> Drop/Proven` 変換、non-`NoDropRequired` fail-closed、typed error、wildcard-free equality、行数 / doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_absence_evidence_connector_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_absence_evidence_connector.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-drop-absence-evidence-connector.json`
+
+この checkpoint 後も、actual Resource IR graph walker、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割、operation evidence table lookup の index 化は、今回固定した typed authority / fail-closed / owner cleanup contract を保って後からできる最適化として扱う。
 
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
