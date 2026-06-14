@@ -1312,6 +1312,27 @@ helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_
 
 F4aj は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once`、F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action start consume once
+
+F4ak は contour start から first consumer item を作り、その 1 item だけを consume する byte-backed boundary である。これは F4aj と F4ai の薄い合成であり、contour-wide loop、iterator、real sink mutation、full outline builder、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once:
+    bytes &ByteBuf
+    face_index Option i32
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy` を 1 回だけ呼ぶ。`Result::Err error` なら parse/range/table error としてそのまま返す。`Result::Ok consumer_item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &consumer_item policy` を 1 回だけ呼び、その結果をそのまま返す。
+
+F4ak の戻り値は F4ai と同じ `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` である。これにより、最初の action を consume した後の apply state / status と post-consume advance を両方保持する。`GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけへ縮約してはいけない。
+
+F4ak は F4aa/F4ac/F4ad/F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。`GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

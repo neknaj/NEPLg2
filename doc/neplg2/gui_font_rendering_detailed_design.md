@@ -1701,6 +1701,31 @@ F4aj intentionally does not create a new value type. The result type is the exis
 
 F4aj must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once`. It must not call F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup helpers directly, inspect action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
 
+### SFNT simple glyph path sink action start consume once
+
+F4ak is the first start-to-consume boundary. It takes a byte-backed glyph contour start and an existing apply state, creates the first consumer item through F4aj, and consumes exactly that item through F4ai.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once bytes face_index state glyph contour_index policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:
+        Err error:
+            Err error
+
+        Ok consumer_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state consumer_item policy:
+                Err error:
+                    Err error
+
+                Ok consume_step:
+                    Ok consume_step
+```
+
+F4ak deliberately returns `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep`, not only `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`. The start boundary must preserve the same diagnostic and future-loop information as F4ai: the consumed action's apply state/status and the post-consume advance.
+
+F4ak is not a contour loop and not a real sink. It must not call F4aa/F4ac/F4ad/F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup helpers directly. It must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, inspect action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

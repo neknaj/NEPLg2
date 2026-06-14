@@ -3317,6 +3317,66 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F4aj helper body must preserve NEPL prefix style without parentheses",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph path sink action start consume once[\s\S]*gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once[\s\S]*apply state \/ status と post-consume advance を両方保持/,
+    "font spec must define F4ak start consume-once as preserving apply state/status and advance",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph path sink action start consume once[\s\S]*not only `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`[\s\S]*F4ak is not a contour loop/,
+    "font detailed design must explain why F4ak preserves F4ai consume step and stays non-loop",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4ak: sfnt simple glyph path sink action start consume once[\s\S]*F4aj start consumer item と F4ai consume once を薄く合成[\s\S]*apply state \/ status と post-consume advance/,
+    "font implementation plan must define F4ak as F4aj plus F4ai and preserve consume step",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError"),
+    "alloc/gui/font/sfnt/glyf F4ak must expose byte-backed start consume-once helper",
+);
+assert(
+    guiFontSfntPathTests.includes("start_consume_once_ok") &&
+        guiFontSfntPathTests.includes("gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once") &&
+        guiFontSfntPathTests.includes("path contour step public lookup follows cursor next contract"),
+    "gui font sfnt path doctest must cover F4ak direct start consume-once helper",
+);
+const pathSinkActionStartConsumeOnce = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once");
+for (const fragment of [
+    "match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok consumer_item:",
+    "match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &consumer_item policy:",
+    "Result::Ok consume_step:",
+    "Result::Ok consume_step",
+]) {
+    assert(pathSinkActionStartConsumeOnce.includes(fragment), `alloc/gui/font/sfnt/glyf F4ak start consume-once helper must include ${fragment}`);
+}
+assert(
+    (pathSinkActionStartConsumeOnce.match(/\bgui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4ak helper must call F4aj start consumer item exactly once",
+);
+assert(
+    (pathSinkActionStartConsumeOnce.match(/\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4ak helper must call F4ai consume-once exactly once",
+);
+assertNoMatch(
+    pathSinkActionStartConsumeOnce,
+    /\bGuiSfntSimpleGlyphPathSinkActionConsumerItemNext\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_start_item\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next\b|\bgui_sfnt_simple_glyph_path_sink_action_consumer_item_apply\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_item_next\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_step_item\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_step_advance\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_step\b|\bgui_sfnt_lookup_simple_glyph_path_sink_step\b|\bgui_sfnt_lookup_simple_glyph_path_contour_step\b|\bgui_sfnt_parse_metadata\b|\bgui_sfnt_glyf_|\bgui_sfnt_classify_simple_glyph_curve_segment\b/,
+    "alloc/gui/font/sfnt/glyf F4ak helper must not call direct F4aa/F4ac/F4ad/F4af/F4ah or lower lookup helpers",
+);
+assertNoMatch(
+    pathSinkActionStartConsumeOnce,
+    /\b(?:Vec|push|action_index|command_index|loop_index|current_point|cursor|next_cursor|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4ak helper must not allocate, loop, inspect payload variants, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathSinkActionStartConsumeOnce,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4ak helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,
