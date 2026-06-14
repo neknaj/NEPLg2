@@ -2458,6 +2458,131 @@ render / raster / platform / host APIs
 direct Vec APIs
 ```
 
+## SFNT simple glyph point y coordinate population boundary
+
+F5i mirrors the F5g storage boundary for the `PointY` region. It accepts a typed y coordinate slot and appends its scalar value into the F5d `PointY` region.
+
+```text
+GuiSfntSimpleGlyphPointYSlot:
+    point_index i32
+    y i32
+```
+
+PointY starts after both contour endpoints and all x coordinate slots:
+
+```text
+ContourEndpoint [0, contour_count)
+PointX          [contour_count, contour_count + point_count)
+PointY          [contour_count + point_count, contour_count + point_count + point_count)
+```
+
+For the 2-contour / 4-point fixture, `PointY` starts at scalar index 6. Tests and later builders must populate endpoint slots and all four `PointX` slots before using a `PointY` cursor. A `PointY` push with storage length 2 or 4 is a storage/cursor mismatch, not a valid y push.
+
+The logical point index mapping is:
+
+```text
+logical_point_index = cursor.next_index - cursor.start
+```
+
+This subtraction is valid only after:
+
+```text
+capacity shape is valid
+scalar slot count is Fits
+cursor is well formed
+cursor region is PointY
+cursor boundaries match the checked capacity
+```
+
+The validation order is fail-closed and must not read cursor start/next for point semantics before the boundary match.
+
+F5i wraps F5d region push failure without losing ownership:
+
+```text
+RegionPushFailed:
+    storage = recovered storage from F5d error
+    region_error_kind = Some F5d error kind
+    push_error_kind = F5d underlying push_error_kind
+```
+
+The F5d error kind and F5c push error kind must be read before consuming the owner-bearing F5d error via its storage accessor.
+
+F5i must not call byte readers, `gui_sfnt_glyf_*` helpers, point stream construction, coordinate decode, path generation, rasterization, render2d, platform APIs, host text measurement, or direct `Vec` APIs. The only mutation call in the commit helper is `gui_sfnt_simple_glyph_outline_storage_push_region_scalar`.
+
+## SFNT simple glyph point y byte reader bridge boundary
+
+F5j connects the checked point stream range to the F5i `PointY` storage mutation helper. It is deliberately y-only. It does not validate x ranges, endpoint arrays, contour spans, edges, paths, raster masks, render commands, or platform font APIs.
+
+The input stream may come from the F4g checked point stream lookup or from a test/virtualized caller. F5j trusts the stream shape except for the flag/y byte reads needed to compute the requested y coordinate. A forged stream with a bad x range is not rejected by F5j. That case belongs to the PointX or full point decode phase.
+
+```text
+GuiSfntSimpleGlyphPointYReadPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphPointYReadPushErrorKind:
+    ReadFailed
+    PushFailed
+```
+
+The owner-bearing success and error payloads must not implement `Clone` or `Copy`. The success payload needs accessors for both advanced cursor and storage owner.
+
+The error payload keeps both failure domains separate:
+
+```text
+ReadFailed:
+    storage = original storage
+    cursor = original cursor
+    point_index = requested point index
+    point = None
+    parse_error = Some GuiSfntParseError
+    push_error_kind = None
+    region_error_kind = None
+    storage_push_error_kind = None
+
+PushFailed:
+    storage = recovered storage from F5i error
+    cursor = original cursor
+    point_index = requested point index
+    point = Some rejected PointY slot
+    parse_error = None
+    push_error_kind = Some F5i error kind
+    region_error_kind = F5i lower F5d error kind
+    storage_push_error_kind = F5i lower F5c error kind
+```
+
+The helper order is:
+
+```text
+read y from stream
+    if read failed:
+        return ReadFailed without calling F5i
+
+point = PointYSlot point_index y
+push point through F5i exactly once
+    if push failed:
+        read rejected point and lower metadata from F5i error
+        recover storage owner from F5i error
+        return PushFailed
+```
+
+The y-only reader may call only bounded flag reads and `gui_sfnt_glyf_decode_y_delta`. It must not call:
+
+```text
+gui_sfnt_glyf_decode_x_delta
+gui_sfnt_glyf_decode_point_from_stream
+gui_sfnt_glyf_decode_point_state_from_stream
+gui_sfnt_glyf_decode_point_state_from_flag_run
+gui_sfnt_glyf_decode_flag_run_state
+GuiSfntSimpleGlyphPointDecodeState
+gui_sfnt_glyf_point_is_contour_end
+gui_sfnt_glyf_read_contour_endpoint
+contour span helpers
+public gui_sfnt_lookup_* wrappers
+render / raster / platform / host APIs
+direct Vec APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

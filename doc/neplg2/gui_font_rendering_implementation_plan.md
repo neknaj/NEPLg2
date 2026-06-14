@@ -2481,3 +2481,87 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5h.json -j 1
 git diff --check
 ```
+
+## Phase F5i: sfnt simple glyph point y coordinate population
+
+目的:
+
+- F5d の `PointY` region cursor を使い、typed y coordinate slot を owner-preserving に storage へ追加する。
+- `PointY` region は endpoint と全 `PointX` slot の後ろにあるため、scalar storage index と glyph logical point index の混同を防ぐ。
+- byte-backed y decode、point flag decode、x coordinate、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5i docs、PointY slot type、success/error owner payload、validation order、owner 型の非 Clone / 非 Copy、禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPointYSlot`
+  - `GuiSfntSimpleGlyphPointYPush`
+  - `GuiSfntSimpleGlyphPointYPushErrorKind`
+  - `GuiSfntSimpleGlyphPointYPushError`
+  - `gui_sfnt_simple_glyph_outline_storage_push_point_y`
+- public helper は capacity shape と scalar slot count `Fits` を検査してから `point_count` を読む。
+- cursor well-formed validation と cursor/capacity boundary match は `logical_point_index = cursor.next_index - cursor.start` より前に行う。
+- `PointY` region であることを確認し、`point.point_index == logical_point_index`、`0 <= point.point_index < point_count` を検査する。
+- commit helper は F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び、F5d error を `RegionPushFailed` に owner-preserving に包む。
+- doctest は endpoint 2 slots と PointX 4 slots を先に埋めてから PointY success、point index mismatch、wrong region を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+完了条件:
+
+- 2 contours / 4 points の storage に endpoint 2 slots と PointX 4 slots を追加した後、PointY point 0 と point 1 を追加でき、storage len が 8、cursor next index が 8 になる。
+- PointY cursor が logical point 0 を指す状態で slot point_index 1 を渡すと `PointIndexMismatch` になり、storage len が 6 のまま回収できる。
+- PointX cursor など wrong region を渡した場合は `CursorRegionMismatch` になり、storage len が 6 のまま回収できる。
+- source policy が capacity/cursor/point validation order、F5d region push 呼び出し回数、direct `vec::` 禁止、`gui_sfnt_glyf_` / point decode / render / raster / platform / host API 禁止、owner 型の非 Clone / 非 Copy、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5j.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5j.json -j 1
+git diff --check
+```
+
+## Phase F5j: sfnt simple glyph point y byte reader bridge
+
+目的:
+
+- checked `GuiSfntSimpleGlyphPointStream` から 1 logical point の y coordinate だけを読み、F5i の `PointY` storage helper へ owner-preserving に接続する。
+- byte-backed y read failure と F5i push failure の error domain を enum で分離する。
+- x coordinate、endpoint array、contour span、edge/path command generation、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5j docs、read-before-mutate ordering、read failure と push failure の分離、owner 型の非 Clone / 非 Copy、y-only allowlist、full point / endpoint / render / platform 禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPointYReadPush`
+  - `GuiSfntSimpleGlyphPointYReadPushErrorKind`
+  - `GuiSfntSimpleGlyphPointYReadPushError`
+  - `gui_sfnt_glyf_read_push_point_y`
+- `GuiSfntSimpleGlyphPointYReadPush` と `GuiSfntSimpleGlyphPointYReadPushError` は storage owner を持つため `Clone` / `Copy` を実装しない。
+- success payload には cursor accessor と storage owner accessor を追加する。
+- y-only internal helper は bounded flag reads と `gui_sfnt_glyf_decode_y_delta` だけを使う。
+- `gui_sfnt_glyf_decode_x_delta`、full point decode state、endpoint read、contour span helper、public lookup wrapper、direct `Vec`、render/raster/platform/host API は使わない。
+- forged bad x range は F5j では検査しない。PointX / full point phase の責務として document する。
+- read failure では F5i push を呼ばず、point は `None`、parse error は `Some`、storage len は変更しない。
+- read success では `GuiSfntSimpleGlyphPointYSlot` を作り、F5i `gui_sfnt_simple_glyph_outline_storage_push_point_y` を 1 回だけ呼ぶ。
+- F5i push failure では rejected point、F5i error kind、F5d region error kind、F5c storage push error kind を owner 消費前に読む。
+- doctest は endpoint 2 slots と PointX 4 slots を先に埋めてから PointY read/push success、read failure owner recovery、push failure point preservation を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- bad x range だが valid y range を持つ forged stream から PointY point 0 と point 1 を追加でき、storage len が 8、cursor next index が 8 になる。
+- y byte range が壊れた stream では `ReadFailed` になり、point は `None`、parse error は `Some`、storage len が 6 のまま回収できる。
+- valid y read だが cursor が logical point 0 を指す状態で point_index 1 を push すると `PushFailed` になり、point は `Some`、lower F5i error kind が `Some PointIndexMismatch` になる。
+- source policy が y-only allowlist、read-before-mutate、F5i push 呼び出し回数、lower error metadata の owner 消費前読み取り、direct `vec::` 禁止、full point / endpoint / render / raster / platform / host API 禁止、owner 型の非 Clone / 非 Copy、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5j.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5j.json -j 1
+git diff --check
+```

@@ -25,6 +25,8 @@ function functionSlice(source, name) {
     const candidates = [
         source.indexOf("\nfn ", start + 1),
         source.indexOf("\npub fn ", start + 1),
+        source.indexOf("\nstruct ", start + 1),
+        source.indexOf("\nenum ", start + 1),
         source.indexOf("\npub struct ", start + 1),
         source.indexOf("\npub enum ", start + 1),
         source.indexOf("\nimpl ", start + 1),
@@ -45,6 +47,15 @@ function assertMatch(text, pattern, message) {
 
 function assertNoMatch(text, pattern, message) {
     assert(!pattern.test(text), `${message}: forbidden ${pattern}`);
+}
+
+function assertOrderedFragments(text, fragments, message) {
+    let cursor = 0;
+    for (const fragment of fragments) {
+        const index = text.indexOf(fragment, cursor);
+        assert(index >= 0, `${message}: missing ${fragment}`);
+        cursor = index + fragment.length;
+    }
 }
 
 const spec = read("doc/neplg2/gui_font_rendering_spec.md");
@@ -81,12 +92,14 @@ const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
 const guiFontSfntOutlineStorageTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md");
+const guiFontSfntOutlinePointYTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
     guiFontSfntOutlineCapacityTests,
     guiFontSfntOutlineStorageTests,
+    guiFontSfntOutlinePointYTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -4194,9 +4207,28 @@ assertMatch(
     /Phase F5d: sfnt simple glyph outline scalar region cursor[\s\S]*unchecked helper 非公開[\s\S]*scalar_slots_cap == scalar_slot_count[\s\S]*scalar_slots_len == cursor\.next_index[\s\S]*F5c `gui_sfnt_simple_glyph_outline_storage_push_scalar_slot` を 1 回だけ呼ぶ[\s\S]*subagent review/,
     "font implementation plan must define F5d source policy, fixed capacity invariant, and review gate",
 );
-assertMatch(
+assertOrderedFragments(
     allocFontSfntGlyfImpl,
-    /pub\s+enum\s+GuiSfntSimpleGlyphOutlineScalarRegion:[\s\S]*ContourEndpoint[\s\S]*PointX[\s\S]*PointY[\s\S]*Edge[\s\S]*PathCommandTag[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineScalarRegionCursor:[\s\S]*region\s+%GuiSfntSimpleGlyphOutlineScalarRegion[\s\S]*start\s+%i32[\s\S]*end\s+%i32[\s\S]*next_index\s+%i32[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphOutlineRegionPushErrorKind:[\s\S]*StorageCapacityInvalid[\s\S]*CursorInvalid[\s\S]*CursorRegionMismatch[\s\S]*StorageCursorMismatch[\s\S]*RegionFull[\s\S]*StoragePushFailed/,
+    [
+        "pub enum GuiSfntSimpleGlyphOutlineScalarRegion:",
+        "ContourEndpoint",
+        "PointX",
+        "PointY",
+        "Edge",
+        "PathCommandTag",
+        "pub struct GuiSfntSimpleGlyphOutlineScalarRegionCursor:",
+        "region %GuiSfntSimpleGlyphOutlineScalarRegion",
+        "start %i32",
+        "end %i32",
+        "next_index %i32",
+        "pub enum GuiSfntSimpleGlyphOutlineRegionPushErrorKind:",
+        "StorageCapacityInvalid",
+        "CursorInvalid",
+        "CursorRegionMismatch",
+        "StorageCursorMismatch",
+        "RegionFull",
+        "StoragePushFailed",
+    ],
     "alloc/gui/font/sfnt/glyf F5d must expose typed region, cursor, and region push error kind",
 );
 assertNoMatch(
@@ -4721,33 +4753,82 @@ assertNoMatch(
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5g commit helper body must preserve NEPL prefix style without parentheses",
 );
-assertMatch(
-    spec,
-    /SFNT simple glyph point x byte reader bridge[\s\S]*x coordinate だけを読み[\s\S]*forged stream の y range が壊れていても F5h は検査しない[\s\S]*GuiSfntSimpleGlyphPointXReadPushErrorKind:[\s\S]*ReadFailed[\s\S]*PushFailed[\s\S]*gui_sfnt_glyf_read_push_point_x[\s\S]*gui_sfnt_glyf_decode_y_delta/,
-    "font spec must define F5h x-only byte reader bridge and y-range non-validation",
+const specF5h = spec.slice(
+    spec.indexOf("### SFNT simple glyph point x byte reader bridge"),
+    spec.indexOf("### SFNT simple glyph point y coordinate population"),
 );
-assertMatch(
-    detailedDesign,
-    /SFNT simple glyph point x byte reader bridge boundary[\s\S]*F5h connects[\s\S]*deliberately x-only[\s\S]*A forged stream with a bad y range is not rejected by F5h[\s\S]*The owner-bearing success and error payloads must not implement `Clone` or `Copy`[\s\S]*ReadFailed:[\s\S]*PushFailed:[\s\S]*gui_sfnt_glyf_decode_y_delta[\s\S]*gui_sfnt_glyf_read_contour_endpoint/,
-    "font detailed design must define F5h owner recovery and x-only banlist",
+for (const fragment of [
+    "x coordinate だけを読み",
+    "forged stream の y range が壊れていても F5h は検査しない",
+    "GuiSfntSimpleGlyphPointXReadPushErrorKind:",
+    "ReadFailed",
+    "PushFailed",
+    "gui_sfnt_glyf_read_push_point_x",
+    "gui_sfnt_glyf_decode_y_delta",
+]) {
+    assert(specF5h.includes(fragment), `font spec F5h x-only bridge must mention ${fragment}`);
+}
+const detailedF5h = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph point x byte reader bridge boundary"),
+    detailedDesign.indexOf("## SFNT simple glyph point y coordinate population boundary"),
 );
-assertMatch(
-    implementationPlan,
-    /Phase F5h: sfnt simple glyph point x byte reader bridge[\s\S]*x-only allowlist[\s\S]*forged bad y range は F5h では検査しない[\s\S]*F5g `gui_sfnt_simple_glyph_outline_storage_push_point_x` を 1 回だけ呼ぶ[\s\S]*subagent review/,
-    "font implementation plan must define F5h source policy, y-range non-validation, and review gate",
+for (const fragment of [
+    "F5h connects",
+    "deliberately x-only",
+    "A forged stream with a bad y range is not rejected by F5h",
+    "The owner-bearing success and error payloads must not implement `Clone` or `Copy`",
+    "ReadFailed:",
+    "PushFailed:",
+    "gui_sfnt_glyf_decode_y_delta",
+    "gui_sfnt_glyf_read_contour_endpoint",
+]) {
+    assert(detailedF5h.includes(fragment), `font detailed design F5h boundary must mention ${fragment}`);
+}
+const implementationPlanF5h = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5h: sfnt simple glyph point x byte reader bridge"),
+    implementationPlan.indexOf("## Phase F5i: sfnt simple glyph point y coordinate population"),
 );
+for (const fragment of [
+    "x-only allowlist",
+    "forged bad y range は F5h では検査しない",
+    "F5g `gui_sfnt_simple_glyph_outline_storage_push_point_x` を 1 回だけ呼ぶ",
+    "subagent review",
+]) {
+    assert(implementationPlanF5h.includes(fragment), `font implementation plan F5h must mention ${fragment}`);
+}
 const implementationPlanF5gIndex = implementationPlan.indexOf("## Phase F5g: sfnt simple glyph point x coordinate population");
 const implementationPlanF5hIndex = implementationPlan.indexOf("## Phase F5h: sfnt simple glyph point x byte reader bridge");
+const implementationPlanF5iIndex = implementationPlan.indexOf("## Phase F5i: sfnt simple glyph point y coordinate population");
+const implementationPlanF5jIndex = implementationPlan.indexOf("## Phase F5j: sfnt simple glyph point y byte reader bridge");
 assert(
     implementationPlanF5gIndex >= 0 &&
         implementationPlanF5hIndex > implementationPlanF5gIndex,
     "font implementation plan must keep F5h after F5g",
 );
-assertMatch(
-    allocFontSfntGlyfImpl,
-    /pub\s+struct\s+GuiSfntSimpleGlyphPointXReadPush:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*cursor\s+%GuiSfntSimpleGlyphOutlineScalarRegionCursor[\s\S]*pub\s+enum\s+GuiSfntSimpleGlyphPointXReadPushErrorKind:[\s\S]*ReadFailed[\s\S]*PushFailed[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphPointXReadPushError:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*point_index\s+%i32[\s\S]*point\s+%Option GuiSfntSimpleGlyphPointXSlot[\s\S]*parse_error\s+%Option GuiSfntParseError/,
-    "alloc/gui/font/sfnt/glyf F5h must expose PointX read-push owner payloads and typed error kind",
+assert(
+    implementationPlanF5hIndex >= 0 &&
+        implementationPlanF5iIndex > implementationPlanF5hIndex &&
+        implementationPlanF5jIndex > implementationPlanF5iIndex,
+    "font implementation plan must keep F5i/F5j after F5h in order",
 );
+const pointXReadTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphPointXReadPush:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphPointXDecodeState:"),
+);
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphPointXReadPush:",
+    "storage %GuiSfntSimpleGlyphOutlineStorage",
+    "cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor",
+    "pub enum GuiSfntSimpleGlyphPointXReadPushErrorKind:",
+    "ReadFailed",
+    "PushFailed",
+    "pub struct GuiSfntSimpleGlyphPointXReadPushError:",
+    "point_index %i32",
+    "point %Option GuiSfntSimpleGlyphPointXSlot",
+    "parse_error %Option GuiSfntParseError",
+]) {
+    assert(pointXReadTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5h PointX read-push types must include ${fragment}`);
+}
 assertNoMatch(
     allocFontSfntGlyfImpl,
     /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointXReadPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointXReadPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointXReadPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointXReadPushError:/,
@@ -4839,6 +4920,324 @@ assertNoMatch(
     pointXReadHelpers,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F5h x-only helper bodies must preserve NEPL prefix style without parentheses",
+);
+const specF5i = spec.slice(
+    spec.indexOf("### SFNT simple glyph point y coordinate population"),
+    spec.indexOf("### SFNT simple glyph point y byte reader bridge"),
+);
+for (const fragment of [
+    "PointY",
+    "ContourEndpoint [0, 2)",
+    "PointX          [2, 6)",
+    "PointY          [6, 10)",
+    "GuiSfntSimpleGlyphPointYSlot:",
+    "point_index i32",
+    "y i32",
+    "GuiSfntSimpleGlyphPointYPushErrorKind:",
+    "StorageCapacityInvalid",
+    "CursorInvalid",
+    "CursorRegionMismatch",
+    "PointIndexMismatch",
+    "PointIndexOutOfRange",
+    "RegionPushFailed",
+    "gui_sfnt_simple_glyph_outline_storage_push_point_y",
+]) {
+    assert(specF5i.includes(fragment), `font spec F5i PointY population must mention ${fragment}`);
+}
+const detailedF5i = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph point y coordinate population boundary"),
+    detailedDesign.indexOf("## SFNT simple glyph point y byte reader bridge boundary"),
+);
+for (const fragment of [
+    "PointY starts after both contour endpoints and all x coordinate slots",
+    "For the 2-contour / 4-point fixture, `PointY` starts at scalar index 6",
+    "logical_point_index = cursor.next_index - cursor.start",
+    "cursor boundaries match the checked capacity",
+    "must not read cursor start/next for point semantics before the boundary match",
+    "commit helper is `gui_sfnt_simple_glyph_outline_storage_push_region_scalar`",
+]) {
+    assert(detailedF5i.includes(fragment), `font detailed design F5i PointY boundary must mention ${fragment}`);
+}
+const implementationPlanF5i = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5i: sfnt simple glyph point y coordinate population"),
+    implementationPlan.indexOf("## Phase F5j: sfnt simple glyph point y byte reader bridge"),
+);
+for (const fragment of [
+    "endpoint 2 slots と PointX 4 slots",
+    "storage len が 8",
+    "cursor next index が 8",
+    "`logical_point_index = cursor.next_index - cursor.start` より前",
+    "括弧なし prefix style",
+    "subagent review",
+]) {
+    assert(implementationPlanF5i.includes(fragment), `font implementation plan F5i must mention ${fragment}`);
+}
+const pointYTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphPointYSlot:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphPointYReadPush:"),
+);
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphPointYSlot:",
+    "point_index %i32",
+    "y %i32",
+    "pub struct GuiSfntSimpleGlyphPointYPush:",
+    "storage %GuiSfntSimpleGlyphOutlineStorage",
+    "cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor",
+    "pub enum GuiSfntSimpleGlyphPointYPushErrorKind:",
+    "StorageCapacityInvalid",
+    "CursorInvalid",
+    "CursorRegionMismatch",
+    "PointIndexMismatch",
+    "PointIndexOutOfRange",
+    "RegionPushFailed",
+    "pub struct GuiSfntSimpleGlyphPointYPushError:",
+    "point %GuiSfntSimpleGlyphPointYSlot",
+]) {
+    assert(pointYTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5i PointY types must include ${fragment}`);
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointYPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointYPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointYPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointYPushError:/,
+    "alloc/gui/font/sfnt/glyf F5i owner-bearing PointY payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_point_y %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointYSlot Result GuiSfntSimpleGlyphPointYPush GuiSfntSimpleGlyphPointYPushError") &&
+        guiFontSfntOutlinePointYTests.includes("point_y_push_success_ok") &&
+        guiFontSfntOutlinePointYTests.includes("point_y_index_mismatch_ok") &&
+        guiFontSfntOutlinePointYTests.includes("point_y_wrong_region_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5i PointY helpers",
+);
+const pointYPublicPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_point_y");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity &storage",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+    "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+    "GuiSfntSimpleGlyphOutlineScalarSlotCountCheck::Fits _scalar_slot_count:",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+    "GuiSfntSimpleGlyphPointYPushErrorKind::CursorInvalid",
+    "GuiSfntSimpleGlyphOutlineScalarRegion::PointY:",
+    "GuiSfntSimpleGlyphPointYPushErrorKind::CursorRegionMismatch",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity:",
+    "let point_index %i32 gui_sfnt_simple_glyph_point_y_slot_point_index &point",
+    "let y %i32 gui_sfnt_simple_glyph_point_y_slot_y &point",
+    "let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor",
+    "let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor",
+    "let logical_point_index %i32 sub next_index start",
+    "if ne point_index logical_point_index:",
+    "GuiSfntSimpleGlyphPointYPushErrorKind::PointIndexMismatch",
+    "if or lt point_index 0 ge point_index point_count:",
+    "GuiSfntSimpleGlyphPointYPushErrorKind::PointIndexOutOfRange",
+    "gui_sfnt_simple_glyph_outline_storage_push_point_y_commit storage cursor point y",
+]) {
+    assert(pointYPublicPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5i public helper must include ${fragment}`);
+}
+for (const [before, after, message] of [
+    [
+        "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "shape validation must precede scalar slot count check",
+    ],
+    [
+        "match gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity:",
+        "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+        "scalar slot count check must precede point_count read",
+    ],
+    [
+        "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &capacity:",
+        "let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor",
+        "cursor/capacity boundary match must precede cursor start read for point semantics",
+    ],
+    [
+        "let logical_point_index %i32 sub next_index start",
+        "if ne point_index logical_point_index:",
+        "logical point index must be derived before point index sync check",
+    ],
+]) {
+    assert(pointYPublicPush.indexOf(before) >= 0 && pointYPublicPush.indexOf(before) < pointYPublicPush.indexOf(after), `alloc/gui/font/sfnt/glyf F5i public helper ${message}`);
+}
+assertNoMatch(
+    pointYPublicPush,
+    /\b(?:vec::|gui_sfnt_glyf_|GuiSfntSimpleGlyphPointStream|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|decode_point|decode_x|decode_y|point_stream|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5i public helper must not decode points, use Vec directly, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointYPublicPush,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5i public helper body must preserve NEPL prefix style without parentheses",
+);
+const pointYCommit = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_point_y_commit");
+for (const fragment of [
+    "match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor y:",
+    "Result::Ok pushed:",
+    "let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_region_push_cursor &pushed",
+    "let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_storage pushed",
+    "GuiSfntSimpleGlyphPointYPushErrorKind::RegionPushFailed",
+    "let region_error_kind_value %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &region_error",
+    "let push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &region_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage region_error",
+]) {
+    assert(pointYCommit.includes(fragment), `alloc/gui/font/sfnt/glyf F5i commit helper must include ${fragment}`);
+}
+assert(
+    (pointYCommit.match(/\bgui_sfnt_simple_glyph_outline_storage_push_region_scalar\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5i commit helper must call F5d region push exactly once",
+);
+assertNoMatch(
+    pointYCommit,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5i commit helper body must preserve NEPL prefix style without parentheses",
+);
+const specF5j = spec.slice(
+    spec.indexOf("### SFNT simple glyph point y byte reader bridge"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "y coordinate だけを読み",
+    "forged stream の x range が壊れていても F5j は検査しない",
+    "GuiSfntSimpleGlyphPointYReadPushErrorKind:",
+    "ReadFailed",
+    "PushFailed",
+    "gui_sfnt_glyf_read_push_point_y",
+    "gui_sfnt_glyf_decode_x_delta",
+]) {
+    assert(specF5j.includes(fragment), `font spec F5j y-only bridge must mention ${fragment}`);
+}
+const detailedF5j = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph point y byte reader bridge boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5j connects",
+    "deliberately y-only",
+    "A forged stream with a bad x range is not rejected by F5j",
+    "The owner-bearing success and error payloads must not implement `Clone` or `Copy`",
+    "ReadFailed:",
+    "PushFailed:",
+    "gui_sfnt_glyf_decode_x_delta",
+    "gui_sfnt_glyf_read_contour_endpoint",
+]) {
+    assert(detailedF5j.includes(fragment), `font detailed design F5j boundary must mention ${fragment}`);
+}
+const implementationPlanF5j = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5j: sfnt simple glyph point y byte reader bridge"),
+    implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5j: sfnt simple glyph point y byte reader bridge") + 1) < 0
+        ? implementationPlan.length
+        : implementationPlan.indexOf("## Phase", implementationPlan.indexOf("## Phase F5j: sfnt simple glyph point y byte reader bridge") + 1),
+);
+for (const fragment of [
+    "y-only allowlist",
+    "forged bad x range は F5j では検査しない",
+    "F5i `gui_sfnt_simple_glyph_outline_storage_push_point_y` を 1 回だけ呼ぶ",
+    "`note.n.md`",
+    "subagent review",
+]) {
+    assert(implementationPlanF5j.includes(fragment), `font implementation plan F5j must mention ${fragment}`);
+}
+const pointYReadTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphPointYReadPush:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphPointYDecodeState:"),
+);
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphPointYReadPush:",
+    "storage %GuiSfntSimpleGlyphOutlineStorage",
+    "cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor",
+    "pub enum GuiSfntSimpleGlyphPointYReadPushErrorKind:",
+    "ReadFailed",
+    "PushFailed",
+    "pub struct GuiSfntSimpleGlyphPointYReadPushError:",
+    "point_index %i32",
+    "point %Option GuiSfntSimpleGlyphPointYSlot",
+    "parse_error %Option GuiSfntParseError",
+]) {
+    assert(pointYReadTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5j PointY read-push types must include ${fragment}`);
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointYReadPush:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointYReadPush:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPointYReadPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPointYReadPushError:/,
+    "alloc/gui/font/sfnt/glyf F5j owner-bearing read-push payloads must not implement Clone or Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_glyf_read_push_point_y %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphPointStream impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 Result GuiSfntSimpleGlyphPointYReadPush GuiSfntSimpleGlyphPointYReadPushError") &&
+        guiFontSfntOutlinePointYTests.includes("point_y_read_push_success_ok") &&
+        guiFontSfntOutlinePointYTests.includes("point_y_read_failure_recovers_owner_ok") &&
+        guiFontSfntOutlinePointYTests.includes("point_y_read_push_failure_preserves_point_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5j PointY read-push helper",
+);
+const pointYReadPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_push_point_y");
+for (const fragment of [
+    "match gui_sfnt_glyf_read_point_y_from_stream bytes glyf stream point_index:",
+    "gui_sfnt_simple_glyph_point_y_read_push_error_read_failed storage cursor point_index parse_error_value",
+    "let point %GuiSfntSimpleGlyphPointYSlot gui_sfnt_simple_glyph_point_y_slot point_index y",
+    "match gui_sfnt_simple_glyph_outline_storage_push_point_y storage cursor point:",
+    "gui_sfnt_simple_glyph_point_y_read_push_error_push_failed returned_storage cursor point_index point_value push_error_kind_value region_error_kind storage_push_error_kind",
+    "let point_value %GuiSfntSimpleGlyphPointYSlot gui_sfnt_simple_glyph_point_y_push_error_point &push_error",
+    "let push_error_kind_value %GuiSfntSimpleGlyphPointYPushErrorKind gui_sfnt_simple_glyph_point_y_push_error_kind &push_error",
+    "let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_point_y_push_error_region_error_kind &push_error",
+    "let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_point_y_push_error_push_error_kind &push_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_point_y_push_error_storage push_error",
+]) {
+    assert(pointYReadPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5j public bridge must include ${fragment}`);
+}
+assert(
+    pointYReadPush.indexOf("match gui_sfnt_glyf_read_point_y_from_stream bytes glyf stream point_index:") <
+        pointYReadPush.indexOf("match gui_sfnt_simple_glyph_outline_storage_push_point_y storage cursor point:"),
+    "alloc/gui/font/sfnt/glyf F5j public bridge must read y before mutating storage",
+);
+assert(
+    (pointYReadPush.match(/\bgui_sfnt_simple_glyph_outline_storage_push_point_y\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5j public bridge must call F5i PointY push exactly once",
+);
+assertNoMatch(
+    pointYReadPush,
+    /\b(?:vec::|gui_sfnt_glyf_decode_x_delta|gui_sfnt_glyf_decode_point_from_stream|gui_sfnt_glyf_decode_point_state_from_stream|gui_sfnt_glyf_decode_point_state_from_flag_run|gui_sfnt_glyf_decode_flag_run_state|GuiSfntSimpleGlyphPointDecodeState|gui_sfnt_glyf_point_is_contour_end|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_glyf_contour_span_from_topology|gui_sfnt_glyf_simple_contour_span_with_tables|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5j public bridge must not decode x/full points, read endpoints, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointYReadPush,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5j public bridge body must preserve NEPL prefix style without parentheses",
+);
+const pointYReadHelpers = [
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_y_run_state"),
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_y_from_flag_run"),
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_y_from_stream_loop"),
+    functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_point_y_from_stream"),
+].join("\n");
+const allowedF5jGlyfCalls = new Set([
+    "gui_sfnt_glyf_read_point_y_run_state",
+    "gui_sfnt_glyf_read_point_y_from_flag_run",
+    "gui_sfnt_glyf_read_point_y_from_stream_loop",
+    "gui_sfnt_glyf_read_point_y_from_stream",
+    "gui_sfnt_glyf_read_u8_in_stream_range",
+    "gui_sfnt_glyf_decode_y_delta",
+    "gui_sfnt_glyf_flag_has_bit",
+]);
+const f5jGlyfCalls = [...pointYReadHelpers.matchAll(/\bgui_sfnt_glyf_[a-z0-9_]+\b/g)].map((match) => match[0]);
+const forbiddenF5jGlyfCalls = [...new Set(f5jGlyfCalls.filter((name) => !allowedF5jGlyfCalls.has(name)))];
+assert(
+    forbiddenF5jGlyfCalls.length === 0,
+    `alloc/gui/font/sfnt/glyf F5j y-only helpers must keep exact gui_sfnt_glyf allowlist; forbidden=${forbiddenF5jGlyfCalls.join(", ")}`,
+);
+for (const fragment of [
+    "let topology %GuiSfntSimpleGlyphTopology gui_sfnt_simple_glyph_point_stream_topology &stream",
+    "let point_count %i32 gui_sfnt_simple_glyph_topology_point_count &topology",
+    "or lt point_index 0 ge point_index point_count",
+    "Result::Err gui_sfnt_parse_error GuiSfntParseErrorKind::MissingGlyphOutline",
+    "gui_sfnt_glyf_decode_y_delta bytes glyf stream flag y_cursor",
+    "gui_sfnt_glyf_read_u8_in_stream_range bytes glyf flag_start flag_length flag_cursor",
+]) {
+    assert(pointYReadHelpers.includes(fragment), `alloc/gui/font/sfnt/glyf F5j y-only helpers must include ${fragment}`);
+}
+assertNoMatch(
+    pointYReadHelpers,
+    /\b(?:vec::|gui_sfnt_glyf_decode_x_delta|gui_sfnt_glyf_decode_point_from_stream|gui_sfnt_glyf_decode_point_state_from_stream|gui_sfnt_glyf_decode_point_state_from_flag_run|gui_sfnt_glyf_decode_flag_run_state|GuiSfntSimpleGlyphPointDecodeState|gui_sfnt_glyf_point_is_contour_end|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_glyf_contour_span_from_topology|gui_sfnt_glyf_simple_contour_span_with_tables|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5j y-only helpers must not decode x/full points, read endpoints, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pointYReadHelpers,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5j y-only helper bodies must preserve NEPL prefix style without parentheses",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
