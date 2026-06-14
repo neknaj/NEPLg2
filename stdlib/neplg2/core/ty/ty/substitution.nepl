@@ -1,0 +1,1139 @@
+#indent 4
+
+//: # ty/substitution
+//: self-host compiler の `SelfhostTypeArena` 上で、generic type parameter を concrete type argument に[置換/ちかん]する typed traversal module です。
+//:
+//: [目的/もくてき]:
+//: - generic impl instantiation では、`T` のような binder 由来の型 parameter を、resolver が選んだ concrete type argument に置き換えた target type / trait application type が必要になります。
+//: - hash だけの substitution result を先に通すと、actual type traversal を通らない値が generic impl acceptance の authority になってしまいます。
+//: - この module は `SelfhostTypeRecord` を variant ごとに走査し、parameter replacement、applied type rebuild、function type rebuild を typed step stream として記録します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostTypeArena`、`SelfhostTypeSubstitutionBindingTable`、root `SelfhostTypeId` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は substitution authority にしません。
+//: - binding table は `SelfhostTypeParameterBinding` と replacement `SelfhostTypeId` の対応だけを持ちます。同じ binding が 2 回以上出た場合は fail-closed に拒否します。
+//: - replacement `SelfhostTypeId` は同じ arena 内に存在しなければなりません。別 arena の TypeId を混ぜないため、この module は stable hash だけの replacement を受け取りません。
+//: - replacement 型自体をさらに再帰置換しません。generic instantiation の concrete type argument は、上位の stable type argument identity / solver gate が concrete であることを別 evidence として検査します。
+//: - applied type と function type は、child を置換した後に arena 末尾へ再構築します。primitive、named、未置換 parameter は元の TypeId をそのまま output とします。
+//: - traversal fuel が尽きた場合は、壊れた cyclic arena または想定外に深い型として拒否します。fuel は後続で explicit stack へ置き換えられますが、現在の semantic contract は変えません。
+//:
+//: [現状/げんじょう]:
+//: - この module は reusable type substitution engine です。`memo_trait_public_impl_generic_substitution_shape` や materializer accepted path への接続は後続 slice で行います。
+//: - trait bound solver、generic coherence、operation candidate materializer、PrivateCache / PrivateState effect masking、prechecked artifact には接続しません。
+//:
+//: [計算量/けいさんりょう]:
+//: - 走査する型 record / edge 数を n、binding table の record 数を m、rebuild する applied / function child edge 数を a とすると、現在は duplicate validation が O(m * m)、parameter lookup が O(n * m)、rebuild が O(a) です。
+//: - 合計の上界は O(m * m + n * m + a) です。この値は現在の単純な `Vec` table 実装の詳細であり、substitution evidence の公開契約ではありません。
+//: - binding table の sorted index 化、duplicate validation index 化、lookup cache は、入力と出力の typed contract を保って後から差し替えられる最適化です。
+//: - 追加空間は step table と、rebuild 対象の applied / function argument vector に比例します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/math" as *
+//:| #import "core/result" as *
+//:| #import "neplg2/core/ty/ty/id" as *
+//:| #import "neplg2/core/ty/ty/substitution" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_type_substitution_stage0:
+//:         Result::Ok summary:
+//:             let expected_duplicate %SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionErrorKind::DuplicateBinding selfhost_type_parameter_binding_new_unchecked 0 0
+//:             let expected_invalid %SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionErrorKind::InvalidBinding selfhost_type_parameter_binding_new_unchecked 0 sub 0 1
+//:             let expected_missing_replacement %SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing selfhost_type_id_new 99
+//:             let expected_missing_root %SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord selfhost_type_id_new 99
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check is_ok summary.accepted
+//:             let checks2 checks_push checks1 check summary.accepted_step_hash_verified
+//:             let checks3 checks_push checks2 check selfhost_type_substitution_error_result_eq summary.duplicate_binding expected_duplicate
+//:             let checks4 checks_push checks3 check selfhost_type_substitution_error_result_eq summary.invalid_binding expected_invalid
+//:             let checks5 checks_push checks4 check selfhost_type_substitution_error_result_eq summary.missing_replacement expected_missing_replacement
+//:             let checks6 checks_push checks5 check selfhost_type_substitution_error_result_eq summary.missing_root expected_missing_root
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "type substitution stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "./arena" as *
+#import "./id" as *
+#import "./kind/model" as *
+#import "./record" as *
+
+//: SelfhostTypeSubstitutionBindingRecord: 1 generic binding と 1 concrete replacement TypeId の対応 record
+//:
+//: [契約/けいやく]:
+//: - `binding` は source spelling ではなく binder depth / parameter index です。
+//: - `replacement_type_id` は同じ `SelfhostTypeArena` 内の concrete type argument を指します。
+pub struct SelfhostTypeSubstitutionBindingRecord:
+    binding %SelfhostTypeParameterBinding
+    replacement_type_id %SelfhostTypeId
+
+//: SelfhostTypeSubstitutionBindingTable: substitution environment の owner table
+//:
+//: [契約/けいやく]:
+//: - この table は generic binder slot と type argument TypeId の対応を持ちます。
+//: - validation は substitution 開始時に行い、invalid binding、duplicate binding、missing replacement を fail-closed に拒否します。
+pub struct SelfhostTypeSubstitutionBindingTable:
+    records %Vec SelfhostTypeSubstitutionBindingRecord
+
+//: SelfhostTypeSubstitutionStepKind: substitution traversal step の分類
+//:
+//: [目的/もくてき]:
+//: - bool や文字列ではなく enum で、どの variant をどの規則で処理したかを保存します。
+pub enum SelfhostTypeSubstitutionStepKind:
+    PrimitiveKept
+    NamedKept
+    ParameterKept
+    ParameterReplaced
+    AppliedRebuilt
+    FunctionRebuilt
+
+//: SelfhostTypeSubstitutionStepRecord: typed traversal の 1 step
+//:
+//: [契約/けいやく]:
+//: - `step_ordinal` は step table 内の 0-origin index です。
+//: - `source_type_id` と `output_type_id` は同じ arena 内の TypeId です。
+//: - `child_count` は applied type の型引数数、function type の引数数 + result 1、leaf step の 0 を表します。
+pub struct SelfhostTypeSubstitutionStepRecord:
+    step_ordinal %i32
+    source_type_id %SelfhostTypeId
+    output_type_id %SelfhostTypeId
+    kind %SelfhostTypeSubstitutionStepKind
+    child_count %i32
+
+//: SelfhostTypeSubstitutionStepTable: substitution step stream の owner table
+//:
+//: [契約/けいやく]:
+//: - caller は result を使い終えたら `selfhost_type_substitution_result_free` で step table と arena をまとめて閉じます。
+pub struct SelfhostTypeSubstitutionStepTable:
+    records %Vec SelfhostTypeSubstitutionStepRecord
+
+//: SelfhostTypeSubstitutionEvidence: accepted substitution traversal evidence
+//:
+//: [契約/けいやく]:
+//: - `step_stream_hash` は step table の typed record 全体を schema 付きで畳み込んだ nonzero hash です。
+//: - evidence は output TypeId だけでなく、root input、binding count、step count を保持します。
+//: - 後続 consumer は `selfhost_type_substitution_step_table_hash_result` で step table を再検査してから evidence を使います。
+pub struct SelfhostTypeSubstitutionEvidence:
+    schema_version %i32
+    root_type_id %SelfhostTypeId
+    output_type_id %SelfhostTypeId
+    binding_count %i32
+    step_count %i32
+    step_stream_hash %i32
+
+//: SelfhostTypeSubstitutionResult: substitution 成功時の owner bundle
+//:
+//: [契約/けいやく]:
+//: - `arena` は input arena を消費して更新した owner です。
+//: - `step_table` は traversal evidence の再検査に必要な typed stream です。
+pub struct SelfhostTypeSubstitutionResult:
+    arena %SelfhostTypeArena
+    step_table %SelfhostTypeSubstitutionStepTable
+    evidence %SelfhostTypeSubstitutionEvidence
+
+//: SelfhostTypeSubstitutionNodeResult: recursive traversal 内部の owner bundle
+struct SelfhostTypeSubstitutionNodeResult:
+    arena %SelfhostTypeArena
+    step_table %SelfhostTypeSubstitutionStepTable
+    output_type_id %SelfhostTypeId
+
+//: SelfhostTypeSubstitutionArgBuild: applied / function rebuild 用の一時 argument owner
+struct SelfhostTypeSubstitutionArgBuild:
+    arena %SelfhostTypeArena
+    step_table %SelfhostTypeSubstitutionStepTable
+    args %Vec SelfhostTypeId
+
+//: SelfhostTypeSubstitutionErrorKind: type substitution engine の拒否理由
+pub enum SelfhostTypeSubstitutionErrorKind:
+    BindingTableAllocFailed %StdErrorKind
+    BindingPushFailed %StdErrorKind
+    BindingRecordReadFailed %i32
+    StepTableAllocFailed %StdErrorKind
+    StepPushFailed %StdErrorKind
+    ArgVectorAllocFailed %StdErrorKind
+    ArgPushFailed %StdErrorKind
+    InvalidBinding %SelfhostTypeParameterBinding
+    DuplicateBinding %SelfhostTypeParameterBinding
+    ReplacementTypeMissing %SelfhostTypeId
+    MissingSourceTypeRecord %SelfhostTypeId
+    MissingAppliedTypeArgument %SelfhostTypeId
+    MissingFunctionTypeArgument %SelfhostTypeId
+    MissingFunctionResult %SelfhostTypeId
+    AppliedRebuildFailed %StdErrorKind
+    FunctionRebuildFailed %StdErrorKind
+    TraversalFuelExhausted %SelfhostTypeId
+    StepStreamHashPlaceholder
+    EvidenceHashMismatch
+
+//: SelfhostTypeSubstitutionStage0Summary: substitution engine smoke の代表結果
+pub struct SelfhostTypeSubstitutionStage0Summary:
+    accepted %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind
+    accepted_step_hash_verified %bool
+    duplicate_binding %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind
+    invalid_binding %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind
+    missing_replacement %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind
+    missing_root %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind
+
+impl Clone for SelfhostTypeSubstitutionBindingRecord:
+    fn clone %fn &SelfhostTypeSubstitutionBindingRecord SelfhostTypeSubstitutionBindingRecord \self:
+        *self
+
+impl Copy for SelfhostTypeSubstitutionBindingRecord:
+    fn copy_mark %fn SelfhostTypeSubstitutionBindingRecord SelfhostTypeSubstitutionBindingRecord \self:
+        self
+
+impl Clone for SelfhostTypeSubstitutionStepKind:
+    fn clone %fn &SelfhostTypeSubstitutionStepKind SelfhostTypeSubstitutionStepKind \self:
+        *self
+
+impl Copy for SelfhostTypeSubstitutionStepKind:
+    fn copy_mark %fn SelfhostTypeSubstitutionStepKind SelfhostTypeSubstitutionStepKind \self:
+        self
+
+impl Clone for SelfhostTypeSubstitutionStepRecord:
+    fn clone %fn &SelfhostTypeSubstitutionStepRecord SelfhostTypeSubstitutionStepRecord \self:
+        *self
+
+impl Copy for SelfhostTypeSubstitutionStepRecord:
+    fn copy_mark %fn SelfhostTypeSubstitutionStepRecord SelfhostTypeSubstitutionStepRecord \self:
+        self
+
+impl Clone for SelfhostTypeSubstitutionEvidence:
+    fn clone %fn &SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionEvidence \self:
+        *self
+
+impl Copy for SelfhostTypeSubstitutionEvidence:
+    fn copy_mark %fn SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionEvidence \self:
+        self
+
+impl Clone for SelfhostTypeSubstitutionErrorKind:
+    fn clone %fn &SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionErrorKind \self:
+        *self
+
+impl Copy for SelfhostTypeSubstitutionErrorKind:
+    fn copy_mark %fn SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionErrorKind \self:
+        self
+
+impl Clone for SelfhostTypeSubstitutionStage0Summary:
+    fn clone %fn &SelfhostTypeSubstitutionStage0Summary SelfhostTypeSubstitutionStage0Summary \self:
+        *self
+
+impl Copy for SelfhostTypeSubstitutionStage0Summary:
+    fn copy_mark %fn SelfhostTypeSubstitutionStage0Summary SelfhostTypeSubstitutionStage0Summary \self:
+        self
+
+//: selfhost_type_substitution_schema_version: substitution evidence schema
+pub fn selfhost_type_substitution_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_type_substitution_default_fuel: recursive traversal の既定 fuel
+pub fn selfhost_type_substitution_default_fuel %fn void i32 \void:
+    256
+
+//: selfhost_type_substitution_binding_record_new: substitution binding record を[作/つく]る
+pub fn selfhost_type_substitution_binding_record_new %fn SelfhostTypeParameterBinding fn SelfhostTypeId SelfhostTypeSubstitutionBindingRecord \binding\replacement_type_id:
+    SelfhostTypeSubstitutionBindingRecord binding replacement_type_id
+
+//: selfhost_type_substitution_binding_table_new: [空/から]の binding table を[作/つく]る
+pub fn selfhost_type_substitution_binding_table_new %impure fn void Result SelfhostTypeSubstitutionBindingTable SelfhostTypeSubstitutionErrorKind \void:
+    let records_result %Result Vec SelfhostTypeSubstitutionBindingRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostTypeSubstitutionBindingTable records
+        Result::Err e:
+            Result::Err SelfhostTypeSubstitutionErrorKind::BindingTableAllocFailed e
+
+//: selfhost_type_substitution_binding_table_free: binding table owner を[閉/と]じる
+pub fn selfhost_type_substitution_binding_table_free %impure fn SelfhostTypeSubstitutionBindingTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_type_substitution_binding_table_len: binding record 数を[返/かえ]す
+pub fn selfhost_type_substitution_binding_table_len %fn &SelfhostTypeSubstitutionBindingTable i32 \table:
+    let records %&Vec SelfhostTypeSubstitutionBindingRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_type_substitution_binding_table_push: binding record を[追加/ついか]する
+pub fn selfhost_type_substitution_binding_table_push %impure fn SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeSubstitutionBindingRecord Result SelfhostTypeSubstitutionBindingTable SelfhostTypeSubstitutionErrorKind \table\record:
+    let records %Vec SelfhostTypeSubstitutionBindingRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostTypeSubstitutionBindingTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostTypeSubstitutionErrorKind::BindingPushFailed error
+
+//: selfhost_type_substitution_step_table_new: [空/から]の step table を[作/つく]る
+fn selfhost_type_substitution_step_table_new %impure fn void Result SelfhostTypeSubstitutionStepTable SelfhostTypeSubstitutionErrorKind \void:
+    let records_result %Result Vec SelfhostTypeSubstitutionStepRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostTypeSubstitutionStepTable records
+        Result::Err e:
+            Result::Err SelfhostTypeSubstitutionErrorKind::StepTableAllocFailed e
+
+//: selfhost_type_substitution_step_table_free: step table owner を[閉/と]じる
+pub fn selfhost_type_substitution_step_table_free %impure fn SelfhostTypeSubstitutionStepTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_type_substitution_step_table_len: step record 数を[返/かえ]す
+pub fn selfhost_type_substitution_step_table_len %fn &SelfhostTypeSubstitutionStepTable i32 \table:
+    let records %&Vec SelfhostTypeSubstitutionStepRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_type_substitution_result_free: substitution result owner を[閉/と]じる
+pub fn selfhost_type_substitution_result_free %impure fn SelfhostTypeSubstitutionResult unit \result:
+    selfhost_type_arena_free field::get result "arena"
+    selfhost_type_substitution_step_table_free field::get result "step_table"
+
+//: selfhost_type_substitution_mix2: substitution hash 用に 2 値を[混/ま]ぜる
+fn selfhost_type_substitution_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_type_substitution_mix4: substitution hash 用に 4 値を[混/ま]ぜる
+fn selfhost_type_substitution_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_type_substitution_mix2 (selfhost_type_substitution_mix2 a b) (selfhost_type_substitution_mix2 c d)
+
+//: selfhost_type_substitution_step_kind_code: step kind を hash 用 code へ[写/うつ]す
+fn selfhost_type_substitution_step_kind_code %fn SelfhostTypeSubstitutionStepKind i32 \kind:
+    match kind:
+        SelfhostTypeSubstitutionStepKind::PrimitiveKept:
+            1
+        SelfhostTypeSubstitutionStepKind::NamedKept:
+            2
+        SelfhostTypeSubstitutionStepKind::ParameterKept:
+            3
+        SelfhostTypeSubstitutionStepKind::ParameterReplaced:
+            4
+        SelfhostTypeSubstitutionStepKind::AppliedRebuilt:
+            5
+        SelfhostTypeSubstitutionStepKind::FunctionRebuilt:
+            6
+
+//: selfhost_type_substitution_step_record_hash: step record を hash material へ[写/うつ]す
+fn selfhost_type_substitution_step_record_hash %fn SelfhostTypeSubstitutionStepRecord i32 \record:
+    let id_material %i32 selfhost_type_substitution_mix4 record.step_ordinal record.source_type_id.index record.output_type_id.index record.child_count
+    selfhost_type_substitution_mix4 731101 selfhost_type_substitution_step_kind_code record.kind id_material selfhost_type_substitution_schema_version
+
+//: selfhost_type_substitution_step_table_hash_loop: step table を左から hash に[畳/たた]む
+fn selfhost_type_substitution_step_table_hash_loop %fn &SelfhostTypeSubstitutionStepTable fn i32 fn i32 fn i32 Result i32 SelfhostTypeSubstitutionErrorKind \table\idx\n\current_hash:
+    if:
+        ge idx n
+        then:
+            if:
+                eq current_hash 0
+                then:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::StepStreamHashPlaceholder
+                else:
+                    Result::Ok current_hash
+        else:
+            let records %&Vec SelfhostTypeSubstitutionStepRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        not eq record.step_ordinal idx
+                        then:
+                            Result::Err SelfhostTypeSubstitutionErrorKind::EvidenceHashMismatch
+                        else:
+                            selfhost_type_substitution_step_table_hash_loop table add idx 1 n selfhost_type_substitution_mix2 current_hash selfhost_type_substitution_step_record_hash record
+                Option::None:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::EvidenceHashMismatch
+
+//: selfhost_type_substitution_step_table_hash_result: step table から schema 付き hash を再計算する
+pub fn selfhost_type_substitution_step_table_hash_result %fn &SelfhostTypeSubstitutionStepTable Result i32 SelfhostTypeSubstitutionErrorKind \table:
+    let n %i32 selfhost_type_substitution_step_table_len table
+    let initial_hash %i32 selfhost_type_substitution_mix4 731001 selfhost_type_substitution_schema_version n 0
+    selfhost_type_substitution_step_table_hash_loop table 0 n initial_hash
+
+//: selfhost_type_substitution_push_step: typed traversal step を[追加/ついか]する
+fn selfhost_type_substitution_push_step %impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeSubstitutionStepKind impure fn i32 Result SelfhostTypeSubstitutionStepTable SelfhostTypeSubstitutionErrorKind \table\source_type_id\output_type_id\kind\child_count:
+    let step_ordinal %i32 selfhost_type_substitution_step_table_len &table
+    let record %SelfhostTypeSubstitutionStepRecord SelfhostTypeSubstitutionStepRecord step_ordinal source_type_id output_type_id kind child_count
+    let records %Vec SelfhostTypeSubstitutionStepRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostTypeSubstitutionStepTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostTypeSubstitutionErrorKind::StepPushFailed error
+
+//: selfhost_type_substitution_error_std_code: StdErrorKind を local equality code へ[写/うつ]す
+fn selfhost_type_substitution_error_std_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            1
+        StdErrorKind::OutOfMemory:
+            2
+        StdErrorKind::EmptyCollection:
+            3
+        StdErrorKind::IndexOutOfBounds:
+            4
+        StdErrorKind::KeyNotFound:
+            5
+        StdErrorKind::CapacityExceeded:
+            6
+        StdErrorKind::InvalidOperation:
+            7
+        StdErrorKind::InvalidUtf8:
+            8
+        StdErrorKind::ParseError:
+            9
+        StdErrorKind::IoError:
+            10
+        StdErrorKind::Other:
+            11
+
+//: selfhost_type_substitution_error_kind_code: error variant を equality 用 code へ[写/うつ]す
+fn selfhost_type_substitution_error_kind_code %fn SelfhostTypeSubstitutionErrorKind i32 \kind:
+    match kind:
+        SelfhostTypeSubstitutionErrorKind::BindingTableAllocFailed _error:
+            1
+        SelfhostTypeSubstitutionErrorKind::BindingPushFailed _error:
+            2
+        SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed _idx:
+            3
+        SelfhostTypeSubstitutionErrorKind::StepTableAllocFailed _error:
+            4
+        SelfhostTypeSubstitutionErrorKind::StepPushFailed _error:
+            5
+        SelfhostTypeSubstitutionErrorKind::ArgVectorAllocFailed _error:
+            6
+        SelfhostTypeSubstitutionErrorKind::ArgPushFailed _error:
+            7
+        SelfhostTypeSubstitutionErrorKind::InvalidBinding _binding:
+            8
+        SelfhostTypeSubstitutionErrorKind::DuplicateBinding _binding:
+            9
+        SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing _id:
+            10
+        SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord _id:
+            11
+        SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument _id:
+            12
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument _id:
+            13
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionResult _id:
+            14
+        SelfhostTypeSubstitutionErrorKind::AppliedRebuildFailed _error:
+            15
+        SelfhostTypeSubstitutionErrorKind::FunctionRebuildFailed _error:
+            16
+        SelfhostTypeSubstitutionErrorKind::TraversalFuelExhausted _id:
+            17
+        SelfhostTypeSubstitutionErrorKind::StepStreamHashPlaceholder:
+            18
+        SelfhostTypeSubstitutionErrorKind::EvidenceHashMismatch:
+            19
+
+//: selfhost_type_substitution_error_kind_payload0: error payload の第 1 比較成分を[返/かえ]す
+fn selfhost_type_substitution_error_kind_payload0 %fn SelfhostTypeSubstitutionErrorKind i32 \kind:
+    match kind:
+        SelfhostTypeSubstitutionErrorKind::BindingTableAllocFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::BindingPushFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed idx:
+            idx
+        SelfhostTypeSubstitutionErrorKind::StepTableAllocFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::StepPushFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::ArgVectorAllocFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::ArgPushFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::InvalidBinding binding:
+            binding.binder_depth
+        SelfhostTypeSubstitutionErrorKind::DuplicateBinding binding:
+            binding.binder_depth
+        SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionResult id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::AppliedRebuildFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::FunctionRebuildFailed error:
+            selfhost_type_substitution_error_std_code error
+        SelfhostTypeSubstitutionErrorKind::TraversalFuelExhausted id:
+            id.index
+        SelfhostTypeSubstitutionErrorKind::StepStreamHashPlaceholder:
+            0
+        SelfhostTypeSubstitutionErrorKind::EvidenceHashMismatch:
+            0
+
+//: selfhost_type_substitution_error_kind_payload1: error payload の第 2 比較成分を[返/かえ]す
+fn selfhost_type_substitution_error_kind_payload1 %fn SelfhostTypeSubstitutionErrorKind i32 \kind:
+    match kind:
+        SelfhostTypeSubstitutionErrorKind::BindingTableAllocFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::BindingPushFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed _idx:
+            0
+        SelfhostTypeSubstitutionErrorKind::StepTableAllocFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::StepPushFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::ArgVectorAllocFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::ArgPushFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::InvalidBinding binding:
+            binding.parameter_index
+        SelfhostTypeSubstitutionErrorKind::DuplicateBinding binding:
+            binding.parameter_index
+        SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionResult _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::AppliedRebuildFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::FunctionRebuildFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::TraversalFuelExhausted _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::StepStreamHashPlaceholder:
+            0
+        SelfhostTypeSubstitutionErrorKind::EvidenceHashMismatch:
+            0
+
+//: selfhost_type_substitution_error_kind_payload2: error payload の第 3 比較成分を[返/かえ]す
+fn selfhost_type_substitution_error_kind_payload2 %fn SelfhostTypeSubstitutionErrorKind i32 \kind:
+    match kind:
+        SelfhostTypeSubstitutionErrorKind::BindingTableAllocFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::BindingPushFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed _idx:
+            0
+        SelfhostTypeSubstitutionErrorKind::StepTableAllocFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::StepPushFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::ArgVectorAllocFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::ArgPushFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::InvalidBinding _binding:
+            0
+        SelfhostTypeSubstitutionErrorKind::DuplicateBinding _binding:
+            0
+        SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::MissingFunctionResult _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::AppliedRebuildFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::FunctionRebuildFailed _error:
+            0
+        SelfhostTypeSubstitutionErrorKind::TraversalFuelExhausted _id:
+            0
+        SelfhostTypeSubstitutionErrorKind::StepStreamHashPlaceholder:
+            0
+        SelfhostTypeSubstitutionErrorKind::EvidenceHashMismatch:
+            0
+
+//: selfhost_type_substitution_error_kind_eq: error kind が payload まで同じか[返/かえ]す
+pub fn selfhost_type_substitution_error_kind_eq %fn SelfhostTypeSubstitutionErrorKind fn SelfhostTypeSubstitutionErrorKind bool \a\b:
+    let code_eq %bool eq selfhost_type_substitution_error_kind_code a selfhost_type_substitution_error_kind_code b
+    let payload0_eq %bool eq selfhost_type_substitution_error_kind_payload0 a selfhost_type_substitution_error_kind_payload0 b
+    let payload1_eq %bool eq selfhost_type_substitution_error_kind_payload1 a selfhost_type_substitution_error_kind_payload1 b
+    let payload2_eq %bool eq selfhost_type_substitution_error_kind_payload2 a selfhost_type_substitution_error_kind_payload2 b
+    and code_eq and payload0_eq and payload1_eq payload2_eq
+
+//: selfhost_type_substitution_error_result_eq: result の error が expected と同じか[返/かえ]す
+pub fn selfhost_type_substitution_error_result_eq %fn Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind fn SelfhostTypeSubstitutionErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_type_substitution_error_kind_eq error expected
+
+//: selfhost_type_substitution_binding_table_find_loop: binding table から replacement を[探/さが]す
+fn selfhost_type_substitution_binding_table_find_loop %fn &SelfhostTypeSubstitutionBindingTable fn SelfhostTypeParameterBinding fn i32 fn Option SelfhostTypeId Result Option SelfhostTypeId SelfhostTypeSubstitutionErrorKind \table\binding\idx\found:
+    if:
+        ge idx selfhost_type_substitution_binding_table_len table
+        then:
+            Result::Ok found
+        else:
+            let records %&Vec SelfhostTypeSubstitutionBindingRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_type_parameter_binding_eq record.binding binding
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostTypeSubstitutionErrorKind::DuplicateBinding binding
+                                Option::None:
+                                    selfhost_type_substitution_binding_table_find_loop table binding add idx 1 some record.replacement_type_id
+                        else:
+                            selfhost_type_substitution_binding_table_find_loop table binding add idx 1 found
+                Option::None:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed idx
+
+//: selfhost_type_substitution_binding_table_find_result: binding table から replacement を[返/かえ]す
+fn selfhost_type_substitution_binding_table_find_result %fn &SelfhostTypeSubstitutionBindingTable fn SelfhostTypeParameterBinding Result Option SelfhostTypeId SelfhostTypeSubstitutionErrorKind \table\binding:
+    selfhost_type_substitution_binding_table_find_loop table binding 0 none
+
+//: selfhost_type_substitution_binding_record_validate_result: 1 binding record を[検査/けんさ]する
+fn selfhost_type_substitution_binding_record_validate_result %fn &SelfhostTypeArena fn SelfhostTypeSubstitutionBindingRecord Result unit SelfhostTypeSubstitutionErrorKind \arena\record:
+    if:
+        not selfhost_type_parameter_binding_is_valid record.binding
+        then:
+            Result::Err SelfhostTypeSubstitutionErrorKind::InvalidBinding record.binding
+        else:
+            match selfhost_type_arena_get_record arena record.replacement_type_id:
+                Option::Some _replacement:
+                    Result::Ok unit
+                Option::None:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::ReplacementTypeMissing record.replacement_type_id
+
+//: selfhost_type_substitution_binding_table_duplicate_probe: 同じ binding が後続にないか[調/しら]べる
+fn selfhost_type_substitution_binding_table_duplicate_probe %fn &SelfhostTypeSubstitutionBindingTable fn SelfhostTypeParameterBinding fn i32 Result unit SelfhostTypeSubstitutionErrorKind \table\binding\idx:
+    if:
+        ge idx selfhost_type_substitution_binding_table_len table
+        then:
+            Result::Ok unit
+        else:
+            let records %&Vec SelfhostTypeSubstitutionBindingRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_type_parameter_binding_eq record.binding binding
+                        then:
+                            Result::Err SelfhostTypeSubstitutionErrorKind::DuplicateBinding binding
+                        else:
+                            selfhost_type_substitution_binding_table_duplicate_probe table binding add idx 1
+                Option::None:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed idx
+
+//: selfhost_type_substitution_binding_table_validate_loop: binding table 全体を[検査/けんさ]する
+fn selfhost_type_substitution_binding_table_validate_loop %fn &SelfhostTypeArena fn &SelfhostTypeSubstitutionBindingTable fn i32 Result unit SelfhostTypeSubstitutionErrorKind \arena\table\idx:
+    if:
+        ge idx selfhost_type_substitution_binding_table_len table
+        then:
+            Result::Ok unit
+        else:
+            let records %&Vec SelfhostTypeSubstitutionBindingRecord field::get_ref table "records"
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_type_substitution_binding_record_validate_result arena record:
+                        Result::Ok _unit:
+                            match selfhost_type_substitution_binding_table_duplicate_probe table record.binding add idx 1:
+                                Result::Ok _no_duplicate:
+                                    selfhost_type_substitution_binding_table_validate_loop arena table add idx 1
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::BindingRecordReadFailed idx
+
+//: selfhost_type_substitution_binding_table_validate_result: binding table が substitution environment として有効か[検査/けんさ]する
+fn selfhost_type_substitution_binding_table_validate_result %fn &SelfhostTypeArena fn &SelfhostTypeSubstitutionBindingTable Result unit SelfhostTypeSubstitutionErrorKind \arena\table:
+    selfhost_type_substitution_binding_table_validate_loop arena table 0
+
+//: selfhost_type_substitution_fail_with_step_table: arena と step table を[閉/と]じて error を[返/かえ]す
+fn selfhost_type_substitution_fail_with_step_table %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeSubstitutionErrorKind Result SelfhostTypeSubstitutionResult SelfhostTypeSubstitutionErrorKind \arena\step_table\error:
+    selfhost_type_arena_free arena
+    selfhost_type_substitution_step_table_free step_table
+    Result::Err error
+
+//: selfhost_type_substitution_node_fail: recursive node の partial owner を[閉/と]じる
+fn selfhost_type_substitution_node_fail %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeSubstitutionErrorKind Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \arena\step_table\error:
+    selfhost_type_arena_free arena
+    selfhost_type_substitution_step_table_free step_table
+    Result::Err error
+
+//: selfhost_type_substitution_node_fail_after_step_table_consumed: step table を消費済みの node traversal 失敗を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_substitution_push_step` は step table owner を消費します。
+//: - その呼び出しが失敗した後に caller がまだ持っている owner は arena だけなので、ここでは arena だけを閉じます。
+//: - Resource IR の moved cell を隠すためではなく、失敗分岐ごとの所有権境界を関数名で明示するための helper です。
+fn selfhost_type_substitution_node_fail_after_step_table_consumed %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionErrorKind Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \arena\error:
+    selfhost_type_arena_free arena
+    Result::Err error
+
+//: selfhost_type_substitution_node_fail_after_arena_builder_consumed: arena builder を消費済みの node traversal 失敗を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_arena_add_applied_named` と `selfhost_type_arena_add_function` は arena と argument vector を消費し、失敗時もその owner を caller へ返しません。
+//: - そのため caller 側では、まだ所有している step table だけを閉じます。
+fn selfhost_type_substitution_node_fail_after_arena_builder_consumed %impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeSubstitutionErrorKind Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \step_table\error:
+    selfhost_type_substitution_step_table_free step_table
+    Result::Err error
+
+//: selfhost_type_substitution_arg_build_fail: argument vector を含む partial owner を[閉/と]じる
+fn selfhost_type_substitution_arg_build_fail %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn Vec SelfhostTypeId impure fn SelfhostTypeSubstitutionErrorKind Result SelfhostTypeSubstitutionArgBuild SelfhostTypeSubstitutionErrorKind \arena\step_table\args\error:
+    selfhost_type_arena_free arena
+    selfhost_type_substitution_step_table_free step_table
+    v::free args
+    Result::Err error
+
+//: selfhost_type_substitution_arg_build_fail_after_args_consumed: argument vector 消費後の失敗を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - `selfhost_type_substitution_push_arg_result` は argument vector owner を消費します。
+//: - 失敗時に caller が同じ vector を解放すると二重解放になるため、ここでは arena と step table だけを閉じます。
+fn selfhost_type_substitution_arg_build_fail_after_args_consumed %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeSubstitutionErrorKind Result SelfhostTypeSubstitutionArgBuild SelfhostTypeSubstitutionErrorKind \arena\step_table\error:
+    selfhost_type_arena_free arena
+    selfhost_type_substitution_step_table_free step_table
+    Result::Err error
+
+//: selfhost_type_substitution_node_result_new: recursive node result を[作/つく]る
+fn selfhost_type_substitution_node_result_new %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeId SelfhostTypeSubstitutionNodeResult \arena\step_table\output_type_id:
+    SelfhostTypeSubstitutionNodeResult arena step_table output_type_id
+
+//: selfhost_type_substitution_arg_build_new: rebuild argument build result を[作/つく]る
+fn selfhost_type_substitution_arg_build_new %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn Vec SelfhostTypeId SelfhostTypeSubstitutionArgBuild \arena\step_table\args:
+    SelfhostTypeSubstitutionArgBuild arena step_table args
+
+//: selfhost_type_substitution_push_leaf_result: leaf step を[追加/ついか]して node result にする
+fn selfhost_type_substitution_push_leaf_result %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeId impure fn SelfhostTypeId impure fn SelfhostTypeSubstitutionStepKind Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \arena\step_table\source_type_id\output_type_id\kind:
+    match selfhost_type_substitution_push_step step_table source_type_id output_type_id kind 0:
+        Result::Ok next_steps:
+            Result::Ok selfhost_type_substitution_node_result_new arena next_steps output_type_id
+        Result::Err e:
+            selfhost_type_substitution_node_fail_after_step_table_consumed arena e
+
+//: selfhost_type_substitution_substitute_type_result: 1 TypeId を[置換/ちかん]する recursive core
+fn selfhost_type_substitution_substitute_type_result %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn &SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId impure fn i32 Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \arena\step_table\bindings\type_id\fuel:
+    if:
+        le fuel 0
+        then:
+            selfhost_type_substitution_node_fail arena step_table SelfhostTypeSubstitutionErrorKind::TraversalFuelExhausted type_id
+        else:
+            match selfhost_type_arena_get_record &arena type_id:
+                Option::Some record:
+                    match record:
+                        SelfhostTypeRecord::Primitive _kind:
+                            selfhost_type_substitution_push_leaf_result arena step_table type_id type_id SelfhostTypeSubstitutionStepKind::PrimitiveKept
+                        SelfhostTypeRecord::Named _named:
+                            selfhost_type_substitution_push_leaf_result arena step_table type_id type_id SelfhostTypeSubstitutionStepKind::NamedKept
+                        SelfhostTypeRecord::Parameter parameter:
+                            match selfhost_type_substitution_binding_table_find_result bindings parameter.binding:
+                                Result::Ok replacement:
+                                    match replacement:
+                                        Option::Some replacement_type_id:
+                                            selfhost_type_substitution_push_leaf_result arena step_table type_id replacement_type_id SelfhostTypeSubstitutionStepKind::ParameterReplaced
+                                        Option::None:
+                                            selfhost_type_substitution_push_leaf_result arena step_table type_id type_id SelfhostTypeSubstitutionStepKind::ParameterKept
+                                Result::Err e:
+                                    selfhost_type_substitution_node_fail arena step_table e
+                        SelfhostTypeRecord::Applied applied:
+                            selfhost_type_substitution_substitute_applied_result arena step_table bindings type_id applied sub fuel 1
+                        SelfhostTypeRecord::Function function:
+                            selfhost_type_substitution_substitute_function_result arena step_table bindings type_id function sub fuel 1
+                Option::None:
+                    selfhost_type_substitution_node_fail arena step_table SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord type_id
+
+//: selfhost_type_substitution_new_arg_vector_result: rebuild 用 TypeId vector を[作/つく]る
+fn selfhost_type_substitution_new_arg_vector_result %impure fn void Result Vec SelfhostTypeId SelfhostTypeSubstitutionErrorKind \void:
+    let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match args_result:
+        Result::Ok args:
+            Result::Ok args
+        Result::Err e:
+            Result::Err SelfhostTypeSubstitutionErrorKind::ArgVectorAllocFailed e
+
+//: selfhost_type_substitution_push_arg_result: rebuild 用 argument vector に TypeId を[追加/ついか]する
+fn selfhost_type_substitution_push_arg_result %impure fn Vec SelfhostTypeId impure fn SelfhostTypeId Result Vec SelfhostTypeId SelfhostTypeSubstitutionErrorKind \args\type_id:
+    match v::push args type_id:
+        Result::Ok next_args:
+            Result::Ok next_args
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostTypeSubstitutionErrorKind::ArgPushFailed error
+
+//: selfhost_type_substitution_applied_args_loop: applied type arguments を左から[置換/ちかん]する
+fn selfhost_type_substitution_applied_args_loop %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn &SelfhostTypeSubstitutionBindingTable impure fn Vec SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn i32 Result SelfhostTypeSubstitutionArgBuild SelfhostTypeSubstitutionErrorKind \arena\step_table\bindings\args\source_type_id\idx\n\fuel:
+    if:
+        ge idx n
+        then:
+            Result::Ok selfhost_type_substitution_arg_build_new arena step_table args
+        else:
+            match selfhost_type_arena_applied_arg &arena source_type_id idx:
+                Option::Some arg_type_id:
+                    match selfhost_type_substitution_substitute_type_result arena step_table bindings arg_type_id fuel:
+                        Result::Ok node:
+                            let next_arena %SelfhostTypeArena field::get node "arena"
+                            let next_steps %SelfhostTypeSubstitutionStepTable field::get node "step_table"
+                            let output_arg %SelfhostTypeId field::get node "output_type_id"
+                            match selfhost_type_substitution_push_arg_result args output_arg:
+                                Result::Ok next_args:
+                                    selfhost_type_substitution_applied_args_loop next_arena next_steps bindings next_args source_type_id add idx 1 n fuel
+                                Result::Err e:
+                                    selfhost_type_substitution_arg_build_fail_after_args_consumed next_arena next_steps e
+                        Result::Err e:
+                            v::free args
+                            Result::Err e
+                Option::None:
+                    selfhost_type_substitution_arg_build_fail arena step_table args SelfhostTypeSubstitutionErrorKind::MissingAppliedTypeArgument source_type_id
+
+//: selfhost_type_substitution_function_args_loop: function argument types を左から[置換/ちかん]する
+fn selfhost_type_substitution_function_args_loop %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn &SelfhostTypeSubstitutionBindingTable impure fn Vec SelfhostTypeId impure fn SelfhostTypeId impure fn i32 impure fn i32 impure fn i32 Result SelfhostTypeSubstitutionArgBuild SelfhostTypeSubstitutionErrorKind \arena\step_table\bindings\args\source_type_id\idx\n\fuel:
+    if:
+        ge idx n
+        then:
+            Result::Ok selfhost_type_substitution_arg_build_new arena step_table args
+        else:
+            match selfhost_type_arena_function_arg &arena source_type_id idx:
+                Option::Some arg_type_id:
+                    match selfhost_type_substitution_substitute_type_result arena step_table bindings arg_type_id fuel:
+                        Result::Ok node:
+                            let next_arena %SelfhostTypeArena field::get node "arena"
+                            let next_steps %SelfhostTypeSubstitutionStepTable field::get node "step_table"
+                            let output_arg %SelfhostTypeId field::get node "output_type_id"
+                            match selfhost_type_substitution_push_arg_result args output_arg:
+                                Result::Ok next_args:
+                                    selfhost_type_substitution_function_args_loop next_arena next_steps bindings next_args source_type_id add idx 1 n fuel
+                                Result::Err e:
+                                    selfhost_type_substitution_arg_build_fail_after_args_consumed next_arena next_steps e
+                        Result::Err e:
+                            v::free args
+                            Result::Err e
+                Option::None:
+                    selfhost_type_substitution_arg_build_fail arena step_table args SelfhostTypeSubstitutionErrorKind::MissingFunctionTypeArgument source_type_id
+
+//: selfhost_type_substitution_substitute_applied_result: applied named type を child 置換後に[再構築/さいこうちく]する
+fn selfhost_type_substitution_substitute_applied_result %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn &SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId impure fn SelfhostAppliedTypeRecord impure fn i32 Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \arena\step_table\bindings\type_id\applied\fuel:
+    let arg_count %i32 selfhost_applied_type_arg_range_count selfhost_applied_type_record_args applied
+    match selfhost_type_substitution_new_arg_vector_result:
+        Result::Ok args:
+            match selfhost_type_substitution_applied_args_loop arena step_table bindings args type_id 0 arg_count fuel:
+                Result::Ok build:
+                    let build_arena %SelfhostTypeArena field::get build "arena"
+                    let build_steps %SelfhostTypeSubstitutionStepTable field::get build "step_table"
+                    let build_args %Vec SelfhostTypeId field::get build "args"
+                    match selfhost_type_arena_add_applied_named build_arena applied.nominal_id build_args:
+                        Result::Ok allocated:
+                            let output_type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                            let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                            match selfhost_type_substitution_push_step build_steps type_id output_type_id SelfhostTypeSubstitutionStepKind::AppliedRebuilt arg_count:
+                                Result::Ok next_steps:
+                                    Result::Ok selfhost_type_substitution_node_result_new next_arena next_steps output_type_id
+                                Result::Err e:
+                                    selfhost_type_substitution_node_fail_after_step_table_consumed next_arena e
+                        Result::Err e:
+                            selfhost_type_substitution_node_fail_after_arena_builder_consumed build_steps SelfhostTypeSubstitutionErrorKind::AppliedRebuildFailed e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_type_substitution_node_fail arena step_table e
+
+//: selfhost_type_substitution_substitute_function_result: function type を child 置換後に[再構築/さいこうちく]する
+fn selfhost_type_substitution_substitute_function_result %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn &SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId impure fn SelfhostFunctionTypeRecord impure fn i32 Result SelfhostTypeSubstitutionNodeResult SelfhostTypeSubstitutionErrorKind \arena\step_table\bindings\type_id\function\fuel:
+    let arg_count %i32 selfhost_function_type_arg_range_count function.args
+    match selfhost_type_substitution_new_arg_vector_result:
+        Result::Ok args:
+            match selfhost_type_substitution_function_args_loop arena step_table bindings args type_id 0 arg_count fuel:
+                Result::Ok build:
+                    let build_arena %SelfhostTypeArena field::get build "arena"
+                    let build_steps %SelfhostTypeSubstitutionStepTable field::get build "step_table"
+                    let build_args %Vec SelfhostTypeId field::get build "args"
+                    match selfhost_type_substitution_substitute_type_result build_arena build_steps bindings function.result fuel:
+                        Result::Ok result_node:
+                            let result_arena %SelfhostTypeArena field::get result_node "arena"
+                            let result_steps %SelfhostTypeSubstitutionStepTable field::get result_node "step_table"
+                            let output_result %SelfhostTypeId field::get result_node "output_type_id"
+                            match selfhost_type_arena_add_function result_arena build_args output_result:
+                                Result::Ok allocated:
+                                    let output_type_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                                    let next_arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                                    match selfhost_type_substitution_push_step result_steps type_id output_type_id SelfhostTypeSubstitutionStepKind::FunctionRebuilt add arg_count 1:
+                                        Result::Ok next_steps:
+                                            Result::Ok selfhost_type_substitution_node_result_new next_arena next_steps output_type_id
+                                        Result::Err e:
+                                            selfhost_type_substitution_node_fail_after_step_table_consumed next_arena e
+                                Result::Err e:
+                                    selfhost_type_substitution_node_fail_after_arena_builder_consumed result_steps SelfhostTypeSubstitutionErrorKind::FunctionRebuildFailed e
+                        Result::Err e:
+                            v::free build_args
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            selfhost_type_substitution_node_fail arena step_table e
+
+//: selfhost_type_substitution_evidence_new_result: output と step stream から accepted evidence を[作/つく]る
+fn selfhost_type_substitution_evidence_new_result %fn &SelfhostTypeSubstitutionStepTable fn SelfhostTypeId fn SelfhostTypeId fn i32 Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind \step_table\root_type_id\output_type_id\binding_count:
+    match selfhost_type_substitution_step_table_hash_result step_table:
+        Result::Ok step_hash:
+            if:
+                eq step_hash 0
+                then:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::StepStreamHashPlaceholder
+                else:
+                    Result::Ok SelfhostTypeSubstitutionEvidence selfhost_type_substitution_schema_version root_type_id output_type_id binding_count selfhost_type_substitution_step_table_len step_table step_hash
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_result_new: success result owner bundle を[作/つく]る
+fn selfhost_type_substitution_result_new %impure fn SelfhostTypeArena impure fn SelfhostTypeSubstitutionStepTable impure fn SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionResult \arena\step_table\evidence:
+    SelfhostTypeSubstitutionResult arena step_table evidence
+
+//: selfhost_type_substitution_result: root TypeId を binding table に従って[置換/ちかん]する
+//:
+//: [契約/けいやく]:
+//: - `arena` はこの関数が消費します。成功時は result owner に移り、失敗時はこの関数が閉じます。
+//: - `bindings` は borrow で読みます。caller が所有権を持ち続け、不要になったら free します。
+//: - success は actual `SelfhostTypeRecord` traversal と step stream を持ちますが、generic impl materializer acceptance ではありません。
+pub fn selfhost_type_substitution_result %impure fn SelfhostTypeArena impure fn &SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId Result SelfhostTypeSubstitutionResult SelfhostTypeSubstitutionErrorKind \arena\bindings\root_type_id:
+    match selfhost_type_substitution_binding_table_validate_result &arena bindings:
+        Result::Ok _validated:
+            match selfhost_type_substitution_step_table_new:
+                Result::Ok step_table:
+                    match selfhost_type_substitution_substitute_type_result arena step_table bindings root_type_id selfhost_type_substitution_default_fuel:
+                        Result::Ok node:
+                            let next_arena %SelfhostTypeArena field::get node "arena"
+                            let next_steps %SelfhostTypeSubstitutionStepTable field::get node "step_table"
+                            let output_type_id %SelfhostTypeId field::get node "output_type_id"
+                            match selfhost_type_substitution_evidence_new_result &next_steps root_type_id output_type_id selfhost_type_substitution_binding_table_len bindings:
+                                Result::Ok evidence:
+                                    Result::Ok selfhost_type_substitution_result_new next_arena next_steps evidence
+                                Result::Err e:
+                                    selfhost_type_substitution_fail_with_step_table next_arena next_steps e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    selfhost_type_arena_free arena
+                    Result::Err e
+        Result::Err e:
+            selfhost_type_arena_free arena
+            Result::Err e
+
+//: selfhost_type_substitution_evidence_only_result: substitution result から evidence だけを[取/と]り[出/だ]して owner を[閉/と]じる
+//:
+//: [目的/もくてき]:
+//: - stage0 や後続 gate が、arena owner を保持せず evidence だけを検査したい場合に使います。
+//: - この helper でも substitution は actual traversal を通り、単なる hash 合成 shortcut ではありません。
+pub fn selfhost_type_substitution_evidence_only_result %impure fn SelfhostTypeArena impure fn &SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind \arena\bindings\root_type_id:
+    match selfhost_type_substitution_result arena bindings root_type_id:
+        Result::Ok result:
+            let evidence %SelfhostTypeSubstitutionEvidence *field::get_ref &result "evidence"
+            selfhost_type_substitution_result_free result
+            Result::Ok evidence
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_type_substitution_stage0_summary_new %fn Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind fn bool fn Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind fn Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind fn Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind fn Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind SelfhostTypeSubstitutionStage0Summary \accepted\accepted_step_hash_verified\duplicate_binding\invalid_binding\missing_replacement\missing_root:
+    SelfhostTypeSubstitutionStage0Summary accepted accepted_step_hash_verified duplicate_binding invalid_binding missing_replacement missing_root
+
+//: selfhost_type_substitution_stage0_push_arg: stage0 用 TypeId vector へ[追加/ついか]する
+fn selfhost_type_substitution_stage0_push_arg %impure fn Vec SelfhostTypeId impure fn SelfhostTypeId Result Vec SelfhostTypeId StdErrorKind \args\type_id:
+    match v::push args type_id:
+        Result::Ok next_args:
+            Result::Ok next_args
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err error
+
+//: selfhost_type_substitution_stage0_type_arg_vector: stage0 用 argument vector を[作/つく]る
+fn selfhost_type_substitution_stage0_type_arg_vector %impure fn SelfhostTypeId Result Vec SelfhostTypeId StdErrorKind \type_id:
+    let args_result %Result Vec SelfhostTypeId StdErrorKind v::new
+    match args_result:
+        Result::Ok args:
+            selfhost_type_substitution_stage0_push_arg args type_id
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_function_arg_vector: stage0 用 function argument vector を[作/つく]る
+fn selfhost_type_substitution_stage0_function_arg_vector %impure fn SelfhostTypeId Result Vec SelfhostTypeId StdErrorKind \type_id:
+    selfhost_type_substitution_stage0_type_arg_vector type_id
+
+//: selfhost_type_substitution_stage0_add_base_types: primitive / parameter / applied / function を[作/つく]る
+fn selfhost_type_substitution_stage0_add_base_types %impure fn SelfhostTypeArena Result SelfhostTypeArenaAlloc StdErrorKind \arena:
+    match selfhost_type_arena_add_primitive arena SelfhostPrimitiveTypeKind::Unit:
+        Result::Ok unit_alloc:
+            let arena1 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena unit_alloc
+            match selfhost_type_arena_add_primitive arena1 SelfhostPrimitiveTypeKind::I32:
+                Result::Ok i32_alloc:
+                    let i32_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &i32_alloc
+                    let arena2 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena i32_alloc
+                    let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+                    match selfhost_type_arena_add_type_parameter arena2 binding:
+                        Result::Ok parameter_alloc:
+                            let parameter_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &parameter_alloc
+                            let arena3 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena parameter_alloc
+                            match selfhost_type_substitution_stage0_type_arg_vector parameter_id:
+                                Result::Ok applied_args:
+                                    match selfhost_type_arena_add_applied_named arena3 (selfhost_named_type_id_new 71) applied_args:
+                                        Result::Ok applied_alloc:
+                                            let applied_id %SelfhostTypeId selfhost_type_arena_alloc_type_id &applied_alloc
+                                            let arena4 %SelfhostTypeArena selfhost_type_arena_alloc_into_arena applied_alloc
+                                            match selfhost_type_substitution_stage0_function_arg_vector parameter_id:
+                                                Result::Ok function_args:
+                                                    selfhost_type_arena_add_function arena4 function_args applied_id
+                                                Result::Err e:
+                                                    selfhost_type_arena_free arena4
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_type_arena_free arena3
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_binding_table: stage0 用 binding table を[作/つく]る
+fn selfhost_type_substitution_stage0_binding_table %impure fn SelfhostTypeId Result SelfhostTypeSubstitutionBindingTable SelfhostTypeSubstitutionErrorKind \replacement:
+    match selfhost_type_substitution_binding_table_new:
+        Result::Ok table:
+            let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+            selfhost_type_substitution_binding_table_push table selfhost_type_substitution_binding_record_new binding replacement
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_duplicate_binding_table: duplicate case 用 binding table を[作/つく]る
+fn selfhost_type_substitution_stage0_duplicate_binding_table %impure fn SelfhostTypeId Result SelfhostTypeSubstitutionBindingTable SelfhostTypeSubstitutionErrorKind \replacement:
+    match selfhost_type_substitution_stage0_binding_table replacement:
+        Result::Ok table:
+            let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+            selfhost_type_substitution_binding_table_push table selfhost_type_substitution_binding_record_new binding replacement
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_invalid_binding_table: invalid binding case 用 binding table を[作/つく]る
+fn selfhost_type_substitution_stage0_invalid_binding_table %impure fn SelfhostTypeId Result SelfhostTypeSubstitutionBindingTable SelfhostTypeSubstitutionErrorKind \replacement:
+    match selfhost_type_substitution_binding_table_new:
+        Result::Ok table:
+            let invalid_binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 sub 0 1
+            selfhost_type_substitution_binding_table_push table selfhost_type_substitution_binding_record_new invalid_binding replacement
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_missing_replacement_table: missing replacement case 用 binding table を[作/つく]る
+fn selfhost_type_substitution_stage0_missing_replacement_table %impure fn void Result SelfhostTypeSubstitutionBindingTable SelfhostTypeSubstitutionErrorKind \void:
+    match selfhost_type_substitution_binding_table_new:
+        Result::Ok table:
+            let binding %SelfhostTypeParameterBinding selfhost_type_parameter_binding_new_unchecked 0 0
+            selfhost_type_substitution_binding_table_push table selfhost_type_substitution_binding_record_new binding selfhost_type_id_new 99
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_type_substitution_stage0_run_with_table: stage0 用 arena と table で substitution を[実行/じっこう]する
+fn selfhost_type_substitution_stage0_run_with_table %impure fn SelfhostTypeSubstitutionBindingTable impure fn SelfhostTypeId Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind \table\root:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_substitution_stage0_add_base_types arena0:
+                Result::Ok allocated:
+                    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    let result %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind selfhost_type_substitution_evidence_only_result arena &table root
+                    selfhost_type_substitution_binding_table_free table
+                    result
+                Result::Err _e:
+                    selfhost_type_substitution_binding_table_free table
+                    Result::Err SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord root
+        Result::Err _e:
+            selfhost_type_substitution_binding_table_free table
+            Result::Err SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord root
+
+//: selfhost_type_substitution_stage0_accepted_result: accepted case の evidence と step hash 再検査結果を[返/かえ]す
+fn selfhost_type_substitution_stage0_accepted_result %impure fn void Result SelfhostTypeSubstitutionResult SelfhostTypeSubstitutionErrorKind \void:
+    match selfhost_type_arena_new:
+        Result::Ok arena0:
+            match selfhost_type_substitution_stage0_add_base_types arena0:
+                Result::Ok allocated:
+                    let root %SelfhostTypeId selfhost_type_arena_alloc_type_id &allocated
+                    let arena %SelfhostTypeArena selfhost_type_arena_alloc_into_arena allocated
+                    match selfhost_type_substitution_stage0_binding_table selfhost_type_id_new 1:
+                        Result::Ok table:
+                            let result %Result SelfhostTypeSubstitutionResult SelfhostTypeSubstitutionErrorKind selfhost_type_substitution_result arena &table root
+                            selfhost_type_substitution_binding_table_free table
+                            result
+                        Result::Err e:
+                            selfhost_type_arena_free arena
+                            Result::Err e
+                Result::Err _e:
+                    Result::Err SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord selfhost_type_id_new 0
+        Result::Err _e:
+            Result::Err SelfhostTypeSubstitutionErrorKind::MissingSourceTypeRecord selfhost_type_id_new 0
+
+//: selfhost_type_substitution_stage0: substitution engine の代表 smoke を[返/かえ]す
+pub fn selfhost_type_substitution_stage0 %impure fn void Result SelfhostTypeSubstitutionStage0Summary SelfhostTypeSubstitutionErrorKind \void:
+    match selfhost_type_substitution_stage0_accepted_result:
+        Result::Ok accepted_result:
+            let accepted_evidence %SelfhostTypeSubstitutionEvidence *field::get_ref &accepted_result "evidence"
+            let accepted_steps %&SelfhostTypeSubstitutionStepTable field::get_ref &accepted_result "step_table"
+            let accepted_step_hash_verified %bool:
+                match selfhost_type_substitution_step_table_hash_result accepted_steps:
+                    Result::Ok step_hash:
+                        eq step_hash accepted_evidence.step_stream_hash
+                    Result::Err _e:
+                        false
+            selfhost_type_substitution_result_free accepted_result
+            match selfhost_type_substitution_stage0_duplicate_binding_table selfhost_type_id_new 1:
+                Result::Ok duplicate_table:
+                    let duplicate_binding %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind selfhost_type_substitution_stage0_run_with_table duplicate_table selfhost_type_id_new 4
+                    match selfhost_type_substitution_stage0_invalid_binding_table selfhost_type_id_new 1:
+                        Result::Ok invalid_table:
+                            let invalid_binding %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind selfhost_type_substitution_stage0_run_with_table invalid_table selfhost_type_id_new 4
+                            match selfhost_type_substitution_stage0_missing_replacement_table:
+                                Result::Ok missing_table:
+                                    let missing_replacement %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind selfhost_type_substitution_stage0_run_with_table missing_table selfhost_type_id_new 4
+                                    match selfhost_type_substitution_stage0_binding_table selfhost_type_id_new 1:
+                                        Result::Ok root_table:
+                                            let missing_root %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind selfhost_type_substitution_stage0_run_with_table root_table selfhost_type_id_new 99
+                                            let accepted %Result SelfhostTypeSubstitutionEvidence SelfhostTypeSubstitutionErrorKind Result::Ok accepted_evidence
+                                            let summary %SelfhostTypeSubstitutionStage0Summary selfhost_type_substitution_stage0_summary_new accepted accepted_step_hash_verified duplicate_binding invalid_binding missing_replacement missing_root
+                                            Result::Ok summary
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
