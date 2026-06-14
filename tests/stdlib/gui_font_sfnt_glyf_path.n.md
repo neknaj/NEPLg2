@@ -1400,6 +1400,42 @@ fn main %impure fn void i32 \void:
                         GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
                             false
                     and action_ok next_ok
+            let start_consume_once_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state_new
+            let start_consume_once_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once &bytes none start_consume_once_state glyph 0 &sink_policy:
+                Result::Err _error:
+                    false
+                Result::Ok consume_step:
+                    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_step &consume_step
+                    let inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+                    let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &inner_apply_step
+                    let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &inner_apply_step
+                    let status_ok %bool match apply_status:
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
+                            true
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected _reason:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
+                            false
+                    let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &apply_state
+                    let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance &consume_step
+                    let advance_ok %bool match advance:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer:
+                            match gui_sfnt_simple_glyph_path_sink_action_consumer_item_action &next_consumer:
+                                GuiSfntSimpleGlyphPathSinkAction::EmitEvent _event:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkAction::Reject _reason:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkAction::CloseContour _close:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkAction::NoAction:
+                                    true
+                        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected _reason:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour:
+                            false
+                    and status_ok and count_ok advance_ok
             let terminal_consumer_item_next_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy:
                 Result::Err _error:
                     false
@@ -1445,5 +1481,5 @@ fn main %impure fn void i32 \void:
                                         GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour:
                                             false
             io_bytebuf_free bytes
-            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok and start_step_ok and start_advance_ok and start_item_ok and terminal_item_next_ok and start_item_next_ok and start_consumer_item_ok and start_consumer_item_direct_ok and terminal_consumer_item_next_ok start_consumer_item_next_ok
+            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok and start_step_ok and start_advance_ok and start_item_ok and terminal_item_next_ok and start_item_next_ok and start_consumer_item_ok and start_consumer_item_direct_ok and start_consume_once_ok and terminal_consumer_item_next_ok start_consumer_item_next_ok
 ```

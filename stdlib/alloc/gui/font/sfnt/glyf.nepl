@@ -4244,3 +4244,22 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once 
         Result::Ok advance:
             let consume_step %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance
             Result::Ok consume_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once: contour の first consumer item を 1 つ[消費/しょうひ]する
+//:
+//: [契約/けいやく]:
+//: - F4aj start consumer item helper を 1 回だけ呼び、F4ai consume-once helper へ 1 回だけ[渡/わた]します。
+//: - apply step と advance を捨てず、F4ai の consume step をそのまま[返/かえ]します。
+//: - loop、real sink、payload direct match、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError \bytes\face_index\state\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item bytes face_index glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok consumer_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &consumer_item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consume_step:
+                    Result::Ok consume_step
