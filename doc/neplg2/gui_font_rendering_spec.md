@@ -1217,6 +1217,29 @@ F4af は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_
 
 F4af は action payload を直接 `match` しない。`Reject`、`CloseContour`、`NoAction` の解釈は F4ae apply helper に委譲する。`Result`、`Option`、`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer apply terminal
+
+F4ag は F4af の `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep` を future consumer loop が扱いやすい terminal 判定へ分類する段階である。これは loop、next lookup、sink mutation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step:
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    -> GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal
+```
+
+判定順は固定である。まず `step.apply_step.status` が `Rejected reason` なら `Rejected reason` を返す。これは malformed SFNT bytes ではなく sink policy の domain terminal なので `Result::Err` に変換しない。reject でなければ、F4af が保存している `step.next` を読む。`Continue item` なら `Continue step`、`EndContour` なら `EndContour step` を返す。
+
+`NoAction` は silent skip ではないが、それだけで terminal にはしない。`NoAction + Continue` は `Continue`、`NoAction + EndContour` は `EndContour` である。`ClosedContour` status も同様に保存済み `next` に従う。これにより、action payload の意味と traversal authority を混ぜない。
+
+F4ag は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` を呼ばず、`GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` も作らない。保存済み `GuiSfntSimpleGlyphPathSinkActionItemNext` だけを読む。`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

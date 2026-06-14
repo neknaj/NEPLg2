@@ -1565,6 +1565,41 @@ The helper is total because it receives typed values that have already crossed t
 
 F4af must not match `GuiSfntSimpleGlyphPathSinkAction` variants directly. Payload interpretation belongs to F4ae. It also must not allocate `Vec`, push a command, loop over a contour, track current point state, perform lower SFNT lookup, parse metadata, rasterize, render, call a platform backend, or call host text measurement.
 
+### SFNT simple glyph path sink action consumer apply terminal
+
+F4ag turns a single F4af apply step into a pure terminal classification for a future consumer loop. It deliberately does not become that loop. It also does not resolve the next byte-backed consumer item.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+```
+
+The helper reads the inner apply status first:
+
+```text
+status = gui_sfnt_simple_glyph_path_sink_action_apply_step_status step.apply_step
+
+match status:
+    Rejected reason:
+        Rejected reason
+
+    otherwise:
+        match step.next:
+            Continue _:
+                Continue step
+
+            EndContour:
+                EndContour step
+```
+
+`Rejected` has priority over stored next state because a policy rejection is a domain terminal. It is not a parse error and must not be wrapped as `Result::Err`. `EndContour` is also a domain terminal, but successful. `Continue` keeps the already computed F4af apply step so the future loop can inspect status and counts without recomputing payload interpretation.
+
+`NoAction` must not be treated as an implicit skip. Its terminal state is decided only by the stored next value. This preserves the distinction between "nothing was emitted by this action" and "the traversal has ended".
+
+F4ag must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call byte-backed lower lookup helpers. It must not allocate `Vec`, push commands, loop over contour data, inspect current point state, parse metadata, rasterize, render, call platform APIs, or call host text measurement.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
