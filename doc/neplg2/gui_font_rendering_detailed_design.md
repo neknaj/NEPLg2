@@ -3206,6 +3206,83 @@ Endpoint is deliberately represented in the top-level kind. Later contour/path c
 
 F5q must not call byte readers, storage readers, drain loops, path sink helpers, rasterizers, renderer commands, platform APIs, or host text APIs. It also must not allocate a point vector. It may only call the existing `GuiSfntSimpleGlyphPoint` field accessors and construct the item value.
 
+## SFNT simple glyph outline point stream item step boundary
+
+F5r converts the successful value shape of F5o into the item shape introduced by F5q. It is deliberately a pure conversion boundary. It does not call byte-backed point readers, storage APIs, F5p drain, path sink helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
+The step status is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:
+    Item
+    End
+```
+
+The step value is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStep:
+    status GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    next_cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+F5o already has a public constructor for `GuiSfntSimpleGlyphOutlinePointReadStep`, so F5r must not trust the shape blindly. It rechecks the invariants that are visible from the step value:
+
+```text
+Point:
+    item source point must be Some
+    next_cursor.next_point_index == cursor.next_point_index + 1
+
+End:
+    item source point must be None
+    next_cursor.next_point_index == cursor.next_point_index
+```
+
+The only F5r error kind is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:
+    PointStepInvariantInvalid
+```
+
+The error stores the invalid F5o step:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind
+    step GuiSfntSimpleGlyphOutlinePointReadStep
+```
+
+The conversion helper is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step:
+    GuiSfntSimpleGlyphOutlinePointReadStep
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStepError
+```
+
+F5r may call `gui_sfnt_simple_glyph_outline_point_stream_item` exactly once in the successful `Point + Some point + valid next cursor` branch. It must not call `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` directly. Keeping classification inside the F5q constructor prevents later phases from duplicating or drifting from the kind derivation contract.
+
+The fixed conversion order is:
+
+```text
+read status, cursor, next_cursor, point option
+read cursor indexes
+if status is Point:
+    require point Some
+    require next == current + 1
+    construct F5q item exactly once
+    return Item step with Some item
+if status is End:
+    require point None
+    require next == current
+    return End step with None
+otherwise:
+    PointStepInvariantInvalid
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -3937,6 +3937,176 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_point %fn &GuiSfntSimpleG
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemKind \item:
     *field::get_ref item "kind"
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus: classified item step の成功状態
+//:
+//: [目的/もくてき]:
+//: - `Item` は F5o の `Point` step から classified item を 1 つ作れた状態です。
+//: - `End` は F5o の `End` step を item stream の正常終端として運ぶ状態です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:
+    Item
+    End
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus \status:
+        *status
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus \status:
+        status
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemStep: F5o point step から作る classified item step
+//:
+//: [契約/けいやく]:
+//: - `status = Item` の[場合/ばあい]、`item` は `Some` であり、`next_cursor` は `cursor` から 1 点だけ進みます。
+//: - `status = End` の[場合/ばあい]、`item` は `None` であり、`cursor` と `next_cursor` は同じ位置です。
+//: - 生成 helper は公開 constructor で作れる不正な F5o step を fail-closed にします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemStep:
+    status %GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus
+    cursor %GuiSfntSimpleGlyphOutlinePointReadCursor
+    next_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor
+    item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemStep:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStep \step:
+        *step
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemStep:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStep \step:
+        step
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step: classified item step value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step %fn GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus fn GuiSfntSimpleGlyphOutlinePointReadCursor fn GuiSfntSimpleGlyphOutlinePointReadCursor fn Option GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemStep \status\cursor\next_cursor\item:
+    GuiSfntSimpleGlyphOutlinePointStreamItemStep status cursor next_cursor item
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_status: item step status を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_status %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus \step:
+    *field::get_ref step "status"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_cursor: item step の入力 cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointReadCursor \step:
+    *field::get_ref step "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_next_cursor: item step の次 cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_next_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointReadCursor \step:
+    *field::get_ref step "next_cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_item: classified item option を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStep Option GuiSfntSimpleGlyphOutlinePointStreamItem \step:
+    *field::get_ref step "item"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind: item step 変換[失敗/しっぱい]の typed reason
+//:
+//: [目的/もくてき]:
+//: - F5o の公開 constructor で作れる不正な `Point` / `End` shape を明示的な error にします。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:
+    PointStepInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemStepError: invalid F5o step を保持する変換 error
+//:
+//: [目的/もくてき]:
+//: - どの F5o step が変換不能だったかを保持し、呼び出し側が診断やテストで確認できるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemStepError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind
+    step %GuiSfntSimpleGlyphOutlinePointReadStep
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemStepError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStepError GuiSfntSimpleGlyphOutlinePointStreamItemStepError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemStepError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemStepError GuiSfntSimpleGlyphOutlinePointStreamItemStepError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_error: item step error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind fn GuiSfntSimpleGlyphOutlinePointReadStep GuiSfntSimpleGlyphOutlinePointStreamItemStepError \kind\step:
+    GuiSfntSimpleGlyphOutlinePointStreamItemStepError kind step
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_error_kind: item step error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStepError GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_error_step: invalid F5o step を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_error_step %fn &GuiSfntSimpleGlyphOutlinePointStreamItemStepError GuiSfntSimpleGlyphOutlinePointReadStep \error:
+    *field::get_ref error "step"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step: F5o step を classified item step に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - `Point` は `point = Some` かつ `next_cursor = cursor + 1` の[場合/ばあい]だけ `Item` へ進めます。
+//: - `End` は `point = None` かつ cursor が進まない[場合/ばあい]だけ `End` へ進めます。
+//: - item kind の導出は F5q constructor に委譲し、この helper では分類を再実装しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step %fn &GuiSfntSimpleGlyphOutlinePointReadStep Result GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStepError \step:
+    let status %GuiSfntSimpleGlyphOutlinePointReadStepStatus gui_sfnt_simple_glyph_outline_point_read_step_status step
+    let cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_read_step_cursor step
+    let next_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_read_step_next_cursor step
+    let cursor_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &cursor
+    let next_cursor_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &next_cursor
+    match status:
+        GuiSfntSimpleGlyphOutlinePointReadStepStatus::Point:
+            match gui_sfnt_simple_glyph_outline_point_read_step_point step:
+                Option::None:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemStepError gui_sfnt_simple_glyph_outline_point_stream_item_step_error GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind::PointStepInvariantInvalid *step
+                    Result::Err error
+                Option::Some point:
+                    let expected_next_index %i32 add cursor_index 1
+                    if ne next_cursor_index expected_next_index:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemStepError gui_sfnt_simple_glyph_outline_point_stream_item_step_error GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind::PointStepInvariantInvalid *step
+                            Result::Err error
+                        else:
+                            let item_value %GuiSfntSimpleGlyphOutlinePointStreamItem gui_sfnt_simple_glyph_outline_point_stream_item point
+                            let item %Option GuiSfntSimpleGlyphOutlinePointStreamItem some item_value
+                            let converted %GuiSfntSimpleGlyphOutlinePointStreamItemStep gui_sfnt_simple_glyph_outline_point_stream_item_step GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus::Item cursor next_cursor item
+                            Result::Ok converted
+        GuiSfntSimpleGlyphOutlinePointReadStepStatus::End:
+            match gui_sfnt_simple_glyph_outline_point_read_step_point step:
+                Option::Some _point:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemStepError gui_sfnt_simple_glyph_outline_point_stream_item_step_error GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind::PointStepInvariantInvalid *step
+                    Result::Err error
+                Option::None:
+                    if ne next_cursor_index cursor_index:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemStepError gui_sfnt_simple_glyph_outline_point_stream_item_step_error GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind::PointStepInvariantInvalid *step
+                            Result::Err error
+                        else:
+                            let item %Option GuiSfntSimpleGlyphOutlinePointStreamItem none
+                            let converted %GuiSfntSimpleGlyphOutlinePointStreamItemStep gui_sfnt_simple_glyph_outline_point_stream_item_step GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus::End cursor next_cursor item
+                            Result::Ok converted
+
 //: GuiSfntSimpleGlyphContourSpan: simple glyph の 1 contour が[参照/さんしょう]する point span
 //:
 //: [目的/もくてき]:
