@@ -2142,6 +2142,59 @@ PointY          [contour_count + point_count, contour_count + point_count + poin
 
 F5k の raw scalar slot getter は private helper であり、unchecked public accessor として公開しない。`vec::get` を使う場所はこの private helper に閉じ込める。`CoordinateNotReady` は storage がまだ required y slot まで埋まっていない状態を表し、fallback 値や zero coordinate を返してはいけない。
 
+### SFNT simple glyph outline point endpoint marker read
+
+F5l は F5 storage に追加済みの `ContourEndpoint` scalar region から、1 logical point が属する contour と、その point が contour end であるかだけを読む read-only boundary である。ここでは flag byte、x/y coordinate、full point、edge/path、rasterizer、renderer、platform API、host text API へ進まない。
+
+F5l は endpoint marker value を返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointEndpointMarker:
+    glyph GuiGlyphId
+    point_index i32
+    contour_index i32
+    end_of_contour bool
+```
+
+read failure は typed enum と value-only context で返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PointIndexOutOfRange
+    EndpointNotReady
+    EndpointSlotMissing
+    EndpointTopologyInvalid
+
+GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError:
+    kind GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    point_index i32
+    scalar_slot_count i32
+    scalar_slots_len i32
+    scalar_slots_cap i32
+```
+
+`gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker` は次の順序を守る。
+
+```text
+1. storage capacity shape を検査する
+2. expected scalar slot count を計算する
+3. storage.scalar_slot_count == expected を検査する
+4. scalar_slots_cap == storage.scalar_slot_count を検査する
+5. point_index が 0 <= point_index < point_count であることを検査する
+6. scalar_slots_len >= contour_count であることを検査する
+7. private scalar slot getter で全 endpoint slot を final contour まで読む
+8. 各 endpoint が 0 <= endpoint < point_count かつ strictly increasing であることを検査する
+9. point_index <= endpoint になる最初の contour を marker candidate として記録する
+10. final endpoint が point_count - 1 であることを検査する
+11. endpoint topology 全体が valid で、candidate がある場合だけ marker を返す
+```
+
+F5l は最初に `point_index <= endpoint` となった contour を見つけても即時成功しない。全 endpoint slot を最後まで検査し、final endpoint が `point_count - 1` であることを確認してから成功する。これにより forged storage の `[1, 2]` のような endpoint array が point 0 に対して partial success を返すことを防ぐ。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

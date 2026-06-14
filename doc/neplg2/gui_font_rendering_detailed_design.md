@@ -2653,6 +2653,95 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+## SFNT simple glyph outline point endpoint marker read boundary
+
+F5l is the endpoint-side counterpart to F5k. It borrows `GuiSfntSimpleGlyphOutlineStorage` and projects the already-populated `ContourEndpoint` scalar region into a value that says which contour owns the requested logical point and whether the point is exactly the contour end.
+
+```text
+GuiSfntSimpleGlyphOutlinePointEndpointMarker:
+    glyph GuiGlyphId
+    point_index i32
+    contour_index i32
+    end_of_contour bool
+```
+
+The helper does not inspect flag bytes, does not read x/y coordinate slots, and does not construct `GuiSfntSimpleGlyphPoint`. It is deliberately only the endpoint marker projection needed by later full point and outline stream phases.
+
+The read error is value-only:
+
+```text
+GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PointIndexOutOfRange
+    EndpointNotReady
+    EndpointSlotMissing
+    EndpointTopologyInvalid
+
+GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError:
+    kind GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    point_index i32
+    scalar_slot_count i32
+    scalar_slots_len i32
+    scalar_slots_cap i32
+```
+
+Validation must first establish the storage shape:
+
+```text
+capacity shape
+scalar slot count Fits
+storage scalar_slot_count == expected
+scalar_slots_cap == scalar_slot_count
+point_index range
+scalar_slots_len >= contour_count
+```
+
+The endpoint scan then walks every endpoint slot, not only the first slot that contains `point_index`. The loop state is:
+
+```text
+contour_index
+previous_endpoint
+found bool
+found_contour_index
+found_end_of_contour
+```
+
+For each endpoint slot:
+
+```text
+None                     -> EndpointSlotMissing
+endpoint < 0             -> EndpointTopologyInvalid
+endpoint >= point_count  -> EndpointTopologyInvalid
+endpoint <= previous     -> EndpointTopologyInvalid
+
+if not found and point_index <= endpoint:
+    record contour_index and endpoint == point_index
+
+if final contour:
+    endpoint must be point_count - 1
+    found must be true
+    return recorded marker
+else:
+    continue with previous_endpoint = endpoint
+```
+
+This complete-topology rule is required. A forged endpoint region such as `[1, 2]` for a four-point glyph must not return a successful marker for point 0. The final endpoint mismatch makes the whole endpoint topology invalid.
+
+F5l may reuse the F5k private scalar slot getter. The public endpoint marker helper must not call:
+
+```text
+direct Vec APIs
+byte readers
+GuiSfntSimpleGlyphPointStream
+GuiSfntSimpleGlyphPoint
+coordinate read helpers
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
