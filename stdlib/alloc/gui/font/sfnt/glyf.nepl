@@ -1926,6 +1926,25 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_action %fn &GuiSfntS
 pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_next %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionItemNext \item:
     *field::get_ref item "next"
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerItemNext: consumer item を 1 つ[進/すす]めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は checked next から[得/え]た次 consumer item を[持/も]ちます。
+//: - `EndContour` は contour 内 consumer item stream の終端を成功値として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    Continue %GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphPathSinkActionConsumerItemNext \next:
+        *next
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerItemNext:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphPathSinkActionConsumerItemNext \next:
+        next
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3833,3 +3852,23 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item %fn &ByteBuf 
         Result::Ok next:
             let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
             Result::Ok consumer_item
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next: consumer item を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - consumer item の checked next だけを[読/よ]み、`Continue` の[場合/ばあい]だけ次 consumer item を[読/よ]みます。
+//: - `EndContour` は `Result::Err` ではなく成功値として[返/かえ]します。
+//: - current action payload、lower lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntParseError \bytes\face_index\item\policy:
+    let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+    match next:
+        GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_consumer_item:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
+        GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour

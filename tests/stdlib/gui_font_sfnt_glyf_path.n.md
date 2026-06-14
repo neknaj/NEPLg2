@@ -1022,6 +1022,50 @@ fn main %impure fn void i32 \void:
                                 GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
                                     false
                             and action_ok next_ok
+            let terminal_consumer_item_next_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy:
+                Result::Err _error:
+                    false
+                Result::Ok item:
+                    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item &bytes none &item &sink_policy:
+                        Result::Err _error:
+                            false
+                        Result::Ok consumer:
+                            let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_action_consumer_item_action &consumer
+                            let terminal_consumer %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+                            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next &bytes none &terminal_consumer &sink_policy:
+                                Result::Err _error:
+                                    false
+                                Result::Ok consumer_next:
+                                    match consumer_next:
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue _next_consumer:
+                                            false
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour:
+                                            true
+            let start_consumer_item_next_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy:
+                Result::Err _error:
+                    false
+                Result::Ok item:
+                    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item &bytes none &item &sink_policy:
+                        Result::Err _error:
+                            false
+                        Result::Ok consumer:
+                            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next &bytes none &consumer &sink_policy:
+                                Result::Err _error:
+                                    false
+                                Result::Ok consumer_next:
+                                    match consumer_next:
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer:
+                                            match gui_sfnt_simple_glyph_path_sink_action_consumer_item_action &next_consumer:
+                                                GuiSfntSimpleGlyphPathSinkAction::EmitEvent _event:
+                                                    false
+                                                GuiSfntSimpleGlyphPathSinkAction::Reject _reason:
+                                                    false
+                                                GuiSfntSimpleGlyphPathSinkAction::CloseContour _close:
+                                                    false
+                                                GuiSfntSimpleGlyphPathSinkAction::NoAction:
+                                                    true
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour:
+                                            false
             io_bytebuf_free bytes
-            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok and start_step_ok and start_advance_ok and start_item_ok and terminal_item_next_ok and start_item_next_ok start_consumer_item_ok
+            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok and start_step_ok and start_advance_ok and start_item_ok and terminal_item_next_ok and start_item_next_ok and start_consumer_item_ok and terminal_consumer_item_next_ok start_consumer_item_next_ok
 ```
