@@ -1591,6 +1591,111 @@ pub fn gui_sfnt_simple_glyph_path_sink_step_primary_action %fn &GuiSfntSimpleGly
 pub fn gui_sfnt_simple_glyph_path_sink_step_tail_action %fn &GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphPathSinkTailAction \step:
     *field::get_ref step "tail_action"
 
+//: GuiSfntSimpleGlyphPathSinkActionSlot: sink step action の[選択/せんたく]位置
+//:
+//: [目的/もくてき]:
+//: - `Primary` は primary action、`Tail` は tail action を[選/えら]びます。
+//: - これは contour edge 内の `First` / `Second` event slot とは別の軸です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionSlot:
+    Primary
+    Tail
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionSlot:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionSlot GuiSfntSimpleGlyphPathSinkActionSlot \slot:
+        *slot
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionSlot:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionSlot GuiSfntSimpleGlyphPathSinkActionSlot \slot:
+        slot
+
+//: GuiSfntSimpleGlyphPathSinkAction: sink が順に[受/う]ける typed action
+//:
+//: [目的/もくてき]:
+//: - F4t の primary / tail action を future sink が同じ型で[処理/しょり]できる形に[写/うつ]します。
+//: - `NoAction` は `NoTailAction` の明示的な射影であり、暗黙の代替処理や silent no-op ではありません。
+//: - primary action の射影は `NoAction` を[返/かえ]しません。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkAction:
+    EmitEvent %GuiSfntSimpleGlyphPathSinkEvent
+    Reject %GuiSfntSimpleGlyphPathSinkRejectReason
+    CloseContour %GuiSfntSimpleGlyphPathContourClose
+    NoAction
+
+impl Clone for GuiSfntSimpleGlyphPathSinkAction:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkAction GuiSfntSimpleGlyphPathSinkAction \action:
+        *action
+
+impl Copy for GuiSfntSimpleGlyphPathSinkAction:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkAction GuiSfntSimpleGlyphPathSinkAction \action:
+        action
+
+//: gui_sfnt_simple_glyph_path_sink_action_slot_is_primary: slot が primary かを[調/しら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_slot_is_primary %fn GuiSfntSimpleGlyphPathSinkActionSlot bool \slot:
+    match slot:
+        GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+            true
+        GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+            false
+
+//: gui_sfnt_simple_glyph_path_sink_action_slot_is_tail: slot が tail かを[調/しら]べる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_slot_is_tail %fn GuiSfntSimpleGlyphPathSinkActionSlot bool \slot:
+    match slot:
+        GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+            false
+        GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+            true
+
+//: gui_sfnt_simple_glyph_path_sink_primary_action_as_action: primary action を統一 action に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - primary action は必ず `EmitEvent` または `Reject` へ写します。
+//: - `NoAction` は tail action 専用であり、この関数は[返/かえ]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_primary_action_as_action %fn &GuiSfntSimpleGlyphPathSinkPrimaryAction GuiSfntSimpleGlyphPathSinkAction \action:
+    match *action:
+        GuiSfntSimpleGlyphPathSinkPrimaryAction::EmitEvent event:
+            GuiSfntSimpleGlyphPathSinkAction::EmitEvent event
+        GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject reason:
+            GuiSfntSimpleGlyphPathSinkAction::Reject reason
+
+//: gui_sfnt_simple_glyph_path_sink_tail_action_as_action: tail action を統一 action に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - `NoTailAction` は明示的な `NoAction` に写します。
+//: - `CloseContour` は renderer command ではなく、future sink 用の close marker として保持します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_tail_action_as_action %fn &GuiSfntSimpleGlyphPathSinkTailAction GuiSfntSimpleGlyphPathSinkAction \action:
+    match *action:
+        GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction:
+            GuiSfntSimpleGlyphPathSinkAction::NoAction
+        GuiSfntSimpleGlyphPathSinkTailAction::CloseContour close:
+            GuiSfntSimpleGlyphPathSinkAction::CloseContour close
+
+//: gui_sfnt_simple_glyph_path_sink_step_action_at: sink step の action を slot で[選/えら]ぶ
+//:
+//: [契約/けいやく]:
+//: - `Primary` は primary action を、`Tail` は tail action を[返/かえ]します。
+//: - `Option`、`Result`、数値 index、既定 branch は使いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_step_action_at %fn &GuiSfntSimpleGlyphPathSinkStep fn GuiSfntSimpleGlyphPathSinkActionSlot GuiSfntSimpleGlyphPathSinkAction \step\slot:
+    match slot:
+        GuiSfntSimpleGlyphPathSinkActionSlot::Primary:
+            let primary_action %GuiSfntSimpleGlyphPathSinkPrimaryAction gui_sfnt_simple_glyph_path_sink_step_primary_action step
+            gui_sfnt_simple_glyph_path_sink_primary_action_as_action &primary_action
+        GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
+            let tail_action %GuiSfntSimpleGlyphPathSinkTailAction gui_sfnt_simple_glyph_path_sink_step_tail_action step
+            gui_sfnt_simple_glyph_path_sink_tail_action_as_action &tail_action
+
 //: gui_sfnt_simple_glyph_path_sink_primary_action_from_contour_step: F4s step から primary action を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3274,3 +3379,22 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_step %fn &ByteBuf fn Option i32 fn
         Result::Ok contour_step:
             let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy &contour_step
             Result::Ok sink_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action: cursor 位置の sink action を slot で[選/えら]ぶ
+//:
+//: [目的/もくてき]:
+//: - byte-backed sink step lookup の成功値から、future sink が順に[受/う]ける action を 1 つ[取/と]り[出/だ]します。
+//: - parse/range error は `Result::Err` で伝播し、policy reject は `Result::Ok Reject` として保持します。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `gui_sfnt_lookup_simple_glyph_path_sink_step` にだけ委譲します。
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathContourCursor fn &GuiSfntSimpleGlyphPathSinkPolicy fn GuiSfntSimpleGlyphPathSinkActionSlot Result GuiSfntSimpleGlyphPathSinkAction GuiSfntParseError \bytes\face_index\cursor\policy\slot:
+    match gui_sfnt_lookup_simple_glyph_path_sink_step bytes face_index cursor policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok sink_step:
+            let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_step_action_at &sink_step slot
+            Result::Ok action

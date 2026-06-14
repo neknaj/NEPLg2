@@ -841,6 +841,55 @@ gui_sfnt_lookup_simple_glyph_path_sink_step:
 
 byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_contour_step` を呼び、成功した F4s step を pure helper に渡すだけである。metadata unwrap、table helper bypass、renderer、platform API、font fallback、rasterization、full outline allocation は行わない。
 
+### SFNT simple glyph path sink action selection projection
+
+F4u は F4t の `GuiSfntSimpleGlyphPathSinkStep` から、future sink が順に消費する action を typed value として選択する projection である。これは real sink mutation、callback、full outline allocation、`Vec` command stream、renderer command、rasterizer ではない。F4u の責務は、F4t で分離した primary / tail action を同一の `GuiSfntSimpleGlyphPathSinkAction` 型に写し、slot による選択を enum / match で固定することである。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionSlot:
+    Primary
+    Tail
+
+GuiSfntSimpleGlyphPathSinkAction:
+    EmitEvent GuiSfntSimpleGlyphPathSinkEvent
+    Reject GuiSfntSimpleGlyphPathSinkRejectReason
+    CloseContour GuiSfntSimpleGlyphPathContourClose
+    NoAction
+```
+
+`GuiSfntSimpleGlyphPathSinkActionSlot` は F4r/F4s の `GuiSfntSimpleGlyphPathSinkEventSlot` とは別の軸である。`GuiSfntSimpleGlyphPathSinkEventSlot::First` / `Second` は contour edge 内の command event を選ぶ。`GuiSfntSimpleGlyphPathSinkActionSlot::Primary` / `Tail` は F4t sink step 内の action を選ぶ。両者を同じ enum や数値 index に統合してはならない。
+
+`NoAction` は `GuiSfntSimpleGlyphPathSinkTailAction::NoTailAction` の明示的な projection だけを表す。fallback、silent no-op、unsupported feature の握りつぶしではない。primary action projection は `NoAction` を返さず、必ず `EmitEvent` または `Reject` を返す。
+
+public pure helper と byte-backed helper は次である。
+
+```text
+gui_sfnt_simple_glyph_path_sink_primary_action_as_action:
+    action &GuiSfntSimpleGlyphPathSinkPrimaryAction
+    -> GuiSfntSimpleGlyphPathSinkAction
+
+gui_sfnt_simple_glyph_path_sink_tail_action_as_action:
+    action &GuiSfntSimpleGlyphPathSinkTailAction
+    -> GuiSfntSimpleGlyphPathSinkAction
+
+gui_sfnt_simple_glyph_path_sink_step_action_at:
+    step &GuiSfntSimpleGlyphPathSinkStep
+    slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> GuiSfntSimpleGlyphPathSinkAction
+
+gui_sfnt_lookup_simple_glyph_path_sink_action:
+    bytes &ByteBuf
+    face_index Option i32
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    slot GuiSfntSimpleGlyphPathSinkActionSlot
+    -> Result GuiSfntSimpleGlyphPathSinkAction GuiSfntParseError
+```
+
+`gui_sfnt_simple_glyph_path_sink_step_action_at` は `Primary` / `Tail` の網羅的 `match` だけで分岐する。`Option`、`Result`、数値 `command_index`、default branch は使わない。
+
+byte-backed helper は `gui_sfnt_lookup_simple_glyph_path_sink_step` を 1 回だけ呼び、成功した step に `gui_sfnt_simple_glyph_path_sink_step_action_at` を適用する。下位の contour / curve / table helper、metadata unwrap、`*_with_tables` bypass、font fallback、renderer、platform API、rasterization、full outline allocation は行わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
