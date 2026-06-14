@@ -60320,3 +60320,42 @@ MERGE_APPROVED
 ### residual
 
 - F4ah は apply 後の consumer stream を 1 step 進める boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 GUI font SFNT path sink action consumer consume once checkpoint
+
+### scope
+
+- branch: `gui-font-sink-action-consumer-once-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、consume-once result は typed struct、malformed SFNT failure は `Result`、domain terminal は enum value、platform / renderer / fallback は非依存とした。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4ai: SFNT simple glyph path sink action consumer item consume once を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep`、constructor、`apply_step` / `advance` accessor、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once` を追加した。
+- `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` は F4af の `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep` と F4ah の `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` を両方保持し、`Clone` / `Copy` を実装した。
+- F4ai helper は F4af `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply` を 1 回だけ呼び、その `apply_step` を F4ah `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance` へ 1 回だけ渡す。
+- F4ai helper は `Result::Err` を parse/range failure として伝播し、`Result::Ok advance` では同じ `apply_step` と `advance` を consume step に束ねる。
+- F4ai helper は F4ag を直接呼ばず、F4ad next helper、payload direct match、F4ae direct apply、F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec` / `push` / loop / current point、renderer / rasterizer / platform / host text API を直接使わない。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に F4ai contract doctest を追加し、現行 compiler の 60 秒 doctest 制限で byte-backed helper materialization が重くなる可能性があるため `skip` とした。内容は synthetic reject / end case で apply state/status と advance の両方を読む形にした。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4ai docs / struct / Clone/Copy / constructor / accessor / helper body / call count / 禁止 helper / payload inspection 禁止 / 括弧なし body の source policy assertion を追加した。
+
+### subagent_review
+
+- Archimedes initial plan review: `PLAN_BLOCKED`。`GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけを返す初案では F4af の apply state/status を捨ててしまうと指摘された。
+- 修正: `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` を追加し、`apply_step` と `advance` の両方を保持する設計へ変更した。
+- Archimedes revised plan review: `PLAN_APPROVED`。修正版は F4af apply result と F4ah advance result を両方保持し、single consume boundary として妥当とされた。
+- Archimedes implementation review: `REVIEW_APPROVED`。`GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` が F4af apply step と F4ah advance を保持し、consume-once helper が F4af 1 回、F4ah 1 回、constructor 1 回だけを呼ぶこと、F4ag/F4ad/lower helper、payload match、loop、`Vec` / `push`、platform/render/raster/host text、括弧混入がないことを確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 10/10 passed。F4ai contract fixture は skip として扱った。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 315/315 passed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。CRLF 変換 warning のみ。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- F4ai は 1 consumer item の consume-once boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。

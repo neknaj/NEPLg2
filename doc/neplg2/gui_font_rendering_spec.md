@@ -1268,6 +1268,30 @@ F4ah は original `GuiSfntSimpleGlyphPathSinkActionConsumerItem` を要求しな
 
 F4ah は action payload を直接 `match` せず、apply をやり直さない。`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer consume once
+
+F4ai は 1 consumer item を「apply してから advance する」境界である。ただし、単に `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけを返してはいけない。F4af の apply step には更新後の apply state と status が含まれ、future loop や diagnostics がこれを読むためである。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once:
+    bytes &ByteBuf
+    face_index Option i32
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item` を 1 回だけ呼び、得られた `apply_step` を `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index &apply_step policy` へ 1 回だけ渡す。advance が `Result::Err` なら malformed SFNT parse/range failure としてそのまま返す。advance が `Result::Ok advance` なら、同じ `apply_step` と `advance` を `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` に束ねて返す。
+
+F4ai は F4ag を直接呼ばない。terminal classification は F4ah の責務である。F4ai は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`、F4ad/F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
