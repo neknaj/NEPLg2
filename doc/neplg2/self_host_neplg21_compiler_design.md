@@ -1883,6 +1883,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instanti
 
 この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。substitution trace lookup cache、type argument substitution cache、bound lookup cache、stage0 fixture 分割は、今回固定した evidence boundary を保てるため後からできる最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue generic substitution trace evidence checkpoint
+
+`memo_trait_public_impl_generic_substitution_trace.nepl` を追加し、generic substitution shape producer が raw `substitution_trace_shape_hash` を直接受け取る境界を閉じた。現在の substitution shape input は `SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence` を受け取り、shape producer 側でも schema、binder shape hash、type parameter count、type argument count、bound count、schema 付き type argument identity、trace record count、trace shape hash を再検査する。
+
+この trace evidence producer は actual type substitution engine ではない。accepted authority は `SelfhostMemoTraitPublicImplGenericBinderEvidence`、`SelfhostMemoTraitPublicImplGenericParameterTable`、`SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable`、`SelfhostMemoTraitStableTypeArgumentIdentity` の typed field だけである。producer は identity owner の entry vector から aggregate hash を再計算し、保存されている schema 付き identity hash と一致した場合だけ受理する。さらに trace record 側の copied entry と identity owner 側の同じ ordinal の entry を、ordinal、canonical fingerprint schema / root hash、canonical payload schema / payload hash まで照合する。parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、argument ordinal、stable type argument identity entry の schema / hash / ordinal を O(n) で検査し、source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は trace authority にしない。
+
+substitution shape producer は、trace evidence の binder hash / type argument identity / count が自身の binder evidence と type argument identity に一致する場合だけ、pre-substitution shape と substituted output shape を同じ evidence record に束ねる。これにより、任意の nonzero trace hash を入れて generic instantiation root hash に混ぜる経路を閉じる。ただし output shape が actual typed substitution traversal から来たことの証明、trait bound solving、generic coherence、materializer accepted path への接続は後続 stage の責務として残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js` と `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、HIR / Resource IR / backend / proof store / operation classifier / candidate builder / public impl header / PrivateCache / PrivateState / prechecked artifact import 禁止、typed table / evidence / error enum、raw trace option input 禁止、identity entry vector 由来の aggregate hash 再検査、trace entry と identity owner entry の一致検査、payload-aware error equality、materializer fail-closed 維持、source-derived authority 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。trace stage0 smoke は機能的には `NEPL_TEST_CASE_TIMEOUT_MS=120000` の focused 検証で pass しているが、通常 60 秒 timeout では resource static check が支配的になるため doctest は skip にしている。trace record table の sorted index 化、stage0 fixture 分割、type argument substitution cache、bound lookup cache、resource static check の探索範囲削減は、今回固定した typed trace evidence contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

@@ -347,6 +347,59 @@ fn selfhost_memo_trait_stable_type_argument_identity_finish_result %impure fn Ve
             v::free entries
             Result::Err e
 
+//: selfhost_memo_trait_stable_type_argument_identity_entries_hash_loop: stable entry vector から aggregate hash を再計算する
+//:
+//: [目的/もくてき]:
+//: - `.neplmeta` / `.neplproof` reader や後続 checker が、保存済み entry vector と aggregate hash の対応を再確認できるようにします。
+//: - `SelfhostTypeId` や canonical key arena を再構築せず、すでに accepted された entry material だけを同じ fold schema で畳み込みます。
+//:
+//: [契約/けいやく]:
+//: - `idx` と entry ordinal が一致しない場合は、ordered identity として扱えないため fail-closed にします。
+//: - `entries` の読めない index、count mismatch、placeholder hash は、既存 identity error の typed variant へ閉じます。
+fn selfhost_memo_trait_stable_type_argument_identity_entries_hash_loop %fn &Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \entries\idx\n\current_hash:
+    if:
+        ge idx n
+        then:
+            selfhost_memo_trait_stable_type_argument_identity_nonzero_result current_hash
+        else:
+            match v::get entries idx:
+                Option::Some entry:
+                    if:
+                        not eq entry.ordinal idx
+                        then:
+                            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::TypeArgumentMissing
+                        else:
+                            match selfhost_memo_trait_stable_type_argument_identity_fold_entry_result current_hash entry:
+                                Result::Ok next_hash:
+                                    selfhost_memo_trait_stable_type_argument_identity_entries_hash_loop entries add idx 1 n next_hash
+                                Result::Err e:
+                                    Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::TypeArgumentMissing
+
+//: selfhost_memo_trait_stable_type_argument_identity_hash_from_entries_result: stable entry vector から aggregate hash を再計算する
+//:
+//: [目的/もくてき]:
+//: - full identity owner を受け取る checker が、`entries` と `identity_hash` を別々の authority として扱わないようにします。
+//: - hash-only shortcut と full identity path が同じ fold schema を共有するため、generic instantiation cache key の再利用判定を fail-closed にできます。
+//:
+//: [契約/けいやく]:
+//: - `argument_count` は caller が期待している generic type argument 数です。entry vector length と一致しない場合は受理しません。
+//: - 成功時の hash は schema version と nonzero hash value を含みます。caller は必ず両方を比較します。
+pub fn selfhost_memo_trait_stable_type_argument_identity_hash_from_entries_result %fn &Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityErrorKind \entries\argument_count:
+    let n %i32 v::len entries
+    if:
+        not eq n argument_count
+        then:
+            Result::Err SelfhostMemoTraitStableTypeArgumentIdentityErrorKind::TypeArgumentMissing
+        else:
+            let initial_hash %i32 selfhost_memo_trait_stable_type_argument_identity_initial_hash argument_count
+            match selfhost_memo_trait_stable_type_argument_identity_entries_hash_loop entries 0 argument_count initial_hash:
+                Result::Ok checked_hash:
+                    Result::Ok SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_stable_type_argument_identity_schema_version checked_hash
+                Result::Err e:
+                    Result::Err e
+
 //: selfhost_memo_trait_stable_type_argument_identity_loop: 型引数 vector を左から stable entry に畳み込む
 //:
 //: [目的/もくてき]:

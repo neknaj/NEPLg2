@@ -1,3 +1,57 @@
+# 2026-06-14 Agent selfhost generic substitution trace evidence checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、proof authority の段階分離、丁寧な doc comment、行数・doc comment 長制限禁止、試作段階でも雑な hash authority を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。
+- commit_policy: ユーザー指示に従い、generic substitution trace evidence、shape producer 接続、type argument identity 再hash helper、source policy、doc / issue / todo 更新、検証を一つの粗めの checkpoint commit としてまとめる。
+- 対象 branch: `work/selfhost-generic-substitution-trace-evidence`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / generic substitution shape producer が raw trace hash を受け取る境界を閉じ、stable type argument identity owner と substitution trace table から typed trace evidence を作る boundary
+- classification: selfhost MemoKey / MemoValue structural purity / generic substitution trace evidence
+- decision: MERGE_APPROVED after focused doctest, source policy, Zenn review response check, issue/doc/todo/note update, and two independent subagent reviews.
+- policy/spec:
+  - accepted authority は `SelfhostMemoTraitPublicImplGenericBinderEvidence`、`SelfhostMemoTraitPublicImplGenericParameterTable`、`SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable`、`SelfhostMemoTraitStableTypeArgumentIdentity` の typed field だけである。
+  - stable type argument identity は hash 値だけを authority にしない。identity owner の entry vector から aggregate hash を再計算し、保存済み schema / identity hash と一致した場合だけ受理する。
+  - trace record は copied stable type argument identity entry を持つが、それだけで信用しない。identity owner 側の同じ ordinal の entry と ordinal、canonical fingerprint schema / root hash、canonical payload schema / payload hash まで照合する。
+  - parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、argument ordinal、type parameter count、type argument count、bound count、trace record count を検査し、hole、duplicate、placeholder、schema mismatch、identity aggregate mismatch、entry mismatch は typed enum error で fail-closed にする。
+  - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は trace authority にしない。
+  - この boundary は actual type substitution engine ではない。output shape が actual typed substitution traversal から来たことの証明、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice に残す。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl` を追加した。
+  - `memo_trait_type_argument_identity.nepl` に、accepted entry vector から stable type argument identity aggregate hash を再計算する helper を追加した。
+  - `memo_trait_public_impl_generic_substitution_shape.nepl` は `SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence` を受け取り、raw trace option input を持たない形へ更新した。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js` を追加し、既存 shape contract と runner 登録を更新した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md` と対象 issue を更新した。`todo.md` は actual substitution engine / trait bound solver / materializer accepted path / PrivateCache / prechecked artifact を残件として保持する。
+- subagent review:
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec48a-0645-7c52-867f-a35bc0a435ad`
+  - subagent_review_count: 2
+  - Blocker: Descartes review で、raw trace input removal だけでは stable type argument identity hash と entries の対応を証明できないことが Blocker と確認された。実装は identity owner entry vector から aggregate hash を再計算し、trace copied entry と owner entry を照合する形へ修正済みである。
+  - Popper review: Blocker なし。Required として raw trace hash 経路の削除、full identity entries / count / ordinal / duplicate / hole / placeholder 検査、shape producer 側の evidence 再検査、materializer fail-closed 維持を確認した。実装は対応済みである。
+  - Descartes review: Blocker として raw trace input removal だけでは不足し、aggregate type argument identity hash が `StableTypeArgumentIdentityEntry` entries と対応することを確認しなければならないと指摘した。実装は `SelfhostMemoTraitStableTypeArgumentIdentity` owner を受け取り、entry vector から aggregate hash を再計算し、trace copied entry と owner entry を照合する形に修正済みである。
+  - Required follow-up: Popper final review で、generic impl accepted path を開く前に binder evidence と parameter / bound table の same-origin を閉じる必要があると確認された。今回の trace evidence は parameter ordinal / binding / stable symbol hash を table と照合するが、parameter / bound table 自体が binder evidence shape hash 由来であることまでは再証明しない。materializer はまだ fail-closed なので今回の Blocker ではなく、actual substitution engine / materializer accepted path 接続前の必須残件として issue と todo に残した。
+  - Non-blocker: trace record table の sorted index 化、stage0 fixture 分割、type argument substitution cache、bound lookup cache、resource static check の探索範囲削減は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
+  - Question: trace evidence の次段で actual type substitution traversal をどの record 形式へ落とすか。今回の slice は typed trace authority boundary に閉じ、actual substitution step stream と output shape producer は次 slice で扱う判断にした。
+  - Approve: yes after Blocker remediation and focused verification.
+- source_policy:
+  - source_policy: added / updated。
+  - 新規・更新 source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、typed trace table / evidence / error enum、identity owner entry vector 由来の aggregate hash 再検査、trace entry と identity owner entry の一致検査、shape producer の raw trace option input 禁止、payload-aware error equality、materializer fail-closed 維持、行数 / doc comment 長制限禁止を確認する。
+  - 行数制限 / doc comment 長制限: コメントやドキュメントコメントの丁寧さを妨げる検査は追加していない。
+  - `nodesrc/selfhost_zenn_review_response_check.js --stdin` で、subagent 2 件を反映した aggregate review response を検査済み。
+  - 既存 warning: Node の WASI ExperimentalWarning、`nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108`。
+  - 今回差分由来 warning: なし。`nodesrc/test_selfhost_zenn_review_gate_contract.js` が検出した note checkpoint の形式漏れは修正済みである。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/memo_trait_type_argument_identity.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-type-argument-identity-rehash.json` pass。
+  - 検証済み: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-trace-identity-owner-120s.json` pass。compile_ms は約 72.3s で、resource static check が支配的である。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-trace-identity-owner.json` pass。通常 timeout では stage0 doctest は skip し、source policy と skip contract を検査する。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-substitution-shape-trace-evidence.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/selfhost_zenn_review_response_check.js --stdin` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 warning は `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` と Node の WASI ExperimentalWarning だけである。今回差分由来 warning はない。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+  - 次 slice: actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続を進める。
+
 # 2026-06-14 Agent selfhost generic impl binder evidence checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、DAG 責務分割、generic impl の count-only acceptance 禁止、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。

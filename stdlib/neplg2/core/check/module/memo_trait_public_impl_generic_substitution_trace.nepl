@@ -1,0 +1,860 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_substitution_trace
+//: public generic trait impl の type parameter binder と concrete type argument identity を、substitution engine が読む trace evidence として[結/むす]びつける checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - generic substitution shape producer が `substitution_trace_shape_hash` を raw hash として受け取る状態を残すと、actual substitution engine を通らない値でも generic instantiation の root hash に混ざります。
+//: - この module は、type parameter binder の ordinal / binding / stable symbol hash と、stable type argument identity entry の ordinal / fingerprint / payload hash を対応付ける typed trace table を検査します。
+//: - actual type substitution engine が型式木を書き換える前段として、どの binder slot がどの concrete type argument slot に対応したかを、source text や display string ではなく typed record で保存します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitPublicImplGenericParameterTable`、`SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable`、`SelfhostMemoTraitPublicImplGenericBinderEvidence`、`SelfhostMemoTraitStableTypeArgumentIdentity` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted trace material に入りません。
+//: - binder evidence の schema / shape hash は nonzero で、type parameter count は 1 以上でなければなりません。monomorphic impl は trace を持たない別経路です。
+//: - type argument identity は entry vector と aggregate hash を再照合します。hash value だけを authority として扱いません。
+//: - parameter table length、trace table length、type argument count は binder evidence の type parameter count と一致しなければなりません。
+//: - trace record は table order と同じ parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、argument ordinal、stable type argument identity entry を持たなければなりません。
+//: - fingerprint schema / root hash、payload schema / payload hash はすべて nonzero でなければなりません。
+//: - この module は actual type substitution engine ではありません。substituted target / trait application shape の正しさ、trait bound solving、generic coherence、operation candidate materializer、PrivateCache / PrivateState effect masking は後続 stage が別 evidence として検査します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では substitution trace table の authority boundary を固定します。型式木の traversal、型引数置換、output shape producer との完全照合は次段階に残します。
+//: - `memo_trait_operation_public_impl_materializer` の `GenericImplInstantiationUnsupported` は維持します。この evidence だけで generic impl を operation candidate へ進めてはいけません。
+//: - stage0 smoke は resource static check の既知ボトルネックにより、通常 doctest timeout では skip します。focused 検証では `NEPL_TEST_CASE_TIMEOUT_MS=120000` を指定して実行し、source policy で契約構造を常時確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - type parameter 数を n とすると、trace evidence 生成は O(n) 時間です。
+//: - 追加空間は accumulator と loop index だけなので O(1) です。table owner は caller が持ち、この module は borrow で読みます。
+//:
+//: neplg2:test[skip, stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_binder" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check is_ok summary.accepted
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq summary.argument_mismatch SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new 2 1
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq summary.identity_placeholder SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityHashPlaceholder
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq summary.trace_count_mismatch SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new 2 1
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq summary.binding_mismatch SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingIndexMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch 1 1 0
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq summary.fingerprint_placeholder SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintHashPlaceholder 0
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "generic substitution trace stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+#import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
+#import "./memo_trait_public_impl_generic_binder" as *
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord: 1 binder slot と 1 type argument entry の対応 record
+//:
+//: [契約/けいやく]:
+//: - `parameter_ordinal` は 1-origin で、parameter table order と一致します。
+//: - `binding` と `stable_symbol_hash` は binder detail table の対応 record と一致しなければなりません。
+//: - `argument_ordinal` は 0-origin で、`argument_identity_entry.ordinal` と一致しなければなりません。
+//: - `argument_identity_entry` は stable type argument identity producer が作る entry shape と同じ payload を運びます。
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord:
+    parameter_ordinal %i32
+    binding %SelfhostTypeParameterBinding
+    stable_symbol_hash %i32
+    argument_ordinal %i32
+    argument_identity_entry %SelfhostMemoTraitStableTypeArgumentIdentityEntry
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable: substitution trace record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。evidence API は borrow で読み、table を閉じません。
+//: - caller は不要になった table を `selfhost_memo_trait_public_impl_generic_substitution_trace_table_free` で閉じます。
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable:
+    records %Vec SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence: accepted substitution trace evidence
+//:
+//: [契約/けいやく]:
+//: - `trace_shape_hash` は schema、binder evidence、type argument identity、parameter-to-argument record 全体を畳み込んだ nonzero hash です。
+//: - `type_argument_identity_hash` は aggregate hash だけでなく schema と一緒に保持します。
+//: - この evidence は output shape の正しさを証明しません。後続の substitution shape producer が pre-shape / trace / output-shape の整合を別途検査します。
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence:
+    schema_version %i32
+    type_parameter_count %i32
+    type_argument_count %i32
+    type_parameter_bound_count %i32
+    generic_binder_shape_hash %i32
+    type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
+    trace_record_count %i32
+    trace_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind: substitution trace producer の拒否理由
+pub enum SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind:
+    TraceTableAllocFailed %StdErrorKind
+    TracePushFailed %StdErrorKind
+    ParameterTableSetupRejected %SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    BinderEvidenceSchemaPlaceholder
+    BinderEvidenceHashPlaceholder
+    GenericParameterCountMissing
+    TypeParameterBoundCountNegative
+    TypeArgumentCountNegative
+    TypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    TypeArgumentIdentitySchemaPlaceholder
+    TypeArgumentIdentityHashPlaceholder
+    TypeArgumentIdentityAggregateRejected %SelfhostMemoTraitStableTypeArgumentIdentityErrorKind
+    TypeArgumentIdentityAggregateMismatch
+    ParameterRecordCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    TraceRecordCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    ParameterRecordReadFailed %i32
+    TraceRecordReadFailed %i32
+    TypeArgumentIdentityEntryReadFailed %i32
+    TraceParameterOrdinalPlaceholder %i32
+    TraceParameterOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    TraceParameterBindingInvalid %i32
+    TraceParameterBindingDepthUnsupported %i32
+    TraceParameterBindingIndexMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    TraceParameterSymbolHashPlaceholder %i32
+    TraceParameterSymbolHashMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    TraceArgumentOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    TraceArgumentEntryOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    TraceArgumentIdentityEntryMismatch %i32
+    ArgumentFingerprintSchemaPlaceholder %i32
+    ArgumentFingerprintHashPlaceholder %i32
+    ArgumentPayloadSchemaPlaceholder %i32
+    ArgumentPayloadHashPlaceholder %i32
+    DerivedTraceShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary: trace producer smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind
+    argument_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind
+    identity_placeholder %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind
+    trace_count_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind
+    binding_mismatch %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind
+    fingerprint_placeholder %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_record_new: trace record を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_record_new %fn i32 fn SelfhostTypeParameterBinding fn i32 fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityEntry SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord \parameter_ordinal\binding\stable_symbol_hash\argument_ordinal\argument_identity_entry:
+    SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord parameter_ordinal binding stable_symbol_hash argument_ordinal argument_identity_entry
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_table_new: [空/から]の trace table を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_table_new %impure fn void Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable records
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_table_free: trace table owner を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_table_free %impure fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_table_len: trace record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_table_len %fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_table_push: trace record を[追加/ついか]する
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_table_push %impure fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable impure fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TracePushFailed error
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_schema_version: trace evidence schema version
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_mix2: trace hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_mix4: trace hash 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 (selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 a b) (selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 c d)
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_binder_hash_result: binder evidence を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_binder_hash_result %fn SelfhostMemoTraitPublicImplGenericBinderEvidence Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::BinderEvidenceSchemaPlaceholder
+        else:
+            if:
+                eq evidence.shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::BinderEvidenceHashPlaceholder
+                else:
+                    if:
+                        lt evidence.type_parameter_count 1
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::GenericParameterCountMissing
+                        else:
+                            if:
+                                lt evidence.type_parameter_bound_count 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeParameterBoundCountNegative
+                                else:
+                                    Result::Ok evidence.shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_identity_result: type argument identity owner を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - trace producer が raw aggregate hash だけを受け入れず、ordered entry vector と schema 付き hash が同じ authority から来ていることを確認します。
+//: - `SelfhostMemoTraitStableTypeArgumentIdentity` の entry vector から同じ fold schema で hash を再計算し、保存されている aggregate hash と一致した場合だけ trace evidence へ進めます。
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_identity_result %fn &SelfhostMemoTraitStableTypeArgumentIdentity fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \identity\argument_count:
+    let entries %&Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry field::get_ref identity "entries"
+    let hash %SelfhostMemoTraitStableTypeArgumentIdentityHash *field::get_ref identity "identity_hash"
+    if:
+        eq hash.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentitySchemaPlaceholder
+        else:
+            if:
+                eq hash.identity_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityHashPlaceholder
+                else:
+                    match selfhost_memo_trait_stable_type_argument_identity_hash_from_entries_result entries argument_count:
+                        Result::Ok computed_hash:
+                            if:
+                                not eq computed_hash.schema_version hash.schema_version
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateMismatch
+                                else:
+                                    if:
+                                        not eq computed_hash.identity_hash hash.identity_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateMismatch
+                                        else:
+                                            Result::Ok hash
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateRejected e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_entry_material_result: type argument entry を trace hash material へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_entry_material_result %fn SelfhostMemoTraitStableTypeArgumentIdentityEntry fn i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \entry\index:
+    if:
+        eq entry.canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintSchemaPlaceholder index
+        else:
+            if:
+                eq entry.canonical_fingerprint.root_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintHashPlaceholder index
+                else:
+                    if:
+                        eq entry.canonical_payload_hash.schema_version 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentPayloadSchemaPlaceholder index
+                        else:
+                            if:
+                                eq entry.canonical_payload_hash.payload_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentPayloadHashPlaceholder index
+                                else:
+                                    let fingerprint_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 991101 entry.canonical_fingerprint.schema_version entry.canonical_fingerprint.root_hash entry.ordinal
+                                    let payload_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 991102 entry.canonical_payload_hash.schema_version entry.canonical_payload_hash.payload_hash entry.ordinal
+                                    Result::Ok selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 fingerprint_material payload_material
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_record_hash: trace record hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_record_hash %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord fn i32 i32 \record\entry_material:
+    let binding_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 record.binding.binder_depth record.binding.parameter_index
+    let parameter_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 991201 record.parameter_ordinal binding_material record.stable_symbol_hash
+    let argument_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 991202 record.argument_ordinal record.argument_identity_entry.ordinal entry_material
+    selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 parameter_material argument_material
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_identity_entry_eq: trace record entry と identity owner entry が同じか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - trace table が持つ copied entry と stable type argument identity の owner entry を、ordinal、fingerprint、payload hash まで照合します。
+//: - aggregate hash の一致だけでは collision や壊れた保存形式を説明できないため、trace evidence では ordered entry material も直接確認します。
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_identity_entry_eq %fn SelfhostMemoTraitStableTypeArgumentIdentityEntry fn SelfhostMemoTraitStableTypeArgumentIdentityEntry bool \record_entry\identity_entry:
+    let ordinal_eq %bool eq record_entry.ordinal identity_entry.ordinal
+    let fingerprint_schema_eq %bool eq record_entry.canonical_fingerprint.schema_version identity_entry.canonical_fingerprint.schema_version
+    let fingerprint_hash_eq %bool eq record_entry.canonical_fingerprint.root_hash identity_entry.canonical_fingerprint.root_hash
+    let payload_schema_eq %bool eq record_entry.canonical_payload_hash.schema_version identity_entry.canonical_payload_hash.schema_version
+    let payload_hash_eq %bool eq record_entry.canonical_payload_hash.payload_hash identity_entry.canonical_payload_hash.payload_hash
+    let fingerprint_eq %bool and fingerprint_schema_eq fingerprint_hash_eq
+    let payload_eq %bool and payload_schema_eq payload_hash_eq
+    let body_eq %bool and fingerprint_eq payload_eq
+    and ordinal_eq body_eq
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_validate_record_result: parameter record と trace record の 1 対応を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_validate_record_result %fn SelfhostMemoTraitPublicImplGenericParameter fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord fn SelfhostMemoTraitStableTypeArgumentIdentityEntry fn i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \parameter\record\identity_entry\index:
+    let expected_parameter_ordinal %i32 add index 1
+    if:
+        lt record.parameter_ordinal 1
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalPlaceholder index
+        else:
+            if:
+                not eq record.parameter_ordinal expected_parameter_ordinal
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index expected_parameter_ordinal record.parameter_ordinal
+                else:
+                    if:
+                        not eq record.parameter_ordinal parameter.parameter_ordinal
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index parameter.parameter_ordinal record.parameter_ordinal
+                        else:
+                            if:
+                                not selfhost_type_parameter_binding_is_valid record.binding
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingInvalid index
+                                else:
+                                    if:
+                                        not eq record.binding.binder_depth parameter.binding.binder_depth
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingDepthUnsupported index
+                                        else:
+                                            if:
+                                                not eq record.binding.parameter_index parameter.binding.parameter_index
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingIndexMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index parameter.binding.parameter_index record.binding.parameter_index
+                                                else:
+                                                    if:
+                                                        eq record.stable_symbol_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterSymbolHashPlaceholder index
+                                                        else:
+                                                            if:
+                                                                not eq record.stable_symbol_hash parameter.stable_symbol_hash
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterSymbolHashMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index parameter.stable_symbol_hash record.stable_symbol_hash
+                                                                else:
+                                                                    if:
+                                                                        not eq record.argument_ordinal index
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index index record.argument_ordinal
+                                                                        else:
+                                                                            if:
+                                                                                not eq record.argument_identity_entry.ordinal record.argument_ordinal
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentEntryOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index record.argument_ordinal record.argument_identity_entry.ordinal
+                                                                                else:
+                                                                                    if:
+                                                                                        not selfhost_memo_trait_public_impl_generic_substitution_trace_identity_entry_eq record.argument_identity_entry identity_entry
+                                                                                        then:
+                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentIdentityEntryMismatch index
+                                                                                        else:
+                                                                                            match selfhost_memo_trait_public_impl_generic_substitution_trace_entry_material_result record.argument_identity_entry index:
+                                                                                                Result::Ok entry_material:
+                                                                                                    Result::Ok selfhost_memo_trait_public_impl_generic_substitution_trace_record_hash record entry_material
+                                                                                                Result::Err e:
+                                                                                                    Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_validate_loop: parameter table と trace table を同じ順序で[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_validate_loop %fn &SelfhostMemoTraitPublicImplGenericParameterTable fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable fn &Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \parameters\trace\identity_entries\index\n\acc:
+    if:
+        ge index n
+        then:
+            Result::Ok acc
+        else:
+            let parameter_records %&Vec SelfhostMemoTraitPublicImplGenericParameter field::get_ref parameters "records"
+            let trace_records %&Vec SelfhostMemoTraitPublicImplGenericSubstitutionTraceRecord field::get_ref trace "records"
+            match v::get parameter_records index:
+                Option::Some parameter:
+                    match v::get trace_records index:
+                        Option::Some record:
+                            match v::get identity_entries index:
+                                Option::Some identity_entry:
+                                    match selfhost_memo_trait_public_impl_generic_substitution_trace_validate_record_result parameter record identity_entry index:
+                                        Result::Ok record_hash:
+                                            let next_index %i32 add index 1
+                                            let next_acc %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 acc record_hash
+                                            selfhost_memo_trait_public_impl_generic_substitution_trace_validate_loop parameters trace identity_entries next_index n next_acc
+                                        Result::Err e:
+                                            Result::Err e
+                                Option::None:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityEntryReadFailed index
+                        Option::None:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordReadFailed index
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterRecordReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_evidence_result: generic substitution trace evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - binder evidence、type argument identity、parameter table、trace table を同じ count と order で照合します。
+//: - success は actual substitution の完全証明ではなく、engine が使う substitution environment trace の authority boundary です。
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_evidence_result %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn &SelfhostMemoTraitStableTypeArgumentIdentity fn &SelfhostMemoTraitPublicImplGenericParameterTable fn &SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \binder_evidence\type_argument_count\type_argument_identity\parameters\trace:
+    if:
+        lt type_argument_count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountNegative
+        else:
+            if:
+                not eq binder_evidence.type_parameter_count type_argument_count
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new binder_evidence.type_parameter_count type_argument_count
+                else:
+                    match selfhost_memo_trait_public_impl_generic_substitution_trace_binder_hash_result binder_evidence:
+                        Result::Ok binder_hash:
+                            match selfhost_memo_trait_public_impl_generic_substitution_trace_identity_result type_argument_identity type_argument_count:
+                                Result::Ok identity_hash:
+                                    let parameter_count %i32 selfhost_memo_trait_public_impl_generic_parameter_table_len parameters
+                                    if:
+                                        not eq parameter_count binder_evidence.type_parameter_count
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new binder_evidence.type_parameter_count parameter_count
+                                        else:
+                                            let trace_count %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_table_len trace
+                                            if:
+                                                not eq trace_count type_argument_count
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_argument_count trace_count
+                                                else:
+                                                    let identity_entries %&Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry field::get_ref type_argument_identity "entries"
+                                                    match selfhost_memo_trait_public_impl_generic_substitution_trace_validate_loop parameters trace identity_entries 0 type_argument_count selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 991301 binder_hash identity_hash.identity_hash type_argument_count:
+                                                        Result::Ok detail_hash:
+                                                            let schema %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_schema_version
+                                                            let identity_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 identity_hash.schema_version identity_hash.identity_hash
+                                                            let count_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 binder_evidence.type_parameter_count type_argument_count binder_evidence.type_parameter_bound_count trace_count
+                                                            let identity_link_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 binder_hash identity_material
+                                                            let trace_body_material %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix2 detail_hash count_material
+                                                            let root_hash %i32 selfhost_memo_trait_public_impl_generic_substitution_trace_mix4 991401 schema identity_link_material trace_body_material
+                                                            if:
+                                                                eq root_hash 0
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::DerivedTraceShapeHashPlaceholder
+                                                                else:
+                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence schema binder_evidence.type_parameter_count type_argument_count binder_evidence.type_parameter_bound_count binder_hash identity_hash trace_count root_hash
+                                                        Result::Err e:
+                                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_count_mismatch_eq: count mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_count_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq: ordinal mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch fn SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch bool \a\b:
+    let index_eq %bool eq a.index b.index
+    let expected_eq %bool eq a.expected b.expected
+    let actual_eq %bool eq a.actual b.actual
+    let head_eq %bool and index_eq expected_eq
+    and head_eq actual_eq
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_code: payload なし error kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_code %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceTableAllocFailed _:
+            1
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TracePushFailed _:
+            2
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterTableSetupRejected _:
+            3
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::BinderEvidenceSchemaPlaceholder:
+            4
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::BinderEvidenceHashPlaceholder:
+            5
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::GenericParameterCountMissing:
+            6
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeParameterBoundCountNegative:
+            7
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountNegative:
+            8
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountMismatch _:
+            9
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentitySchemaPlaceholder:
+            10
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityHashPlaceholder:
+            11
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateRejected _:
+            30
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateMismatch:
+            31
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterRecordCountMismatch _:
+            12
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordCountMismatch _:
+            13
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterRecordReadFailed _:
+            14
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordReadFailed _:
+            15
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityEntryReadFailed _:
+            32
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalPlaceholder _:
+            16
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalMismatch _:
+            17
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingInvalid _:
+            18
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingDepthUnsupported _:
+            19
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingIndexMismatch _:
+            20
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterSymbolHashPlaceholder _:
+            21
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterSymbolHashMismatch _:
+            22
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentOrdinalMismatch _:
+            23
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentEntryOrdinalMismatch _:
+            24
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentIdentityEntryMismatch _:
+            33
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintSchemaPlaceholder _:
+            25
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintHashPlaceholder _:
+            26
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentPayloadSchemaPlaceholder _:
+            27
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentPayloadHashPlaceholder _:
+            28
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::DerivedTraceShapeHashPlaceholder:
+            29
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_eq: error kind が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateRejected error:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityAggregateRejected other:
+                    selfhost_memo_trait_stable_type_argument_identity_error_kind_eq error other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterRecordCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterRecordCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceRecordCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterOrdinalMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingIndexMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterBindingIndexMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterSymbolHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceParameterSymbolHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentOrdinalMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentOrdinalMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentEntryOrdinalMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentEntryOrdinalMismatch other:
+                    selfhost_memo_trait_public_impl_generic_substitution_trace_ordinal_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityEntryReadFailed index:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TypeArgumentIdentityEntryReadFailed other:
+                    eq index other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentIdentityEntryMismatch index:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceArgumentIdentityEntryMismatch other:
+                    eq index other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintHashPlaceholder index:
+            match b:
+                SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ArgumentFingerprintHashPlaceholder other:
+                    eq index other
+                _:
+                    false
+        _:
+            eq selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_code a selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary \accepted\argument_mismatch\identity_placeholder\trace_count_mismatch\binding_mismatch\fingerprint_placeholder:
+    SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary accepted argument_mismatch identity_placeholder trace_count_mismatch binding_mismatch fingerprint_placeholder
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry: stage0 用 type argument entry
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry %fn i32 fn i32 fn i32 SelfhostMemoTraitStableTypeArgumentIdentityEntry \ordinal\fingerprint_hash\payload_hash:
+    SelfhostMemoTraitStableTypeArgumentIdentityEntry ordinal (SelfhostMemoTraitCanonicalTypeFingerprint 1 fingerprint_hash) (SelfhostMemoTraitCanonicalKeyPayloadHash 1 payload_hash)
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_identity_base_hash: stage0 fixture の entry vector に対応する aggregate hash を[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - doctest の owner 構築で毎回 identity hash を fold すると、resource static check が trace producer 本体より fixture 生成に時間を使います。
+//: - ここでは stage0 が作る 2 種類の固定 entry vector だけに対応する既知 hash を返します。production path の evidence producer は、受け取った identity owner の entries から必ず hash を再計算します。
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_identity_base_hash %fn i32 SelfhostMemoTraitStableTypeArgumentIdentityHash \fingerprint_hash0:
+    if:
+        eq fingerprint_hash0 0
+        then:
+            SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_stable_type_argument_identity_schema_version 16045356
+        else:
+            SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_stable_type_argument_identity_schema_version -397613758
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_identity_hash_mode: stage0 用 identity hash を case mode に合わせて[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - normal case では stage0 fixture の entry vector に対応する既知 aggregate hash をそのまま使います。
+//: - placeholder / mismatch case では、trace producer が identity owner の壊れた hash を拒否できるかを確認するため、entry vector は保ったまま hash field だけを変えます。
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_identity_hash_mode %fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn i32 SelfhostMemoTraitStableTypeArgumentIdentityHash \hash\mode:
+    if:
+        eq mode 1
+        then:
+            SelfhostMemoTraitStableTypeArgumentIdentityHash hash.schema_version 0
+        else:
+            if:
+                eq mode 2
+                then:
+                    SelfhostMemoTraitStableTypeArgumentIdentityHash hash.schema_version add hash.identity_hash 1
+                else:
+                    hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity_finish: entry vector と stage0 hash から identity owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity_finish %fn Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry fn i32 fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentity SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \entries\fingerprint_hash0\mode:
+    let base_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_identity_base_hash fingerprint_hash0
+    let selected_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_identity_hash_mode base_hash mode
+    Result::Ok SelfhostMemoTraitStableTypeArgumentIdentity entries selected_hash
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity: stage0 用 stable type argument identity owner を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity %impure fn i32 impure fn i32 Result SelfhostMemoTraitStableTypeArgumentIdentity SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \fingerprint_hash0\mode:
+    let entries_result %Result Vec SelfhostMemoTraitStableTypeArgumentIdentityEntry StdErrorKind v::new
+    match entries_result:
+        Result::Ok entries0:
+            match v::push entries0 selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry 0 fingerprint_hash0 9201:
+                Result::Ok entries1:
+                    match v::push entries1 selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry 1 9102 9202:
+                        Result::Ok entries2:
+                            selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity_finish entries2 fingerprint_hash0 mode
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TracePushFailed error
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TracePushFailed error
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::TraceTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_eval_and_free: owner を閉じながら evidence を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_eval_and_free %impure fn SelfhostMemoTraitPublicImplGenericBinderEvidence impure fn i32 impure fn SelfhostMemoTraitStableTypeArgumentIdentity impure fn SelfhostMemoTraitPublicImplGenericParameterTable impure fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \binder\argument_count\identity\parameters\trace:
+    let result %Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind selfhost_memo_trait_public_impl_generic_substitution_trace_evidence_result binder argument_count &identity &parameters &trace
+    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+    selfhost_memo_trait_public_impl_generic_substitution_trace_table_free trace
+    selfhost_memo_trait_stable_type_argument_identity_free identity
+    result
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_parameters: stage0 用 parameter table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_parameters %impure fn void Result SelfhostMemoTraitPublicImplGenericParameterTable SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_parameter_table_new:
+        Result::Ok parameters0:
+            match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters0 selfhost_memo_trait_public_impl_generic_parameter_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) 7001 0 0:
+                Result::Ok parameters1:
+                    match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters1 selfhost_memo_trait_public_impl_generic_parameter_new 2 (selfhost_type_parameter_binding_new_unchecked 0 1) 7002 0 0:
+                        Result::Ok parameters2:
+                            Result::Ok parameters2
+                        Result::Err e:
+                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterTableSetupRejected e
+                Result::Err e:
+                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterTableSetupRejected e
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind::ParameterTableSetupRejected e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_trace: stage0 用 trace table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_trace %impure fn i32 impure fn i32 Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \binding_index1\fingerprint_hash0:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_table_new:
+        Result::Ok trace0:
+            match selfhost_memo_trait_public_impl_generic_substitution_trace_table_push trace0 selfhost_memo_trait_public_impl_generic_substitution_trace_record_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) 7001 0 (selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry 0 fingerprint_hash0 9201):
+                Result::Ok trace1:
+                    match selfhost_memo_trait_public_impl_generic_substitution_trace_table_push trace1 selfhost_memo_trait_public_impl_generic_substitution_trace_record_new 2 (selfhost_type_parameter_binding_new_unchecked 0 binding_index1) 7002 1 (selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry 1 9102 9202):
+                        Result::Ok trace2:
+                            Result::Ok trace2
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_one_trace: record count mismatch 用 trace table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_one_trace %impure fn void Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceTable SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_table_new:
+        Result::Ok trace0:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_table_push trace0 selfhost_memo_trait_public_impl_generic_substitution_trace_record_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) 7001 0 (selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_entry 0 9101 9201)
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case: 1 smoke case を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case %impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \argument_count\identity_mode\binding_index1\fingerprint_hash0:
+    let binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8301
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_parameters:
+        Result::Ok parameters:
+            match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_trace binding_index1 fingerprint_hash0:
+                Result::Ok trace:
+                    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity fingerprint_hash0 identity_mode:
+                        Result::Ok identity:
+                            Result::Ok selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_eval_and_free binder argument_count identity parameters trace
+                        Result::Err e:
+                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                            selfhost_memo_trait_public_impl_generic_substitution_trace_table_free trace
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_count_mismatch_case: trace count mismatch smoke を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_count_mismatch_case %impure fn void Result Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \void:
+    let binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8301
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_parameters:
+        Result::Ok parameters:
+            match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_one_trace:
+                Result::Ok trace:
+                    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_build_identity 9101 0:
+                        Result::Ok identity:
+                            Result::Ok selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_eval_and_free binder 2 identity parameters trace
+                        Result::Err e:
+                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                            selfhost_memo_trait_public_impl_generic_substitution_trace_table_free trace
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_fingerprint: fingerprint placeholder smoke まで[集/あつ]める
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_fingerprint %impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \accepted\argument_mismatch\identity_placeholder\trace_count_mismatch\binding_mismatch:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case 2 0 1 0:
+        Result::Ok fingerprint_placeholder:
+            Result::Ok selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_summary_new accepted argument_mismatch identity_placeholder trace_count_mismatch binding_mismatch fingerprint_placeholder
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_binding: binding mismatch smoke を[集/あつ]める
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_binding %impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \accepted\argument_mismatch\identity_placeholder\trace_count_mismatch:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case 2 0 0 9101:
+        Result::Ok binding_mismatch:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_fingerprint accepted argument_mismatch identity_placeholder trace_count_mismatch binding_mismatch
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_count: trace count mismatch smoke を[集/あつ]める
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_count %impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \accepted\argument_mismatch\identity_placeholder:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_count_mismatch_case:
+        Result::Ok trace_count_mismatch:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_binding accepted argument_mismatch identity_placeholder trace_count_mismatch
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_identity: identity placeholder smoke を[集/あつ]める
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_identity %impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \accepted\argument_mismatch:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case 2 1 1 9101:
+        Result::Ok identity_placeholder_result:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_count accepted argument_mismatch identity_placeholder_result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_argument: argument mismatch smoke を[集/あつ]める
+fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_argument %impure fn Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \accepted:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case 1 0 1 9101:
+        Result::Ok argument_mismatch:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_identity accepted argument_mismatch
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_substitution_trace_stage0: substitution trace producer の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_substitution_trace_stage0 %impure fn void Result SelfhostMemoTraitPublicImplGenericSubstitutionTraceStage0Summary SelfhostMemoTraitPublicImplGenericSubstitutionTraceErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_case 2 0 1 9101:
+        Result::Ok accepted:
+            selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_collect_argument accepted
+        Result::Err e:
+            Result::Err e
