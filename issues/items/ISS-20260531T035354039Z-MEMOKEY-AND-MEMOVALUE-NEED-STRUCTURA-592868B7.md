@@ -732,6 +732,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_e
 
 この checkpoint 後の残件は、actual Resource IR graph traversal から `SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord` table を作る scanner / evidence collector、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。traversal summary table、Resource observation table、proof table の sorted index 化、duplicate scan の bucket 化、stage0 fixture 分割は、今回固定した typed key / owner cleanup / fail-closed contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 Resource graph traversal collector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_traversal_collector.nepl` を追加し、future Resource graph walker が返す typed body / place / edge input から `SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable` を作る checker-layer collector boundary を接続した。
+
+この collector は full Resource IR graph walker 本体ではない。input model として `SelfhostDropResourceGraphBodyRecord`、`SelfhostDropResourceGraphPlaceRecord`、`SelfhostDropResourceGraphEdgeRecord` を定義し、`SelfhostTypeId`、body module fingerprint、Drop body root、graph id、effect、escape、graph completeness、place kind、edge kind を typed payload として運ぶ。source text、span、lexeme、display name、module path、public surface hash、payload hash、HIR effect summary だけから no-escape を推測しない。
+
+preflight validation では、body table、place table、edge table の順に全入力を検査する。`body_module_fingerprint == 0`、`graph_id < 0`、`place_id < 0`、edge endpoint id `< 0`、`effect != InternalAlloc`、`escape != NotApplicable`、duplicate body / place / edge、body がない orphan place / edge、同じ graph 内に存在しない edge endpoint を fail-closed に拒否する。`ClosedForDropBody` かつ place を 1 件以上持つ graph だけが private traversal summary fold へ進み、`ResourceGraphMissing` と `TraversalUnsupported` はそれぞれ同名 summary status へ倒す。
+
+closed graph 内の `ReturnPlace`、`PublicStore`、`ExternalHandle`、`StoreToPublic` edge、`Return` edge は `EscapingPlaceObserved` へ写し、`UnsupportedPlace` と `CallBoundaryUnsupported` は `TraversalUnsupported` へ写す。private local / temporary place と owns / field / borrow-view / move edge だけが `AllTraversedPlacesPrivate` のまま残る。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js` で固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、Resource graph / Resource proof internals / backend / proof store / canonical key / public surface / evidence producer / impl table / scanner / purity gate / PrivateCache / PrivateState import 禁止、typed graph record fields、input preflight validation、only `ClosedForDropBody` fold、escape sink / unsupported kind fail-closed、既存 traversal table push への一方向出力、proof table / Drop evidence / aggregate proof / proof store / PrivateCache / PrivateState / prechecked artifact 合成禁止、bool / string error 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR graph walker が collector 入力の typed body / place / edge stream を生成する scanner、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。traversal summary table、Resource observation table、proof table の sorted index 化、duplicate scan の bucket 化、stage0 fixture 分割、graph lookup index 化は、今回固定した typed graph input / owner cleanup / fail-closed contract を保って後からできる最適化として扱う。
+
 ## 2026-06-13 selfhost method body resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_method_body_resolver.nepl` を追加し、`Eq` / `Hash` operation の method body effect fact table から `SelfhostMemoTraitOperationMethodBodyCheck` を作る checker-layer 境界を実装した。

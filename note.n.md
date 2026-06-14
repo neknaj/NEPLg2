@@ -1,3 +1,48 @@
+# 2026-06-14 Agent selfhost Resource graph traversal collector checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、DAG 責務分割、source-derived authority 排除、計算量と探索範囲の明示、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / future Resource graph walker が返す typed graph body/place/edge input から traversal summary table を作る checker-layer collector boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl Resource no-escape traversal collector boundary
+- decision: MERGE_APPROVED after focused doctest, source policy runner, issue/doc/todo/note update, and subagent implementation review.
+- policy/spec:
+  - accepted authority は `SelfhostDropResourceGraphBodyRecord`、`SelfhostDropResourceGraphPlaceRecord`、`SelfhostDropResourceGraphEdgeRecord` の typed payload だけである。source text、span、lexeme、display name、module path、public surface hash、payload hash、HIR effect summary だけから no-escape を推測しない。
+  - body key は `SelfhostTypeId + body_module_fingerprint + Drop body_root + graph_id` に加え、body header 側で effect / escape / completeness を保持する。`SelfhostTypeId` だけの graph reuse は認めない。
+  - collector は output table を作る前に body / place / edge table 全体を preflight する。placeholder fingerprint、不正 graph id / place id / endpoint id、`effect != InternalAlloc`、`escape != NotApplicable`、duplicate body / place / edge、body がない orphan place / edge、同じ graph に存在しない edge endpoint は typed error で fail-closed に拒否する。
+  - `ClosedForDropBody` かつ place を 1 件以上持つ graph だけが private traversal summary fold へ進む。`ResourceGraphMissing` と `TraversalUnsupported` は同名 summary status へ倒し、missing / unsupported を pure に mask しない。
+  - closed graph 内の return / public store / external handle place、return / public-store edge は `EscapingPlaceObserved` に倒す。unsupported place / unsupported call boundary は `TraversalUnsupported` に倒す。
+  - この module は actual Resource IR graph walker 本体ではない。actual walker が collector 入力の typed body/place/edge stream を生成する scanner は次 slice に残す。
+  - proof table、proof store、Drop evidence、aggregate proof、generic binder、PrivateCache / PrivateState masking、prechecked artifact はこの slice で作らない。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_traversal_collector.nepl` を追加した。
+  - graph id / place id / graph completeness / place kind / edge kind / body record / place record / edge record / graph input owner / fold summary / collector error enum / duplicate decision / stage0 summary を追加した。
+  - graph input owner は body / place / edge Vec を所有し、push failure と structural rejection で owner cleanup を行う。
+  - `selfhost_drop_resource_graph_traversal_collector_table_result` は preflight validation 後に既存 materializer 用 traversal table を作り、`selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push` へだけ出力する。
+  - doctest は private graph、escaping graph、missing graph、unsupported graph、duplicate body rejection、placeholder rejection、endpoint missing rejection を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、collector boundary と後続 actual Resource graph walker scanner を分けた。
+- subagent review:
+  - subagent review は Popper と Descartes の設計確認、および実装後確認を採用した。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec48a-0645-7c52-867f-a35bc0a435ad`
+  - subagent_review_count: 4
+  - Required: なし。
+  - Non-blocker: stage0 smoke は body duplicate / placeholder / endpoint missing が中心である。duplicate place / edge、orphan place / edge、effect / escape mismatch、empty `ClosedForDropBody` の behavioral smoke は後続で足すと source policy 依存をさらに減らせる。
+  - Approve: yes. typed graph input だけを authority にしており、source/display/hash/proof/public-surface/prechecked/PrivateCache/PrivateState へ接続していないこと、preflight が fail-closed であることを確認済み。
+- source_policy:
+  - required and updated.
+  - 新規 `nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js` は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit checker-layer import allow-list、forbidden layer import、typed graph record fields、preflight validation、only `ClosedForDropBody` fold、escape sink / unsupported kind fail-closed、既存 traversal table push への一方向出力、proof table / Drop evidence / aggregate proof / proof store / PrivateCache / PrivateState / prechecked artifact 合成禁止、bool / string error 禁止、行数制限 / doc comment 長制限禁止を確認する。
+  - 既存 warning: Node の WASI ExperimentalWarning、Git の LF/CRLF warning、stdlib declaration doc gaps baseline。
+  - 今回差分由来 warning: なし。
+- verify:
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_traversal_collector.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-drop-resource-traversal-collector-final.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_contract.js` pass。
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 warning は `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` だけである。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+
 # 2026-06-14 Agent selfhost Resource no-escape materializer checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、静的検査、typed enum / Result、match の網羅性、source-derived authority 排除、pure core / impure owner boundary、探索範囲削減、丁寧な doc comment、試作段階でも設計負債を残さない方針を守る。

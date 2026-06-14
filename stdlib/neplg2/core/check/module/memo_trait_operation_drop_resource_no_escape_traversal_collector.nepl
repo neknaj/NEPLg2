@@ -1,0 +1,1575 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_resource_no_escape_traversal_collector
+//: Drop impl body の typed Resource graph input から traversal summary table を[作/つく]る checker-layer collector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_drop_resource_no_escape_materializer` は traversal summary table を既存 Resource no-escape observation table へ変換します。
+//: - この module は、その 1 つ前の境界として、後続 Resource IR lowering / graph walker が作る typed graph input を Drop body ごとの traversal summary へ畳み込みます。
+//: - graph の閉包状態、place、edge、escape sink を bool や diagnostic string に潰さず、typed enum / struct として保持します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostDropResourceGraphBodyRecord`、`SelfhostDropResourceGraphPlaceRecord`、`SelfhostDropResourceGraphEdgeRecord` の typed payload だけです。source text、span、lexeme、display name、module path、public surface hash、payload hash から no-escape を推測しません。
+//: - body key は `SelfhostTypeId`、body module fingerprint、Drop body root、effect、escape、graph id をすべて含みます。`SelfhostTypeId` だけの graph reuse は認めません。
+//: - `body_module_fingerprint == 0`、`graph_id < 0`、`effect != InternalAlloc`、`escape != NotApplicable`、duplicate body / place / edge は fail-closed に拒否します。
+//: - `ClosedForDropBody` の body だけが graph を no-escape 判定に使えます。`ResourceGraphMissing` は `ResourceGraphMissing` summary、`TraversalUnsupported` は `TraversalUnsupported` summary に倒します。
+//: - closed graph に return / public store / external handle place、または return / public store edge があれば `EscapingPlaceObserved` にします。unsupported place / edge があれば `TraversalUnsupported` にします。
+//: - closed graph に place が 1 つもない場合、または edge endpoint が同じ body graph 内に存在しない場合は fail-closed にします。空 graph から `AllTraversedPlacesPrivate` を合成しません。
+//: - この module は proof table、proof store、Drop evidence、aggregate proof、generic binder、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。summary table 以降の observation / proof conversion は既存 materializer / producer が担当します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では Rust 側と同等の full Resource IR graph model はまだ selfhost にありません。この module は graph walker 本体ではなく、graph walker が後で返す typed body/place/edge stream の collector boundary を固定します。
+//: - `SelfhostResourcePlaceId` と `SelfhostDropResourceGraphId` は session-local id です。永続 artifact key や module 間 stable identity には使いません。
+//: - facade には re-export しません。full Resource proof orchestration が Drop fact builder、graph walker、collector、materializer、producer、no-escape gate、purity gate をまとめる段階で公開 API を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、計算量、owner cleanup を doc comment で明示することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - body 数を b、place 数を p、edge 数を e とすると、現状の duplicate 検査と per-body fold は O((b+p+e)^2) 時間、output summary table に O(b) 空間を使います。
+//: - body bucket 化、place id sorted index 化、edge endpoint index 化、actual Resource graph child range index 化は、key equality、duplicate rejection、owner cleanup、fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_traversal_collector" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_materializer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_drop_resource_traversal_collector_len_result_eq summary.collected_len 4
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_drop_resource_traversal_collector_status_result_eq summary.private_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_drop_resource_traversal_collector_status_result_eq summary.escape_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_drop_resource_traversal_collector_status_result_eq summary.missing_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_drop_resource_traversal_collector_status_result_eq summary.unsupported_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_drop_resource_traversal_collector_error_result_eq summary.duplicate_rejected SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_drop_resource_traversal_collector_error_result_eq summary.placeholder_rejected SelfhostDropResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+//:             let checks8 checks_push checks7 check selfhost_memo_trait_operation_drop_resource_traversal_collector_error_result_eq summary.endpoint_missing_rejected SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing 1
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop Resource graph traversal collector stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "./memo_trait_operation_drop_resource_no_escape_materializer" as *
+
+//: SelfhostDropResourceGraphId: Drop body 用 Resource graph の session-local id
+pub struct SelfhostDropResourceGraphId:
+    index %i32
+
+//: SelfhostResourcePlaceId: Resource graph 内の place id
+pub struct SelfhostResourcePlaceId:
+    index %i32
+
+//: SelfhostDropResourceGraphCompleteness: Drop body graph の閉包状態
+//:
+//: [目的/もくてき]:
+//: - graph が Drop body について閉じている場合だけ no-escape 判定へ進めます。
+pub enum SelfhostDropResourceGraphCompleteness:
+    ClosedForDropBody
+    ResourceGraphMissing
+    TraversalUnsupported
+
+//: SelfhostResourcePlaceKind: Resource graph place の分類
+pub enum SelfhostResourcePlaceKind:
+    PrivateLocal
+    PrivateTemporary
+    ReturnPlace
+    PublicStore
+    ExternalHandle
+    UnsupportedPlace
+
+//: SelfhostResourceEdgeKind: Resource graph edge の分類
+pub enum SelfhostResourceEdgeKind:
+    Owns
+    Field
+    BorrowView
+    MoveTo
+    StoreToPublic
+    Return
+    CallBoundaryUnsupported
+
+//: SelfhostDropResourceGraphBodyRecord: 1 Drop body の Resource graph header
+pub struct SelfhostDropResourceGraphBodyRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    graph_id %SelfhostDropResourceGraphId
+    completeness %SelfhostDropResourceGraphCompleteness
+
+//: SelfhostDropResourceGraphPlaceRecord: Resource graph の place record
+pub struct SelfhostDropResourceGraphPlaceRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostDropResourceGraphId
+    place_id %SelfhostResourcePlaceId
+    kind %SelfhostResourcePlaceKind
+
+//: SelfhostDropResourceGraphEdgeRecord: Resource graph の edge record
+pub struct SelfhostDropResourceGraphEdgeRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostDropResourceGraphId
+    from_place %SelfhostResourcePlaceId
+    to_place %SelfhostResourcePlaceId
+    kind %SelfhostResourceEdgeKind
+
+//: SelfhostDropResourceGraphInput: Drop body Resource graph input の owner table
+pub struct SelfhostDropResourceGraphInput:
+    bodies %Vec SelfhostDropResourceGraphBodyRecord
+    places %Vec SelfhostDropResourceGraphPlaceRecord
+    edges %Vec SelfhostDropResourceGraphEdgeRecord
+
+//: SelfhostDropResourceTraversalFoldSummary: graph fold の summary
+pub struct SelfhostDropResourceTraversalFoldSummary:
+    status %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus
+    reason %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason
+
+//: SelfhostDropResourceGraphTraversalCollectorErrorKind: graph collector の構造的な拒否理由
+pub enum SelfhostDropResourceGraphTraversalCollectorErrorKind:
+    GraphBodyPushFailed %StdErrorKind
+    GraphPlacePushFailed %StdErrorKind
+    GraphEdgePushFailed %StdErrorKind
+    GraphBodyReadFailed %i32
+    GraphPlaceReadFailed %i32
+    GraphEdgeReadFailed %i32
+    GraphBodyDuplicate
+    GraphBodyMissing %i32
+    GraphPlaceDuplicate
+    GraphEdgeDuplicate
+    BodyModuleFingerprintPlaceholder
+    GraphIdInvalid %i32
+    PlaceIdInvalid %i32
+    EdgeEndpointInvalid %i32
+    EdgeEndpointMissing %i32
+    EffectNotInternalAlloc %SelfhostEffectKind
+    EscapeNotApplicable %SelfhostEffectEscapeState
+    OutputTraversalTableAllocFailed %StdErrorKind
+    OutputTraversalTableRejected %SelfhostMemoTraitOperationDropResourceNoEscapeMaterializerErrorKind
+
+//: SelfhostDropResourceGraphDuplicateDecision: duplicate / seen 判定
+pub enum SelfhostDropResourceGraphDuplicateDecision:
+    UniqueSoFar
+    DuplicateFound
+
+//: SelfhostDropResourceGraphTraversalCollectorStage0Summary: collector smoke の代表結果
+pub struct SelfhostDropResourceGraphTraversalCollectorStage0Summary:
+    collected_len %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind
+    private_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind
+    escape_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind
+    missing_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind
+    unsupported_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind
+    duplicate_rejected %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind
+    placeholder_rejected %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind
+    endpoint_missing_rejected %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind
+
+//: Clone for SelfhostDropResourceGraphId: graph id は i32 wrapper なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphId:
+    fn clone %fn &SelfhostDropResourceGraphId SelfhostDropResourceGraphId \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphId: graph id は owner を[持/も]たない session-local key として Copy にする
+impl Copy for SelfhostDropResourceGraphId:
+    fn copy_mark %fn SelfhostDropResourceGraphId SelfhostDropResourceGraphId \self:
+        self
+
+//: Clone for SelfhostResourcePlaceId: place id は i32 wrapper なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostResourcePlaceId:
+    fn clone %fn &SelfhostResourcePlaceId SelfhostResourcePlaceId \self:
+        *self
+
+//: Copy for SelfhostResourcePlaceId: place id は owner を[持/も]たない graph-local key として Copy にする
+impl Copy for SelfhostResourcePlaceId:
+    fn copy_mark %fn SelfhostResourcePlaceId SelfhostResourcePlaceId \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphCompleteness: graph completeness は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphCompleteness:
+    fn clone %fn &SelfhostDropResourceGraphCompleteness SelfhostDropResourceGraphCompleteness \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphCompleteness: graph completeness は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostDropResourceGraphCompleteness:
+    fn copy_mark %fn SelfhostDropResourceGraphCompleteness SelfhostDropResourceGraphCompleteness \self:
+        self
+
+//: Clone for SelfhostResourcePlaceKind: place kind は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostResourcePlaceKind:
+    fn clone %fn &SelfhostResourcePlaceKind SelfhostResourcePlaceKind \self:
+        *self
+
+//: Copy for SelfhostResourcePlaceKind: place kind は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostResourcePlaceKind:
+    fn copy_mark %fn SelfhostResourcePlaceKind SelfhostResourcePlaceKind \self:
+        self
+
+//: Clone for SelfhostResourceEdgeKind: edge kind は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostResourceEdgeKind:
+    fn clone %fn &SelfhostResourceEdgeKind SelfhostResourceEdgeKind \self:
+        *self
+
+//: Copy for SelfhostResourceEdgeKind: edge kind は owner を[持/も]たない enum として Copy にする
+impl Copy for SelfhostResourceEdgeKind:
+    fn copy_mark %fn SelfhostResourceEdgeKind SelfhostResourceEdgeKind \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphBodyRecord: body record は typed key と small enum だけを[持/も]つので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphBodyRecord:
+    fn clone %fn &SelfhostDropResourceGraphBodyRecord SelfhostDropResourceGraphBodyRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphBodyRecord: body record は graph input の借用 view として扱える immutable payload なので Copy にする
+impl Copy for SelfhostDropResourceGraphBodyRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphBodyRecord SelfhostDropResourceGraphBodyRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphPlaceRecord: place record は typed key と place kind だけを[持/も]つので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphPlaceRecord:
+    fn clone %fn &SelfhostDropResourceGraphPlaceRecord SelfhostDropResourceGraphPlaceRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphPlaceRecord: place record は graph input の借用 view として扱える immutable payload なので Copy にする
+impl Copy for SelfhostDropResourceGraphPlaceRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphPlaceRecord SelfhostDropResourceGraphPlaceRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphEdgeRecord: edge record は typed key と endpoint id だけを[持/も]つので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphEdgeRecord:
+    fn clone %fn &SelfhostDropResourceGraphEdgeRecord SelfhostDropResourceGraphEdgeRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphEdgeRecord: edge record は graph input の借用 view として扱える immutable payload なので Copy にする
+impl Copy for SelfhostDropResourceGraphEdgeRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphEdgeRecord SelfhostDropResourceGraphEdgeRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceTraversalFoldSummary: fold summary は status/reason だけなので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceTraversalFoldSummary:
+    fn clone %fn &SelfhostDropResourceTraversalFoldSummary SelfhostDropResourceTraversalFoldSummary \self:
+        *self
+
+//: Copy for SelfhostDropResourceTraversalFoldSummary: fold summary は owner を[持/も]たない集約結果として Copy にする
+impl Copy for SelfhostDropResourceTraversalFoldSummary:
+    fn copy_mark %fn SelfhostDropResourceTraversalFoldSummary SelfhostDropResourceTraversalFoldSummary \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphTraversalCollectorErrorKind: collector error は payload も Copy payload に限るため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphTraversalCollectorErrorKind:
+    fn clone %fn &SelfhostDropResourceGraphTraversalCollectorErrorKind SelfhostDropResourceGraphTraversalCollectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphTraversalCollectorErrorKind: collector error は Result payload として owner cleanup を[必要/ひつよう]としないため Copy にする
+impl Copy for SelfhostDropResourceGraphTraversalCollectorErrorKind:
+    fn copy_mark %fn SelfhostDropResourceGraphTraversalCollectorErrorKind SelfhostDropResourceGraphTraversalCollectorErrorKind \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphDuplicateDecision: duplicate decision は payload を[持/も]たない enum なので bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphDuplicateDecision:
+    fn clone %fn &SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphDuplicateDecision \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphDuplicateDecision: duplicate decision は owner を[持/も]たない branch marker として Copy にする
+impl Copy for SelfhostDropResourceGraphDuplicateDecision:
+    fn copy_mark %fn SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphDuplicateDecision \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphTraversalCollectorStage0Summary: stage0 summary は Result payload も Copy payload に限るため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphTraversalCollectorStage0Summary:
+    fn clone %fn &SelfhostDropResourceGraphTraversalCollectorStage0Summary SelfhostDropResourceGraphTraversalCollectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphTraversalCollectorStage0Summary: stage0 summary は doctest 用の small immutable payload として Copy にする
+impl Copy for SelfhostDropResourceGraphTraversalCollectorStage0Summary:
+    fn copy_mark %fn SelfhostDropResourceGraphTraversalCollectorStage0Summary SelfhostDropResourceGraphTraversalCollectorStage0Summary \self:
+        self
+
+//: selfhost_drop_resource_graph_id_new: graph id を[作/つく]る
+pub fn selfhost_drop_resource_graph_id_new %fn i32 SelfhostDropResourceGraphId \index:
+    SelfhostDropResourceGraphId index
+
+//: selfhost_resource_place_id_new: place id を[作/つく]る
+pub fn selfhost_resource_place_id_new %fn i32 SelfhostResourcePlaceId \index:
+    SelfhostResourcePlaceId index
+
+//: selfhost_drop_resource_graph_body_record_new: graph body record を[作/つく]る
+pub fn selfhost_drop_resource_graph_body_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostDropResourceGraphId fn SelfhostDropResourceGraphCompleteness SelfhostDropResourceGraphBodyRecord \type_id\body_module_fingerprint\body_root\effect\escape\graph_id\completeness:
+    SelfhostDropResourceGraphBodyRecord type_id body_module_fingerprint body_root effect escape graph_id completeness
+
+//: selfhost_drop_resource_graph_place_record_new: graph place record を[作/つく]る
+pub fn selfhost_drop_resource_graph_place_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostDropResourceGraphId fn SelfhostResourcePlaceId fn SelfhostResourcePlaceKind SelfhostDropResourceGraphPlaceRecord \type_id\body_module_fingerprint\body_root\graph_id\place_id\kind:
+    SelfhostDropResourceGraphPlaceRecord type_id body_module_fingerprint body_root graph_id place_id kind
+
+//: selfhost_drop_resource_graph_edge_record_new: graph edge record を[作/つく]る
+pub fn selfhost_drop_resource_graph_edge_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostDropResourceGraphId fn SelfhostResourcePlaceId fn SelfhostResourcePlaceId fn SelfhostResourceEdgeKind SelfhostDropResourceGraphEdgeRecord \type_id\body_module_fingerprint\body_root\graph_id\from_place\to_place\kind:
+    SelfhostDropResourceGraphEdgeRecord type_id body_module_fingerprint body_root graph_id from_place to_place kind
+
+//: selfhost_drop_resource_graph_input_new: [空/から]の graph input owner を[作/つく]る
+pub fn selfhost_drop_resource_graph_input_new %impure fn void Result SelfhostDropResourceGraphInput StdErrorKind \void:
+    let bodies_result %Result Vec SelfhostDropResourceGraphBodyRecord StdErrorKind v::new
+    match bodies_result:
+        Result::Ok bodies:
+            let places_result %Result Vec SelfhostDropResourceGraphPlaceRecord StdErrorKind v::new
+            match places_result:
+                Result::Ok places:
+                    let edges_result %Result Vec SelfhostDropResourceGraphEdgeRecord StdErrorKind v::new
+                    match edges_result:
+                        Result::Ok edges:
+                            Result::Ok SelfhostDropResourceGraphInput bodies places edges
+                        Result::Err e:
+                            v::free places
+                            v::free bodies
+                            Result::Err e
+                Result::Err e:
+                    v::free bodies
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_input_free: graph input owner を[閉/と]じる
+pub fn selfhost_drop_resource_graph_input_free %impure fn SelfhostDropResourceGraphInput unit \input:
+    v::free field::get input "bodies"
+    v::free field::get input "places"
+    v::free field::get input "edges"
+
+//: selfhost_drop_resource_graph_body_len: body record 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_body_len %fn &SelfhostDropResourceGraphInput i32 \input:
+    let bodies %&Vec SelfhostDropResourceGraphBodyRecord field::get_ref input "bodies"
+    v::len bodies
+
+//: selfhost_drop_resource_graph_place_len: place record 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_place_len %fn &SelfhostDropResourceGraphInput i32 \input:
+    let places %&Vec SelfhostDropResourceGraphPlaceRecord field::get_ref input "places"
+    v::len places
+
+//: selfhost_drop_resource_graph_edge_len: edge record 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_edge_len %fn &SelfhostDropResourceGraphInput i32 \input:
+    let edges %&Vec SelfhostDropResourceGraphEdgeRecord field::get_ref input "edges"
+    v::len edges
+
+//: selfhost_drop_resource_graph_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_drop_resource_graph_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_drop_resource_graph_id_eq: graph id が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_id_eq %fn SelfhostDropResourceGraphId fn SelfhostDropResourceGraphId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_resource_place_id_eq: place id が同じか[返/かえ]す
+fn selfhost_resource_place_id_eq %fn SelfhostResourcePlaceId fn SelfhostResourcePlaceId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_drop_resource_graph_body_key_eq: body record と body record の key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_body_key_eq %fn SelfhostDropResourceGraphBodyRecord fn SelfhostDropResourceGraphBodyRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            eq a.body_module_fingerprint b.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                and:
+                    selfhost_effect_kind_eq a.effect b.effect
+                    and:
+                        selfhost_drop_resource_graph_escape_state_eq a.escape b.escape
+                        selfhost_drop_resource_graph_id_eq a.graph_id b.graph_id
+
+//: selfhost_drop_resource_graph_place_body_key_eq: body record と place record の key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_place_body_key_eq %fn SelfhostDropResourceGraphBodyRecord fn SelfhostDropResourceGraphPlaceRecord bool \body\place:
+    and:
+        selfhost_type_id_eq body.type_id place.type_id
+        and:
+            eq body.body_module_fingerprint place.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index place.body_root
+                selfhost_drop_resource_graph_id_eq body.graph_id place.graph_id
+
+//: selfhost_drop_resource_graph_edge_body_key_eq: body record と edge record の key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_edge_body_key_eq %fn SelfhostDropResourceGraphBodyRecord fn SelfhostDropResourceGraphEdgeRecord bool \body\edge:
+    and:
+        selfhost_type_id_eq body.type_id edge.type_id
+        and:
+            eq body.body_module_fingerprint edge.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index edge.body_root
+                selfhost_drop_resource_graph_id_eq body.graph_id edge.graph_id
+
+//: selfhost_drop_resource_graph_place_identity_eq: place identity が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_place_identity_eq %fn SelfhostDropResourceGraphPlaceRecord fn SelfhostDropResourceGraphPlaceRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            eq a.body_module_fingerprint b.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                and:
+                    selfhost_drop_resource_graph_id_eq a.graph_id b.graph_id
+                    selfhost_resource_place_id_eq a.place_id b.place_id
+
+//: selfhost_drop_resource_graph_edge_kind_code: edge kind の比較用 code を[返/かえ]す
+fn selfhost_drop_resource_graph_edge_kind_code %fn SelfhostResourceEdgeKind i32 \kind:
+    match kind:
+        SelfhostResourceEdgeKind::Owns:
+            1
+        SelfhostResourceEdgeKind::Field:
+            2
+        SelfhostResourceEdgeKind::BorrowView:
+            3
+        SelfhostResourceEdgeKind::MoveTo:
+            4
+        SelfhostResourceEdgeKind::StoreToPublic:
+            5
+        SelfhostResourceEdgeKind::Return:
+            6
+        SelfhostResourceEdgeKind::CallBoundaryUnsupported:
+            7
+
+//: selfhost_drop_resource_graph_edge_identity_eq: edge identity が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_edge_identity_eq %fn SelfhostDropResourceGraphEdgeRecord fn SelfhostDropResourceGraphEdgeRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            eq a.body_module_fingerprint b.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                and:
+                    selfhost_drop_resource_graph_id_eq a.graph_id b.graph_id
+                    and:
+                        selfhost_resource_place_id_eq a.from_place b.from_place
+                        and:
+                            selfhost_resource_place_id_eq a.to_place b.to_place
+                            eq selfhost_drop_resource_graph_edge_kind_code a.kind selfhost_drop_resource_graph_edge_kind_code b.kind
+
+//: selfhost_drop_resource_graph_validate_body_result: body record の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_validate_body_result %fn SelfhostDropResourceGraphBodyRecord Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \body:
+    if:
+        eq body.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt body.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphIdInvalid body.graph_id.index
+                else:
+                    if:
+                        selfhost_effect_kind_eq body.effect SelfhostEffectKind::InternalAlloc
+                        then:
+                            match body.escape:
+                                SelfhostEffectEscapeState::NotApplicable:
+                                    Result::Ok unit
+                                SelfhostEffectEscapeState::NoEscapeProven:
+                                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable body.escape
+                                SelfhostEffectEscapeState::MayEscape:
+                                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable body.escape
+                        else:
+                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EffectNotInternalAlloc body.effect
+
+//: selfhost_drop_resource_graph_validate_place_result: place record の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_validate_place_result %fn SelfhostDropResourceGraphPlaceRecord Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \place:
+    if:
+        eq place.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt place.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphIdInvalid place.graph_id.index
+                else:
+                    if:
+                        lt place.place_id.index 0
+                        then:
+                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::PlaceIdInvalid place.place_id.index
+                        else:
+                            Result::Ok unit
+
+//: selfhost_drop_resource_graph_validate_edge_result: edge record の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_validate_edge_result %fn SelfhostDropResourceGraphEdgeRecord Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \edge:
+    if:
+        eq edge.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt edge.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphIdInvalid edge.graph_id.index
+                else:
+                    if:
+                        lt edge.from_place.index 0
+                        then:
+                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid edge.from_place.index
+                        else:
+                            if:
+                                lt edge.to_place.index 0
+                                then:
+                                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid edge.to_place.index
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_drop_resource_graph_get_body: body record を[読/よ]む
+fn selfhost_drop_resource_graph_get_body %fn &SelfhostDropResourceGraphInput fn i32 Option SelfhostDropResourceGraphBodyRecord \input\idx:
+    let bodies %&Vec SelfhostDropResourceGraphBodyRecord field::get_ref input "bodies"
+    v::get bodies idx
+
+//: selfhost_drop_resource_graph_get_place: place record を[読/よ]む
+fn selfhost_drop_resource_graph_get_place %fn &SelfhostDropResourceGraphInput fn i32 Option SelfhostDropResourceGraphPlaceRecord \input\idx:
+    let places %&Vec SelfhostDropResourceGraphPlaceRecord field::get_ref input "places"
+    v::get places idx
+
+//: selfhost_drop_resource_graph_get_edge: edge record を[読/よ]む
+fn selfhost_drop_resource_graph_get_edge %fn &SelfhostDropResourceGraphInput fn i32 Option SelfhostDropResourceGraphEdgeRecord \input\idx:
+    let edges %&Vec SelfhostDropResourceGraphEdgeRecord field::get_ref input "edges"
+    v::get edges idx
+
+//: selfhost_drop_resource_graph_contains_body_loop: duplicate body を[探/さが]す
+fn selfhost_drop_resource_graph_contains_body_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_body input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_drop_resource_graph_body_key_eq existing body
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_contains_body_loop input body add idx 1
+                Option::None:
+                    true
+
+//: selfhost_drop_resource_graph_contains_body: duplicate body があるか[返/かえ]す
+fn selfhost_drop_resource_graph_contains_body %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord bool \input\body:
+    selfhost_drop_resource_graph_contains_body_loop input body 0
+
+//: selfhost_drop_resource_graph_contains_place_loop: duplicate place を[探/さが]す
+fn selfhost_drop_resource_graph_contains_place_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphPlaceRecord fn i32 bool \input\place\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_drop_resource_graph_place_identity_eq existing place
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_contains_place_loop input place add idx 1
+                Option::None:
+                    true
+
+//: selfhost_drop_resource_graph_contains_place: duplicate place があるか[返/かえ]す
+fn selfhost_drop_resource_graph_contains_place %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphPlaceRecord bool \input\place:
+    selfhost_drop_resource_graph_contains_place_loop input place 0
+
+//: selfhost_drop_resource_graph_contains_edge_loop: duplicate edge を[探/さが]す
+fn selfhost_drop_resource_graph_contains_edge_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord fn i32 bool \input\edge\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_edge_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_edge input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_drop_resource_graph_edge_identity_eq existing edge
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_contains_edge_loop input edge add idx 1
+                Option::None:
+                    true
+
+//: selfhost_drop_resource_graph_contains_edge: duplicate edge があるか[返/かえ]す
+fn selfhost_drop_resource_graph_contains_edge %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord bool \input\edge:
+    selfhost_drop_resource_graph_contains_edge_loop input edge 0
+
+//: selfhost_drop_resource_graph_input_push_body: body record を graph input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_input_push_body %impure fn SelfhostDropResourceGraphInput impure fn SelfhostDropResourceGraphBodyRecord Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphTraversalCollectorErrorKind \input\body:
+    match selfhost_drop_resource_graph_validate_body_result body:
+        Result::Ok _unit:
+            if:
+                selfhost_drop_resource_graph_contains_body &input body
+                then:
+                    selfhost_drop_resource_graph_input_free input
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+                else:
+                    let bodies %Vec SelfhostDropResourceGraphBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostDropResourceGraphPlaceRecord field::get input "places"
+                    let edges %Vec SelfhostDropResourceGraphEdgeRecord field::get input "edges"
+                    match v::push bodies body:
+                        Result::Ok next_bodies:
+                            Result::Ok SelfhostDropResourceGraphInput next_bodies places edges
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free places
+                            v::free edges
+                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_graph_input_push_place: place record を graph input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_input_push_place %impure fn SelfhostDropResourceGraphInput impure fn SelfhostDropResourceGraphPlaceRecord Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphTraversalCollectorErrorKind \input\place:
+    match selfhost_drop_resource_graph_validate_place_result place:
+        Result::Ok _unit:
+            if:
+                selfhost_drop_resource_graph_contains_place &input place
+                then:
+                    selfhost_drop_resource_graph_input_free input
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate
+                else:
+                    let bodies %Vec SelfhostDropResourceGraphBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostDropResourceGraphPlaceRecord field::get input "places"
+                    let edges %Vec SelfhostDropResourceGraphEdgeRecord field::get input "edges"
+                    match v::push places place:
+                        Result::Ok next_places:
+                            Result::Ok SelfhostDropResourceGraphInput bodies next_places edges
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free bodies
+                            v::free edges
+                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlacePushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_graph_input_push_edge: edge record を graph input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_input_push_edge %impure fn SelfhostDropResourceGraphInput impure fn SelfhostDropResourceGraphEdgeRecord Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphTraversalCollectorErrorKind \input\edge:
+    match selfhost_drop_resource_graph_validate_edge_result edge:
+        Result::Ok _unit:
+            if:
+                selfhost_drop_resource_graph_contains_edge &input edge
+                then:
+                    selfhost_drop_resource_graph_input_free input
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate
+                else:
+                    let bodies %Vec SelfhostDropResourceGraphBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostDropResourceGraphPlaceRecord field::get input "places"
+                    let edges %Vec SelfhostDropResourceGraphEdgeRecord field::get input "edges"
+                    match v::push edges edge:
+                        Result::Ok next_edges:
+                            Result::Ok SelfhostDropResourceGraphInput bodies places next_edges
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free bodies
+                            v::free places
+                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgePushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_traversal_summary_new: fold summary を[作/つく]る
+fn selfhost_drop_resource_traversal_summary_new %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason SelfhostDropResourceTraversalFoldSummary \status\reason:
+    SelfhostDropResourceTraversalFoldSummary status reason
+
+//: selfhost_drop_resource_traversal_status_rank: summary status の優先度を[返/かえ]す
+fn selfhost_drop_resource_traversal_status_rank %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate:
+            0
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing:
+            1
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported:
+            2
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved:
+            3
+
+//: selfhost_drop_resource_traversal_summary_combine: summary を fail-closed 優先度で[結合/けつごう]する
+fn selfhost_drop_resource_traversal_summary_combine %fn SelfhostDropResourceTraversalFoldSummary fn SelfhostDropResourceTraversalFoldSummary SelfhostDropResourceTraversalFoldSummary \a\b:
+    if:
+        gt selfhost_drop_resource_traversal_status_rank b.status selfhost_drop_resource_traversal_status_rank a.status
+        then:
+            b
+        else:
+            a
+
+//: selfhost_drop_resource_graph_place_summary: place kind を summary に[写/うつ]す
+fn selfhost_drop_resource_graph_place_summary %fn SelfhostResourcePlaceKind SelfhostDropResourceTraversalFoldSummary \kind:
+    match kind:
+        SelfhostResourcePlaceKind::PrivateLocal:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+        SelfhostResourcePlaceKind::PrivateTemporary:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+        SelfhostResourcePlaceKind::ReturnPlace:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::ReturnPlaceEscapes
+        SelfhostResourcePlaceKind::PublicStore:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PublicStoreEscapes
+        SelfhostResourcePlaceKind::ExternalHandle:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PublicStoreEscapes
+        SelfhostResourcePlaceKind::UnsupportedPlace:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+
+//: selfhost_drop_resource_graph_edge_summary: edge kind を summary に[写/うつ]す
+fn selfhost_drop_resource_graph_edge_summary %fn SelfhostResourceEdgeKind SelfhostDropResourceTraversalFoldSummary \kind:
+    match kind:
+        SelfhostResourceEdgeKind::Owns:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+        SelfhostResourceEdgeKind::Field:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+        SelfhostResourceEdgeKind::BorrowView:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+        SelfhostResourceEdgeKind::MoveTo:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+        SelfhostResourceEdgeKind::StoreToPublic:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PublicStoreEscapes
+        SelfhostResourceEdgeKind::Return:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::ReturnPlaceEscapes
+        SelfhostResourceEdgeKind::CallBoundaryUnsupported:
+            selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+
+//: selfhost_drop_resource_graph_body_has_place_loop: body graph に place があるか[返/かえ]す
+fn selfhost_drop_resource_graph_body_has_place_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        selfhost_drop_resource_graph_place_body_key_eq body place
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_body_has_place_loop input body add idx 1
+                Option::None:
+                    false
+
+//: selfhost_drop_resource_graph_body_has_place: body graph に place があるか[返/かえ]す
+fn selfhost_drop_resource_graph_body_has_place %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord bool \input\body:
+    selfhost_drop_resource_graph_body_has_place_loop input body 0
+
+//: selfhost_drop_resource_graph_body_has_place_id_loop: body graph に指定 place があるか[返/かえ]す
+fn selfhost_drop_resource_graph_body_has_place_id_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn SelfhostResourcePlaceId fn i32 bool \input\body\place_id\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        and:
+                            selfhost_drop_resource_graph_place_body_key_eq body place
+                            selfhost_resource_place_id_eq place.place_id place_id
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_body_has_place_id_loop input body place_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_drop_resource_graph_body_has_place_id: body graph に指定 place があるか[返/かえ]す
+fn selfhost_drop_resource_graph_body_has_place_id %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn SelfhostResourcePlaceId bool \input\body\place_id:
+    selfhost_drop_resource_graph_body_has_place_id_loop input body place_id 0
+
+//: selfhost_drop_resource_graph_place_has_body_loop: place に対応する body header があるか[返/かえ]す
+fn selfhost_drop_resource_graph_place_has_body_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphPlaceRecord fn i32 bool \input\place\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_place_body_key_eq body place
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_place_has_body_loop input place add idx 1
+                Option::None:
+                    false
+
+//: selfhost_drop_resource_graph_place_has_body: place に対応する body header があるか[返/かえ]す
+fn selfhost_drop_resource_graph_place_has_body %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphPlaceRecord bool \input\place:
+    selfhost_drop_resource_graph_place_has_body_loop input place 0
+
+//: selfhost_drop_resource_graph_edge_has_body_loop: edge に対応する body header があるか[返/かえ]す
+fn selfhost_drop_resource_graph_edge_has_body_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord fn i32 bool \input\edge\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_body_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_edge_body_key_eq body edge
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_edge_has_body_loop input edge add idx 1
+                Option::None:
+                    false
+
+//: selfhost_drop_resource_graph_edge_has_body: edge に対応する body header があるか[返/かえ]す
+fn selfhost_drop_resource_graph_edge_has_body %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord bool \input\edge:
+    selfhost_drop_resource_graph_edge_has_body_loop input edge 0
+
+//: selfhost_drop_resource_graph_place_edge_key_eq: edge と place が同じ graph body に[属/ぞく]するか[返/かえ]す
+fn selfhost_drop_resource_graph_place_edge_key_eq %fn SelfhostDropResourceGraphEdgeRecord fn SelfhostDropResourceGraphPlaceRecord bool \edge\place:
+    and:
+        selfhost_type_id_eq edge.type_id place.type_id
+        and:
+            eq edge.body_module_fingerprint place.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index edge.body_root selfhost_hir_expr_id_index place.body_root
+                selfhost_drop_resource_graph_id_eq edge.graph_id place.graph_id
+
+//: selfhost_drop_resource_graph_edge_has_place_id_loop: edge endpoint place が graph table にあるか[返/かえ]す
+fn selfhost_drop_resource_graph_edge_has_place_id_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord fn SelfhostResourcePlaceId fn i32 bool \input\edge\place_id\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_place_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some place:
+                    if:
+                        and:
+                            selfhost_drop_resource_graph_place_edge_key_eq edge place
+                            selfhost_resource_place_id_eq place.place_id place_id
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_edge_has_place_id_loop input edge place_id add idx 1
+                Option::None:
+                    false
+
+//: selfhost_drop_resource_graph_edge_has_place_id: edge endpoint place が graph table にあるか[返/かえ]す
+fn selfhost_drop_resource_graph_edge_has_place_id %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord fn SelfhostResourcePlaceId bool \input\edge\place_id:
+    selfhost_drop_resource_graph_edge_has_place_id_loop input edge place_id 0
+
+//: selfhost_drop_resource_graph_seen_place_before_loop: earlier place identity を[探/さが]す
+fn selfhost_drop_resource_graph_seen_place_before_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphPlaceRecord fn i32 fn i32 Result SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphTraversalCollectorErrorKind \input\place\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some existing:
+                    match selfhost_drop_resource_graph_validate_place_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_drop_resource_graph_place_identity_eq existing place
+                                then:
+                                    Result::Ok SelfhostDropResourceGraphDuplicateDecision::DuplicateFound
+                                else:
+                                    selfhost_drop_resource_graph_seen_place_before_loop input place limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_drop_resource_graph_seen_place_before_result: earlier place identity があるか[返/かえ]す
+fn selfhost_drop_resource_graph_seen_place_before_result %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphPlaceRecord fn i32 Result SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphTraversalCollectorErrorKind \input\place\limit:
+    selfhost_drop_resource_graph_seen_place_before_loop input place limit 0
+
+//: selfhost_drop_resource_graph_seen_edge_before_loop: earlier edge identity を[探/さが]す
+fn selfhost_drop_resource_graph_seen_edge_before_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord fn i32 fn i32 Result SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphTraversalCollectorErrorKind \input\edge\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar
+        else:
+            match selfhost_drop_resource_graph_get_edge input idx:
+                Option::Some existing:
+                    match selfhost_drop_resource_graph_validate_edge_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_drop_resource_graph_edge_identity_eq existing edge
+                                then:
+                                    Result::Ok SelfhostDropResourceGraphDuplicateDecision::DuplicateFound
+                                else:
+                                    selfhost_drop_resource_graph_seen_edge_before_loop input edge limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_drop_resource_graph_seen_edge_before_result: earlier edge identity があるか[返/かえ]す
+fn selfhost_drop_resource_graph_seen_edge_before_result %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord fn i32 Result SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphTraversalCollectorErrorKind \input\edge\limit:
+    selfhost_drop_resource_graph_seen_edge_before_loop input edge limit 0
+
+//: selfhost_drop_resource_graph_validate_all_bodies_loop: input body table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_validate_all_bodies_loop %fn &SelfhostDropResourceGraphInput fn i32 Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_body_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_get_body input idx:
+                Option::Some body:
+                    match selfhost_drop_resource_graph_validate_body_result body:
+                        Result::Ok _unit:
+                            match selfhost_drop_resource_graph_seen_body_before_result input body idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostDropResourceGraphDuplicateDecision::DuplicateFound:
+                                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+                                        SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar:
+                                            selfhost_drop_resource_graph_validate_all_bodies_loop input add idx 1
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_drop_resource_graph_validate_all_places_loop: input place table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_validate_all_places_loop %fn &SelfhostDropResourceGraphInput fn i32 Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_place_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some place:
+                    match selfhost_drop_resource_graph_validate_place_result place:
+                        Result::Ok _unit:
+                            match selfhost_drop_resource_graph_seen_place_before_result input place idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostDropResourceGraphDuplicateDecision::DuplicateFound:
+                                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate
+                                        SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar:
+                                            if:
+                                                selfhost_drop_resource_graph_place_has_body input place
+                                                then:
+                                                    selfhost_drop_resource_graph_validate_all_places_loop input add idx 1
+                                                else:
+                                                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyMissing place.graph_id.index
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_drop_resource_graph_validate_edge_endpoints_result: edge endpoint が同じ graph の place table にあるか[確認/かくにん]する
+fn selfhost_drop_resource_graph_validate_edge_endpoints_result %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphEdgeRecord Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \input\edge:
+    if:
+        selfhost_drop_resource_graph_edge_has_place_id input edge edge.from_place
+        then:
+            if:
+                selfhost_drop_resource_graph_edge_has_place_id input edge edge.to_place
+                then:
+                    Result::Ok unit
+                else:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing edge.to_place.index
+        else:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing edge.from_place.index
+
+//: selfhost_drop_resource_graph_validate_all_edges_loop: input edge table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_validate_all_edges_loop %fn &SelfhostDropResourceGraphInput fn i32 Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_edge_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_drop_resource_graph_validate_edge_result edge:
+                        Result::Ok _unit:
+                            match selfhost_drop_resource_graph_seen_edge_before_result input edge idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostDropResourceGraphDuplicateDecision::DuplicateFound:
+                                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate
+                                        SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar:
+                                            if:
+                                                selfhost_drop_resource_graph_edge_has_body input edge
+                                                then:
+                                                    match selfhost_drop_resource_graph_validate_edge_endpoints_result input edge:
+                                                        Result::Ok _endpoints:
+                                                            selfhost_drop_resource_graph_validate_all_edges_loop input add idx 1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                else:
+                                                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyMissing edge.graph_id.index
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_drop_resource_graph_validate_input_result: collector input table 全体を fail-closed に[検査/けんさ]する
+fn selfhost_drop_resource_graph_validate_input_result %fn &SelfhostDropResourceGraphInput Result unit SelfhostDropResourceGraphTraversalCollectorErrorKind \input:
+    match selfhost_drop_resource_graph_validate_all_bodies_loop input 0:
+        Result::Ok _bodies:
+            match selfhost_drop_resource_graph_validate_all_places_loop input 0:
+                Result::Ok _places:
+                    selfhost_drop_resource_graph_validate_all_edges_loop input 0
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_fold_places_loop: body graph の place を summary へ[畳/たた]む
+fn selfhost_drop_resource_graph_fold_places_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn i32 fn SelfhostDropResourceTraversalFoldSummary Result SelfhostDropResourceTraversalFoldSummary SelfhostDropResourceGraphTraversalCollectorErrorKind \input\body\idx\acc:
+    if:
+        ge idx selfhost_drop_resource_graph_place_len input
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_drop_resource_graph_get_place input idx:
+                Option::Some place:
+                    match selfhost_drop_resource_graph_validate_place_result place:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_drop_resource_graph_place_body_key_eq body place
+                                then:
+                                    let next_summary %SelfhostDropResourceTraversalFoldSummary selfhost_drop_resource_traversal_summary_combine acc selfhost_drop_resource_graph_place_summary place.kind
+                                    selfhost_drop_resource_graph_fold_places_loop input body add idx 1 next_summary
+                                else:
+                                    selfhost_drop_resource_graph_fold_places_loop input body add idx 1 acc
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx
+
+//: selfhost_drop_resource_graph_fold_edges_loop: body graph の edge を summary へ[畳/たた]む
+fn selfhost_drop_resource_graph_fold_edges_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn i32 fn SelfhostDropResourceTraversalFoldSummary Result SelfhostDropResourceTraversalFoldSummary SelfhostDropResourceGraphTraversalCollectorErrorKind \input\body\idx\acc:
+    if:
+        ge idx selfhost_drop_resource_graph_edge_len input
+        then:
+            Result::Ok acc
+        else:
+            match selfhost_drop_resource_graph_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_drop_resource_graph_validate_edge_result edge:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_drop_resource_graph_edge_body_key_eq body edge
+                                then:
+                                    if:
+                                        and:
+                                            selfhost_drop_resource_graph_body_has_place_id input body edge.from_place
+                                            selfhost_drop_resource_graph_body_has_place_id input body edge.to_place
+                                        then:
+                                            let next_summary %SelfhostDropResourceTraversalFoldSummary selfhost_drop_resource_traversal_summary_combine acc selfhost_drop_resource_graph_edge_summary edge.kind
+                                            selfhost_drop_resource_graph_fold_edges_loop input body add idx 1 next_summary
+                                        else:
+                                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing edge.from_place.index
+                                else:
+                                    selfhost_drop_resource_graph_fold_edges_loop input body add idx 1 acc
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx
+
+//: selfhost_drop_resource_graph_body_summary_result: body graph 1 件を traversal summary へ[畳/たた]む
+fn selfhost_drop_resource_graph_body_summary_result %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord Result SelfhostDropResourceTraversalFoldSummary SelfhostDropResourceGraphTraversalCollectorErrorKind \input\body:
+    match body.completeness:
+        SelfhostDropResourceGraphCompleteness::ResourceGraphMissing:
+            Result::Ok selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::ResourceGraphUnavailable
+        SelfhostDropResourceGraphCompleteness::TraversalUnsupported:
+            Result::Ok selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::UnsupportedResourceOperation
+        SelfhostDropResourceGraphCompleteness::ClosedForDropBody:
+            if:
+                selfhost_drop_resource_graph_body_has_place input body
+                then:
+                    let initial %SelfhostDropResourceTraversalFoldSummary selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::PrivateLocalStateOnly
+                    match selfhost_drop_resource_graph_fold_places_loop input body 0 initial:
+                        Result::Ok place_summary:
+                            selfhost_drop_resource_graph_fold_edges_loop input body 0 place_summary
+                        Result::Err e:
+                            Result::Err e
+                else:
+                    Result::Ok selfhost_drop_resource_traversal_summary_new SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing SelfhostMemoTraitOperationDropResourceNoEscapeTraversalReason::ResourceGraphUnavailable
+
+//: selfhost_drop_resource_graph_seen_body_before_loop: earlier body key を[探/さが]す
+fn selfhost_drop_resource_graph_seen_body_before_loop %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn i32 fn i32 Result SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphTraversalCollectorErrorKind \input\body\limit\idx:
+    if:
+        ge idx limit
+        then:
+            Result::Ok SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar
+        else:
+            match selfhost_drop_resource_graph_get_body input idx:
+                Option::Some existing:
+                    match selfhost_drop_resource_graph_validate_body_result existing:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_drop_resource_graph_body_key_eq existing body
+                                then:
+                                    Result::Ok SelfhostDropResourceGraphDuplicateDecision::DuplicateFound
+                                else:
+                                    selfhost_drop_resource_graph_seen_body_before_loop input body limit add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_drop_resource_graph_seen_body_before_result: earlier body key があるか[返/かえ]す
+fn selfhost_drop_resource_graph_seen_body_before_result %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord fn i32 Result SelfhostDropResourceGraphDuplicateDecision SelfhostDropResourceGraphTraversalCollectorErrorKind \input\body\limit:
+    selfhost_drop_resource_graph_seen_body_before_loop input body limit 0
+
+//: selfhost_drop_resource_graph_output_push_result: traversal summary record を output table へ[追加/ついか]する
+fn selfhost_drop_resource_graph_output_push_result %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable impure fn SelfhostDropResourceGraphBodyRecord impure fn SelfhostDropResourceTraversalFoldSummary Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable SelfhostDropResourceGraphTraversalCollectorErrorKind \output\body\summary:
+    let record %SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord selfhost_memo_trait_operation_drop_resource_no_escape_traversal_record_new body.type_id body.body_module_fingerprint body.body_root body.effect body.escape summary.status summary.reason
+    match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_push output record:
+        Result::Ok next_output:
+            Result::Ok next_output
+        Result::Err materializer_error:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::OutputTraversalTableRejected materializer_error
+
+//: selfhost_drop_resource_graph_collect_loop: graph input から traversal summary table を[作/つく]る
+fn selfhost_drop_resource_graph_collect_loop %impure fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable impure fn &SelfhostDropResourceGraphInput impure fn i32 Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable SelfhostDropResourceGraphTraversalCollectorErrorKind \output\input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_body_len input
+        then:
+            Result::Ok output
+        else:
+            match selfhost_drop_resource_graph_get_body input idx:
+                Option::Some body:
+                    match selfhost_drop_resource_graph_validate_body_result body:
+                        Result::Ok _unit:
+                            match selfhost_drop_resource_graph_seen_body_before_result input body idx:
+                                Result::Ok seen:
+                                    match seen:
+                                        SelfhostDropResourceGraphDuplicateDecision::DuplicateFound:
+                                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free output
+                                            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate
+                                        SelfhostDropResourceGraphDuplicateDecision::UniqueSoFar:
+                                            match selfhost_drop_resource_graph_body_summary_result input body:
+                                                Result::Ok summary:
+                                                    match selfhost_drop_resource_graph_output_push_result output body summary:
+                                                        Result::Ok next_output:
+                                                            selfhost_drop_resource_graph_collect_loop next_output input add idx 1
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free output
+                                                    Result::Err e
+                                Result::Err e:
+                                    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free output
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free output
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_drop_resource_graph_traversal_collector_table_result: graph input を traversal summary table へ[変換/へんかん]する
+pub fn selfhost_drop_resource_graph_traversal_collector_table_result %impure fn &SelfhostDropResourceGraphInput Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable SelfhostDropResourceGraphTraversalCollectorErrorKind \input:
+    match selfhost_drop_resource_graph_validate_input_result input:
+        Result::Ok _validated:
+            match selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_new:
+                Result::Ok output0:
+                    selfhost_drop_resource_graph_collect_loop output0 input 0
+                Result::Err alloc_error:
+                    Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::OutputTraversalTableAllocFailed alloc_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            1
+        StdErrorKind::OutOfMemory:
+            2
+        StdErrorKind::EmptyCollection:
+            3
+        StdErrorKind::IndexOutOfBounds:
+            4
+        StdErrorKind::KeyNotFound:
+            5
+        StdErrorKind::CapacityExceeded:
+            6
+        StdErrorKind::InvalidOperation:
+            7
+        StdErrorKind::InvalidUtf8:
+            8
+        StdErrorKind::ParseError:
+            9
+        StdErrorKind::IoError:
+            10
+        StdErrorKind::Other:
+            11
+
+//: selfhost_drop_resource_graph_effect_kind_code: effect kind を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            1
+        SelfhostEffectKind::InternalAlloc:
+            2
+        SelfhostEffectKind::UnsafeMemory:
+            3
+        SelfhostEffectKind::ExternalIo:
+            4
+        SelfhostEffectKind::Nondet:
+            5
+
+//: selfhost_drop_resource_graph_escape_state_code: escape state を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_escape_state_code %fn SelfhostEffectEscapeState i32 \state:
+    match state:
+        SelfhostEffectEscapeState::NotApplicable:
+            0
+        SelfhostEffectEscapeState::NoEscapeProven:
+            1
+        SelfhostEffectEscapeState::MayEscape:
+            2
+
+//: selfhost_drop_resource_graph_collector_error_kind_code: collector error variant を比較用 code へ[写/うつ]す
+pub fn selfhost_drop_resource_graph_collector_error_kind_code %fn SelfhostDropResourceGraphTraversalCollectorErrorKind i32 \kind:
+    match kind:
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed _error:
+            1
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlacePushFailed _error:
+            2
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgePushFailed _error:
+            3
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed _idx:
+            4
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed _idx:
+            5
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed _idx:
+            6
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate:
+            7
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyMissing _idx:
+            8
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate:
+            9
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate:
+            10
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder:
+            11
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphIdInvalid _idx:
+            12
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::PlaceIdInvalid _idx:
+            13
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid _idx:
+            14
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing _idx:
+            15
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EffectNotInternalAlloc _effect:
+            16
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable _escape:
+            17
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::OutputTraversalTableAllocFailed _error:
+            18
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::OutputTraversalTableRejected _materializer_error:
+            19
+
+//: selfhost_drop_resource_graph_collector_error_payload_code: collector error payload を比較用 code へ[写/うつ]す
+pub fn selfhost_drop_resource_graph_collector_error_payload_code %fn SelfhostDropResourceGraphTraversalCollectorErrorKind i32 \kind:
+    match kind:
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed error:
+            selfhost_drop_resource_graph_std_error_kind_code error
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlacePushFailed error:
+            selfhost_drop_resource_graph_std_error_kind_code error
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgePushFailed error:
+            selfhost_drop_resource_graph_std_error_kind_code error
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceReadFailed idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeReadFailed idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyDuplicate:
+            0
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyMissing idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphPlaceDuplicate:
+            0
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphEdgeDuplicate:
+            0
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::BodyModuleFingerprintPlaceholder:
+            0
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphIdInvalid idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::PlaceIdInvalid idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointInvalid idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EdgeEndpointMissing idx:
+            idx
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EffectNotInternalAlloc effect:
+            selfhost_drop_resource_graph_effect_kind_code effect
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::EscapeNotApplicable escape:
+            selfhost_drop_resource_graph_escape_state_code escape
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::OutputTraversalTableAllocFailed error:
+            selfhost_drop_resource_graph_std_error_kind_code error
+        SelfhostDropResourceGraphTraversalCollectorErrorKind::OutputTraversalTableRejected materializer_error:
+            add:
+                mul selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_kind_code materializer_error 100000
+                selfhost_memo_trait_operation_drop_resource_no_escape_materializer_error_payload_code materializer_error
+
+//: selfhost_drop_resource_graph_collector_error_kind_eq: collector error が同じ分類と payload か[返/かえ]す
+pub fn selfhost_drop_resource_graph_collector_error_kind_eq %fn SelfhostDropResourceGraphTraversalCollectorErrorKind fn SelfhostDropResourceGraphTraversalCollectorErrorKind bool \a\b:
+    and:
+        eq selfhost_drop_resource_graph_collector_error_kind_code a selfhost_drop_resource_graph_collector_error_kind_code b
+        eq selfhost_drop_resource_graph_collector_error_payload_code a selfhost_drop_resource_graph_collector_error_payload_code b
+
+//: selfhost_drop_resource_graph_status_code: traversal status を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_status_code %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate:
+            1
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved:
+            2
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing:
+            3
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported:
+            4
+
+//: selfhost_memo_trait_operation_drop_resource_traversal_collector_status_result_eq: traversal status result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_traversal_collector_status_result_eq %fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq selfhost_drop_resource_graph_status_code actual selfhost_drop_resource_graph_status_code expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_resource_traversal_collector_len_result_eq: collected len result が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_traversal_collector_len_result_eq %fn Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_resource_traversal_collector_error_result_eq: collector result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_resource_traversal_collector_error_result_eq %fn Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind fn SelfhostDropResourceGraphTraversalCollectorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _len:
+            false
+        Result::Err error:
+            selfhost_drop_resource_graph_collector_error_kind_eq error expected
+
+//: selfhost_drop_resource_graph_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_summary_new %fn Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind fn Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind SelfhostDropResourceGraphTraversalCollectorStage0Summary \collected_len\private_status\escape_status\missing_status\unsupported_status\duplicate_rejected\placeholder_rejected\endpoint_missing_rejected:
+    SelfhostDropResourceGraphTraversalCollectorStage0Summary collected_len private_status escape_status missing_status unsupported_status duplicate_rejected placeholder_rejected endpoint_missing_rejected
+
+//: selfhost_drop_resource_graph_stage0_body: stage0 用 graph body を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_body %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn SelfhostDropResourceGraphCompleteness SelfhostDropResourceGraphBodyRecord \type_id\module_fingerprint\root\graph_idx\completeness:
+    selfhost_drop_resource_graph_body_record_new type_id module_fingerprint root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable selfhost_drop_resource_graph_id_new graph_idx completeness
+
+//: selfhost_drop_resource_graph_stage0_place: stage0 用 graph place を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_place %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 fn SelfhostResourcePlaceKind SelfhostDropResourceGraphPlaceRecord \type_id\module_fingerprint\root\graph_idx\place_idx\kind:
+    selfhost_drop_resource_graph_place_record_new type_id module_fingerprint root selfhost_drop_resource_graph_id_new graph_idx selfhost_resource_place_id_new place_idx kind
+
+//: selfhost_drop_resource_graph_stage0_edge: stage0 用 graph edge を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_edge %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 fn i32 fn SelfhostResourceEdgeKind SelfhostDropResourceGraphEdgeRecord \type_id\module_fingerprint\root\graph_idx\from_idx\to_idx\kind:
+    selfhost_drop_resource_graph_edge_record_new type_id module_fingerprint root selfhost_drop_resource_graph_id_new graph_idx selfhost_resource_place_id_new from_idx selfhost_resource_place_id_new to_idx kind
+
+//: selfhost_drop_resource_graph_stage0_push_body_len: 1 body push の length result を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_push_body_len %impure fn SelfhostDropResourceGraphBodyRecord Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind \body:
+    match selfhost_drop_resource_graph_input_new:
+        Result::Ok input0:
+            match selfhost_drop_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    let len %i32 selfhost_drop_resource_graph_body_len &input1
+                    selfhost_drop_resource_graph_input_free input1
+                    Result::Ok len
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_stage0_duplicate_body_len: duplicate body rejection を[確認/かくにん]する
+fn selfhost_drop_resource_graph_stage0_duplicate_body_len %impure fn SelfhostDropResourceGraphBodyRecord Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind \body:
+    match selfhost_drop_resource_graph_input_new:
+        Result::Ok input0:
+            match selfhost_drop_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    match selfhost_drop_resource_graph_input_push_body input1 body:
+                        Result::Ok input2:
+                            let len %i32 selfhost_drop_resource_graph_body_len &input2
+                            selfhost_drop_resource_graph_input_free input2
+                            Result::Ok len
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_stage0_endpoint_missing_len: endpoint 欠落 graph の拒否を[確認/かくにん]する
+fn selfhost_drop_resource_graph_stage0_endpoint_missing_len %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind \type_id\root:
+    match selfhost_drop_resource_graph_input_new:
+        Result::Ok input0:
+            let body %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root 7 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            match selfhost_drop_resource_graph_input_push_body input0 body:
+                Result::Ok input1:
+                    let place %SelfhostDropResourceGraphPlaceRecord selfhost_drop_resource_graph_stage0_place type_id 880101 root 7 0 SelfhostResourcePlaceKind::PrivateLocal
+                    match selfhost_drop_resource_graph_input_push_place input1 place:
+                        Result::Ok input2:
+                            let missing_edge %SelfhostDropResourceGraphEdgeRecord selfhost_drop_resource_graph_stage0_edge type_id 880101 root 7 0 1 SelfhostResourceEdgeKind::Owns
+                            match selfhost_drop_resource_graph_input_push_edge input2 missing_edge:
+                                Result::Ok input3:
+                                    match selfhost_drop_resource_graph_traversal_collector_table_result &input3:
+                                        Result::Ok table:
+                                            let len %i32 selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len &table
+                                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free table
+                                            selfhost_drop_resource_graph_input_free input3
+                                            Result::Ok len
+                                        Result::Err e:
+                                            selfhost_drop_resource_graph_input_free input3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_stage0_source_result: 4 body graph を持つ input を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphTraversalCollectorErrorKind \type_id\root1\root2\root3\root4:
+    match selfhost_drop_resource_graph_input_new:
+        Result::Ok input0:
+            let body1 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            match selfhost_drop_resource_graph_input_push_body input0 body1:
+                Result::Ok input1:
+                    let body2 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root2 2 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+                    match selfhost_drop_resource_graph_input_push_body input1 body2:
+                        Result::Ok input2:
+                            let body3 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root3 3 SelfhostDropResourceGraphCompleteness::ResourceGraphMissing
+                            match selfhost_drop_resource_graph_input_push_body input2 body3:
+                                Result::Ok input3:
+                                    let body4 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root4 4 SelfhostDropResourceGraphCompleteness::TraversalUnsupported
+                                    match selfhost_drop_resource_graph_input_push_body input3 body4:
+                                        Result::Ok input4:
+                                            let private_place %SelfhostDropResourceGraphPlaceRecord selfhost_drop_resource_graph_stage0_place type_id 880101 root1 1 0 SelfhostResourcePlaceKind::PrivateLocal
+                                            match selfhost_drop_resource_graph_input_push_place input4 private_place:
+                                                Result::Ok input5:
+                                                    let private_source %SelfhostDropResourceGraphPlaceRecord selfhost_drop_resource_graph_stage0_place type_id 880101 root2 2 0 SelfhostResourcePlaceKind::PrivateLocal
+                                                    match selfhost_drop_resource_graph_input_push_place input5 private_source:
+                                                        Result::Ok input6:
+                                                            let return_place %SelfhostDropResourceGraphPlaceRecord selfhost_drop_resource_graph_stage0_place type_id 880101 root2 2 1 SelfhostResourcePlaceKind::ReturnPlace
+                                                            match selfhost_drop_resource_graph_input_push_place input6 return_place:
+                                                                Result::Ok input7:
+                                                                    let return_edge %SelfhostDropResourceGraphEdgeRecord selfhost_drop_resource_graph_stage0_edge type_id 880101 root2 2 0 1 SelfhostResourceEdgeKind::Return
+                                                                    selfhost_drop_resource_graph_input_push_edge input7 return_edge
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_stage0_collected_len: collector output len を[作/つく]る
+fn selfhost_drop_resource_graph_stage0_collected_len %impure fn SelfhostDropResourceGraphInput Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind \source:
+    match selfhost_drop_resource_graph_traversal_collector_table_result &source:
+        Result::Ok summaries:
+            let summary_len %i32 selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len &summaries
+            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free summaries
+            selfhost_drop_resource_graph_input_free source
+            Result::Ok summary_len
+        Result::Err e:
+            selfhost_drop_resource_graph_input_free source
+            Result::Err e
+
+//: selfhost_drop_resource_graph_stage0_status_for_body: body summary status を[返/かえ]す
+fn selfhost_drop_resource_graph_stage0_status_for_body %fn &SelfhostDropResourceGraphInput fn SelfhostDropResourceGraphBodyRecord Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind \source\body:
+    match selfhost_drop_resource_graph_body_summary_result source body:
+        Result::Ok summary:
+            Result::Ok summary.status
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_stage0: traversal collector の smoke API
+pub fn selfhost_memo_trait_operation_drop_resource_no_escape_traversal_collector_stage0 %impure fn void Result SelfhostDropResourceGraphTraversalCollectorStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 8801
+    let root1 %SelfhostHirExprId selfhost_hir_expr_id_new 88011
+    let root2 %SelfhostHirExprId selfhost_hir_expr_id_new 88012
+    let root3 %SelfhostHirExprId selfhost_hir_expr_id_new 88013
+    let root4 %SelfhostHirExprId selfhost_hir_expr_id_new 88014
+    match selfhost_drop_resource_graph_stage0_source_result type_id root1 root2 root3 root4:
+        Result::Ok source:
+            let body1 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let body2 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root2 2 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let body3 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root3 3 SelfhostDropResourceGraphCompleteness::ResourceGraphMissing
+            let body4 %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root4 4 SelfhostDropResourceGraphCompleteness::TraversalUnsupported
+            let private_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_status_for_body &source body1
+            let escape_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_status_for_body &source body2
+            let missing_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_status_for_body &source body3
+            let unsupported_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_status_for_body &source body4
+            let collected_len %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_collected_len source
+            let duplicate_body %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 880101 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let duplicate_rejected %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_duplicate_body_len duplicate_body
+            let placeholder_body %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_stage0_body type_id 0 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let placeholder_rejected %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_push_body_len placeholder_body
+            let endpoint_missing_rejected %Result i32 SelfhostDropResourceGraphTraversalCollectorErrorKind selfhost_drop_resource_graph_stage0_endpoint_missing_len type_id root1
+            Result::Ok selfhost_drop_resource_graph_stage0_summary_new collected_len private_status escape_status missing_status unsupported_status duplicate_rejected placeholder_rejected endpoint_missing_rejected
+        Result::Err _setup:
+            Result::Err StdErrorKind::InvalidOperation
