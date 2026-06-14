@@ -77,9 +77,11 @@ assertOrdered(
 );
 assert.ok(
     source.includes("count だけや display string だけで accepted path へ進む退行を防ぎます") &&
+        source.includes("evidence struct は public value として構築可能なので") &&
+        source.includes("pre-substitution target / trait application shape が public impl header の original shape と一致するかどうかは、materializer accepted path へ接続する後続 connector の責務です") &&
         source.includes("この evidence は generic impl candidate acceptance の前段です") &&
         source.includes("既存 materializer の `GenericImplInstantiationUnsupported` はこの slice では維持します"),
-    "docs must reject count/display-only acceptance, separate evidence from semantic candidate acceptance, and keep the materializer fail-closed",
+    "docs must reject count/display-only acceptance, explain public evidence revalidation and deferred header-shape matching, separate evidence from semantic candidate acceptance, and keep the materializer fail-closed",
 );
 assert.ok(
     source.includes("source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted instantiation hash material に入りません"),
@@ -104,6 +106,11 @@ assert.match(
     source,
     /^#import "\.\/memo_trait_public_impl_generic_binder" as \*$/m,
     "generic instantiation gate must consume detailed generic binder evidence",
+);
+assert.match(
+    source,
+    /^#import "\.\/memo_trait_public_impl_generic_substitution_shape" as \*$/m,
+    "generic instantiation gate must consume generic substitution shape evidence instead of raw substituted shape hashes",
 );
 assert.doesNotMatch(
     code,
@@ -138,11 +145,15 @@ assertOrdered(
         "generic_binder_evidence %SelfhostMemoTraitPublicImplGenericBinderEvidence",
         "type_argument_count %i32",
         "type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash",
-        "substituted_target_type_shape_hash %Option i32",
-        "substituted_trait_application_shape_hash %Option i32",
+        "substitution_shape_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence",
         "bound_solving_status %SelfhostMemoTraitPublicImplGenericBoundSolvingStatus",
     ],
-    "instantiation input must keep binder evidence, type argument identity, substituted target and trait shapes, and bound solving status as distinct typed fields",
+    "instantiation input must keep binder evidence, type argument identity, substitution shape evidence, and bound solving status as distinct typed fields",
+);
+assert.doesNotMatch(
+    topLevelBlock(source, "SelfhostMemoTraitPublicImplGenericInstantiationInput"),
+    /substituted_target_type_shape_hash %Option i32|substituted_trait_application_shape_hash %Option i32/,
+    "instantiation input must not accept raw substituted shape options after the substitution shape evidence producer exists",
 );
 assertOrdered(
     source,
@@ -150,9 +161,11 @@ assertOrdered(
         "pub struct SelfhostMemoTraitPublicImplGenericInstantiationEvidence:",
         "schema_version %i32",
         "type_parameter_count %i32",
+        "type_argument_count %i32",
         "type_parameter_bound_count %i32",
         "generic_binder_shape_hash %i32",
         "type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash",
+        "substitution_shape_hash %i32",
         "substituted_target_type_shape_hash %i32",
         "substituted_trait_application_shape_hash %i32",
         "bound_solution_shape_hash %i32",
@@ -170,10 +183,21 @@ assertOrdered(
         "TypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
         "TypeArgumentIdentitySchemaPlaceholder",
         "TypeArgumentIdentityHashPlaceholder",
-        "SubstitutedTargetTypeShapeHashMissing",
-        "SubstitutedTargetTypeShapeHashPlaceholder",
-        "SubstitutedTraitApplicationShapeHashMissing",
-        "SubstitutedTraitApplicationShapeHashPlaceholder",
+        "SubstitutionShapeSchemaPlaceholder",
+        "SubstitutionShapeHashPlaceholder",
+        "SubstitutionShapeTypeParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "SubstitutionShapeTypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "SubstitutionShapeTypeParameterBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "SubstitutionShapeBinderHashMismatch",
+        "SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder",
+        "SubstitutionShapeTypeArgumentIdentityHashPlaceholder",
+        "SubstitutionShapeTypeArgumentIdentitySchemaMismatch",
+        "SubstitutionShapeTypeArgumentIdentityHashMismatch",
+        "SubstitutionShapePreTargetTypeShapeHashPlaceholder",
+        "SubstitutionShapePreTraitApplicationShapeHashPlaceholder",
+        "SubstitutionTraceShapeHashPlaceholder",
+        "SubstitutionShapeTargetTypeShapeHashPlaceholder",
+        "SubstitutionShapeTraitApplicationShapeHashPlaceholder",
         "BoundCountNegative",
         "BoundSolvingRequired",
         "BoundSolvingUnexpected",
@@ -186,6 +210,43 @@ assertOrdered(
         "DerivedInstantiationShapeHashPlaceholder",
     ],
     "errors must preserve binder, type-argument, substituted-shape, bound-solving, and derived-hash failures as typed variants",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_result"),
+    [
+        "eq evidence.schema_version 0",
+        "SubstitutionShapeSchemaPlaceholder",
+        "eq evidence.substitution_shape_hash 0",
+        "SubstitutionShapeHashPlaceholder",
+        "not eq evidence.type_parameter_count binder.type_parameter_count",
+        "SubstitutionShapeTypeParameterCountMismatch",
+        "not eq evidence.type_argument_count type_argument_count",
+        "SubstitutionShapeTypeArgumentCountMismatch",
+        "not eq evidence.type_parameter_bound_count binder.type_parameter_bound_count",
+        "SubstitutionShapeTypeParameterBoundCountMismatch",
+        "not eq evidence.generic_binder_shape_hash binder_hash",
+        "SubstitutionShapeBinderHashMismatch",
+        "eq evidence.type_argument_identity_hash.schema_version 0",
+        "SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder",
+        "eq evidence.type_argument_identity_hash.identity_hash 0",
+        "SubstitutionShapeTypeArgumentIdentityHashPlaceholder",
+        "not eq evidence.type_argument_identity_hash.schema_version type_argument_hash.schema_version",
+        "SubstitutionShapeTypeArgumentIdentitySchemaMismatch",
+        "not eq evidence.type_argument_identity_hash.identity_hash type_argument_hash.identity_hash",
+        "SubstitutionShapeTypeArgumentIdentityHashMismatch",
+        "eq evidence.pre_substitution_target_type_shape_hash 0",
+        "SubstitutionShapePreTargetTypeShapeHashPlaceholder",
+        "eq evidence.pre_substitution_trait_application_shape_hash 0",
+        "SubstitutionShapePreTraitApplicationShapeHashPlaceholder",
+        "eq evidence.substitution_trace_shape_hash 0",
+        "SubstitutionTraceShapeHashPlaceholder",
+        "eq evidence.substituted_target_type_shape_hash 0",
+        "SubstitutionShapeTargetTypeShapeHashPlaceholder",
+        "eq evidence.substituted_trait_application_shape_hash 0",
+        "SubstitutionShapeTraitApplicationShapeHashPlaceholder",
+        "Result::Ok evidence",
+    ],
+    "instantiation gate must re-check schema, root hash, counts, binder hash, type argument identity, trace, and substituted shapes from substitution evidence",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_bound_solution_hash_result"),
@@ -230,21 +291,32 @@ assertOrdered(
         "TypeArgumentCountMismatch",
         "selfhost_memo_trait_public_impl_generic_instantiation_binder_hash_result input.generic_binder_evidence",
         "selfhost_memo_trait_public_impl_generic_instantiation_type_argument_identity_result input.type_argument_identity_hash",
-        "selfhost_memo_trait_public_impl_generic_instantiation_target_shape_result input.substituted_target_type_shape_hash",
-        "selfhost_memo_trait_public_impl_generic_instantiation_trait_shape_result input.substituted_trait_application_shape_hash",
+        "selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_result input.generic_binder_evidence input.type_argument_count type_argument_hash binder_hash input.substitution_shape_evidence",
         "selfhost_memo_trait_public_impl_generic_instantiation_bound_solution_hash_result input.generic_binder_evidence.type_parameter_bound_count input.bound_solving_status",
         "type_argument_hash.schema_version",
         "type_argument_hash.identity_hash",
+        "substitution_evidence.substitution_shape_hash",
+        "substitution_evidence.substituted_target_type_shape_hash",
+        "substitution_evidence.substituted_trait_application_shape_hash",
         "DerivedInstantiationShapeHashPlaceholder",
         "SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count",
     ],
-    "evidence API must validate argument count, binder evidence, type argument identity, substituted shapes, bound solving, and nonzero instantiation hash before success",
+    "evidence API must validate argument count, binder evidence, type argument identity, substitution evidence, bound solving, and nonzero instantiation hash before success",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_error_kind_eq"),
     [
         "TypeArgumentCountMismatch mismatch:",
         "TypeArgumentCountMismatch other:",
+        "selfhost_memo_trait_public_impl_generic_instantiation_count_mismatch_eq mismatch other",
+        "SubstitutionShapeTypeParameterCountMismatch mismatch:",
+        "SubstitutionShapeTypeParameterCountMismatch other:",
+        "selfhost_memo_trait_public_impl_generic_instantiation_count_mismatch_eq mismatch other",
+        "SubstitutionShapeTypeArgumentCountMismatch mismatch:",
+        "SubstitutionShapeTypeArgumentCountMismatch other:",
+        "selfhost_memo_trait_public_impl_generic_instantiation_count_mismatch_eq mismatch other",
+        "SubstitutionShapeTypeParameterBoundCountMismatch mismatch:",
+        "SubstitutionShapeTypeParameterBoundCountMismatch other:",
         "selfhost_memo_trait_public_impl_generic_instantiation_count_mismatch_eq mismatch other",
         "BoundSolvingCountMismatch mismatch:",
         "BoundSolvingCountMismatch other:",
@@ -257,8 +329,13 @@ assertOrdered(
 );
 assert.match(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_stage0"),
-    /accepted[\s\S]*no_bounds_accepted[\s\S]*type_argument_mismatch[\s\S]*identity_placeholder[\s\S]*target_missing[\s\S]*bound_required[\s\S]*bound_unsolved[\s\S]*bound_count_mismatch/,
-    "stage0 must exercise accepted, no-bound, argument mismatch, identity placeholder, missing target, required-bound, unsolved-bound, and bound count mismatch cases",
+    /accepted[\s\S]*no_bounds_accepted[\s\S]*type_argument_mismatch[\s\S]*identity_placeholder[\s\S]*substitution_shape_placeholder[\s\S]*substitution_binder_hash_mismatch[\s\S]*substitution_identity_mismatch[\s\S]*substitution_target_placeholder[\s\S]*bound_required[\s\S]*bound_unsolved[\s\S]*bound_count_mismatch/,
+    "stage0 must exercise accepted, no-bound, argument mismatch, identity placeholder, substitution shape placeholder, binder mismatch, identity mismatch, target placeholder, required-bound, unsolved-bound, and bound count mismatch cases",
+);
+assert.doesNotMatch(
+    code,
+    /selfhost_memo_trait_public_impl_generic_instantiation_(?:target|trait)_shape_result|input\.substituted_target_type_shape_hash|input\.substituted_trait_application_shape_hash/,
+    "instantiation gate must not keep the old raw substituted target/trait shape helper path",
 );
 assert.match(
     materializer,
