@@ -3632,6 +3632,85 @@ for (const fragment of [
 ]) {
     assert(guiFontSfntPathTests.includes(fragment), `gui font sfnt path doctests must cover F4an ${fragment}`);
 }
+assertMatch(
+    spec,
+    /SFNT simple glyph path sink action consumer consume summary advance once[\s\S]*`Rejected` と `EndContour` は parse error ではなく[\s\S]*GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance[\s\S]*Continue GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary/,
+    "font spec must define F4ao consume summary advance-once and domain terminal contract",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph path sink action consumer consume summary advance once[\s\S]*first byte-backed boundary above the F4am\/F4an summary projection[\s\S]*`Rejected` and `EndContour` are domain terminals/,
+    "font detailed design must define F4ao as one-step summary advance boundary",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4ao: sfnt simple glyph path sink action consumer consume summary advance once[\s\S]*summary advance type は次の 3 variants を持つ[\s\S]*parse error と domain terminal を混同しない/,
+    "font implementation plan must define F4ao consume summary advance-once",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:\s+Continue\s+%GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary\s+Rejected\s+%GuiSfntSimpleGlyphPathSinkRejectReason\s+EndContour/,
+    "alloc/gui/font/sfnt/glyf F4ao must expose consume summary advance enum variants",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:/,
+    "alloc/gui/font/sfnt/glyf F4ao consume summary advance must implement Clone and Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntParseError") &&
+        guiFontSfntPathTests.includes("GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance") &&
+        guiFontSfntPathTests.includes("gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and use F4ao consume summary advance-once helper",
+);
+const pathSinkActionConsumeSummaryAdvanceOnce = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once");
+for (const fragment of [
+    "let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary",
+    "let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item:",
+    "match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &item policy:",
+    "let next_summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour",
+]) {
+    assert(pathSinkActionConsumeSummaryAdvanceOnce.includes(fragment), `alloc/gui/font/sfnt/glyf F4ao advance-once helper must include ${fragment}`);
+}
+for (const [callName, message] of [
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state", "read summary state exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal", "read summary terminal exactly once"],
+    ["gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once", "consume next item exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step", "build next summary exactly once"],
+]) {
+    assert(
+        (pathSinkActionConsumeSummaryAdvanceOnce.match(new RegExp(`\\b${callName}\\b`, "g")) || []).length === 1,
+        `alloc/gui/font/sfnt/glyf F4ao advance-once helper must ${message}`,
+    );
+}
+assertNoMatch(
+    pathSinkActionConsumeSummaryAdvanceOnce,
+    /\bgui_sfnt_lookup_simple_glyph_path_sink_action_start|\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next\b|\bgui_sfnt_parse_metadata\b|\bgui_sfnt_glyf_|\bgui_sfnt_classify_simple_glyph_curve_segment\b|\b_with_tables\b/,
+    "alloc/gui/font/sfnt/glyf F4ao advance-once helper must not call start, consumer-next, lower, metadata, or table helpers",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryAdvanceOnce,
+    /\b(?:Vec|push|action_index|command_index|loop_index|current_point|cursor|next_cursor|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4ao advance-once helper must not allocate, loop, inspect payload variants, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryAdvanceOnce,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4ao advance-once helper body must preserve NEPL prefix style without parentheses",
+);
+for (const fragment of [
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour",
+]) {
+    assert(guiFontSfntPathTests.includes(fragment), `gui font sfnt path doctests must cover F4ao ${fragment}`);
+}
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

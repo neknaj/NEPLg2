@@ -1405,6 +1405,30 @@ ApplyAdvance EndContour -> SummaryTerminal EndContour
 
 F4an は `Result` / `Option`、byte-backed lookup、consumer item next、consume-once、start helper、metadata parser、lower glyf lookup、`*_with_tables`、action payload direct match、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。match 対象は `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけであり、action payload enum を覗かない。
 
+### SFNT simple glyph path sink action consumer consume summary advance once
+
+F4ao は F4am/F4an で作った summary boundary を、byte-backed future loop の 1 step advance boundary へ接続する段階である。これは full loop、iterator owner、real sink mutation、outline allocation、renderer、rasterizer ではない。`Continue` のときだけ次 consumer item を 1 つ消費し、次の summary を返す。`Rejected` と `EndContour` は parse error ではなく、`Result::Ok` の domain terminal として返す。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once:
+    bytes &ByteBuf
+    face_index Option i32
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary` と `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` をそれぞれ 1 回だけ読む。`Continue item` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &item policy` を 1 回呼び、成功した `consume_step` を `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` で次 summary へ変換する。
+
+F4ao が直接呼んでよい byte-backed lookup は Continue branch の `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once` だけである。start helper、consumer item next lookup、lower glyf lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec` / `push`、full loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback は直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

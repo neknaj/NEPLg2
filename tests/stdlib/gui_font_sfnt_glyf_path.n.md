@@ -1077,6 +1077,44 @@ fn consume_once_end_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsum
                     true
             and status_ok and count_ok terminal_ok
 
+fn consume_summary_advance_reject_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkPolicy bool \result\bytes\face_index\policy:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok consume_step:
+            let summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once bytes face_index &summary policy:
+                Result::Err _error:
+                    false
+                Result::Ok advance:
+                    match advance:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue _next_summary:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason:
+                            match reason:
+                                GuiSfntSimpleGlyphPathSinkRejectReason::UnsupportedOffCurveStart:
+                                    true
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:
+                            false
+
+fn consume_summary_advance_end_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkPolicy bool \result\bytes\face_index\policy:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok consume_step:
+            let summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once bytes face_index &summary policy:
+                Result::Err _error:
+                    false
+                Result::Ok advance:
+                    match advance:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue _next_summary:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected _reason:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:
+                            true
+
 fn main %impure fn void i32 \void:
     let bytes %ByteBuf io_bytebuf_empty
     let none_face %Option i32 none
@@ -1089,7 +1127,9 @@ fn main %impure fn void i32 \void:
     let end_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once &bytes none_face state &no_action_item &policy
     let reject_ok %bool consume_once_reject_ok reject_result
     let end_ok %bool consume_once_end_ok end_result
-    let consume_once_ok %bool and reject_ok end_ok
+    let reject_advance_ok %bool consume_summary_advance_reject_ok reject_result &bytes none_face &policy
+    let end_advance_ok %bool consume_summary_advance_end_ok end_result &bytes none_face &policy
+    let consume_once_ok %bool and reject_ok and end_ok and reject_advance_ok end_advance_ok
     test_assertion_exit_code assert "path sink consumer consume once preserves apply result and advance" consume_once_ok
 ```
 
@@ -1432,7 +1472,39 @@ fn main %impure fn void i32 \void:
                             false
                         GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
                             false
-                    and status_ok and count_ok terminal_ok
+                    let advance_once_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once &bytes none &summary &sink_policy:
+                        Result::Err _error:
+                            false
+                        Result::Ok advance_once:
+                            match advance_once:
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary:
+                                    let next_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status &next_summary
+                                    let next_status_ok %bool match next_status:
+                                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
+                                            false
+                                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected _reason:
+                                            false
+                                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close:
+                                            false
+                                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
+                                            true
+                                    let next_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state &next_summary
+                                    let emitted_count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &next_state
+                                    let no_action_count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &next_state
+                                    let next_terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal &next_summary
+                                    let next_terminal_ok %bool match next_terminal:
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:
+                                            false
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected _reason:
+                                            false
+                                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
+                                            true
+                                    and next_status_ok and emitted_count_ok and no_action_count_ok next_terminal_ok
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected _reason:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:
+                                    false
+                    and status_ok and count_ok and terminal_ok advance_once_ok
             let terminal_consumer_item_next_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy:
                 Result::Err _error:
                     false

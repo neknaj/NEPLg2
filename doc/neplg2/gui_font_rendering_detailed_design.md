@@ -1808,6 +1808,44 @@ Although the public enum name ends with `Terminal`, it is the future loop's trav
 
 F4an must read `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance` exactly once. It must not call byte-backed lookup helpers, consumer item next lookup, consume-once, start helpers, lower contour/curve lookup helpers, metadata parser, or `*_with_tables`. It must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. Its only match target is `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`.
 
+### SFNT simple glyph path sink action consumer consume summary advance once
+
+F4ao is the first byte-backed boundary above the F4am/F4an summary projection. It advances from one completed consume summary to the next completed consume summary, but it still advances only one action. It is not a contour-wide loop and does not own sink mutation or outline storage.
+
+The result value is:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once bytes face_index summary policy:
+    state = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary
+    terminal = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary
+    match terminal:
+        Continue item:
+            consume_once = gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state item policy
+            match consume_once:
+                Err error:
+                    Err error
+                Ok consume_step:
+                    next_summary = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step consume_step
+                    Ok Continue next_summary
+        Rejected reason:
+            Ok Rejected reason
+        EndContour:
+            Ok EndContour
+```
+
+`Rejected` and `EndContour` are domain terminals. They must remain `Result::Ok` values, because they do not mean that the SFNT bytes failed to parse. Only the Continue branch can call the existing consume-once byte-backed helper and therefore only that branch can produce a parse error from byte lookup.
+
+F4ao must call `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state` exactly once, `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal` exactly once, `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once` exactly once in the Continue branch, and `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step` exactly once after a successful Continue consume. It must not call start helpers, consumer item next lookup, lower contour/curve lookup helpers, metadata parser, or `*_with_tables`. It must not match action payload variants, allocate `Vec`, push commands, own a full loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
