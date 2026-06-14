@@ -1,3 +1,83 @@
+# 2026-06-15 Agent2 GUI font outline point stream item drain checkpoint
+
+## scope
+
+- branch: `gui-font-outline-point-stream-item-drain-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5s の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5p/F5s で共有する neutral cursor validation と、F5s の no-allocation item drain boundary を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5s の plan review 経緯、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に shared cursor validation helper を追加し、F5p private validation をその helper 経由へ寄せた。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary`、`GuiSfntSimpleGlyphOutlinePointStreamItemDrain`、`GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemDrainError`、`gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget` と accessors を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md` に full End、partial budget exhausted、zero budget non-terminal、zero budget terminal、cursor out of range、wrapped F5o failure の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5s source policy を追加し、neutral validation reuse、F5p public drain 非依存、F5o/F5r exact one-call、F5q kind helper 直接呼び出し禁止、Vec・path・render・raster・platform・host API 禁止を検査する。
+
+## subagent_review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5s が F5p private validation helper に直接依存する案は phase coupling として不適切であり、F5p/F5s 共通の neutral helper から phase-specific error へ変換すべきと指摘された。
+- 計画を修正し、shared cursor validation helper を private に追加し、F5p/F5s はそれぞれ自分の error kind へ変換する方針にした。
+- Tesla plan follow-up review は `PLAN_APPROVED`。neutral helper を byte/path/render-free にし、F5p/F5s がそれを共有し、F5s が F5p public drain を呼ばない方針で実装開始が承認された。
+- Tesla implementation review は `REVIEW_BLOCKED`。コード、source policy、doctest の blocker はなく、note の implementation review 状態が古いことだけが指摘された。
+- note の review 状態をこの結果に更新し、未追跡の focused doctest を commit に含め、`NUL` と `tmp_*.json` は commit から除外する方針を確認した。
+- Tesla follow-up review は `REVIEW_APPROVED`。note blocker は解消済みで、source policy と diff check は pass、merge-ready とされた。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_f5s.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md --no-tree -o tmp_gui_font_outline_point_drain_f5s_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5s.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5s は classified item drain までであり、full point `Vec` collection、sink integration、edge/path tag population、outline point stream traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
+# 2026-06-15 Agent2 GUI font outline point stream item step checkpoint
+
+## scope
+
+- branch: `gui-font-outline-point-stream-item-step-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5r の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item step の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5r の pure conversion boundary、visible F5o step invariant、F5q constructor への委譲、F5q kind helper 直接呼び出し禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5r の実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus`、`GuiSfntSimpleGlyphOutlinePointStreamItemStep`、`GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemStepError`、`gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step` と accessors を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md` に normal Point、normal End、Point None、End Some、Point bad cursor、End bad cursor の focused doctest を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5r source policy を追加し、docs/API/cursor invariant/F5q constructor exact one-call/F5q kind helper 直接呼び出し禁止/ByteBuf・storage・drain・Vec・path・render・raster・platform・host API 禁止を検査する。
+
+## subagent_review
+
+- Tesla plan review は `PLAN_BLOCKED`。F5o の公開 constructor で作れる不正 step を再検査せずに変換すると fail-closed にならないこと、F5r が `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` を直接呼ぶと F5q の分類契約が重複することが指摘された。
+- 計画を修正し、`Point` は `point Some` かつ `next_cursor.next_point_index == cursor.next_point_index + 1` の場合だけ `Item` にし、`End` は `point None` かつ cursor が進まない場合だけ `End` にする方針にした。
+- F5r は successful Point branch で F5q constructor `gui_sfnt_simple_glyph_outline_point_stream_item` だけを exactly once 呼び、F5q kind helper を直接呼ばない方針にした。
+- Tesla implementation review は `REVIEW_BLOCKED`。コード blocker はなく、note の `implementation review は未実施` と `verification_current pending` が実際のレビュー/検証結果と矛盾していることだけが指摘された。
+- note の review 状態と検証結果を更新し、未追跡の focused doctest を commit に含め、`NUL` と `tmp_*.json` は commit から除外する方針を確認した。
+- Tesla follow-up review は `REVIEW_APPROVED`。F5r blocker は解消済みで、source policy と diff check は pass、merge-ready とされた。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_step_f5r.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5r.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- F5r は point read step から classified item step への conversion boundary までであり、classified item drain、full point `Vec` collection、sink integration、edge/path tag population、outline point stream traversal、raster mask、render2d command emission は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-15 Agent2 GUI font outline point stream item checkpoint
 
 ## scope
@@ -63459,3 +63539,44 @@ MERGE_APPROVED
 - generic accepted path を operation evidence / aggregate proof / memo_call backend representation へ渡す上位 orchestration は未実装である。
 - PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張は未実装である。
 - table lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した typed input / connector-result boundary を保ったまま後から実装できる最適化として扱う。
+## 2026-06-15 GUI font outline point stream item collection checkpoint
+
+### scope
+
+- branch: `gui-font-outline-item-collection-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback ではなく、F5s の classified item stream を後続 phase へ渡す所有者境界を Result / enum / owner recovery で追加した。F5b scalar slot storage limit を流用せず、F5t 専用 limit を導入した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5t の collection owner contract、専用 limit、push/read order、非依存 API、検証方針を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollection`、allocation / push / read error、alloc/free/observer、kind consistency helper、owner-preserving push、typed read helper を追加した。
+- allocation は `capacity shape`、`max_items > 0`、`point_count <= max_items`、`vec::with_capacity point_count` の順序にした。
+- push は `capacity shape`、`len == item_count`、`cap == point_count`、`item_count < point_count`、glyph/index/kind 検査、`vec::push` 1 回の順序にした。
+- `ItemKindMismatch` は F5q の `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` による再導出を authority とする。
+- push failure は collection owner、rejected item、typed kind、`storage_error Option StdErrorKind` を返す。`vec::vec_push_error_kind &e` は `vec::vec_push_error_vec e` より前に読む。
+- public read helper は `Option` ではなく `Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError` を返す。forged owner invariant は typed read error kind と source policy で固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md` を追加し、alloc success、invalid capacity、invalid limit、limit reject、push/read success、glyph/index/kind mismatch、collection full、public read out-of-range を検査した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5t source policy を追加し、docs、API、owner-bearing payload 非 Clone / 非 Copy、allocation/push/read order、Vec operation count、F5s/F5r/F5o/F5p / lower byte reader / path / render / raster / platform / host API 禁止、括弧なし body を固定した。
+- `todo.md` に次 slice の F5u drain-to-collection boundary を追加した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。既存 `GuiSfntSimpleGlyphOutlineStorageLimit` の流用、item kind 再検証不足、`item_at Option` による invariant failure の隠蔽、lower `StdErrorKind` の欠落、F5s/F5r/F5o/F5p 非依存の明文化不足が指摘された。
+- Tesla plan review 2: `PLAN_APPROVED`。専用 collection limit、`ItemKindMismatch`、typed read error、push error の `storage_error Option StdErrorKind`、F5s/F5r/F5o/F5p 非依存を追加した改訂計画が承認された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。source policy が alloc の `vec::with_capacity` exact count と free helper の `vec::free` exact count を固定していないと指摘された。
+- Tesla implementation review 1 fixes: spec / detailed design / implementation plan に free contract を追加し、source policy に alloc `vec::with_capacity` exactly once、free helper slice、`vec::free` exactly once、free helper の forbidden API / no-parentheses 検査を追加した。
+- Tesla implementation review 2: `REVIEW_APPROVED`。blocker 解消、source policy と diff check pass、merge-ready と確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5t.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5t.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_after_f5t.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5t は collection owner / single push / typed read までであり、F5s drain result を collection へ流す loop は未実装である。
+- 次 slice では F5u として、F5s drain と collection push を owner-preserving に接続する。`StepBudgetExhausted` は typed terminal として残し、push failure では collection owner、cursor、last item、lower error metadata を失わないようにする。

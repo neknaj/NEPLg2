@@ -3206,6 +3206,243 @@ Endpoint is deliberately represented in the top-level kind. Later contour/path c
 
 F5q must not call byte readers, storage readers, drain loops, path sink helpers, rasterizers, renderer commands, platform APIs, or host text APIs. It also must not allocate a point vector. It may only call the existing `GuiSfntSimpleGlyphPoint` field accessors and construct the item value.
 
+## SFNT simple glyph outline point stream item step boundary
+
+F5r converts the successful value shape of F5o into the item shape introduced by F5q. It is deliberately a pure conversion boundary. It does not call byte-backed point readers, storage APIs, F5p drain, path sink helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
+The step status is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus:
+    Item
+    End
+```
+
+The step value is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStep:
+    status GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    next_cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+F5o already has a public constructor for `GuiSfntSimpleGlyphOutlinePointReadStep`, so F5r must not trust the shape blindly. It rechecks the invariants that are visible from the step value:
+
+```text
+Point:
+    item source point must be Some
+    next_cursor.next_point_index == cursor.next_point_index + 1
+
+End:
+    item source point must be None
+    next_cursor.next_point_index == cursor.next_point_index
+```
+
+The only F5r error kind is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind:
+    PointStepInvariantInvalid
+```
+
+The error stores the invalid F5o step:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemStepError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind
+    step GuiSfntSimpleGlyphOutlinePointReadStep
+```
+
+The conversion helper is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step:
+    GuiSfntSimpleGlyphOutlinePointReadStep
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemStep GuiSfntSimpleGlyphOutlinePointStreamItemStepError
+```
+
+F5r may call `gui_sfnt_simple_glyph_outline_point_stream_item` exactly once in the successful `Point + Some point + valid next cursor` branch. It must not call `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` directly. Keeping classification inside the F5q constructor prevents later phases from duplicating or drifting from the kind derivation contract.
+
+The fixed conversion order is:
+
+```text
+read status, cursor, next_cursor, point option
+read cursor indexes
+if status is Point:
+    require point Some
+    require next == current + 1
+    construct F5q item exactly once
+    return Item step with Some item
+if status is End:
+    require point None
+    require next == current
+    return End step with None
+otherwise:
+    PointStepInvariantInvalid
+```
+
+## SFNT simple glyph outline point stream item drain boundary
+
+F5s adds a no-allocation drain boundary over the F5o point step and the F5r item step conversion. It emits no `Vec`, no path command list, no raster mask, and no render command. Its purpose is to let later phases advance the classified item stream by bounded work slices while preserving the same typed cursor semantics on Web, native, bare, and headless hosts.
+
+F5p and F5s share the same cursor precondition logic, but they do not share public drain errors. The shared logic is a private neutral validation helper:
+
+```text
+GuiSfntSimpleGlyphOutlinePointReadCursorValidation:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    topology GuiSfntSimpleGlyphTopology
+    point_index i32
+    shared_point_count i32
+
+GuiSfntSimpleGlyphOutlinePointReadCursorValidationRejectKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+
+gui_sfnt_simple_glyph_outline_point_read_cursor_validate:
+    storage &GuiSfntSimpleGlyphOutlineStorage
+    stream GuiSfntSimpleGlyphPointStream
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    -> Result GuiSfntSimpleGlyphOutlinePointReadCursorValidation GuiSfntSimpleGlyphOutlinePointReadCursorValidationReject
+```
+
+The neutral helper is byte-free, path-free, render-free, raster-free, platform-free, and host-free. F5p converts its reject into `GuiSfntSimpleGlyphOutlinePointReadDrainErrorKind`. F5s converts the same reject into `GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind`. This prevents F5s from depending on F5p public drain behavior while still avoiding duplicated precondition logic.
+
+The F5s summary and success value are:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary:
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+GuiSfntSimpleGlyphOutlinePointStreamItemDrain:
+    End GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary
+```
+
+The F5s error kind is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind:
+    StorageCapacityInvalid
+    StorageStreamGlyphMismatch
+    StorageStreamContourCountMismatch
+    StorageStreamPointCountMismatch
+    CursorOutOfRange
+    PointStepReadFailed
+    ItemStepConvertFailed
+    ItemStepInvariantInvalid
+```
+
+`PointStepReadFailed` stores the F5o sub-error. `ItemStepConvertFailed` stores the F5r sub-error and the F5o step that failed conversion. `ItemStepInvariantInvalid` stores the F5o step and F5r item step that passed conversion but failed the drain-level defensive checks. That branch is expected to be unreachable when F5o and F5r are correct, but it remains part of the contract because public constructors and future internal edits can otherwise forge inconsistent values.
+
+The fixed F5s order is:
+
+```text
+validate shared cursor context
+if point_index == shared_point_count:
+    return End summary
+if remaining_steps <= 0:
+    return StepBudgetExhausted summary
+call F5o point step exactly once
+if F5o Err:
+    return PointStepReadFailed
+call F5r item step conversion exactly once
+if F5r Err:
+    return ItemStepConvertFailed
+if F5r Ok Item:
+    require item Some
+    require item_step.cursor.next_point_index == point_index
+    require item_step.next_cursor.next_point_index == point_index + 1
+    update cursor, items_read, last_item, remaining_steps
+if F5r Ok End:
+    return ItemStepInvariantInvalid
+```
+
+Terminal-before-budget and budget-before-F5o are contract requirements. F5s must not call `gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`, lower point readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
+## SFNT simple glyph outline point stream item collection boundary
+
+F5t adds the first allocator-backed owner for classified point stream items. It intentionally does not drain F5s into the collection. That loop remains a later phase because the collection owner contract, the push invariants, and the typed read surface must be stable before traversal and allocation are coupled.
+
+F5t uses a dedicated limit:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:
+    max_items i32
+```
+
+The dedicated limit is required because `GuiSfntSimpleGlyphOutlineStorageLimit` is about scalar outline storage regions, edge capacity, and path command capacity. Reusing it for a `Vec GuiSfntSimpleGlyphOutlinePointStreamItem` would let unrelated edge/path limits reject item collection allocation. F5t reads only `max_items` and compares it with `capacity.point_count`.
+
+Allocation order is fixed:
+
+```text
+capacity shape
+max_items > 0
+point_count <= max_items
+vec::with_capacity point_count
+```
+
+The collection owner is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollection:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    items Vec GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count i32
+```
+
+`items.len == item_count` and `items.cap == capacity.point_count` are owner invariants. The owner is not `Clone` or `Copy`.
+
+The free boundary consumes the collection owner and calls `vec::free` exactly once on the inner `items` Vec. Free does not inspect stream state and must not call path, raster, render, platform, or host APIs.
+
+The push boundary validates every public-constructor-forgeable invariant before mutating the `Vec`:
+
+```text
+capacity shape
+items.len == item_count
+items.cap == capacity.point_count
+item_count < capacity.point_count
+item.point.glyph == capacity.glyph
+item.point.point_index == item_count
+item.kind == kind_from_point item.point
+vec::push exactly once
+```
+
+`ItemKindMismatch` is important because `GuiSfntSimpleGlyphOutlinePointStreamItem` is a public struct and can be forged with a kind that does not match the point fields. The authority for the kind remains F5q `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point`.
+
+Push error keeps both owner recovery and diagnostic data:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    storage_error Option StdErrorKind
+```
+
+Validation errors set `storage_error = None`. A lower `vec::push` failure sets `storage_error = Some error_kind`. The implementation must read `vec::vec_push_error_kind &e` before consuming `e` with `vec::vec_push_error_vec e`.
+
+The public read helper returns typed `Result`, not `Option`:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:
+    InvalidCapacity
+    CollectionLengthMismatch
+    CollectionCapacityMismatch
+    ItemIndexOutOfRange
+    ItemStorageMissing
+```
+
+This avoids treating invariant failure, out-of-range request, and missing storage slot as the same `None`. The fixed read order is capacity shape, length invariant, capacity invariant, index range, then `vec::get` exactly once. In source policy terms, the read helper must call vec::get exactly once after every invariant check.
+
+F5t helper bodies may call `vec::with_capacity`, `vec::free`, `vec::len`, `vec::cap`, `vec::push`, and `vec::get`. They must not call F5s drain, F5r conversion, F5o point step, F5p point drain, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

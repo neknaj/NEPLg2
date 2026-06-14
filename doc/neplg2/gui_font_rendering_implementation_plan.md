@@ -2964,3 +2964,171 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5q.json -j 1
 git diff --check
 ```
+
+## Phase F5r: sfnt simple glyph outline point stream item step from point step
+
+目的:
+
+- F5o の `GuiSfntSimpleGlyphOutlinePointReadStep` を、F5q の `GuiSfntSimpleGlyphOutlinePointStreamItem` を持つ no-allocation step value に変換する。
+- `Point` / `End` の成功 shape を再検査し、公開 constructor で作れる不正 step を `PointStepInvariantInvalid` で fail-closed にする。
+- kind classification は F5q constructor に閉じ込め、F5r では分類を重複実装しない。
+- ByteBuf、SFNT lookup、storage、F5p drain loop、Vec、path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5r docs、item step 型、error 型、visible cursor invariant、F5q constructor exactly once、F5q kind helper 直接呼び出し禁止、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemStepStatus`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemStep`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemStepErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemStepError`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_step`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_step_*` accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step`
+- `status = Point` の変換は次だけを受け付ける。
+  - `point = Some point`
+  - `next_cursor.next_point_index == cursor.next_point_index + 1`
+  - F5q constructor `gui_sfnt_simple_glyph_outline_point_stream_item` を 1 回だけ呼ぶ
+  - `Item` step と `Some item` を返す
+- `status = End` の変換は次だけを受け付ける。
+  - `point = None`
+  - `next_cursor.next_point_index == cursor.next_point_index`
+  - `End` step と `None` を返す
+- 上記以外の `Point` / `End` shape は `PointStepInvariantInvalid` を返す。
+- doctest は byte fixture を使わず、synthetic `GuiSfntSimpleGlyphOutlinePointReadStep` で normal Point、normal End、Point None、End Some、Point bad cursor、End bad cursor を検査する。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5r が F5o step の visible invariant を再検査すること、F5q kind helper を直接呼ばず constructor だけを使うことが blocker として指摘された。
+- 計画を修正し、`Point` / `End` の cursor invariant と `point` option invariant を `PointStepInvariantInvalid` で検査する方針にした。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- `Point + Some point + next = cursor + 1` だけが `Item + Some item` になる。
+- `End + None + next = cursor` だけが `End + None` になる。
+- `Point + None`、`End + Some`、`Point` の bad cursor、`End` の bad cursor は `PointStepInvariantInvalid` になる。
+- F5r helper は `gui_sfnt_simple_glyph_outline_point_stream_item` を successful Point branch で exactly once 呼び、`gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` を直接呼ばない。
+- source policy が F5r docs、API、cursor invariant、F5q constructor exact one-call、F5q kind helper 直接呼び出し禁止、ByteBuf / `GuiSfntSimpleGlyphPointStream` / storage / drain / `gui_sfnt_glyf_` / `gui_sfnt_lookup_` / `Vec` / path / render / raster / platform / host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_step_f5r.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5r.json -j 1
+git diff --check
+```
+
+## Phase F5s: sfnt simple glyph outline point stream item drain
+
+目的:
+
+- F5o の point step と F5r の classified item step conversion を、明示的な step budget 内で進める no-allocation drain boundary を追加する。
+- F5p と同じ shared cursor precondition を使うが、F5s は F5p public drain や F5p error conversion に依存しない。
+- terminal-before-budget、budget-before-F5o、F5o exactly once、F5r exactly once の順序を source policy と doctest で固定する。
+- F5o read failure、F5r conversion failure、F5s defensive invariant failure を別の error kind として保持する。
+- full point `Vec`、item list、sink mutation、path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5s が F5p private validation に直接依存する案は phase coupling として不適切であり、F5p/F5s 共通の neutral validation helper が必要と指摘された。
+- 計画を修正し、`GuiSfntSimpleGlyphOutlinePointReadCursorValidation`、`GuiSfntSimpleGlyphOutlinePointReadCursorValidationRejectKind`、`GuiSfntSimpleGlyphOutlinePointReadCursorValidationReject`、`gui_sfnt_simple_glyph_outline_point_read_cursor_validate` を private shared helper として追加する。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。neutral helper は private で byte/path/render-free とし、F5p/F5s はそれぞれ phase-specific error へ変換する方針で実装を開始する。
+- F5p の `gui_sfnt_simple_glyph_outline_point_read_drain_validate` は neutral helper の reject を F5p error kind へ変換し、既存 public drain behavior を維持する。
+- F5s は neutral helper の reject を F5s error kind へ変換し、F5p public drain を呼ばない。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrain`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrainErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemDrainError`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary_*` accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_error`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_drain_error_*` accessors
+  - `gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget`
+- doctest は full End、partial budget exhausted、zero budget non-terminal、zero budget terminal、cursor out of range、wrapped F5o read failure を検査する。
+- defensive branch の `ItemStepConvertFailed` と `ItemStepInvariantInvalid` は削らない。前者は F5r が拒否した sub-error、後者は F5r 成功値を F5s が再検査した fail-closed branch である。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5p/F5s が shared cursor validation helper を共有し、F5s は F5p public drain を呼ばない。
+- terminal cursor は budget 0 でも `End` になる。
+- non-terminal かつ budget 0 は F5o/F5r を呼ばず `StepBudgetExhausted` になる。
+- non-terminal かつ budget positive では F5o point step を exactly once 呼び、その成功値を F5r conversion に exactly once 渡す。
+- `F5o Err` は `PointStepReadFailed`、`F5r Err` は `ItemStepConvertFailed`、F5r success shape の defensive mismatch は `ItemStepInvariantInvalid` になる。
+- source policy が F5s docs、neutral validation reuse、F5p public drain 非依存、F5o/F5r exact one-call、F5q kind helper 直接呼び出し禁止、direct Vec/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_f5s.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_drain.n.md --no-tree -o tmp_gui_font_outline_point_drain_f5s_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5s.json -j 1
+git diff --check
+```
+
+## Phase F5t: sfnt simple glyph outline point stream item collection owner
+
+目的:
+
+- F5s の classified item stream を後続 phase が owner として保持できる allocator-backed collection boundary を追加する。
+- 今回は F5s drain-to-collection loop には進まず、empty collection allocation、single item push、single item read の contract だけを固定する。
+- F5b scalar slot storage limit と item collection limit を混ぜず、F5t 専用 limit を導入する。
+- push では public constructor で forged item が作れることを前提に、glyph、point index、kind を mutation 前に再検査する。
+- read は `Option` ではなく typed `Result` とし、invariant failure、out-of-range、missing slot を区別する。
+- path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。既存 `GuiSfntSimpleGlyphOutlineStorageLimit` の流用、item kind 再検証不足、`item_at Option` による invariant failure の隠蔽、lower `StdErrorKind` の欠落、F5s/F5r/F5o/F5p 非依存の明文化不足が指摘された。
+- 計画を修正し、F5t 専用 `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`、`ItemKindMismatch`、typed read error、push error の `storage_error Option StdErrorKind`、F5s/F5r/F5o/F5p 直接呼び出し禁止を追加した。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。実装開始可とされた。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollection`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError`
+  - allocation error constructors/accessors
+  - collection observers/free
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_kind_is`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError`
+  - push error constructors/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_push`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError`
+  - read error constructors/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`
+- allocation order は `capacity shape`、`max_items > 0`、`point_count <= max_items`、`vec::with_capacity point_count` とする。
+- free は collection owner を消費し、内部 `items` に対して `vec::free` を exactly once 呼ぶ。
+- push order は `capacity shape`、`len == item_count`、`cap == point_count`、`item_count < point_count`、glyph/index/kind 検査、`vec::push` exactly once とする。
+- read order は `capacity shape`、`len == item_count`、`cap == point_count`、index range、`vec::get` exactly once とする。
+- doctest は alloc success、invalid capacity、invalid limit、limit reject、push/read success、glyph mismatch、index mismatch、kind mismatch、collection full、public read out-of-range を検査する。
+- read length mismatch、read capacity mismatch、missing slot は owner-backed collection constructor の外部利用制限により doctest から forged owner を作らず、source policy で typed branch と実装順序を固定する。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5t 専用 limit があり、F5b scalar slot storage limit を使わない。
+- collection owner と push error は owner-bearing payload なので `Clone` / `Copy` を実装しない。
+- `Vec` capacity は `capacity.point_count` であり、scalar slot count ではない。
+- push failure では collection owner、rejected item、typed error kind、lower `StdErrorKind` option が失われない。
+- `vec::vec_push_error_kind &e` を `vec::vec_push_error_vec e` より前に読む。
+- item kind は item payload を信頼せず、F5q `kind_from_point` で再導出して検査する。
+- public read は `Option` ではなく typed `Result` を返す。
+- source policy が F5t docs、専用 limit、allocation/push/read order、owner-bearing payload 非 Clone / 非 Copy、F5s/F5r/F5o/F5p drain 非依存、lower byte reader/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5t.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5t.json -j 1
+git diff --check
+```
