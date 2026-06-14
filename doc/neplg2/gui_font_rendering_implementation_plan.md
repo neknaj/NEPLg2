@@ -3229,3 +3229,46 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5v.json -j 1
 git diff --check
 ```
+
+## Phase F5w: sfnt simple glyph outline point stream item collection contour point
+
+目的:
+
+- F5v の collection-backed contour span を authority とし、contour-local point index から `GuiSfntSimpleGlyphContourPoint` を 1 点だけ読む。
+- F4 byte-backed contour point helper、F5 storage reader、drain、path/raster/render/platform/host API へ戻らない。
+- 後続の collection-backed edge extraction が使う contour point contract を固定する。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5v が `Ok span` を返した後でも、F5w 側で span/capacity invariant を local index 判定や item read より前に visible に再検査する必要があると指摘された。
+- 計画を修正し、`span.glyph == capacity.glyph`、`span.contour_index == contour_index`、`span.start_point_index >= 0`、`span.end_point_index >= span.start_point_index`、`span.end_point_index < capacity.point_count`、`span.point_count == span.end_point_index - span.start_point_index + 1` を `ContourPointInvariantInvalid` として検査する方針にした。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。F5w は F5v contour span lookup を exactly once 呼び、span invariant、local range、absolute range、collection read、item glyph/index/kind validation の順で実装する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError`
+  - error constructor/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point`
+- doctest は success、span failure wrapping、local index out of range、forged endpoint topology の span failure propagation を検査する。public F5v が拒否する impossible success span や public collection owner で作れない lower `ItemReadFailed` branch は source policy で固定する。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5w は F5v `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` を source 上 exactly once 呼ぶ。
+- F5w は F5v success span の glyph、contour_index、start/end/count、capacity range を local index 判定より前に検査する。
+- F5w は local `contour_point_index` が範囲外なら `ContourPointIndexOutOfRange` を返し、collection item を読まない。
+- F5w は `absolute_point_index = span.start_point_index + contour_point_index` を使い、absolute range を再検査してから collection read へ進む。
+- F5w は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item` を source 上 exactly once 呼ぶ。
+- F5w は item glyph/index/kind を再検査し、forged item を typed error にする。
+- source policy が F5w docs、public API、F5v exact one-call、span invariant before local range、local range before collection read、collection read exact one-call、forbidden API、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_point_f5w.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_span_f5w_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5w.json -j 1
+git diff --check
+```

@@ -3591,6 +3591,68 @@ The final endpoint check is separate from the contour count check. `observed_con
 
 F5v may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point`, and the item / point / capacity accessors. It must not call F4 byte-backed contour helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection contour point boundary
+
+F5w is the collection-backed equivalent of the old F4j contour point lookup. It composes F5v contour span lookup with one collection item read. It does not call the byte-backed contour point helper and does not consume the collection owner.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    contour_point_index i32
+    -> Result GuiSfntSimpleGlyphContourPoint GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+```
+
+F5w intentionally accepts `contour_index` rather than a caller-provided `GuiSfntSimpleGlyphContourSpan`. `GuiSfntSimpleGlyphContourSpan` has a public constructor, so accepting it would allow callers to forge a span outside the collection topology. F5w must call F5v exactly once and use that checked span as its authority.
+
+The error payload is diagnostic data, not owner recovery:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind
+    contour_index i32
+    contour_point_index i32
+    absolute_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    span Option GuiSfntSimpleGlyphContourSpan
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+The required order is:
+
+```text
+1. Read collection capacity / item_count / items_len / items_cap for diagnostics.
+2. Call F5v collection contour span lookup exactly once.
+3. Convert F5v error to ContourSpanFailed with span_error Some.
+4. On F5v success, validate span.glyph == capacity.glyph.
+5. Validate span.contour_index == contour_index.
+6. Validate span.start_point_index >= 0.
+7. Validate span.end_point_index >= span.start_point_index.
+8. Validate span.end_point_index < capacity.point_count.
+9. Validate span.point_count == span.end_point_index - span.start_point_index + 1.
+10. Only after the span invariant succeeds, validate contour_point_index range.
+11. Compute absolute_point_index = span.start_point_index + contour_point_index.
+12. Revalidate absolute_point_index stays inside span and capacity.
+13. Read collection_read_item exactly once at absolute_point_index.
+14. Validate item.point.glyph, item.point.point_index, and item.kind.
+15. Return gui_sfnt_simple_glyph_contour_point span contour_point_index point.
+```
+
+The span invariant checks are visible in F5w even though F5v should already guarantee them. This is the same fail-closed style as the F5 step/drain boundaries: a lower-boundary impossible success shape must not be reclassified as `ContourPointIndexOutOfRange`, and it must not flow into an item read.
+
+`ContourPointIndexOutOfRange` is only for caller local-index mistakes after a valid span. It must be checked before `collection_read_item`. The error stores `absolute_point_index = -1` because no absolute index is part of the contract when the local index is invalid.
+
+`ItemReadFailed` is a defensive branch for forged or future collection owners that pass the outer checks but fail the lower read helper. Normal public F5t/F5u collections should not reach it after F5v succeeds. It remains typed so source policy and future owner implementations do not replace it with an unchecked read.
+
+F5w may call F5v, `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point`, and item / point / span / capacity accessors. It must not call F4 byte-backed contour helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, edge/path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
