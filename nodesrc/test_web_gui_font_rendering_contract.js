@@ -110,6 +110,7 @@ const guiFontSfntOutlinePointStreamItemTests = read("tests/stdlib/gui_font_sfnt_
 const guiFontSfntOutlinePointStreamItemStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md");
 const guiFontSfntOutlinePointStreamItemDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -134,6 +135,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemStepTests,
     guiFontSfntOutlinePointStreamItemDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionTests,
+    guiFontSfntOutlinePointStreamItemCollectionDrainTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -7070,6 +7072,193 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_full_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_read_out_of_range_ok"),
     "F5t point stream item collection focused doctest must cover alloc, dedicated limit, push/read success, typed push errors, full collection, and public typed read errors",
+);
+const specF5u = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection drain"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5u は F5s",
+    "F5u が F5s へ渡す step budget は 0 または 1 だけ",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:",
+    "collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:",
+    "CollectionCursorMismatch",
+    "ItemDrainFailed",
+    "ItemDrainInvariantInvalid",
+    "CollectionPushFailed",
+    "item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain",
+    "push_error_kind Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind",
+    "rejected_item Option GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "push_error_kind を &push_error から読む",
+    "push_error を消費して collection owner を回収する",
+    "F5u は次を直接呼ばない",
+]) {
+    assert(specF5u.includes(fragment), `font spec F5u point stream item collection drain must mention ${fragment}`);
+}
+const detailedF5u = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection drain boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5u is the first owner-preserving bridge",
+    "step_budget = 0",
+    "step_budget = 1",
+    "calls F5s exactly once with `step_budget`",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:",
+    "CollectionCursorMismatch` rejects a collection owner",
+    "ItemDrainInvariantInvalid` stores the lower F5s success value",
+    "require collection.item_count == current_cursor.next_point_index",
+    "The push error branch must read",
+    "recover collection owner",
+    "must not call F5r conversion",
+]) {
+    assert(detailedF5u.includes(fragment), `font detailed design F5u point stream item collection drain must mention ${fragment}`);
+}
+const implementationPlanF5u = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5u: sfnt simple glyph outline point stream item collection drain"),
+);
+for (const fragment of [
+    "Tesla plan review は 1 回目 `PLAN_BLOCKED`",
+    "修正後の計画は Tesla review で `PLAN_APPROVED`",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind",
+    "item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain",
+    "CollectionCursorMismatch",
+    "step_budget` 0 / 1",
+    "CollectionPushFailed",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md",
+]) {
+    assert(implementationPlanF5u.includes(fragment), `font implementation plan F5u must mention ${fragment}`);
+}
+const pointStreamItemCollectionDrainTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:",
+    "collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection",
+    "cursor %GuiSfntSimpleGlyphOutlinePointReadCursor",
+    "items_read %i32",
+    "last_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:",
+    "End %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:",
+    "CollectionCursorMismatch",
+    "ItemDrainFailed",
+    "ItemDrainInvariantInvalid",
+    "CollectionPushFailed",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:",
+    "item_drain_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError",
+    "item_drain_result %Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain",
+    "push_error_kind %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind",
+    "push_storage_error %Option StdErrorKind",
+    "rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget",
+]) {
+    assert(pointStreamItemCollectionDrainTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5u collection drain API must include ${fragment}`);
+}
+assertNoMatch(
+    pointStreamItemCollectionDrainTypes,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:/,
+    "alloc/gui/font/sfnt/glyf F5u owner-bearing summary, drain, and error must not implement Clone or Copy",
+);
+const pointStreamItemCollectionDrainPublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget");
+for (const fragment of [
+    "let mut current_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection collection",
+    "let mut current_remaining_steps %i32 remaining_steps",
+    "let collection_item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count &current_collection",
+    "let cursor_point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &current_cursor",
+    "if ne collection_item_count cursor_point_index:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::CollectionCursorMismatch",
+    "let mut step_budget %i32 1",
+    "if le current_remaining_steps 0:",
+    "set step_budget 0",
+    "set step_budget 1",
+    "gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget bytes glyf stream storage current_cursor step_budget",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::ItemDrainFailed",
+    "set final_item_drain_error some lower_error",
+    "set final_item_drain_result some drain",
+    "if or lt step_items_read 0 gt step_items_read 1:",
+    "if ne step_budget 1:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push current_collection item",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind &push_error",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error &push_error",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item &push_error",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::CollectionPushFailed",
+]) {
+    assert(pointStreamItemCollectionDrainPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5u collection drain body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionDrainPublic,
+    [
+        "let collection_item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count &current_collection",
+        "let cursor_point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &current_cursor",
+        "if ne collection_item_count cursor_point_index:",
+        "let mut step_budget %i32 1",
+        "if le current_remaining_steps 0:",
+        "set step_budget 0",
+        "set step_budget 1",
+        "gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget bytes glyf stream storage current_cursor step_budget",
+        "if or lt step_items_read 0 gt step_items_read 1:",
+        "if eq step_items_read 0:",
+        "if ne step_budget 1:",
+        "Option::Some item:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push current_collection item",
+    ],
+    "alloc/gui/font/sfnt/glyf F5u must derive 0/1 step_budget, call F5s with that budget, validate F5s summary, then push at most one item",
+);
+assertOrderedFragments(
+    pointStreamItemCollectionDrainPublic,
+    [
+        "Result::Err push_error:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error &push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item &push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::CollectionPushFailed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5u push failure must read metadata before consuming push error owner",
+);
+assert(
+    (pointStreamItemCollectionDrainPublic.match(/\bgui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5u collection drain public body must call F5s item drain exactly once",
+);
+assert(
+    (pointStreamItemCollectionDrainPublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5u collection drain public body must call F5t collection push exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionDrainPublic,
+    /\bgui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget\s+bytes\s+glyf\s+stream\s+storage\s+current_cursor\s+remaining_steps\b/,
+    "alloc/gui/font/sfnt/glyf F5u must not pass caller remaining_steps directly to F5s",
+);
+assertNoMatch(
+    pointStreamItemCollectionDrainPublic,
+    /\b(?:vec::|gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_simple_glyph_outline_storage_read_point_coordinate|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker_loop|gui_sfnt_glyf_read_point_flag_from_stream_loop|gui_sfnt_glyf_read_point_flag_run_or_continue|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5u collection drain public body must not use direct Vec, F5r/F5o/F5p/F5n/lower loops, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionDrainPublic,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5u collection drain public body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_full_end_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_partial_budget_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_zero_budget_nonterminal_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_zero_budget_terminal_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_cursor_mismatch_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_wraps_item_drain_failure_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_collection_drain_push_failure_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("CollectionPushFailed") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("CollectionFull") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_drain_result") &&
+        guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("rejected_item"),
+    "F5u point stream item collection drain focused doctest must cover full/partial/zero budget, lower F5s failure, and public push failure owner recovery",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

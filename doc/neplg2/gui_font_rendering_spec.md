@@ -2780,6 +2780,101 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection drain
+
+F5u は F5s の classified item stream を F5t の collection owner へ commit する境界である。これは path command、raster mask、render command、platform API ではない。F5s は `last_item` だけを summary に持ち、読んだ item 列そのものは返さないため、F5u は F5s に caller の `remaining_steps` を直接渡さない。
+
+F5u が F5s へ渡す step budget は 0 または 1 だけである。
+
+```text
+remaining_steps <= 0
+    F5s budget 0
+
+remaining_steps > 0
+    F5s budget 1
+```
+
+budget 0 は terminal / non-terminal の分類だけを F5s に委譲するために使う。terminal cursor なら `End`、non-terminal なら `StepBudgetExhausted` になる。budget 1 は最大 1 item だけを読み、読めた item を F5t push へ渡すために使う。
+
+F5u の success summary は collection owner を含む。owner なので `Clone` / `Copy` は実装しない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:
+    End GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+```
+
+`items_read` は F5u 呼び出し内で collection へ commit できた item 数である。F5s の 1 step summary count ではない。push failure が起きた場合、読み取れたが commit できなかった item は `rejected_item` と `item_drain_result` に保持し、F5u の `cursor` と `items_read` は commit 済み位置のままにする。
+
+F5u の error は F5s failure、F5s success invariant failure、F5t push failure を分ける。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:
+    CollectionCursorMismatch
+    ItemDrainFailed
+    ItemDrainInvariantInvalid
+    CollectionPushFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind
+    item_drain_error Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError
+    item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain
+    push_error_kind Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    push_storage_error Option StdErrorKind
+    rejected_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+`CollectionCursorMismatch` は collection の commit 済み item 数と cursor の `next_point_index` が一致しない場合である。この precondition がないと、terminal cursor と空 collection のような不整合を成功値として返せてしまう。`ItemDrainFailed` は lower F5s error を `item_drain_error` に保持する。`ItemDrainInvariantInvalid` は F5s が 0 / 1 item 以外を返した、budget 0 なのに item を返した、または `items_read == 1` なのに `last_item == None` だった場合であり、lower F5s success value を `item_drain_result` に保持する。`CollectionPushFailed` は F5t push failure を `push_error_kind`、`push_storage_error`、`rejected_item` に保持し、push error owner は collection owner として回収する。
+
+push failure branch では次の順序を守る。
+
+```text
+1. push_error_kind を &push_error から読む
+2. push_storage_error を &push_error から読む
+3. rejected_item を &push_error から読む
+4. push_error を消費して collection owner を回収する
+```
+
+`gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget` は次の順序を守る。
+
+```text
+1. collection.item_count == cursor.next_point_index を検査する
+2. remaining_steps から step_budget 0 / 1 を作る
+3. F5s drain を step_budget で 1 回呼ぶ
+4. F5s Err は ItemDrainFailed として collection owner を保持して返す
+5. F5s Ok の summary.items_read が 0 / 1 以外なら ItemDrainInvariantInvalid
+6. summary.items_read == 0 なら collection owner を変更せず End / StepBudgetExhausted を返す
+7. summary.items_read == 1 なら last_item Some を要求する
+8. last_item を F5t collection push へ 1 回渡す
+9. push Err は CollectionPushFailed として owner と rejected item を保持して返す
+10. push Ok は collection owner、cursor、items_read、last_item、remaining_steps を更新する
+11. F5s result が End なら End、budget exhausted なら StepBudgetExhausted、まだ budget があれば次 iteration へ進む
+```
+
+F5u は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

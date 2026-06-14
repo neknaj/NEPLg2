@@ -4959,6 +4959,330 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item %fn 
                                             let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::ItemStorageMissing capacity item_count index items_len items_cap
                                             Result::Err error
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary: collection drain の owner 付き summary
+//:
+//: [目的/もくてき]:
+//: - F5s の streaming item を F5t collection owner へ[投入/とうにゅう]した結果を、collection owner と cursor と共に[返/かえ]します。
+//: - `items_read` はこの F5u 呼び出しで collection に commit できた item 数です。F5s の 1 step summary count ではありません。
+//:
+//: [注意/ちゅうい]:
+//: - collection owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor %GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read %i32
+    last_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary: collection drain summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphOutlinePointReadCursor fn i32 fn Option GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary \collection\cursor\items_read\last_item:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary collection cursor items_read last_item
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_cursor: summary cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary GuiSfntSimpleGlyphOutlinePointReadCursor \summary:
+    *field::get_ref summary "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_items_read: commit できた item 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_items_read %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary i32 \summary:
+    *field::get_ref summary "items_read"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_last_item: 最後に commit できた item を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_last_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary Option GuiSfntSimpleGlyphOutlinePointStreamItem \summary:
+    *field::get_ref summary "last_item"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_collection: summary から collection owner を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary_collection %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollection \summary:
+    field::get summary "collection"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain: collection drain の成功状態
+//:
+//: [目的/もくてき]:
+//: - glyph point stream の終端と、呼び出し側の step budget exhaustion を enum で[分/わ]けます。
+//: - `StepBudgetExhausted` は失敗ではなく、collection owner を[保持/ほじ]した typed terminal です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:
+    End %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind: collection drain failure の typed reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:
+    CollectionCursorMismatch
+    ItemDrainFailed
+    ItemDrainInvariantInvalid
+    CollectionPushFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError: collection drain failure context
+//:
+//: [目的/もくてき]:
+//: - F5s failure、F5s success invariant failure、F5t push failure を string ではなく enum と typed payload で[返/かえ]します。
+//: - collection owner は error でも[失/うしな]わず、lower F5s success / failure と push failure metadata を分離して[保持/ほじ]します。
+//:
+//: [注意/ちゅうい]:
+//: - owner-bearing payload なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:
+    collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor %GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read %i32
+    last_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind
+    item_drain_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError
+    item_drain_result %Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain
+    push_error_kind %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    push_storage_error %Option StdErrorKind
+    rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error: collection drain error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphOutlinePointReadCursor fn i32 fn Option GuiSfntSimpleGlyphOutlinePointStreamItem fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind fn Option StdErrorKind fn Option GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError \collection\cursor\items_read\last_item\kind\item_drain_error\item_drain_result\push_error_kind\push_storage_error\rejected_item:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError collection cursor items_read last_item kind item_drain_error item_drain_result push_error_kind push_storage_error rejected_item
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_kind: error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_cursor: commit cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError GuiSfntSimpleGlyphOutlinePointReadCursor \error:
+    *field::get_ref error "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_items_read: commit 済み item 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_items_read %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError i32 \error:
+    *field::get_ref error "items_read"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_last_item: 最後に commit できた item を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_last_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItem \error:
+    *field::get_ref error "last_item"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_item_drain_error: lower F5s error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_item_drain_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError \error:
+    *field::get_ref error "item_drain_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_item_drain_result: lower F5s success value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_item_drain_result %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain \error:
+    *field::get_ref error "item_drain_result"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_push_error_kind: F5t push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_push_storage_error: lower Vec push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_push_storage_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError Option StdErrorKind \error:
+    *field::get_ref error "push_storage_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_rejected_item: push できなかった item を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_rejected_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItem \error:
+    *field::get_ref error "rejected_item"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_collection: error payload から collection owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error_collection %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollection \error:
+    field::get error "collection"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget: F5s item stream を collection owner へ budget 内で commit する
+//:
+//: [契約/けいやく]:
+//: - F5s へ渡す step budget は 0 または 1 だけです。caller の `remaining_steps` を F5s へ直接渡しません。
+//: - F5s が 1 item を返した場合だけ、F5t collection push を 1 回だけ[呼/よ]びます。
+//: - push failure では kind、storage error、rejected item を[読/よ]んでから push error owner を[回収/かいしゅう]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphPointStream impure fn &GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointReadCursor impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError \bytes\glyf\stream\storage\collection\cursor\remaining_steps:
+    let mut current_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection collection
+    let mut current_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor cursor
+    let mut current_items_read %i32 0
+    let mut current_last_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem none
+    let mut current_remaining_steps %i32 remaining_steps
+    let mut done %bool false
+    let mut final_is_error %bool false
+    let mut final_is_end %bool false
+    let mut final_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor cursor
+    let mut final_error_kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::ItemDrainInvariantInvalid
+    let mut final_item_drain_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError none
+    let mut final_item_drain_result %Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain none
+    let mut final_push_error_kind %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind none
+    let mut final_push_storage_error %Option StdErrorKind none
+    let mut final_rejected_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem none
+    while not done:
+        do:
+            let collection_item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count &current_collection
+            let cursor_point_index %i32 gui_sfnt_simple_glyph_outline_point_read_cursor_next_point_index &current_cursor
+            if ne collection_item_count cursor_point_index:
+                then:
+                    set final_is_error true
+                    set final_error_kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::CollectionCursorMismatch
+                    set final_item_drain_error none
+                    set final_item_drain_result none
+                    set final_push_error_kind none
+                    set final_push_storage_error none
+                    set final_rejected_item none
+                    set final_cursor current_cursor
+                    set done true
+                else:
+                    let mut step_budget %i32 1
+                    if le current_remaining_steps 0:
+                        then:
+                            set step_budget 0
+                        else:
+                            set step_budget 1
+                    match gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget bytes glyf stream storage current_cursor step_budget:
+                        Result::Err lower_error:
+                            set final_is_error true
+                            set final_error_kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::ItemDrainFailed
+                            set final_item_drain_error some lower_error
+                            set final_item_drain_result none
+                            set final_push_error_kind none
+                            set final_push_storage_error none
+                            set final_rejected_item none
+                            set final_cursor current_cursor
+                            set done true
+                        Result::Ok drain:
+                            let mut step_is_end %bool false
+                            let empty_last_item %Option GuiSfntSimpleGlyphOutlinePointStreamItem none
+                            let mut step_summary %GuiSfntSimpleGlyphOutlinePointStreamItemDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary current_cursor 0 empty_last_item
+                            match drain:
+                                GuiSfntSimpleGlyphOutlinePointStreamItemDrain::End summary:
+                                    set step_is_end true
+                                    set step_summary summary
+                                GuiSfntSimpleGlyphOutlinePointStreamItemDrain::StepBudgetExhausted summary:
+                                    set step_is_end false
+                                    set step_summary summary
+                            let step_items_read %i32 gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary_items_read &step_summary
+                            let step_cursor %GuiSfntSimpleGlyphOutlinePointReadCursor gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary_cursor &step_summary
+                            if or lt step_items_read 0 gt step_items_read 1:
+                                then:
+                                    set final_is_error true
+                                    set final_error_kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::ItemDrainInvariantInvalid
+                                    set final_item_drain_error none
+                                    set final_item_drain_result some drain
+                                    set final_push_error_kind none
+                                    set final_push_storage_error none
+                                    set final_rejected_item none
+                                    set final_cursor current_cursor
+                                    set done true
+                                else:
+                                    if eq step_items_read 0:
+                                        then:
+                                            set final_is_error false
+                                            set final_is_end step_is_end
+                                            set final_cursor step_cursor
+                                            set done true
+                                        else:
+                                            if ne step_budget 1:
+                                                then:
+                                                    set final_is_error true
+                                                    set final_error_kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::ItemDrainInvariantInvalid
+                                                    set final_item_drain_error none
+                                                    set final_item_drain_result some drain
+                                                    set final_push_error_kind none
+                                                    set final_push_storage_error none
+                                                    set final_rejected_item none
+                                                    set final_cursor current_cursor
+                                                    set done true
+                                                else:
+                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_drain_summary_last_item &step_summary:
+                                                        Option::None:
+                                                            set final_is_error true
+                                                            set final_error_kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::ItemDrainInvariantInvalid
+                                                            set final_item_drain_error none
+                                                            set final_item_drain_result some drain
+                                                            set final_push_error_kind none
+                                                            set final_push_storage_error none
+                                                            set final_rejected_item none
+                                                            set final_cursor current_cursor
+                                                            set done true
+                                                        Option::Some item:
+                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_push current_collection item:
+                                                                Result::Ok next_collection:
+                                                                    set current_collection next_collection
+                                                                    set current_cursor step_cursor
+                                                                    set current_items_read add current_items_read 1
+                                                                    set current_last_item some item
+                                                                    set current_remaining_steps sub current_remaining_steps 1
+                                                                    if step_is_end:
+                                                                        then:
+                                                                            set final_is_error false
+                                                                            set final_is_end true
+                                                                            set final_cursor current_cursor
+                                                                            set done true
+                                                                        else:
+                                                                            if le current_remaining_steps 0:
+                                                                                then:
+                                                                                    set final_is_error false
+                                                                                    set final_is_end false
+                                                                                    set final_cursor current_cursor
+                                                                                    set done true
+                                                                                else:
+                                                                                    set done false
+                                                                Result::Err push_error:
+                                                                    let push_kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind &push_error
+                                                                    let push_storage %Option StdErrorKind gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error &push_error
+                                                                    let rejected_item_value %GuiSfntSimpleGlyphOutlinePointStreamItem gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item &push_error
+                                                                    let recovered_collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error
+                                                                    set current_collection recovered_collection
+                                                                    set final_is_error true
+                                                                    set final_error_kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind::CollectionPushFailed
+                                                                    set final_item_drain_error none
+                                                                    set final_item_drain_result some drain
+                                                                    set final_push_error_kind some push_kind
+                                                                    set final_push_storage_error push_storage
+                                                                    set final_rejected_item some rejected_item_value
+                                                                    set final_cursor current_cursor
+                                                                    set done true
+    if final_is_error:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_error current_collection final_cursor current_items_read current_last_item final_error_kind final_item_drain_error final_item_drain_result final_push_error_kind final_push_storage_error final_rejected_item
+            Result::Err error
+        else:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_summary current_collection final_cursor current_items_read current_last_item
+            if final_is_end:
+                then:
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain::End summary
+                else:
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain::StepBudgetExhausted summary
+
 //: GuiSfntSimpleGlyphContourSpan: simple glyph の 1 contour が[参照/さんしょう]する point span
 //:
 //: [目的/もくてき]:

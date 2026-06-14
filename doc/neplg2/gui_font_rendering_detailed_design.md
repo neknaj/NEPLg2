@@ -3443,6 +3443,92 @@ This avoids treating invariant failure, out-of-range request, and missing storag
 
 F5t helper bodies may call `vec::with_capacity`, `vec::free`, `vec::len`, `vec::cap`, `vec::push`, and `vec::get`. They must not call F5s drain, F5r conversion, F5o point step, F5p point drain, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection drain boundary
+
+F5u is the first owner-preserving bridge between the no-allocation F5s stream drain and the allocator-backed F5t item collection. It still does not build a path command list, raster mask, render command stream, platform surface, or host text object.
+
+The key design constraint is that F5s exposes only `last_item`, not the full list of items read during a drain call. Therefore F5u must never call F5s with the caller's full `remaining_steps`. Instead it derives a local `step_budget`:
+
+```text
+if current_remaining_steps <= 0:
+    step_budget = 0
+else:
+    step_budget = 1
+```
+
+Then it calls F5s exactly once with `step_budget`. A budget of 0 delegates terminal-before-budget classification to F5s without allowing a read. A budget of 1 allows exactly one classified item to be returned and then committed to the collection with one F5t push.
+
+The owner-bearing success payload is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrain:
+    End GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainSummary
+```
+
+The summary is not `Clone` or `Copy` because it owns the collection. `items_read` is the number of items committed to the collection during this F5u call. It is not the per-call F5s summary count.
+
+The owner-bearing error payload is:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind:
+    CollectionCursorMismatch
+    ItemDrainFailed
+    ItemDrainInvariantInvalid
+    CollectionPushFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainError:
+    collection GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphOutlinePointReadCursor
+    items_read i32
+    last_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionDrainErrorKind
+    item_drain_error Option GuiSfntSimpleGlyphOutlinePointStreamItemDrainError
+    item_drain_result Option GuiSfntSimpleGlyphOutlinePointStreamItemDrain
+    push_error_kind Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind
+    push_storage_error Option StdErrorKind
+    rejected_item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+The error is also not `Clone` or `Copy`. `CollectionCursorMismatch` rejects a collection owner whose committed `item_count` differs from the cursor `next_point_index`; without this precondition a terminal cursor with an empty collection could be returned as a successful End. `ItemDrainFailed` stores the lower F5s error. `ItemDrainInvariantInvalid` stores the lower F5s success value in `item_drain_result`, because the bug is the impossible success shape itself. `CollectionPushFailed` stores both the lower F5s success value and the F5t push metadata. In that branch, the cursor and item count remain at the committed position, while `item_drain_result` and `rejected_item` describe the item that was read but not committed.
+
+The fixed F5u order is:
+
+```text
+require collection.item_count == current_cursor.next_point_index
+derive step_budget as 0 or 1
+call F5s item drain exactly once with step_budget
+if F5s Err:
+    return ItemDrainFailed with collection owner
+if F5s Ok:
+    extract status and summary
+    require summary.items_read in 0..1
+    if summary.items_read == 0:
+        return the F5s status with unchanged collection owner
+    require step_budget == 1
+    require summary.last_item Some
+    call F5t collection push exactly once
+    if push Err:
+        read push kind, storage error, rejected item
+        recover collection owner
+        return CollectionPushFailed
+    if push Ok:
+        commit collection, cursor, items_read, last_item, remaining_steps
+        return End if F5s returned End
+        return StepBudgetExhausted if caller budget is exhausted
+        otherwise repeat the loop
+```
+
+The push error branch must read `gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_kind &push_error`, `gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_storage_error &push_error`, and `gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_item &push_error` before consuming `push_error` with `gui_sfnt_simple_glyph_outline_point_stream_item_collection_push_error_collection push_error`.
+
+F5u may call F5s drain and F5t collection push. It must not call F5r conversion, F5o point step, F5p point drain, F5n point read, lower byte/point readers, `vec::` directly, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
