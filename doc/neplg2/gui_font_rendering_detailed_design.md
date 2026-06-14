@@ -3529,6 +3529,68 @@ The push error branch must read `gui_sfnt_simple_glyph_outline_point_stream_item
 
 F5u may call F5s drain and F5t collection push. It must not call F5r conversion, F5o point step, F5p point drain, F5n point read, lower byte/point readers, `vec::` directly, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection contour span boundary
+
+F5v is the first collection-backed topology read over the F5u/F5t item collection. It does not re-read endpoint bytes and does not call the F4 byte-backed contour span helpers. The collection owner is read by borrow, so F5v does not consume or recover the collection owner.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    -> Result GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+```
+
+The error payload is typed diagnostic data, not an owner-bearing payload:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    contour_index i32
+    item_index i32
+    observed_contour_count i32
+    last_endpoint_index i32
+    item_count i32
+    items_len i32
+    items_cap i32
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+```
+
+The scan order is fixed:
+
+```text
+validate capacity shape
+validate items.len == item_count
+validate items.cap == capacity.point_count
+validate item_count == capacity.point_count
+validate requested contour_index range
+for each item_index from 0 to point_count - 1:
+    call collection_read_item exactly once for that item
+    validate item.point.glyph == capacity.glyph
+    validate item.point.point_index == item_index
+    validate item.kind == kind_from_point item.point
+    if item.kind is EndOnCurve or EndOffCurve:
+        if observed_contour_count == requested contour_index:
+            store start = previous_endpoint + 1
+            store end = item_index
+        previous_endpoint = item_index
+        last_endpoint = item_index
+        observed_contour_count += 1
+after scan:
+    require requested contour was found
+    require observed_contour_count == capacity.contour_count
+    require last_endpoint == capacity.point_count - 1
+    require derived span point_count > 0
+    return GuiSfntSimpleGlyphContourSpan
+```
+
+The final endpoint check is separate from the contour count check. `observed_contour_count == capacity.contour_count` can still be forged by endpoints `[1, 2]` with `contour_count = 2` and `point_count = 4`, leaving point 3 outside every contour. F5v must reject that shape as `FinalContourEndMismatch` before returning a span.
+
+F5v may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`, `gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point`, and the item / point / capacity accessors. It must not call F4 byte-backed contour helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

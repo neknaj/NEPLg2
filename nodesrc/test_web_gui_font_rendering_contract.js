@@ -111,6 +111,7 @@ const guiFontSfntOutlinePointStreamItemStepTests = read("tests/stdlib/gui_font_s
 const guiFontSfntOutlinePointStreamItemDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_drain.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionContourSpanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -136,6 +137,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionTests,
     guiFontSfntOutlinePointStreamItemCollectionDrainTests,
+    guiFontSfntOutlinePointStreamItemCollectionContourSpanTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -7259,6 +7261,155 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("item_drain_result") &&
         guiFontSfntOutlinePointStreamItemCollectionDrainTests.includes("rejected_item"),
     "F5u point stream item collection drain focused doctest must cover full/partial/zero budget, lower F5s failure, and public push failure owner recovery",
+);
+const specF5v = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection contour span"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5v は F5u/F5t",
+    "collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind:",
+    "CollectionIncomplete",
+    "ItemGlyphMismatch",
+    "ItemIndexMismatch",
+    "ItemKindMismatch",
+    "FinalContourEndMismatch",
+    "observed_contour_count == capacity.contour_count",
+    "last_endpoint_index == capacity.point_count - 1",
+    "observed_contour_count == capacity.contour_count` だけでは不十分",
+    "F5v は次を直接呼ばない",
+]) {
+    assert(specF5v.includes(fragment), `font spec F5v collection contour span must mention ${fragment}`);
+}
+const detailedF5v = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection contour span boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5v is the first collection-backed topology read",
+    "does not re-read endpoint bytes",
+    "does not call the F4 byte-backed contour span helpers",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError:",
+    "call collection_read_item exactly once for that item",
+    "validate item.point.glyph == capacity.glyph",
+    "validate item.point.point_index == item_index",
+    "validate item.kind == kind_from_point item.point",
+    "require observed_contour_count == capacity.contour_count",
+    "require last_endpoint == capacity.point_count - 1",
+    "FinalContourEndMismatch",
+]) {
+    assert(detailedF5v.includes(fragment), `font detailed design F5v collection contour span must mention ${fragment}`);
+}
+const implementationPlanF5v = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5v: sfnt simple glyph outline point stream item collection contour span"),
+);
+for (const fragment of [
+    "Tesla plan review は 1 回目 `PLAN_BLOCKED`",
+    "FinalContourEndMismatch",
+    "endpoint `[1, 2]` forged topology doctest",
+    "修正後の計画は Tesla review で `PLAN_APPROVED`",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span",
+    "last_endpoint_index == point_count - 1",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md",
+]) {
+    assert(implementationPlanF5v.includes(fragment), `font implementation plan F5v must mention ${fragment}`);
+}
+const pointStreamItemCollectionContourSpanTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind:",
+    "InvalidCapacity",
+    "CollectionLengthMismatch",
+    "CollectionCapacityMismatch",
+    "CollectionIncomplete",
+    "ContourIndexOutOfRange",
+    "ItemReadFailed",
+    "ItemGlyphMismatch",
+    "ItemIndexMismatch",
+    "ItemKindMismatch",
+    "MissingContourEnd",
+    "ContourCountMismatch",
+    "FinalContourEndMismatch",
+    "ContourSpanInvariantInvalid",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError:",
+    "last_endpoint_index %i32",
+    "read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError",
+    "item %Option GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span",
+]) {
+    assert(pointStreamItemCollectionContourSpanTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5v contour span API must include ${fragment}`);
+}
+const pointStreamItemCollectionContourSpanPublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+    "let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection",
+    "let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection",
+    "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind::CollectionIncomplete",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind::ContourIndexOutOfRange",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection current_item_index",
+    "gui_sfnt_simple_glyph_point_glyph &point",
+    "gui_sfnt_simple_glyph_point_index &point",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_kind_is_endpoint kind",
+    "set target_found true",
+    "set target_start_point_index add previous_endpoint_index 1",
+    "set target_end_point_index current_item_index",
+    "set last_endpoint_index current_item_index",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind::MissingContourEnd",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind::ContourCountMismatch",
+    "let expected_last_endpoint_index %i32 sub point_count 1",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind::FinalContourEndMismatch",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanErrorKind::ContourSpanInvariantInvalid",
+    "Result::Ok gui_sfnt_simple_glyph_contour_span glyph contour_index target_start_point_index target_end_point_index span_point_count",
+]) {
+    assert(pointStreamItemCollectionContourSpanPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5v contour span body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionContourSpanPublic,
+    [
+        "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity:",
+        "if ne items_len item_count:",
+        "if ne items_cap point_count:",
+        "if ne item_count point_count:",
+        "if or lt contour_index 0 ge contour_index contour_count:",
+        "while not done:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection current_item_index",
+        "if ne item_glyph_raw glyph_raw:",
+        "if ne point_index current_item_index:",
+        "if not gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item:",
+        "if not target_found:",
+        "if ne observed_contour_count contour_count:",
+        "let expected_last_endpoint_index %i32 sub point_count 1",
+        "if ne last_endpoint_index expected_last_endpoint_index:",
+        "let span_point_count %i32 add sub target_end_point_index target_start_point_index 1",
+        "Result::Ok gui_sfnt_simple_glyph_contour_span glyph contour_index target_start_point_index target_end_point_index span_point_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5v must validate collection, scan all items, check contour count and final endpoint before returning a span",
+);
+assertNoMatch(
+    pointStreamItemCollectionContourSpanPublic,
+    /\b(?:vec::|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5v contour span public body must not use direct Vec, byte-backed lookup, drains, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionContourSpanPublic,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5v contour span public body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("span_success_two_contours_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("span_partial_collection_rejected_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("span_contour_index_out_of_range_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("span_contour_count_mismatch_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("span_final_endpoint_mismatch_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("span_missing_contour_end_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionContourSpanTests.includes("FinalContourEndMismatch"),
+    "F5v point stream item collection contour span focused doctest must cover success, partial collection, contour range, count mismatch, final endpoint mismatch, and missing endpoint",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
