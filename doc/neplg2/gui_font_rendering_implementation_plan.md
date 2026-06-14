@@ -2172,6 +2172,16 @@ git diff --check
 
 - F5a の capacity / owner recovery contract を保ったまま、owner-taking storage API、outline point stream、raster mask、render2d command へ順に接続する。
 - 未対応 feature は typed unsupported として返す。
+- F5b 以降の outline doctest は timeout と責務混在を避けるため、phase ごとの専用ファイルに分ける。
+  - F5b storage owner: `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md`
+  - F5c scalar push: `tests/stdlib/gui_font_sfnt_glyf_outline_scalar_push.n.md`
+  - F5d region cursor: `tests/stdlib/gui_font_sfnt_glyf_outline_region_cursor.n.md`
+  - F5e/F5f contour endpoint: `tests/stdlib/gui_font_sfnt_glyf_outline_contour_endpoint.n.md`
+  - F5g PointX population: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x.n.md`
+  - F5h PointX reader bridge success: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_success.n.md`
+  - F5h PointX reader bridge read failure: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_read_failure.n.md`
+  - F5h PointX reader bridge push failure: `tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_push_failure.n.md`
+  - F5i/F5j PointY: `tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md`
 
 ## Phase F5b: sfnt simple glyph outline scalar storage owner
 
@@ -2246,7 +2256,7 @@ git diff --check
 - `Result::Ok next_slots` は `GuiSfntSimpleGlyphOutlineStorage capacity next_slots scalar_slot_count` を返す。
 - `Result::Err e` は `vec::vec_push_error_kind &e` を先に読み、その後 `vec::vec_push_error_vec e` で returned slots を取り出し、returned storage と rejected scalar value と error kind を `GuiSfntSimpleGlyphOutlineStoragePushError` に入れて返す。
 - F5c push helper は `vec::with_capacity`、`vec::free`、`vec::filled`、`vec::replace`、`vec::pop` を直接呼ばない。
-- doctest は existing outline storage test file に success push と synthetic error recovery を追加する。real OOM は誘発しない。
+- doctest は dedicated scalar push test file に success push と synthetic error recovery を追加する。real OOM は誘発しない。
 
 完了条件:
 
@@ -2258,7 +2268,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_scalar_push.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_scalar_push.json -j 1
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
@@ -2314,7 +2324,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_region_cursor.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_region_cursor.json -j 1
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
@@ -2356,7 +2366,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_contour_endpoint.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_contour_endpoint.json -j 1
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
@@ -2394,7 +2404,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_contour_endpoint.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_contour_endpoint.json -j 1
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
@@ -2434,7 +2444,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_x.json -j 1
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
@@ -2477,7 +2487,9 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5h.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_success.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_x_reader_success_f5h.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_read_failure.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_x_reader_read_failure_f5h.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_push_failure.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_x_reader_push_failure_f5h.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5h.json -j 1
 git diff --check
 ```
@@ -2517,7 +2529,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5j.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_y_f5i.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5j.json -j 1
 git diff --check
 ```
@@ -2561,7 +2573,7 @@ git diff --check
 
 ```powershell
 node nodesrc/test_web_gui_font_rendering_contract.js
-$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5j.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_y_f5j.json -j 1
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5j.json -j 1
 git diff --check
 ```

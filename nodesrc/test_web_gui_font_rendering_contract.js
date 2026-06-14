@@ -91,19 +91,118 @@ const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
-const guiFontSfntOutlineStorageTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md");
+const guiFontSfntOutlineStorageOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md");
+const guiFontSfntOutlineScalarPushTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_scalar_push.n.md");
+const guiFontSfntOutlineRegionCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_region_cursor.n.md");
+const guiFontSfntOutlineContourEndpointTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_contour_endpoint.n.md");
+const guiFontSfntOutlinePointXTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_x.n.md");
+const guiFontSfntOutlinePointXReaderSuccessTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_success.n.md");
+const guiFontSfntOutlinePointXReaderReadFailureTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_read_failure.n.md");
+const guiFontSfntOutlinePointXReaderPushFailureTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_x_reader_push_failure.n.md");
 const guiFontSfntOutlinePointYTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
     guiFontSfntOutlineCapacityTests,
-    guiFontSfntOutlineStorageTests,
+    guiFontSfntOutlineStorageOwnerTests,
+    guiFontSfntOutlineScalarPushTests,
+    guiFontSfntOutlineRegionCursorTests,
+    guiFontSfntOutlineContourEndpointTests,
+    guiFontSfntOutlinePointXTests,
+    guiFontSfntOutlinePointXReaderSuccessTests,
+    guiFontSfntOutlinePointXReaderReadFailureTests,
+    guiFontSfntOutlinePointXReaderPushFailureTests,
     guiFontSfntOutlinePointYTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
 ].join("\n");
+for (const fragment of [
+    "outline_storage_success_ok",
+    "outline_storage_invalid_capacity_precedes_limit_ok",
+    "outline_storage_limit_reject_ok",
+    "outline_storage_scalar_overflow_ok",
+]) {
+    assert(guiFontSfntOutlineStorageOwnerTests.includes(fragment), `F5b storage owner doctest must include ${fragment}`);
+}
+for (const fragment of [
+    "outline_storage_push_success_ok",
+    "outline_storage_push_error_recovery_ok",
+]) {
+    assert(guiFontSfntOutlineScalarPushTests.includes(fragment), `F5c scalar push doctest must include ${fragment}`);
+}
+for (const fragment of [
+    "outline_region_cursor_boundaries_ok",
+    "outline_region_push_success_ok",
+    "outline_region_full_ok",
+    "outline_region_storage_cursor_mismatch_ok",
+]) {
+    assert(guiFontSfntOutlineRegionCursorTests.includes(fragment), `F5d region cursor doctest must include ${fragment}`);
+}
+for (const fragment of [
+    "contour_endpoint_push_success_ok",
+    "contour_endpoint_non_final_last_point_rejected_ok",
+    "contour_endpoint_final_mismatch_ok",
+    "contour_endpoint_cursor_region_mismatch_ok",
+    "contour_endpoint_read_push_success_ok",
+    "contour_endpoint_read_failure_recovers_owner_ok",
+    "contour_endpoint_read_push_failure_preserves_endpoint_ok",
+]) {
+    assert(guiFontSfntOutlineContourEndpointTests.includes(fragment), `F5e/F5f contour endpoint doctest must include ${fragment}`);
+}
+for (const fragment of [
+    "point_x_push_success_ok",
+    "point_x_index_mismatch_ok",
+    "point_x_wrong_region_ok",
+]) {
+    assert(guiFontSfntOutlinePointXTests.includes(fragment), `F5g PointX population doctest must include ${fragment}`);
+}
+assert(
+    guiFontSfntOutlinePointXReaderSuccessTests.includes("point_x_read_push_success_ok"),
+    "F5h PointX reader success doctest must include point_x_read_push_success_ok",
+);
+assert(
+    guiFontSfntOutlinePointXReaderReadFailureTests.includes("point_x_read_failure_recovers_owner_ok"),
+    "F5h PointX reader read failure doctest must include point_x_read_failure_recovers_owner_ok",
+);
+assert(
+    guiFontSfntOutlinePointXReaderPushFailureTests.includes("point_x_read_push_failure_preserves_point_ok"),
+    "F5h PointX reader push failure doctest must include point_x_read_push_failure_preserves_point_ok",
+);
+for (const fragment of [
+    "outline_storage_push_success_ok",
+    "outline_region_cursor_boundaries_ok",
+    "contour_endpoint_push_success_ok",
+    "contour_endpoint_read_push_success_ok",
+    "point_x_push_success_ok",
+    "point_x_read_push_success_ok",
+    "point_y_push_success_ok",
+]) {
+    assert(!guiFontSfntOutlineStorageOwnerTests.includes(fragment), `F5b storage owner doctest must not include later outline test ${fragment}`);
+}
+for (const fragment of [
+    "point_x_read_push_success_ok",
+    "point_x_read_failure_recovers_owner_ok",
+    "point_x_read_push_failure_preserves_point_ok",
+]) {
+    assert(!guiFontSfntOutlinePointXTests.includes(fragment), `F5g PointX population doctest must not include reader bridge test ${fragment}`);
+}
+assert(
+    !guiFontSfntOutlinePointXReaderSuccessTests.includes("point_x_read_failure_recovers_owner_ok") &&
+        !guiFontSfntOutlinePointXReaderSuccessTests.includes("point_x_read_push_failure_preserves_point_ok"),
+    "F5h PointX reader success doctest must not include failure scenarios",
+);
+assert(
+    !guiFontSfntOutlinePointXReaderReadFailureTests.includes("point_x_read_push_success_ok") &&
+        !guiFontSfntOutlinePointXReaderReadFailureTests.includes("point_x_read_push_failure_preserves_point_ok"),
+    "F5h PointX reader read failure doctest must not include success or push failure scenarios",
+);
+assert(
+    !guiFontSfntOutlinePointXReaderPushFailureTests.includes("point_x_read_push_success_ok") &&
+        !guiFontSfntOutlinePointXReaderPushFailureTests.includes("point_x_read_failure_recovers_owner_ok"),
+    "F5h PointX reader push failure doctest must not include success or read failure scenarios",
+);
 const webFontResourceVfs = read("web/src/gui-font/font-resource-vfs.ts");
 const webMain = read("web/src/main.ts");
 const webPanelManager = read("web/src/workspace/panel-manager.ts");
@@ -4021,10 +4120,10 @@ assert(
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check %fn &GuiSfntSimpleGlyphOutlineStorageCapacity GuiSfntSimpleGlyphOutlineScalarSlotCountCheck") &&
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_alloc %impure fn &GuiSfntSimpleGlyphOutlineStorageCapacity impure fn &GuiSfntSimpleGlyphOutlineStorageLimit Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorageAllocError") &&
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_free %impure fn GuiSfntSimpleGlyphOutlineStorage unit") &&
-        guiFontSfntOutlineStorageTests.includes("outline_storage_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_storage_invalid_capacity_precedes_limit_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_storage_limit_reject_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_storage_scalar_overflow_ok"),
+        guiFontSfntOutlineStorageOwnerTests.includes("outline_storage_success_ok") &&
+        guiFontSfntOutlineStorageOwnerTests.includes("outline_storage_invalid_capacity_precedes_limit_ok") &&
+        guiFontSfntOutlineStorageOwnerTests.includes("outline_storage_limit_reject_ok") &&
+        guiFontSfntOutlineStorageOwnerTests.includes("outline_storage_scalar_overflow_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5b outline storage helpers",
 );
 const outlineStorageShapeIsValid = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid");
@@ -4147,8 +4246,8 @@ assert(
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error_storage %fn GuiSfntSimpleGlyphOutlineStoragePushError GuiSfntSimpleGlyphOutlineStorage") &&
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error_with <.R> %impure fn GuiSfntSimpleGlyphOutlineStoragePushError impure fn impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 impure fn StdErrorKind .R .R") &&
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_scalar_slot %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStoragePushError") &&
-        guiFontSfntOutlineStorageTests.includes("outline_storage_push_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_storage_push_error_recovery_ok"),
+        guiFontSfntOutlineScalarPushTests.includes("outline_storage_push_success_ok") &&
+        guiFontSfntOutlineScalarPushTests.includes("outline_storage_push_error_recovery_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5c push helpers",
 );
 const outlineStoragePushScalarSlot = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_scalar_slot");
@@ -4244,10 +4343,10 @@ assertNoMatch(
 assert(
     allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphOutlineScalarRegion Result GuiSfntSimpleGlyphOutlineScalarRegionCursor StdErrorKind") &&
         allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_region_scalar %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 Result GuiSfntSimpleGlyphOutlineRegionPush GuiSfntSimpleGlyphOutlineRegionPushError") &&
-        guiFontSfntOutlineStorageTests.includes("outline_region_cursor_boundaries_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_region_push_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_region_full_ok") &&
-        guiFontSfntOutlineStorageTests.includes("outline_region_storage_cursor_mismatch_ok"),
+        guiFontSfntOutlineRegionCursorTests.includes("outline_region_cursor_boundaries_ok") &&
+        guiFontSfntOutlineRegionCursorTests.includes("outline_region_push_success_ok") &&
+        guiFontSfntOutlineRegionCursorTests.includes("outline_region_full_ok") &&
+        guiFontSfntOutlineRegionCursorTests.includes("outline_region_storage_cursor_mismatch_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5d region cursor helpers",
 );
 const outlineRegionCursorTryFromCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity");
@@ -4393,10 +4492,10 @@ assertNoMatch(
 );
 assert(
     allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphContourEndpointSlot impure fn Option i32 Result GuiSfntSimpleGlyphContourEndpointPush GuiSfntSimpleGlyphContourEndpointPushError") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_push_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_non_final_last_point_rejected_ok") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_final_mismatch_ok") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_cursor_region_mismatch_ok"),
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_push_success_ok") &&
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_non_final_last_point_rejected_ok") &&
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_final_mismatch_ok") &&
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_cursor_region_mismatch_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5e contour endpoint helpers",
 );
 const contourEndpointPublicPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint");
@@ -4556,9 +4655,9 @@ assertNoMatch(
 );
 assert(
     allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_glyf_read_push_contour_endpoint %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphTopology impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 impure fn Option i32 Result GuiSfntSimpleGlyphContourEndpointReadPush GuiSfntSimpleGlyphContourEndpointReadPushError") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_read_push_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_read_failure_recovers_owner_ok") &&
-        guiFontSfntOutlineStorageTests.includes("contour_endpoint_read_push_failure_preserves_endpoint_ok"),
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_read_push_success_ok") &&
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_read_failure_recovers_owner_ok") &&
+        guiFontSfntOutlineContourEndpointTests.includes("contour_endpoint_read_push_failure_preserves_endpoint_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5f byte-backed contour endpoint bridge",
 );
 const contourEndpointReadPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_push_contour_endpoint");
@@ -4642,9 +4741,9 @@ assertNoMatch(
 );
 assert(
     allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_point_x %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn GuiSfntSimpleGlyphPointXSlot Result GuiSfntSimpleGlyphPointXPush GuiSfntSimpleGlyphPointXPushError") &&
-        guiFontSfntOutlineStorageTests.includes("point_x_push_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("point_x_index_mismatch_ok") &&
-        guiFontSfntOutlineStorageTests.includes("point_x_wrong_region_ok"),
+        guiFontSfntOutlinePointXTests.includes("point_x_push_success_ok") &&
+        guiFontSfntOutlinePointXTests.includes("point_x_index_mismatch_ok") &&
+        guiFontSfntOutlinePointXTests.includes("point_x_wrong_region_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5g PointX helpers",
 );
 const pointXPublicPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_point_x");
@@ -4836,9 +4935,9 @@ assertNoMatch(
 );
 assert(
     allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_glyf_read_push_point_x %impure fn &ByteBuf impure fn GuiSfntTableRecord impure fn GuiSfntSimpleGlyphPointStream impure fn GuiSfntSimpleGlyphOutlineStorage impure fn GuiSfntSimpleGlyphOutlineScalarRegionCursor impure fn i32 Result GuiSfntSimpleGlyphPointXReadPush GuiSfntSimpleGlyphPointXReadPushError") &&
-        guiFontSfntOutlineStorageTests.includes("point_x_read_push_success_ok") &&
-        guiFontSfntOutlineStorageTests.includes("point_x_read_failure_recovers_owner_ok") &&
-        guiFontSfntOutlineStorageTests.includes("point_x_read_push_failure_preserves_point_ok"),
+        guiFontSfntOutlinePointXReaderSuccessTests.includes("point_x_read_push_success_ok") &&
+        guiFontSfntOutlinePointXReaderReadFailureTests.includes("point_x_read_failure_recovers_owner_ok") &&
+        guiFontSfntOutlinePointXReaderPushFailureTests.includes("point_x_read_push_failure_preserves_point_ok"),
     "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5h PointX read-push helper",
 );
 const pointXReadPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_read_push_point_x");
