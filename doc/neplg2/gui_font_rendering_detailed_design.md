@@ -2057,6 +2057,57 @@ If any term is larger than the remaining capacity, the result is `ScalarSlotCoun
 
 Allocation failure returns `ScalarSlotStorageAllocFailed` with `capacity_check = Some checked`. Since F5b owns only one `Vec i32`, there is no partially allocated multi-owner aggregate to recover. `gui_sfnt_simple_glyph_outline_storage_free` consumes the storage and calls `vec::free` once.
 
+## SFNT simple glyph outline scalar slot mutation boundary
+
+F5c is the first mutation boundary for `GuiSfntSimpleGlyphOutlineStorage`. It only appends an i32 scalar slot value to the owner-backed `scalar_slots` table. It does not decide which logical region the value belongs to, and it does not decode point bytes, synthesize contour closure, emit path commands, rasterize, render, or call host/platform APIs.
+
+The public mutation result is:
+
+```text
+push_scalar_slot storage value:
+    Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStoragePushError
+```
+
+The error payload is owner-preserving:
+
+```text
+GuiSfntSimpleGlyphOutlineStoragePushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    scalar_value i32
+    error StdErrorKind
+```
+
+`scalar_value` is Copy, but it is still stored explicitly in the error payload. This keeps the API shape consistent with `VecPushError`: failure returns both the input owner and the rejected item, rather than relying on caller-local variables or hidden cleanup.
+
+Implementation order:
+
+```text
+capacity = storage.capacity
+scalar_slot_count = storage.scalar_slot_count
+scalar_slots = storage.scalar_slots
+push_result = vec::push scalar_slots value
+
+Ok next_slots:
+    Ok Storage capacity next_slots scalar_slot_count
+
+Err e:
+    error_kind = vec_push_error_kind &e
+    returned_slots = vec_push_error_vec e
+    returned_storage = Storage capacity returned_slots scalar_slot_count
+    Err PushError returned_storage value error_kind
+```
+
+The error kind must be read before consuming `e` with `vec_push_error_vec`. F5c does not call `vec::with_capacity`, `vec::free`, `vec::filled`, `vec::replace`, or `vec::pop`; allocation growth remains inside `vec::push`, and cleanup remains the caller's explicit responsibility through the F5b free helper.
+
+The recovery API has two forms:
+
+```text
+push_error_storage error -> storage owner
+push_error_with error callback -> callback storage scalar_value error_kind
+```
+
+The consuming storage accessor is convenient for Copy scalar payloads. The eliminator preserves the pattern used by owner-bearing collection APIs and is the preferred shape if later push errors carry non-Copy payloads.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

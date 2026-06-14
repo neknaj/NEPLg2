@@ -650,6 +650,75 @@ pub fn gui_sfnt_simple_glyph_outline_storage_alloc %impure fn &GuiSfntSimpleGlyp
 pub fn gui_sfnt_simple_glyph_outline_storage_free %impure fn GuiSfntSimpleGlyphOutlineStorage unit \storage:
     vec::free field::get storage "scalar_slots"
 
+//: GuiSfntSimpleGlyphOutlineStoragePushError: scalar slot push [失敗/しっぱい]時の owner recovery payload
+//:
+//: [目的/もくてき]:
+//: - push に[失敗/しっぱい]したとき、storage owner と rejected scalar value を同じ error payload に[戻/もど]します。
+//: - error kind は `StdErrorKind` として[分離/ぶんり]し、owner recovery と診断分類を別に[扱/あつか]えるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlineStoragePushError:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    scalar_value %i32
+    error %StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_storage_push_error: push error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_error %fn GuiSfntSimpleGlyphOutlineStorage fn i32 fn StdErrorKind GuiSfntSimpleGlyphOutlineStoragePushError \storage\scalar_value\error:
+    GuiSfntSimpleGlyphOutlineStoragePushError storage scalar_value error
+
+//: gui_sfnt_simple_glyph_outline_storage_push_error_kind: push error kind を owner を[動/うご]かさず[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_error_kind %fn &GuiSfntSimpleGlyphOutlineStoragePushError StdErrorKind \error:
+    *field::get_ref error "error"
+
+//: gui_sfnt_simple_glyph_outline_storage_push_error_scalar_value: rejected scalar value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_error_scalar_value %fn &GuiSfntSimpleGlyphOutlineStoragePushError i32 \error:
+    *field::get_ref error "scalar_value"
+
+//: gui_sfnt_simple_glyph_outline_storage_push_error_storage: push error から storage owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_error_storage %fn GuiSfntSimpleGlyphOutlineStoragePushError GuiSfntSimpleGlyphOutlineStorage \error:
+    field::get error "storage"
+
+//: gui_sfnt_simple_glyph_outline_storage_push_error_with: storage owner、scalar value、error kind を同じ callback に[渡/わた]す
+//:
+//: [目的/もくてき]:
+//: - caller が push failure を cleanup、retry、diagnostic 変換のどれに使う場合でも、owner と rejected value を同じ control-flow で[扱/あつか]えるようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_error_with <.R> %impure fn GuiSfntSimpleGlyphOutlineStoragePushError impure fn impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 impure fn StdErrorKind .R .R \error\callback:
+    let storage %GuiSfntSimpleGlyphOutlineStorage field::get error "storage"
+    let scalar_value %i32 field::get error "scalar_value"
+    let error_kind %StdErrorKind field::get error "error"
+    callback storage scalar_value error_kind
+
+//: gui_sfnt_simple_glyph_outline_storage_push_scalar_slot: scalar slot value を[末尾/まつび]へ[追加/ついか]する
+//:
+//: [目的/もくてき]:
+//: - F5b storage owner を[消費/しょうひ]し、scalar slot table へ value を 1 件 push した storage owner を[返/かえ]します。
+//: - push に[失敗/しっぱい]した[場合/ばあい]は、returned storage owner と rejected value と error kind を error payload に[戻/もど]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_push_scalar_slot %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStoragePushError \storage\value:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity field::get storage "capacity"
+    let scalar_slot_count %i32 field::get storage "scalar_slot_count"
+    let scalar_slots %Vec i32 field::get storage "scalar_slots"
+    match vec::push scalar_slots value:
+        Result::Ok next_slots:
+            Result::Ok GuiSfntSimpleGlyphOutlineStorage capacity next_slots scalar_slot_count
+        Result::Err e:
+            let error_kind %StdErrorKind vec::vec_push_error_kind &e
+            let returned_slots %Vec i32 vec::vec_push_error_vec e
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorage capacity returned_slots scalar_slot_count
+            let error %GuiSfntSimpleGlyphOutlineStoragePushError gui_sfnt_simple_glyph_outline_storage_push_error returned_storage value error_kind
+            Result::Err error
+
 //: GuiSfntSimpleGlyphPointStream: simple glyph の raw point stream ranges
 //:
 //: [目的/もくてき]:

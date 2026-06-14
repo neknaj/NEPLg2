@@ -62501,3 +62501,42 @@ MERGE_APPROVED
 
 - F5b は empty scalar slot storage owner までであり、outline point decode、contour endpoint population、path command tag population、owner-preserving builder mutation、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
 - 次 slice では F5b storage owner を消費・返却する builder mutation API を追加し、push 失敗時にも storage owner と rejected scalar value が失われない contract を固定する。
+
+## 2026-06-14 GUI font F5c outline scalar slot push checkpoint
+
+### scope
+
+- branch: `gui-font-outline-storage-push-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、docs、source policy、stdlib 実装、doctest、note を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: F5b と同じく `Result` / enum error、owner recovery、platform 非依存、fallback 禁止、contract と current implementation の分離を維持した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5c の simple glyph outline scalar slot mutation boundary を追加した。
+- F5c は F5b の `GuiSfntSimpleGlyphOutlineStorage` owner に i32 scalar slot value を 1 件 push する mutation boundary であり、slot region の意味づけ、point decode、path command generation、rasterizer、renderer、platform API、host text API には進まない。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlineStoragePushError`、constructor、kind/value/storage accessor、`push_error_with` eliminator、`gui_sfnt_simple_glyph_outline_storage_push_scalar_slot` を追加した。
+- push helper は storage owner から capacity、scalar_slot_count、scalar_slots を取り出し、`vec::push scalar_slots value` を 1 回だけ呼ぶ。
+- success branch は `GuiSfntSimpleGlyphOutlineStorage capacity next_slots scalar_slot_count` を返す。
+- error branch は `vec::vec_push_error_kind &e` を先に読み、その後 `vec::vec_push_error_vec e` で returned slots owner を取り出し、returned storage、rejected scalar value、`StdErrorKind` を `GuiSfntSimpleGlyphOutlineStoragePushError` に入れて返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5c source policy を追加し、docs、push error type、helper signatures、push recovery order、`vec::push` 1 回、push helper 内の `vec::with_capacity` / `vec::free` / `vec::filled` / `vec::replace` / `vec::pop` 禁止、byte/render/raster/platform/host API 禁止を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` に success push 2 件と synthetic push error recovery を追加した。real OOM は誘発していない。
+
+### subagent_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5b の次 slice として妥当で、push failure で storage owner と rejected scalar を返す方針が承認された。
+- Tesla plan review required detail: `vec::free` / `vec::with_capacity` / `pop` / `replace` 禁止は F5c push helper body に scope すること、`vec_push_error_kind &e` を `vec_push_error_vec e` より前に読むこと、storage accessor は error を consume すること、synthetic error recovery path で recovered storage を 1 回だけ free すること。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。実装自体ではなく、AGENTS.md に従った `note.n.md` の F5c current implementation status 記録が未更新と指摘された。現在この section で対応している。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_capacity.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5c は scalar slot push boundary までであり、slot region cursor、region-specific append API、contour endpoint population、x/y coordinate population、edge/path tag population、outline point decode、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では scalar slot storage に typed region cursor を重ね、contour endpoint / x / y / edge / path command tag の region 境界を enum と cursor value で表現する。region overflow は silent no-op ではなく typed error とし、storage owner を返す。

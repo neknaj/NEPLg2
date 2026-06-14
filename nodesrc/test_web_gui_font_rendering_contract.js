@@ -4107,6 +4107,78 @@ assertNoMatch(
     /\b(?:vec::push|vec::pop|vec::filled|vec::replace|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
     "alloc/gui/font/sfnt/glyf F5b free helper must only release owned scalar storage",
 );
+assertMatch(
+    spec,
+    /SFNT simple glyph outline scalar slot mutation[\s\S]*GuiSfntSimpleGlyphOutlineStoragePushError:[\s\S]*storage GuiSfntSimpleGlyphOutlineStorage[\s\S]*scalar_value i32[\s\S]*error StdErrorKind[\s\S]*vec::push[\s\S]*vec_push_error_kind[\s\S]*vec_push_error_vec/,
+    "font spec must define F5c scalar slot mutation and owner-preserving push error",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph outline scalar slot mutation boundary[\s\S]*GuiSfntSimpleGlyphOutlineStoragePushError:[\s\S]*storage GuiSfntSimpleGlyphOutlineStorage[\s\S]*scalar_value i32[\s\S]*error StdErrorKind[\s\S]*error_kind = vec_push_error_kind &e[\s\S]*returned_slots = vec_push_error_vec e/,
+    "font detailed design must define F5c push recovery order",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5c: sfnt simple glyph outline scalar slot push owner recovery[\s\S]*GuiSfntSimpleGlyphOutlineStoragePushError[\s\S]*vec::vec_push_error_kind &e[\s\S]*vec::vec_push_error_vec e[\s\S]*synthetic error recovery/,
+    "font implementation plan must define F5c push owner recovery and tests",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphOutlineStoragePushError:[\s\S]*storage\s+%GuiSfntSimpleGlyphOutlineStorage[\s\S]*scalar_value\s+%i32[\s\S]*error\s+%StdErrorKind/,
+    "alloc/gui/font/sfnt/glyf F5c must expose push error owner payload",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error %fn GuiSfntSimpleGlyphOutlineStorage fn i32 fn StdErrorKind GuiSfntSimpleGlyphOutlineStoragePushError") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error_kind %fn &GuiSfntSimpleGlyphOutlineStoragePushError StdErrorKind") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error_scalar_value %fn &GuiSfntSimpleGlyphOutlineStoragePushError i32") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error_storage %fn GuiSfntSimpleGlyphOutlineStoragePushError GuiSfntSimpleGlyphOutlineStorage") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_error_with <.R> %impure fn GuiSfntSimpleGlyphOutlineStoragePushError impure fn impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 impure fn StdErrorKind .R .R") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_push_scalar_slot %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStoragePushError") &&
+        guiFontSfntOutlineStorageTests.includes("outline_storage_push_success_ok") &&
+        guiFontSfntOutlineStorageTests.includes("outline_storage_push_error_recovery_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5c push helpers",
+);
+const outlineStoragePushScalarSlot = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_scalar_slot");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity field::get storage \"capacity\"",
+    "let scalar_slot_count %i32 field::get storage \"scalar_slot_count\"",
+    "let scalar_slots %Vec i32 field::get storage \"scalar_slots\"",
+    "match vec::push scalar_slots value:",
+    "Result::Ok next_slots:",
+    "Result::Ok GuiSfntSimpleGlyphOutlineStorage capacity next_slots scalar_slot_count",
+    "Result::Err e:",
+    "let error_kind %StdErrorKind vec::vec_push_error_kind &e",
+    "let returned_slots %Vec i32 vec::vec_push_error_vec e",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStorage capacity returned_slots scalar_slot_count",
+    "let error %GuiSfntSimpleGlyphOutlineStoragePushError gui_sfnt_simple_glyph_outline_storage_push_error returned_storage value error_kind",
+]) {
+    assert(outlineStoragePushScalarSlot.includes(fragment), `alloc/gui/font/sfnt/glyf F5c push helper must include ${fragment}`);
+}
+assert(
+    outlineStoragePushScalarSlot.indexOf("let error_kind %StdErrorKind vec::vec_push_error_kind &e") <
+        outlineStoragePushScalarSlot.indexOf("let returned_slots %Vec i32 vec::vec_push_error_vec e"),
+    "alloc/gui/font/sfnt/glyf F5c push helper must read error kind before consuming VecPushError",
+);
+assert(
+    (outlineStoragePushScalarSlot.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5c push helper must call vec::push exactly once",
+);
+assertNoMatch(
+    outlineStoragePushScalarSlot,
+    /\b(?:vec::with_capacity|vec::free|vec::filled|vec::replace|vec::pop|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5c push helper must not allocate/free directly, populate semantic commands, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    outlineStoragePushScalarSlot,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5c push helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineStoragePushErrorWith = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_push_error_with");
+assertMatch(
+    outlineStoragePushErrorWith,
+    /let\s+storage\s+%GuiSfntSimpleGlyphOutlineStorage\s+field::get\s+error\s+"storage"[\s\S]*let\s+scalar_value\s+%i32\s+field::get\s+error\s+"scalar_value"[\s\S]*let\s+error_kind\s+%StdErrorKind\s+field::get\s+error\s+"error"[\s\S]*callback storage scalar_value error_kind/,
+    "alloc/gui/font/sfnt/glyf F5c push error eliminator must pass storage, scalar, and kind together",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

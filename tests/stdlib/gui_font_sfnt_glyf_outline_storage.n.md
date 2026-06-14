@@ -130,10 +130,82 @@ fn outline_storage_scalar_overflow_ok %impure fn void bool \void:
             let check_ok %bool outline_storage_error_has_capacity_check &error
             and kind_ok check_ok
 
+fn outline_storage_push_success_ok %impure fn void bool \void:
+    let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 14
+    let topology %GuiSfntSimpleGlyphTopology make_topology glyph 2 4
+    let limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 8
+    match gui_sfnt_simple_glyph_outline_storage_capacity_from_topology &topology:
+        GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity:
+            match gui_sfnt_simple_glyph_outline_storage_alloc &capacity &limit:
+                Result::Ok storage0:
+                    match gui_sfnt_simple_glyph_outline_storage_push_scalar_slot storage0 17:
+                        Result::Ok storage1:
+                            match gui_sfnt_simple_glyph_outline_storage_push_scalar_slot storage1 23:
+                                Result::Ok storage2:
+                                    let len_ok %bool eq 2 gui_sfnt_simple_glyph_outline_storage_scalar_slots_len &storage2
+                                    let cap_ok %bool eq 22 gui_sfnt_simple_glyph_outline_storage_scalar_slots_cap &storage2
+                                    let count_ok %bool eq 22 gui_sfnt_simple_glyph_outline_storage_scalar_slot_count &storage2
+                                    gui_sfnt_simple_glyph_outline_storage_free storage2
+                                    and len_ok and cap_ok count_ok
+                                Result::Err error2:
+                                    let recovered2 %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_storage_push_error_storage error2
+                                    gui_sfnt_simple_glyph_outline_storage_free recovered2
+                                    false
+                        Result::Err error1:
+                            let recovered1 %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_storage_push_error_storage error1
+                            gui_sfnt_simple_glyph_outline_storage_free recovered1
+                            false
+                Result::Err _error:
+                    false
+        GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology _topology:
+            false
+        GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow _topology:
+            false
+        GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected _rejected:
+            false
+
+fn outline_storage_push_error_recovery_callback %impure fn GuiSfntSimpleGlyphOutlineStorage impure fn i32 impure fn StdErrorKind bool \storage\value\kind:
+    let value_ok %bool eq value 77
+    let kind_ok %bool match kind:
+        StdErrorKind::CapacityExceeded:
+            true
+        _:
+            false
+    gui_sfnt_simple_glyph_outline_storage_free storage
+    and value_ok kind_ok
+
+fn outline_storage_push_error_recovery_ok %impure fn void bool \void:
+    let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 15
+    let topology %GuiSfntSimpleGlyphTopology make_topology glyph 2 4
+    let limit %GuiSfntSimpleGlyphOutlineStorageLimit gui_sfnt_simple_glyph_outline_storage_limit 2 4 4 8
+    match gui_sfnt_simple_glyph_outline_storage_capacity_from_topology &topology:
+        GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity:
+            match gui_sfnt_simple_glyph_outline_storage_alloc &capacity &limit:
+                Result::Ok storage:
+                    let error %GuiSfntSimpleGlyphOutlineStoragePushError gui_sfnt_simple_glyph_outline_storage_push_error storage 77 StdErrorKind::CapacityExceeded
+                    let value_ok %bool eq 77 gui_sfnt_simple_glyph_outline_storage_push_error_scalar_value &error
+                    let kind_ok %bool match gui_sfnt_simple_glyph_outline_storage_push_error_kind &error:
+                        StdErrorKind::CapacityExceeded:
+                            true
+                        _:
+                            false
+                    let recovered_ok %bool gui_sfnt_simple_glyph_outline_storage_push_error_with error @outline_storage_push_error_recovery_callback
+                    and value_ok and kind_ok recovered_ok
+                Result::Err _error:
+                    false
+        GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology _topology:
+            false
+        GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow _topology:
+            false
+        GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected _rejected:
+            false
+
 fn main %impure fn void i32 \void:
     let success_ok %bool outline_storage_success_ok
     let invalid_ok %bool outline_storage_invalid_capacity_precedes_limit_ok
     let reject_ok %bool outline_storage_limit_reject_ok
     let overflow_ok %bool outline_storage_scalar_overflow_ok
-    test_assertion_exit_code assert "outline storage owner contract" and success_ok and invalid_ok and reject_ok overflow_ok
+    let push_ok %bool outline_storage_push_success_ok
+    let push_recovery_ok %bool outline_storage_push_error_recovery_ok
+    test_assertion_exit_code assert "outline storage owner contract" and success_ok and invalid_ok and reject_ok and overflow_ok and push_ok push_recovery_ok
 ```

@@ -1626,6 +1626,47 @@ alloc capacity limit:
 
 shape validation checks `point_count <= 1073741823` before comparing `path_command_count == point_count * 2`。`scalar_slot_count` は i32 上限 `2147483647` から staged residual guard で contour、x、y、edge、path command の順に差し引いて検査する。overflow する場合は allocation を試みない。
 
+### SFNT simple glyph outline scalar slot mutation
+
+F5c は F5b の storage owner に scalar value を 1 件追加する mutation boundary である。F5c は storage の slot region をまだ解釈しない。つまり、contour endpoint slot、x slot、y slot、edge slot、path command tag slot のどれへ入る値かは後続 builder phase が決める。
+
+F5c の責務は次だけである。
+
+```text
+GuiSfntSimpleGlyphOutlineStorage + i32
+    -> Result GuiSfntSimpleGlyphOutlineStorage GuiSfntSimpleGlyphOutlineStoragePushError
+```
+
+push failure は storage owner と rejected scalar value を同時に返す。
+
+```text
+GuiSfntSimpleGlyphOutlineStoragePushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    scalar_value i32
+    error StdErrorKind
+```
+
+`scalar_value` は Copy な i32 であるが、error payload に明示的に残す。caller は cleanup、retry、diagnostic 変換のどれを選ぶ場合でも、storage owner と rejected scalar の両方を同じ `match` branch で扱える。
+
+F5c の push helper は `Vec` の failure surface を隠さず次の順序を守る。
+
+```text
+push_scalar_slot storage value:
+    capacity = storage.capacity
+    scalar_slot_count = storage.scalar_slot_count
+    scalar_slots = storage.scalar_slots
+    match vec::push scalar_slots value:
+        Ok next_slots:
+            Ok Storage capacity next_slots scalar_slot_count
+        Err e:
+            error = vec_push_error_kind e
+            returned_slots = vec_push_error_vec e
+            returned_storage = Storage capacity returned_slots scalar_slot_count
+            Err PushError returned_storage value error
+```
+
+`vec_push_error_kind` は `vec_push_error_vec` が error owner を消費する前に読む。F5c は `vec::push` を 1 回だけ呼び、`vec::with_capacity`、`vec::free`、`vec::filled`、`vec::replace`、`vec::pop` は呼ばない。storage cleanup は F5b の `gui_sfnt_simple_glyph_outline_storage_free` を caller が明示的に呼ぶ。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

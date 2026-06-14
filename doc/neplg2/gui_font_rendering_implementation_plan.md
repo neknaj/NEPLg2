@@ -2222,3 +2222,43 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
+
+## Phase F5c: sfnt simple glyph outline scalar slot push owner recovery
+
+目的:
+
+- F5b の `GuiSfntSimpleGlyphOutlineStorage` owner を消費し、scalar slot value を 1 件追加した owner を返す。
+- `Vec` push failure を `StdErrorKind` だけへ潰さず、storage owner と rejected scalar value を error payload に返す。
+- slot value の意味づけ、point decode、contour endpoint population、path command tag population、renderer、rasterizer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5c docs、push error type、helper signatures、owner recovery、禁止 API、`vec::push` 呼び出し回数を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlineStoragePushError`
+  - `gui_sfnt_simple_glyph_outline_storage_push_error`
+  - `gui_sfnt_simple_glyph_outline_storage_push_error_kind`
+  - `gui_sfnt_simple_glyph_outline_storage_push_error_scalar_value`
+  - `gui_sfnt_simple_glyph_outline_storage_push_error_storage`
+  - `gui_sfnt_simple_glyph_outline_storage_push_error_with`
+  - `gui_sfnt_simple_glyph_outline_storage_push_scalar_slot`
+- push helper は storage owner から capacity、scalar_slot_count、scalar_slots を取り出し、`vec::push scalar_slots value` を 1 回だけ呼ぶ。
+- `Result::Ok next_slots` は `GuiSfntSimpleGlyphOutlineStorage capacity next_slots scalar_slot_count` を返す。
+- `Result::Err e` は `vec::vec_push_error_kind &e` を先に読み、その後 `vec::vec_push_error_vec e` で returned slots を取り出し、returned storage と rejected scalar value と error kind を `GuiSfntSimpleGlyphOutlineStoragePushError` に入れて返す。
+- F5c push helper は `vec::with_capacity`、`vec::free`、`vec::filled`、`vec::replace`、`vec::pop` を直接呼ばない。
+- doctest は existing outline storage test file に success push と synthetic error recovery を追加する。real OOM は誘発しない。
+
+完了条件:
+
+- storage に scalar value を 2 件 push し、`len == 2`、`cap` と `scalar_slot_count` が F5b のまま保たれる。
+- synthetic push error から storage owner、scalar value、error kind を取り出し、recovered storage を 1 回だけ free できる。
+- source policy が F5c docs、型、helper、push の owner recovery、禁止 API、`vec::push` 1 回を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
