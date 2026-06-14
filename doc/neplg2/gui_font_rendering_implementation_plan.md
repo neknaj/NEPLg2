@@ -2262,3 +2262,59 @@ node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --
 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
 git diff --check
 ```
+
+## Phase F5d: sfnt simple glyph outline scalar region cursor
+
+目的:
+
+- F5b/F5c の single `Vec i32` storage owner に、contour endpoint、x、y、edge、path command tag の typed region cursor を追加する。
+- unchecked boundary 計算を public API にせず、capacity shape と scalar slot count overflow を検査してから region start/end を計算する。
+- fixed-capacity outline storage の invariant を守り、region push で Vec growth に依存しない。
+- point decode、path command generation、renderer、rasterizer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5d docs、cursor type、region push result/error type、unchecked helper 非公開、validation order、owner 型の非 Clone / 非 Copy、禁止 API を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlineScalarRegion`
+  - `GuiSfntSimpleGlyphOutlineScalarRegionCursor`
+  - `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity`
+  - non-public `gui_sfnt_simple_glyph_outline_scalar_region_cursor_from_valid_capacity`
+  - `gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed`
+  - non-public cursor/capacity matching helper
+  - `GuiSfntSimpleGlyphOutlineRegionPush`
+  - `GuiSfntSimpleGlyphOutlineRegionPushErrorKind`
+  - `GuiSfntSimpleGlyphOutlineRegionPushError`
+  - `gui_sfnt_simple_glyph_outline_storage_push_region_scalar`
+- `try_from_capacity` は `shape_is_valid` と `scalar_slot_count_check` が成功した後でだけ raw boundary helper を呼ぶ。
+- `push_region_scalar` は capacity、`scalar_slot_count`、`scalar_slots_len`、`scalar_slots_cap` を先に読み、次の順序で検査する。
+  - capacity shape
+  - scalar slot count `Fits`
+  - `scalar_slot_count == expected`
+  - `scalar_slots_cap == scalar_slot_count`
+  - cursor well-formed
+  - cursor region/start/end match
+  - `scalar_slots_len == cursor.next_index`
+  - `cursor.next_index < cursor.end`
+  - F5c `gui_sfnt_simple_glyph_outline_storage_push_scalar_slot` を 1 回だけ呼ぶ
+- `scalar_slots_len == cursor.next_index` は `RegionFull` より前に検査する。
+- `GuiSfntSimpleGlyphOutlineRegionPush` と `GuiSfntSimpleGlyphOutlineRegionPushError` は storage owner を持つため `Clone` / `Copy` を実装しない。
+- doctest は cursor boundary、region push success、region full、storage cursor mismatch を追加する。
+- 実装後に subagent review を受け、指摘があれば修正する。
+
+完了条件:
+
+- 2 contours / 4 points の capacity から、region cursor が `0..2`、`2..6`、`6..10`、`10..14`、`14..22` を返す。
+- contour endpoint region に 2 件 push でき、storage len と cursor next index が 2 になる。
+- full region への追加は storage owner と rejected scalar value を保持した `RegionFull` になる。
+- empty storage に full cursor を渡す forged case は `StorageCursorMismatch` になる。
+- source policy が unchecked public helper、validation order、fixed Vec cap invariant、F5c push 呼び出し回数、禁止 API、owner 型の非 Clone / 非 Copy を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
