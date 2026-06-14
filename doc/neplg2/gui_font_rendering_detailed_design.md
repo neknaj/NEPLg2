@@ -1325,6 +1325,34 @@ policy reject
 
 F4x must not call `gui_sfnt_lookup_simple_glyph_contour_span`, `gui_sfnt_lookup_simple_glyph_path_sink_step`, F4s contour-step lookup, lower point/curve/path helpers, metadata parser, internal table helpers, renderer/platform APIs, rasterizers, host font measurement, or font fallback.
 
+### SFNT simple glyph path sink action step advance
+
+F4y resolves one `GuiSfntSimpleGlyphPathSinkActionNext` value into either a checked next action step or a typed contour terminal state:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionStep
+    EndContour
+```
+
+The type is separate from `GuiSfntSimpleGlyphPathSinkActionNext` because `Next` contains only the next cursor, while `StepAdvance` contains the byte-backed lookup result for that cursor. Returning `Option GuiSfntSimpleGlyphPathSinkActionStep` would lose the domain reason for termination, and returning `Result::Err` for `EndContour` would confuse a successful terminal state with malformed font data.
+
+The helper is a one-step state transition:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance bytes face_index step policy
+    -> next = gui_sfnt_simple_glyph_path_sink_action_step_next step
+    -> match next
+        Continue cursor:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy
+                Err error -> Err error
+                Ok next_step -> Ok Continue next_step
+        EndContour:
+            Ok EndContour
+```
+
+F4y does not inspect `step.action`, primary action, tail action, or unified action payload variants. `Reject`, `NoAction`, and `CloseContour` are payloads for a future consumer; they do not change the traversal rule. F4y must not loop, allocate a command list, mutate a sink, repair contours, rasterize, or present to any platform.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

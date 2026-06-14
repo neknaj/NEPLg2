@@ -1814,6 +1814,25 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_step_action %fn &GuiSfntSimpleGlyp
 pub fn gui_sfnt_simple_glyph_path_sink_action_step_next %fn &GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphPathSinkActionNext \step:
     *field::get_ref step "next"
 
+//: GuiSfntSimpleGlyphPathSinkActionStepAdvance: 1 action step 進めた結果
+//:
+//: [目的/もくてき]:
+//: - `Continue` は byte-backed lookup 済みの次 action step を[持/も]ちます。
+//: - `EndContour` は contour 内 action stream の終端を成功値として[表/あらわ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    Continue %GuiSfntSimpleGlyphPathSinkActionStep
+    EndContour
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphPathSinkActionStepAdvance \advance:
+        *advance
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionStepAdvance:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphPathSinkActionStepAdvance \advance:
+        advance
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3616,3 +3635,26 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_step %fn &ByteBuf fn 
             Result::Err error
         Result::Ok action_step:
             Result::Ok action_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance: action step を 1 つ[進/すす]める
+//:
+//: [目的/もくてき]:
+//: - 現在 step の typed next state を[読/よ]み、次 step または `EndContour` を[返/かえ]します。
+//: - parse/range error は `Result::Err` で伝播し、contour 終端は `Result::Ok EndContour` として[返/かえ]します。
+//:
+//: [注意/ちゅうい]:
+//: - action payload は見ません。`Reject`、`NoAction`、`CloseContour` の処理は consumer の責務です。
+//: - `Continue` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step` に委譲します。
+//: - loop traversal、full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntParseError \bytes\face_index\step\policy:
+    match gui_sfnt_simple_glyph_path_sink_action_step_next step:
+        GuiSfntSimpleGlyphPathSinkActionNext::Continue cursor:
+            match gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_step:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step
+        GuiSfntSimpleGlyphPathSinkActionNext::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour

@@ -1106,6 +1106,49 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4y: sfnt simple glyph path sink action step advance
+
+目的:
+
+- F4v の `GuiSfntSimpleGlyphPathSinkActionStep.next` を 1 段だけ進める byte-backed helper を追加する。
+- `Continue cursor` は checked action step lookup で次 step に解決し、`EndContour` は成功値として返す。
+- contour 終端を `Option::None` や `Result::Err` で表さない。
+- loop traversal、real sink、full outline allocation、command list、renderer、rasterizer、platform API は導入しない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionStepAdvance`
+  - `Clone` / `Copy`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance`
+- `GuiSfntSimpleGlyphPathSinkActionStepAdvance` は `Continue GuiSfntSimpleGlyphPathSinkActionStep` / `EndContour` を持つ。
+- helper は `gui_sfnt_simple_glyph_path_sink_action_step_next step` を読み、`match` する。
+- `Continue cursor` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index cursor policy` を 1 回呼ぶ。
+- `Result::Err error` はそのまま伝播し、`Result::Ok next_step` は `GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step` に包む。
+- `EndContour` は `Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour` として返す。
+- helper は action payload を見ない。`GuiSfntSimpleGlyphPathSinkAction::Reject`、`NoAction`、`CloseContour` などで traversal を変えない。
+- helper は start cursor/start step helper、sink action lookup、sink step lookup、contour step lookup、F4s/F4t より下位の lookup、metadata parser、`*_with_tables`、`Vec`、`push`、renderer、rasterizer、platform API を直接呼ばない。
+- Source policy で F4y enum、Clone/Copy、helper body、下位 lookup 1 回、禁止 helper、payload inspection 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` を拡張する。
+  - cheap assertion で `GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour` が成功 terminal enum として `match` できることを確認する。
+  - skipped byte-backed fixture で `start_step -> advance` が `Continue next_step` を返し、next step cursor が same contour/edge/event の `Tail` であることを確認する。
+
+完了条件:
+
+- action step advance は `Continue next_step` / `EndContour` の typed enum で表現される。
+- `Result` は byte parse/range/table error の伝播にだけ使われ、contour 終端や policy reject を error にしない。
+- traversal は `step.next` だけから決まり、action payload を読まない。
+- hidden fallback、silent no-op、renderer/backend/platform dependency を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
