@@ -3596,3 +3596,23 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor %fn &ByteBuf f
         Result::Ok _span:
             let start_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
             Result::Ok start_cursor
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_step: contour の first action step を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - contour-local action stream の開始 cursor を[作/つく]り、既存の action step lookup に[渡/わた]します。
+//: - parse/range error は `Result::Err` で伝播し、policy reject は `Result::Ok` の action payload に残します。
+//:
+//: [注意/ちゅうい]:
+//: - 二重の contour span 検証を避けるため、byte-backed start cursor helper ではなく pure start cursor helper を使います。
+//: - 検証と action step 構築は `gui_sfnt_lookup_simple_glyph_path_sink_action_step` に委譲します。
+//: - full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_step %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntParseError \bytes\face_index\glyph\contour_index\policy:
+    let start_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index start_cursor policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok action_step:
+            Result::Ok action_step

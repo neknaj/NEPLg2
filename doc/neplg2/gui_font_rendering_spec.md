@@ -978,6 +978,28 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor:
 
 この分離により、開始位置の型構成は cheap test で確認でき、byte 妥当性は既存 contour span contract に集約される。pure constructor が contour の存在や byte 妥当性を証明するものとして document してはならない。
 
+### SFNT simple glyph path sink action start step
+
+F4x は F4w の start cursor と F4v の action step lookup を接続し、contour の first action step を読む convenience entry point を追加する段階である。これは contour stream、real sink、full outline allocation、command list、renderer、rasterizer ではない。
+
+public helper は次である。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_step:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntParseError
+```
+
+この helper は `gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index` で unchecked start cursor を作り、`gui_sfnt_lookup_simple_glyph_path_sink_action_step bytes face_index start_cursor policy` を 1 回だけ呼ぶ。byte-backed start cursor helper は呼ばない。理由は、`gui_sfnt_lookup_simple_glyph_path_sink_action_step` が既に F4t/F4s 経由で contour span 検証、edge range 検証、path command lookup、policy decision を行うためである。ここで byte-backed start cursor helper を先に呼ぶと contour span 検証が二重になる。
+
+`Result::Err` は下位 action step lookup の parse/range error をそのまま伝播する。policy reject は `Result::Err` ではなく `Result::Ok GuiSfntSimpleGlyphPathSinkActionStep` の `action = Reject` payload として残る。F4x は error taxonomy を変更してはならない。
+
+F4x は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor`、`gui_sfnt_lookup_simple_glyph_contour_span`、`gui_sfnt_lookup_simple_glyph_path_sink_step`、F4s/F4t より下位の lookup helper を直接呼ばない。検証と payload construction の authority は F4v action step lookup に集約する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
