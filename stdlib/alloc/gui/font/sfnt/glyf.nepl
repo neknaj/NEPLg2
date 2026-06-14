@@ -1889,6 +1889,43 @@ impl Copy for GuiSfntSimpleGlyphPathSinkActionItemNext:
     fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionItemNext \next:
         next
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerItem: future sink が 1 action として[読/よ]む packet
+//:
+//: [目的/もくてき]:
+//: - 現在の action payload と、checked next state を 1 value に[束/たば]ねます。
+//: - real sink、iterator、contour 全体の consumer、command list は[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    action %GuiSfntSimpleGlyphPathSinkAction
+    next %GuiSfntSimpleGlyphPathSinkActionItemNext
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionConsumerItem \item:
+        *item
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionConsumerItem \item:
+        item
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item: consumer item を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item %fn GuiSfntSimpleGlyphPathSinkAction fn GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphPathSinkActionConsumerItem \action\next:
+    GuiSfntSimpleGlyphPathSinkActionConsumerItem action next
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item_action: consumer item の action を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_action %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkAction \item:
+    *field::get_ref item "action"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_item_next: consumer item の next を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_item_next %fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphPathSinkActionItemNext \item:
+    *field::get_ref item "next"
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -3778,3 +3815,21 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_item_next %fn &ByteBuf fn O
                     Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item
         GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour:
             Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item: action と checked next を[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - item の現在 step から action を[写/うつ]し、F4ab helper で next を[読/よ]みます。
+//: - action payload は[解釈/かいしゃく]せず、future sink consumer へ value として[渡/わた]します。
+//: - real sink、iterator、contour-wide consumer、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionStepItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError \bytes\face_index\item\policy:
+    let stored_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_item_step item
+    let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok next:
+            let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
+            Result::Ok consumer_item

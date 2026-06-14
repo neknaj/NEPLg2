@@ -60133,3 +60133,41 @@ MERGE_APPROVED
 ### residual
 
 - F4ab は checked action item を 1 つ進める boundary までであり、contour-wide loop、real sink trait、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 GUI font SFNT path sink action consumer item checkpoint
+
+### scope
+
+- branch: `gui-font-sink-action-consumer-item-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、現在 action は typed enum payload として保持し、次状態は F4ab の typed enum、parse/range/table failure は `Result`、platform / renderer / fallback は非依存とした。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4ac: SFNT simple glyph path sink action consumer item を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionConsumerItem`、constructor、`action` / `next` accessor、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item` を追加した。
+- `GuiSfntSimpleGlyphPathSinkActionConsumerItem` は `action GuiSfntSimpleGlyphPathSinkAction` と `next GuiSfntSimpleGlyphPathSinkActionItemNext` を持つ Copy value とした。
+- F4ac helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_step item` を 1 回だけ読み、`gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step` を 1 回だけ読んで現在 action を copy する。
+- F4ac helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy` を 1 回だけ呼び、`Result::Err error` はそのまま伝播し、`Result::Ok next` の場合だけ consumer item を返す。
+- F4ac helper は `EmitEvent` / `Reject` / `NoAction` / `CloseContour` payload、primary/tail action、sink policy payload、F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec` / `push` / loop、renderer / rasterizer / platform / host text API を直接読まない。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に `start_consumer_item_ok` を追加し、byte-backed start item から consumer item を作り、現在 action が `EmitEvent` として保持され、next が same contour/edge/event の `Tail` item へ進むことを確認した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F4ac の struct / Clone/Copy / constructor/accessor / helper body / call count / 禁止 helper / payload inspection 禁止 / 括弧なし body の source policy assertion を追加した。
+
+### subagent_review
+
+- Maxwell plan review: `PLAN_APPROVED`。F4ac は F4z/F4ab の checked traversal state と action payload 分離に沿い、real sink / outline / renderer に踏み込まない小さい型境界として妥当とされた。
+- Required として、docs-first、Clone/Copy、constructor/accessor、F4ab item-next helper exactly once、payload inspection 禁止、F4z/F4y/F4v/start/lower direct lookup 禁止、Vec/push/loop と renderer/rasterizer/platform/host text 禁止、not a real sink / iterator / contour-wide consumer の明記が挙げられた。
+- Ampere implementation review: `APPROVED`。F4ac helper は現在 action copy と F4ab next lookup だけに閉じ、payload interpretation、lower/start/F4z/F4y/F4v direct traversal、Vec/push/loop、renderer/rasterizer/platform/host text/fallback、silent no-op は見つからないと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 285/285 passed。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。CRLF 変換 warning のみ。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI font policy は pass した。既存の `nodesrc/test_stdlib_documentation_contract.js` は `stdlib declaration doc gaps increased: 153 > 108` を warning として報告した。
+
+### residual
+
+- F4ac は future sink consumer が読む 1 action packet までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。

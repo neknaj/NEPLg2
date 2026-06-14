@@ -1303,6 +1303,67 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4ac: sfnt simple glyph path sink action consumer item
+
+目的:
+
+- F4z/F4aa の `GuiSfntSimpleGlyphPathSinkActionStepItem` から、future sink consumer が 1 action 分として読む typed packet を追加する。
+- 現在 action と F4ab の checked next state を束ね、後続 sink が hidden current state に依存しない入力境界を作る。
+- F4ac は real sink、iterator、contour-wide consumer、callback、command list、full outline allocation、renderer、rasterizer にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerItem`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_item`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_item_action`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item`
+- struct は次にする。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerItem:
+    action GuiSfntSimpleGlyphPathSinkAction
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+- helper signature は次にする。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item:
+    &ByteBuf
+    Option i32
+    &GuiSfntSimpleGlyphPathSinkActionStepItem
+    &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError
+```
+
+- helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_step item` を 1 回だけ読み、`gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step` で action を 1 回だけ読む。
+- helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_item_next bytes face_index item policy` を 1 回だけ呼ぶ。
+- `Result::Err error` はそのまま伝播し、`Result::Ok next` なら `GuiSfntSimpleGlyphPathSinkActionConsumerItem action next` を `Result::Ok` で返す。
+- helper は `EmitEvent` / `Reject` / `NoAction` / `CloseContour` payload、primary/tail action、sink policy payload を match しない。
+- helper は F4z action step item lookup、F4y advance helper、F4v action step lookup、F4x/F4aa start helper、sink action lookup、sink step lookup、contour step lookup、F4s/F4t より下位の lookup、metadata parser、`*_with_tables`、`Vec`、`push`、loop、renderer、rasterizer、platform API、host text API を直接呼ばない。
+- Source policy で F4ac docs、struct、Clone/Copy、constructor/accessors、helper body、step accessor 1 回、action accessor 1 回、F4ab item-next helper 1 回、禁止 helper、payload inspection 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の typed doctest を拡張する。
+  - byte-backed fixture で `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item` から得た item を consumer item helper に渡す。
+  - consumer item の `action` が current start action を保持していることを確認する。
+  - consumer item の `next` が `Continue next_item` であり、next item の cursor が same contour/edge/event の `Tail` action slot であることを確認する。
+
+完了条件:
+
+- consumer item helper は F4z item の current action copy と F4ab next state だけを value として合成する。
+- helper body は step accessor、action accessor、F4ab item-next helper 以外の lookup / payload / renderer / platform API に依存しない。
+- hidden fallback、silent no-op、new traversal counter、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
