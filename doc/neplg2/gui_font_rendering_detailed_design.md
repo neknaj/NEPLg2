@@ -2742,6 +2742,76 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+## SFNT simple glyph point flag marker read boundary
+
+F5m reads only the flag run metadata from a checked `GuiSfntSimpleGlyphPointStream`. It deliberately does not add a new scalar storage region. The existing scalar layout is already part of the F5 storage contract, so inserting `PointFlag` before `PointX` or after `PointY` would shift the region offsets used by previous phases.
+
+```text
+GuiSfntSimpleGlyphPointFlagMarker:
+    glyph GuiGlyphId
+    point_index i32
+    raw_flag i32
+    on_curve bool
+```
+
+The public helper uses the existing parse error type:
+
+```text
+gui_sfnt_glyf_read_point_flag_from_stream:
+    ByteBuf
+    GuiSfntTableRecord
+    GuiSfntSimpleGlyphPointStream
+    point_index
+    -> Result GuiSfntSimpleGlyphPointFlagMarker GuiSfntParseError
+```
+
+This is a byte-backed read-only boundary, not a storage mutation boundary. `MissingGlyphOutline` represents a requested point outside `0 <= point_index < point_count`. `MalformedGlyfRecord` represents a broken flag stream, including missing repeat count bytes and repeat runs that exceed `point_count`.
+
+The loop state is:
+
+```text
+logical_index
+flag_cursor
+```
+
+For each flag run:
+
+```text
+read flag at flag_cursor within stream.flag_data range
+if repeat bit 8:
+    read repeat_count at flag_cursor + 1 within stream.flag_data range
+    run_count = repeat_count + 1
+    next_flag_cursor = flag_cursor + 2
+else:
+    run_count = 1
+    next_flag_cursor = flag_cursor + 1
+
+run_end_next = logical_index + run_count
+if run_count <= 0:
+    MalformedGlyfRecord
+if run_end_next > point_count:
+    MalformedGlyfRecord
+if point_index < run_end_next:
+    return marker from this flag
+else:
+    continue from run_end_next and next_flag_cursor
+```
+
+The `run_end_next > point_count` check must happen before the target membership check. This prevents a forged repeat run from returning a marker for an early target before the stream has been proven to cover a valid set of logical points.
+
+F5m must not call:
+
+```text
+gui_sfnt_glyf_decode_x_delta
+gui_sfnt_glyf_decode_y_delta
+GuiSfntSimpleGlyphPointDecodeState
+gui_sfnt_glyf_decode_point_from_stream
+endpoint readers
+coordinate storage readers
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
