@@ -1,0 +1,782 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_binder
+//: public trait impl header に[含/ふく]まれる generic binder と bound の[詳細/しょうさい] evidence を[検査/けんさ]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_header` が現在 `type_parameter_count` と `type_parameter_bound_count` だけでは generic impl identity を作れないため fail-closed にしている境界を、詳細 evidence table へ進める準備をします。
+//: - type parameter binder の ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、bound range と、bound 側の trait application shape を分けて保持し、count だけで generic impl を受理する退行を防ぎます。
+//: - public impl header producer、operation classifier、candidate builder、Resource IR proof、PrivateCache / PrivateState masking を混ぜず、generic binder / bound shape の型付き検査だけを担当します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は caller が渡した `SelfhostMemoTraitPublicImplGenericParameterTable` と `SelfhostMemoTraitPublicImplGenericBoundTable` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted shape material に入りません。
+//: - parameter table length は expected type parameter count と一致しなければなりません。bound table length は expected bound count と一致しなければなりません。
+//: - parameter ordinal は 1-origin で table order と一致しなければなりません。`SelfhostTypeParameterBinding` は valid かつ現行 Phase 1 では `binder_depth = 0`、`parameter_index = table index` でなければなりません。stable symbol hash 0 は placeholder として拒否します。
+//: - parameter の bound range は 0-origin の contiguous range です。range は table order に沿って重複も穴もなく bound table 全体を覆わなければなりません。
+//: - bound record は対応する parameter ordinal、1-origin bound ordinal、nonzero trait application shape hash、非負の trait type argument count を持たなければなりません。
+//: - この module は generic impl が `MemoKey` / `MemoValue` として有効であることや、bound solving が成功することを証明しません。後続 solver が読むための detailed shape evidence だけを作ります。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では stage0 smoke が monomorphic table、2 parameter / 2 bound の generic table、count mismatch、symbol placeholder、range mismatch、missing bound shape を確認します。
+//: - `memo_trait_public_impl_header` へこの evidence hash を接続し generic impl を accepted path に流す作業、trait bound solving、coherence、operation impl candidate 生成、PrivateCache / PrivateState effect masking、prechecked artifact 接続は後続 slice の責務です。
+//: - facade にはまだ re-export しません。public impl header と full operation evidence orchestration が generic binder evidence を受け取る段階で公開範囲を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 数を p、bound 数を b とすると、evidence 生成は O(p + b) 時間です。
+//: - 追加空間は hash accumulator と loop index だけなので O(1) です。table は caller が所有する input owner を borrow で読みます。
+//: - 将来 sorted index や bound lookup cache を足す場合でも、この module の accepted authority、error enum、shape hash contract は変えずに置き換えられます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_binder" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_public_impl_generic_binder_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check is_ok summary.monomorphic
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_binder_evidence_counts_eq summary.generic 2 2
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_binder_evidence_hash_diff summary.monomorphic summary.generic
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_binder_error_result_eq summary.count_mismatch SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new 1 0
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_binder_error_result_eq summary.symbol_placeholder SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterSymbolHashPlaceholder 0
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_binder_error_result_eq summary.missing_bound_shape SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitApplicationShapeHashMissing 0
+//:             let shown checks_print_report checks6
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "generic binder stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/id" as *
+
+//: SelfhostMemoTraitPublicImplGenericParameter: public impl generic parameter binder の typed record
+//:
+//: [契約/けいやく]:
+//: - `parameter_ordinal` は 1-origin で、parameter table の順序と一致する必要があります。
+//: - `binding` は resolver / checker が generic binder environment から得た binder-indexed identity です。source name ではありません。
+//: - `stable_symbol_hash` は type parameter symbol の stable identity hash です。source spelling そのものではありません。
+//: - `first_bound_index` は bound table 内の 0-origin 開始位置です。
+//: - `bound_count` はこの parameter に属する contiguous bound record 数です。
+pub struct SelfhostMemoTraitPublicImplGenericParameter:
+    parameter_ordinal %i32
+    binding %SelfhostTypeParameterBinding
+    stable_symbol_hash %i32
+    first_bound_index %i32
+    bound_count %i32
+
+//: SelfhostMemoTraitPublicImplGenericBound: public impl generic bound の typed record
+//:
+//: [契約/けいやく]:
+//: - `parameter_ordinal` は bound が属する parameter の 1-origin ordinal です。
+//: - `bound_ordinal` は bound table 全体での 1-origin ordinal です。
+//: - `trait_application_shape_hash` は stable trait identity と type argument identity を含む normalized shape hash です。
+//: - `trait_type_argument_count` は shape hash の producer が読んだ trait type argument 数です。この module は count を hash material に含めますが、trait solving は行いません。
+pub struct SelfhostMemoTraitPublicImplGenericBound:
+    parameter_ordinal %i32
+    bound_ordinal %i32
+    trait_application_shape_hash %Option i32
+    trait_type_argument_count %i32
+
+//: SelfhostMemoTraitPublicImplGenericParameterTable: generic parameter binder record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。この module の evidence API は borrow で読み、閉じません。
+//: - 不要になった table は caller が `selfhost_memo_trait_public_impl_generic_parameter_table_free` で閉じます。
+pub struct SelfhostMemoTraitPublicImplGenericParameterTable:
+    records %Vec SelfhostMemoTraitPublicImplGenericParameter
+
+//: SelfhostMemoTraitPublicImplGenericBoundTable: generic bound record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。この module の evidence API は borrow で読み、閉じません。
+//: - 不要になった table は caller が `selfhost_memo_trait_public_impl_generic_bound_table_free` で閉じます。
+pub struct SelfhostMemoTraitPublicImplGenericBoundTable:
+    records %Vec SelfhostMemoTraitPublicImplGenericBound
+
+//: SelfhostMemoTraitPublicImplGenericBinderCountMismatch: expected / actual count mismatch payload
+//:
+//: [目的/もくてき]:
+//: - enum variant が単一 payload の現在の NEPLg2.1 構文でも、expected と actual を失わずに保持します。
+pub struct SelfhostMemoTraitPublicImplGenericBinderCountMismatch:
+    expected %i32
+    actual %i32
+
+//: SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch: ordinal mismatch payload
+pub struct SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch:
+    index %i32
+    expected %i32
+    actual %i32
+
+//: SelfhostMemoTraitPublicImplGenericBinderRangeMismatch: bound range start mismatch payload
+pub struct SelfhostMemoTraitPublicImplGenericBinderRangeMismatch:
+    parameter_ordinal %i32
+    expected_start %i32
+    actual_start %i32
+
+//: SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds: bound range out-of-bounds payload
+pub struct SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds:
+    parameter_ordinal %i32
+    range_end %i32
+    bound_table_len %i32
+
+//: SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch: bound が range owner parameter と一致しない場合の payload
+pub struct SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch:
+    bound_index %i32
+    expected_parameter %i32
+    actual_parameter %i32
+
+//: SelfhostMemoTraitPublicImplGenericBinderEvidence: validated generic binder / bound shape evidence
+//:
+//: [目的/もくてき]:
+//: - public impl header が count だけではなく detailed binder / bound shape を受け取れるよう、schema version と root hash を保持します。
+//:
+//: [契約/けいやく]:
+//: - `shape_hash` は nonzero でなければなりません。
+//: - この evidence は generic impl の semantic success ではありません。trait solver や MemoKey / MemoValue structural proof は後続 stage が別 evidence として接続します。
+pub struct SelfhostMemoTraitPublicImplGenericBinderEvidence:
+    schema_version %i32
+    type_parameter_count %i32
+    type_parameter_bound_count %i32
+    shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericBinderErrorKind: generic binder evidence 境界の拒否理由
+//:
+//: [目的/もくてき]:
+//: - table owner setup、count、ordinal、range、shape hash、derived hash のどこで拒否したかを typed enum として保持します。
+pub enum SelfhostMemoTraitPublicImplGenericBinderErrorKind:
+    ParameterTableAllocFailed %StdErrorKind
+    ParameterPushFailed %StdErrorKind
+    BoundTableAllocFailed %StdErrorKind
+    BoundPushFailed %StdErrorKind
+    TypeParameterCountNegative
+    TypeParameterBoundCountNegative
+    ParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    BoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    ParameterReadFailed %i32
+    BoundReadFailed %i32
+    ParameterOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    ParameterOrdinalPlaceholder %i32
+    ParameterBindingInvalid %i32
+    ParameterBindingDepthUnsupported %i32
+    ParameterBindingIndexMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    ParameterSymbolHashPlaceholder %i32
+    BoundRangeStartNegative %i32
+    BoundRangeStartMismatch %SelfhostMemoTraitPublicImplGenericBinderRangeMismatch
+    BoundRangeCountNegative %i32
+    BoundRangeOutOfBounds %SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds
+    BoundParameterOrdinalOutOfRange %i32
+    BoundParameterOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch
+    BoundOrdinalMismatch %SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch
+    BoundTraitApplicationShapeHashMissing %i32
+    BoundTraitApplicationShapeHashPlaceholder %i32
+    BoundTraitTypeArgumentCountNegative %i32
+    DerivedBinderShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericBinderStage0Summary: generic binder smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericBinderStage0Summary:
+    monomorphic %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    generic %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    count_mismatch %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    symbol_placeholder %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    range_mismatch %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind
+    missing_bound_shape %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplGenericParameter:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericParameter SelfhostMemoTraitPublicImplGenericParameter \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericParameter:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericParameter SelfhostMemoTraitPublicImplGenericParameter \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBound:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBound SelfhostMemoTraitPublicImplGenericBound \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBound:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBound SelfhostMemoTraitPublicImplGenericBound \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderCountMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderCountMismatch SelfhostMemoTraitPublicImplGenericBinderCountMismatch \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderCountMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch SelfhostMemoTraitPublicImplGenericBinderCountMismatch \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderRangeMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderRangeMismatch SelfhostMemoTraitPublicImplGenericBinderRangeMismatch \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderRangeMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderRangeMismatch SelfhostMemoTraitPublicImplGenericBinderRangeMismatch \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderErrorKind SelfhostMemoTraitPublicImplGenericBinderErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderErrorKind SelfhostMemoTraitPublicImplGenericBinderErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericBinderStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericBinderStage0Summary SelfhostMemoTraitPublicImplGenericBinderStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericBinderStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericBinderStage0Summary SelfhostMemoTraitPublicImplGenericBinderStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_parameter_new: generic parameter record を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_parameter_new %fn i32 fn SelfhostTypeParameterBinding fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericParameter \parameter_ordinal\binding\stable_symbol_hash\first_bound_index\bound_count:
+    SelfhostMemoTraitPublicImplGenericParameter parameter_ordinal binding stable_symbol_hash first_bound_index bound_count
+
+//: selfhost_memo_trait_public_impl_generic_bound_new: generic bound record を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_bound_new %fn i32 fn i32 fn Option i32 fn i32 SelfhostMemoTraitPublicImplGenericBound \parameter_ordinal\bound_ordinal\trait_application_shape_hash\trait_type_argument_count:
+    SelfhostMemoTraitPublicImplGenericBound parameter_ordinal bound_ordinal trait_application_shape_hash trait_type_argument_count
+
+//: selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new: count mismatch payload を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new %fn i32 fn i32 SelfhostMemoTraitPublicImplGenericBinderCountMismatch \expected\actual:
+    SelfhostMemoTraitPublicImplGenericBinderCountMismatch expected actual
+
+//: selfhost_memo_trait_public_impl_generic_parameter_table_new: [空/から]の parameter table を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_parameter_table_new %impure fn void Result SelfhostMemoTraitPublicImplGenericParameterTable SelfhostMemoTraitPublicImplGenericBinderErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplGenericParameter StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericParameterTable records
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_parameter_table_free: parameter table owner を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_generic_parameter_table_free %impure fn SelfhostMemoTraitPublicImplGenericParameterTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_generic_parameter_table_len: parameter record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_parameter_table_len %fn &SelfhostMemoTraitPublicImplGenericParameterTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericParameter field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_generic_parameter_table_push: parameter record を[追加/ついか]する
+pub fn selfhost_memo_trait_public_impl_generic_parameter_table_push %impure fn SelfhostMemoTraitPublicImplGenericParameterTable impure fn SelfhostMemoTraitPublicImplGenericParameter Result SelfhostMemoTraitPublicImplGenericParameterTable SelfhostMemoTraitPublicImplGenericBinderErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitPublicImplGenericParameter field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericParameterTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterPushFailed error
+
+//: selfhost_memo_trait_public_impl_generic_bound_table_new: [空/から]の bound table を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_bound_table_new %impure fn void Result SelfhostMemoTraitPublicImplGenericBoundTable SelfhostMemoTraitPublicImplGenericBinderErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplGenericBound StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericBoundTable records
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_bound_table_free: bound table owner を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_generic_bound_table_free %impure fn SelfhostMemoTraitPublicImplGenericBoundTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_generic_bound_table_len: bound record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_bound_table_len %fn &SelfhostMemoTraitPublicImplGenericBoundTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericBound field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_generic_bound_table_push: bound record を[追加/ついか]する
+pub fn selfhost_memo_trait_public_impl_generic_bound_table_push %impure fn SelfhostMemoTraitPublicImplGenericBoundTable impure fn SelfhostMemoTraitPublicImplGenericBound Result SelfhostMemoTraitPublicImplGenericBoundTable SelfhostMemoTraitPublicImplGenericBinderErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitPublicImplGenericBound field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericBoundTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundPushFailed error
+
+//: selfhost_memo_trait_public_impl_generic_binder_schema_version: generic binder shape schema version
+fn selfhost_memo_trait_public_impl_generic_binder_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_impl_generic_binder_mix2: generic binder hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_binder_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_binder_mix4: generic binder hash 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_binder_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_binder_mix2 (selfhost_memo_trait_public_impl_generic_binder_mix2 a b) (selfhost_memo_trait_public_impl_generic_binder_mix2 c d)
+
+//: selfhost_memo_trait_public_impl_generic_binder_parameter_hash: parameter shape hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_parameter_hash %fn SelfhostMemoTraitPublicImplGenericParameter i32 \parameter:
+    let binding_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix2 parameter.binding.binder_depth parameter.binding.parameter_index
+    let range_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix2 parameter.first_bound_index parameter.bound_count
+    selfhost_memo_trait_public_impl_generic_binder_mix4 253001 parameter.parameter_ordinal binding_hash selfhost_memo_trait_public_impl_generic_binder_mix2 parameter.stable_symbol_hash range_hash
+
+//: selfhost_memo_trait_public_impl_generic_binder_bound_hash: bound shape hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_bound_hash %fn SelfhostMemoTraitPublicImplGenericBound fn i32 i32 \bound\shape_hash:
+    selfhost_memo_trait_public_impl_generic_binder_mix4 253101 bound.parameter_ordinal bound.bound_ordinal selfhost_memo_trait_public_impl_generic_binder_mix2 shape_hash bound.trait_type_argument_count
+
+//: selfhost_memo_trait_public_impl_generic_binder_validate_bound_result: 1 bound record を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_binder_validate_bound_result %fn SelfhostMemoTraitPublicImplGenericBound fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBinderErrorKind \bound\index\expected_parameter\type_parameter_count:
+    if:
+        lt bound.parameter_ordinal 1
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundParameterOrdinalOutOfRange index
+        else:
+            if:
+                gt bound.parameter_ordinal type_parameter_count
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundParameterOrdinalOutOfRange index
+                else:
+                    if:
+                        not eq bound.parameter_ordinal expected_parameter
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundParameterOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch index expected_parameter bound.parameter_ordinal
+                        else:
+                            let expected_bound_ordinal %i32 add index 1
+                            if:
+                                not eq bound.bound_ordinal expected_bound_ordinal
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index expected_bound_ordinal bound.bound_ordinal
+                                else:
+                                    if:
+                                        lt bound.trait_type_argument_count 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitTypeArgumentCountNegative index
+                                        else:
+                                            match bound.trait_application_shape_hash:
+                                                Option::Some shape_hash:
+                                                    if:
+                                                        eq shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitApplicationShapeHashPlaceholder index
+                                                        else:
+                                                            Result::Ok selfhost_memo_trait_public_impl_generic_binder_bound_hash bound shape_hash
+                                                Option::None:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitApplicationShapeHashMissing index
+
+//: selfhost_memo_trait_public_impl_generic_binder_validate_bound_range_loop: parameter が所有する bound range を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_binder_validate_bound_range_loop %fn &SelfhostMemoTraitPublicImplGenericBoundTable fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBinderErrorKind \bounds\index\end\parameter_ordinal\type_parameter_count\acc:
+    if:
+        ge index end
+        then:
+            Result::Ok acc
+        else:
+            let records %&Vec SelfhostMemoTraitPublicImplGenericBound field::get_ref bounds "records"
+            match v::get records index:
+                Option::Some bound:
+                    match selfhost_memo_trait_public_impl_generic_binder_validate_bound_result bound index parameter_ordinal type_parameter_count:
+                        Result::Ok bound_hash:
+                            selfhost_memo_trait_public_impl_generic_binder_validate_bound_range_loop bounds (add index 1) end parameter_ordinal type_parameter_count selfhost_memo_trait_public_impl_generic_binder_mix2 acc bound_hash
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_binder_validate_parameter_result: 1 parameter record を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_binder_validate_parameter_result %fn &SelfhostMemoTraitPublicImplGenericBoundTable fn SelfhostMemoTraitPublicImplGenericParameter fn i32 fn i32 fn i32 fn i32 Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind \bounds\parameter\index\expected_bound_start\type_parameter_count\bound_table_len:
+    let expected_ordinal %i32 add index 1
+    if:
+        lt parameter.parameter_ordinal 1
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterOrdinalPlaceholder index
+        else:
+            if:
+                not eq parameter.parameter_ordinal expected_ordinal
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterOrdinalMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index expected_ordinal parameter.parameter_ordinal
+                else:
+                    if:
+                        not selfhost_type_parameter_binding_is_valid parameter.binding
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterBindingInvalid index
+                        else:
+                            if:
+                                not eq parameter.binding.binder_depth 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterBindingDepthUnsupported index
+                                else:
+                                    if:
+                                        not eq parameter.binding.parameter_index index
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterBindingIndexMismatch SelfhostMemoTraitPublicImplGenericBinderOrdinalMismatch index index parameter.binding.parameter_index
+                                        else:
+                                            if:
+                                                eq parameter.stable_symbol_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterSymbolHashPlaceholder index
+                                                else:
+                                                    if:
+                                                        lt parameter.first_bound_index 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeStartNegative parameter.parameter_ordinal
+                                                        else:
+                                                            if:
+                                                                not eq parameter.first_bound_index expected_bound_start
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeStartMismatch SelfhostMemoTraitPublicImplGenericBinderRangeMismatch parameter.parameter_ordinal expected_bound_start parameter.first_bound_index
+                                                                else:
+                                                                    if:
+                                                                        lt parameter.bound_count 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeCountNegative parameter.parameter_ordinal
+                                                                        else:
+                                                                            let range_end %i32 add parameter.first_bound_index parameter.bound_count
+                                                                            if:
+                                                                                gt range_end bound_table_len
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeOutOfBounds SelfhostMemoTraitPublicImplGenericBinderRangeOutOfBounds parameter.parameter_ordinal range_end bound_table_len
+                                                                                else:
+                                                                                    match selfhost_memo_trait_public_impl_generic_binder_validate_bound_range_loop bounds parameter.first_bound_index range_end parameter.parameter_ordinal type_parameter_count 253151:
+                                                                                        Result::Ok bound_hash:
+                                                                                            let schema %i32 selfhost_memo_trait_public_impl_generic_binder_schema_version
+                                                                                            let parameter_hash %i32 selfhost_memo_trait_public_impl_generic_binder_parameter_hash parameter
+                                                                                            let root_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix4 253201 schema parameter_hash bound_hash
+                                                                                            Result::Ok SelfhostMemoTraitPublicImplGenericBinderEvidence schema range_end bound_table_len root_hash
+                                                                                        Result::Err e:
+                                                                                            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop: parameter table と bound coverage を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop %fn &SelfhostMemoTraitPublicImplGenericParameterTable fn &SelfhostMemoTraitPublicImplGenericBoundTable fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBinderErrorKind \parameters\bounds\type_parameter_count\bound_table_len\index\next_bound_index\acc:
+    if:
+        ge index type_parameter_count
+        then:
+            if:
+                eq next_bound_index bound_table_len
+                then:
+                    Result::Ok acc
+                else:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new bound_table_len next_bound_index
+        else:
+            let records %&Vec SelfhostMemoTraitPublicImplGenericParameter field::get_ref parameters "records"
+            match v::get records index:
+                Option::Some parameter:
+                    match selfhost_memo_trait_public_impl_generic_binder_validate_parameter_result bounds parameter index next_bound_index type_parameter_count bound_table_len:
+                        Result::Ok parameter_evidence:
+                            selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop parameters bounds type_parameter_count bound_table_len (add index 1) parameter_evidence.type_parameter_count selfhost_memo_trait_public_impl_generic_binder_mix2 acc parameter_evidence.shape_hash
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_binder_evidence_result: detailed generic binder / bound evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `expected_type_parameter_count` と `expected_type_parameter_bound_count` は public impl header 側が読んだ count です。
+//: - table length と expected count が一致した場合だけ詳細 record の検査へ進みます。
+//: - success は generic impl の semantic acceptance ではありません。後続 header / solver がこの `shape_hash` を別 authority と照合してから accepted path を判断します。
+pub fn selfhost_memo_trait_public_impl_generic_binder_evidence_result %fn i32 fn i32 fn &SelfhostMemoTraitPublicImplGenericParameterTable fn &SelfhostMemoTraitPublicImplGenericBoundTable Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind \expected_type_parameter_count\expected_type_parameter_bound_count\parameters\bounds:
+    if:
+        lt expected_type_parameter_count 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::TypeParameterCountNegative
+        else:
+            if:
+                lt expected_type_parameter_bound_count 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::TypeParameterBoundCountNegative
+                else:
+                    let parameter_len %i32 selfhost_memo_trait_public_impl_generic_parameter_table_len parameters
+                    let bound_len %i32 selfhost_memo_trait_public_impl_generic_bound_table_len bounds
+                    if:
+                        not eq expected_type_parameter_count parameter_len
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new expected_type_parameter_count parameter_len
+                        else:
+                            if:
+                                not eq expected_type_parameter_bound_count bound_len
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new expected_type_parameter_bound_count bound_len
+                                else:
+                                    let schema %i32 selfhost_memo_trait_public_impl_generic_binder_schema_version
+                                    match selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop parameters bounds expected_type_parameter_count bound_len 0 0 selfhost_memo_trait_public_impl_generic_binder_mix4 253211 schema expected_type_parameter_count expected_type_parameter_bound_count:
+                                        Result::Ok detail_hash:
+                                            let shape_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix4 253221 schema detail_hash selfhost_memo_trait_public_impl_generic_binder_mix2 expected_type_parameter_count expected_type_parameter_bound_count
+                                            if:
+                                                eq shape_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBinderShapeHashPlaceholder
+                                                else:
+                                                    Result::Ok SelfhostMemoTraitPublicImplGenericBinderEvidence schema expected_type_parameter_count expected_type_parameter_bound_count shape_hash
+                                        Result::Err e:
+                                            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_binder_error_kind_code: error kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_binder_error_kind_code %fn SelfhostMemoTraitPublicImplGenericBinderErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterTableAllocFailed _:
+            1
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterPushFailed _:
+            2
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTableAllocFailed _:
+            3
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundPushFailed _:
+            4
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::TypeParameterCountNegative:
+            5
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::TypeParameterBoundCountNegative:
+            6
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterCountMismatch _:
+            7
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch _:
+            8
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterReadFailed _:
+            9
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundReadFailed _:
+            10
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterOrdinalMismatch _:
+            11
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterOrdinalPlaceholder _:
+            12
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterBindingInvalid _:
+            13
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterBindingDepthUnsupported _:
+            14
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterBindingIndexMismatch _:
+            15
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterSymbolHashPlaceholder _:
+            16
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeStartNegative _:
+            17
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeStartMismatch _:
+            18
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeCountNegative _:
+            19
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundRangeOutOfBounds _:
+            20
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundParameterOrdinalOutOfRange _:
+            21
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundParameterOrdinalMismatch _:
+            22
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundOrdinalMismatch _:
+            23
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitApplicationShapeHashMissing _:
+            24
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitApplicationShapeHashPlaceholder _:
+            25
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitTypeArgumentCountNegative _:
+            26
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBinderShapeHashPlaceholder:
+            27
+
+//: selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq: count mismatch payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
+
+//: selfhost_memo_trait_public_impl_generic_binder_error_kind_eq: generic binder error が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_binder_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericBinderErrorKind fn SelfhostMemoTraitPublicImplGenericBinderErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
+                _:
+                    false
+        _:
+            eq selfhost_memo_trait_public_impl_generic_binder_error_kind_code a selfhost_memo_trait_public_impl_generic_binder_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_generic_binder_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_binder_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn SelfhostMemoTraitPublicImplGenericBinderErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_binder_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_binder_evidence_counts_eq: evidence の count が期待値と一致するか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_binder_evidence_counts_eq %fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn i32 fn i32 bool \result\type_parameter_count\bound_count:
+    match result:
+        Result::Ok evidence:
+            and eq evidence.type_parameter_count type_parameter_count eq evidence.type_parameter_bound_count bound_count
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_public_impl_generic_binder_evidence_hash_diff: 2 evidence の shape hash が異なるか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_binder_evidence_hash_diff %fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind bool \left\right:
+    match left:
+        Result::Ok left_evidence:
+            match right:
+                Result::Ok right_evidence:
+                    not eq left_evidence.shape_hash right_evidence.shape_hash
+                Result::Err _right_error:
+                    false
+        Result::Err _left_error:
+            false
+
+//: selfhost_memo_trait_public_impl_generic_binder_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind fn Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind SelfhostMemoTraitPublicImplGenericBinderStage0Summary \monomorphic\generic\count_mismatch\symbol_placeholder\range_mismatch\missing_bound_shape:
+    SelfhostMemoTraitPublicImplGenericBinderStage0Summary monomorphic generic count_mismatch symbol_placeholder range_mismatch missing_bound_shape
+
+//: selfhost_memo_trait_public_impl_generic_binder_stage0_eval_and_free: table owner を[閉/と]じながら evidence result を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_stage0_eval_and_free %impure fn i32 impure fn i32 impure fn SelfhostMemoTraitPublicImplGenericParameterTable impure fn SelfhostMemoTraitPublicImplGenericBoundTable Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind \expected_parameters\expected_bounds\parameters\bounds:
+    let result %Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind selfhost_memo_trait_public_impl_generic_binder_evidence_result expected_parameters expected_bounds &parameters &bounds
+    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+    selfhost_memo_trait_public_impl_generic_bound_table_free bounds
+    result
+
+//: selfhost_memo_trait_public_impl_generic_binder_stage0_empty: empty table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_stage0_empty %impure fn i32 impure fn i32 Result Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind SelfhostMemoTraitPublicImplGenericBinderErrorKind \expected_parameters\expected_bounds:
+    match selfhost_memo_trait_public_impl_generic_parameter_table_new:
+        Result::Ok parameters:
+            match selfhost_memo_trait_public_impl_generic_bound_table_new:
+                Result::Ok bounds:
+                    Result::Ok selfhost_memo_trait_public_impl_generic_binder_stage0_eval_and_free expected_parameters expected_bounds parameters bounds
+                Result::Err e:
+                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_binder_stage0_generic: 2 parameter / 2 bound の accepted table を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_stage0_generic %impure fn void Result Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind SelfhostMemoTraitPublicImplGenericBinderErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_parameter_table_new:
+        Result::Ok parameters0:
+            match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters0 selfhost_memo_trait_public_impl_generic_parameter_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) 7001 0 1:
+                Result::Ok parameters1:
+                    match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters1 selfhost_memo_trait_public_impl_generic_parameter_new 2 (selfhost_type_parameter_binding_new_unchecked 0 1) 7002 1 1:
+                        Result::Ok parameters2:
+                            match selfhost_memo_trait_public_impl_generic_bound_table_new:
+                                Result::Ok bounds0:
+                                    match selfhost_memo_trait_public_impl_generic_bound_table_push bounds0 selfhost_memo_trait_public_impl_generic_bound_new 1 1 (some 8101) 0:
+                                        Result::Ok bounds1:
+                                            match selfhost_memo_trait_public_impl_generic_bound_table_push bounds1 selfhost_memo_trait_public_impl_generic_bound_new 2 2 (some 8102) 0:
+                                                Result::Ok bounds2:
+                                                    Result::Ok selfhost_memo_trait_public_impl_generic_binder_stage0_eval_and_free 2 2 parameters2 bounds2
+                                                Result::Err e:
+                                                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters2
+                                                    Result::Err e
+                                        Result::Err e:
+                                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters2
+                                            Result::Err e
+                                Result::Err e:
+                                    selfhost_memo_trait_public_impl_generic_parameter_table_free parameters2
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_binder_stage0_single_parameter: 1 parameter table を[作/つく]り evidence を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_binder_stage0_single_parameter %impure fn i32 impure fn i32 impure fn i32 impure fn Option i32 Result Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind SelfhostMemoTraitPublicImplGenericBinderErrorKind \symbol_hash\first_bound_index\bound_count\shape_hash:
+    match selfhost_memo_trait_public_impl_generic_parameter_table_new:
+        Result::Ok parameters0:
+            match selfhost_memo_trait_public_impl_generic_parameter_table_push parameters0 selfhost_memo_trait_public_impl_generic_parameter_new 1 (selfhost_type_parameter_binding_new_unchecked 0 0) symbol_hash first_bound_index bound_count:
+                Result::Ok parameters1:
+                    match selfhost_memo_trait_public_impl_generic_bound_table_new:
+                        Result::Ok bounds0:
+                            if:
+                                eq bound_count 0
+                                then:
+                                    Result::Ok selfhost_memo_trait_public_impl_generic_binder_stage0_eval_and_free 1 0 parameters1 bounds0
+                                else:
+                                    match selfhost_memo_trait_public_impl_generic_bound_table_push bounds0 selfhost_memo_trait_public_impl_generic_bound_new 1 1 shape_hash 0:
+                                        Result::Ok bounds1:
+                                            Result::Ok selfhost_memo_trait_public_impl_generic_binder_stage0_eval_and_free 1 1 parameters1 bounds1
+                                        Result::Err e:
+                                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters1
+                                            Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_public_impl_generic_parameter_table_free parameters1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_binder_stage0: generic binder evidence の smoke API
+//:
+//: [目的/もくてき]:
+//: - monomorphic path、generic detail path、count mismatch、parameter symbol placeholder、range mismatch、missing bound shape を確認します。
+pub fn selfhost_memo_trait_public_impl_generic_binder_stage0 %impure fn void Result SelfhostMemoTraitPublicImplGenericBinderStage0Summary SelfhostMemoTraitPublicImplGenericBinderErrorKind \void:
+    match selfhost_memo_trait_public_impl_generic_binder_stage0_empty 0 0:
+        Result::Ok monomorphic:
+            match selfhost_memo_trait_public_impl_generic_binder_stage0_generic:
+                Result::Ok generic:
+                    match selfhost_memo_trait_public_impl_generic_binder_stage0_empty 1 0:
+                        Result::Ok count_mismatch:
+                            match selfhost_memo_trait_public_impl_generic_binder_stage0_single_parameter 0 0 0 none:
+                                Result::Ok symbol_placeholder:
+                                    match selfhost_memo_trait_public_impl_generic_binder_stage0_single_parameter 7101 1 0 none:
+                                        Result::Ok range_mismatch:
+                                            match selfhost_memo_trait_public_impl_generic_binder_stage0_single_parameter 7101 0 1 none:
+                                                Result::Ok missing_bound_shape:
+                                                    Result::Ok selfhost_memo_trait_public_impl_generic_binder_stage0_summary_new monomorphic generic count_mismatch symbol_placeholder range_mismatch missing_bound_shape
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e

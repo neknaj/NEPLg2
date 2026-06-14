@@ -123,6 +123,25 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_absence_evide
 
 この checkpoint 後も、actual Resource IR graph walker、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割、operation evidence table lookup の index 化は、今回固定した typed authority / fail-closed / owner cleanup contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 selfhost generic impl binder evidence checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl` を追加し、public trait impl header の generic parameter binder と bound detail を typed table として検査する checker-layer boundary を作った。
+
+今回の module は generic impl を accepted path に流さない。`memo_trait_public_impl_header.nepl` が count-only input では `GenericImplUnsupported` / `TypeParameterBoundUnsupported` のまま fail-closed にする設計は維持し、後続で header shape へ接続するための detailed evidence hash だけを作る。
+
+accepted authority は `SelfhostMemoTraitPublicImplGenericParameterTable` と `SelfhostMemoTraitPublicImplGenericBoundTable` の typed field だけである。parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、bound range、bound trait application shape hash、trait type argument count を検査し、count mismatch、invalid binding、placeholder symbol hash、range overlap / hole、bound parameter mismatch、bound ordinal mismatch、missing / placeholder bound shape を typed enum で拒否する。
+
+source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted shape material に入れない。operation impl candidate、operation evidence record、aggregate proof status、`NoDropRequired`、`PureDrop`、PrivateCache / PrivateState masking、prechecked artifact も作らない。
+
+subagent review では、count-only generic acceptance、operation candidate / proof への直接接続、public surface hash authority は Blocker と確認された。`SelfhostTypeParameterBinding` を detail evidence に含める Required も実装に反映した。sorted index、bucket 化、artifact serialization、generic instantiation cache は後続最適化として扱う。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、count-only acceptance 禁止、binding / ordinal / range / bound shape validation、fake candidate / fake proof / private effect 合成禁止、行数 / doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-binder.json`
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。

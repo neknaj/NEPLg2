@@ -1,3 +1,55 @@
+# 2026-06-14 Agent selfhost generic impl binder evidence checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、DAG 責務分割、generic impl の count-only acceptance 禁止、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限、doc comment 長制限、コメント削減を目的とする source policy は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / public trait impl header の generic parameter binder と bound detail を typed evidence table として検査する boundary
+- classification: selfhost MemoKey / MemoValue structural purity / generic impl binder and bound detailed evidence
+- decision: MERGE_APPROVED after focused doctest, source policy, Zenn review response check, issue/doc/todo/note update, and two independent subagent reviews.
+- policy/spec:
+  - accepted authority は `SelfhostMemoTraitPublicImplGenericParameterTable` と `SelfhostMemoTraitPublicImplGenericBoundTable` の typed field だけである。
+  - parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、bound range、bound trait application shape hash、trait type argument count を検査する。
+  - count mismatch、invalid binding、placeholder symbol hash、range overlap / hole、bound parameter mismatch、bound ordinal mismatch、missing / placeholder bound shape、negative trait type argument count は typed enum で fail-closed にする。
+  - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted shape material に入れない。
+  - operation impl candidate、operation evidence record、aggregate proof status、`NoDropRequired`、`PureDrop`、PrivateCache / PrivateState masking、prechecked artifact は作らない。
+  - 今回の output は generic impl の semantic acceptance ではない。次 slice は generic binder evidence hash を public impl header / materializer accepted path へ接続する boundary として扱う。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl` を追加した。
+  - `SelfhostMemoTraitPublicImplGenericParameter` は `parameter_ordinal`、`SelfhostTypeParameterBinding`、`stable_symbol_hash`、`first_bound_index`、`bound_count` を保持する。
+  - `SelfhostMemoTraitPublicImplGenericBound` は `parameter_ordinal`、`bound_ordinal`、`trait_application_shape_hash`、`trait_type_argument_count` を保持する。
+  - `selfhost_memo_trait_public_impl_generic_binder_evidence_result` は expected count と table length を照合し、parameter table / bound table を borrow で読み、schema version と nonzero shape hash を持つ evidence を返す。
+  - doctest は monomorphic accepted、2 parameter / 2 bound accepted、count mismatch、symbol placeholder、range mismatch、missing bound shape を確認する。
+  - `nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+- subagent review:
+  - subagent review は policy/spec と implementation/test の 2 軸で扱った。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec48a-0645-7c52-867f-a35bc0a435ad`
+  - subagent_review_count: 2
+  - Blocker: count-only で `GenericImplUnsupported` / `TypeParameterBoundUnsupported` を解除する設計、operation candidate / operation evidence / aggregate proof へ直接流す設計、public surface hash を generic binder authority にする設計は Blocker と確認されたため採用していない。
+  - Required: detailed binder / bound evidence table を作り、generic semantic acceptance は次 slice に分けること。対応済み。
+  - Required: `SelfhostTypeParameterBinding` を authority に含め、source name ではなく binder depth / parameter index を検査すること。対応済み。
+  - Required: fake candidate / fake proof / PrivateCache / PrivateState / backend / prechecked artifact / Resource IR / proof store / source-derived authority を禁止し、source policy に固定すること。対応済み。
+  - Non-blocker: sorted index、bucket 化、solver memoization、artifact serialization、generic instantiation cache、stage0 fixture 分割は後続最適化である。
+  - Question: bound を Copy / Drop / Eq / Hash に絞るか任意 trait bound shape を運ぶか。今回の module は任意 trait bound shape hash を運ぶだけに留め、operation classifier には接続しない判断にした。
+  - Approve: yes.
+- source_policy:
+  - source_policy: added.
+  - 新規 source policy は facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、HIR / Resource IR / backend / proof store / operation classifier / candidate builder / evidence producer / public impl header / PrivateCache / PrivateState / prechecked import 禁止、count-only generic acceptance 禁止、source text / span / display / path / diagnostic / public surface hash authority 禁止、typed table length / ordinal / binding / range / bound shape 検査、impl candidate / operation evidence / aggregate proof / private effect 合成禁止、行数 / doc comment 長制限禁止を確認する。
+  - `nodesrc/selfhost_zenn_review_response_check.js --stdin` で、subagent 2 件を反映した aggregate review response を検査済み。
+  - 既存 warning: Node の WASI ExperimentalWarning、`nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108`。
+  - 今回差分由来 warning: なし。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-binder.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` pass。
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/selfhost_zenn_review_response_check.js --stdin` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。新規 generic binder contract は runner 内でも pass。既存 warning は `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` と Node の WASI ExperimentalWarning だけである。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` exit=0。Git の LF/CRLF warning は検査失敗ではない。
+
 # 2026-06-14 Agent selfhost Drop absence evidence connector checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、source-derived authority 排除、DAG 責務分割、fake proof / fake impl candidate 禁止、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。

@@ -1805,6 +1805,22 @@ subagent review では、absence を既存 public impl operation connector の `
 
 この checkpoint 後の残件は、Rust Resource IR 相当の actual graph walker 本体、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop impl fact table lookup の sorted index 化、surface completion witness の origin index 化、absence lookup cache、stage0 fixture 分割、operation evidence table lookup の index 化は、今回固定した typed authority / fail-closed / owner cleanup contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue generic impl binder evidence checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl` を追加し、public trait impl header に含まれる generic parameter binder と bound の詳細 evidence を検査する checker-layer boundary を作った。
+
+この boundary は、`memo_trait_public_impl_header.nepl` が現時点で `type_parameter_count` / `type_parameter_bound_count` だけを受け取り、generic impl を fail-closed にしている理由を解消するための前段である。count だけでは異なる binder / bound environment を同一視するため、今回の module は parameter ordinal、`SelfhostTypeParameterBinding`、stable symbol hash、bound range、bound 側の trait application shape hash、trait type argument count を typed table として受ける。
+
+accepted authority は caller supplied の `SelfhostMemoTraitPublicImplGenericParameterTable` と `SelfhostMemoTraitPublicImplGenericBoundTable` の typed field だけである。parameter table length と expected type parameter count、bound table length と expected bound count は一致しなければならない。parameter ordinal は 1-origin table order と一致し、`SelfhostTypeParameterBinding` は Phase 1 では `binder_depth = 0`、`parameter_index = table index` でなければならない。stable symbol hash 0、negative range、range overlap / hole、bound parameter mismatch、bound ordinal mismatch、missing / placeholder trait application shape hash、negative trait type argument count は typed error として fail-closed にする。
+
+この checkpoint は generic impl の semantic acceptance ではない。trait solving 成功、operation impl candidate、operation evidence record、aggregate proof status、public surface hash authority、Resource IR proof、PrivateCache / PrivateState masking、backend artifact、prechecked artifact は作らない。出力は schema version、type parameter count、bound count、nonzero shape hash を持つ `SelfhostMemoTraitPublicImplGenericBinderEvidence` であり、後続の public impl header / materializer 接続がこの hash を header shape へ含めるかどうかを別 boundary で判断する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、HIR / Resource IR / backend / proof store / operation classifier / candidate builder / evidence producer / public impl header / PrivateCache / PrivateState / prechecked import 禁止、count-only generic acceptance 禁止、source text / span / display / path / diagnostic / public surface hash authority 禁止、typed table length / ordinal / binding / range / bound shape 検査、impl candidate / operation evidence / aggregate proof / private effect 合成禁止、行数 / doc comment 長制限禁止を確認する。
+
+subagent review では、count だけで `GenericImplUnsupported` / `TypeParameterBoundUnsupported` を解除する設計、operation candidate や operation evidence へ直接流す設計、public surface hash を generic binder authority にする設計は Blocker と確認された。実装はこの指摘に従い、generic binder / bound detail table の validation と shape evidence だけで閉じる。`SelfhostTypeParameterBinding` を authority に含めるべきという Required も反映し、source name ではなく binder depth / parameter index を検査する。
+
+この checkpoint 後の残件は、generic binder evidence hash を public impl header shape / materializer record へ接続する boundary、trait bound solving、generic impl coherence、Rust Resource IR 相当の actual graph walker 本体、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。generic binder table の sorted index 化、bound lookup cache、stage0 fixture 分割は、今回固定した typed authority / fail-closed / shape hash contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
