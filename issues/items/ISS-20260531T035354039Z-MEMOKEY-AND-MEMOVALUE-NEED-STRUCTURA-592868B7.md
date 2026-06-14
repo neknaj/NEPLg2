@@ -708,6 +708,27 @@ source policy は `nodesrc/test_selfhost_memo_trait_proof_store_contract.js` を
 
 この checkpoint 後の残件は、re-export / import graph / public non-trait declaration を含む full public surface hash、Copy / Drop / Eq / Hash pure evidence の実計算、recursive aggregate / cycle boundary、`.neplproof` reader / serializer と proof store preseed、永続 artifact 用 stable map / serialized index、generic instantiation 用 stable type argument identity を接続することである。
 
+## 2026-06-14 selfhost Resource graph input scanner checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl` を追加し、actual Resource IR graph walker が将来返す typed walker event table を既存 traversal collector の `SelfhostDropResourceGraphInput` へ正規化する checker-layer scanner boundary を作った。
+
+scanner input は body record、place event、edge event、unsupported event を別 table として持つ。body record は `SelfhostTypeId`、body module fingerprint、Drop body root、effect、escape、graph id、upstream completeness を持ち、place / edge / unsupported event は同じ body graph 内で一意な `operation_ordinal` を持つ。place と edge を同じ汎用 record に潰して sentinel id を使う設計は採らず、typed struct と enum の網羅検査で fail-closed にする。
+
+preflight validation は body / place / edge / unsupported table 全体を先に検査する。placeholder fingerprint、不正 graph id、不正 operation ordinal、不正 place id、不正 edge endpoint、`effect != InternalAlloc`、`escape != NotApplicable`、duplicate body、duplicate operation ordinal、所属 body missing、missing / upstream unsupported graph への event 混入は typed error で拒否する。closed body に unsupported event がある場合は collector input では `TraversalUnsupported` body に写し、partial place / edge graph を no-escape proof として扱わない。
+
+この scanner は full Resource IR graph walker 本体ではない。Rust 側 `ResourceOp` の完全走査、PlaceRoot / projection 分類、RawMemory / RawAddress / CollectionSlot / Call / IndirectCall / FunctionValue::Memoized / PrivateCache / PrivateState の詳細 lowering は後続 slice に残す。今回の module は collector input owner を作るだけで、traversal summary、no-escape observation、proof table、Drop evidence、aggregate proof、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact は作らない。
+
+subagent review では、Popper が Rust 側 `ResourceOp` / `EffectOp` / `PrivateCacheMaskProofIndex` / collection slot traversal を確認し、今回の slice は proof 生成ではなく typed ResourceOp stream -> collector graph stream の scanner boundary に限定すべきだと判断した。Descartes は selfhost 方針レビューとして、source text / span / display name / hash authority 禁止、PrivateCache / PrivateState masking 非接続、line-count / doc-comment length gate 禁止、sorted index などの最適化後回しを確認した。どちらも Blocker なし。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit import allow-list、forbidden layer import、typed body/place/edge/unsupported event field、preflight validation、unsupported event による `TraversalUnsupported` override、collector input constructor への一方向出力、proof / Drop evidence / aggregate proof / proof store / PrivateCache mask / PrivateState mask / prechecked artifact 合成禁止、Result error の bool / string 化禁止、行数 / doc comment 長制限禁止を検査する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-resource-graph-input-scanner.json`
+
+この checkpoint 後の残件は、Rust Resource IR 相当の actual graph walker 本体、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。walker event operation ordinal index 化、graph lookup index 化、duplicate scan bucket 化、stage0 fixture 分割は、今回固定した typed authority / owner cleanup / fail-closed contract を保って後から行える最適化として扱う。
+
 ## 2026-06-14 Resource no-escape producer checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_producer.nepl` を追加し、Resource IR 側が作った typed no-escape observation table を既存の `SelfhostMemoTraitOperationDropNoEscapeProofTable` へ変換する checker-layer producer boundary を接続した。

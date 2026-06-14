@@ -1,3 +1,50 @@
+# 2026-06-14 Agent selfhost Resource graph input scanner checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / struct / Result error、match の網羅性、source-derived authority 排除、pure checker boundary、探索範囲を scanner に限定する設計、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限、doc comment 長制限、コメント削減を目的とする source policy は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / future Resource IR graph walker の typed body / place / edge / unsupported event stream を既存 traversal collector input に写す checker-layer scanner boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop impl Resource graph input scanner boundary
+- decision: MERGE_APPROVED after focused doctest, source policy, Zenn review gate, issue/doc/todo/note update, and two independent subagent reviews.
+- policy/spec:
+  - accepted authority は scanner input の body record、place event、edge event、unsupported event の typed payload だけである。source text、span、lexeme、display name、module path、public surface hash、payload hash、diagnostic text、HIR effect summary だけから no-escape proof を推測しない。
+  - body key は `SelfhostTypeId + body_module_fingerprint + Drop body_root + graph_id` に加え、body header 側で effect / escape / upstream completeness を保持する。`SelfhostTypeId` だけの graph reuse は認めない。
+  - event key は body graph 内の `operation_ordinal` であり、placeholder fingerprint、不正 id、`effect != InternalAlloc`、`escape != NotApplicable`、duplicate body、duplicate operation ordinal、所属 body missing、missing / unsupported body への event 混入は typed error で fail-closed に拒否する。
+  - unsupported event を持つ closed body は collector input で `TraversalUnsupported` body として扱い、partial place / edge graph を no-escape proof に使わない。
+  - scanner は collector input owner を作るだけである。traversal summary、no-escape observation、proof table、Drop evidence、aggregate proof、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact はこの slice で作らない。
+  - 次 slice は actual Rust Resource IR 相当の graph walker body、no-drop absence boundary、generic binder / bound evidence、PrivateCache / PrivateState masking、prechecked artifact 接続を個別に扱う。
+- implementation/test:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl` を追加した。
+  - `SelfhostDropResourceGraphWalkerInput` と body / place / edge / unsupported event record、scanner error enum、stage0 summary を追加した。
+  - scanner input は sentinel 値ではなく構造ごとの owner table に分け、unsupported event と place / edge event を同じ generic record へ詰め込まない。
+  - output は既存 collector の public constructor / push API へだけ接続し、collector より後段の proof API や PrivateCache / PrivateState effect masking API を呼ばない。
+  - doctest は private / escape / unsupported / missing status と duplicate ordinal、missing body、placeholder rejection を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+- subagent review:
+  - subagent review は policy/spec と implementation/test の 2 軸で扱った。
+  - subagent_review_ids: `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`, `019ec48a-0645-7c52-867f-a35bc0a435ad`
+  - subagent_review_count: 2
+  - Blocker: なし。
+  - Non-blocker: sorted index、graph lookup index、duplicate scan bucket、stage0 fixture 分割は後からできる最適化であり、今回の typed authority / owner cleanup / fail-closed contract を変えずに次 slice 以降で扱える。
+  - Question: なし。
+  - Approve: yes. Popper は Rust ResourceOp / EffectOp / private cache mask / collection traversal を確認し、今回の slice を typed Resource walker event stream から collector graph stream への scanner boundary に限定する判断を承認した。Descartes は source/display/hash authority 禁止、PrivateCache / PrivateState masking 非接続、行数制限 / doc comment 長制限禁止、最適化後回しを確認した。
+- source_policy:
+  - source_policy: added.
+  - 新規 source policy は scanner facade 非公開、実際の proof / evidence / aggregate / PrivateCache / PrivateState / prechecked artifact 合成禁止、typed record fields、fail-closed validation、collector input への一方向出力、bool / string error 禁止、行数制限 / doc comment 長制限禁止を確認する。
+  - 個別 subagent review response は `nodesrc/selfhost_zenn_review_response_check.js --review-kind individual` 相当の形式を満たす内容として採用した。
+  - 最終記録は `nodesrc/selfhost_zenn_review_response_check.js --review-kind final --record <note-or-issue.md>` の durable record 方針に合わせて `note.n.md` に残した。
+  - 既存 warning: Git の LF/CRLF warning。
+  - 今回差分由来 warning: なし。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-resource-graph-input-scanner.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js` pass。
+  - 検証済み: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。既存 warning は `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` だけである。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` pass。Git の LF/CRLF warning は検査失敗ではない。
+
 # 2026-06-14 Agent selfhost Resource graph traversal collector checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査、DAG 責務分割、source-derived authority 排除、計算量と探索範囲の明示、丁寧な doc comment、試作段階でも雑な proof 合成を残さない方針を守る。
@@ -61601,3 +61648,38 @@ MERGE_APPROVED
 ### residual
 
 - F4ad は consumer item を 1 つ進める typed continuation boundary までであり、real sink trait、contour-wide loop/iterator、full outline assembly、compound glyph、phantom points、hint instruction semantics、off-curve contour-start synthesis、winding / fill rule、stroke/fill path rasterization、2D renderer path command emission は未実装である。
+
+## 2026-06-14 selfhost Resource graph input scanner checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、typed enum / struct / Result error、source authority 分離、丁寧な日本語 doc comment、line-count / doc-comment length gate 禁止を守った。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl` を追加した。
+- scanner input を body record、place event、edge event、unsupported event の owner table に分けた。
+- body identity は `SelfhostTypeId`、body module fingerprint、Drop body root、effect、escape、graph id、upstream completeness で保持する。
+- place / edge / unsupported event は同じ body graph 内で一意な `operation_ordinal` を持つ。
+- preflight validation で placeholder fingerprint、不正 id、`InternalAlloc + NotApplicable` 以外、duplicate body、duplicate operation ordinal、所属 body missing、missing / unsupported graph への event 混入を fail-closed に拒否する。
+- unsupported event を持つ closed body は collector input で `TraversalUnsupported` body に写し、partial place / edge graph を no-escape proof に使わない。
+- scanner は collector input owner を作るだけで、traversal summary、no-escape observation、proof table、Drop evidence、aggregate proof、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作らない。
+- `nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js` を追加し、runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、`issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md`、`todo.md` を更新した。
+
+### subagent_review
+
+- Popper review: Blocker なし。Rust 側 `ResourceOp` / `EffectOp` / private cache mask / collection slot traversal を確認し、今回の slice は proof 生成ではなく typed Resource walker event stream から collector graph stream への scanner boundary に限定すべきと判断された。
+- Descartes review: Blocker なし。source text / span / display name / hash authority 禁止、PrivateCache / PrivateState masking 非接続、line-count / doc-comment length gate 禁止、sorted index などの最適化後回しを確認した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-resource-graph-input-scanner.json`
+
+### residual
+
+- Rust Resource IR 相当の actual graph walker 本体、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- walker event operation ordinal index 化、graph lookup index 化、duplicate scan bucket 化、stage0 fixture 分割は、今回固定した typed authority / owner cleanup / fail-closed contract を保って後からできる最適化として扱う。

@@ -1,0 +1,1508 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_resource_graph_input_scanner
+//: Drop impl body の typed Resource walker event table から traversal collector input を[作/つく]る checker-layer scanner です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_drop_resource_no_escape_traversal_collector` は body / place / edge の typed graph input を traversal summary table へ畳みます。
+//: - この module は、その 1 つ前の境界として、actual Resource IR graph walker が将来返す typed walker event table を collector input へ正規化します。
+//: - Rust 実装の `ResourceOp` と同じく、local / temporary / return / storage / edge / unsupported operation を enum と struct で分け、source text や表示名を proof authority にしません。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostDropResourceGraphWalkerBodyRecord`、`SelfhostDropResourceGraphWalkerPlaceEventRecord`、`SelfhostDropResourceGraphWalkerEdgeEventRecord`、`SelfhostDropResourceGraphWalkerUnsupportedEventRecord` の typed payload だけです。
+//: - source text、span、lexeme、display name、module path、public surface hash、payload hash、diagnostic text から graph completeness や no-escape を推測しません。
+//: - body key は `SelfhostTypeId`、body module fingerprint、Drop body root、effect、escape、graph id をすべて含みます。operation ordinal は同じ body graph 内で一意でなければなりません。
+//: - `body_module_fingerprint == 0`、`graph_id < 0`、`operation_ordinal < 0`、place / endpoint id の負数、`effect != InternalAlloc`、`escape != NotApplicable` は fail-closed に拒否します。
+//: - place / edge / unsupported event は、同じ input に存在する `ClosedForDropBody` body record にだけ属せます。missing / upstream unsupported graph に event が混入した場合は fail-closed に拒否します。
+//: - unsupported event がある closed body は collector input では `TraversalUnsupported` body として渡し、partial place / edge graph を no-escape proof へ使いません。
+//: - この module は traversal summary、no-escape observation、proof table、Drop evidence、aggregate proof、generic binder、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では selfhost 側に Rust と同等の full Resource IR graph owner はまだありません。この module は graph walker 本体ではなく、walker output の typed event stream contract と collector input projection を固定します。
+//: - `SelfhostDropResourceGraphWalkerUnsupportedReason` は unsupported operation を public diagnostic string へ変換するための値ではありません。後段は typed enum を見て fail-closed に扱います。
+//: - facade には re-export しません。Drop fact builder、Resource walker、scanner、collector、materializer、producer、no-escape gate、purity gate を上位 orchestration で束ねる段階で公開 API を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、計算量、owner cleanup を doc comment で明示することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - body 数を b、place event 数を p、edge event 数を e、unsupported event 数を u とすると、現状の duplicate / membership 検査は O((b+p+e+u)^2) 時間、output collector input に O(b+p+e) 空間を使います。
+//: - body bucket、operation ordinal sorted index、event kind bucket、graph lookup index は、key equality、duplicate rejection、unsupported override、owner cleanup、fail-closed error contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: ##: [7] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_traversal_collector" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_resource_no_escape_materializer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_resource_graph_input_scanner_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_drop_resource_graph_input_scanner_len_result_eq summary.scanned_body_len 4
+//:             let checks2 checks_push checks1 check selfhost_drop_resource_graph_input_scanner_status_result_eq summary.private_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate
+//:             let checks3 checks_push checks2 check selfhost_drop_resource_graph_input_scanner_status_result_eq summary.escape_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved
+//:             let checks4 checks_push checks3 check selfhost_drop_resource_graph_input_scanner_status_result_eq summary.unsupported_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported
+//:             let checks5 checks_push checks4 check selfhost_drop_resource_graph_input_scanner_status_result_eq summary.missing_status SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing
+//:             let checks6 checks_push checks5 check selfhost_drop_resource_graph_input_scanner_error_result_eq summary.duplicate_ordinal_rejected SelfhostDropResourceGraphInputScannerErrorKind::GraphOperationDuplicate
+//:             let checks7 checks_push checks6 check selfhost_drop_resource_graph_input_scanner_error_result_eq summary.missing_body_event_rejected SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing 7
+//:             let checks8 checks_push checks7 check selfhost_drop_resource_graph_input_scanner_error_result_eq summary.placeholder_rejected SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+//:             let shown checks_print_report checks8
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop Resource graph input scanner stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "./memo_trait_operation_drop_resource_no_escape_traversal_collector" as *
+#import "./memo_trait_operation_drop_resource_no_escape_materializer" as *
+
+//: SelfhostDropResourceGraphWalkerUnsupportedReason: graph walker が closed traversal にできなかった理由
+pub enum SelfhostDropResourceGraphWalkerUnsupportedReason:
+    UnknownResourceOperation
+    UnknownPlaceRoot
+    UnknownProjection
+    UnknownCallBoundary
+    PrivateCacheBoundaryUnsupported
+    PrivateStateBoundaryUnsupported
+
+//: SelfhostDropResourceGraphWalkerBodyRecord: Resource walker が Drop body ごとに返す graph header
+pub struct SelfhostDropResourceGraphWalkerBodyRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+    graph_id %SelfhostDropResourceGraphId
+    completeness %SelfhostDropResourceGraphCompleteness
+
+//: SelfhostDropResourceGraphWalkerPlaceEventRecord: Resource walker が観測した place node
+pub struct SelfhostDropResourceGraphWalkerPlaceEventRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostDropResourceGraphId
+    operation_ordinal %i32
+    place_id %SelfhostResourcePlaceId
+    kind %SelfhostResourcePlaceKind
+
+//: SelfhostDropResourceGraphWalkerEdgeEventRecord: Resource walker が観測した graph edge
+pub struct SelfhostDropResourceGraphWalkerEdgeEventRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostDropResourceGraphId
+    operation_ordinal %i32
+    from_place %SelfhostResourcePlaceId
+    to_place %SelfhostResourcePlaceId
+    kind %SelfhostResourceEdgeKind
+
+//: SelfhostDropResourceGraphWalkerUnsupportedEventRecord: no-escape traversal へ進めない Resource operation
+pub struct SelfhostDropResourceGraphWalkerUnsupportedEventRecord:
+    type_id %SelfhostTypeId
+    body_module_fingerprint %i32
+    body_root %SelfhostHirExprId
+    graph_id %SelfhostDropResourceGraphId
+    operation_ordinal %i32
+    reason %SelfhostDropResourceGraphWalkerUnsupportedReason
+
+//: SelfhostDropResourceGraphWalkerInput: Resource walker event の session-local owner table
+pub struct SelfhostDropResourceGraphWalkerInput:
+    bodies %Vec SelfhostDropResourceGraphWalkerBodyRecord
+    places %Vec SelfhostDropResourceGraphWalkerPlaceEventRecord
+    edges %Vec SelfhostDropResourceGraphWalkerEdgeEventRecord
+    unsupported %Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord
+
+//: SelfhostDropResourceGraphInputScannerErrorKind: scanner の構造的な拒否理由
+pub enum SelfhostDropResourceGraphInputScannerErrorKind:
+    WalkerBodyPushFailed %StdErrorKind
+    WalkerPlaceEventPushFailed %StdErrorKind
+    WalkerEdgeEventPushFailed %StdErrorKind
+    WalkerUnsupportedEventPushFailed %StdErrorKind
+    WalkerBodyReadFailed %i32
+    WalkerPlaceEventReadFailed %i32
+    WalkerEdgeEventReadFailed %i32
+    WalkerUnsupportedEventReadFailed %i32
+    GraphBodyDuplicate
+    GraphOperationDuplicate
+    GraphBodyMissing %i32
+    EventForNonClosedGraph %i32
+    BodyModuleFingerprintPlaceholder
+    GraphIdInvalid %i32
+    OperationOrdinalInvalid %i32
+    PlaceIdInvalid %i32
+    EdgeEndpointInvalid %i32
+    EffectNotInternalAlloc %SelfhostEffectKind
+    EscapeNotApplicable %SelfhostEffectEscapeState
+    OutputGraphInputAllocFailed %StdErrorKind
+    OutputCollectorInputRejected %SelfhostDropResourceGraphTraversalCollectorErrorKind
+
+//: SelfhostDropResourceGraphInputScannerStage0Summary: scanner smoke の代表結果
+pub struct SelfhostDropResourceGraphInputScannerStage0Summary:
+    scanned_body_len %Result i32 SelfhostDropResourceGraphInputScannerErrorKind
+    private_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind
+    escape_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind
+    unsupported_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind
+    missing_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind
+    duplicate_ordinal_rejected %Result i32 SelfhostDropResourceGraphInputScannerErrorKind
+    missing_body_event_rejected %Result i32 SelfhostDropResourceGraphInputScannerErrorKind
+    placeholder_rejected %Result i32 SelfhostDropResourceGraphInputScannerErrorKind
+
+//: Clone for SelfhostDropResourceGraphWalkerUnsupportedReason: unsupported reason は enum payload を[持/も]たないため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphWalkerUnsupportedReason:
+    fn clone %fn &SelfhostDropResourceGraphWalkerUnsupportedReason SelfhostDropResourceGraphWalkerUnsupportedReason \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphWalkerUnsupportedReason: unsupported reason は owner を[持/も]たない typed reason として Copy にする
+impl Copy for SelfhostDropResourceGraphWalkerUnsupportedReason:
+    fn copy_mark %fn SelfhostDropResourceGraphWalkerUnsupportedReason SelfhostDropResourceGraphWalkerUnsupportedReason \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphWalkerBodyRecord: body record は typed key と small enum だけを[持/も]つため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphWalkerBodyRecord:
+    fn clone %fn &SelfhostDropResourceGraphWalkerBodyRecord SelfhostDropResourceGraphWalkerBodyRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphWalkerBodyRecord: body record は walker input の immutable payload として Copy にする
+impl Copy for SelfhostDropResourceGraphWalkerBodyRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphWalkerBodyRecord SelfhostDropResourceGraphWalkerBodyRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphWalkerPlaceEventRecord: place event は typed key と id だけを[持/も]つため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphWalkerPlaceEventRecord:
+    fn clone %fn &SelfhostDropResourceGraphWalkerPlaceEventRecord SelfhostDropResourceGraphWalkerPlaceEventRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphWalkerPlaceEventRecord: place event は walker input の immutable payload として Copy にする
+impl Copy for SelfhostDropResourceGraphWalkerPlaceEventRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphWalkerPlaceEventRecord SelfhostDropResourceGraphWalkerPlaceEventRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphWalkerEdgeEventRecord: edge event は typed key と endpoint id だけを[持/も]つため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphWalkerEdgeEventRecord:
+    fn clone %fn &SelfhostDropResourceGraphWalkerEdgeEventRecord SelfhostDropResourceGraphWalkerEdgeEventRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphWalkerEdgeEventRecord: edge event は walker input の immutable payload として Copy にする
+impl Copy for SelfhostDropResourceGraphWalkerEdgeEventRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphWalkerEdgeEventRecord SelfhostDropResourceGraphWalkerEdgeEventRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphWalkerUnsupportedEventRecord: unsupported event は typed key と reason だけを[持/も]つため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphWalkerUnsupportedEventRecord:
+    fn clone %fn &SelfhostDropResourceGraphWalkerUnsupportedEventRecord SelfhostDropResourceGraphWalkerUnsupportedEventRecord \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphWalkerUnsupportedEventRecord: unsupported event は walker input の immutable payload として Copy にする
+impl Copy for SelfhostDropResourceGraphWalkerUnsupportedEventRecord:
+    fn copy_mark %fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord SelfhostDropResourceGraphWalkerUnsupportedEventRecord \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphInputScannerErrorKind: scanner error は Copy payload だけを[持/も]つため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphInputScannerErrorKind:
+    fn clone %fn &SelfhostDropResourceGraphInputScannerErrorKind SelfhostDropResourceGraphInputScannerErrorKind \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphInputScannerErrorKind: scanner error は Result payload として owner cleanup を[必要/ひつよう]としないため Copy にする
+impl Copy for SelfhostDropResourceGraphInputScannerErrorKind:
+    fn copy_mark %fn SelfhostDropResourceGraphInputScannerErrorKind SelfhostDropResourceGraphInputScannerErrorKind \self:
+        self
+
+//: Clone for SelfhostDropResourceGraphInputScannerStage0Summary: stage0 summary は Result payload も Copy payload に限るため bitwise copy で[複製/ふくせい]する
+impl Clone for SelfhostDropResourceGraphInputScannerStage0Summary:
+    fn clone %fn &SelfhostDropResourceGraphInputScannerStage0Summary SelfhostDropResourceGraphInputScannerStage0Summary \self:
+        *self
+
+//: Copy for SelfhostDropResourceGraphInputScannerStage0Summary: stage0 summary は doctest 用の small immutable payload として Copy にする
+impl Copy for SelfhostDropResourceGraphInputScannerStage0Summary:
+    fn copy_mark %fn SelfhostDropResourceGraphInputScannerStage0Summary SelfhostDropResourceGraphInputScannerStage0Summary \self:
+        self
+
+//: selfhost_drop_resource_graph_walker_body_record_new: walker body record を[作/つく]る
+pub fn selfhost_drop_resource_graph_walker_body_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState fn SelfhostDropResourceGraphId fn SelfhostDropResourceGraphCompleteness SelfhostDropResourceGraphWalkerBodyRecord \type_id\body_module_fingerprint\body_root\effect\escape\graph_id\completeness:
+    SelfhostDropResourceGraphWalkerBodyRecord type_id body_module_fingerprint body_root effect escape graph_id completeness
+
+//: selfhost_drop_resource_graph_walker_place_event_record_new: walker place event record を[作/つく]る
+pub fn selfhost_drop_resource_graph_walker_place_event_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostDropResourceGraphId fn i32 fn SelfhostResourcePlaceId fn SelfhostResourcePlaceKind SelfhostDropResourceGraphWalkerPlaceEventRecord \type_id\body_module_fingerprint\body_root\graph_id\operation_ordinal\place_id\kind:
+    SelfhostDropResourceGraphWalkerPlaceEventRecord type_id body_module_fingerprint body_root graph_id operation_ordinal place_id kind
+
+//: selfhost_drop_resource_graph_walker_edge_event_record_new: walker edge event record を[作/つく]る
+pub fn selfhost_drop_resource_graph_walker_edge_event_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostDropResourceGraphId fn i32 fn SelfhostResourcePlaceId fn SelfhostResourcePlaceId fn SelfhostResourceEdgeKind SelfhostDropResourceGraphWalkerEdgeEventRecord \type_id\body_module_fingerprint\body_root\graph_id\operation_ordinal\from_place\to_place\kind:
+    SelfhostDropResourceGraphWalkerEdgeEventRecord type_id body_module_fingerprint body_root graph_id operation_ordinal from_place to_place kind
+
+//: selfhost_drop_resource_graph_walker_unsupported_event_record_new: walker unsupported event record を[作/つく]る
+pub fn selfhost_drop_resource_graph_walker_unsupported_event_record_new %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn SelfhostDropResourceGraphId fn i32 fn SelfhostDropResourceGraphWalkerUnsupportedReason SelfhostDropResourceGraphWalkerUnsupportedEventRecord \type_id\body_module_fingerprint\body_root\graph_id\operation_ordinal\reason:
+    SelfhostDropResourceGraphWalkerUnsupportedEventRecord type_id body_module_fingerprint body_root graph_id operation_ordinal reason
+
+//: selfhost_drop_resource_graph_walker_input_new: [空/から]の walker input owner を[作/つく]る
+pub fn selfhost_drop_resource_graph_walker_input_new %impure fn void Result SelfhostDropResourceGraphWalkerInput StdErrorKind \void:
+    let bodies_result %Result Vec SelfhostDropResourceGraphWalkerBodyRecord StdErrorKind v::new
+    match bodies_result:
+        Result::Ok bodies:
+            let places_result %Result Vec SelfhostDropResourceGraphWalkerPlaceEventRecord StdErrorKind v::new
+            match places_result:
+                Result::Ok places:
+                    let edges_result %Result Vec SelfhostDropResourceGraphWalkerEdgeEventRecord StdErrorKind v::new
+                    match edges_result:
+                        Result::Ok edges:
+                            let unsupported_result %Result Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord StdErrorKind v::new
+                            match unsupported_result:
+                                Result::Ok unsupported:
+                                    Result::Ok SelfhostDropResourceGraphWalkerInput bodies places edges unsupported
+                                Result::Err e:
+                                    v::free edges
+                                    v::free places
+                                    v::free bodies
+                                    Result::Err e
+                        Result::Err e:
+                            v::free places
+                            v::free bodies
+                            Result::Err e
+                Result::Err e:
+                    v::free bodies
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_walker_input_free: walker input owner を[閉/と]じる
+pub fn selfhost_drop_resource_graph_walker_input_free %impure fn SelfhostDropResourceGraphWalkerInput unit \input:
+    v::free field::get input "bodies"
+    v::free field::get input "places"
+    v::free field::get input "edges"
+    v::free field::get input "unsupported"
+
+//: selfhost_drop_resource_graph_walker_body_len: body event 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_walker_body_len %fn &SelfhostDropResourceGraphWalkerInput i32 \input:
+    let bodies %&Vec SelfhostDropResourceGraphWalkerBodyRecord field::get_ref input "bodies"
+    v::len bodies
+
+//: selfhost_drop_resource_graph_walker_place_len: place event 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_walker_place_len %fn &SelfhostDropResourceGraphWalkerInput i32 \input:
+    let places %&Vec SelfhostDropResourceGraphWalkerPlaceEventRecord field::get_ref input "places"
+    v::len places
+
+//: selfhost_drop_resource_graph_walker_edge_len: edge event 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_walker_edge_len %fn &SelfhostDropResourceGraphWalkerInput i32 \input:
+    let edges %&Vec SelfhostDropResourceGraphWalkerEdgeEventRecord field::get_ref input "edges"
+    v::len edges
+
+//: selfhost_drop_resource_graph_walker_unsupported_len: unsupported event 数を[返/かえ]す
+pub fn selfhost_drop_resource_graph_walker_unsupported_len %fn &SelfhostDropResourceGraphWalkerInput i32 \input:
+    let unsupported %&Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord field::get_ref input "unsupported"
+    v::len unsupported
+
+//: selfhost_drop_resource_graph_walker_get_body: body record を[読/よ]む
+fn selfhost_drop_resource_graph_walker_get_body %fn &SelfhostDropResourceGraphWalkerInput fn i32 Option SelfhostDropResourceGraphWalkerBodyRecord \input\idx:
+    let bodies %&Vec SelfhostDropResourceGraphWalkerBodyRecord field::get_ref input "bodies"
+    v::get bodies idx
+
+//: selfhost_drop_resource_graph_walker_get_place: place event record を[読/よ]む
+fn selfhost_drop_resource_graph_walker_get_place %fn &SelfhostDropResourceGraphWalkerInput fn i32 Option SelfhostDropResourceGraphWalkerPlaceEventRecord \input\idx:
+    let places %&Vec SelfhostDropResourceGraphWalkerPlaceEventRecord field::get_ref input "places"
+    v::get places idx
+
+//: selfhost_drop_resource_graph_walker_get_edge: edge event record を[読/よ]む
+fn selfhost_drop_resource_graph_walker_get_edge %fn &SelfhostDropResourceGraphWalkerInput fn i32 Option SelfhostDropResourceGraphWalkerEdgeEventRecord \input\idx:
+    let edges %&Vec SelfhostDropResourceGraphWalkerEdgeEventRecord field::get_ref input "edges"
+    v::get edges idx
+
+//: selfhost_drop_resource_graph_walker_get_unsupported: unsupported event record を[読/よ]む
+fn selfhost_drop_resource_graph_walker_get_unsupported %fn &SelfhostDropResourceGraphWalkerInput fn i32 Option SelfhostDropResourceGraphWalkerUnsupportedEventRecord \input\idx:
+    let unsupported %&Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord field::get_ref input "unsupported"
+    v::get unsupported idx
+
+//: selfhost_drop_resource_graph_input_scanner_graph_id_eq: graph id が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_graph_id_eq %fn SelfhostDropResourceGraphId fn SelfhostDropResourceGraphId bool \a\b:
+    eq a.index b.index
+
+//: selfhost_drop_resource_graph_input_scanner_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            1
+        StdErrorKind::OutOfMemory:
+            2
+        StdErrorKind::EmptyCollection:
+            3
+        StdErrorKind::IndexOutOfBounds:
+            4
+        StdErrorKind::KeyNotFound:
+            5
+        StdErrorKind::CapacityExceeded:
+            6
+        StdErrorKind::InvalidOperation:
+            7
+        StdErrorKind::InvalidUtf8:
+            8
+        StdErrorKind::ParseError:
+            9
+        StdErrorKind::IoError:
+            10
+        StdErrorKind::Other:
+            11
+
+//: selfhost_drop_resource_graph_input_scanner_effect_kind_code: effect kind を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_effect_kind_code %fn SelfhostEffectKind i32 \kind:
+    match kind:
+        SelfhostEffectKind::Pure:
+            1
+        SelfhostEffectKind::InternalAlloc:
+            2
+        SelfhostEffectKind::UnsafeMemory:
+            3
+        SelfhostEffectKind::ExternalIo:
+            4
+        SelfhostEffectKind::Nondet:
+            5
+
+//: selfhost_drop_resource_graph_input_scanner_escape_state_code: escape state を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_escape_state_code %fn SelfhostEffectEscapeState i32 \state:
+    match state:
+        SelfhostEffectEscapeState::NotApplicable:
+            1
+        SelfhostEffectEscapeState::NoEscapeProven:
+            2
+        SelfhostEffectEscapeState::MayEscape:
+            3
+
+//: selfhost_drop_resource_graph_input_scanner_status_code: traversal status を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_status_code %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus i32 \status:
+    match status:
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::AllTraversedPlacesPrivate:
+            1
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::EscapingPlaceObserved:
+            2
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::ResourceGraphMissing:
+            3
+        SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus::TraversalUnsupported:
+            4
+
+//: selfhost_drop_resource_graph_input_scanner_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_drop_resource_graph_walker_body_key_eq: body key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_walker_body_key_eq %fn SelfhostDropResourceGraphWalkerBodyRecord fn SelfhostDropResourceGraphWalkerBodyRecord bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            eq a.body_module_fingerprint b.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+                and:
+                    selfhost_effect_kind_eq a.effect b.effect
+                    and:
+                        selfhost_drop_resource_graph_input_scanner_escape_state_eq a.escape b.escape
+                        selfhost_drop_resource_graph_input_scanner_graph_id_eq a.graph_id b.graph_id
+
+//: selfhost_drop_resource_graph_walker_place_body_key_eq: body と place event の body key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_walker_place_body_key_eq %fn SelfhostDropResourceGraphWalkerBodyRecord fn SelfhostDropResourceGraphWalkerPlaceEventRecord bool \body\place:
+    and:
+        selfhost_type_id_eq body.type_id place.type_id
+        and:
+            eq body.body_module_fingerprint place.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index place.body_root
+                selfhost_drop_resource_graph_input_scanner_graph_id_eq body.graph_id place.graph_id
+
+//: selfhost_drop_resource_graph_walker_edge_body_key_eq: body と edge event の body key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_walker_edge_body_key_eq %fn SelfhostDropResourceGraphWalkerBodyRecord fn SelfhostDropResourceGraphWalkerEdgeEventRecord bool \body\edge:
+    and:
+        selfhost_type_id_eq body.type_id edge.type_id
+        and:
+            eq body.body_module_fingerprint edge.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index edge.body_root
+                selfhost_drop_resource_graph_input_scanner_graph_id_eq body.graph_id edge.graph_id
+
+//: selfhost_drop_resource_graph_walker_unsupported_body_key_eq: body と unsupported event の body key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_walker_unsupported_body_key_eq %fn SelfhostDropResourceGraphWalkerBodyRecord fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord bool \body\unsupported:
+    and:
+        selfhost_type_id_eq body.type_id unsupported.type_id
+        and:
+            eq body.body_module_fingerprint unsupported.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index body.body_root selfhost_hir_expr_id_index unsupported.body_root
+                selfhost_drop_resource_graph_input_scanner_graph_id_eq body.graph_id unsupported.graph_id
+
+//: selfhost_drop_resource_graph_walker_validate_body_result: body record の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_walker_validate_body_result %fn SelfhostDropResourceGraphWalkerBodyRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \body:
+    if:
+        eq body.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt body.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphIdInvalid body.graph_id.index
+                else:
+                    if:
+                        selfhost_effect_kind_eq body.effect SelfhostEffectKind::InternalAlloc
+                        then:
+                            match body.escape:
+                                SelfhostEffectEscapeState::NotApplicable:
+                                    Result::Ok unit
+                                SelfhostEffectEscapeState::NoEscapeProven:
+                                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EscapeNotApplicable body.escape
+                                SelfhostEffectEscapeState::MayEscape:
+                                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EscapeNotApplicable body.escape
+                        else:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EffectNotInternalAlloc body.effect
+
+//: selfhost_drop_resource_graph_walker_validate_place_result: place event の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_walker_validate_place_result %fn SelfhostDropResourceGraphWalkerPlaceEventRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \place:
+    if:
+        eq place.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt place.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphIdInvalid place.graph_id.index
+                else:
+                    if:
+                        lt place.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OperationOrdinalInvalid place.operation_ordinal
+                        else:
+                            if:
+                                lt place.place_id.index 0
+                                then:
+                                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::PlaceIdInvalid place.place_id.index
+                                else:
+                                    Result::Ok unit
+
+//: selfhost_drop_resource_graph_walker_validate_edge_result: edge event の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_walker_validate_edge_result %fn SelfhostDropResourceGraphWalkerEdgeEventRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \edge:
+    if:
+        eq edge.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt edge.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphIdInvalid edge.graph_id.index
+                else:
+                    if:
+                        lt edge.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OperationOrdinalInvalid edge.operation_ordinal
+                        else:
+                            if:
+                                lt edge.from_place.index 0
+                                then:
+                                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EdgeEndpointInvalid edge.from_place.index
+                                else:
+                                    if:
+                                        lt edge.to_place.index 0
+                                        then:
+                                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EdgeEndpointInvalid edge.to_place.index
+                                        else:
+                                            Result::Ok unit
+
+//: selfhost_drop_resource_graph_walker_validate_unsupported_result: unsupported event の受理条件を[確認/かくにん]する
+fn selfhost_drop_resource_graph_walker_validate_unsupported_result %fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \unsupported:
+    if:
+        eq unsupported.body_module_fingerprint 0
+        then:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            if:
+                lt unsupported.graph_id.index 0
+                then:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphIdInvalid unsupported.graph_id.index
+                else:
+                    if:
+                        lt unsupported.operation_ordinal 0
+                        then:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OperationOrdinalInvalid unsupported.operation_ordinal
+                        else:
+                            Result::Ok unit
+
+//: selfhost_drop_resource_graph_walker_contains_body_loop: duplicate body を[探/さが]す
+fn selfhost_drop_resource_graph_walker_contains_body_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_body_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_walker_get_body input idx:
+                Option::Some existing:
+                    if:
+                        selfhost_drop_resource_graph_walker_body_key_eq existing body
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_walker_contains_body_loop input body add idx 1
+                Option::None:
+                    true
+
+//: selfhost_drop_resource_graph_walker_contains_body: duplicate body があるか[返/かえ]す
+fn selfhost_drop_resource_graph_walker_contains_body %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord bool \input\body:
+    selfhost_drop_resource_graph_walker_contains_body_loop input body 0
+
+//: selfhost_drop_resource_graph_walker_find_body_for_place_loop: place event の body を[探/さが]す
+fn selfhost_drop_resource_graph_walker_find_body_for_place_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerPlaceEventRecord fn i32 Option SelfhostDropResourceGraphWalkerBodyRecord \input\place\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_body_len input
+        then:
+            Option::None
+        else:
+            match selfhost_drop_resource_graph_walker_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_walker_place_body_key_eq body place
+                        then:
+                            Option::Some body
+                        else:
+                            selfhost_drop_resource_graph_walker_find_body_for_place_loop input place add idx 1
+                Option::None:
+                    Option::None
+
+//: selfhost_drop_resource_graph_walker_find_body_for_place: place event の body を[返/かえ]す
+fn selfhost_drop_resource_graph_walker_find_body_for_place %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerPlaceEventRecord Option SelfhostDropResourceGraphWalkerBodyRecord \input\place:
+    selfhost_drop_resource_graph_walker_find_body_for_place_loop input place 0
+
+//: selfhost_drop_resource_graph_walker_find_body_for_edge_loop: edge event の body を[探/さが]す
+fn selfhost_drop_resource_graph_walker_find_body_for_edge_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerEdgeEventRecord fn i32 Option SelfhostDropResourceGraphWalkerBodyRecord \input\edge\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_body_len input
+        then:
+            Option::None
+        else:
+            match selfhost_drop_resource_graph_walker_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_walker_edge_body_key_eq body edge
+                        then:
+                            Option::Some body
+                        else:
+                            selfhost_drop_resource_graph_walker_find_body_for_edge_loop input edge add idx 1
+                Option::None:
+                    Option::None
+
+//: selfhost_drop_resource_graph_walker_find_body_for_edge: edge event の body を[返/かえ]す
+fn selfhost_drop_resource_graph_walker_find_body_for_edge %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerEdgeEventRecord Option SelfhostDropResourceGraphWalkerBodyRecord \input\edge:
+    selfhost_drop_resource_graph_walker_find_body_for_edge_loop input edge 0
+
+//: selfhost_drop_resource_graph_walker_find_body_for_unsupported_loop: unsupported event の body を[探/さが]す
+fn selfhost_drop_resource_graph_walker_find_body_for_unsupported_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord fn i32 Option SelfhostDropResourceGraphWalkerBodyRecord \input\unsupported\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_body_len input
+        then:
+            Option::None
+        else:
+            match selfhost_drop_resource_graph_walker_get_body input idx:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_walker_unsupported_body_key_eq body unsupported
+                        then:
+                            Option::Some body
+                        else:
+                            selfhost_drop_resource_graph_walker_find_body_for_unsupported_loop input unsupported add idx 1
+                Option::None:
+                    Option::None
+
+//: selfhost_drop_resource_graph_walker_find_body_for_unsupported: unsupported event の body を[返/かえ]す
+fn selfhost_drop_resource_graph_walker_find_body_for_unsupported %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord Option SelfhostDropResourceGraphWalkerBodyRecord \input\unsupported:
+    selfhost_drop_resource_graph_walker_find_body_for_unsupported_loop input unsupported 0
+
+//: selfhost_drop_resource_graph_walker_body_accepts_events: event を[持/も]てる closed body か[返/かえ]す
+fn selfhost_drop_resource_graph_walker_body_accepts_events %fn SelfhostDropResourceGraphWalkerBodyRecord bool \body:
+    match body.completeness:
+        SelfhostDropResourceGraphCompleteness::ClosedForDropBody:
+            true
+        SelfhostDropResourceGraphCompleteness::ResourceGraphMissing:
+            false
+        SelfhostDropResourceGraphCompleteness::TraversalUnsupported:
+            false
+
+//: selfhost_drop_resource_graph_walker_place_matches_operation: place event が同じ operation ordinal か[返/かえ]す
+fn selfhost_drop_resource_graph_walker_place_matches_operation %fn SelfhostDropResourceGraphWalkerPlaceEventRecord fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 bool \place\body\ordinal:
+    and:
+        eq place.operation_ordinal ordinal
+        selfhost_drop_resource_graph_walker_place_body_key_eq body place
+
+//: selfhost_drop_resource_graph_walker_edge_matches_operation: edge event が同じ operation ordinal か[返/かえ]す
+fn selfhost_drop_resource_graph_walker_edge_matches_operation %fn SelfhostDropResourceGraphWalkerEdgeEventRecord fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 bool \edge\body\ordinal:
+    and:
+        eq edge.operation_ordinal ordinal
+        selfhost_drop_resource_graph_walker_edge_body_key_eq body edge
+
+//: selfhost_drop_resource_graph_walker_unsupported_matches_operation: unsupported event が同じ operation ordinal か[返/かえ]す
+fn selfhost_drop_resource_graph_walker_unsupported_matches_operation %fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 bool \unsupported\body\ordinal:
+    and:
+        eq unsupported.operation_ordinal ordinal
+        selfhost_drop_resource_graph_walker_unsupported_body_key_eq body unsupported
+
+//: selfhost_drop_resource_graph_walker_place_operation_count_loop: place table 内の同じ operation ordinal を[数/かぞ]える
+fn selfhost_drop_resource_graph_walker_place_operation_count_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 fn i32 fn i32 i32 \input\body\ordinal\idx\count:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_place_len input
+        then:
+            count
+        else:
+            match selfhost_drop_resource_graph_walker_get_place input idx:
+                Option::Some place:
+                    if:
+                        selfhost_drop_resource_graph_walker_place_matches_operation place body ordinal
+                        then:
+                            selfhost_drop_resource_graph_walker_place_operation_count_loop input body ordinal add idx 1 add count 1
+                        else:
+                            selfhost_drop_resource_graph_walker_place_operation_count_loop input body ordinal add idx 1 count
+                Option::None:
+                    add count 1
+
+//: selfhost_drop_resource_graph_walker_edge_operation_count_loop: edge table 内の同じ operation ordinal を[数/かぞ]える
+fn selfhost_drop_resource_graph_walker_edge_operation_count_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 fn i32 fn i32 i32 \input\body\ordinal\idx\count:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_edge_len input
+        then:
+            count
+        else:
+            match selfhost_drop_resource_graph_walker_get_edge input idx:
+                Option::Some edge:
+                    if:
+                        selfhost_drop_resource_graph_walker_edge_matches_operation edge body ordinal
+                        then:
+                            selfhost_drop_resource_graph_walker_edge_operation_count_loop input body ordinal add idx 1 add count 1
+                        else:
+                            selfhost_drop_resource_graph_walker_edge_operation_count_loop input body ordinal add idx 1 count
+                Option::None:
+                    add count 1
+
+//: selfhost_drop_resource_graph_walker_unsupported_operation_count_loop: unsupported table 内の同じ operation ordinal を[数/かぞ]える
+fn selfhost_drop_resource_graph_walker_unsupported_operation_count_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 fn i32 fn i32 i32 \input\body\ordinal\idx\count:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_unsupported_len input
+        then:
+            count
+        else:
+            match selfhost_drop_resource_graph_walker_get_unsupported input idx:
+                Option::Some unsupported:
+                    if:
+                        selfhost_drop_resource_graph_walker_unsupported_matches_operation unsupported body ordinal
+                        then:
+                            selfhost_drop_resource_graph_walker_unsupported_operation_count_loop input body ordinal add idx 1 add count 1
+                        else:
+                            selfhost_drop_resource_graph_walker_unsupported_operation_count_loop input body ordinal add idx 1 count
+                Option::None:
+                    add count 1
+
+//: selfhost_drop_resource_graph_walker_operation_count_for_body: body graph 内の operation ordinal 出現数を[数/かぞ]える
+fn selfhost_drop_resource_graph_walker_operation_count_for_body %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 i32 \input\body\ordinal:
+    let place_count %i32 selfhost_drop_resource_graph_walker_place_operation_count_loop input body ordinal 0 0
+    let edge_count %i32 selfhost_drop_resource_graph_walker_edge_operation_count_loop input body ordinal 0 place_count
+    selfhost_drop_resource_graph_walker_unsupported_operation_count_loop input body ordinal 0 edge_count
+
+//: selfhost_drop_resource_graph_walker_has_unsupported_event_loop: body graph に unsupported event があるか[探/さが]す
+fn selfhost_drop_resource_graph_walker_has_unsupported_event_loop %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 bool \input\body\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_unsupported_len input
+        then:
+            false
+        else:
+            match selfhost_drop_resource_graph_walker_get_unsupported input idx:
+                Option::Some unsupported:
+                    if:
+                        selfhost_drop_resource_graph_walker_unsupported_body_key_eq body unsupported
+                        then:
+                            true
+                        else:
+                            selfhost_drop_resource_graph_walker_has_unsupported_event_loop input body add idx 1
+                Option::None:
+                    true
+
+//: selfhost_drop_resource_graph_walker_has_unsupported_event: body graph に unsupported event があるか[返/かえ]す
+fn selfhost_drop_resource_graph_walker_has_unsupported_event %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord bool \input\body:
+    selfhost_drop_resource_graph_walker_has_unsupported_event_loop input body 0
+
+//: selfhost_drop_resource_graph_walker_body_output_completeness: collector へ渡す completeness を[決/き]める
+fn selfhost_drop_resource_graph_walker_body_output_completeness %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord SelfhostDropResourceGraphCompleteness \input\body:
+    match body.completeness:
+        SelfhostDropResourceGraphCompleteness::ClosedForDropBody:
+            if:
+                selfhost_drop_resource_graph_walker_has_unsupported_event input body
+                then:
+                    SelfhostDropResourceGraphCompleteness::TraversalUnsupported
+                else:
+                    SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+        SelfhostDropResourceGraphCompleteness::ResourceGraphMissing:
+            SelfhostDropResourceGraphCompleteness::ResourceGraphMissing
+        SelfhostDropResourceGraphCompleteness::TraversalUnsupported:
+            SelfhostDropResourceGraphCompleteness::TraversalUnsupported
+
+//: selfhost_drop_resource_graph_walker_body_emits_events: collector place / edge へ進めてよい body か[返/かえ]す
+fn selfhost_drop_resource_graph_walker_body_emits_events %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord bool \input\body:
+    match selfhost_drop_resource_graph_walker_body_output_completeness input body:
+        SelfhostDropResourceGraphCompleteness::ClosedForDropBody:
+            true
+        SelfhostDropResourceGraphCompleteness::ResourceGraphMissing:
+            false
+        SelfhostDropResourceGraphCompleteness::TraversalUnsupported:
+            false
+
+//: selfhost_drop_resource_graph_walker_validate_operation_count_result: operation ordinal が一意か[確認/かくにん]する
+fn selfhost_drop_resource_graph_walker_validate_operation_count_result %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord fn i32 Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\body\ordinal:
+    if:
+        eq selfhost_drop_resource_graph_walker_operation_count_for_body input body ordinal 1
+        then:
+            Result::Ok unit
+        else:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphOperationDuplicate
+
+//: selfhost_drop_resource_graph_walker_validate_all_bodies_loop: body table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_all_bodies_loop %fn &SelfhostDropResourceGraphWalkerInput fn i32 Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_body_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_walker_get_body input idx:
+                Option::Some body:
+                    match selfhost_drop_resource_graph_walker_validate_body_result body:
+                        Result::Ok _unit:
+                            if:
+                                selfhost_drop_resource_graph_walker_contains_body_loop input body add idx 1
+                                then:
+                                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyDuplicate
+                                else:
+                                    selfhost_drop_resource_graph_walker_validate_all_bodies_loop input add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyReadFailed idx
+
+//: selfhost_drop_resource_graph_walker_validate_place_event_result: place event と所属 body を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_place_event_result %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerPlaceEventRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\place:
+    match selfhost_drop_resource_graph_walker_validate_place_result place:
+        Result::Ok _unit:
+            match selfhost_drop_resource_graph_walker_find_body_for_place input place:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_walker_body_accepts_events body
+                        then:
+                            selfhost_drop_resource_graph_walker_validate_operation_count_result input body place.operation_ordinal
+                        else:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EventForNonClosedGraph body.graph_id.index
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing place.graph_id.index
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_walker_validate_edge_event_result: edge event と所属 body を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_edge_event_result %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerEdgeEventRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\edge:
+    match selfhost_drop_resource_graph_walker_validate_edge_result edge:
+        Result::Ok _unit:
+            match selfhost_drop_resource_graph_walker_find_body_for_edge input edge:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_walker_body_accepts_events body
+                        then:
+                            selfhost_drop_resource_graph_walker_validate_operation_count_result input body edge.operation_ordinal
+                        else:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EventForNonClosedGraph body.graph_id.index
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing edge.graph_id.index
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_walker_validate_unsupported_event_result: unsupported event と所属 body を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_unsupported_event_result %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\unsupported:
+    match selfhost_drop_resource_graph_walker_validate_unsupported_result unsupported:
+        Result::Ok _unit:
+            match selfhost_drop_resource_graph_walker_find_body_for_unsupported input unsupported:
+                Option::Some body:
+                    if:
+                        selfhost_drop_resource_graph_walker_body_accepts_events body
+                        then:
+                            selfhost_drop_resource_graph_walker_validate_operation_count_result input body unsupported.operation_ordinal
+                        else:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::EventForNonClosedGraph body.graph_id.index
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing unsupported.graph_id.index
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_walker_validate_all_places_loop: place event table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_all_places_loop %fn &SelfhostDropResourceGraphWalkerInput fn i32 Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_place_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_walker_get_place input idx:
+                Option::Some place:
+                    match selfhost_drop_resource_graph_walker_validate_place_event_result input place:
+                        Result::Ok _unit:
+                            selfhost_drop_resource_graph_walker_validate_all_places_loop input add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventReadFailed idx
+
+//: selfhost_drop_resource_graph_walker_validate_all_edges_loop: edge event table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_all_edges_loop %fn &SelfhostDropResourceGraphWalkerInput fn i32 Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_edge_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_walker_get_edge input idx:
+                Option::Some edge:
+                    match selfhost_drop_resource_graph_walker_validate_edge_event_result input edge:
+                        Result::Ok _unit:
+                            selfhost_drop_resource_graph_walker_validate_all_edges_loop input add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventReadFailed idx
+
+//: selfhost_drop_resource_graph_walker_validate_all_unsupported_loop: unsupported event table 全体を[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_all_unsupported_loop %fn &SelfhostDropResourceGraphWalkerInput fn i32 Result unit SelfhostDropResourceGraphInputScannerErrorKind \input\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_unsupported_len input
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_drop_resource_graph_walker_get_unsupported input idx:
+                Option::Some unsupported:
+                    match selfhost_drop_resource_graph_walker_validate_unsupported_event_result input unsupported:
+                        Result::Ok _unit:
+                            selfhost_drop_resource_graph_walker_validate_all_unsupported_loop input add idx 1
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerUnsupportedEventReadFailed idx
+
+//: selfhost_drop_resource_graph_walker_validate_input_result: walker input table 全体を fail-closed に[検査/けんさ]する
+fn selfhost_drop_resource_graph_walker_validate_input_result %fn &SelfhostDropResourceGraphWalkerInput Result unit SelfhostDropResourceGraphInputScannerErrorKind \input:
+    match selfhost_drop_resource_graph_walker_validate_all_bodies_loop input 0:
+        Result::Ok _bodies:
+            match selfhost_drop_resource_graph_walker_validate_all_places_loop input 0:
+                Result::Ok _places:
+                    match selfhost_drop_resource_graph_walker_validate_all_edges_loop input 0:
+                        Result::Ok _edges:
+                            selfhost_drop_resource_graph_walker_validate_all_unsupported_loop input 0
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_walker_input_push_body: body record を walker input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_walker_input_push_body %impure fn SelfhostDropResourceGraphWalkerInput impure fn SelfhostDropResourceGraphWalkerBodyRecord Result SelfhostDropResourceGraphWalkerInput SelfhostDropResourceGraphInputScannerErrorKind \input\body:
+    match selfhost_drop_resource_graph_walker_validate_body_result body:
+        Result::Ok _unit:
+            if:
+                selfhost_drop_resource_graph_walker_contains_body &input body
+                then:
+                    selfhost_drop_resource_graph_walker_input_free input
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyDuplicate
+                else:
+                    let bodies %Vec SelfhostDropResourceGraphWalkerBodyRecord field::get input "bodies"
+                    let places %Vec SelfhostDropResourceGraphWalkerPlaceEventRecord field::get input "places"
+                    let edges %Vec SelfhostDropResourceGraphWalkerEdgeEventRecord field::get input "edges"
+                    let unsupported %Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord field::get input "unsupported"
+                    match v::push bodies body:
+                        Result::Ok next_bodies:
+                            Result::Ok SelfhostDropResourceGraphWalkerInput next_bodies places edges unsupported
+                        Result::Err e:
+                            let error %StdErrorKind field::get e "error"
+                            v::free v::vec_push_error_vec e
+                            v::free places
+                            v::free edges
+                            v::free unsupported
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyPushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_walker_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_graph_walker_input_push_place: place event を walker input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_walker_input_push_place %impure fn SelfhostDropResourceGraphWalkerInput impure fn SelfhostDropResourceGraphWalkerPlaceEventRecord Result SelfhostDropResourceGraphWalkerInput SelfhostDropResourceGraphInputScannerErrorKind \input\place:
+    match selfhost_drop_resource_graph_walker_validate_place_result place:
+        Result::Ok _unit:
+            let bodies %Vec SelfhostDropResourceGraphWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostDropResourceGraphWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostDropResourceGraphWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push places place:
+                Result::Ok next_places:
+                    Result::Ok SelfhostDropResourceGraphWalkerInput bodies next_places edges unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    v::free bodies
+                    v::free edges
+                    v::free unsupported
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventPushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_walker_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_graph_walker_input_push_edge: edge event を walker input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_walker_input_push_edge %impure fn SelfhostDropResourceGraphWalkerInput impure fn SelfhostDropResourceGraphWalkerEdgeEventRecord Result SelfhostDropResourceGraphWalkerInput SelfhostDropResourceGraphInputScannerErrorKind \input\edge:
+    match selfhost_drop_resource_graph_walker_validate_edge_result edge:
+        Result::Ok _unit:
+            let bodies %Vec SelfhostDropResourceGraphWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostDropResourceGraphWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostDropResourceGraphWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push edges edge:
+                Result::Ok next_edges:
+                    Result::Ok SelfhostDropResourceGraphWalkerInput bodies places next_edges unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    v::free bodies
+                    v::free places
+                    v::free unsupported
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventPushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_walker_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_graph_walker_input_push_unsupported: unsupported event を walker input に[追加/ついか]する
+pub fn selfhost_drop_resource_graph_walker_input_push_unsupported %impure fn SelfhostDropResourceGraphWalkerInput impure fn SelfhostDropResourceGraphWalkerUnsupportedEventRecord Result SelfhostDropResourceGraphWalkerInput SelfhostDropResourceGraphInputScannerErrorKind \input\unsupported_event:
+    match selfhost_drop_resource_graph_walker_validate_unsupported_result unsupported_event:
+        Result::Ok _unit:
+            let bodies %Vec SelfhostDropResourceGraphWalkerBodyRecord field::get input "bodies"
+            let places %Vec SelfhostDropResourceGraphWalkerPlaceEventRecord field::get input "places"
+            let edges %Vec SelfhostDropResourceGraphWalkerEdgeEventRecord field::get input "edges"
+            let unsupported %Vec SelfhostDropResourceGraphWalkerUnsupportedEventRecord field::get input "unsupported"
+            match v::push unsupported unsupported_event:
+                Result::Ok next_unsupported:
+                    Result::Ok SelfhostDropResourceGraphWalkerInput bodies places edges next_unsupported
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    v::free bodies
+                    v::free places
+                    v::free edges
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerUnsupportedEventPushFailed error
+        Result::Err error:
+            selfhost_drop_resource_graph_walker_input_free input
+            Result::Err error
+
+//: selfhost_drop_resource_graph_walker_body_to_collector_body: walker body を collector body record へ[写/うつ]す
+fn selfhost_drop_resource_graph_walker_body_to_collector_body %fn &SelfhostDropResourceGraphWalkerInput fn SelfhostDropResourceGraphWalkerBodyRecord SelfhostDropResourceGraphBodyRecord \input\body:
+    let completeness %SelfhostDropResourceGraphCompleteness selfhost_drop_resource_graph_walker_body_output_completeness input body
+    selfhost_drop_resource_graph_body_record_new body.type_id body.body_module_fingerprint body.body_root body.effect body.escape body.graph_id completeness
+
+//: selfhost_drop_resource_graph_walker_place_to_collector_place: walker place event を collector place record へ[写/うつ]す
+fn selfhost_drop_resource_graph_walker_place_to_collector_place %fn SelfhostDropResourceGraphWalkerPlaceEventRecord SelfhostDropResourceGraphPlaceRecord \place:
+    selfhost_drop_resource_graph_place_record_new place.type_id place.body_module_fingerprint place.body_root place.graph_id place.place_id place.kind
+
+//: selfhost_drop_resource_graph_walker_edge_to_collector_edge: walker edge event を collector edge record へ[写/うつ]す
+fn selfhost_drop_resource_graph_walker_edge_to_collector_edge %fn SelfhostDropResourceGraphWalkerEdgeEventRecord SelfhostDropResourceGraphEdgeRecord \edge:
+    selfhost_drop_resource_graph_edge_record_new edge.type_id edge.body_module_fingerprint edge.body_root edge.graph_id edge.from_place edge.to_place edge.kind
+
+//: selfhost_drop_resource_graph_input_scanner_body_loop: body records を collector input へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_body_loop %impure fn SelfhostDropResourceGraphInput impure fn &SelfhostDropResourceGraphWalkerInput impure fn i32 Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphInputScannerErrorKind \output\source\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_body_len source
+        then:
+            Result::Ok output
+        else:
+            match selfhost_drop_resource_graph_walker_get_body source idx:
+                Option::Some body:
+                    let collector_body %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_walker_body_to_collector_body source body
+                    match selfhost_drop_resource_graph_input_push_body output collector_body:
+                        Result::Ok next_output:
+                            selfhost_drop_resource_graph_input_scanner_body_loop next_output source add idx 1
+                        Result::Err e:
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected e
+                Option::None:
+                    selfhost_drop_resource_graph_input_free output
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyReadFailed idx
+
+//: selfhost_drop_resource_graph_input_scanner_place_loop: scannable body の place events を collector input へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_place_loop %impure fn SelfhostDropResourceGraphInput impure fn &SelfhostDropResourceGraphWalkerInput impure fn i32 Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphInputScannerErrorKind \output\source\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_place_len source
+        then:
+            Result::Ok output
+        else:
+            match selfhost_drop_resource_graph_walker_get_place source idx:
+                Option::Some place:
+                    match selfhost_drop_resource_graph_walker_find_body_for_place source place:
+                        Option::Some body:
+                            if:
+                                selfhost_drop_resource_graph_walker_body_emits_events source body
+                                then:
+                                    let collector_place %SelfhostDropResourceGraphPlaceRecord selfhost_drop_resource_graph_walker_place_to_collector_place place
+                                    match selfhost_drop_resource_graph_input_push_place output collector_place:
+                                        Result::Ok next_output:
+                                            selfhost_drop_resource_graph_input_scanner_place_loop next_output source add idx 1
+                                        Result::Err e:
+                                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected e
+                                else:
+                                    selfhost_drop_resource_graph_input_scanner_place_loop output source add idx 1
+                        Option::None:
+                            selfhost_drop_resource_graph_input_free output
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing place.graph_id.index
+                Option::None:
+                    selfhost_drop_resource_graph_input_free output
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventReadFailed idx
+
+//: selfhost_drop_resource_graph_input_scanner_edge_loop: scannable body の edge events を collector input へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_edge_loop %impure fn SelfhostDropResourceGraphInput impure fn &SelfhostDropResourceGraphWalkerInput impure fn i32 Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphInputScannerErrorKind \output\source\idx:
+    if:
+        ge idx selfhost_drop_resource_graph_walker_edge_len source
+        then:
+            Result::Ok output
+        else:
+            match selfhost_drop_resource_graph_walker_get_edge source idx:
+                Option::Some edge:
+                    match selfhost_drop_resource_graph_walker_find_body_for_edge source edge:
+                        Option::Some body:
+                            if:
+                                selfhost_drop_resource_graph_walker_body_emits_events source body
+                                then:
+                                    let collector_edge %SelfhostDropResourceGraphEdgeRecord selfhost_drop_resource_graph_walker_edge_to_collector_edge edge
+                                    match selfhost_drop_resource_graph_input_push_edge output collector_edge:
+                                        Result::Ok next_output:
+                                            selfhost_drop_resource_graph_input_scanner_edge_loop next_output source add idx 1
+                                        Result::Err e:
+                                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected e
+                                else:
+                                    selfhost_drop_resource_graph_input_scanner_edge_loop output source add idx 1
+                        Option::None:
+                            selfhost_drop_resource_graph_input_free output
+                            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing edge.graph_id.index
+                Option::None:
+                    selfhost_drop_resource_graph_input_free output
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventReadFailed idx
+
+//: selfhost_drop_resource_graph_input_scanner_output_result: validated walker input を collector input へ[変換/へんかん]する
+pub fn selfhost_drop_resource_graph_input_scanner_output_result %impure fn &SelfhostDropResourceGraphWalkerInput Result SelfhostDropResourceGraphInput SelfhostDropResourceGraphInputScannerErrorKind \source:
+    match selfhost_drop_resource_graph_walker_validate_input_result source:
+        Result::Ok _validated:
+            match selfhost_drop_resource_graph_input_new:
+                Result::Ok output0:
+                    match selfhost_drop_resource_graph_input_scanner_body_loop output0 source 0:
+                        Result::Ok output1:
+                            match selfhost_drop_resource_graph_input_scanner_place_loop output1 source 0:
+                                Result::Ok output2:
+                                    selfhost_drop_resource_graph_input_scanner_edge_loop output2 source 0
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err alloc_error:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputGraphInputAllocFailed alloc_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_drop_resource_graph_input_scanner_error_payload_code: error payload を比較用 code へ[写/うつ]す
+pub fn selfhost_drop_resource_graph_input_scanner_error_payload_code %fn SelfhostDropResourceGraphInputScannerErrorKind i32 \kind:
+    match kind:
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyPushFailed error:
+            selfhost_drop_resource_graph_input_scanner_std_error_kind_code error
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventPushFailed error:
+            selfhost_drop_resource_graph_input_scanner_std_error_kind_code error
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventPushFailed error:
+            selfhost_drop_resource_graph_input_scanner_std_error_kind_code error
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerUnsupportedEventPushFailed error:
+            selfhost_drop_resource_graph_input_scanner_std_error_kind_code error
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyReadFailed idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventReadFailed idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventReadFailed idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerUnsupportedEventReadFailed idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyDuplicate:
+            0
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphOperationDuplicate:
+            0
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::EventForNonClosedGraph idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder:
+            0
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphIdInvalid idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::OperationOrdinalInvalid idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::PlaceIdInvalid idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::EdgeEndpointInvalid idx:
+            idx
+        SelfhostDropResourceGraphInputScannerErrorKind::EffectNotInternalAlloc effect:
+            selfhost_drop_resource_graph_input_scanner_effect_kind_code effect
+        SelfhostDropResourceGraphInputScannerErrorKind::EscapeNotApplicable escape:
+            selfhost_drop_resource_graph_input_scanner_escape_state_code escape
+        SelfhostDropResourceGraphInputScannerErrorKind::OutputGraphInputAllocFailed error:
+            selfhost_drop_resource_graph_input_scanner_std_error_kind_code error
+        SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected collector_error:
+            selfhost_drop_resource_graph_collector_error_payload_code collector_error
+
+//: selfhost_drop_resource_graph_input_scanner_error_kind_code: error variant を比較用 code へ[写/うつ]す
+fn selfhost_drop_resource_graph_input_scanner_error_kind_code %fn SelfhostDropResourceGraphInputScannerErrorKind i32 \kind:
+    match kind:
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyPushFailed _error:
+            1
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventPushFailed _error:
+            2
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventPushFailed _error:
+            3
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerUnsupportedEventPushFailed _error:
+            4
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyReadFailed _idx:
+            5
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventReadFailed _idx:
+            6
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerEdgeEventReadFailed _idx:
+            7
+        SelfhostDropResourceGraphInputScannerErrorKind::WalkerUnsupportedEventReadFailed _idx:
+            8
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyDuplicate:
+            9
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphOperationDuplicate:
+            10
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphBodyMissing _idx:
+            11
+        SelfhostDropResourceGraphInputScannerErrorKind::EventForNonClosedGraph _idx:
+            12
+        SelfhostDropResourceGraphInputScannerErrorKind::BodyModuleFingerprintPlaceholder:
+            13
+        SelfhostDropResourceGraphInputScannerErrorKind::GraphIdInvalid _idx:
+            14
+        SelfhostDropResourceGraphInputScannerErrorKind::OperationOrdinalInvalid _idx:
+            15
+        SelfhostDropResourceGraphInputScannerErrorKind::PlaceIdInvalid _idx:
+            16
+        SelfhostDropResourceGraphInputScannerErrorKind::EdgeEndpointInvalid _idx:
+            17
+        SelfhostDropResourceGraphInputScannerErrorKind::EffectNotInternalAlloc _effect:
+            18
+        SelfhostDropResourceGraphInputScannerErrorKind::EscapeNotApplicable _escape:
+            19
+        SelfhostDropResourceGraphInputScannerErrorKind::OutputGraphInputAllocFailed _error:
+            20
+        SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected _collector_error:
+            21
+
+//: selfhost_drop_resource_graph_input_scanner_error_kind_eq: error kind が同じか[返/かえ]す
+pub fn selfhost_drop_resource_graph_input_scanner_error_kind_eq %fn SelfhostDropResourceGraphInputScannerErrorKind fn SelfhostDropResourceGraphInputScannerErrorKind bool \a\b:
+    eq selfhost_drop_resource_graph_input_scanner_error_kind_code a selfhost_drop_resource_graph_input_scanner_error_kind_code b
+
+//: selfhost_drop_resource_graph_input_scanner_status_result_eq: status result を[検査/けんさ]する test helper
+pub fn selfhost_drop_resource_graph_input_scanner_status_result_eq %fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq selfhost_drop_resource_graph_input_scanner_status_code actual selfhost_drop_resource_graph_input_scanner_status_code expected
+        Result::Err _e:
+            false
+
+//: selfhost_drop_resource_graph_input_scanner_len_result_eq: length result を[検査/けんさ]する test helper
+pub fn selfhost_drop_resource_graph_input_scanner_len_result_eq %fn Result i32 SelfhostDropResourceGraphInputScannerErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok actual:
+            eq actual expected
+        Result::Err _e:
+            false
+
+//: selfhost_drop_resource_graph_input_scanner_error_result_eq: error result を[検査/けんさ]する test helper
+pub fn selfhost_drop_resource_graph_input_scanner_error_result_eq %fn Result i32 SelfhostDropResourceGraphInputScannerErrorKind fn SelfhostDropResourceGraphInputScannerErrorKind bool \result\expected:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            and:
+                selfhost_drop_resource_graph_input_scanner_error_kind_eq actual expected
+                eq selfhost_drop_resource_graph_input_scanner_error_payload_code actual selfhost_drop_resource_graph_input_scanner_error_payload_code expected
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_summary_new %fn Result i32 SelfhostDropResourceGraphInputScannerErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind fn Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind fn Result i32 SelfhostDropResourceGraphInputScannerErrorKind fn Result i32 SelfhostDropResourceGraphInputScannerErrorKind fn Result i32 SelfhostDropResourceGraphInputScannerErrorKind SelfhostDropResourceGraphInputScannerStage0Summary \scanned_body_len\private_status\escape_status\unsupported_status\missing_status\duplicate_ordinal_rejected\missing_body_event_rejected\placeholder_rejected:
+    SelfhostDropResourceGraphInputScannerStage0Summary scanned_body_len private_status escape_status unsupported_status missing_status duplicate_ordinal_rejected missing_body_event_rejected placeholder_rejected
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_body: stage0 用 body record を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_body %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn SelfhostDropResourceGraphCompleteness SelfhostDropResourceGraphWalkerBodyRecord \type_id\module_fingerprint\root\graph_idx\completeness:
+    selfhost_drop_resource_graph_walker_body_record_new type_id module_fingerprint root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable selfhost_drop_resource_graph_id_new graph_idx completeness
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_place: stage0 用 place event を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_place %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 fn i32 fn SelfhostResourcePlaceKind SelfhostDropResourceGraphWalkerPlaceEventRecord \type_id\module_fingerprint\root\graph_idx\ordinal\place_idx\kind:
+    selfhost_drop_resource_graph_walker_place_event_record_new type_id module_fingerprint root selfhost_drop_resource_graph_id_new graph_idx ordinal selfhost_resource_place_id_new place_idx kind
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_edge: stage0 用 edge event を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_edge %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 fn i32 fn i32 fn SelfhostResourceEdgeKind SelfhostDropResourceGraphWalkerEdgeEventRecord \type_id\module_fingerprint\root\graph_idx\ordinal\from_idx\to_idx\kind:
+    selfhost_drop_resource_graph_walker_edge_event_record_new type_id module_fingerprint root selfhost_drop_resource_graph_id_new graph_idx ordinal selfhost_resource_place_id_new from_idx selfhost_resource_place_id_new to_idx kind
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_unsupported: stage0 用 unsupported event を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_unsupported %fn SelfhostTypeId fn i32 fn SelfhostHirExprId fn i32 fn i32 SelfhostDropResourceGraphWalkerUnsupportedEventRecord \type_id\module_fingerprint\root\graph_idx\ordinal:
+    selfhost_drop_resource_graph_walker_unsupported_event_record_new type_id module_fingerprint root selfhost_drop_resource_graph_id_new graph_idx ordinal SelfhostDropResourceGraphWalkerUnsupportedReason::UnknownResourceOperation
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_push_body_len: body push / scanner validation の結果 length を[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_stage0_push_body_len %impure fn SelfhostDropResourceGraphWalkerBodyRecord Result i32 SelfhostDropResourceGraphInputScannerErrorKind \body:
+    match selfhost_drop_resource_graph_walker_input_new:
+        Result::Ok input0:
+            match selfhost_drop_resource_graph_walker_input_push_body input0 body:
+                Result::Ok input1:
+                    match selfhost_drop_resource_graph_input_scanner_output_result &input1:
+                        Result::Ok output:
+                            let len %i32 selfhost_drop_resource_graph_body_len &output
+                            selfhost_drop_resource_graph_input_free output
+                            selfhost_drop_resource_graph_walker_input_free input1
+                            Result::Ok len
+                        Result::Err e:
+                            selfhost_drop_resource_graph_walker_input_free input1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_duplicate_ordinal_len: duplicate operation ordinal rejection を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_duplicate_ordinal_len %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result i32 SelfhostDropResourceGraphInputScannerErrorKind \type_id\root:
+    match selfhost_drop_resource_graph_walker_input_new:
+        Result::Ok input0:
+            let body %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root 7 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            match selfhost_drop_resource_graph_walker_input_push_body input0 body:
+                Result::Ok input1:
+                    let place1 %SelfhostDropResourceGraphWalkerPlaceEventRecord selfhost_drop_resource_graph_input_scanner_stage0_place type_id 990101 root 7 0 0 SelfhostResourcePlaceKind::PrivateLocal
+                    match selfhost_drop_resource_graph_walker_input_push_place input1 place1:
+                        Result::Ok input2:
+                            let place2 %SelfhostDropResourceGraphWalkerPlaceEventRecord selfhost_drop_resource_graph_input_scanner_stage0_place type_id 990101 root 7 0 1 SelfhostResourcePlaceKind::PrivateTemporary
+                            match selfhost_drop_resource_graph_walker_input_push_place input2 place2:
+                                Result::Ok input3:
+                                    match selfhost_drop_resource_graph_input_scanner_output_result &input3:
+                                        Result::Ok output:
+                                            let len %i32 selfhost_drop_resource_graph_body_len &output
+                                            selfhost_drop_resource_graph_input_free output
+                                            selfhost_drop_resource_graph_walker_input_free input3
+                                            Result::Ok len
+                                        Result::Err e:
+                                            selfhost_drop_resource_graph_walker_input_free input3
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_missing_body_event_len: missing body event rejection を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_missing_body_event_len %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result i32 SelfhostDropResourceGraphInputScannerErrorKind \type_id\root:
+    match selfhost_drop_resource_graph_walker_input_new:
+        Result::Ok input0:
+            let place %SelfhostDropResourceGraphWalkerPlaceEventRecord selfhost_drop_resource_graph_input_scanner_stage0_place type_id 990101 root 7 0 0 SelfhostResourcePlaceKind::PrivateLocal
+            match selfhost_drop_resource_graph_walker_input_push_place input0 place:
+                Result::Ok input1:
+                    match selfhost_drop_resource_graph_input_scanner_output_result &input1:
+                        Result::Ok output:
+                            let len %i32 selfhost_drop_resource_graph_body_len &output
+                            selfhost_drop_resource_graph_input_free output
+                            selfhost_drop_resource_graph_walker_input_free input1
+                            Result::Ok len
+                        Result::Err e:
+                            selfhost_drop_resource_graph_walker_input_free input1
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerPlaceEventPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_source_result: 4 body の walker input を[作/つく]る
+fn selfhost_drop_resource_graph_input_scanner_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostDropResourceGraphWalkerInput SelfhostDropResourceGraphInputScannerErrorKind \type_id\root1\root2\root3\root4:
+    match selfhost_drop_resource_graph_walker_input_new:
+        Result::Ok input0:
+            let body1 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            match selfhost_drop_resource_graph_walker_input_push_body input0 body1:
+                Result::Ok input1:
+                    let body2 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root2 2 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+                    match selfhost_drop_resource_graph_walker_input_push_body input1 body2:
+                        Result::Ok input2:
+                            let body3 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root3 3 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+                            match selfhost_drop_resource_graph_walker_input_push_body input2 body3:
+                                Result::Ok input3:
+                                    let body4 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root4 4 SelfhostDropResourceGraphCompleteness::ResourceGraphMissing
+                                    match selfhost_drop_resource_graph_walker_input_push_body input3 body4:
+                                        Result::Ok input4:
+                                            let private_place %SelfhostDropResourceGraphWalkerPlaceEventRecord selfhost_drop_resource_graph_input_scanner_stage0_place type_id 990101 root1 1 0 0 SelfhostResourcePlaceKind::PrivateLocal
+                                            match selfhost_drop_resource_graph_walker_input_push_place input4 private_place:
+                                                Result::Ok input5:
+                                                    let escape_source %SelfhostDropResourceGraphWalkerPlaceEventRecord selfhost_drop_resource_graph_input_scanner_stage0_place type_id 990101 root2 2 0 0 SelfhostResourcePlaceKind::PrivateLocal
+                                                    match selfhost_drop_resource_graph_walker_input_push_place input5 escape_source:
+                                                        Result::Ok input6:
+                                                            let escape_target %SelfhostDropResourceGraphWalkerPlaceEventRecord selfhost_drop_resource_graph_input_scanner_stage0_place type_id 990101 root2 2 1 1 SelfhostResourcePlaceKind::ReturnPlace
+                                                            match selfhost_drop_resource_graph_walker_input_push_place input6 escape_target:
+                                                                Result::Ok input7:
+                                                                    let return_edge %SelfhostDropResourceGraphWalkerEdgeEventRecord selfhost_drop_resource_graph_input_scanner_stage0_edge type_id 990101 root2 2 2 0 1 SelfhostResourceEdgeKind::Return
+                                                                    match selfhost_drop_resource_graph_walker_input_push_edge input7 return_edge:
+                                                                        Result::Ok input8:
+                                                                            let unsupported %SelfhostDropResourceGraphWalkerUnsupportedEventRecord selfhost_drop_resource_graph_input_scanner_stage0_unsupported type_id 990101 root3 3 0
+                                                                            selfhost_drop_resource_graph_walker_input_push_unsupported input8 unsupported
+                                                                        Result::Err e:
+                                                                            Result::Err e
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err alloc_error:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::WalkerBodyPushFailed alloc_error
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_scanned_len: scanner output body 数を[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_stage0_scanned_len %impure fn SelfhostDropResourceGraphWalkerInput Result i32 SelfhostDropResourceGraphInputScannerErrorKind \source:
+    match selfhost_drop_resource_graph_input_scanner_output_result &source:
+        Result::Ok output:
+            let len %i32 selfhost_drop_resource_graph_body_len &output
+            selfhost_drop_resource_graph_input_free output
+            selfhost_drop_resource_graph_walker_input_free source
+            Result::Ok len
+        Result::Err e:
+            selfhost_drop_resource_graph_walker_input_free source
+            Result::Err e
+
+//: selfhost_drop_resource_graph_input_scanner_traversal_get_record: traversal table record を[読/よ]む
+fn selfhost_drop_resource_graph_input_scanner_traversal_get_record %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn i32 Option SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord \table\idx:
+    let records %&Vec SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord field::get_ref table "records"
+    v::get records idx
+
+//: selfhost_drop_resource_graph_input_scanner_traversal_record_matches_body: traversal record と collector body の key が同じか[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_traversal_record_matches_body %fn SelfhostMemoTraitOperationDropResourceNoEscapeTraversalRecord fn SelfhostDropResourceGraphBodyRecord bool \record\body:
+    and:
+        selfhost_type_id_eq record.type_id body.type_id
+        and:
+            eq record.body_module_fingerprint body.body_module_fingerprint
+            and:
+                eq selfhost_hir_expr_id_index record.body_root selfhost_hir_expr_id_index body.body_root
+                and:
+                    selfhost_effect_kind_eq record.effect body.effect
+                    selfhost_drop_resource_graph_input_scanner_escape_state_eq record.escape body.escape
+
+//: selfhost_drop_resource_graph_input_scanner_traversal_status_for_body_loop: traversal table から body status を[探/さが]す
+fn selfhost_drop_resource_graph_input_scanner_traversal_status_for_body_loop %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn SelfhostDropResourceGraphBodyRecord fn i32 Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind \table\body\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_len table
+        then:
+            Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyMissing body.graph_id.index
+        else:
+            match selfhost_drop_resource_graph_input_scanner_traversal_get_record table idx:
+                Option::Some record:
+                    if:
+                        selfhost_drop_resource_graph_input_scanner_traversal_record_matches_body record body
+                        then:
+                            Result::Ok record.status
+                        else:
+                            selfhost_drop_resource_graph_input_scanner_traversal_status_for_body_loop table body add idx 1
+                Option::None:
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected SelfhostDropResourceGraphTraversalCollectorErrorKind::GraphBodyReadFailed idx
+
+//: selfhost_drop_resource_graph_input_scanner_traversal_status_for_body: traversal table から body status を[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_traversal_status_for_body %fn &SelfhostMemoTraitOperationDropResourceNoEscapeTraversalTable fn SelfhostDropResourceGraphBodyRecord Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind \table\body:
+    selfhost_drop_resource_graph_input_scanner_traversal_status_for_body_loop table body 0
+
+//: selfhost_drop_resource_graph_input_scanner_stage0_status_for_body: scanner output を collector に通して body status を[返/かえ]す
+fn selfhost_drop_resource_graph_input_scanner_stage0_status_for_body %impure fn &SelfhostDropResourceGraphWalkerInput impure fn SelfhostDropResourceGraphWalkerBodyRecord Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind \source\body:
+    match selfhost_drop_resource_graph_input_scanner_output_result source:
+        Result::Ok output:
+            let collector_body %SelfhostDropResourceGraphBodyRecord selfhost_drop_resource_graph_walker_body_to_collector_body source body
+            match selfhost_drop_resource_graph_traversal_collector_table_result &output:
+                Result::Ok summaries:
+                    match selfhost_drop_resource_graph_input_scanner_traversal_status_for_body &summaries collector_body:
+                        Result::Ok status:
+                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free summaries
+                            selfhost_drop_resource_graph_input_free output
+                            Result::Ok status
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_resource_no_escape_traversal_table_free summaries
+                            selfhost_drop_resource_graph_input_free output
+                            Result::Err e
+                Result::Err collector_error:
+                    selfhost_drop_resource_graph_input_free output
+                    Result::Err SelfhostDropResourceGraphInputScannerErrorKind::OutputCollectorInputRejected collector_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_resource_graph_input_scanner_stage0: graph input scanner の smoke API
+pub fn selfhost_memo_trait_operation_drop_resource_graph_input_scanner_stage0 %impure fn void Result SelfhostDropResourceGraphInputScannerStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9901
+    let root1 %SelfhostHirExprId selfhost_hir_expr_id_new 99011
+    let root2 %SelfhostHirExprId selfhost_hir_expr_id_new 99012
+    let root3 %SelfhostHirExprId selfhost_hir_expr_id_new 99013
+    let root4 %SelfhostHirExprId selfhost_hir_expr_id_new 99014
+    match selfhost_drop_resource_graph_input_scanner_stage0_source_result type_id root1 root2 root3 root4:
+        Result::Ok source:
+            let body1 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let body2 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root2 2 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let body3 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root3 3 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let body4 %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 990101 root4 4 SelfhostDropResourceGraphCompleteness::ResourceGraphMissing
+            let private_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_status_for_body &source body1
+            let escape_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_status_for_body &source body2
+            let unsupported_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_status_for_body &source body3
+            let missing_status %Result SelfhostMemoTraitOperationDropResourceNoEscapeTraversalStatus SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_status_for_body &source body4
+            let scanned_body_len %Result i32 SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_scanned_len source
+            let duplicate_ordinal_rejected %Result i32 SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_duplicate_ordinal_len type_id root1
+            let missing_body_event_rejected %Result i32 SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_missing_body_event_len type_id root1
+            let placeholder_body %SelfhostDropResourceGraphWalkerBodyRecord selfhost_drop_resource_graph_input_scanner_stage0_body type_id 0 root1 1 SelfhostDropResourceGraphCompleteness::ClosedForDropBody
+            let placeholder_rejected %Result i32 SelfhostDropResourceGraphInputScannerErrorKind selfhost_drop_resource_graph_input_scanner_stage0_push_body_len placeholder_body
+            Result::Ok selfhost_drop_resource_graph_input_scanner_stage0_summary_new scanned_body_len private_status escape_status unsupported_status missing_status duplicate_ordinal_rejected missing_body_event_rejected placeholder_rejected
+        Result::Err _setup:
+            Result::Err StdErrorKind::InvalidOperation

@@ -1771,6 +1771,16 @@ collector は table output の前に preflight validation を行う。body / pla
 
 この checkpoint 後の残件は、actual Resource IR graph walker が collector 入力の typed body / place / edge stream を生成する scanner、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。graph lookup index 化、traversal summary table、observation table、proof table の sorted index 化、duplicate scan の bucket 化、stage0 fixture 分割は、今回固定した typed graph input / owner cleanup / fail-closed contract を保って後からできる最適化として扱う。
 
+2026-06-14 Resource graph input scanner checkpoint では、`memo_trait_operation_drop_resource_graph_input_scanner.nepl` を追加し、actual Resource IR graph walker が将来返す typed walker event table を collector 入力へ正規化する checker-layer scanner boundary を接続した。input model は body record、place event、edge event、unsupported event を別 table として持つ。これにより、place と edge を sentinel id 付きの汎用 record に潰さず、operation ordinal、place id、edge endpoint、unsupported reason を typed payload として検査できる。
+
+scanner は input table 全体を preflight する。body は `SelfhostTypeId`、body module fingerprint、Drop body root、effect、escape、graph id、upstream completeness を持ち、`InternalAlloc + NotApplicable` 以外、placeholder fingerprint、不正 graph id、duplicate body を拒否する。place / edge / unsupported event は同じ body graph 内の `operation_ordinal` が一意でなければならず、所属 body が missing または upstream unsupported の場合も fail-closed に拒否する。closed body に unsupported event がある場合、collector input では `TraversalUnsupported` body として渡し、partial place / edge graph を no-escape proof へ使わない。
+
+この checkpoint も full Resource IR graph walker 本体ではない。Rust 側の `ResourceOp` 走査、PlaceRoot / projection の完全分類、RawMemory / RawAddress / CollectionSlot / Call / IndirectCall / FunctionValue::Memoized / PrivateCache / PrivateState の詳細 graph lowering は後続で追加する。この scanner は、typed walker event stream が成立した場合に collector が読む `SelfhostDropResourceGraphInput` を owner-safe に作るだけであり、traversal summary、no-escape observation、proof table、Drop evidence、aggregate proof、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作らない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_resource_graph_input_scanner_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、explicit import allow-list、forbidden layer import、typed body/place/edge/unsupported event fields、preflight validation、unsupported event による `TraversalUnsupported` override、collector input constructor への一方向出力、proof table / Drop evidence / aggregate proof / proof store / PrivateCache mask / PrivateState mask / prechecked artifact 合成禁止、Result error の bool / string 化禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、Rust Resource IR 相当の actual graph walker 本体、complete public surface 由来の no-drop absence proof boundary、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。walker event operation ordinal index 化、graph lookup index 化、traversal summary / observation / proof table の sorted index 化、duplicate scan の bucket 化、stage0 fixture 分割は、今回固定した typed event authority / owner cleanup / fail-closed contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
