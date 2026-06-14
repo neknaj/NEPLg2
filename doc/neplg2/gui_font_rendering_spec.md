@@ -2966,6 +2966,91 @@ edge / path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection contour point
+
+F5w は F5v の collection-backed contour span を authority として、contour-local point index から `GuiSfntSimpleGlyphContourPoint` を 1 点だけ取り出す境界である。F4 byte-backed contour point lookup へ戻らず、collection に格納済みの classified item を読む。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    contour_point_index i32
+    -> Result GuiSfntSimpleGlyphContourPoint GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+```
+
+success は既存 `GuiSfntSimpleGlyphContourPoint` を返す。
+
+```text
+GuiSfntSimpleGlyphContourPoint:
+    span GuiSfntSimpleGlyphContourSpan
+    contour_point_index i32
+    point GuiSfntSimpleGlyphPoint
+```
+
+error は owner recovery payload ではない。collection は借用で読み、診断に必要な span failure、local index、absolute index、collection read failure、rejected item を保持する。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind:
+    ContourSpanFailed
+    ContourPointIndexOutOfRange
+    ItemReadFailed
+    ItemGlyphMismatch
+    ItemIndexMismatch
+    ItemKindMismatch
+    ContourPointInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointErrorKind
+    contour_index i32
+    contour_point_index i32
+    absolute_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    span Option GuiSfntSimpleGlyphContourSpan
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+F5w は次の順序を守る。
+
+```text
+1. collection から capacity / item_count / items_len / items_cap を読む
+2. F5v contour span lookup を exactly once 呼ぶ
+3. F5v error は ContourSpanFailed として span_error に保持する
+4. F5v success span について glyph、contour_index、start/end/count、capacity range を再検査する
+5. span invariant failure は ContourPointInvariantInvalid とし、item は読まない
+6. contour_point_index range を collection read より前に検査する
+7. local range failure は ContourPointIndexOutOfRange とし、absolute_point_index は -1 にする
+8. absolute_point_index = span.start_point_index + contour_point_index を計算する
+9. absolute index が span/capacity range を外れるなら ContourPointInvariantInvalid とし、item は読まない
+10. collection_read_item を exactly once 呼び、absolute point の item を読む
+11. item の glyph、point index、kind を再検査する
+12. success は gui_sfnt_simple_glyph_contour_point span contour_point_index point を返す
+```
+
+span invariant の再検査は F5v の契約を疑うためではなく、後続境界が lower boundary bug を別の error に誤分類しないための visible invariant である。`span.point_count == span.end_point_index - span.start_point_index + 1`、`span.glyph == capacity.glyph`、`span.end_point_index < capacity.point_count` を F5w でも確認する。
+
+F5w は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+edge / path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
