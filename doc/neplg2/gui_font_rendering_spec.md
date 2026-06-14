@@ -1240,6 +1240,34 @@ gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step:
 
 F4ag は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` を呼ばず、`GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` も作らない。保存済み `GuiSfntSimpleGlyphPathSinkActionItemNext` だけを読む。`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer apply advance
+
+F4ah は F4ag の terminal 判定を使い、apply 後の consumer stream を 1 step だけ進める byte-backed boundary である。これは contour-wide loop、iterator、real sink mutation、outline builder、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance:
+    bytes &ByteBuf
+    face_index Option i32
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntParseError
+```
+
+helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step` を 1 回だけ呼ぶ。`Rejected reason` は `Result::Ok Rejected reason`、`EndContour` は `Result::Ok EndContour` として返す。どちらも malformed SFNT bytes ではないので `Result::Err` にはしない。
+
+`Continue continue_step` の場合だけ、`continue_step` に保存された `GuiSfntSimpleGlyphPathSinkActionItemNext` を読む。`Continue next_item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy` を 1 回だけ呼び、成功時は `Continue next_consumer_item` として返す。`EndContour` が出た場合は `EndContour` を成功 terminal として返す。
+
+F4ah は original `GuiSfntSimpleGlyphPathSinkActionConsumerItem` を要求しない。F4af が保存した checked next を authority として使う。したがって `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` は呼ばない。これは F4ad の direct wrapper ではなく、F4ag terminal と保存済み `ActionItemNext` から F4ac lookup へ接続する 1 step boundary である。
+
+F4ah は action payload を直接 `match` せず、apply をやり直さない。`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

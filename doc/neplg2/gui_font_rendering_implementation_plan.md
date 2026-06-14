@@ -1586,6 +1586,62 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4ah: sfnt simple glyph path sink action consumer apply advance
+
+目的:
+
+- F4ag の terminal 判定を使い、apply 後の consumer stream を 1 step だけ進める byte-backed boundary を追加する。
+- `Continue` は次 consumer item、`Rejected` は domain terminal、`EndContour` は successful terminal として enum で明示する。
+- F4ah は contour-wide loop、iterator、real sink mutation、callback、command list、full outline allocation、renderer、rasterizer、platform API にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance`
+- enum は次にする。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+- helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step` を 1 回だけ呼ぶ。
+- `Rejected reason` は `Result::Ok Rejected reason` にする。`Result::Err` にはしない。
+- `EndContour` は `Result::Ok EndContour` にする。`Result::Err` にはしない。
+- `Continue continue_step` では、`gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step` を読み、保存済み `GuiSfntSimpleGlyphPathSinkActionItemNext` を authority とする。
+- 保存済み next が `Continue next_item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &next_item policy` を 1 回だけ呼び、成功時は `Continue next_consumer_item` を返す。
+- 保存済み next が `EndContour` なら successful terminal として `EndContour` を返す。
+- helper は original `GuiSfntSimpleGlyphPathSinkActionConsumerItem` を要求しない。
+- helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` を呼ばない。これは F4ad direct wrapper ではなく、F4ag terminal と保存済み `ActionItemNext` から F4ac lookup へ接続する 1 step boundary である。
+- helper は action payload を直接 `match` せず、F4ae apply helper も呼ばない。
+- helper は F4ad/F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables`、`Vec`、`push`、loop、current point、renderer、rasterizer、platform API、host text API を直接呼ばない。
+- Source policy で F4ah docs、enum、Clone/Copy、terminal helper 1 回、stored next accessor 1 回、F4ac lookup 1 回、F4ad next helper 禁止、payload direct match 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に F4ah 用の contract doctest を追加する。
+  - `Rejected` terminal が `Ok Rejected` になることを確認する。
+  - `EndContour` terminal が `Ok EndContour` になることを確認する。
+  - `Continue` branch の byte-backed lookup path は source policy で固定し、必要なら後続 byte-backed fixture で拡張する。
+  - F4ah helper は F4ac byte-backed lookup を参照するため、現行 compiler の 60 秒 doctest 制限では外部 `.n.md` fixture の compile が timeout する。したがって runnable ではなく `skip` 付き contract doctest とし、source policy で terminal helper / stored next / F4ac lookup の exact call pattern を固定する。
+
+完了条件:
+
+- F4ah は F4ag terminal 判定から `Continue` / `Rejected` / `EndContour` の apply advance を返す。
+- `Rejected` と `EndContour` を `Result::Err` に逃がさない。
+- F4ah は F4ad next helper や contour-wide loop を実装しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
+`tests/stdlib/gui_font_sfnt_glyf_path.n.md` 側は F4ah contract fixture を `skip` として数える。実行可能な validation は既存 F4ag terminal doctest と `stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest に置き、F4ah の byte-backed composition は `nodesrc/test_web_gui_font_rendering_contract.js` で静的検査する。
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

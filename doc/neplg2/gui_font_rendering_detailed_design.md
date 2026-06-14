@@ -1600,6 +1600,48 @@ match status:
 
 F4ag must not construct `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext`, must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, and must not call byte-backed lower lookup helpers. It must not allocate `Vec`, push commands, loop over contour data, inspect current point state, parse metadata, rasterize, render, call platform APIs, or call host text measurement.
 
+### SFNT simple glyph path sink action consumer apply advance
+
+F4ah is the first post-apply one-step advance boundary. It combines F4ag's terminal classification with F4ac lookup through the stored `GuiSfntSimpleGlyphPathSinkActionItemNext`. It is not a direct F4ad call, because F4ag/F4af intentionally no longer carry the original `GuiSfntSimpleGlyphPathSinkActionConsumerItem`.
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance:
+    Continue GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason
+    EndContour
+```
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance bytes face_index step policy:
+    terminal = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step
+
+    match terminal:
+        Rejected reason:
+            Ok Rejected reason
+
+        EndContour _:
+            Ok EndContour
+
+        Continue continue_step:
+            next = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next continue_step
+
+            match next:
+                Continue next_item:
+                    gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index next_item policy
+                        |> map Continue
+
+                EndContour:
+                    Ok EndContour
+```
+
+`Rejected` remains a domain terminal, not a parse error. `EndContour` remains a successful terminal. The only byte-backed lookup in this phase is the F4ac consumer item lookup for the stored `next_item` in the `Continue` branch.
+
+The apparent `Continue + EndContour` branch is defensive against future representation changes and keeps the function total over its input type. It must still return successful `EndContour`, not panic or silently skip.
+
+F4ah must not call `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`, because that helper requires the original consumer item and would obscure the F4ag/F4af ownership boundary. F4ah must not re-apply action payloads, match `GuiSfntSimpleGlyphPathSinkAction` variants, allocate `Vec`, push commands, own a loop, inspect current point state, parse metadata, call lower contour/curve lookup helpers directly, rasterize, render, call platform APIs, or call host text measurement.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
