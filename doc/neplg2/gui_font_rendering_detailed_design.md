@@ -1808,6 +1808,27 @@ Although the public enum name ends with `Terminal`, it is the future loop's trav
 
 F4an must read `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance` exactly once. It must not call byte-backed lookup helpers, consumer item next lookup, consume-once, start helpers, lower contour/curve lookup helpers, metadata parser, or `*_with_tables`. It must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. Its only match target is `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance`.
 
+### SFNT simple glyph path sink action start consume summary
+
+F4ap creates the initial consume summary for a future contour consumer. It is a thin composition of F4ak and F4am: F4ak finds and consumes the first action, and F4am projects the resulting consume step into the stable summary value used by F4ao.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary bytes face_index state glyph contour_index policy:
+    start = gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once bytes face_index state glyph contour_index policy
+    match start:
+        Err error:
+            Err error
+        Ok consume_step:
+            summary = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step consume_step
+            Ok summary
+```
+
+F4ap does not own traversal beyond the first consumed action. It does not call F4ao, does not loop, and does not allocate an outline or event list. The only byte-backed lookup it may call directly is `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once`.
+
+F4ap must call `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once` exactly once and `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step` exactly once in the success branch. It must not call start item helpers, start consumer item helpers, consumer item consume-once, summary advance-once, consumer item next lookup, lower contour/curve lookup helpers, metadata parser, or `*_with_tables`. It must not match action payload variants, allocate `Vec`, push commands, own a loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
 ### SFNT simple glyph path sink action consumer consume summary advance once
 
 F4ao is the first byte-backed boundary above the F4am/F4an summary projection. It advances from one completed consume summary to the next completed consume summary, but it still advances only one action. It is not a contour-wide loop and does not own sink mutation or outline storage.
@@ -1845,6 +1866,63 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_o
 `Rejected` and `EndContour` are domain terminals. They must remain `Result::Ok` values, because they do not mean that the SFNT bytes failed to parse. Only the Continue branch can call the existing consume-once byte-backed helper and therefore only that branch can produce a parse error from byte lookup.
 
 F4ao must call `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state` exactly once, `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal` exactly once, `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once` exactly once in the Continue branch, and `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step` exactly once after a successful Continue consume. It must not call start helpers, consumer item next lookup, lower contour/curve lookup helpers, metadata parser, or `*_with_tables`. It must not match action payload variants, allocate `Vec`, push commands, own a full loop, inspect current point state, rasterize, render, call platform APIs, call host text measurement, or perform font fallback.
+
+### SFNT simple glyph path sink action consumer consume summary drain budget
+
+F4aq is the first bounded traversal boundary above F4ap/F4ao. It exists so a caller can advance a contour action consumer without allocating an outline, building a command list, mutating a real sink, or relying on an unbounded recursive traversal. The result is still a typed value, not a renderer side effect.
+
+The drain result carries the summary at which traversal stopped:
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain:
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+```
+
+`StepBudgetExhausted` is not fallback. It is an explicit domain terminal that says the caller provided no more action steps for this slice. Both `remaining_steps == 0` and `remaining_steps < 0` produce the same typed terminal when the current summary still has `Continue`.
+
+The helper shape is:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget bytes face_index summary policy remaining_steps:
+    terminal = gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary
+    match terminal:
+        Rejected reason:
+            Ok Rejected reason current_summary
+        EndContour:
+            Ok EndContour current_summary
+        Continue:
+            if remaining_steps <= 0:
+                Ok StepBudgetExhausted current_summary
+            else:
+                advance = gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once bytes face_index summary policy
+                match advance:
+                    Err error:
+                        Err error
+                    Ok Continue next_summary:
+                        gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget bytes face_index next_summary policy remaining_steps - 1
+                    Ok Rejected reason:
+                        Ok Rejected reason current_summary
+                    Ok EndContour:
+                        Ok EndContour current_summary
+```
+
+The current F4ao contract normally returns `Continue next_summary` when its input terminal is `Continue`. The F4ao `Rejected` and `EndContour` branches are still handled in F4aq as a compatibility-preserving domain branch. In those branches F4aq stores the same current summary that was passed to F4ao; it does not invent or reparse a new terminal summary.
+
+The start helper composes F4ap and F4aq only:
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget bytes face_index state glyph contour_index policy remaining_steps:
+    start = gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary bytes face_index state glyph contour_index policy
+    match start:
+        Err error:
+            Err error
+        Ok summary:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget bytes face_index summary policy remaining_steps
+```
+
+F4aq must not allocate `Vec`, push commands, match action payload variants, call lower contour/curve helpers directly, parse metadata, call `*_with_tables`, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. It is the final bounded traversal boundary before later phases decide owner recovery, outline storage, and command emission.
 
 ## Metrics fixed-point
 

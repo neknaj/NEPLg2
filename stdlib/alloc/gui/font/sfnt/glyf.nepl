@@ -2393,6 +2393,62 @@ impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
     fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance \advance:
         advance
 
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected: rejected drain terminal の payload
+//:
+//: [目的/もくてき]:
+//: - reject reason と停止時 summary を 1 value として[運/はこ]びます。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected:
+    reason %GuiSfntSimpleGlyphPathSinkRejectReason
+    summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected \rejected:
+        *rejected
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected \rejected:
+        rejected
+
+//: GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain: summary traversal を budget 内で[進/すす]めた結果
+//:
+//: [目的/もくてき]:
+//: - contour action traversal が終端、reject、または明示 budget exhausted のどれで[止/と]まったかを enum で[返/かえ]します。
+//: - `StepBudgetExhausted` は暗黙成功ではなく、呼び出し側が追加 work slice を[要求/ようきゅう]できる typed terminal です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain:
+    EndContour %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected
+    StepBudgetExhausted %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+
+impl Clone for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain:
+    fn clone %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain \drain:
+        *drain
+
+impl Copy for GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain:
+    fn copy_mark %fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain \drain:
+        drain
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected: rejected drain payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected %fn GuiSfntSimpleGlyphPathSinkRejectReason fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected \reason\summary:
+    GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected reason summary
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected_reason: reject reason を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected_reason %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected GuiSfntSimpleGlyphPathSinkRejectReason \rejected:
+    *field::get_ref rejected "reason"
+
+//: gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected_summary: rejected terminal summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected_summary %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary \rejected:
+    *field::get_ref rejected "summary"
+
 //: gui_sfnt_simple_glyph_path_sink_action_next_from_step: action slot から次 cursor を[決/き]める
 //:
 //: [契約/けいやく]:
@@ -4402,6 +4458,21 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once %fn &Byt
                 Result::Ok consume_step:
                     Result::Ok consume_step
 
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary: contour start から first consume summary を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - F4ak start consume-once helper を 1 回だけ呼び、成功時に F4am summary helper へ 1 回だけ[渡/わた]します。
+//: - future loop の initial summary boundary であり、loop、real sink、renderer / platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntParseError \bytes\face_index\state\glyph\contour_index\policy:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once bytes face_index state glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok consume_step:
+            let summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
+            Result::Ok summary
+
 //: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once: summary から 1 step [進/すす]める
 //:
 //: [契約/けいやく]:
@@ -4426,3 +4497,50 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_ad
             Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason
         GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
             Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget: summary を budget 内で terminal まで[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - summary terminal を最初に 1 回[読/よ]み、domain terminal は budget を[消費/しょうひ]せず `Result::Ok` として[返/かえ]します。
+//: - `Continue` かつ `remaining_steps <= 0` は `StepBudgetExhausted` として[返/かえ]します。
+//: - positive budget の `Continue` だけが F4ao advance-once を 1 回[呼/よ]びます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget %fn &ByteBuf fn Option i32 fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError \bytes\face_index\summary\policy\remaining_steps:
+    let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary
+    match terminal:
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:
+            let rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected reason *summary
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour *summary
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:
+            if le remaining_steps 0:
+                then Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted *summary
+                else:
+                    match gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once bytes face_index summary policy:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok advance:
+                            match advance:
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary:
+                                    gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget bytes face_index &next_summary policy sub remaining_steps 1
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason:
+                                    let rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected reason *summary
+                                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:
+                                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour *summary
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget: contour start から summary traversal を budget 内で[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F4ap start consume summary helper を 1 回だけ[呼/よ]び、成功時だけ drain budget helper へ[渡/わた]します。
+//: - F4ao、lower lookup、renderer / platform API は直接[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget %fn &ByteBuf fn Option i32 fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiGlyphId fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError \bytes\face_index\state\glyph\contour_index\policy\remaining_steps:
+    match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary bytes face_index state glyph contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok summary:
+            gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget bytes face_index &summary policy remaining_steps

@@ -1232,6 +1232,38 @@ fn sfnt_action_slot_is_primary %fn GuiSfntSimpleGlyphPathSinkActionSlot bool \sl
         GuiSfntSimpleGlyphPathSinkActionSlot::Tail:
             false
 
+fn sfnt_summary_counts_ok %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn i32 fn i32 bool \summary\expected_emitted\expected_no_action:
+    let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary
+    let emitted_ok %bool eq expected_emitted gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &state
+    let no_action_ok %bool eq expected_no_action gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count &state
+    and emitted_ok no_action_ok
+
+fn sfnt_drain_budget_exhausted_counts_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError fn i32 fn i32 bool \result\expected_emitted\expected_no_action:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok drain:
+            match drain:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour _summary:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected _rejected:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted summary:
+                    sfnt_summary_counts_ok &summary expected_emitted expected_no_action
+
+fn sfnt_drain_end_counts_ok %fn Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError fn i32 fn i32 bool \result\expected_emitted\expected_no_action:
+    match result:
+        Result::Err _error:
+            false
+        Result::Ok drain:
+            match drain:
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour summary:
+                    sfnt_summary_counts_ok &summary expected_emitted expected_no_action
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected _rejected:
+                    false
+                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted _summary:
+                    false
+
 fn main %impure fn void i32 \void:
     let glyph %GuiGlyphId unwrap_ok gui_glyph_id_result 1
     match build_sfnt_step_fixture:
@@ -1505,6 +1537,48 @@ fn main %impure fn void i32 \void:
                                 GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:
                                     false
                     and status_ok and count_ok and terminal_ok advance_once_ok
+            let start_consume_summary_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state_new
+            let start_consume_summary_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary &bytes none start_consume_summary_state glyph 0 &sink_policy:
+                Result::Err _error:
+                    false
+                Result::Ok summary:
+                    let apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state &summary
+                    let apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status &summary
+                    let status_ok %bool match apply_status:
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::EmittedEvent _event:
+                            true
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::Rejected _reason:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::ClosedContour _close:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionApplyStatus::NoAction:
+                            false
+                    let count_ok %bool eq 1 gui_sfnt_simple_glyph_path_sink_action_apply_state_emitted_event_count &apply_state
+                    let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal &summary
+                    let terminal_ok %bool match terminal:
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue next_consumer:
+                            match gui_sfnt_simple_glyph_path_sink_action_consumer_item_action &next_consumer:
+                                GuiSfntSimpleGlyphPathSinkAction::EmitEvent _event:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkAction::Reject _reason:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkAction::CloseContour _close:
+                                    false
+                                GuiSfntSimpleGlyphPathSinkAction::NoAction:
+                                    true
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected _reason:
+                            false
+                        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
+                            false
+                    let zero_budget_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget &bytes none &summary &sink_policy 0
+                    let zero_budget_ok %bool sfnt_drain_budget_exhausted_counts_ok zero_budget_result 1 0
+                    let negative_budget %i32 sub 0 1
+                    let negative_budget_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget &bytes none &summary &sink_policy negative_budget
+                    let negative_budget_ok %bool sfnt_drain_budget_exhausted_counts_ok negative_budget_result 1 0
+                    and status_ok and count_ok and terminal_ok and zero_budget_ok negative_budget_ok
+            let start_drain_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_state_new
+            let start_drain_result %Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget &bytes none start_drain_state glyph 0 &sink_policy 2
+            let start_consume_summary_drain_ok %bool sfnt_drain_end_counts_ok start_drain_result 1 1
             let terminal_consumer_item_next_ok %bool match gui_sfnt_lookup_simple_glyph_path_sink_action_start_item &bytes none glyph 0 &sink_policy:
                 Result::Err _error:
                     false
@@ -1550,5 +1624,5 @@ fn main %impure fn void i32 \void:
                                         GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour:
                                             false
             io_bytebuf_free bytes
-            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok and start_step_ok and start_advance_ok and start_item_ok and terminal_item_next_ok and start_item_next_ok and start_consumer_item_ok and start_consumer_item_direct_ok and start_consume_once_ok and terminal_consumer_item_next_ok start_consumer_item_next_ok
+            test_assertion_exit_code assert "path contour step public lookup follows cursor next contract" and first_ok and second_ok and final_ok and out_ok and sink_ok and start_step_ok and start_advance_ok and start_item_ok and terminal_item_next_ok and start_item_next_ok and start_consumer_item_ok and start_consumer_item_direct_ok and start_consume_once_ok and start_consume_summary_ok and start_consume_summary_drain_ok and terminal_consumer_item_next_ok start_consumer_item_next_ok
 ```

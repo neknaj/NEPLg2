@@ -1405,6 +1405,25 @@ ApplyAdvance EndContour -> SummaryTerminal EndContour
 
 F4an は `Result` / `Option`、byte-backed lookup、consumer item next、consume-once、start helper、metadata parser、lower glyf lookup、`*_with_tables`、action payload direct match、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。match 対象は `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` だけであり、action payload enum を覗かない。
 
+### SFNT simple glyph path sink action start consume summary
+
+F4ap は F4ak の start consume-once と F4am の consume summary projection を薄く合成し、future loop が最初に読む initial summary を返す段階である。F4ao は summary から次 summary へ進めるが、最初の summary を作る責務は持たない。F4ap がその初期境界を提供する。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary:
+    bytes &ByteBuf
+    face_index Option i32
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once bytes face_index state glyph contour_index policy` を 1 回だけ呼ぶ。`Result::Err error` はそのまま伝播する。`Result::Ok consume_step` の場合だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を 1 回だけ呼び、`Result::Ok summary` を返す。
+
+F4ap が直接呼んでよい byte-backed lookup は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once` だけである。start item、start consumer item、consumer item consume-once、summary advance-once、consumer item next lookup、lower glyf lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec` / `push`、full loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback は直接使わない。
+
 ### SFNT simple glyph path sink action consumer consume summary advance once
 
 F4ao は F4am/F4an で作った summary boundary を、byte-backed future loop の 1 step advance boundary へ接続する段階である。これは full loop、iterator owner、real sink mutation、outline allocation、renderer、rasterizer ではない。`Continue` のときだけ次 consumer item を 1 つ消費し、次の summary を返す。`Rejected` と `EndContour` は parse error ではなく、`Result::Ok` の domain terminal として返す。
@@ -1428,6 +1447,47 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_o
 helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary` と `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` をそれぞれ 1 回だけ読む。`Continue item` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once bytes face_index state &item policy` を 1 回呼び、成功した `consume_step` を `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` で次 summary へ変換する。
 
 F4ao が直接呼んでよい byte-backed lookup は Continue branch の `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once` だけである。start helper、consumer item next lookup、lower glyf lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec` / `push`、full loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback は直接使わない。
+
+### SFNT simple glyph path sink action consumer consume summary drain budget
+
+F4aq は F4ap の initial summary と F4ao の advance-once をつなぎ、contour action consumer を explicit budget 内で domain terminal まで進める boundary である。これは full outline builder ではなく、`Vec` command list、real sink mutation、renderer、rasterizer、platform API を持たない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain:
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+```
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget:
+    bytes &ByteBuf
+    face_index Option i32
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError
+```
+
+helper は最初に `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を 1 回だけ読む。`Rejected reason` と `EndContour` は parse error ではなく、budget を消費せず `Result::Ok` の domain result として current summary と一緒に返す。`Continue` かつ `remaining_steps <= 0` の場合は `StepBudgetExhausted current_summary` を返す。これは hidden fallback ではなく、呼び出し側が次の work slice を要求するための typed terminal である。
+
+`Continue` かつ `remaining_steps > 0` の場合だけ `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once` を 1 回呼ぶ。`Result::Err error` はそのまま伝播する。`Continue next_summary` の場合は `remaining_steps - 1` で同じ drain helper へ再帰する。F4ao が保守上 `Rejected` または `EndContour` を返した場合は、F4ao に渡した current summary を drain result に入れる。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget:
+    bytes &ByteBuf
+    face_index Option i32
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntParseError
+```
+
+start helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary` を 1 回だけ呼び、成功時だけ drain budget helper へ 1 回渡す。start helper 自体は F4ao、consumer item next lookup、lower glyf lookup、metadata parser、`*_with_tables` を直接呼ばない。
+
+F4aq は action payload direct match、`Vec` / `push`、full outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。`remaining_steps == 0` と `remaining_steps < 0` はどちらも `StepBudgetExhausted` であり、暗黙に描画や終端成功へ置換しない。
 
 ### Supported font containers
 

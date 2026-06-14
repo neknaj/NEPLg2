@@ -1959,6 +1959,56 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4ap: sfnt simple glyph path sink action start consume summary
+
+目的:
+
+- F4ak start consume-once と F4am consume summary projection を薄く合成し、future consumer loop の initial summary boundary を作る。
+- F4ao の consume summary advance-once が受け取る `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary` を、contour start から直接得られるようにする。
+- 新しい enum は増やさず、既存 `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary` を返す。
+- F4ap は contour-wide loop、iterator、real sink mutation、summary advance、command list、full outline allocation、renderer、rasterizer、platform API にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary`
+- helper signature は次にする。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary:
+    &ByteBuf
+    Option i32
+    GuiSfntSimpleGlyphPathSinkActionApplyState
+    GuiGlyphId
+    i32
+    &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntParseError
+```
+
+- helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once bytes face_index state glyph contour_index policy` を 1 回だけ呼ぶ。
+- `Result::Err error` はそのまま `Result::Err error` として返す。
+- `Result::Ok consume_step` の場合だけ、`gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を 1 回だけ呼ぶ。
+- success branch は `Result::Ok summary` を返す。
+- helper が直接使ってよい byte-backed lookup は start consume-once helper だけである。
+- helper は start item、start consumer item、consumer item consume-once、summary advance-once、consumer item next lookup、F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec`、`push`、full loop、current point、renderer、rasterizer、platform API、host text API、font fallback を直接使わない。
+- Source policy で F4ap docs、helper signature、exact call count、error propagation、success conversion、lookup / payload / renderer / platform API 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ak byte-backed fixture を更新する。
+  - start summary helper を直接呼び、F4ak 経由で作った summary と同じ first action status / count / terminal を確認する。
+
+完了条件:
+
+- start consume summary helper は F4ak と F4am を value として合成し、initial summary を返す。
+- full loop、hidden fallback、silent no-op、new traversal counter、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F4ao: sfnt simple glyph path sink action consumer consume summary advance once
 
 目的:
@@ -2002,6 +2052,60 @@ GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance:
 - summary advance-once は full loop ではなく、1 summary から次 summary または domain terminal へ 1 step だけ進める。
 - parse error と domain terminal を混同しない。
 - hidden fallback、silent no-op、new traversal counter、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
+## Phase F4aq: sfnt simple glyph path sink action consume summary drain budget
+
+目的:
+
+- F4ap initial summary と F4ao advance-once を使い、contour action consumer を explicit budget 内で domain terminal まで進める。
+- `StepBudgetExhausted` を typed terminal として返し、unbounded traversal、silent success、hidden fallback を避ける。
+- outline allocation / sink mutation / render command emission の前に、byte-backed traversal の停止点を enum として固定する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_drain_budget`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget`
+- drain result type は次の 3 variants を持つ。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain:
+    EndContour GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    Rejected GuiSfntSimpleGlyphPathSinkRejectReason GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    StepBudgetExhausted GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+```
+
+- drain helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を 1 回だけ呼ぶ。
+- `Rejected reason` branch は budget を消費せず、`Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected reason current_summary` を返す。
+- `EndContour` branch は budget を消費せず、`Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour current_summary` を返す。
+- `Continue` かつ `remaining_steps <= 0` は `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted current_summary` を返す。
+- `Continue` かつ `remaining_steps > 0` の場合だけ、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once bytes face_index summary policy` を 1 回だけ呼ぶ。
+- advance-once が `Result::Err error` を返した場合は、その parse error をそのまま返す。
+- advance-once が `Continue next_summary` を返した場合は、`remaining_steps - 1` で drain helper を 1 回だけ再帰呼び出しする。
+- advance-once が保守上 `Rejected` / `EndContour` を返した場合は、F4ao に渡した current summary を drain result に入れる。
+- start drain helper は F4ap start consume summary を 1 回だけ呼び、成功時だけ drain helper へ 1 回渡す。
+- start drain helper は F4ao を直接呼ばない。
+- helper は action payload direct match、`Vec`、`push`、full outline allocation、renderer、rasterizer、platform API、host text API、font fallback、lower lookup、metadata parser、`*_with_tables` を直接使わない。
+- Source policy で F4aq docs、drain enum、Clone / Copy、helper exact call count、`remaining_steps == 0` / `< 0` evidence、current summary terminal payload、lookup / payload / renderer / platform API 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ak byte-backed fixture を更新する。
+  - first summary から drain budget 0 と -1 が `StepBudgetExhausted` になることを検査する。
+  - start drain budget 2 が `EndContour` summary を返し、emitted event count と no-action count を保持することを検査する。
+
+完了条件:
+
+- drain helper は bounded traversal boundary であり、unbounded traversal や command allocation にはならない。
+- parse error と domain terminal と budget exhaustion を混同しない。
+- hidden fallback、silent no-op、new untyped traversal counter、full outline allocation を追加しない。
 
 検証:
 
