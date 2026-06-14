@@ -62124,3 +62124,67 @@ MERGE_APPROVED
 - unexecuted_verification: none
 - existing_warnings: node nodesrc/run_source_policy_regressions.js --warn-only reports existing stdlib documentation warning; stdlib declaration doc gaps increased: 153 > 108
 - new_warnings: none
+
+## 2026-06-14 selfhost generic impl instantiation gate checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を 2026-06-14 に再確認した。typed enum、struct、Result error、source / display authority の排除、丁寧な日本語 doc comment、試作段階でも雑な暫定設計を残さない方針に従い、generic impl instantiation を flag ではなく typed evidence gate として実装した。
+- sync: `origin/main` はこの作業前に merge 済みで、merge checkpoint commit は `e47c7c00b` で push 済みである。
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl` を追加した。
+- `SelfhostMemoTraitPublicImplGenericInstantiationInput` は generic binder evidence、type argument count、schema 付き stable type argument identity、substituted target type shape hash、substituted trait application shape hash、bound solving status を別 field として保持する。
+- `SelfhostMemoTraitPublicImplGenericBoundSolvingStatus::AllSolved` は単なる成功 flag ではなく、schema version、solved bound count、solver policy hash、proof shape hash を持つ `SelfhostMemoTraitPublicImplGenericBoundSolvingEvidence` を payload として要求する。
+- bound count 0 では `NoBounds` だけを受理し、bound count > 0 では `AllSolved(evidence)` だけを受理する。`Unsolved` は未解決 bound ordinal を payload として保持し、typed error として fail-closed に返す。
+- binder schema/hash placeholder、type argument schema/hash placeholder、substituted target / trait shape missing or placeholder、bound solving evidence schema / count / policy / proof shape placeholder、derived hash placeholder を個別の typed enum error として分けた。
+- output evidence は schema、binder count、bound count、generic binder shape hash、type argument identity hash、substituted target / trait shape hash、bound solution shape hash、instantiation shape hash を保持し、source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record を authority にしない。
+- 既存 materializer の `GenericImplInstantiationUnsupported` は維持した。この checkpoint の success は operation candidate acceptance ではなく、後続で materializer accepted path に接続するための typed contract である。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` を追加し、runner に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、stable type argument identity / binder evidence import、forbidden layer import 禁止、typed input/evidence/error enum、payload-aware error equality、materializer fail-closed 維持、行数 / doc comment 長制限禁止を固定する。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、generic impl instantiation gate を接続済み境界へ移し、残件を actual substitution / bound solver / materializer accepted path / PrivateCache / prechecked artifact へ絞った。
+
+### subagent_review
+
+- Popper review: Blocker なし。Required として、`AllSolved` を status-only authority にせず typed evidence payload にすること、stable type argument identity を typed wrapper として扱うこと、substituted shape missing / placeholder を別 error にすること、materializer をまだ緩めないことを確認した。実装は `AllSolved(evidence)`、schema / count / policy / proof shape 検査、materializer fail-closed 維持で対応済みである。
+- Descartes review: Blocker なし。Required として、raw `i32` hash だけにしないこと、generic-only gate とすること、bound solving status を enum にすること、output evidence hash に schema / binder / type argument / substituted shape / bound solving を fold すること、source policy で forbidden layer を固定することを確認した。実装は typed input/evidence/error と source policy で対応済みである。
+- 両 review とも、今回の module は actual solver / substitution engine ではなく、後続接続で要求する typed evidence contract として閉じるなら Approve である。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-instantiation-gate.json`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- pass: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。今回追加した `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` は runner 内でも pass した。既存 warning として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` が残っている。Node の WASI ExperimentalWarning は環境由来の既存 warning として扱う。
+
+### residual
+
+- actual type substitution engine、substituted target / trait application shape producer、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- substitution cache、solver lookup cache、bound lookup cache、stage0 fixture 分割、materializer record table の operation bucket 化は、今回固定した typed authority / fail-closed contract を保って後からできる最適化として扱う。
+
+### zenn_review_record
+
+- decision: MERGE_APPROVED
+- classification: Approve
+- approve: yes
+- source_policy: updated
+- policy/spec source_policy: updated
+- implementation/test source_policy: updated
+- files_read: AGENTS.md, plan.md, note.n.md, todo.md, doc/neplg2/self_host_neplg21_compiler_design.md, issues/items/ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7.md, stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl, stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl, stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl, nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js
+- not_reviewed: actual type substitution engine; trait bound solver; materializer accepted generic path; PrivateCache / PrivateState effect masking; prechecked artifact implementation; full selfhost compiler runtime execution
+- subagent_review_ids: 019ec28d-37f7-77f0-a7e6-9e068d26cf1d, 019ec48a-0645-7c52-867f-a35bc0a435ad
+- subagent_review_count: 2
+- policy/spec: checked against https://zenn.dev/bem130/articles/1b352797de94e7 and AGENTS.md; Blocker none; Required typed evidence payload / schema / fail-closed boundary satisfied; Non-blocker future solver and substitution work; Question none; Approve current standalone gate
+- implementation/test: checked generic instantiation gate module, materializer fail-closed behavior, source policy contract, doctest smoke; Blocker none; Required findings fixed before commit; Non-blocker later materializer connection; Question none; Approve
+- subagent review: Popper and Descartes reviewed policy/spec and implementation/test; Required findings were already represented in the implementation or were fixed before commit
+- verify: executed node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-instantiation-gate.json; node nodesrc/test_selfhost_zenn_review_gate_contract.js; node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md; node nodesrc/test_source_policy_no_line_count_limits.js; node nodesrc/issues.js check --dir issues; git diff --check; node nodesrc/run_source_policy_regressions.js --warn-only
+- residual_risk: none for the standalone gate; downstream accepted generic materialization remains intentionally unsupported
+- unexecuted_verification: none
+- existing_warnings: nodesrc/test_stdlib_documentation_contract.js failed with exit code 1; stdlib declaration doc gaps increased: 153 > 108; Node WASI ExperimentalWarning
+- new_warnings: none

@@ -1837,6 +1837,22 @@ subagent review では、generic count / bound count だけで materializer が 
 
 この checkpoint 後の残件は、generic impl instantiation、trait bound solving、substituted target type shape evidence、generic coherence、Rust Resource IR 相当の actual graph walker 本体、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。materializer record table の operation bucket 化、generic binder table の sorted index 化、bound lookup cache、stage0 fixture 分割は、今回固定した typed evidence / fail-closed / owner cleanup contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue generic impl instantiation gate checkpoint
+
+`memo_trait_public_impl_generic_instantiation.nepl` を追加し、detailed generic binder evidence を持つ public trait impl を operation candidate へ進める前に必要な generic instantiation evidence contract を固定した。
+
+この gate は actual substitution engine でも trait solver でもない。入力は `SelfhostMemoTraitPublicImplGenericInstantiationInput` の typed field だけであり、generic binder evidence、type argument count、schema 付き stable type argument identity hash、substitution 後の target type shape hash、substitution 後の trait application shape hash、bound solving status を分けて受け取る。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted instantiation hash material に入らない。
+
+`generic_binder_evidence.type_parameter_count` と `type_argument_count` は一致しなければならない。stable type argument identity は `memo_trait_type_argument_identity` が作った `schema_version` と `identity_hash` の両方を検査し、hash value だけを authority にしない。substituted target type shape と substituted trait application shape はどちらも `Option i32` で受け取り、missing と placeholder 0 を別の typed error として拒否する。
+
+bound solving は `NoBounds`、`AllSolved(evidence)`、`Unsolved(first_unsolved_bound_ordinal)` の enum として扱う。bound count が 0 の場合は `NoBounds` だけを受理し、bound count が 1 以上の場合は `AllSolved` だけを受理する。`AllSolved` evidence は schema version、solved bound count、solver policy hash、proof shape hash を検査し、count mismatch や placeholder hash を typed error として fail-closed にする。`Unsolved` は success へ弱めず、未解決 ordinal を payload として保持する。
+
+この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。今回の evidence success は「generic impl candidate acceptance」ではなく、後続で materializer record に接続するための前段 contract である。operation classifier、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof、PrivateCache / PrivateState masking、prechecked artifact acceptance は別 stage が別 evidence として検査する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、stable type argument identity / generic binder evidence import、HIR / Resource IR / backend / proof store / operation classifier / candidate builder / public impl header / private effect / prechecked artifact import 禁止、typed input / evidence / error enum、bound status consistency、payload-aware error equality、materializer fail-closed 維持、source-derived authority 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual type substitution engine、substituted target / trait application shape producer、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。instantiation gate の内部 hash 計算は O(1) であり、solver table lookup、type substitution cache、bound lookup cache、stage0 fixture 分割は今回固定した typed authority / fail-closed contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

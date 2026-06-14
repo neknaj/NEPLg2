@@ -168,6 +168,25 @@ subagent review では、generic count / bound count だけで operation candida
 
 この checkpoint 後も、generic impl instantiation、trait bound solving、substituted target type shape evidence、generic coherence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 
+## 2026-06-14 selfhost generic impl instantiation gate checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl` を追加し、detailed generic binder evidence を持つ public trait impl を operation candidate へ進める前段の typed instantiation evidence gate を作った。
+
+この gate は actual substitution engine / trait solver / materializer accepted path ではない。`SelfhostMemoTraitPublicImplGenericInstantiationInput` は binder evidence、type argument count、schema 付き stable type argument identity hash、substitution 後 target type shape hash、substitution 後 trait application shape hash、bound solving status を分けて保持する。source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は authority にしない。
+
+`generic_binder_evidence.type_parameter_count` と `type_argument_count` の mismatch、binder schema/hash placeholder、type argument identity schema/hash placeholder、substituted target / trait shape missing or placeholder、bound solving status inconsistency、bound solving evidence schema / count / policy hash / proof shape placeholder、derived hash placeholder は typed enum error として fail-closed にする。bound count 0 では `NoBounds` だけ、bound count > 0 では `AllSolved(evidence)` だけを受理し、`Unsolved` は未解決 ordinal を payload として保持する。
+
+この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。成功 evidence は generic impl candidate acceptance ではなく、後続で materializer record に接続するための typed contract である。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、stable type argument identity / binder evidence import、forbidden layer import 禁止、typed input/evidence/error enum、payload-aware error equality、materializer fail-closed 維持、行数 / doc comment 長制限禁止を確認する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -j 1 --assert-io --dist web/dist -o tmp/selfhost-generic-instantiation-gate.json`
+
+この checkpoint 後も、actual type substitution engine、substituted target / trait application shape producer、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
