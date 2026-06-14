@@ -1,3 +1,72 @@
+# 2026-06-14 Agent selfhost Drop no-escape proof gate checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査境界、source-derived authority 排除、DAG、fail-closed、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。
+- AGENTS.md / plan.md: 確認済み。`plan.md` は人が編集する文書なので変更していない。作業状態はこの `note.n.md` に記録する。行数制限や doc comment 長制限は追加していない。
+- 対象 branch: `work/selfhost-method-body-resolver`
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / Drop impl fact table に typed Resource no-escape proof status を適用する gate boundary
+- classification: selfhost MemoKey / MemoValue structural purity / Drop no-escape proof status consumer
+- decision: MERGE_APPROVED_AFTER_NOTE_UPDATE。subagent Required はこの checkpoint 記録で対応した。
+- policy/spec:
+  - Drop impl fact は `SelfhostTypeId` だけではなく、Drop body root、effect、元 escape state を保持する。
+  - no-escape proof key は `SelfhostTypeId + SelfhostHirExprId + SelfhostEffectKind + SelfhostEffectEscapeState` の組とする。
+  - `SelfhostTypeId` だけの proof reuse、source text、span、lexeme、display name、diagnostic text、module path、payload hash、public surface hash を authority にした proof acceptance は禁止する。
+  - proof lookup の対象は `InternalAlloc + NotApplicable` だけに限定する。
+  - `Proven` は `NoEscapeProven`、`Refuted` は `MayEscape`、`Missing` / `Unknown` / record なしは `NotApplicable` のまま残す。
+  - pre-gate input が `InternalAlloc + NoEscapeProven` を持つ場合は `UnexpectedPreProvenNoEscape` として fail-closed に拒否する。
+  - `Pure` / `UnsafeMemory` / `ExternalIo` / `Nondet` は proof table を見ずに通し、observable effect を弱めない。
+  - この module は Resource IR proof producer ではなく typed proof status consumer であり、Drop evidence、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、generic binder、prechecked artifact は作らない。
+- design:
+  - `stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl` を追加した。
+  - `SelfhostMemoTraitOperationDropImplFact` に `body_root %SelfhostHirExprId` を追加し、Drop impl resolver、Drop impl fact table builder、operation body check resolver を同じ payload に合わせた。
+  - proof table は session-local owner table として扱う。永続 `.neplproof` artifact や proof store からの復元は別 boundary に残す。
+  - duplicate matching proof は `ProofDuplicate` として拒否し、record order による first-wins を使わない。
+  - output table owner は gate が作り、transform error / source read failure では gate が閉じる。resolver push rejection では既存 push boundary に cleanup を任せ、二重解放しない。
+- implementation/test:
+  - stage0 smoke は matching `Proven`、proof record なし、mismatched root、`Refuted`、Pure pass-through、duplicate proof rejection、pre-proven rejection を確認する。
+  - `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+  - 既存 `nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js`、`nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js`、`nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` は `body_root` payload を前提に更新した。
+  - source_policy は facade private、`nodesrc/selfhost_ty_sources.js` 非登録、proof key field、key equality、duplicate proof rejection、pre-proven input rejection、Missing / Unknown fail-closed、Drop evidence / aggregate proof / proof store 合成禁止、source-derived authority 禁止、Clone / Copy impl の typed-payload-only doc、行数制限 / doc comment 長制限禁止を確認する。
+  - `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、Drop no-escape proof gate 接続済みと残件を整理した。
+- subagent review:
+  - files_read: `memo_trait_operation_drop_no_escape_gate.nepl`; `memo_trait_operation_drop_impl_resolver.nepl`; `memo_trait_operation_drop_impl_fact_table_builder.nepl`; `memo_trait_operation_body_check_resolver.nepl`; related contract tests; `doc/neplg2/self_host_neplg21_compiler_design.md`; target issue; `todo.md`; `note.n.md`.
+  - not_reviewed: full Resource IR proof producer、backend representation、proof store integration、PrivateCache / PrivateState masking。
+  - base: `a0dcf27e3`
+  - head: working tree after Drop no-escape proof gate diff
+  - subagent_review_ids: `019ebaff-ce3f-7093-a185-ffdc1f07e0e1`
+  - subagent_review_count: 1 completed; new subagent spawn attempts `019ec28c-fc1e-71a2-8fe3-396ab4d80401` and `019ec28d-37f7-77f0-a7e6-9e068d26cf1d` errored because usage limit; additional existing-agent requests were queued but no completed body was available at checkpoint time.
+  - nodesrc/selfhost_zenn_review_response_check.js: live subagent response was reviewed against the required Blocker / Required / Non-blocker / Approve categories; packet-file validation was not available because the response arrived through the agent status channel.
+  - Bohr review:
+    - Blocker: なし。
+    - Required: 最新 `note.n.md` checkpoint が今回の Drop no-escape gate になっておらず、merge 前に更新が必要。
+    - Non-blocker: explicit `ProofStatus::Missing` / `ProofStatus::Unknown` record の behavioral smoke を追加するとさらに堅い。現状でも code contract と source policy で Missing / Unknown fail-closed mapping は固定済み。
+    - Question: なし。
+    - Approve: gate 本体は approve。`InternalAlloc + NotApplicable` のみ lookup し、`Proven -> NoEscapeProven`、`Refuted -> MayEscape`、`Missing/Unknown/無し -> NotApplicable`、pre-proven NoEscape typed error、Drop evidence / aggregate proof / proof store 非生成を確認。
+  - review response:
+    - Required はこの checkpoint を `note.n.md` 先頭に追加することで対応した。
+    - Non-blocker の explicit Missing / Unknown record smoke は、現在の semantic boundary を変えない後続 smoke 強化として残す。今回の source policy は implementation mapping を固定済みである。
+  - decision: MERGE_APPROVED_AFTER_NOTE_UPDATE。
+- verify:
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-memo-trait-operation-drop-no-escape-gate-final.json` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_resolver_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_drop_impl_fact_table_builder_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_body_check_resolver_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js` pass。
+  - 検証済み: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js` pass。
+  - 検証済み: Drop impl resolver、Drop impl fact table builder、operation body check resolver、public impl Drop fact orchestrator の focused doctest pass。
+  - 検証済み: `node nodesrc/issues.js check --dir issues` pass。
+  - 検証済み: `git diff --check` whitespace error なし。CRLF warning のみ。
+  - source policy: `node nodesrc/run_source_policy_regressions.js --warn-only` exit=0。今回追加した Drop no-escape gate contract は pass。
+  - 既存 warning: `nodesrc/test_stdlib_documentation_contract.js` の `stdlib declaration doc gaps increased: 153 > 108`、`web/dist_ts/gui-preview/timer-host-abi.js` 欠落、Node WASI ExperimentalWarning、CRLF warning。
+  - 今回差分由来 warning: `note.n.md` 更新前の selfhost review gate warning。Required 対応としてこの checkpoint を追加したため、次の rerun で解消確認する。
+  - blockers: なし。
+  - questions: なし。
+  - Approve: Bohr review approve。
+- residual:
+  - 次 slice: actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続。
+  - Non-blocker: explicit `Missing` / `Unknown` proof record smoke の追加。
+  - proof table sorted index 化、type/body-root bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は、今回固定した typed proof key / fail-closed status / owner contract を保って後からできる最適化として扱う。
+
 # 2026-06-14 Agent selfhost public impl Drop fact orchestrator checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認した。今回の slice では、typed enum / Result、静的検査境界、source-derived authority 排除、DAG、fail-closed、丁寧な doc comment、試作段階でも設計を雑にしない方針を守る。

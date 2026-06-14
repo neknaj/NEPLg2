@@ -286,6 +286,22 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_f
 
 この checkpoint 後の残件は、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。operation bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した typed authority / owner / error contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 selfhost Drop no-escape proof gate checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl` を追加し、Drop impl fact table に Resource IR no-escape proof status を適用する checker-layer gate を作った。
+
+この checkpoint では `SelfhostMemoTraitOperationDropImplFact` に `body_root %SelfhostHirExprId` を追加した。Drop body root は HIR payload を読んで purity を推測する authority ではなく、Resource IR proof producer が対象にした body identity と Drop fact table の body identity を照合するための typed payload である。Drop impl resolver、Drop impl fact table builder、operation body check resolver はこの field を保持するように更新した。
+
+no-escape proof key は `SelfhostTypeId`、Drop body root、effect、元 escape state をすべて含む。`SelfhostTypeId` だけを key にした proof reuse、source text / span / lexeme / display name / diagnostic text / module path / hash authority による proof acceptance は禁止する。
+
+gate が更新できるのは `InternalAlloc + NotApplicable` だけである。matching proof が `Proven` なら `NoEscapeProven`、`Refuted` なら `MayEscape` へ写し、`Missing` / `Unknown` または record なしは `NotApplicable` のまま残す。pre-gate input がすでに `InternalAlloc + NoEscapeProven` なら `UnexpectedPreProvenNoEscape` として拒否し、別 boundary が no-escape を合成する bypass を fail-closed にする。`Pure` / `UnsafeMemory` / `ExternalIo` / `Nondet` は proof table を見ずに pass-through し、effect を弱めない。
+
+この module は Resource IR proof producer ではなく、typed proof status consumer である。Drop evidence、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、generic binder、prechecked artifact は作らない。最終的な `PureDrop` evidence は既存 purity gate が `DropImplPresent(InternalAlloc, NoEscapeProven)` から作る。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` で固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、proof key field、duplicate proof rejection、pre-proven input rejection、Missing / Unknown fail-closed、Drop proof / aggregate proof / proof store 合成禁止、source-derived authority 禁止、Clone / Copy impl の typed-payload-only doc、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table sorted index 化、type/body-root bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した typed proof key / fail-closed status contract を保って後からできる最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

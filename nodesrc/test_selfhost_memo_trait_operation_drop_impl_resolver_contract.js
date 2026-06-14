@@ -90,8 +90,9 @@ assert.ok(
     "docs must reject duplicate Drop impl facts instead of first-wins",
 );
 assert.ok(
-    source.includes("source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record を authority にしません"),
-    "docs must exclude source/display/diagnostic/module path/HIR/Resource/backend/proof-store authority",
+    source.includes("Drop body root id、typed effect kind、typed escape state") &&
+        source.includes("HIR payload を走査せず、root id から effect や no-escape を推測しません"),
+    "docs must carry Drop body root identity while excluding HIR payload traversal as authority",
 );
 assert.doesNotMatch(
     facade,
@@ -107,6 +108,7 @@ assertOrdered(
     source,
     [
         "#import \"alloc/collections/vec\" as v",
+        "#import \"neplg2/core/hir/hir\" as *",
         "#import \"neplg2/core/ty/effect\" as *",
         "#import \"neplg2/core/ty/ty/id\" as *",
         "#import \"./memo_trait_operation_purity_gate\" as *",
@@ -115,8 +117,8 @@ assertOrdered(
 );
 assert.doesNotMatch(
     code,
-    /#import ".*(?:hir|resource|backend|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_public_surface|memo_trait_public_impl_header|memo_trait_operation_evidence_producer|memo_trait_operation_impl_table)/,
-    "Drop impl resolver must not import HIR, Resource IR, backend, proof store, artifact, canonical-key, public-surface, public-impl-header, evidence-producer, or operation impl table layers",
+    /#import ".*(?:resource|backend|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_public_surface|memo_trait_public_impl_header|memo_trait_operation_evidence_producer|memo_trait_operation_impl_table)/,
+    "Drop impl resolver must not import Resource IR, backend, proof store, artifact, canonical-key, public-surface, public-impl-header, evidence-producer, or operation impl table layers",
 );
 assertOrdered(
     source,
@@ -127,6 +129,7 @@ assertOrdered(
         "Unknown",
         "pub struct SelfhostMemoTraitOperationDropImplFact:",
         "type_id %SelfhostTypeId",
+        "body_root %SelfhostHirExprId",
         "effect %SelfhostEffectKind",
         "escape %SelfhostEffectEscapeState",
     ],

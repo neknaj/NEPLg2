@@ -1,0 +1,761 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_no_escape_gate
+//: Drop impl fact に Resource IR no-escape proof を[結/むす]び[付/つ]ける checker-layer gate です。
+//:
+//: [目的/もくてき]:
+//: - Drop impl body effect checker は `InternalAlloc` を `NotApplicable` escape のまま fact table に保存します。
+//: - この module は、Resource IR 側が後続 stage で作る typed no-escape proof summary を受け取り、Drop impl fact の `type_id`、Drop body root、effect、元 escape state が完全に一致する場合だけ `NoEscapeProven` へ更新します。
+//: - `SelfhostTypeId` だけを key にした proof reuse を禁止し、ある Drop body の証明が別 body の Drop fact に流用される退行を防ぎます。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationDropImplFact` の typed payload と、この module が定義する `SelfhostMemoTraitOperationDropNoEscapeProofRecord` だけです。
+//: - no-escape proof は `SelfhostMemoTraitOperationDropNoEscapeProofKey` で照合します。key は `SelfhostTypeId`、`SelfhostHirExprId`、`SelfhostEffectKind`、`SelfhostEffectEscapeState` をすべて含みます。
+//: - `InternalAlloc + NotApplicable` だけが proof lookup の対象です。matching proof が `Proven` のときだけ `NoEscapeProven` へ更新します。
+//: - matching proof が `Refuted` のときは `MayEscape` へ更新し、後続 purity gate が impure Drop として扱えるようにします。
+//: - matching proof が `Missing` / `Unknown`、または proof record が無い場合は `NotApplicable` のまま残します。no-escape 未証明を pure に mask しません。
+//: - 入力 fact がすでに `InternalAlloc + NoEscapeProven` を持っている場合は `UnexpectedPreProvenNoEscape` として拒否します。この gate より前の boundary が no-escape を合成する bypass を認めません。
+//: - `Pure` / `UnsafeMemory` / `ExternalIo` / `Nondet` の fact は proof table を見ずにそのまま通します。proof gate は effect kind を弱めません。
+//: - この module は `PureDrop`、`NoDropRequired`、operation evidence record、aggregate proof、proof store、PrivateCache / PrivateState masking、generic binder、prechecked artifact を作りません。最終的な Drop evidence は既存の purity gate が作ります。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では Resource IR no-escape proof の生成器そのものは未実装です。この module は、その生成器が作る typed status を受ける boundary として先に固定します。
+//: - proof table は session-local owner table です。永続 `.neplproof` artifact や proof store への接続は後続 stage で扱います。
+//: - facade にはまだ re-export しません。full operation evidence orchestration が Drop fact builder、no-escape proof producer、purity gate をまとめる段階で公開 API を再評価します。
+//:
+//: [計算量/けいさんりょう]:
+//: - Drop fact 数を n、proof record 数を p とすると、現状の実装は O(n * p) 時間、output table に O(n) 空間です。
+//: - proof table の sorted index 化や type/body-root bucket 化は、key equality、duplicate rejection、fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_impl_resolver" as *
+//:| #import "neplg2/core/ty/effect" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_no_escape_gate_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq summary.proven_check SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq summary.missing_check SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq summary.mismatched_root_check SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq summary.refuted_check SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq summary.pure_check SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+//:             let checks6 checks_push checks5 check selfhost_memo_trait_operation_drop_no_escape_gate_error_result_eq summary.duplicate_rejected SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate
+//:             let checks7 checks_push checks6 check selfhost_memo_trait_operation_drop_no_escape_gate_error_result_eq summary.preproven_rejected SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape
+//:             let shown checks_print_report checks7
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop no-escape gate stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+#import "./memo_trait_operation_purity_gate" as *
+
+//: SelfhostMemoTraitOperationDropNoEscapeProofStatus: Drop body no-escape proof の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - proof の成功、反証、欠落、未判定を bool に潰さず、後続 gate が fail-closed に分岐できるようにします。
+pub enum SelfhostMemoTraitOperationDropNoEscapeProofStatus:
+    Proven
+    Refuted
+    Missing
+    Unknown
+
+//: SelfhostMemoTraitOperationDropNoEscapeProofKey: no-escape proof を Drop body fact に[結/むす]び[付/つ]ける key
+//:
+//: [契約/けいやく]:
+//: - `type_id` だけでは証明の再利用範囲として広すぎます。key には Drop body root と、proof が対象にした effect / escape summary を必ず含めます。
+//: - `escape` は proof 取得前の state です。Phase 1 の matching proof は通常 `InternalAlloc + NotApplicable` に対して作られます。
+pub struct SelfhostMemoTraitOperationDropNoEscapeProofKey:
+    type_id %SelfhostTypeId
+    body_root %SelfhostHirExprId
+    effect %SelfhostEffectKind
+    escape %SelfhostEffectEscapeState
+
+//: SelfhostMemoTraitOperationDropNoEscapeProofRecord: 1 つの Drop body no-escape proof status
+//:
+//: [契約/けいやく]:
+//: - `key` は Resource IR proof producer が対象にした Drop body effect fact を表します。
+//: - `status` が `Proven` の場合だけ gate は `NoEscapeProven` を付与できます。
+pub struct SelfhostMemoTraitOperationDropNoEscapeProofRecord:
+    key %SelfhostMemoTraitOperationDropNoEscapeProofKey
+    status %SelfhostMemoTraitOperationDropNoEscapeProofStatus
+
+//: SelfhostMemoTraitOperationDropNoEscapeProofTable: no-escape proof record の session-local owner table
+//:
+//: [契約/けいやく]:
+//: - table は proof record buffer を所有します。caller は不要になった時点で `selfhost_memo_trait_operation_drop_no_escape_proof_table_free` で閉じます。
+//: - この table は永続 artifact ではありません。永続 `.neplproof` からの復元は別 boundary が行います。
+pub struct SelfhostMemoTraitOperationDropNoEscapeProofTable:
+    records %Vec SelfhostMemoTraitOperationDropNoEscapeProofRecord
+
+//: SelfhostMemoTraitOperationDropNoEscapeGateErrorKind: no-escape gate の構造的な拒否理由
+//:
+//: [目的/もくてき]:
+//: - allocation、table read、proof duplicate、出力 table push、pre-proven escape bypass を typed enum として分けます。
+pub enum SelfhostMemoTraitOperationDropNoEscapeGateErrorKind:
+    ProofRecordPushFailed %StdErrorKind
+    OutputTableAllocFailed %StdErrorKind
+    SourceRecordReadFailed %i32
+    ProofRecordReadFailed %i32
+    ProofDuplicate
+    UnexpectedPreProvenNoEscape
+    OutputTableRejected %SelfhostMemoTraitOperationDropImplResolverErrorKind
+
+//: SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary: no-escape gate smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - matching proof、missing proof、mismatched root、refuted proof、pure fact pass-through、duplicate proof rejection、pre-proven bypass rejection を確認します。
+pub struct SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary:
+    proven_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    missing_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    mismatched_root_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    refuted_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    pure_check %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    duplicate_rejected %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    preproven_rejected %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+
+//: Clone for SelfhostMemoTraitOperationDropNoEscapeProofStatus: proof status を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - status は enum tag だけで owner buffer を含まないため、typed payload をそのまま返します。
+impl Clone for SelfhostMemoTraitOperationDropNoEscapeProofStatus:
+    fn clone %fn &SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropNoEscapeProofStatus \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropNoEscapeProofStatus: proof status の Copy marker
+//:
+//: [契約/けいやく]:
+//: - status は proof table の所有権を持たず、record の status field として複写しても cleanup 義務が増えません。
+impl Copy for SelfhostMemoTraitOperationDropNoEscapeProofStatus:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropNoEscapeProofStatus \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropNoEscapeProofKey: proof key を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - key は `SelfhostTypeId`、HIR root id、effect、escape の typed identity だけを持ちます。
+//: - HIR payload、source text、proof artifact owner は含まないため、shallow copy で同じ照合対象を表せます。
+impl Clone for SelfhostMemoTraitOperationDropNoEscapeProofKey:
+    fn clone %fn &SelfhostMemoTraitOperationDropNoEscapeProofKey SelfhostMemoTraitOperationDropNoEscapeProofKey \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropNoEscapeProofKey: proof key の Copy marker
+//:
+//: [契約/けいやく]:
+//: - key は owner を含まない識別子 tuple です。Copy しても proof table や Drop fact table の所有権は移動しません。
+impl Copy for SelfhostMemoTraitOperationDropNoEscapeProofKey:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropNoEscapeProofKey SelfhostMemoTraitOperationDropNoEscapeProofKey \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropNoEscapeProofRecord: proof record を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - record は key と status の pair だけです。proof producer の内部 buffer や Resource IR owner はここへ入れません。
+impl Clone for SelfhostMemoTraitOperationDropNoEscapeProofRecord:
+    fn clone %fn &SelfhostMemoTraitOperationDropNoEscapeProofRecord SelfhostMemoTraitOperationDropNoEscapeProofRecord \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropNoEscapeProofRecord: proof record の Copy marker
+//:
+//: [契約/けいやく]:
+//: - record copy は lookup 中の候補値を持ち運ぶためだけに使います。table owner の copy ではありません。
+impl Copy for SelfhostMemoTraitOperationDropNoEscapeProofRecord:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropNoEscapeProofRecord SelfhostMemoTraitOperationDropNoEscapeProofRecord \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropNoEscapeGateErrorKind: gate error を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - error は typed enum payload だけを持ちます。診断文字列や table owner は含めないため、clone は構造的な失敗理由の複製に限られます。
+impl Clone for SelfhostMemoTraitOperationDropNoEscapeGateErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationDropNoEscapeGateErrorKind SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropNoEscapeGateErrorKind: gate error の Copy marker
+//:
+//: [契約/けいやく]:
+//: - error payload は `StdErrorKind`、index、nested resolver error だけであり、所有 buffer を含みません。
+impl Copy for SelfhostMemoTraitOperationDropNoEscapeGateErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropNoEscapeGateErrorKind SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary: stage0 summary を値として[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - summary は doctest 用の代表結果だけを持つ Copy payload です。output table owner は stage0 helper 内で解決済みです。
+impl Clone for SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary: stage0 summary の Copy marker
+//:
+//: [契約/けいやく]:
+//: - doctest が summary field を複数回確認できるようにするための marker であり、owner lifecycle を緩めるものではありません。
+impl Copy for SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_key_new: no-escape proof key を[作/つく]る
+pub fn selfhost_memo_trait_operation_drop_no_escape_proof_key_new %fn SelfhostTypeId fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationDropNoEscapeProofKey \type_id\body_root\effect\escape:
+    SelfhostMemoTraitOperationDropNoEscapeProofKey type_id body_root effect escape
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_record_new: proof record を[作/つく]る
+pub fn selfhost_memo_trait_operation_drop_no_escape_proof_record_new %fn SelfhostMemoTraitOperationDropNoEscapeProofKey fn SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropNoEscapeProofRecord \key\status:
+    SelfhostMemoTraitOperationDropNoEscapeProofRecord key status
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_table_new: [空/から]の no-escape proof table を[作/つく]る
+pub fn selfhost_memo_trait_operation_drop_no_escape_proof_table_new %impure fn void Result SelfhostMemoTraitOperationDropNoEscapeProofTable StdErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitOperationDropNoEscapeProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitOperationDropNoEscapeProofTable records
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_table_free: no-escape proof table の owner buffer を[閉/と]じる
+pub fn selfhost_memo_trait_operation_drop_no_escape_proof_table_free %impure fn SelfhostMemoTraitOperationDropNoEscapeProofTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_table_len: proof record 数を[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_no_escape_proof_table_len %fn &SelfhostMemoTraitOperationDropNoEscapeProofTable i32 \table:
+    let records %&Vec SelfhostMemoTraitOperationDropNoEscapeProofRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_table_push: proof record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - push 失敗時は `Vec` が返した owner を閉じ、typed error に変換します。
+pub fn selfhost_memo_trait_operation_drop_no_escape_proof_table_push %impure fn SelfhostMemoTraitOperationDropNoEscapeProofTable impure fn SelfhostMemoTraitOperationDropNoEscapeProofRecord Result SelfhostMemoTraitOperationDropNoEscapeProofTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitOperationDropNoEscapeProofRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitOperationDropNoEscapeProofTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed error
+
+//: selfhost_memo_trait_operation_drop_no_escape_escape_state_eq: escape state が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_no_escape_escape_state_eq %fn SelfhostEffectEscapeState fn SelfhostEffectEscapeState bool \a\b:
+    match a:
+        SelfhostEffectEscapeState::NotApplicable:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    true
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::NoEscapeProven:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    true
+                SelfhostEffectEscapeState::MayEscape:
+                    false
+        SelfhostEffectEscapeState::MayEscape:
+            match b:
+                SelfhostEffectEscapeState::NotApplicable:
+                    false
+                SelfhostEffectEscapeState::NoEscapeProven:
+                    false
+                SelfhostEffectEscapeState::MayEscape:
+                    true
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_status_eq: proof status が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_no_escape_proof_status_eq %fn SelfhostMemoTraitOperationDropNoEscapeProofStatus fn SelfhostMemoTraitOperationDropNoEscapeProofStatus bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+                    true
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Unknown:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted:
+                    true
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Unknown:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing:
+                    true
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Unknown:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Unknown:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeProofStatus::Unknown:
+                    true
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_key_eq: proof key が同じ Drop body fact を指すか[返/かえ]す
+fn selfhost_memo_trait_operation_drop_no_escape_proof_key_eq %fn SelfhostMemoTraitOperationDropNoEscapeProofKey fn SelfhostMemoTraitOperationDropNoEscapeProofKey bool \a\b:
+    and:
+        selfhost_type_id_eq a.type_id b.type_id
+        and:
+            eq selfhost_hir_expr_id_index a.body_root selfhost_hir_expr_id_index b.body_root
+            and:
+                selfhost_effect_kind_eq a.effect b.effect
+                selfhost_memo_trait_operation_drop_no_escape_escape_state_eq a.escape b.escape
+
+//: selfhost_memo_trait_operation_drop_no_escape_fact_key: Drop impl fact から proof key を[作/つく]る
+fn selfhost_memo_trait_operation_drop_no_escape_fact_key %fn SelfhostMemoTraitOperationDropImplFact SelfhostMemoTraitOperationDropNoEscapeProofKey \fact:
+    selfhost_memo_trait_operation_drop_no_escape_proof_key_new fact.type_id fact.body_root fact.effect fact.escape
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_lookup_finish: proof lookup の最終状態を[畳/たた]む
+fn selfhost_memo_trait_operation_drop_no_escape_proof_lookup_finish %fn Option SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \found:
+    match found:
+        Option::Some status:
+            Result::Ok status
+        Option::None:
+            Result::Ok SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_lookup_loop: proof table から matching status を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - matching proof が 2 件以上ある場合は `ProofDuplicate` として拒否します。record order による first-wins は使いません。
+fn selfhost_memo_trait_operation_drop_no_escape_proof_lookup_loop %fn &SelfhostMemoTraitOperationDropNoEscapeProofTable fn SelfhostMemoTraitOperationDropNoEscapeProofKey fn i32 fn Option SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \proofs\key\idx\found:
+    if:
+        ge idx selfhost_memo_trait_operation_drop_no_escape_proof_table_len proofs
+        then:
+            selfhost_memo_trait_operation_drop_no_escape_proof_lookup_finish found
+        else:
+            let records %&Vec SelfhostMemoTraitOperationDropNoEscapeProofRecord field::get_ref proofs "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_trait_operation_drop_no_escape_proof_key_eq record.key key
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate
+                                Option::None:
+                                    selfhost_memo_trait_operation_drop_no_escape_proof_lookup_loop proofs key add idx 1 some record.status
+                        else:
+                            selfhost_memo_trait_operation_drop_no_escape_proof_lookup_loop proofs key add idx 1 found
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_drop_no_escape_proof_lookup_result: fact key に対応する proof status を[返/かえ]す
+fn selfhost_memo_trait_operation_drop_no_escape_proof_lookup_result %fn &SelfhostMemoTraitOperationDropNoEscapeProofTable fn SelfhostMemoTraitOperationDropNoEscapeProofKey Result SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \proofs\key:
+    selfhost_memo_trait_operation_drop_no_escape_proof_lookup_loop proofs key 0 none
+
+//: selfhost_memo_trait_operation_drop_no_escape_internal_alloc_from_status: matching proof status を escape state へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_no_escape_internal_alloc_from_status %fn SelfhostMemoTraitOperationDropImplFact fn SelfhostMemoTraitOperationDropNoEscapeProofStatus SelfhostMemoTraitOperationDropImplFact \fact\status:
+    match status:
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+            selfhost_memo_trait_operation_drop_impl_fact_new fact.type_id fact.body_root fact.effect SelfhostEffectEscapeState::NoEscapeProven
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted:
+            selfhost_memo_trait_operation_drop_impl_fact_new fact.type_id fact.body_root fact.effect SelfhostEffectEscapeState::MayEscape
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing:
+            fact
+        SelfhostMemoTraitOperationDropNoEscapeProofStatus::Unknown:
+            fact
+
+//: selfhost_memo_trait_operation_drop_no_escape_transform_internal_alloc_result: `InternalAlloc` fact を proof status で[更新/こうしん]する
+fn selfhost_memo_trait_operation_drop_no_escape_transform_internal_alloc_result %fn &SelfhostMemoTraitOperationDropNoEscapeProofTable fn SelfhostMemoTraitOperationDropImplFact Result SelfhostMemoTraitOperationDropImplFact SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \proofs\fact:
+    match fact.escape:
+        SelfhostEffectEscapeState::NotApplicable:
+            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_fact_key fact
+            match selfhost_memo_trait_operation_drop_no_escape_proof_lookup_result proofs key:
+                Result::Ok status:
+                    Result::Ok selfhost_memo_trait_operation_drop_no_escape_internal_alloc_from_status fact status
+                Result::Err e:
+                    Result::Err e
+        SelfhostEffectEscapeState::NoEscapeProven:
+            Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape
+        SelfhostEffectEscapeState::MayEscape:
+            Result::Ok fact
+
+//: selfhost_memo_trait_operation_drop_no_escape_transform_fact_result: Drop fact 1 件を no-escape gate へ[通/とお]す
+fn selfhost_memo_trait_operation_drop_no_escape_transform_fact_result %fn &SelfhostMemoTraitOperationDropNoEscapeProofTable fn SelfhostMemoTraitOperationDropImplFact Result SelfhostMemoTraitOperationDropImplFact SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \proofs\fact:
+    match fact.effect:
+        SelfhostEffectKind::Pure:
+            Result::Ok fact
+        SelfhostEffectKind::InternalAlloc:
+            selfhost_memo_trait_operation_drop_no_escape_transform_internal_alloc_result proofs fact
+        SelfhostEffectKind::UnsafeMemory:
+            Result::Ok fact
+        SelfhostEffectKind::ExternalIo:
+            Result::Ok fact
+        SelfhostEffectKind::Nondet:
+            Result::Ok fact
+
+//: selfhost_memo_trait_operation_drop_no_escape_output_push_result: transformed fact を output table へ[追加/ついか]する
+fn selfhost_memo_trait_operation_drop_no_escape_output_push_result %impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostMemoTraitOperationDropImplFact Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \output\fact:
+    match selfhost_memo_trait_operation_drop_impl_table_push output fact:
+        Result::Ok next_output:
+            Result::Ok next_output
+        Result::Err table_error:
+            Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected table_error
+
+//: selfhost_memo_trait_operation_drop_no_escape_gate_loop: source Drop fact table を proof table で[更新/こうしん]する
+fn selfhost_memo_trait_operation_drop_no_escape_gate_loop %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationDropNoEscapeProofTable impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \output\source\proofs\idx:
+    if:
+        ge idx selfhost_memo_trait_operation_drop_impl_table_len source
+        then:
+            Result::Ok output
+        else:
+            let source_records %&Vec SelfhostMemoTraitOperationDropImplFact field::get_ref source "records"
+            match v::get source_records idx:
+                Option::Some fact:
+                    match selfhost_memo_trait_operation_drop_no_escape_transform_fact_result proofs fact:
+                        Result::Ok next_fact:
+                            match selfhost_memo_trait_operation_drop_no_escape_output_push_result output next_fact:
+                                Result::Ok next_output:
+                                    selfhost_memo_trait_operation_drop_no_escape_gate_loop next_output source proofs add idx 1
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            selfhost_memo_trait_operation_drop_impl_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_drop_impl_table_free output
+                    Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed idx
+
+//: selfhost_memo_trait_operation_drop_no_escape_gate_table_result: Drop fact table に no-escape proof を[適用/てきよう]する
+//:
+//: [契約/けいやく]:
+//: - `source` と `proofs` は borrow です。この関数はどちらも閉じません。
+//: - success の場合だけ caller は output Drop impl fact table owner を受け取ります。
+//: - failure の場合、内部で作った output table owner はこの module または resolver push boundary が閉じます。
+pub fn selfhost_memo_trait_operation_drop_no_escape_gate_table_result %impure fn &SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationDropNoEscapeProofTable Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \source\proofs:
+    match selfhost_memo_trait_operation_drop_impl_table_new:
+        Result::Ok output0:
+            selfhost_memo_trait_operation_drop_no_escape_gate_loop output0 source proofs 0
+        Result::Err e:
+            Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed e
+
+//: selfhost_memo_trait_operation_drop_no_escape_std_error_kind_code: StdErrorKind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_operation_drop_no_escape_std_error_kind_code %fn StdErrorKind i32 \kind:
+    match kind:
+        StdErrorKind::Failure:
+            0
+        StdErrorKind::OutOfMemory:
+            1
+        StdErrorKind::EmptyCollection:
+            2
+        StdErrorKind::IndexOutOfBounds:
+            3
+        StdErrorKind::KeyNotFound:
+            4
+        StdErrorKind::CapacityExceeded:
+            5
+        StdErrorKind::InvalidOperation:
+            6
+        StdErrorKind::InvalidUtf8:
+            7
+        StdErrorKind::ParseError:
+            8
+        StdErrorKind::IoError:
+            9
+        StdErrorKind::Other:
+            10
+
+//: selfhost_memo_trait_operation_drop_no_escape_std_error_kind_eq: StdErrorKind が同じ variant か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_no_escape_std_error_kind_eq %fn StdErrorKind fn StdErrorKind bool \a\b:
+    eq selfhost_memo_trait_operation_drop_no_escape_std_error_kind_code a selfhost_memo_trait_operation_drop_no_escape_std_error_kind_code b
+
+//: selfhost_memo_trait_operation_drop_no_escape_gate_error_kind_eq: gate error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_no_escape_gate_error_kind_eq %fn SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn SelfhostMemoTraitOperationDropNoEscapeGateErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed a_push:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed b_push:
+                    selfhost_memo_trait_operation_drop_no_escape_std_error_kind_eq a_push b_push
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed _b_source:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed a_alloc:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed b_alloc:
+                    selfhost_memo_trait_operation_drop_no_escape_std_error_kind_eq a_alloc b_alloc
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed _b_source:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed a_source:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed b_source:
+                    eq a_source b_source
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed a_proof:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed _b_source:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed b_proof:
+                    eq a_proof b_proof
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed _b_source:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    true
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed _b_source:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    true
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected _b_table:
+                    false
+        SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected a_table:
+            match b:
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed _b_push:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableAllocFailed _b_alloc:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::SourceRecordReadFailed _b_source:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordReadFailed _b_proof:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::UnexpectedPreProvenNoEscape:
+                    false
+                SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected b_table:
+                    selfhost_memo_trait_operation_drop_impl_resolver_error_kind_eq a_table b_table
+
+//: selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq: Drop check result の effect / escape が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_no_escape_gate_check_effect_eq %fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn SelfhostEffectKind fn SelfhostEffectEscapeState bool \result\expected_effect\expected_escape:
+    match result:
+        Result::Ok check:
+            and:
+                selfhost_effect_kind_eq check.effect expected_effect
+                selfhost_memo_trait_operation_drop_no_escape_escape_state_eq check.escape expected_escape
+        Result::Err _e:
+            false
+
+//: selfhost_memo_trait_operation_drop_no_escape_gate_error_result_eq: result が期待 error か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_no_escape_gate_error_result_eq %fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn SelfhostMemoTraitOperationDropNoEscapeGateErrorKind bool \result\expected:
+    match result:
+        Result::Ok _check:
+            false
+        Result::Err error:
+            selfhost_memo_trait_operation_drop_no_escape_gate_error_kind_eq error expected
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_summary_new %fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary \proven_check\missing_check\mismatched_root_check\refuted_check\pure_check\duplicate_rejected\preproven_rejected:
+    SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary proven_check missing_check mismatched_root_check refuted_check pure_check duplicate_rejected preproven_rejected
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_resolve_and_free: output table を resolver で[読/よ]み[取/と]って owner を[閉/と]じる
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_resolve_and_free %impure fn SelfhostMemoTraitOperationDropImplTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \output\type_id:
+    let check_result %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &output type_id
+    selfhost_memo_trait_operation_drop_impl_table_free output
+    match check_result:
+        Result::Ok check:
+            Result::Ok check
+        Result::Err table_error:
+            Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected table_error
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_run_single: 1 fact / 1 proof table の smoke result を[作/つく]る
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_run_single %impure fn SelfhostMemoTraitOperationDropImplFact impure fn SelfhostMemoTraitOperationDropNoEscapeProofTable Result Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind StdErrorKind \fact\proofs:
+    match selfhost_memo_trait_operation_drop_impl_table_new:
+        Result::Ok source0:
+            match selfhost_memo_trait_operation_drop_impl_table_push source0 fact:
+                Result::Ok source1:
+                    match selfhost_memo_trait_operation_drop_no_escape_gate_table_result &source1 &proofs:
+                        Result::Ok output:
+                            let check_result %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind selfhost_memo_trait_operation_drop_no_escape_stage0_resolve_and_free output fact.type_id
+                            selfhost_memo_trait_operation_drop_impl_table_free source1
+                            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                            Result::Ok check_result
+                        Result::Err gate_error:
+                            selfhost_memo_trait_operation_drop_impl_table_free source1
+                            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                            Result::Ok Result::Err gate_error
+                Result::Err table_error:
+                    selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                    Result::Ok Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::OutputTableRejected table_error
+        Result::Err e:
+            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_empty_proofs: [空/から]の proof table で smoke を[作/つく]る
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_empty_proofs %impure fn SelfhostMemoTraitOperationDropImplFact Result Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind StdErrorKind \fact:
+    match selfhost_memo_trait_operation_drop_no_escape_proof_table_new:
+        Result::Ok proofs:
+            selfhost_memo_trait_operation_drop_no_escape_stage0_run_single fact proofs
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_one_proof: 1 proof record で smoke を[作/つく]る
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_one_proof %impure fn SelfhostMemoTraitOperationDropImplFact impure fn SelfhostMemoTraitOperationDropNoEscapeProofRecord Result Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind StdErrorKind \fact\proof:
+    match selfhost_memo_trait_operation_drop_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            match selfhost_memo_trait_operation_drop_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    selfhost_memo_trait_operation_drop_no_escape_stage0_run_single fact proofs1
+                Result::Err _proof_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_duplicate_proofs: duplicate proof rejection smoke を[作/つく]る
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_duplicate_proofs %impure fn SelfhostMemoTraitOperationDropImplFact impure fn SelfhostMemoTraitOperationDropNoEscapeProofRecord Result Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropNoEscapeGateErrorKind StdErrorKind \fact\proof:
+    match selfhost_memo_trait_operation_drop_no_escape_proof_table_new:
+        Result::Ok proofs0:
+            match selfhost_memo_trait_operation_drop_no_escape_proof_table_push proofs0 proof:
+                Result::Ok proofs1:
+                    match selfhost_memo_trait_operation_drop_no_escape_proof_table_push proofs1 proof:
+                        Result::Ok proofs2:
+                            selfhost_memo_trait_operation_drop_no_escape_stage0_run_single fact proofs2
+                        Result::Err _proof_error:
+                            Result::Err StdErrorKind::InvalidOperation
+                Result::Err _proof_error:
+                    Result::Err StdErrorKind::InvalidOperation
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_no_escape_stage0_finish: proof / fact の代表 case を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_no_escape_stage0_finish %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary StdErrorKind \type_id\root\other_root:
+    let internal_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+    let pure_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id root SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let preproven_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NoEscapeProven
+    let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+    let other_key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id other_root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+    let proven_record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven
+    let refuted_record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key SelfhostMemoTraitOperationDropNoEscapeProofStatus::Refuted
+    let mismatched_root_record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new other_key SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven
+    match selfhost_memo_trait_operation_drop_no_escape_stage0_one_proof internal_fact proven_record:
+        Result::Ok proven_check:
+            match selfhost_memo_trait_operation_drop_no_escape_stage0_empty_proofs internal_fact:
+                Result::Ok missing_check:
+                    match selfhost_memo_trait_operation_drop_no_escape_stage0_one_proof internal_fact mismatched_root_record:
+                        Result::Ok mismatched_root_check:
+                            match selfhost_memo_trait_operation_drop_no_escape_stage0_one_proof internal_fact refuted_record:
+                                Result::Ok refuted_check:
+                                    match selfhost_memo_trait_operation_drop_no_escape_stage0_empty_proofs pure_fact:
+                                        Result::Ok pure_check:
+                                            match selfhost_memo_trait_operation_drop_no_escape_stage0_duplicate_proofs internal_fact proven_record:
+                                                Result::Ok duplicate_rejected:
+                                                    match selfhost_memo_trait_operation_drop_no_escape_stage0_empty_proofs preproven_fact:
+                                                        Result::Ok preproven_rejected:
+                                                            Result::Ok selfhost_memo_trait_operation_drop_no_escape_stage0_summary_new proven_check missing_check mismatched_root_check refuted_check pure_check duplicate_rejected preproven_rejected
+                                                        Result::Err e:
+                                                            Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
+                                        Result::Err e:
+                                            Result::Err e
+                                Result::Err e:
+                                    Result::Err e
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_no_escape_gate_stage0: no-escape gate の smoke API
+//:
+//: [目的/もくてき]:
+//: - type-only proof reuse を避けるため、matching root と mismatched root の両方を同じ smoke で確認します。
+pub fn selfhost_memo_trait_operation_drop_no_escape_gate_stage0 %impure fn void Result SelfhostMemoTraitOperationDropNoEscapeGateStage0Summary StdErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 9901
+    let root %SelfhostHirExprId selfhost_hir_expr_id_new 9901
+    let other_root %SelfhostHirExprId selfhost_hir_expr_id_new 9902
+    selfhost_memo_trait_operation_drop_no_escape_stage0_finish type_id root other_root

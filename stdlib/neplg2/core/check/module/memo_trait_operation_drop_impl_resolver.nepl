@@ -7,12 +7,14 @@
 //: - `Drop` impl が存在しないことを `DropImplAbsent` として扱うためには、探索対象の public impl surface が complete である必要があります。
 //: - この module は surface state を `Complete` / `Missing` / `Unknown` に分け、complete でない入力から `DropImplAbsent` を作る fallback を防ぎます。
 //: - `Drop` impl が存在する場合は、上流の method body effect checker が作った `SelfhostEffectKind` と `SelfhostEffectEscapeState` を `DropImplPresent` check として返します。
+//: - Drop impl fact は `SelfhostHirExprId` を保持します。resolver は HIR arena を読まず、後続の Resource IR no-escape proof gate が「どの Drop body に対する証明か」を照合できる identity payload としてだけ運びます。
 //:
 //: [契約/けいやく]:
 //: - `Complete` surface で候補が 0 件のときだけ、`DropImplAbsent` を返します。
 //: - `Missing` surface は `Missing` check、`Unknown` surface は `Unknown` check に畳み、成功済みの no-drop proof にはしません。
 //: - 同じ `SelfhostTypeId` の Drop impl fact が 2 件以上ある場合は `RecordDuplicate` として fail-closed に拒否します。record order による first-wins は使いません。
-//: - accepted fact は session-local `SelfhostTypeId`、typed effect kind、typed escape state だけから作ります。source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record を authority にしません。
+//: - accepted fact は session-local `SelfhostTypeId`、Drop body root id、typed effect kind、typed escape state だけから作ります。source text、span、lexeme、display name、diagnostic text、module path、Resource IR、backend artifact、proof store record を authority にしません。
+//: - `SelfhostHirExprId` は body identity として保存するだけです。この module は HIR payload を走査せず、root id から effect や no-escape を推測しません。
 //: - actual Drop body checker、Resource IR no-escape proof、generic impl binder、trait coherence、full public surface orchestration、private cache effect masking は後続 stage の責務です。
 //:
 //: [現状/げんじょう]:
@@ -66,6 +68,7 @@
 #import "core/option" as *
 #import "core/result" as *
 #import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
 #import "neplg2/core/ty/effect" as *
 #import "neplg2/core/ty/ty/id" as *
 #import "./memo_trait_operation_purity_gate" as *
@@ -83,9 +86,11 @@ pub enum SelfhostMemoTraitOperationDropImplSurfaceState:
 //:
 //: [契約/けいやく]:
 //: - この fact は Drop impl が存在することを表します。impl が無い場合の fact は作りません。
+//: - `body_root` は effect summary が由来する Drop body root の HIR expression id です。Resource IR no-escape proof はこの identity と一致した場合だけ `escape` を更新できます。
 //: - `effect` と `escape` は actual Drop body checker / Resource proof が後続 stage で作る typed summary です。
 pub struct SelfhostMemoTraitOperationDropImplFact:
     type_id %SelfhostTypeId
+    body_root %SelfhostHirExprId
     effect %SelfhostEffectKind
     escape %SelfhostEffectEscapeState
 
@@ -149,8 +154,12 @@ impl Copy for SelfhostMemoTraitOperationDropImplResolverStage0Summary:
         self
 
 //: selfhost_memo_trait_operation_drop_impl_fact_new: Drop impl fact を[作/つく]る
-pub fn selfhost_memo_trait_operation_drop_impl_fact_new %fn SelfhostTypeId fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationDropImplFact \type_id\effect\escape:
-    SelfhostMemoTraitOperationDropImplFact type_id effect escape
+//:
+//: [契約/けいやく]:
+//: - `body_root` は `effect` / `escape` summary が由来する Drop body root です。
+//: - caller は別 body の proof をこの fact に流用してはいけません。Resource IR no-escape proof gate は `type_id` と `body_root` を合わせて照合します。
+pub fn selfhost_memo_trait_operation_drop_impl_fact_new %fn SelfhostTypeId fn SelfhostHirExprId fn SelfhostEffectKind fn SelfhostEffectEscapeState SelfhostMemoTraitOperationDropImplFact \type_id\body_root\effect\escape:
+    SelfhostMemoTraitOperationDropImplFact type_id body_root effect escape
 
 //: selfhost_memo_trait_operation_drop_impl_table_new: [空/から]の Drop impl fact table を[作/つく]る
 //:
@@ -465,7 +474,8 @@ fn selfhost_memo_trait_operation_drop_impl_resolver_stage0_summary_new %fn Resul
 
 //: selfhost_memo_trait_operation_drop_impl_resolver_stage0_duplicate: duplicate rejection までの smoke を[作/つく]る
 fn selfhost_memo_trait_operation_drop_impl_resolver_stage0_duplicate %impure fn SelfhostMemoTraitOperationDropImplTable impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropImplResolverStage0Summary SelfhostMemoTraitOperationDropImplResolverErrorKind \table\complete_absent\complete_present_pure\complete_present_alloc_escape\surface_missing\surface_unknown\type_id:
-    let duplicate_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
+    let duplicate_root %SelfhostHirExprId selfhost_hir_expr_id_new 9103
+    let duplicate_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id duplicate_root SelfhostEffectKind::ExternalIo SelfhostEffectEscapeState::NotApplicable
     match selfhost_memo_trait_operation_drop_impl_table_push table duplicate_fact:
         Result::Ok duplicate_table:
             let duplicate_rejected %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &duplicate_table type_id
@@ -476,7 +486,8 @@ fn selfhost_memo_trait_operation_drop_impl_resolver_stage0_duplicate %impure fn 
 
 //: selfhost_memo_trait_operation_drop_impl_resolver_stage0_second: 2 つ目の別 type fact までの smoke を[作/つく]る
 fn selfhost_memo_trait_operation_drop_impl_resolver_stage0_second %impure fn SelfhostMemoTraitOperationDropImplTable impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropImplResolverStage0Summary SelfhostMemoTraitOperationDropImplResolverErrorKind \table\complete_absent\complete_present_pure\surface_missing\surface_unknown\type_id\other_type_id:
-    let other_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new other_type_id SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape
+    let other_root %SelfhostHirExprId selfhost_hir_expr_id_new 9102
+    let other_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new other_type_id other_root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::MayEscape
     match selfhost_memo_trait_operation_drop_impl_table_push table other_fact:
         Result::Ok table2:
             let complete_present_alloc_escape %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &table2 other_type_id
@@ -486,7 +497,8 @@ fn selfhost_memo_trait_operation_drop_impl_resolver_stage0_second %impure fn Sel
 
 //: selfhost_memo_trait_operation_drop_impl_resolver_stage0_first: 1 つ目の present fact までの smoke を[作/つく]る
 fn selfhost_memo_trait_operation_drop_impl_resolver_stage0_first %impure fn SelfhostMemoTraitOperationDropImplTable impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind impure fn SelfhostTypeId impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropImplResolverStage0Summary SelfhostMemoTraitOperationDropImplResolverErrorKind \table\complete_absent\surface_missing\surface_unknown\type_id\other_type_id:
-    let present_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+    let present_root %SelfhostHirExprId selfhost_hir_expr_id_new 9101
+    let present_fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_new type_id present_root SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
     match selfhost_memo_trait_operation_drop_impl_table_push table present_fact:
         Result::Ok table1:
             let complete_present_pure %Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropImplResolverErrorKind selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete &table1 type_id

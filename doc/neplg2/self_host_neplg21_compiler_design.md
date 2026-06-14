@@ -1697,6 +1697,22 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_f
 
 この checkpoint 後の残件は、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。Drop materializer record table の operation bucket 化、Drop impl fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed source authority / owner / error contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue Drop no-escape proof gate checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate.nepl` を追加し、Drop impl fact table に対して、後続 Resource IR stage が作る typed no-escape proof status を適用する checker-layer gate を作った。
+
+この checkpoint では `SelfhostMemoTraitOperationDropImplFact` に `body_root %SelfhostHirExprId` を追加し、Drop body identity を fact table に保持するようにした。`body_root` は HIR payload を走査する authority ではなく、Resource proof が対象にした Drop body と fact table の Drop body を照合するための typed identity payload である。Drop impl resolver、Drop impl fact table builder、operation body check resolver はこの field を保持するように更新した。
+
+no-escape proof key は `SelfhostTypeId`、`SelfhostHirExprId`、`SelfhostEffectKind`、`SelfhostEffectEscapeState` の組である。`SelfhostTypeId` だけで proof を再利用すると、同じ型に対する別 Drop body や別 effect summary の proof を流用できてしまうため禁止する。source text、span、lexeme、display name、diagnostic text、module path、payload hash、public surface hash は accepted authority にしない。
+
+gate が proof lookup を行うのは `InternalAlloc + NotApplicable` の fact だけである。matching proof status が `Proven` なら `NoEscapeProven` へ更新し、`Refuted` なら `MayEscape` へ更新する。`Missing` / `Unknown`、または matching proof が無い場合は `NotApplicable` のまま残し、後続 purity gate が fail-closed に扱えるようにする。入力 fact がこの gate より前に `InternalAlloc + NoEscapeProven` を持っていた場合は `UnexpectedPreProvenNoEscape` として拒否し、別 boundary が no-escape を合成する bypass を認めない。`Pure` / `UnsafeMemory` / `ExternalIo` / `Nondet` は proof table を見ずに pass-through し、observable effect を弱めない。
+
+この module は Drop evidence、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、generic binder、prechecked artifact を作らない。最終的な `PureDrop` evidence は既存 `memo_trait_operation_purity_gate` が、`DropImplPresent(InternalAlloc, NoEscapeProven)` を入力にしたときだけ作る。したがって、今回の gate は Resource IR no-escape proof producer の代替ではなく、producer が作った typed status を消費する境界である。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、proof key field、duplicate proof rejection、pre-proven input rejection、Missing / Unknown fail-closed、Drop evidence / aggregate proof / proof store 合成禁止、source-derived authority 禁止、Clone / Copy impl の typed-payload-only doc、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table の sorted index 化、type/body-root bucket 化、Drop impl fact table lookup の sorted index 化、HIR traversal explicit stack 化 / subtree memoization は、今回固定した key equality / duplicate rejection / fail-closed status contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

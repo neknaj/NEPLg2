@@ -147,9 +147,10 @@ fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_table_error %fn Se
 //: selfhost_memo_trait_operation_drop_impl_fact_from_summary: effect summary を Drop impl fact へ[写/うつ]す
 //:
 //: [契約/けいやく]:
-//: - `summary` の effect / escape をそのまま fact に保持します。`InternalAlloc` の `NotApplicable` を `NoEscapeProven` に変えたり、`PureDrop` evidence を合成したりしません。
-fn selfhost_memo_trait_operation_drop_impl_fact_from_summary %fn SelfhostTypeId fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationDropImplFact \type_id\summary:
-    selfhost_memo_trait_operation_drop_impl_fact_new type_id summary.effect summary.escape
+//: - `summary` の effect / escape と、その summary が由来する Drop body root をそのまま fact に保持します。
+//: - `InternalAlloc` の `NotApplicable` を `NoEscapeProven` に変えたり、`PureDrop` evidence を合成したりしません。
+fn selfhost_memo_trait_operation_drop_impl_fact_from_summary %fn SelfhostTypeId fn SelfhostHirExprId fn SelfhostMemoTraitOperationMethodBodyEffectSummary SelfhostMemoTraitOperationDropImplFact \type_id\root\summary:
+    selfhost_memo_trait_operation_drop_impl_fact_new type_id root summary.effect summary.escape
 
 //: selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result: Drop impl body root 由来 fact を table owner へ[追加/ついか]する
 //:
@@ -161,7 +162,7 @@ fn selfhost_memo_trait_operation_drop_impl_fact_from_summary %fn SelfhostTypeId 
 pub fn selfhost_memo_trait_operation_drop_impl_fact_table_builder_push_hir_root_result %impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn i32 Result SelfhostMemoTraitOperationDropImplTable SelfhostMemoTraitOperationDropImplFactTableBuilderErrorKind \table\module\type_id\root\fuel:
     match selfhost_memo_trait_operation_method_body_effect_check_result module root fuel:
         Result::Ok summary:
-            let fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_from_summary type_id summary
+            let fact %SelfhostMemoTraitOperationDropImplFact selfhost_memo_trait_operation_drop_impl_fact_from_summary type_id root summary
             match selfhost_memo_trait_operation_drop_impl_table_push table fact:
                 Result::Ok next_table:
                     Result::Ok next_table

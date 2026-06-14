@@ -122,8 +122,10 @@ assert.ok(
     "doctest must exercise method and Drop Unknown status pass-through",
 );
 assert.ok(
-    source.includes("source text、span、lexeme、display name、diagnostic text、module path、HIR、Resource IR、backend artifact、proof store record、public surface hash を authority にしません"),
-    "docs must exclude source/display/diagnostic/module path/HIR/Resource/backend/proof-store/public-surface authority",
+    source.includes("typed Drop body root id") &&
+        source.includes("HIR payload、Resource IR、backend artifact、proof store record、public surface hash を authority にしません") &&
+        source.includes("root id から effect や proof status を推測しません"),
+    "docs must allow typed Drop body root identity while excluding HIR payload/source/display/Resource/backend/proof-store/public-surface authority",
 );
 assert.doesNotMatch(
     facade,
@@ -138,6 +140,7 @@ assert.doesNotMatch(
 assertOrdered(
     source,
     [
+        "#import \"neplg2/core/hir/hir\" as *",
         "#import \"neplg2/core/ty/effect\" as *",
         "#import \"neplg2/core/ty/ty/id\" as *",
         "#import \"neplg2/core/ty/ty/memo_trait_operation_evidence\" as *",
@@ -149,8 +152,8 @@ assertOrdered(
 );
 assert.doesNotMatch(
     code,
-    /#import ".*(?:hir|resource|backend|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_public_surface|memo_trait_public_impl_header|memo_trait_operation_evidence_producer|memo_trait_operation_impl_table)/,
-    "body check resolver must not import HIR, Resource IR, backend, proof store, artifact, canonical-key, public-surface, public-impl-header, evidence-producer, or operation impl table layers",
+    /#import ".*(?:resource|backend|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_public_surface|memo_trait_public_impl_header|memo_trait_operation_evidence_producer|memo_trait_operation_impl_table)/,
+    "body check resolver must not import Resource IR, backend, proof store, artifact, canonical-key, public-surface, public-impl-header, evidence-producer, or operation impl table layers",
 );
 assertOrdered(
     source,
