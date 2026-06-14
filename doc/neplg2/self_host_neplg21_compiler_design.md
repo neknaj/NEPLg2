@@ -1713,6 +1713,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gat
 
 この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table の sorted index 化、type/body-root bucket 化、Drop impl fact table lookup の sorted index 化、HIR traversal explicit stack 化 / subtree memoization は、今回固定した key equality / duplicate rejection / fail-closed status contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue Drop candidate connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl` を追加し、typed public impl materializer record table、Drop impl fact orchestrator、Drop no-escape proof gate、purity gate、operation impl table を接続する checker-layer Drop candidate connector を作った。
+
+この connector は Drop proof producer ではない。Resource IR no-escape proof table は caller が borrow で渡す typed status table であり、この module はその table を生成、永続化、proof store へ投入しない。entry API は output candidate table owner を消費し、materializer record table と HIR module と no-escape proof tableを borrow で読む。内部で作った raw Drop fact table と gated Drop fact table は connector が閉じる。Drop fact build rejection、no-escape gate rejection、classifier rejection、Drop resolver rejection、candidate rejection、duplicate candidate、table push rejection はすべて typed enum error に残し、bool や diagnostic string へ潰さない。
+
+accepted authority は typed materializer record field、trusted operation classifier evidence、Drop fact orchestrator output、no-escape proof gate output、Drop resolver output、purity gate candidate conversion、operation impl table API に限定する。`record.trait_source.operation`、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string は authority にしない。non-Drop record は同じ materializer table に混在する正常入力として skip し、Drop record だけを candidate へ進める。
+
+この connector は `DropImplPresent` だけを purity gate へ渡す。Drop resolver が `DropImplAbsent`、`Missing`、`Unknown`、`NotRequired` を返した場合は fail-closed typed error にする。これは partial materializer record table や filtered Drop table の lookup miss から `NoDropRequired` を合成する退行を防ぐためである。`NoDropRequired` は complete public surface 全体の探索結果から作る別 boundary の責務であり、Drop record を読んでいるこの connector の責務ではない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、Resource IR / backend / proof store / canonical key / public surface / scanner / method-body fact / body-check / candidate-builder / PrivateCache / PrivateState import 禁止、operation evidence record / aggregate proof / proof store 合成禁止、production path の `PureDrop` / `NoDropRequired` 直接合成禁止、classifier-derived Drop filter、duplicate candidate probe、DropImplPresent gate、owner cleanup、source-derived authority 禁止、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、operation evidence connector への Drop candidate 統合、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。materializer record table の operation bucket 化、proof table の sorted index 化、Drop impl fact table lookup の sorted index 化、operation impl table lookup の sorted index 化は、今回固定した typed authority / duplicate rejection / owner / error contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

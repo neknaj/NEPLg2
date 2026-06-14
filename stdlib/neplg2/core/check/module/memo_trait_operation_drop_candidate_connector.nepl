@@ -1,0 +1,595 @@
+#indent 4
+
+//: # check/module/memo_trait_operation_drop_candidate_connector
+//: Drop impl fact と no-escape proof を `MemoKey` / `MemoValue` operation candidate へ[接続/せつぞく]する checker-layer connector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_operation_public_impl_materializer` の通常 candidate path は、Resource IR proof が未接続だったため Drop operation を fail-closed に拒否していました。
+//: - この module は Drop 専用の後段 connector として、typed public impl materializer record table から Drop impl fact table を作り、no-escape proof gate を通した Drop check だけを `SelfhostMemoTraitOperationImplTable` へ追加します。
+//: - Copy / Eq / Hash の method body fact 構築とは責務を分け、既存 builder の Drop unsupported 境界を壊さず、Drop proof が揃った場合だけ別経路で candidate を増やせるようにします。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、`SelfhostHirModule` borrow、Drop fact orchestrator、Drop no-escape proof table、Drop resolver、purity gate、operation impl table API だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string から Drop impl の有無や purity を推測しません。
+//: - Drop record の operation kind は record field ではなく、trusted operation classifier の evidence から得ます。non-Drop record は同じ materializer table に混在する正常入力なので skip します。
+//: - Drop impl body が `InternalAlloc + NotApplicable` の場合、matching proof が `Proven` のときだけ `PureDrop` candidate へ進みます。`Missing` / `Unknown` proof は `Unknown` Drop evidence として残り、`Refuted` は `ImpureDrop` へ畳まれます。
+//: - `NoDropRequired` はこの module では合成しません。Drop impl が存在しないことは complete public surface 全体の探索結果から別 boundary が作る proof であり、Drop record を読んでいるこの connector の推測対象ではありません。
+//: - Drop resolver が `DropImplAbsent`、`Missing`、`Unknown`、`NotRequired` を返した場合、この connector は fail-closed に拒否します。`DropImplPresent` だけを purity gate へ渡すことで、partial materializer record table から no-drop proof を合成する退行を防ぎます。
+//: - `output` candidate table owner はこの module が消費します。success の場合だけ追加後の owner を返し、failure の場合はこの module または下位 owner boundary が閉じます。
+//: - この module は Resource IR proof producer、operation evidence record、aggregate proof status、proof store、PrivateCache / PrivateState masking、backend artifact、prechecked artifact を作りません。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では no-escape proof table は session-local typed status table です。actual Resource IR proof producer と永続 `.neplproof` artifact 接続は後続 stage で扱います。
+//: - facade にはまだ re-export しません。public surface orchestration、Drop proof producer、operation evidence connector が揃う段階で公開範囲を再評価します。
+//: - 行数や doc comment の長さによる制限は置きません。契約、現状、計算量、owner cleanup の境界を丁寧に記述することを優先します。
+//:
+//: [計算量/けいさんりょう]:
+//: - materializer record 数を m、Drop fact 数を d、proof record 数を p とすると、Drop fact 構築は既存 orchestrator の O(m + HIR traversal)、no-escape gate は現状 O(d * p)、candidate 追加 loop は O(m * c) です。c は output candidate table の現行線形 lookup cost です。
+//: - proof table の index 化、Drop record bucket 化、candidate table sorted index 化は、この module の typed authority / owner / error contract を保ったまま後続最適化として置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_candidate_connector" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_drop_no_escape_gate" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_purity_gate" as *
+//:| #import "neplg2/core/check/module/memo_trait_operation_evidence_producer" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_trait_operation_drop_candidate_connector_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check selfhost_memo_trait_operation_drop_candidate_connector_accepted_len_eq summary.proven 1
+//:             let checks2 checks_push checks1 check selfhost_memo_trait_operation_drop_candidate_connector_accepted_drop_evidence_eq summary.proven SelfhostMemoTraitOperationDropEvidence::PureDrop
+//:             let checks3 checks_push checks2 check selfhost_memo_trait_operation_drop_candidate_connector_accepted_drop_evidence_eq summary.missing SelfhostMemoTraitOperationDropEvidence::Unknown
+//:             let checks4 checks_push checks3 check selfhost_memo_trait_operation_drop_candidate_connector_no_escape_gate_error_result_eq summary.duplicate_proof_rejected SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofDuplicate
+//:             let checks5 checks_push checks4 check selfhost_memo_trait_operation_drop_candidate_connector_duplicate_candidate_result_eq summary.duplicate_candidate_rejected
+//:             let shown checks_print_report checks5
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "drop candidate connector stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/syntax/ast/module_ast" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
+#import "./memo_trait_operation_classifier" as *
+#import "./memo_trait_operation_drop_impl_resolver" as *
+#import "./memo_trait_operation_drop_no_escape_gate" as *
+#import "./memo_trait_operation_evidence_producer" as *
+#import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_public_impl_drop_fact_orchestrator" as *
+#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_operation_purity_gate" as *
+#import "./memo_trait_public_impl_header" as *
+
+//: SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary: stage0 が output owner を[閉/と]じたあとに[保持/ほじ]する代表結果
+//:
+//: [目的/もくてき]:
+//: - Drop candidate table owner を保持せず、len と lookup 結果だけで accepted path を確認します。
+pub struct SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary:
+    len %i32
+    drop_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind
+
+//: SelfhostMemoTraitOperationDropCandidateConnectorErrorKind: Drop candidate connector の拒否理由
+//:
+//: [目的/もくてき]:
+//: - Drop fact 構築、no-escape gate、source table 読み取り、classifier、Drop resolver、purity gate、candidate table の失敗を bool や文字列へ潰さず typed enum で保持します。
+pub enum SelfhostMemoTraitOperationDropCandidateConnectorErrorKind:
+    DropFactBuildRejected %SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind
+    NoEscapeGateRejected %SelfhostMemoTraitOperationDropNoEscapeGateErrorKind
+    SourceReadFailed %i32
+    ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
+    DropResolveRejected %SelfhostMemoTraitOperationDropImplResolverErrorKind
+    UnexpectedDropImplAbsent
+    UnexpectedDropCheckMissing
+    UnexpectedDropCheckUnknown
+    UnexpectedDropCheckNotRequired
+    CandidateRejected %SelfhostMemoTraitOperationPurityGateErrorKind
+    CandidateDuplicate
+    CandidateLookupRejected %SelfhostMemoTraitOperationImplTableErrorKind
+    CandidatePushRejected %SelfhostMemoTraitOperationImplTableErrorKind
+
+//: SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary: connector smoke の代表結果
+pub struct SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary:
+    proven %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind
+    missing %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind
+    duplicate_proof_rejected %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind
+    duplicate_candidate_rejected %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind
+
+//: Clone for SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary: owner を[含/ふく]まない代表結果を copy と[同/おな]じ意味で[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - candidate table owner そのものは保持していません。len と lookup 結果だけを持つ smoke summary なので、複製しても owner lifecycle を緩めません。
+impl Clone for SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary:
+    fn clone %fn &SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary: typed summary payload をそのまま[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `drop_candidate` は table owner ではなく、lookup 後の typed value または typed table error です。
+impl Copy for SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropCandidateConnectorErrorKind: connector error payload を[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - nested error enum だけを保持し、table owner や borrowed HIR module を保持しません。
+impl Clone for SelfhostMemoTraitOperationDropCandidateConnectorErrorKind:
+    fn clone %fn &SelfhostMemoTraitOperationDropCandidateConnectorErrorKind SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropCandidateConnectorErrorKind: typed error payload をそのまま[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - エラー表示用の文字列や source text を含まないため、copy によって authority が増えません。
+impl Copy for SelfhostMemoTraitOperationDropCandidateConnectorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropCandidateConnectorErrorKind SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary: stage0 の複数 path 結果を[複製/ふくせい]する
+//:
+//: [契約/けいやく]:
+//: - stage0 summary は smoke test の観測値だけで構成され、module owner、record table owner、proof table owner は保持しません。
+impl Clone for SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary: stage0 summary payload をそのまま[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - 各 field は accepted summary または typed error の Result であり、cleanup 済み owner の再利用を許可するものではありません。
+impl Copy for SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_header_input: materializer record から impl header input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - record の typed header field だけを写します。source declaration text や module path は読みません。
+fn selfhost_memo_trait_operation_drop_candidate_connector_header_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitPublicImplHeaderInput \record:
+    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint record.declaration_ordinal record.impl_kind record.target_type_shape_hash record.trait_application_shape_hash record.type_parameter_count record.type_parameter_bound_count
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input: materializer record から classifier input を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationTraitApplicationInput \record:
+    selfhost_memo_trait_operation_trait_application_input_new record.trait_source record.trait_type_argument_count record.trait_application_shape_hash
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_classifier_result: record の operation classifier evidence を[得/え]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_classifier_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result SelfhostMemoTraitOperationClassifierEvidence SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \record:
+    let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input record
+    match selfhost_memo_trait_operation_classifier_evidence_result trait_application:
+        Result::Ok classifier:
+            Result::Ok classifier
+        Result::Err classifier_error:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::ClassifierRejected classifier_error
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_operation_is_drop: classifier evidence が Drop か[返/かえ]す
+fn selfhost_memo_trait_operation_drop_candidate_connector_operation_is_drop %fn SelfhostMemoTraitOperationEvidenceKind bool \operation:
+    match operation:
+        SelfhostMemoTraitOperationEvidenceKind::Copy:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Drop:
+            true
+        SelfhostMemoTraitOperationEvidenceKind::Eq:
+            false
+        SelfhostMemoTraitOperationEvidenceKind::Hash:
+            false
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_duplicate_probe_result: output table に同じ Drop candidate がまだ無いことを[確認/かくにん]する
+//:
+//: [契約/けいやく]:
+//: - lookup miss だけを success とします。既存 candidate があれば duplicate、table read などの不整合は nested table error として返します。
+fn selfhost_memo_trait_operation_drop_candidate_connector_duplicate_probe_result %fn &SelfhostMemoTraitOperationImplTable fn SelfhostTypeId Result unit SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \output\type_id:
+    match selfhost_memo_trait_operation_impl_candidate_for_type_operation_result output type_id SelfhostMemoTraitOperationEvidenceKind::Drop:
+        Result::Ok _existing:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateDuplicate
+        Result::Err lookup_error:
+            match lookup_error:
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateMissing:
+                    Result::Ok unit
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate:
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateDuplicate
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx:
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidateReadFailed idx
+                SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed push_error:
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed push_error
+                SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error:
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::ClassifierRejected classifier_error
+                SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error:
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected SelfhostMemoTraitOperationImplTableErrorKind::ProducerRejected producer_error
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_present_drop_check_result: Drop record connector が[受/う]け[取/と]ってよい Drop check だけを[通/とお]す
+//:
+//: [契約/けいやく]:
+//: - `DropImplPresent` だけを success にします。
+//: - `DropImplAbsent` は no-drop proof の合成に繋がるため、この connector では必ず拒否します。
+//: - `Missing` / `Unknown` / `NotRequired` も、Drop impl record から candidate を作るこの boundary の入力としては不整合なので typed error にします。
+fn selfhost_memo_trait_operation_drop_candidate_connector_present_drop_check_result %fn SelfhostMemoTraitOperationDropCheck Result SelfhostMemoTraitOperationDropCheck SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \drop_check:
+    match drop_check.kind:
+        SelfhostMemoTraitOperationDropCheckKind::DropImplPresent:
+            Result::Ok drop_check
+        SelfhostMemoTraitOperationDropCheckKind::DropImplAbsent:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropImplAbsent
+        SelfhostMemoTraitOperationDropCheckKind::Missing:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckMissing
+        SelfhostMemoTraitOperationDropCheckKind::Unknown:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckUnknown
+        SelfhostMemoTraitOperationDropCheckKind::NotRequired:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckNotRequired
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_append_drop_result: Drop record 1 件を output candidate table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `output` はこの関数が消費します。duplicate、Drop resolver、purity gate rejection ではこの関数が output owner を閉じます。
+//: - table push rejection では `selfhost_memo_trait_operation_impl_table_push` が owner cleanup を担当するため、この関数は二重解放しません。
+fn selfhost_memo_trait_operation_drop_candidate_connector_append_drop_result %impure fn SelfhostMemoTraitOperationImplTable impure fn &SelfhostMemoTraitOperationDropImplTable impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecord impure fn SelfhostMemoTraitOperationClassifierEvidence Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \output\drop_table\record\classifier:
+    match selfhost_memo_trait_operation_drop_candidate_connector_duplicate_probe_result &output record.type_id:
+        Result::Ok _missing:
+            let method_check %SelfhostMemoTraitOperationMethodBodyCheck selfhost_memo_trait_operation_method_body_check_new SelfhostMemoTraitOperationMethodBodyCheckKind::NotRequired SelfhostEffectKind::Pure SelfhostEffectEscapeState::NotApplicable
+            match selfhost_memo_trait_operation_drop_impl_resolve_result SelfhostMemoTraitOperationDropImplSurfaceState::Complete drop_table record.type_id:
+                Result::Ok drop_check:
+                    match selfhost_memo_trait_operation_drop_candidate_connector_present_drop_check_result drop_check:
+                        Result::Ok present_drop_check:
+                            let impl_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_drop_candidate_connector_header_input record
+                            let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_drop_candidate_connector_trait_application_input record
+                            match selfhost_memo_trait_operation_impl_candidate_from_checks_result record.type_id classifier.operation impl_header trait_application record.target_type_shape_hash method_check present_drop_check:
+                                Result::Ok candidate:
+                                    match selfhost_memo_trait_operation_impl_table_push output candidate:
+                                        Result::Ok next_output:
+                                            Result::Ok next_output
+                                        Result::Err push_error:
+                                            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidatePushRejected push_error
+                                Result::Err candidate_error:
+                                    selfhost_memo_trait_operation_impl_table_free output
+                                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateRejected candidate_error
+                        Result::Err unexpected_check_error:
+                            selfhost_memo_trait_operation_impl_table_free output
+                            Result::Err unexpected_check_error
+                Result::Err drop_error:
+                    selfhost_memo_trait_operation_impl_table_free output
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropResolveRejected drop_error
+        Result::Err e:
+            selfhost_memo_trait_operation_impl_table_free output
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_loop: materializer record table を Drop candidate として[走査/そうさ]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_loop %impure fn SelfhostMemoTraitOperationImplTable impure fn &SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn i32 Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \output\drop_table\source\index:
+    if:
+        ge index selfhost_memo_trait_operation_public_impl_materializer_record_table_len source
+        then:
+            Result::Ok output
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_drop_candidate_connector_classifier_result record:
+                        Result::Ok classifier:
+                            if:
+                                selfhost_memo_trait_operation_drop_candidate_connector_operation_is_drop classifier.operation
+                                then:
+                                    match selfhost_memo_trait_operation_drop_candidate_connector_append_drop_result output drop_table record classifier:
+                                        Result::Ok next_output:
+                                            selfhost_memo_trait_operation_drop_candidate_connector_loop next_output drop_table source add index 1
+                                        Result::Err e:
+                                            Result::Err e
+                                else:
+                                    selfhost_memo_trait_operation_drop_candidate_connector_loop output drop_table source add index 1
+                        Result::Err e:
+                            selfhost_memo_trait_operation_impl_table_free output
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_impl_table_free output
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::SourceReadFailed index
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_with_gated_table_result: gated Drop fact table を output candidate table へ[反映/はんえい]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_with_gated_table_result %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \output\gated_drop_table\source:
+    let result %Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationDropCandidateConnectorErrorKind selfhost_memo_trait_operation_drop_candidate_connector_loop output &gated_drop_table source 0
+    selfhost_memo_trait_operation_drop_impl_table_free gated_drop_table
+    result
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_with_raw_drop_table_result: raw Drop fact table に no-escape proof を[適用/てきよう]して candidate を[追加/ついか]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_with_raw_drop_table_result %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostMemoTraitOperationDropImplTable impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitOperationDropNoEscapeProofTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \output\raw_drop_table\source\proofs:
+    match selfhost_memo_trait_operation_drop_no_escape_gate_table_result &raw_drop_table proofs:
+        Result::Ok gated_drop_table:
+            selfhost_memo_trait_operation_drop_impl_table_free raw_drop_table
+            selfhost_memo_trait_operation_drop_candidate_connector_with_gated_table_result output gated_drop_table source
+        Result::Err gate_error:
+            selfhost_memo_trait_operation_drop_impl_table_free raw_drop_table
+            selfhost_memo_trait_operation_impl_table_free output
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected gate_error
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_append_from_records_result: public impl materializer records から Drop candidate を output table へ[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `output` はこの関数が消費します。success の場合だけ追加後の candidate table owner を返します。
+//: - `module`、`source`、`proofs` は borrow です。この関数は閉じません。
+//: - Drop fact build / no-escape gate の failure では、この関数が未消費 output owner を閉じます。
+pub fn selfhost_memo_trait_operation_drop_candidate_connector_append_from_records_result %impure fn SelfhostMemoTraitOperationImplTable impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitOperationDropNoEscapeProofTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \output\module\source\proofs:
+    match selfhost_memo_trait_operation_public_impl_drop_fact_table_from_records_result module source:
+        Result::Ok raw_drop_table:
+            selfhost_memo_trait_operation_drop_candidate_connector_with_raw_drop_table_result output raw_drop_table source proofs
+        Result::Err build_error:
+            selfhost_memo_trait_operation_impl_table_free output
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropFactBuildRejected build_error
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_accepted_summary_from_table: output table owner を[閉/と]じて summary を[返/かえ]す
+fn selfhost_memo_trait_operation_drop_candidate_connector_accepted_summary_from_table %impure fn SelfhostMemoTraitOperationImplTable impure fn SelfhostTypeId SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary \table\type_id:
+    let len %i32 selfhost_memo_trait_operation_impl_table_len &table
+    let drop_candidate %Result SelfhostMemoTraitOperationImplCandidate SelfhostMemoTraitOperationImplTableErrorKind selfhost_memo_trait_operation_impl_candidate_for_type_operation_result &table type_id SelfhostMemoTraitOperationEvidenceKind::Drop
+    selfhost_memo_trait_operation_impl_table_free table
+    SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary len drop_candidate
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_accepted_len_eq: accepted summary の len が期待値か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_candidate_connector_accepted_len_eq %fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind fn i32 bool \result\expected:
+    match result:
+        Result::Ok summary:
+            eq summary.len expected
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_accepted_drop_evidence_eq: Drop candidate の evidence が期待通りか[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_candidate_connector_accepted_drop_evidence_eq %fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind fn SelfhostMemoTraitOperationDropEvidence bool \result\expected:
+    match result:
+        Result::Ok summary:
+            match summary.drop_candidate:
+                Result::Ok candidate:
+                    selfhost_memo_trait_operation_drop_evidence_eq candidate.drop_evidence expected
+                Result::Err _lookup_error:
+                    false
+        Result::Err _error:
+            false
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_no_escape_gate_error_result_eq: connector error が nested gate error に[一致/いっち]するか[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_candidate_connector_no_escape_gate_error_result_eq %fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind fn SelfhostMemoTraitOperationDropNoEscapeGateErrorKind bool \result\expected_gate:
+    match result:
+        Result::Ok _summary:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected gate_error:
+                    selfhost_memo_trait_operation_drop_no_escape_gate_error_kind_eq gate_error expected_gate
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropFactBuildRejected _build:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::SourceReadFailed _source:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropResolveRejected _drop:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropImplAbsent:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckMissing:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckUnknown:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateRejected _candidate:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateDuplicate:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected _lookup:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidatePushRejected _push:
+                    false
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_duplicate_candidate_result_eq: duplicate candidate rejection か[返/かえ]す
+pub fn selfhost_memo_trait_operation_drop_candidate_connector_duplicate_candidate_result_eq %fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind bool \result:
+    match result:
+        Result::Ok _summary:
+            false
+        Result::Err error:
+            match error:
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateDuplicate:
+                    true
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropFactBuildRejected _build:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected _gate:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::SourceReadFailed _source:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::ClassifierRejected _classifier:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropResolveRejected _drop:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropImplAbsent:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckMissing:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckUnknown:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::UnexpectedDropCheckNotRequired:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateRejected _candidate:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidateLookupRejected _lookup:
+                    false
+                SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidatePushRejected _push:
+                    false
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_summary_new %fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind fn Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary \proven\missing\duplicate_proof_rejected\duplicate_candidate_rejected:
+    SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary proven missing duplicate_proof_rejected duplicate_candidate_rejected
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_record: stage0 用 Drop materializer record を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_record %fn SelfhostTypeId fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn i32 fn i32 fn SelfhostHirExprId SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\root:
+    selfhost_memo_trait_operation_public_impl_materializer_record_new type_id 750101 some ordinal SelfhostModuleDeclarationVisibility::Public SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash source_identity 0 some trait_shape_hash 0 0 some root 16
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result: Drop record 1 件の source table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result %impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \type_id\source_identity\ordinal\target_shape_hash\trait_shape_hash\root:
+    match selfhost_memo_trait_operation_public_impl_materializer_record_table_new:
+        Result::Ok table0:
+            let record %SelfhostMemoTraitOperationPublicImplMaterializerRecord selfhost_memo_trait_operation_drop_candidate_connector_stage0_record type_id source_identity ordinal target_shape_hash trait_shape_hash root
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_push table0 record
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::RecordTableAllocFailed alloc_error
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result: proof status 1 件の table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitOperationDropNoEscapeProofTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \type_id\root\status:
+    match selfhost_memo_trait_operation_drop_no_escape_proof_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+            let record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key status
+            selfhost_memo_trait_operation_drop_no_escape_proof_table_push table0 record
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationDropNoEscapeGateErrorKind::ProofRecordPushFailed alloc_error
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof_table_result: duplicate proof table を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof_table_result %impure fn SelfhostTypeId impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationDropNoEscapeProofTable SelfhostMemoTraitOperationDropNoEscapeGateErrorKind \type_id\root:
+    match selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result type_id root SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+        Result::Ok table1:
+            let key %SelfhostMemoTraitOperationDropNoEscapeProofKey selfhost_memo_trait_operation_drop_no_escape_proof_key_new type_id root SelfhostEffectKind::InternalAlloc SelfhostEffectEscapeState::NotApplicable
+            let record %SelfhostMemoTraitOperationDropNoEscapeProofRecord selfhost_memo_trait_operation_drop_no_escape_proof_record_new key SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven
+            selfhost_memo_trait_operation_drop_no_escape_proof_table_push table1 record
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_owned: source/proof/output owner を[閉/と]じながら代表 path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_owned %impure fn &SelfhostHirModule impure fn SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn SelfhostMemoTraitOperationDropNoEscapeProofTable impure fn SelfhostTypeId Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \module\source\proofs\type_id:
+    match selfhost_memo_trait_operation_impl_table_new:
+        Result::Ok output0:
+            match selfhost_memo_trait_operation_drop_candidate_connector_append_from_records_result output0 module &source &proofs:
+                Result::Ok output:
+                    let summary %SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary selfhost_memo_trait_operation_drop_candidate_connector_accepted_summary_from_table output type_id
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                    selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                    Result::Ok summary
+                Result::Err e:
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                    selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                    Result::Err e
+        Result::Err _alloc_error:
+            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidatePushRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed StdErrorKind::OutOfMemory
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_with_status: proof status を指定して accepted path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_with_status %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn i32 impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationDropNoEscapeProofStatus Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \module\type_id\drop_source\target_shape_hash\drop_shape_hash\ordinal\root\status:
+    match selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result type_id drop_source ordinal target_shape_hash drop_shape_hash root:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result type_id root status:
+                Result::Ok proofs:
+                    selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_owned module source proofs type_id
+                Result::Err gate_error:
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected gate_error
+        Result::Err build_error:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropFactBuildRejected SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof: duplicate proof rejection path を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \module\type_id\drop_source\target_shape_hash\drop_shape_hash\root:
+    match selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result type_id drop_source 3 target_shape_hash drop_shape_hash root:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof_table_result type_id root:
+                Result::Ok proofs:
+                    selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_owned module source proofs type_id
+                Result::Err gate_error:
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected gate_error
+        Result::Err _build_error:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropFactBuildRejected SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_candidate: existing Drop candidate がある output で duplicate を[確認/かくにん]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_candidate %impure fn &SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 impure fn SelfhostHirExprId Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \module\type_id\drop_source\target_shape_hash\drop_shape_hash\root:
+    match selfhost_memo_trait_operation_drop_candidate_connector_stage0_source_result type_id drop_source 4 target_shape_hash drop_shape_hash root:
+        Result::Ok source:
+            match selfhost_memo_trait_operation_drop_candidate_connector_stage0_proof_table_result type_id root SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven:
+                Result::Ok proofs:
+                    match selfhost_memo_trait_operation_impl_table_new:
+                        Result::Ok output0:
+                            let header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_public_impl_header_input_new SelfhostModuleDeclarationVisibility::Public 750101 some 1 SelfhostMemoTraitPublicImplHeaderKind::TraitImpl some target_shape_hash some drop_shape_hash 0 0
+                            let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_trait_application_input_new drop_source 0 some drop_shape_hash
+                            let existing %SelfhostMemoTraitOperationImplCandidate selfhost_memo_trait_operation_impl_candidate_new type_id SelfhostMemoTraitOperationEvidenceKind::Drop header trait_application some target_shape_hash SelfhostMemoTraitOperationMethodBodyEvidence::NotRequired SelfhostMemoTraitOperationDropEvidence::PureDrop
+                            match selfhost_memo_trait_operation_impl_table_push output0 existing:
+                                Result::Ok output1:
+                                    match selfhost_memo_trait_operation_drop_candidate_connector_append_from_records_result output1 module &source &proofs:
+                                        Result::Ok output:
+                                            let summary %SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary selfhost_memo_trait_operation_drop_candidate_connector_accepted_summary_from_table output type_id
+                                            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                                            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                                            Result::Ok summary
+                                        Result::Err e:
+                                            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                                            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                                            Result::Err e
+                                Result::Err push_error:
+                                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                                    selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidatePushRejected push_error
+                        Result::Err _alloc:
+                            selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                            selfhost_memo_trait_operation_drop_no_escape_proof_table_free proofs
+                            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::CandidatePushRejected SelfhostMemoTraitOperationImplTableErrorKind::CandidatePushFailed StdErrorKind::OutOfMemory
+                Result::Err gate_error:
+                    selfhost_memo_trait_operation_public_impl_materializer_record_table_free source
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::NoEscapeGateRejected gate_error
+        Result::Err _build_error:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::DropFactBuildRejected SelfhostMemoTraitOperationPublicImplDropFactOrchestratorErrorKind::OutputTableAllocFailed StdErrorKind::InvalidOperation
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_with_shapes: HIR module と trusted Drop shape を使って smoke を[実行/じっこう]する
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_with_shapes %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostHirExprId impure fn SelfhostMemoTraitOperationSourceIdentity impure fn i32 impure fn i32 Result SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \module\type_id\alloc_root\drop_source\target_shape_hash\drop_shape_hash:
+    let proven %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_with_status &module type_id drop_source target_shape_hash drop_shape_hash 1 alloc_root SelfhostMemoTraitOperationDropNoEscapeProofStatus::Proven
+    let missing %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind selfhost_memo_trait_operation_drop_candidate_connector_stage0_run_with_status &module type_id drop_source target_shape_hash drop_shape_hash 2 alloc_root SelfhostMemoTraitOperationDropNoEscapeProofStatus::Missing
+    let duplicate_proof_rejected %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_proof &module type_id drop_source target_shape_hash drop_shape_hash alloc_root
+    let duplicate_candidate_rejected %Result SelfhostMemoTraitOperationDropCandidateConnectorAcceptedSummary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind selfhost_memo_trait_operation_drop_candidate_connector_stage0_duplicate_candidate &module type_id drop_source target_shape_hash drop_shape_hash alloc_root
+    selfhost_hir_module_free module
+    Result::Ok selfhost_memo_trait_operation_drop_candidate_connector_stage0_summary_new proven missing duplicate_proof_rejected duplicate_candidate_rejected
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0_alloc_expr: InternalAlloc root を持つ HIR module を[作/つく]る
+fn selfhost_memo_trait_operation_drop_candidate_connector_stage0_alloc_expr %impure fn SelfhostHirModule impure fn SelfhostTypeId impure fn SelfhostSourceSpan Result SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \module\type_id\span:
+    let call %SelfhostHirExpr selfhost_hir_expr_call type_id span "alloc" selfhost_def_id_new 88101 type_id SelfhostEffectKind::InternalAlloc selfhost_hir_child_range_empty
+    match selfhost_hir_module_add_expr module call:
+        Result::Ok alloc_alloc:
+            let alloc_root %SelfhostHirExprId selfhost_hir_module_expr_alloc_expr_id &alloc_alloc
+            let module1 %SelfhostHirModule selfhost_hir_module_expr_alloc_into_module alloc_alloc
+            match selfhost_memo_trait_operation_trusted_source_registry_current_result:
+                Result::Ok registry:
+                    match selfhost_memo_trait_operation_trait_application_shape_hash_result registry.drop_source 0:
+                        Result::Ok drop_shape_hash:
+                            selfhost_memo_trait_operation_drop_candidate_connector_stage0_with_shapes module1 type_id alloc_root registry.drop_source 8801 drop_shape_hash
+                        Result::Err classifier_error:
+                            selfhost_hir_module_free module1
+                            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::ClassifierRejected classifier_error
+                Result::Err classifier_error:
+                    selfhost_hir_module_free module1
+                    Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::ClassifierRejected classifier_error
+        Result::Err _alloc:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::SourceReadFailed -1
+
+//: selfhost_memo_trait_operation_drop_candidate_connector_stage0: Drop candidate connector の smoke API
+//:
+//: [目的/もくてき]:
+//: - `InternalAlloc` Drop impl body に対し、Proven proof が PureDrop candidate を作り、Missing proof が Unknown candidate に留まり、duplicate proof と duplicate candidate が fail-closed になることを確認します。
+pub fn selfhost_memo_trait_operation_drop_candidate_connector_stage0 %impure fn void Result SelfhostMemoTraitOperationDropCandidateConnectorStage0Summary SelfhostMemoTraitOperationDropCandidateConnectorErrorKind \void:
+    let type_id %SelfhostTypeId selfhost_type_id_new 10801
+    let span %SelfhostSourceSpan source_span_new_unchecked 0 0 1
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            selfhost_memo_trait_operation_drop_candidate_connector_stage0_alloc_expr module0 type_id span
+        Result::Err _alloc:
+            Result::Err SelfhostMemoTraitOperationDropCandidateConnectorErrorKind::SourceReadFailed -2

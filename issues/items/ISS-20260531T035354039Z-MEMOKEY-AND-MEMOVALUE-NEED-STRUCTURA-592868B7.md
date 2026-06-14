@@ -302,6 +302,20 @@ source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gat
 
 この checkpoint 後の残件は、actual Resource IR no-escape proof producer、pure Drop evidence / operation evidence candidate への orchestration、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。proof table sorted index 化、type/body-root bucket 化、Drop impl fact table lookup sorted index 化、HIR traversal explicit stack 化 / subtree memoization は今回固定した typed proof key / fail-closed status contract を保って後からできる最適化として扱う。
 
+## 2026-06-14 selfhost Drop candidate connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl` を追加し、typed public impl materializer record table から作った Drop impl fact table、Drop no-escape proof gate、purity gate、operation impl table を接続する checker-layer boundary を作った。
+
+この connector は output candidate table owner を消費し、HIR module、materializer record table、no-escape proof table は borrow として読む。raw Drop fact table と gated Drop fact table は connector 内で作成し、success / failure の各経路で閉じる。失敗は `DropFactBuildRejected`、`NoEscapeGateRejected`、`SourceReadFailed`、`ClassifierRejected`、`DropResolveRejected`、unexpected Drop check、`CandidateRejected`、`CandidateDuplicate`、`CandidateLookupRejected`、`CandidatePushRejected` の typed enum で返す。
+
+accepted authority は typed materializer record field、trusted operation classifier evidence、Drop fact orchestrator、no-escape proof gate、Drop resolver、purity gate、operation impl table API に限定する。`record.trait_source.operation`、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string は authority にしない。non-Drop record は正常に混在し得る入力として skip し、Drop record だけを candidate 化する。
+
+この connector は `DropImplPresent` だけを purity gate へ渡す。Drop resolver が `DropImplAbsent` / `Missing` / `Unknown` / `NotRequired` を返した場合は fail-closed typed error にする。これにより、partial materializer record table や filtered Drop table の lookup miss から `NoDropRequired` が合成される退行を防ぐ。`NoDropRequired` は complete public surface 全体を探索した別 boundary が作る proof であり、この connector では作らない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` を追加して固定し、`nodesrc/run_source_policy_regressions.js` に登録した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import、operation evidence record / aggregate proof / proof store 合成禁止、production path の `PureDrop` / `NoDropRequired` 直接合成禁止、classifier-derived Drop filter、duplicate candidate probe、DropImplPresent gate、owner cleanup、source-derived authority 禁止、line count / doc comment length cap 禁止を確認する。
+
+この checkpoint 後の残件は、actual Resource IR no-escape proof producer、complete public surface 由来の no-drop absence proof boundary、operation evidence connector への Drop candidate 統合、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。materializer record table の operation bucket 化、proof table sorted index 化、Drop impl fact table lookup sorted index 化、operation impl table lookup sorted index 化は今回固定した typed authority / owner / error contract を保って後からできる最適化として扱う。
+
 ## 2026-06-12 selfhost public surface token item dispatch checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_surface_seed.nepl` と `stdlib/neplg2/core/check/module/memo_trait_public_surface_token_gate.nepl` の item scan を、既存 `selfhost_module_item_kind_declaration` を使う二段階 dispatch へ寄せた。

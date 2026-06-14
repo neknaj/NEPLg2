@@ -60769,3 +60769,57 @@ MERGE_APPROVED
 
 - actual public impl scanner / materializer 由来の Drop impl body root input orchestration、Resource IR no-escape proof、pure Drop evidence gate、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
 - Drop impl fact table lookup の sorted index 化、HIR traversal の explicit stack 化 / subtree memoization / child range lookup index 化は、今回固定した typed input / owner / error / source policy contract を保てるため後続最適化として扱う。
+
+## 2026-06-14 selfhost Drop candidate connector checkpoint
+
+### scope
+
+- branch: `work/selfhost-method-body-resolver`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` を再確認し、Result / Option / enum error、match の網羅性、pure core / host boundary、DAG、source authority 禁止、性能と探索範囲の明示、丁寧な doc comment、試作段階でも設計負債を残さない方針、line count / doc comment length cap 禁止を前提にした。
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+
+### implementation
+
+- `stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl` を追加した。
+- typed public impl materializer record table、Drop impl fact orchestrator、Drop no-escape proof gate、Drop resolver、purity gate、operation impl table API を接続する checker-layer connector とした。
+- output candidate table owner はこの connector が消費する。HIR module、materializer record table、no-escape proof table は borrow として読み、raw Drop fact table と gated Drop fact table は connector 内で作って閉じる。
+- accepted authority は typed materializer record field、trusted operation classifier evidence、Drop fact orchestrator output、no-escape proof gate output、Drop resolver output、purity gate candidate conversion、operation impl table API に限定した。
+- `record.trait_source.operation`、source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string は authority にしない。non-Drop record は正常な混在入力として skip し、Drop record だけを candidate 化する。
+- `DropImplPresent` だけを purity gate へ渡す gate を追加した。`DropImplAbsent` / `Missing` / `Unknown` / `NotRequired` は typed error で fail-closed に拒否し、partial materializer record table や filtered Drop table の lookup miss から `NoDropRequired` が合成される退行を塞いだ。
+- production path では `PureDrop` / `NoDropRequired` を直接合成しない。`PureDrop` は stage0 duplicate-candidate fixture の既存 candidate としてだけ使い、accepted production candidate は `selfhost_memo_trait_operation_impl_candidate_from_checks_result` を必ず通す。
+- `nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` を追加し、source policy runner に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、Drop candidate connector 接続済みと actual Resource IR no-escape proof producer / no-drop absence proof boundary / operation evidence integration の残件を分けた。
+
+### subagent_review
+
+- Bohr review: `DropImplAbsent` が purity gate へ流れると `NoDropRequired` が合成されるため、present Drop impl record だけを candidate 化し、absence proof は別 boundary にするべきという Blocker を指摘した。
+- Tesla review: bare materializer record table を complete surface authority とみなすと、partial input から no-drop proof を作れるため危険と指摘した。
+- 対応として `selfhost_memo_trait_operation_drop_candidate_connector_present_drop_check_result` を追加し、`DropImplPresent` 以外の Drop check を typed error で拒否するようにした。
+- source policy に `DropImplPresent` gate、`NoDropRequired` 合成禁止、operation evidence record / aggregate proof / proof store 合成禁止、production path の direct `PureDrop` 合成禁止、source-derived authority 禁止を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js`
+- pass: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_drop_candidate_connector.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-drop-candidate-connector.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_drop_no_escape_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_drop_fact_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_purity_gate_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_operation_evidence_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only`
+  - exit code は 0 である。
+  - 既存警告として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` と `stdlib declaration doc gaps increased: 153 > 108` が出ている。
+  - 今回追加した `nodesrc/test_selfhost_memo_trait_operation_drop_candidate_connector_contract.js` は source policy runner 内でも通過している。
+  - Node の WASI ExperimentalWarning は環境由来の既存警告として扱う。
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass_with_git_warning: `git diff --check`
+  - exit code は 0 である。
+  - Git の working copy LF/CRLF warning は検査失敗ではない。
+
+### residual
+
+- actual Resource IR no-escape proof producer は未実装である。今回の connector は proof table を消費するだけで、proof producer、proof store、persistent artifact を作らない。
+- complete public surface 由来の no-drop absence proof boundary は未実装である。`NoDropRequired` はこの connector で作らない。
+- operation evidence connector への Drop candidate 統合、generic impl binder / bound detailed evidence、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- materializer record table の operation bucket 化、proof table sorted index 化、Drop impl fact table lookup sorted index 化、operation impl table lookup sorted index 化は、今回固定した typed authority / owner / error contract を保って後からできる最適化として扱う。
