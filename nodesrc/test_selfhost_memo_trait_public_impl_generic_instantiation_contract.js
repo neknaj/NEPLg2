@@ -189,6 +189,7 @@ assertOrdered(
         "generic_bound_table_shape_hash %i32",
         "type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash",
         "substitution_shape_hash %i32",
+        "substitution_trace_shape_hash %i32",
         "target_substitution_root_type_id %SelfhostTypeId",
         "target_substitution_output_type_id %SelfhostTypeId",
         "target_substitution_step_count %i32",

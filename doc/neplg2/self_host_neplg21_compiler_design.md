@@ -1937,6 +1937,22 @@ accepted authority は `SelfhostTypeArena`、`SelfhostMemoTraitStableNominalKeyT
 
 この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。projection evidence は generic impl candidate acceptance ではなく、後続の trait bound solver、generic coherence、instantiation evidence connector、materializer accepted path が読む typed material である。stable nominal key table lookup の index 化、stage0 fixture 分割、projection result memo は、今回固定した schema / payload / fail-closed contract を保てるため後続最適化として扱う。
 
+## 2026-06-15 MemoKey / MemoValue generic instantiation projection connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl` を追加し、generic substitution shape evidence、generic instantiation evidence、canonical projection evidence を同じ checker-layer boundary で照合する connector を作った。
+
+この connector は materializer accepted path ではない。入力は expected pre-substitution target / trait application shape、`SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence` に限定する。HIR、Resource IR、backend artifact、proof store、public impl materializer、PrivateCache / PrivateState、prechecked artifact は import せず、generic detailed record を operation candidate に変換しない。
+
+connector は substitution evidence の schema / root hash、instantiation evidence の schema / root hash、projection evidence の schema / root hash をそれぞれ field から再計算する。instantiation schema は `selfhost_memo_trait_public_impl_generic_instantiation_schema_version` と exact match しなければならず、canonical fingerprint / payload schema も `selfhost_memo_trait_canonical_type_fingerprint_schema_version` と `selfhost_memo_trait_canonical_key_payload_schema_version` に一致しなければならない。さらに instantiation evidence が参照する substitution hash、target / trait application の substitution output `SelfhostTypeId`、substituted shape hash、projection evidence の source TypeId、final shape hash、canonical fingerprint / payload hash を相互に照合する。pre-substitution shape は caller が渡した expected target / trait application shape と substitution evidence の field が一致する場合だけ受理する。これにより、projection producer と instantiation gate を個別に通しただけの public constructible record を materializer の根拠として混ぜる経路を閉じる。
+
+`SelfhostMemoTraitPublicImplGenericInstantiationEvidence` には `substitution_trace_shape_hash` を保存する field を追加した。instantiation evidence の root hash は従来から substitution trace material を混ぜていたが、accepted evidence record には trace hash が残っていなかったため、後続 connector が evidence field だけから root hash を再計算できなかった。この field は accepted instantiation evidence を永続 authority にするためではなく、same-session checker-layer evidence の再検査材料を落とさないための boundary である。
+
+success evidence は substitution evidence、instantiation evidence、projection evidence、expected pre-shape、target / trait application の canonical material を束ねる。これは後続の trait bound solver、generic coherence、materializer accepted path が読む前段 material であり、まだ generic impl candidate acceptance ではない。trait bound solver、generic coherence、materializer accepted path、PrivateCache / PrivateState effect masking、prechecked artifact 接続は次の slice に残す。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js` で固定する。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、materializer fail-closed 維持、substitution / instantiation / projection の root hash 再計算、instantiation / canonical material の exact schema match、cross-evidence field mismatch、canonical material placeholder rejection、全 payload variant の payload-aware error equality、private helper doc comment、行数 / doc comment 長制限禁止を確認する。
+
+stage0 doctest は、意味論上の代表 smoke を持つ。ただし現行 selfhost owner-bearing fixture は Resource static check の探索時間が支配的で、60 秒 default timeout では compile timeout になり得る。これは connector の意味論を緩める理由にはせず、source policy と timeout-nonfatal focused run で semantic boundary を確認し、Resource static check の探索範囲削減は `ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E` 側の性能残件として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

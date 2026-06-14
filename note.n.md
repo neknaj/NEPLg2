@@ -1,3 +1,83 @@
+# 2026-06-15 Agent selfhost generic instantiation projection connector checkpoint
+
+## scope
+
+- 対象 branch: `work/selfhost-substitution-shape-evidence-connector`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- AGENTS.md: `plan.md` 非編集、`note.n.md` 更新、丁寧な日本語 doc comment、root cause 修正、checkpoint commit 前の検証、行数制限 / doc comment 長制限禁止を確認した。
+- Zenn 記事: https://zenn.dev/bem130/articles/1b352797de94e7
+- 対象 issue / slice: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7` / generic substitution shape evidence、generic instantiation evidence、canonical projection evidence を materializer accepted path の前で照合する checker-layer connector。
+- classification: selfhost MemoKey / MemoValue generic instantiation projection connector / generic evidence authority boundary
+- decision: materializer accepted path はまだ開かない。trait bound solver と generic coherence が無い状態で operation candidate を作ることはせず、今回の connector は substitution / instantiation / projection evidence の再検査境界に限定する。
+- review decision: MERGE_APPROVED
+- zenn_policy: `Result` / `Option` / enum error、match による網羅性、pure core と host / CLI boundary の分離、parser、checker、HIR、Resource IR、backend の authority 分離、探索範囲と cache key の明示、事前検査済み artifact の境界、丁寧な doc comment、契約と現状の分離、prototype でも公開境界を雑にしない方針を確認した。
+
+## policy/spec
+
+- source_policy: updated
+- `stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl` は、expected pre-substitution target / trait application shape、`SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence` だけを input authority とする。
+- connector は HIR、Resource IR、backend artifact、proof store、public impl materializer、PrivateCache / PrivateState、prechecked artifact を import しない。
+- substitution evidence、instantiation evidence、projection evidence はそれぞれ schema と root hash を field から再計算してから次の検査に進める。
+- pre-substitution shape、substitution hash、substitution output TypeId、substituted shape hash、projection source TypeId、projection final shape hash、canonical fingerprint / payload schema / payload hash を cross-evidence mismatch として typed enum error で fail-closed に扱う。
+- `SelfhostMemoTraitPublicImplGenericInstantiationEvidence` は `substitution_trace_shape_hash` を保持する。これは instantiation root hash を evidence field だけから再計算するための same-session material であり、単独の永続 authority ではない。
+- doc comment は、目的、契約、戻り値、error variant、計算量、制約、典型例、現状の実装詳細、将来も守る契約を分ける。コメント量を減らすための行数制限や doc comment 長制限は入れない。
+
+## implementation/test
+
+- source_policy: updated
+- `memo_trait_public_impl_generic_instantiation_projection_connector.nepl` を追加した。
+- `SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput` / `Evidence` / `Mismatch` / `ErrorKind` / `Stage0Summary` を追加し、accepted path と mismatch path を typed `Result` で返すようにした。
+- connector は materializer accepted path ではなく、後続 trait bound solver / generic coherence / materializer accepted path が読む前段 material を作る。
+- `memo_trait_public_impl_generic_instantiation.nepl` の accepted evidence に `substitution_trace_shape_hash` を追加し、substitution evidence から値を運ぶようにした。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js` を追加し、source policy regression runner に登録した。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` を更新し、instantiation evidence が `substitution_trace_shape_hash` を落とさないことを固定した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、connector 接続済みと残る trait bound solver / generic coherence / materializer accepted path / PrivateCache / prechecked artifact を分けて記録した。
+
+## subagent review
+
+- subagent_review_ids: `019ebb0d-bd4f-7851-91de-50dd4d16c88b`; `019ec28d-37f7-77f0-a7e6-9e068d26cf1d`
+- subagent_review_count: 2
+- subagent review: Tesla と Popper に未commit差分の独立レビューを依頼した。review の対象は connector、instantiation evidence field 追加、source policy、Zenn 方針である。
+- Blocker: 初回 review では instantiation evidence schema が nonzero であれば通り、expected schema との exact match が無い点を指摘された。修正として `selfhost_memo_trait_public_impl_generic_instantiation_schema_version` を public にし、connector で `InstantiationSchemaMismatch` を返す exact schema check を追加した。canonical fingerprint / payload schema も `selfhost_memo_trait_canonical_type_fingerprint_schema_version` と `selfhost_memo_trait_canonical_key_payload_schema_version` へ exact match するようにし、target / trait application の schema mismatch error variant を追加した。Tesla 再レビューで Blocker なしを確認した。
+- Required: 初回 review では payload-carrying error variant の一部が code 比較に落ちること、private helper / impl / fixture builder の doc comment が不足していることを指摘された。修正として payload 付き variant をすべて個別 match で payload 比較し、hash helper / validator / stage0 fixture builder / impl の直前 doc comment を追加した。source policy も schema exact match、canonical schema mismatch、全 payload variant equality、重要 private helper の direct doc comment を固定するよう更新した。Tesla 再レビューで Required なしを確認した。
+- Non-blocker: focused doctest timeout は今回の correctness blocker ではなく、既存の owner-bearing selfhost Resource static check 性能残件として扱う。full `run_source_policy_regressions.js` は今回再実行せず、focused policy と issues / diff check を通した。
+- Question: instantiation evidence の root hash 再計算を connector 内で持つか、instantiation module の public validation helper へ委譲するかが挙がった。今回の slice では public schema function と source policy により drift を抑え、materializer accepted path を開く段階で validation helper 化を再検討する。
+- Approve: Tesla 再レビューで Approve。前回 Blocker / Required は解消済みで、connector は typed evidence 再検査境界に閉じている。materializer / HIR / Resource / backend / proof / private / prechecked への越境なし。
+- review validation: `nodesrc/selfhost_zenn_review_response_check.js` で最終 review response の形式を確認する。
+
+## source_policy
+
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js` は pass。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js` は pass。
+- `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js` は pass。
+- `nodesrc/test_source_policy_no_line_count_limits.js` は pass。行数制限 / doc comment 長制限を入れていない。
+- `nodesrc/test_selfhost_zenn_review_gate_contract.js` は pass。
+- `node nodesrc/issues.js check --dir issues` は pass。
+- `git diff --check` は pass。CRLF warning は既存の working tree 改行設定によるもので、今回差分由来 warning ではない。
+- 既存 warning: selfhost owner-bearing stage0 fixture は Resource static check の探索時間が支配的で、default 60 秒 timeout に入ることがある。今回の connector focused doctest も 60 秒 timeout-nonfatal では structured compile timeout のみ、240 秒拡張 run でも compile timeout だった。
+- 今回差分由来 warning: focused source policy と issues check ではなし。
+
+## verify
+
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js`
+- 検証済み: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- 検証済み: `node nodesrc/test_source_policy_no_line_count_limits.js`
+- 検証済み: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- 検証済み: `node nodesrc/selfhost_zenn_review_response_check.js --review-kind final --stdin --record note.n.md`
+- 検証済み: `node nodesrc/issues.js check --dir issues`
+- 検証済み: `git diff --check`
+- timeout_nonfatal: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl -o tmp/selfhost_instantiation_projection_connector_doctest_timeout_nonfatal.json --no-tree -j 1 --assert-io --timeout-nonfatal` は structured compile timeout のみで exit 0。
+- timeout: `$env:NEPL_TEST_CASE_TIMEOUT_MS='240000'; node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl -o tmp/selfhost_instantiation_projection_connector_doctest_long.json --no-tree -j 1 --assert-io` は compile timeout。非timeoutの compile error / test failure は出ていない。
+
+## residual
+
+- residual_risk: none
+- unexecuted_verification: none
+- 次 slice: trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary。
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。
+- Resource static check の探索範囲削減、stage0 fixture 分割、projection result memo、connector result memo、stable nominal key table lookup の sorted index 化は、今回固定した typed authority / fail-closed contract を保てるため後続最適化として扱う。
+
 # 2026-06-14 Agent selfhost generic substitution canonical projection checkpoint
 
 ## scope

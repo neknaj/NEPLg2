@@ -112,7 +112,7 @@ pub struct SelfhostMemoTraitPublicImplGenericInstantiationInput:
 //:
 //: [契約/けいやく]:
 //: - `instantiation_shape_hash` は nonzero でなければ accepted evidence ではありません。
-//: - `generic_binder_shape_hash`、binder parameter / bound table hash、`type_argument_identity_hash`、substitution shape hash、substitution traversal component、substituted shape hash、bound solution hash は別々の producer 由来の typed material として保持します。
+//: - `generic_binder_shape_hash`、binder parameter / bound table hash、`type_argument_identity_hash`、substitution shape hash、substitution trace shape hash、substitution traversal component、substituted shape hash、bound solution hash は別々の producer 由来の typed material として保持します。
 //: - root / output TypeId は canonical type key ではありません。後続の accepted materializer は、persistent authority が必要な段階で別 producer が作る canonical type key / final shape hash を要求します。
 pub struct SelfhostMemoTraitPublicImplGenericInstantiationEvidence:
     schema_version %i32
@@ -124,6 +124,7 @@ pub struct SelfhostMemoTraitPublicImplGenericInstantiationEvidence:
     generic_bound_table_shape_hash %i32
     type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
     substitution_shape_hash %i32
+    substitution_trace_shape_hash %i32
     target_substitution_root_type_id %SelfhostTypeId
     target_substitution_output_type_id %SelfhostTypeId
     target_substitution_step_count %i32
@@ -270,7 +271,7 @@ pub fn selfhost_memo_trait_public_impl_generic_instantiation_input_new %fn Selfh
     SelfhostMemoTraitPublicImplGenericInstantiationInput generic_binder_evidence type_argument_count type_argument_identity_hash substitution_shape_evidence bound_solving_status
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_schema_version: instantiation evidence schema
-fn selfhost_memo_trait_public_impl_generic_instantiation_schema_version %fn void i32 \void:
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_schema_version %fn void i32 \void:
     1
 
 //: selfhost_memo_trait_public_impl_generic_instantiation_mix2: generic instantiation hash 用に 2 値を[混/ま]ぜる
@@ -578,7 +579,7 @@ pub fn selfhost_memo_trait_public_impl_generic_instantiation_evidence_result %fn
                                                         then:
                                                             Result::Err SelfhostMemoTraitPublicImplGenericInstantiationErrorKind::DerivedInstantiationShapeHashPlaceholder
                                                         else:
-                                                            Result::Ok SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash type_argument_hash substitution_evidence.substitution_shape_hash substitution_evidence.target_substitution_root_type_id substitution_evidence.target_substitution_output_type_id substitution_evidence.target_substitution_step_count substitution_evidence.target_substitution_step_stream_hash substitution_evidence.substituted_target_type_shape_hash substitution_evidence.trait_application_substitution_root_type_id substitution_evidence.trait_application_substitution_output_type_id substitution_evidence.trait_application_substitution_step_count substitution_evidence.trait_application_substitution_step_stream_hash substitution_evidence.substituted_trait_application_shape_hash bound_hash root_hash
+                                                            Result::Ok SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash type_argument_hash substitution_evidence.substitution_shape_hash substitution_evidence.substitution_trace_shape_hash substitution_evidence.target_substitution_root_type_id substitution_evidence.target_substitution_output_type_id substitution_evidence.target_substitution_step_count substitution_evidence.target_substitution_step_stream_hash substitution_evidence.substituted_target_type_shape_hash substitution_evidence.trait_application_substitution_root_type_id substitution_evidence.trait_application_substitution_output_type_id substitution_evidence.trait_application_substitution_step_count substitution_evidence.trait_application_substitution_step_stream_hash substitution_evidence.substituted_trait_application_shape_hash bound_hash root_hash
                                                 Result::Err bound_error:
                                                     Result::Err bound_error
                                         Result::Err substitution_error:

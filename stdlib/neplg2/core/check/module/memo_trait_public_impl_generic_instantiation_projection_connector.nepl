@@ -1,0 +1,905 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_instantiation_projection_connector
+//: generic instantiation evidence と substitution projection evidence を[同/おな]じ substitution authority へ[結/むす]び[直/なお]す checker-layer connector です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_generic_instantiation` は substitution shape evidence を消費し、generic impl を concrete type argument へ instantiate した typed evidence を作ります。
+//: - `memo_trait_public_impl_generic_substitution_projection` は substituted output `SelfhostTypeId` を canonical fingerprint / canonical payload hash / final shape hash へ写します。
+//: - この module は、その 2 つの evidence が同じ substitution shape evidence から来ていること、header original shape と pre-substitution shape が一致すること、projection の final shape が instantiation の substituted shape と一致することを検査します。
+//: - operation materializer、trait bound solver、generic coherence、Resource IR、PrivateCache / PrivateState、prechecked artifact を混ぜず、generic instantiation と canonical projection の typed 接続だけを担当します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は connector hash material に入りません。
+//: - substitution shape evidence、instantiation evidence、projection evidence はすべて public struct として構築可能なので、schema、root hash placeholder、field からの root hash 再計算をこの connector でも行います。
+//: - `expected_pre_substitution_target_type_shape_hash` と `expected_pre_substitution_trait_application_shape_hash` は、public impl header 側の original target / trait application shape です。0 は placeholder として拒否します。
+//: - `instantiation.substitution_shape_hash`、`projection.substitution_shape_hash`、`substitution_shape_evidence.substitution_shape_hash` は一致しなければなりません。
+//: - projection の target / trait application の `source_type_id` は、instantiation evidence が保持する substituted output TypeId と一致しなければなりません。TypeId はここでも session-local link であり、永続 artifact authority ではありません。
+//: - projection の target / trait application の `final_shape_hash` は、instantiation evidence の substituted target / trait application shape と一致しなければなりません。
+//: - `projection_shape_hash` は session-local connector material を含みます。永続 artifact や proof store の authority は、target / trait application それぞれの canonical fingerprint、canonical payload hash、final shape hash を schema 付きで保持する field 群です。
+//: - 成功した evidence は、generic impl accepted path へ進むための 1 前提です。trait bound solver、generic coherence、operation candidate materializer、PrivateCache / PrivateState effect masking、prechecked artifact acceptance は後続 stage が別 evidence として検査します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では materializer の `GenericImplInstantiationUnsupported` を維持します。この connector の成功は materializer accepted path を緩める根拠ではありません。
+//: - stage0 smoke は public evidence struct を直接組み立て、connector が field 再計算と cross-evidence mismatch を拒否できることを確認します。期待 error helper は hash値を直書きせず、stage0 fixture と同じ材料から mismatch payload を作ります。
+//:
+//: [計算量/けいさんりょう]:
+//: - この connector は fixed-size evidence field を照合して hash に畳み込むだけなので O(1) 時間・O(1) 追加空間です。
+//: - substitution traversal、canonical projection、trait bound solving、coherence check、Resource IR proof、backend codegen、artifact lookup の計算量はそれぞれの producer / checker module の契約に従います。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: ##: [5] ok
+//: ##: [6] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq summary.substitution_hash_mismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_hash_mismatch_error
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq summary.instantiation_hash_mismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_hash_mismatch_error
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq summary.projection_hash_mismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_hash_mismatch_error
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq summary.pre_target_mismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_pre_target_mismatch_error
+//:     let checks6 checks_push checks5 check selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq summary.target_source_mismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_source_mismatch_error
+//:     let checks7 checks_push checks6 check selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq summary.target_final_mismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_final_mismatch_error
+//:     let shown checks_print_report checks7
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/hash/hash32" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/id" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+#import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
+#import "./memo_trait_public_impl_generic_instantiation" as *
+#import "./memo_trait_public_impl_generic_substitution_projection" as *
+#import "./memo_trait_public_impl_generic_substitution_shape" as *
+
+//: SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput: instantiation / projection 接続の typed input
+pub struct SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput:
+    expected_pre_substitution_target_type_shape_hash %i32
+    expected_pre_substitution_trait_application_shape_hash %i32
+    substitution_shape_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence
+    instantiation_evidence %SelfhostMemoTraitPublicImplGenericInstantiationEvidence
+    projection_evidence %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence
+
+//: SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence: accepted connector evidence
+//:
+//: [契約/けいやく]:
+//: - `connector_shape_hash` は substitution、instantiation、projection、expected pre-shape、canonical projection material を畳み込んだ nonzero hash です。
+//: - canonical fingerprint / payload hash は target と trait application で別 field に保持します。root hash だけや final shape hash だけを永続 authority として扱うことを避けるためです。
+pub struct SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence:
+    schema_version %i32
+    instantiation_shape_hash %i32
+    substitution_shape_hash %i32
+    projection_shape_hash %i32
+    pre_substitution_target_type_shape_hash %i32
+    pre_substitution_trait_application_shape_hash %i32
+    substituted_target_type_shape_hash %i32
+    substituted_trait_application_shape_hash %i32
+    target_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    target_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    target_final_shape_hash %i32
+    trait_application_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    trait_application_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    trait_application_final_shape_hash %i32
+    connector_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch: expected / actual mismatch payload
+pub struct SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch:
+    expected %i32
+    actual %i32
+
+//: SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind: connector の拒否理由
+pub enum SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind:
+    ExpectedPreTargetShapeHashPlaceholder
+    ExpectedPreTraitApplicationShapeHashPlaceholder
+    SubstitutionShapeSchemaPlaceholder
+    SubstitutionShapeSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    SubstitutionShapeHashPlaceholder
+    SubstitutionShapeHashMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationSchemaPlaceholder
+    InstantiationSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationShapeHashPlaceholder
+    InstantiationShapeHashMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationSubstitutionShapeHashMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationTargetOutputTypeIdMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationTraitApplicationOutputTypeIdMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationSubstitutedTargetShapeMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    InstantiationSubstitutedTraitApplicationShapeMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionSchemaPlaceholder
+    ProjectionSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionShapeHashPlaceholder
+    ProjectionShapeHashMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionSubstitutionShapeHashMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionTargetSourceTypeIdMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionTraitApplicationSourceTypeIdMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionTargetFinalShapeMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ProjectionTraitApplicationFinalShapeMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ExpectedPreTargetShapeMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    ExpectedPreTraitApplicationShapeMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    TargetCanonicalFingerprintSchemaPlaceholder
+    TargetCanonicalFingerprintSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    TargetCanonicalFingerprintHashPlaceholder
+    TargetCanonicalPayloadSchemaPlaceholder
+    TargetCanonicalPayloadSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    TargetCanonicalPayloadHashPlaceholder
+    TraitApplicationCanonicalFingerprintSchemaPlaceholder
+    TraitApplicationCanonicalFingerprintSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    TraitApplicationCanonicalFingerprintHashPlaceholder
+    TraitApplicationCanonicalPayloadSchemaPlaceholder
+    TraitApplicationCanonicalPayloadSchemaMismatch %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch
+    TraitApplicationCanonicalPayloadHashPlaceholder
+    DerivedConnectorShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary: connector smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+    substitution_hash_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+    instantiation_hash_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+    projection_hash_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+    pre_target_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+    target_source_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+    target_final_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind
+
+//: Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput: connector input は fixed-size evidence field だけを[持/も]つため shallow copy できる
+impl Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput: connector input の Copy marker
+impl Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence: accepted evidence は owner を[含/ふく]まない summary record として copy できる
+impl Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence: accepted evidence の Copy marker
+impl Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch: expected / actual payload を診断や test で再利用する
+impl Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch: mismatch payload の Copy marker
+impl Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind: typed error を Result 比較 helper へ渡す
+impl Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind: error enum の Copy marker
+impl Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \self:
+        self
+
+//: Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary: stage0 smoke の結果を value として返す
+impl Clone for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary \self:
+        *self
+
+//: Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary: stage0 summary の Copy marker
+impl Copy for SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new: mismatch payload を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new %fn i32 fn i32 SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch \expected\actual:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch expected actual
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_input_new: connector input を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_input_new %fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput \expected_target\expected_trait\substitution_evidence\instantiation_evidence\projection_evidence:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput expected_target expected_trait substitution_evidence instantiation_evidence projection_evidence
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version: connector evidence root の schema version
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2: connector-local hash material を[畳/たた]み[込/こ]む fixed combiner
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4: 4 要素の fixed connector material を順序付きで[混/ま]ぜる
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 (selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 a b) (selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 c d)
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_instantiation_hash: accepted instantiation evidence field だけから root hash を再計算する
+//:
+//: [契約/けいやく]:
+//: - `substitution_trace_shape_hash` と substitution traversal component を必ず含めます。
+//: - source text や display name は hash material にしません。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_instantiation_hash %fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence i32 \evidence:
+    let type_argument_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 evidence.type_argument_identity_hash.schema_version evidence.type_argument_identity_hash.identity_hash
+    let target_substitution_id_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 selfhost_type_id_index evidence.target_substitution_root_type_id selfhost_type_id_index evidence.target_substitution_output_type_id
+    let target_substitution_step_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 evidence.target_substitution_step_count evidence.target_substitution_step_stream_hash
+    let trait_substitution_id_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 selfhost_type_id_index evidence.trait_application_substitution_root_type_id selfhost_type_id_index evidence.trait_application_substitution_output_type_id
+    let trait_substitution_step_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 evidence.trait_application_substitution_step_count evidence.trait_application_substitution_step_stream_hash
+    let substitution_traversal_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 target_substitution_id_material target_substitution_step_material trait_substitution_id_material trait_substitution_step_material
+    let substitution_shape_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 evidence.substitution_shape_hash evidence.substituted_target_type_shape_hash evidence.substituted_trait_application_shape_hash type_argument_material
+    let substitution_trace_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 evidence.substitution_trace_shape_hash evidence.type_parameter_bound_count
+    let substitution_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 491301 substitution_shape_material substitution_traversal_material substitution_trace_material
+    let binder_table_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 evidence.generic_parameter_table_shape_hash evidence.generic_bound_table_shape_hash
+    let binder_shape_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 evidence.generic_binder_shape_hash binder_table_material substitution_material type_argument_material
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 491401 evidence.schema_version binder_shape_material evidence.bound_solution_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_projection_hash: projection evidence field だけから root hash を再計算する
+//:
+//: [契約/けいやく]:
+//: - target と trait application は role tag を分けます。
+//: - canonical schema exact match は別 validator で確認し、この helper は hash formula の再現だけを担当します。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_projection_hash %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence i32 \evidence:
+    let target_payload %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 selfhost_type_id_index evidence.target.source_type_id evidence.target.canonical_fingerprint.root_hash evidence.target.canonical_payload_hash.payload_hash evidence.target.final_shape_hash
+    let trait_payload %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 selfhost_type_id_index evidence.trait_application.source_type_id evidence.trait_application.canonical_fingerprint.root_hash evidence.trait_application.canonical_payload_hash.payload_hash evidence.trait_application.final_shape_hash
+    let target_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 613311 target_payload
+    let trait_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 613313 trait_payload
+    let projection_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 target_material trait_material
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 613301 evidence.schema_version evidence.substitution_shape_hash projection_material
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_target_material: projected type の session-local link と canonical material を[束/たば]ねる
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_target_material %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType i32 \target:
+    let fingerprint_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 target.canonical_fingerprint.schema_version target.canonical_fingerprint.root_hash
+    let payload_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 target.canonical_payload_hash.schema_version target.canonical_payload_hash.payload_hash
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 selfhost_type_id_index target.source_type_id fingerprint_material payload_material target.final_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_evidence_hash: connector accepted evidence の root hash を input field から[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_evidence_hash %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput i32 \input:
+    let target_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_target_material input.projection_evidence.target
+    let trait_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_target_material input.projection_evidence.trait_application
+    let pre_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 input.expected_pre_substitution_target_type_shape_hash input.expected_pre_substitution_trait_application_shape_hash
+    let root_material %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 input.instantiation_evidence.instantiation_shape_hash input.substitution_shape_evidence.substitution_shape_hash input.projection_evidence.projection_shape_hash pre_material
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix4 719401 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version root_material (selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mix2 target_material trait_material)
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_substitution_result: substitution shape evidence を再検査する
+//:
+//: [契約/けいやく]:
+//: - public struct として組み立てられた evidence をそのまま信用しません。
+//: - schema exact match と field-based root hash recomputation が通った場合だけ次段へ渡します。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_substitution_result %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence Result SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaPlaceholder
+        else:
+            if:
+                not eq evidence.schema_version selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version evidence.schema_version
+                else:
+                    if:
+                        eq evidence.substitution_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashPlaceholder
+                        else:
+                            let recomputed %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash evidence
+                            if:
+                                not eq recomputed evidence.substitution_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new recomputed evidence.substitution_shape_hash
+                                else:
+                                    Result::Ok evidence
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_instantiation_result: instantiation evidence と substitution evidence の同一性を検査する
+//:
+//: [契約/けいやく]:
+//: - instantiation schema は producer の public schema version と一致しなければなりません。
+//: - substitution hash、output TypeId、substituted shape hash が substitution evidence と一致する場合だけ受理します。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_instantiation_result %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence Result SelfhostMemoTraitPublicImplGenericInstantiationEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \substitution\evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaPlaceholder
+        else:
+            if:
+                not eq evidence.schema_version selfhost_memo_trait_public_impl_generic_instantiation_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_public_impl_generic_instantiation_schema_version evidence.schema_version
+                else:
+                    if:
+                        eq evidence.instantiation_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashPlaceholder
+                        else:
+                            let recomputed %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_instantiation_hash evidence
+                            if:
+                                not eq recomputed evidence.instantiation_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new recomputed evidence.instantiation_shape_hash
+                                else:
+                                    if:
+                                        not eq evidence.substitution_shape_hash substitution.substitution_shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new substitution.substitution_shape_hash evidence.substitution_shape_hash
+                                        else:
+                                            if:
+                                                not eq selfhost_type_id_index evidence.target_substitution_output_type_id selfhost_type_id_index substitution.target_substitution_output_type_id
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTargetOutputTypeIdMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_type_id_index substitution.target_substitution_output_type_id selfhost_type_id_index evidence.target_substitution_output_type_id
+                                                else:
+                                                    if:
+                                                        not eq selfhost_type_id_index evidence.trait_application_substitution_output_type_id selfhost_type_id_index substitution.trait_application_substitution_output_type_id
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTraitApplicationOutputTypeIdMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_type_id_index substitution.trait_application_substitution_output_type_id selfhost_type_id_index evidence.trait_application_substitution_output_type_id
+                                                        else:
+                                                            if:
+                                                                not eq evidence.substituted_target_type_shape_hash substitution.substituted_target_type_shape_hash
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTargetShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new substitution.substituted_target_type_shape_hash evidence.substituted_target_type_shape_hash
+                                                                else:
+                                                                    if:
+                                                                        not eq evidence.substituted_trait_application_shape_hash substitution.substituted_trait_application_shape_hash
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTraitApplicationShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new substitution.substituted_trait_application_shape_hash evidence.substituted_trait_application_shape_hash
+                                                                        else:
+                                                                            Result::Ok evidence
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_projection_result: projection evidence と instantiation evidence の link を検査する
+//:
+//: [契約/けいやく]:
+//: - projection の source TypeId は instantiation の substituted output TypeId と一致しなければなりません。
+//: - projection の final shape hash は instantiation の substituted shape hash と一致しなければなりません。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_projection_result %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \substitution\instantiation\evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaPlaceholder
+        else:
+            if:
+                not eq evidence.schema_version selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version evidence.schema_version
+                else:
+                    if:
+                        eq evidence.projection_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashPlaceholder
+                        else:
+                            let recomputed %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_projection_hash evidence
+                            if:
+                                not eq recomputed evidence.projection_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new recomputed evidence.projection_shape_hash
+                                else:
+                                    if:
+                                        not eq evidence.substitution_shape_hash substitution.substitution_shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSubstitutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new substitution.substitution_shape_hash evidence.substitution_shape_hash
+                                        else:
+                                            if:
+                                                not eq selfhost_type_id_index evidence.target.source_type_id selfhost_type_id_index instantiation.target_substitution_output_type_id
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetSourceTypeIdMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_type_id_index instantiation.target_substitution_output_type_id selfhost_type_id_index evidence.target.source_type_id
+                                                else:
+                                                    if:
+                                                        not eq selfhost_type_id_index evidence.trait_application.source_type_id selfhost_type_id_index instantiation.trait_application_substitution_output_type_id
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationSourceTypeIdMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_type_id_index instantiation.trait_application_substitution_output_type_id selfhost_type_id_index evidence.trait_application.source_type_id
+                                                        else:
+                                                            if:
+                                                                not eq evidence.target.final_shape_hash instantiation.substituted_target_type_shape_hash
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetFinalShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new instantiation.substituted_target_type_shape_hash evidence.target.final_shape_hash
+                                                                else:
+                                                                    if:
+                                                                        not eq evidence.trait_application.final_shape_hash instantiation.substituted_trait_application_shape_hash
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationFinalShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new instantiation.substituted_trait_application_shape_hash evidence.trait_application.final_shape_hash
+                                                                        else:
+                                                                            Result::Ok evidence
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_canonical_material_result: canonical material の schema と placeholder を検査する
+//:
+//: [契約/けいやく]:
+//: - canonical fingerprint / payload hash は schema version と hash value の両方を検査します。
+//: - schema が nonzero でも正規 schema と一致しなければ fail-closed にします。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_canonical_material_result %fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence Result SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \evidence:
+    if:
+        eq evidence.target.canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaPlaceholder
+        else:
+            if:
+                not eq evidence.target.canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_canonical_type_fingerprint_schema_version evidence.target.canonical_fingerprint.schema_version
+                else:
+                    if:
+                        eq evidence.target.canonical_fingerprint.root_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintHashPlaceholder
+                        else:
+                            if:
+                                eq evidence.target.canonical_payload_hash.schema_version 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaPlaceholder
+                                else:
+                                    if:
+                                        not eq evidence.target.canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_canonical_key_payload_schema_version evidence.target.canonical_payload_hash.schema_version
+                                        else:
+                                            if:
+                                                eq evidence.target.canonical_payload_hash.payload_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq evidence.trait_application.canonical_fingerprint.schema_version 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaPlaceholder
+                                                        else:
+                                                            if:
+                                                                not eq evidence.trait_application.canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_canonical_type_fingerprint_schema_version evidence.trait_application.canonical_fingerprint.schema_version
+                                                                else:
+                                                                    if:
+                                                                        eq evidence.trait_application.canonical_fingerprint.root_hash 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintHashPlaceholder
+                                                                        else:
+                                                                            if:
+                                                                                eq evidence.trait_application.canonical_payload_hash.schema_version 0
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaPlaceholder
+                                                                                else:
+                                                                                    if:
+                                                                                        not eq evidence.trait_application.canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                                                                        then:
+                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new selfhost_memo_trait_canonical_key_payload_schema_version evidence.trait_application.canonical_payload_hash.schema_version
+                                                                                        else:
+                                                                                            if:
+                                                                                                eq evidence.trait_application.canonical_payload_hash.payload_hash 0
+                                                                                                then:
+                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadHashPlaceholder
+                                                                                                else:
+                                                                                                    Result::Ok evidence
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result: instantiation / projection connector evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - success は materializer accepted path の解放ではありません。generic bound solver と coherence checker の evidence が揃うまで materializer は detailed generic record を拒否します。
+//: - cross-evidence mismatch は typed error と mismatch payload で返し、diagnostic text には依存しません。
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \input:
+    if:
+        eq input.expected_pre_substitution_target_type_shape_hash 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeHashPlaceholder
+        else:
+            if:
+                eq input.expected_pre_substitution_trait_application_shape_hash 0
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeHashPlaceholder
+                else:
+                    match selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_substitution_result input.substitution_shape_evidence:
+                        Result::Ok substitution:
+                            if:
+                                not eq input.expected_pre_substitution_target_type_shape_hash substitution.pre_substitution_target_type_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new input.expected_pre_substitution_target_type_shape_hash substitution.pre_substitution_target_type_shape_hash
+                                else:
+                                    if:
+                                        not eq input.expected_pre_substitution_trait_application_shape_hash substitution.pre_substitution_trait_application_shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new input.expected_pre_substitution_trait_application_shape_hash substitution.pre_substitution_trait_application_shape_hash
+                                        else:
+                                            match selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_instantiation_result substitution input.instantiation_evidence:
+                                                Result::Ok instantiation:
+                                                    match selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_projection_result substitution instantiation input.projection_evidence:
+                                                        Result::Ok projection:
+                                                            match selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_validate_canonical_material_result projection:
+                                                                Result::Ok checked_projection:
+                                                                    let connector_hash %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_evidence_hash input
+                                                                    if:
+                                                                        eq connector_hash 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::DerivedConnectorShapeHashPlaceholder
+                                                                        else:
+                                                                            Result::Ok SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version instantiation.instantiation_shape_hash substitution.substitution_shape_hash checked_projection.projection_shape_hash substitution.pre_substitution_target_type_shape_hash substitution.pre_substitution_trait_application_shape_hash instantiation.substituted_target_type_shape_hash instantiation.substituted_trait_application_shape_hash checked_projection.target.canonical_fingerprint checked_projection.target.canonical_payload_hash checked_projection.target.final_shape_hash checked_projection.trait_application.canonical_fingerprint checked_projection.trait_application.canonical_payload_hash checked_projection.trait_application.final_shape_hash connector_hash
+                                                                Result::Err canonical_error:
+                                                                    Result::Err canonical_error
+                                                        Result::Err projection_error:
+                                                            Result::Err projection_error
+                                                Result::Err instantiation_error:
+                                                    Result::Err instantiation_error
+                        Result::Err substitution_error:
+                            Result::Err substitution_error
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code: error variant の stable comparison code
+//:
+//: [契約/けいやく]:
+//: - code は payload を持たない variant の equality と stage0 の説明にだけ使います。
+//: - payload 付き variant の equality は、この code だけでなく mismatch payload も比較します。
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeHashPlaceholder:
+            1
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeHashPlaceholder:
+            2
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaPlaceholder:
+            3
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaMismatch _:
+            4
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashPlaceholder:
+            5
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashMismatch _:
+            6
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaPlaceholder:
+            7
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaMismatch _:
+            8
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashPlaceholder:
+            9
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashMismatch _:
+            10
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutionShapeHashMismatch _:
+            11
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTargetOutputTypeIdMismatch _:
+            12
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTraitApplicationOutputTypeIdMismatch _:
+            13
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTargetShapeMismatch _:
+            14
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTraitApplicationShapeMismatch _:
+            15
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaPlaceholder:
+            16
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaMismatch _:
+            17
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashPlaceholder:
+            18
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashMismatch _:
+            19
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSubstitutionShapeHashMismatch _:
+            20
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetSourceTypeIdMismatch _:
+            21
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationSourceTypeIdMismatch _:
+            22
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetFinalShapeMismatch _:
+            23
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationFinalShapeMismatch _:
+            24
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeMismatch _:
+            25
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeMismatch _:
+            26
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaPlaceholder:
+            27
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaMismatch _:
+            28
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintHashPlaceholder:
+            29
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaPlaceholder:
+            30
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaMismatch _:
+            31
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadHashPlaceholder:
+            32
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaPlaceholder:
+            33
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaMismatch _:
+            34
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintHashPlaceholder:
+            35
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaPlaceholder:
+            36
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaMismatch _:
+            37
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadHashPlaceholder:
+            38
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::DerivedConnectorShapeHashPlaceholder:
+            39
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq: expected / actual payload を比較する
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorMismatch bool \a\b:
+    and eq a.expected b.expected eq a.actual b.actual
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_eq: error kind と payload が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutionShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutionShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTargetOutputTypeIdMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTargetOutputTypeIdMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTraitApplicationOutputTypeIdMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationTraitApplicationOutputTypeIdMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTargetShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTargetShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTraitApplicationShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationSubstitutedTraitApplicationShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSubstitutionShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionSubstitutionShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetSourceTypeIdMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetSourceTypeIdMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationSourceTypeIdMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationSourceTypeIdMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetFinalShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetFinalShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationFinalShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTraitApplicationFinalShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTraitApplicationShapeMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalFingerprintHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TargetCanonicalPayloadHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalFingerprintHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::TraitApplicationCanonicalPayloadHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+        SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::DerivedConnectorShapeHashPlaceholder:
+            eq selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code a selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_summary_new: stage0 smoke の結果 record を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind fn Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary \accepted\substitution_hash_mismatch\instantiation_hash_mismatch\projection_hash_mismatch\pre_target_mismatch\target_source_mismatch\target_final_mismatch:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary accepted substitution_hash_mismatch instantiation_hash_mismatch projection_hash_mismatch pre_target_mismatch target_source_mismatch target_final_mismatch
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_evidence: stage0 用 substitution evidence を field hash と整合させて[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_evidence %fn i32 fn i32 fn i32 fn SelfhostTypeId fn SelfhostTypeId fn i32 fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \pre_target\pre_trait\hash_delta\target_output\trait_output\target_shape\trait_shape:
+    let identity %SelfhostMemoTraitStableTypeArgumentIdentityHash SelfhostMemoTraitStableTypeArgumentIdentityHash 1 719101
+    let root %SelfhostTypeId selfhost_type_id_new 10
+    let draft %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 2 2 1 719111 719113 719117 identity pre_target pre_trait 719119 root target_output 1 719121 target_shape root trait_output 1 719123 trait_shape 0
+    let base_hash %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash draft
+    SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_substitution_shape_schema_version 2 2 1 719111 719113 719117 identity pre_target pre_trait 719119 root target_output 1 719121 target_shape root trait_output 1 719123 trait_shape add base_hash hash_delta
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_evidence: stage0 用 instantiation evidence を accepted schema と同じ formula で[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_evidence %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn i32 SelfhostMemoTraitPublicImplGenericInstantiationEvidence \substitution\hash_delta:
+    let schema %i32 selfhost_memo_trait_public_impl_generic_instantiation_schema_version
+    let draft %SelfhostMemoTraitPublicImplGenericInstantiationEvidence SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema substitution.type_parameter_count substitution.type_argument_count substitution.type_parameter_bound_count substitution.generic_binder_shape_hash substitution.generic_parameter_table_shape_hash substitution.generic_bound_table_shape_hash substitution.type_argument_identity_hash substitution.substitution_shape_hash substitution.substitution_trace_shape_hash substitution.target_substitution_root_type_id substitution.target_substitution_output_type_id substitution.target_substitution_step_count substitution.target_substitution_step_stream_hash substitution.substituted_target_type_shape_hash substitution.trait_application_substitution_root_type_id substitution.trait_application_substitution_output_type_id substitution.trait_application_substitution_step_count substitution.trait_application_substitution_step_stream_hash substitution.substituted_trait_application_shape_hash 719131 0
+    let base_hash %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_instantiation_hash draft
+    SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema substitution.type_parameter_count substitution.type_argument_count substitution.type_parameter_bound_count substitution.generic_binder_shape_hash substitution.generic_parameter_table_shape_hash substitution.generic_bound_table_shape_hash substitution.type_argument_identity_hash substitution.substitution_shape_hash substitution.substitution_trace_shape_hash substitution.target_substitution_root_type_id substitution.target_substitution_output_type_id substitution.target_substitution_step_count substitution.target_substitution_step_stream_hash substitution.substituted_target_type_shape_hash substitution.trait_application_substitution_root_type_id substitution.trait_application_substitution_output_type_id substitution.trait_application_substitution_step_count substitution.trait_application_substitution_step_stream_hash substitution.substituted_trait_application_shape_hash 719131 add base_hash hash_delta
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projected_type: stage0 用 projected type material を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projected_type %fn SelfhostTypeId fn i32 fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType \source\root_hash\final_shape:
+    let fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_canonical_type_fingerprint_schema_version root_hash
+    let payload %SelfhostMemoTraitCanonicalKeyPayloadHash SelfhostMemoTraitCanonicalKeyPayloadHash selfhost_memo_trait_canonical_key_payload_schema_version add root_hash 17
+    SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType source fingerprint payload final_shape
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence: stage0 用 projection evidence を field hash と整合させて[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence %fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn SelfhostTypeId fn SelfhostTypeId fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence \substitution\target_source\trait_source\target_shape\trait_shape\hash_delta:
+    let target %SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projected_type target_source 719141 target_shape
+    let trait_application %SelfhostMemoTraitPublicImplGenericSubstitutionProjectedType selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projected_type trait_source 719151 trait_shape
+    let draft %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version substitution.substitution_shape_hash target trait_application 0
+    let base_hash %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_projection_hash draft
+    SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_substitution_projection_schema_version substitution.substitution_shape_hash target trait_application add base_hash hash_delta
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input: stage0 用 connector input を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input %fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorInput \expected_target\expected_trait\substitution\instantiation\projection:
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_input_new expected_target expected_trait substitution instantiation projection
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_output: stage0 target output TypeId
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_output %fn void SelfhostTypeId \void:
+    selfhost_type_id_new 11
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_trait_output: stage0 trait application output TypeId
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_trait_output %fn void SelfhostTypeId \void:
+    selfhost_type_id_new 12
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_other_output: mismatch fixture 用 TypeId
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_other_output %fn void SelfhostTypeId \void:
+    selfhost_type_id_new 13
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_base_substitution: accepted fixture の基準 substitution evidence
+fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_base_substitution %fn void SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence \void:
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_evidence 719201 719203 0 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_output selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_trait_output 719211 719213
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_hash_mismatch_error: stage0 substitution hash mismatch の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_hash_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \void:
+    let bad %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_evidence 719201 719203 1 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_output selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_trait_output 719211 719213
+    let recomputed %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_hash bad
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::SubstitutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new recomputed bad.substitution_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_hash_mismatch_error: stage0 instantiation hash mismatch の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_hash_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \void:
+    let substitution %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_base_substitution
+    let bad %SelfhostMemoTraitPublicImplGenericInstantiationEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_evidence substitution 1
+    let recomputed %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_instantiation_hash bad
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::InstantiationShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new recomputed bad.instantiation_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_hash_mismatch_error: stage0 projection hash mismatch の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_hash_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \void:
+    let substitution %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_base_substitution
+    let bad %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence substitution selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_output selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_trait_output 719211 719213 1
+    let recomputed %i32 selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_projection_hash bad
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionShapeHashMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new recomputed bad.projection_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_pre_target_mismatch_error: stage0 pre-target mismatch の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_pre_target_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \void:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ExpectedPreTargetShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new 719200 719201
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_source_mismatch_error: stage0 target source mismatch の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_source_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \void:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetSourceTypeIdMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new 11 13
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_final_mismatch_error: stage0 target final mismatch の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_final_mismatch_error %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind \void:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind::ProjectionTargetFinalShapeMismatch selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_mismatch_new 719211 719999
+
+//: selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0: connector の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0 %fn void SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorStage0Summary \void:
+    let target_output %SelfhostTypeId selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_target_output
+    let trait_output %SelfhostTypeId selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_trait_output
+    let other_output %SelfhostTypeId selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_other_output
+    let substitution %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_base_substitution
+    let substitution_hash_bad %SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_substitution_evidence 719201 719203 1 target_output trait_output 719211 719213
+    let instantiation %SelfhostMemoTraitPublicImplGenericInstantiationEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_evidence substitution 0
+    let instantiation_hash_bad %SelfhostMemoTraitPublicImplGenericInstantiationEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_instantiation_evidence substitution 1
+    let projection %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence substitution target_output trait_output 719211 719213 0
+    let projection_hash_bad %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence substitution target_output trait_output 719211 719213 1
+    let projection_source_bad %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence substitution other_output trait_output 719211 719213 0
+    let projection_final_bad %SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_projection_evidence substitution target_output trait_output 719999 719213 0
+    let accepted %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719201 719203 substitution instantiation projection
+    let substitution_hash_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719201 719203 substitution_hash_bad instantiation projection
+    let instantiation_hash_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719201 719203 substitution instantiation_hash_bad projection
+    let projection_hash_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719201 719203 substitution instantiation projection_hash_bad
+    let pre_target_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719200 719203 substitution instantiation projection
+    let target_source_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719201 719203 substitution instantiation projection_source_bad
+    let target_final_mismatch %Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorErrorKind selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_result selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_input 719201 719203 substitution instantiation projection_final_bad
+    selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_stage0_summary_new accepted substitution_hash_mismatch instantiation_hash_mismatch projection_hash_mismatch pre_target_mismatch target_source_mismatch target_final_mismatch

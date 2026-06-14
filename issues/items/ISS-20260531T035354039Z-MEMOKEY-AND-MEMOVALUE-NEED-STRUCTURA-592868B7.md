@@ -328,6 +328,27 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitu
 - pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
 - pass: `NEPL_TEST_CASE_TIMEOUT_MS=600000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_projection.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp/selfhost-substitution-projection.json`
 
+## 2026-06-15 selfhost generic instantiation projection connector checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl` を追加し、generic substitution shape evidence、generic instantiation evidence、canonical projection evidence を同じ checker-layer boundary で照合する connector を作った。
+
+この connector は materializer accepted path ではない。expected pre-substitution target / trait application shape、`SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericSubstitutionProjectionEvidence` だけを入力 authority とする。HIR、Resource IR、backend artifact、proof store、public impl materializer、PrivateCache / PrivateState、prechecked artifact は import せず、materializer は引き続き `GenericImplInstantiationUnsupported` で detailed generic record を拒否する。
+
+connector は substitution evidence の schema / root hash、instantiation evidence の schema / root hash、projection evidence の schema / root hash を field から再計算する。instantiation schema は `selfhost_memo_trait_public_impl_generic_instantiation_schema_version` と exact match しなければならず、canonical fingerprint / payload schema も `selfhost_memo_trait_canonical_type_fingerprint_schema_version` と `selfhost_memo_trait_canonical_key_payload_schema_version` に一致しなければならない。さらに instantiation evidence が参照する substitution hash、target / trait application の substitution output `SelfhostTypeId`、substituted shape hash、projection evidence の source TypeId、final shape hash、canonical fingerprint / payload hash を照合する。pre-substitution shape は caller が渡した expected target / trait application shape と substitution evidence の field が一致する場合だけ受理する。
+
+`SelfhostMemoTraitPublicImplGenericInstantiationEvidence` には `substitution_trace_shape_hash` を保存する field を追加した。instantiation evidence の root hash は substitution trace material を混ぜていたが、accepted evidence record に trace hash が残っていなかったため、後続 connector が evidence field だけから root hash を再計算できなかった。この field は same-session checker-layer evidence の再検査材料を落とさないためのものであり、単独の永続 authority ではない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js` で固定した。facade 非公開、`nodesrc/selfhost_ty_sources.js` 非登録、forbidden layer import 禁止、materializer fail-closed 維持、substitution / instantiation / projection の root hash 再計算、instantiation / canonical material の exact schema match、cross-evidence field mismatch、canonical material placeholder rejection、全 payload variant の payload-aware error equality、private helper doc comment、行数 / doc comment 長制限禁止を確認する。
+
+この checkpoint 後も、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。stage0 fixture 分割、projection result memo、connector result memo、stable nominal key table lookup の sorted index 化は、今回固定した evidence contract を保てるため後からできる最適化として扱う。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- timeout_nonfatal: `node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation_projection_connector.nepl -o tmp/selfhost_instantiation_projection_connector_doctest_timeout_nonfatal.json --no-tree -j 1 --assert-io --timeout-nonfatal` は structured compile timeout のみで exit 0。semantic source policy は pass 済みであり、Resource static check の探索時間は `ISS-20260614T130656620Z-SELFHOST-SUBSTITUTION-SHAPE-DOCTEST--405AF02E` の性能残件として扱う。
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。
