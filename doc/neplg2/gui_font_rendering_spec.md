@@ -1292,6 +1292,26 @@ helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state ite
 
 F4ai は F4ag を直接呼ばない。terminal classification は F4ah の責務である。F4ai は `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`、F4ad/F4ab/F4z/F4y/F4v/start/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action start consumer item
+
+F4aj は contour start から future sink consumer の初期 packet を作る byte-backed boundary である。これは F4aa の start item と F4ac の consumer item を合成するだけで、consume、apply、post-apply advance、contour-wide loop、real sink mutation は行わない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item:
+    bytes &ByteBuf
+    face_index Option i32
+    glyph GuiGlyphId
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntParseError
+```
+
+helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_item bytes face_index glyph contour_index policy` を 1 回だけ呼ぶ。`Result::Err error` なら parse/range/table error としてそのまま返す。`Result::Ok item` なら `gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item bytes face_index &item policy` を 1 回だけ呼び、その結果をそのまま返す。
+
+ここで「advance しない」とは、F4ad の consumer item next、F4af apply、F4ah post-apply advance、F4ai consume once を呼ばないという意味である。F4ac は consumer item を作る契約上、checked `GuiSfntSimpleGlyphPathSinkActionItemNext` を内部で解決する。それは F4ac の責務であり、F4aj が新しい traversal authority を持つことではない。
+
+F4aj は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next`、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once`、F4af/F4ah/F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables` を直接呼ばない。action payload を直接 `match` せず、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
