@@ -255,6 +255,32 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitu
 
 通常 timeout の trace doctest は skip 済みであり、default run は source policy と skip contract を確認する。functional smoke は 120 秒 timeout の focused run で確認する。これは trace evidence の意味論を緩めるものではなく、現行 Resource static check の stage0 探索時間を後続最適化に回すための試作段階の検証分離である。
 
+## 2026-06-14 selfhost generic binder same-origin table hash checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl` の `SelfhostMemoTraitPublicImplGenericBinderEvidence` に `parameter_table_shape_hash` と `bound_table_shape_hash` を追加した。binder producer は parameter table と bound table の typed field から table shape hash を導出し、それらを root `shape_hash` と同じ evidence record に保存する。
+
+`selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result` を追加し、caller が渡した binder evidence、parameter table、bound table を producer と同じ規則で再計算して照合できるようにした。これにより、generic impl accepted path を開く前に必要だった binder evidence と generic parameter / bound table の same-origin 残件は、この checkpoint で閉じた。
+
+`memo_trait_public_impl_generic_substitution_trace.nepl` は binder evidence の same-origin gate を通してから trace evidence を作る。trace evidence には `generic_parameter_table_shape_hash` と `generic_bound_table_shape_hash` を保存し、`memo_trait_public_impl_generic_substitution_shape.nepl` と `memo_trait_public_impl_generic_instantiation.nepl` はそれぞれの gate で binder evidence 側の table hash と再照合する。mismatch は typed enum error として fail-closed に扱う。
+
+`memo_trait_public_impl_header.nepl` は detailed binder evidence の `parameter_table_shape_hash` / `bound_table_shape_hash` が 0 の場合も typed enum error で拒否する。`memo_trait_public_impl_generic_instantiation.nepl` の accepted instantiation evidence は `generic_parameter_table_shape_hash` と `generic_bound_table_shape_hash` を保持し、後続 materializer accepted path が instantiation evidence だけを読む段階でも same-origin 情報が落ちないようにした。
+
+この変更後も materializer の `GenericImplInstantiationUnsupported` は維持する。actual type substitution engine、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続する boundary、PrivateCache / PrivateState effect masking、prechecked artifact 接続は未実装である。table hash lookup の index 化、trace lookup cache、stage0 fixture 分割は、今回固定した same-origin contract を保てるため後からできる最適化として扱う。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_binder_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_trace_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_header_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_binder.nepl --no-tree -o tmp/selfhost-generic-binder-same-origin.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_trace.nepl --no-tree -o tmp/selfhost-generic-substitution-trace-same-origin.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_substitution_shape.nepl --no-tree -o tmp/selfhost-generic-substitution-shape-table-hash.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_instantiation.nepl --no-tree -o tmp/selfhost-generic-instantiation-table-hash.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_header.nepl --no-tree -o tmp/selfhost-public-impl-header-binder-table-hash.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=120000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl --no-tree -o tmp/selfhost-materializer-generic-binder-table-hash.json -j 1`
+
 ## 2026-06-13 selfhost operation body check resolver checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_body_check_resolver.nepl` を追加し、operation evidence producer の前段で method body check と Drop impl check を operation ごとの typed pair に正規化する checker-layer 境界を作った。

@@ -1895,6 +1895,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_substitu
 
 この checkpoint でも materializer の `GenericImplInstantiationUnsupported` は維持する。trace stage0 smoke は機能的には `NEPL_TEST_CASE_TIMEOUT_MS=120000` の focused 検証で pass しているが、通常 60 秒 timeout では resource static check が支配的になるため doctest は skip にしている。trace record table の sorted index 化、stage0 fixture 分割、type argument substitution cache、bound lookup cache、resource static check の探索範囲削減は、今回固定した typed trace evidence contract を保って後から行える最適化として扱う。
 
+## 2026-06-14 MemoKey / MemoValue generic binder same-origin table hash checkpoint
+
+`memo_trait_public_impl_generic_binder.nepl` を更新し、accepted binder evidence に `parameter_table_shape_hash` と `bound_table_shape_hash` を保持するようにした。これにより、後続の trace / shape / instantiation gate は、root の `generic_binder_shape_hash` だけではなく、binder producer が検査した parameter table と bound table の形も同じ evidence record から再確認できる。
+
+この checkpoint の目的は、別由来の `SelfhostMemoTraitPublicImplGenericBinderEvidence` を、たまたま count や root hash が合うだけで substitution trace / substitution shape / instantiation evidence へ混ぜないことである。binder module は producer と同じ parameter table hash / bound table hash / root shape hash を再計算する same-origin gate を提供し、trace evidence producer は `SelfhostMemoTraitPublicImplGenericParameterTable` と `SelfhostMemoTraitPublicImplGenericBoundTable` を受け取って binder evidence と照合する。mismatch は typed enum error として fail-closed に扱い、source text、display name、public surface hash、HIR、Resource IR、backend artifact、proof store record は authority にしない。
+
+`memo_trait_public_impl_generic_substitution_trace.nepl` は trace evidence に `generic_parameter_table_shape_hash` と `generic_bound_table_shape_hash` を保存する。`memo_trait_public_impl_generic_substitution_shape.nepl` は trace evidence の table hash と binder evidence の table hash を再検査し、`memo_trait_public_impl_generic_instantiation.nepl` も substitution shape evidence の table hash を binder evidence と照合する。これにより、binder evidence、trace evidence、substitution shape evidence、instantiation evidence が同じ generic parameter / bound table 由来であることを段階ごとに確認できる。
+
+`memo_trait_public_impl_header.nepl` は detailed binder evidence を header shape hash に混ぜる前に、parameter table shape hash と bound table shape hash の placeholder も明示的に拒否する。`memo_trait_public_impl_generic_instantiation.nepl` の accepted instantiation evidence も `generic_parameter_table_shape_hash` と `generic_bound_table_shape_hash` を保持し、後続 materializer accepted path が instantiation evidence だけを読んでも same-origin 情報を失わないようにした。
+
+この checkpoint でも actual type substitution engine、trait bound solver、generic coherence、materializer accepted path は開かない。materializer は引き続き detailed generic record を `GenericImplInstantiationUnsupported` で止める。table hash の sorted index 化、bound lookup cache、stage0 fixture 分割、trace lookup cache は今回固定した same-origin contract を保って後から行える最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。

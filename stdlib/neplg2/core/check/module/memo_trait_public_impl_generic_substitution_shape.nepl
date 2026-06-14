@@ -97,6 +97,8 @@ pub struct SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence:
     type_argument_count %i32
     type_parameter_bound_count %i32
     generic_binder_shape_hash %i32
+    generic_parameter_table_shape_hash %i32
+    generic_bound_table_shape_hash %i32
     type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash
     pre_substitution_target_type_shape_hash %i32
     pre_substitution_trait_application_shape_hash %i32
@@ -128,6 +130,8 @@ pub enum SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind:
     SubstitutionTraceTypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
     SubstitutionTraceTypeParameterBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
     SubstitutionTraceBinderHashMismatch
+    SubstitutionTraceParameterTableShapeHashMismatch
+    SubstitutionTraceBoundTableShapeHashMismatch
     SubstitutionTraceTypeArgumentIdentitySchemaPlaceholder
     SubstitutionTraceTypeArgumentIdentityHashPlaceholder
     SubstitutionTraceTypeArgumentIdentitySchemaMismatch
@@ -297,31 +301,41 @@ fn selfhost_memo_trait_public_impl_generic_substitution_shape_trace_result %fn S
                                                     Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceBinderHashMismatch
                                                 else:
                                                     if:
-                                                        eq evidence.type_argument_identity_hash.schema_version 0
+                                                        not eq evidence.generic_parameter_table_shape_hash binder.parameter_table_shape_hash
                                                         then:
-                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentitySchemaPlaceholder
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceParameterTableShapeHashMismatch
                                                         else:
                                                             if:
-                                                                eq evidence.type_argument_identity_hash.identity_hash 0
+                                                                not eq evidence.generic_bound_table_shape_hash binder.bound_table_shape_hash
                                                                 then:
-                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentityHashPlaceholder
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceBoundTableShapeHashMismatch
                                                                 else:
                                                                     if:
-                                                                        not eq evidence.type_argument_identity_hash.schema_version type_argument_hash.schema_version
+                                                                        eq evidence.type_argument_identity_hash.schema_version 0
                                                                         then:
-                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentitySchemaMismatch
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentitySchemaPlaceholder
                                                                         else:
                                                                             if:
-                                                                                not eq evidence.type_argument_identity_hash.identity_hash type_argument_hash.identity_hash
+                                                                                eq evidence.type_argument_identity_hash.identity_hash 0
                                                                                 then:
-                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentityHashMismatch
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentityHashPlaceholder
                                                                                 else:
                                                                                     if:
-                                                                                        not eq evidence.trace_record_count type_argument_count
+                                                                                        not eq evidence.type_argument_identity_hash.schema_version type_argument_hash.schema_version
                                                                                         then:
-                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_argument_count evidence.trace_record_count
+                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentitySchemaMismatch
                                                                                         else:
-                                                                                            Result::Ok evidence
+                                                                                            if:
+                                                                                                not eq evidence.type_argument_identity_hash.identity_hash type_argument_hash.identity_hash
+                                                                                                then:
+                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentityHashMismatch
+                                                                                                else:
+                                                                                                    if:
+                                                                                                        not eq evidence.trace_record_count type_argument_count
+                                                                                                        then:
+                                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceRecordCountMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new type_argument_count evidence.trace_record_count
+                                                                                                        else:
+                                                                                                            Result::Ok evidence
 
 //: selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_target_result: substituted target shape hash を[検査/けんさ]する
 fn selfhost_memo_trait_public_impl_generic_substitution_shape_substituted_target_result %fn Option i32 Result i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind \hash:
@@ -383,7 +397,9 @@ pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_resul
                                                                             let type_argument_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 type_argument_hash.schema_version type_argument_hash.identity_hash
                                                                             let input_shape_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 503101 pre_target_hash pre_trait_hash trace_evidence.trace_shape_hash
                                                                             let output_shape_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 503201 substituted_target_hash substituted_trait_hash type_argument_material
-                                                                            let binder_count_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 binder_hash input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count
+                                                                            let binder_table_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash
+                                                                            let binder_count_values %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count
+                                                                            let binder_count_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 binder_hash binder_table_material input.generic_binder_evidence.type_parameter_count binder_count_values
                                                                             let binder_shape_material %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 binder_count_material type_argument_material
                                                                             let root_hash %i32 selfhost_memo_trait_public_impl_generic_substitution_shape_mix4 503301 schema selfhost_memo_trait_public_impl_generic_substitution_shape_mix2 binder_shape_material input_shape_material output_shape_material
                                                                             if:
@@ -391,7 +407,7 @@ pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_evidence_resul
                                                                                 then:
                                                                                     Result::Err SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::DerivedSubstitutionShapeHashPlaceholder
                                                                                 else:
-                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash type_argument_hash pre_target_hash pre_trait_hash trace_evidence.trace_shape_hash substituted_target_hash substituted_trait_hash root_hash
+                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericSubstitutionShapeEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash type_argument_hash pre_target_hash pre_trait_hash trace_evidence.trace_shape_hash substituted_target_hash substituted_trait_hash root_hash
                                                                         Result::Err substituted_trait_error:
                                                                             Result::Err substituted_trait_error
                                                                 Result::Err substituted_target_error:
@@ -450,6 +466,10 @@ fn selfhost_memo_trait_public_impl_generic_substitution_shape_error_kind_code %f
             17
         SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceBinderHashMismatch:
             18
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceParameterTableShapeHashMismatch:
+            29
+        SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceBoundTableShapeHashMismatch:
+            30
         SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentitySchemaPlaceholder:
             19
         SelfhostMemoTraitPublicImplGenericSubstitutionShapeErrorKind::SubstitutionTraceTypeArgumentIdentityHashPlaceholder:
@@ -525,7 +545,7 @@ fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_ha
 
 //: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_trace_evidence: stage0 用 trace evidence を[作/つく]る
 fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_trace_evidence %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn i32 SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence \binder\argument_count\argument_hash\trace_hash:
-    SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count binder.shape_hash argument_hash argument_count trace_hash
+    SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence 1 binder.type_parameter_count argument_count binder.type_parameter_bound_count binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash argument_hash argument_count trace_hash
 
 //: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input: stage0 用 input を[作/つく]る
 fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitStableTypeArgumentIdentityHash fn Option i32 fn Option i32 fn SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence fn Option i32 fn Option i32 SelfhostMemoTraitPublicImplGenericSubstitutionShapeInput \binder\argument_count\argument_hash\pre_target\pre_trait\trace\substituted_target\substituted_trait:
@@ -533,8 +553,8 @@ fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_input %fn S
 
 //: selfhost_memo_trait_public_impl_generic_substitution_shape_stage0: substitution shape producer の代表 smoke を[返/かえ]す
 pub fn selfhost_memo_trait_public_impl_generic_substitution_shape_stage0 %fn void SelfhostMemoTraitPublicImplGenericSubstitutionShapeStage0Summary \void:
-    let generic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8301
-    let monomorphic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 0 0 8302
+    let generic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 2 1 8201 8202 8301
+    let monomorphic_binder %SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderEvidence 1 0 0 8203 8204 8302
     let identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_hash 9101
     let identity_placeholder_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_identity_hash 0
     let accepted_trace %SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence selfhost_memo_trait_public_impl_generic_substitution_shape_stage0_trace_evidence generic_binder 2 identity_hash 9401

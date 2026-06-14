@@ -138,6 +138,8 @@ assertOrdered(
         "GenericBinderEvidenceUnexpected",
         "GenericBinderEvidenceParameterCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
         "GenericBinderEvidenceBoundCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "GenericBinderEvidenceParameterTableHashPlaceholder",
+        "GenericBinderEvidenceBoundTableHashPlaceholder",
         "GenericBinderEvidenceHashPlaceholder",
         "StableImplKeyHashPlaceholder",
         "DerivedImplHeaderShapeHashPlaceholder",
@@ -215,6 +217,8 @@ assertOrdered(
         "GenericBinderEvidenceUnexpected",
         "GenericBinderEvidenceParameterCountMismatch",
         "GenericBinderEvidenceBoundCountMismatch",
+        "GenericBinderEvidenceParameterTableHashPlaceholder",
+        "GenericBinderEvidenceBoundTableHashPlaceholder",
         "GenericBinderEvidenceHashPlaceholder",
         "Result::Ok evidence.shape_hash",
     ],
@@ -270,7 +274,7 @@ assertOrdered(
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_header_stage0_generic_binder_input"),
     [
-        "SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8301",
+        "SelfhostMemoTraitPublicImplGenericBinderEvidence 1 1 1 8201 8202 8301",
         "selfhost_memo_trait_public_impl_header_detailed_binder_evidence evidence",
     ],
     "stage0 helper must build detailed generic binder evidence before accepting a generic header",

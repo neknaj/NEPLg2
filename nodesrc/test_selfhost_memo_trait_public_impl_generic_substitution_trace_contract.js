@@ -84,9 +84,10 @@ assertOrdered(
 assert.ok(
     source.includes("raw hash として受け取る状態を残すと") &&
         source.includes("entry vector と aggregate hash を再照合します") &&
+        source.includes("binder evidence は parameter / bound table から producer と同じ規則で再計算され") &&
         source.includes("actual type substitution engine ではありません") &&
         source.includes("`memo_trait_operation_public_impl_materializer` の `GenericImplInstantiationUnsupported` は維持します"),
-    "docs must explain the raw trace hash hazard, identity entry/hash revalidation, current engine limit, and fail-closed materializer boundary",
+    "docs must explain the raw trace hash hazard, binder same-origin revalidation, identity entry/hash revalidation, current engine limit, and fail-closed materializer boundary",
 );
 assert.ok(
     source.includes("source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record は accepted trace material に入りません"),
@@ -107,6 +108,11 @@ assert.match(
     source,
     /^#import "neplg2\/core\/ty\/ty\/memo_trait_type_argument_identity" as \*$/m,
     "trace producer must consume stable type argument identity entry types",
+);
+assert.match(
+    source,
+    /^#import "core\/option" as \*$/m,
+    "trace producer must import Option constructors explicitly when stage0 creates bound trait-shape options",
 );
 assert.match(
     source,
@@ -144,6 +150,8 @@ assertOrdered(
         "type_argument_count %i32",
         "type_parameter_bound_count %i32",
         "generic_binder_shape_hash %i32",
+        "generic_parameter_table_shape_hash %i32",
+        "generic_bound_table_shape_hash %i32",
         "type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash",
         "trace_record_count %i32",
         "trace_shape_hash %i32",
@@ -157,6 +165,7 @@ assertOrdered(
         "TraceTableAllocFailed %StdErrorKind",
         "TracePushFailed %StdErrorKind",
         "ParameterTableSetupRejected %SelfhostMemoTraitPublicImplGenericBinderErrorKind",
+        "BinderEvidenceSameOriginRejected %SelfhostMemoTraitPublicImplGenericBinderErrorKind",
         "BinderEvidenceSchemaPlaceholder",
         "BinderEvidenceHashPlaceholder",
         "GenericParameterCountMissing",
@@ -180,7 +189,7 @@ assertOrdered(
         "ArgumentPayloadHashPlaceholder %i32",
         "DerivedTraceShapeHashPlaceholder",
     ],
-    "trace errors must keep allocation, binder, count, ordinal, binding, argument entry, fingerprint, payload, and derived-hash failures as typed variants",
+    "trace errors must keep allocation, binder same-origin, count, ordinal, binding, argument entry, fingerprint, payload, and derived-hash failures as typed variants",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_substitution_trace_binder_hash_result"),
@@ -269,18 +278,22 @@ assertOrdered(
         "TypeArgumentCountNegative",
         "not eq binder_evidence.type_parameter_count type_argument_count",
         "TypeArgumentCountMismatch",
-        "selfhost_memo_trait_public_impl_generic_substitution_trace_binder_hash_result binder_evidence",
+        "selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result binder_evidence parameters bounds",
+        "selfhost_memo_trait_public_impl_generic_substitution_trace_binder_hash_result same_origin_binder",
         "selfhost_memo_trait_public_impl_generic_substitution_trace_identity_result type_argument_identity type_argument_count",
-        "not eq parameter_count binder_evidence.type_parameter_count",
+        "not eq parameter_count same_origin_binder.type_parameter_count",
         "ParameterRecordCountMismatch",
         "not eq trace_count type_argument_count",
         "TraceRecordCountMismatch",
         "field::get_ref type_argument_identity \"entries\"",
         "selfhost_memo_trait_public_impl_generic_substitution_trace_validate_loop parameters trace identity_entries 0 type_argument_count",
         "DerivedTraceShapeHashPlaceholder",
-        "SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence schema binder_evidence.type_parameter_count",
+        "SelfhostMemoTraitPublicImplGenericSubstitutionTraceEvidence schema same_origin_binder.type_parameter_count",
+        "same_origin_binder.parameter_table_shape_hash",
+        "same_origin_binder.bound_table_shape_hash",
+        "BinderEvidenceSameOriginRejected",
     ],
-    "trace evidence result must validate counts, binder, identity, records, and nonzero root hash before success",
+    "trace evidence result must validate counts, binder same-origin, identity, records, and nonzero root hash before success",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_substitution_trace_error_kind_eq"),
@@ -317,9 +330,10 @@ assertOrdered(
         "trace_count_mismatch %Result",
         "binding_mismatch %Result",
         "fingerprint_placeholder %Result",
-        "selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_summary_new accepted argument_mismatch identity_placeholder trace_count_mismatch binding_mismatch fingerprint_placeholder",
+        "binder_same_origin_mismatch %Result",
+        "selfhost_memo_trait_public_impl_generic_substitution_trace_stage0_summary_new accepted argument_mismatch identity_placeholder trace_count_mismatch binding_mismatch fingerprint_placeholder binder_same_origin_mismatch",
     ],
-    "stage0 must exercise accepted, argument mismatch, identity placeholder, trace count mismatch, binding mismatch, and fingerprint placeholder cases",
+    "stage0 must exercise accepted, argument mismatch, identity placeholder, trace count mismatch, binding mismatch, fingerprint placeholder, and binder same-origin mismatch cases",
 );
 assert.match(
     shape,

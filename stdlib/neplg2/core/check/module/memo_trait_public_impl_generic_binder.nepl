@@ -16,6 +16,7 @@
 //: - parameter の bound range は 0-origin の contiguous range です。range は table order に沿って重複も穴もなく bound table 全体を覆わなければなりません。
 //: - bound record は対応する parameter ordinal、1-origin bound ordinal、nonzero trait application shape hash、非負の trait type argument count を持たなければなりません。
 //: - この module は generic impl が `MemoKey` / `MemoValue` として有効であることや、bound solving が成功することを証明しません。後続 solver が読むための detailed shape evidence だけを作ります。
+//: - consumer が binder evidence と parameter / bound table を別々に受け取る場合は、`selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result` で producer と同じ規則の再計算を行い、同じ由来の table だけを accepted path へ進めます。
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では stage0 smoke が monomorphic table、2 parameter / 2 bound の generic table、count mismatch、symbol placeholder、range mismatch、missing bound shape を確認します。
@@ -153,12 +154,16 @@ pub struct SelfhostMemoTraitPublicImplGenericBinderBoundParameterMismatch:
 //: - public impl header が count だけではなく detailed binder / bound shape を受け取れるよう、schema version と root hash を保持します。
 //:
 //: [契約/けいやく]:
+//: - `parameter_table_shape_hash` は parameter table の ordinal、binder-indexed identity、stable symbol hash、bound range を畳み込んだ nonzero hash です。
+//: - `bound_table_shape_hash` は bound table の parameter ordinal、bound ordinal、trait application shape hash、trait type argument count を畳み込んだ nonzero hash です。
 //: - `shape_hash` は nonzero でなければなりません。
 //: - この evidence は generic impl の semantic success ではありません。trait solver や MemoKey / MemoValue structural proof は後続 stage が別 evidence として接続します。
 pub struct SelfhostMemoTraitPublicImplGenericBinderEvidence:
     schema_version %i32
     type_parameter_count %i32
     type_parameter_bound_count %i32
+    parameter_table_shape_hash %i32
+    bound_table_shape_hash %i32
     shape_hash %i32
 
 //: SelfhostMemoTraitPublicImplGenericBinderErrorKind: generic binder evidence 境界の拒否理由
@@ -192,6 +197,12 @@ pub enum SelfhostMemoTraitPublicImplGenericBinderErrorKind:
     BoundTraitApplicationShapeHashMissing %i32
     BoundTraitApplicationShapeHashPlaceholder %i32
     BoundTraitTypeArgumentCountNegative %i32
+    DerivedParameterTableShapeHashPlaceholder
+    DerivedBoundTableShapeHashPlaceholder
+    BinderEvidenceSchemaMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    BinderEvidenceParameterTableShapeHashMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    BinderEvidenceBoundTableShapeHashMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
+    BinderEvidenceShapeHashMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch
     DerivedBinderShapeHashPlaceholder
 
 //: SelfhostMemoTraitPublicImplGenericBinderStage0Summary: generic binder smoke の代表結果
@@ -491,7 +502,7 @@ fn selfhost_memo_trait_public_impl_generic_binder_validate_parameter_result %fn 
                                                                                             let schema %i32 selfhost_memo_trait_public_impl_generic_binder_schema_version
                                                                                             let parameter_hash %i32 selfhost_memo_trait_public_impl_generic_binder_parameter_hash parameter
                                                                                             let root_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix4 253201 schema parameter_hash bound_hash
-                                                                                            Result::Ok SelfhostMemoTraitPublicImplGenericBinderEvidence schema range_end bound_table_len root_hash
+                                                                                            Result::Ok SelfhostMemoTraitPublicImplGenericBinderEvidence schema range_end bound_table_len parameter_hash bound_hash root_hash
                                                                                         Result::Err e:
                                                                                             Result::Err e
 
@@ -517,6 +528,39 @@ fn selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop %fn &S
                             Result::Err e
                 Option::None:
                     Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_binder_parameter_table_hash_loop: parameter table hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_parameter_table_hash_loop %fn &SelfhostMemoTraitPublicImplGenericParameterTable fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBinderErrorKind \parameters\index\n\acc:
+    if:
+        ge index n
+        then:
+            Result::Ok acc
+        else:
+            let records %&Vec SelfhostMemoTraitPublicImplGenericParameter field::get_ref parameters "records"
+            match v::get records index:
+                Option::Some parameter:
+                    let parameter_hash %i32 selfhost_memo_trait_public_impl_generic_binder_parameter_hash parameter
+                    selfhost_memo_trait_public_impl_generic_binder_parameter_table_hash_loop parameters (add index 1) n selfhost_memo_trait_public_impl_generic_binder_mix2 acc parameter_hash
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::ParameterReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_binder_bound_table_hash_loop: bound table hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_binder_bound_table_hash_loop %fn &SelfhostMemoTraitPublicImplGenericBoundTable fn i32 fn i32 fn i32 fn i32 Result i32 SelfhostMemoTraitPublicImplGenericBinderErrorKind \bounds\index\n\type_parameter_count\acc:
+    if:
+        ge index n
+        then:
+            Result::Ok acc
+        else:
+            let records %&Vec SelfhostMemoTraitPublicImplGenericBound field::get_ref bounds "records"
+            match v::get records index:
+                Option::Some bound:
+                    match selfhost_memo_trait_public_impl_generic_binder_validate_bound_result bound index bound.parameter_ordinal type_parameter_count:
+                        Result::Ok bound_hash:
+                            selfhost_memo_trait_public_impl_generic_binder_bound_table_hash_loop bounds (add index 1) n type_parameter_count selfhost_memo_trait_public_impl_generic_binder_mix2 acc bound_hash
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundReadFailed index
 
 //: selfhost_memo_trait_public_impl_generic_binder_evidence_result: detailed generic binder / bound evidence を[作/つく]る
 //:
@@ -550,15 +594,75 @@ pub fn selfhost_memo_trait_public_impl_generic_binder_evidence_result %fn i32 fn
                                     let schema %i32 selfhost_memo_trait_public_impl_generic_binder_schema_version
                                     match selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop parameters bounds expected_type_parameter_count bound_len 0 0 selfhost_memo_trait_public_impl_generic_binder_mix4 253211 schema expected_type_parameter_count expected_type_parameter_bound_count:
                                         Result::Ok detail_hash:
-                                            let shape_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix4 253221 schema detail_hash selfhost_memo_trait_public_impl_generic_binder_mix2 expected_type_parameter_count expected_type_parameter_bound_count
-                                            if:
-                                                eq shape_hash 0
-                                                then:
-                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBinderShapeHashPlaceholder
-                                                else:
-                                                    Result::Ok SelfhostMemoTraitPublicImplGenericBinderEvidence schema expected_type_parameter_count expected_type_parameter_bound_count shape_hash
+                                            match selfhost_memo_trait_public_impl_generic_binder_parameter_table_hash_loop parameters 0 expected_type_parameter_count selfhost_memo_trait_public_impl_generic_binder_mix4 253231 schema expected_type_parameter_count expected_type_parameter_bound_count:
+                                                Result::Ok parameter_table_shape_hash:
+                                                    if:
+                                                        eq parameter_table_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedParameterTableShapeHashPlaceholder
+                                                        else:
+                                                            match selfhost_memo_trait_public_impl_generic_binder_bound_table_hash_loop bounds 0 bound_len expected_type_parameter_count selfhost_memo_trait_public_impl_generic_binder_mix4 253241 schema expected_type_parameter_count expected_type_parameter_bound_count:
+                                                                Result::Ok bound_table_shape_hash:
+                                                                    if:
+                                                                        eq bound_table_shape_hash 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBoundTableShapeHashPlaceholder
+                                                                        else:
+                                                                            let table_material %i32 selfhost_memo_trait_public_impl_generic_binder_mix2 parameter_table_shape_hash bound_table_shape_hash
+                                                                            let count_material %i32 selfhost_memo_trait_public_impl_generic_binder_mix2 expected_type_parameter_count expected_type_parameter_bound_count
+                                                                            let shape_hash %i32 selfhost_memo_trait_public_impl_generic_binder_mix4 253221 schema detail_hash selfhost_memo_trait_public_impl_generic_binder_mix2 table_material count_material
+                                                                            if:
+                                                                                eq shape_hash 0
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBinderShapeHashPlaceholder
+                                                                                else:
+                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericBinderEvidence schema expected_type_parameter_count expected_type_parameter_bound_count parameter_table_shape_hash bound_table_shape_hash shape_hash
+                                                                Result::Err e:
+                                                                    Result::Err e
+                                                Result::Err e:
+                                                    Result::Err e
                                         Result::Err e:
                                             Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result: evidence と table の[同一/どういつ][由来/ゆらい]を[検査/けんさ]する
+//:
+//: [目的/もくてき]:
+//: - 後続 consumer が `SelfhostMemoTraitPublicImplGenericBinderEvidence` と parameter / bound table owner を別々に受け取ると、count と nonzero hash だけでは「その evidence がその table から作られた」ことを保証できません。
+//: - この関数は `selfhost_memo_trait_public_impl_generic_binder_evidence_result` と同じ producer ルールで table から evidence を再計算し、schema と root hash が一致した場合だけ、caller が渡した evidence を返します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は渡された evidence と table の typed field だけです。source text、span、display name、diagnostic text、HIR、Resource IR、backend artifact は読みません。
+//: - count mismatch、ordinal mismatch、range mismatch、bound shape mismatch など、table 自体の不整合は producer と同じ error kind を返します。
+//: - 再計算された schema または shape hash が caller の evidence と異なる場合は、same-origin failure として typed error にします。
+//:
+//: [計算量/けいさんりょう]:
+//: - parameter 数を p、bound 数を b とすると O(p + b) 時間です。追加空間は O(1) です。
+pub fn selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result %fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn &SelfhostMemoTraitPublicImplGenericParameterTable fn &SelfhostMemoTraitPublicImplGenericBoundTable Result SelfhostMemoTraitPublicImplGenericBinderEvidence SelfhostMemoTraitPublicImplGenericBinderErrorKind \evidence\parameters\bounds:
+    match selfhost_memo_trait_public_impl_generic_binder_evidence_result evidence.type_parameter_count evidence.type_parameter_bound_count parameters bounds:
+        Result::Ok computed:
+            if:
+                not eq computed.schema_version evidence.schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceSchemaMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new evidence.schema_version computed.schema_version
+                else:
+                    if:
+                        not eq computed.parameter_table_shape_hash evidence.parameter_table_shape_hash
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceParameterTableShapeHashMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new evidence.parameter_table_shape_hash computed.parameter_table_shape_hash
+                        else:
+                            if:
+                                not eq computed.bound_table_shape_hash evidence.bound_table_shape_hash
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceBoundTableShapeHashMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new evidence.bound_table_shape_hash computed.bound_table_shape_hash
+                                else:
+                                    if:
+                                        not eq computed.shape_hash evidence.shape_hash
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceShapeHashMismatch selfhost_memo_trait_public_impl_generic_binder_count_mismatch_new evidence.shape_hash computed.shape_hash
+                                        else:
+                                            Result::Ok evidence
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_trait_public_impl_generic_binder_error_kind_code: error kind を比較用 code へ[写/うつ]す
 fn selfhost_memo_trait_public_impl_generic_binder_error_kind_code %fn SelfhostMemoTraitPublicImplGenericBinderErrorKind i32 \kind:
@@ -615,8 +719,20 @@ fn selfhost_memo_trait_public_impl_generic_binder_error_kind_code %fn SelfhostMe
             25
         SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundTraitTypeArgumentCountNegative _:
             26
-        SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBinderShapeHashPlaceholder:
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedParameterTableShapeHashPlaceholder:
             27
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBoundTableShapeHashPlaceholder:
+            28
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceSchemaMismatch _:
+            29
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceParameterTableShapeHashMismatch _:
+            30
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceBoundTableShapeHashMismatch _:
+            31
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceShapeHashMismatch _:
+            32
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::DerivedBinderShapeHashPlaceholder:
+            33
 
 //: selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq: count mismatch payload が同じか[返/かえ]す
 fn selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch fn SelfhostMemoTraitPublicImplGenericBinderCountMismatch bool \a\b:
@@ -634,6 +750,30 @@ pub fn selfhost_memo_trait_public_impl_generic_binder_error_kind_eq %fn Selfhost
         SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch mismatch:
             match b:
                 SelfhostMemoTraitPublicImplGenericBinderErrorKind::BoundCountMismatch other:
+                    selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceSchemaMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceParameterTableShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceParameterTableShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceBoundTableShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceBoundTableShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericBinderErrorKind::BinderEvidenceShapeHashMismatch other:
                     selfhost_memo_trait_public_impl_generic_binder_count_mismatch_eq mismatch other
                 _:
                     false

@@ -113,6 +113,19 @@ assertOrdered(
 assertOrdered(
     source,
     [
+        "pub struct SelfhostMemoTraitPublicImplGenericBinderEvidence:",
+        "schema_version %i32",
+        "type_parameter_count %i32",
+        "type_parameter_bound_count %i32",
+        "parameter_table_shape_hash %i32",
+        "bound_table_shape_hash %i32",
+        "shape_hash %i32",
+    ],
+    "binder evidence must preserve count, parameter table hash, bound table hash, and root shape hash as separate fields",
+);
+assertOrdered(
+    source,
+    [
         "pub enum SelfhostMemoTraitPublicImplGenericBinderErrorKind:",
         "ParameterTableAllocFailed %StdErrorKind",
         "ParameterPushFailed %StdErrorKind",
@@ -140,9 +153,15 @@ assertOrdered(
         "BoundTraitApplicationShapeHashMissing %i32",
         "BoundTraitApplicationShapeHashPlaceholder %i32",
         "BoundTraitTypeArgumentCountNegative %i32",
+        "DerivedParameterTableShapeHashPlaceholder",
+        "DerivedBoundTableShapeHashPlaceholder",
+        "BinderEvidenceSchemaMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "BinderEvidenceParameterTableShapeHashMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "BinderEvidenceBoundTableShapeHashMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "BinderEvidenceShapeHashMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
         "DerivedBinderShapeHashPlaceholder",
     ],
-    "errors must preserve setup, count, ordinal, range, bound shape, and derived hash failures as typed variants",
+    "errors must preserve setup, count, ordinal, range, bound shape, same-origin, and derived hash failures as typed variants",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_binder_evidence_result"),
@@ -156,10 +175,30 @@ assertOrdered(
         "ParameterCountMismatch",
         "BoundCountMismatch",
         "selfhost_memo_trait_public_impl_generic_binder_validate_parameter_loop parameters bounds expected_type_parameter_count bound_len",
+        "selfhost_memo_trait_public_impl_generic_binder_parameter_table_hash_loop parameters 0 expected_type_parameter_count",
+        "DerivedParameterTableShapeHashPlaceholder",
+        "selfhost_memo_trait_public_impl_generic_binder_bound_table_hash_loop bounds 0 bound_len expected_type_parameter_count",
+        "DerivedBoundTableShapeHashPlaceholder",
         "DerivedBinderShapeHashPlaceholder",
-        "SelfhostMemoTraitPublicImplGenericBinderEvidence schema expected_type_parameter_count expected_type_parameter_bound_count shape_hash",
+        "SelfhostMemoTraitPublicImplGenericBinderEvidence schema expected_type_parameter_count expected_type_parameter_bound_count parameter_table_shape_hash bound_table_shape_hash shape_hash",
     ],
     "evidence API must validate expected counts, table lengths, detailed records, and nonzero derived shape hash before success",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_generic_binder_evidence_same_origin_result"),
+    [
+        "selfhost_memo_trait_public_impl_generic_binder_evidence_result evidence.type_parameter_count evidence.type_parameter_bound_count parameters bounds",
+        "not eq computed.schema_version evidence.schema_version",
+        "BinderEvidenceSchemaMismatch",
+        "not eq computed.parameter_table_shape_hash evidence.parameter_table_shape_hash",
+        "BinderEvidenceParameterTableShapeHashMismatch",
+        "not eq computed.bound_table_shape_hash evidence.bound_table_shape_hash",
+        "BinderEvidenceBoundTableShapeHashMismatch",
+        "not eq computed.shape_hash evidence.shape_hash",
+        "BinderEvidenceShapeHashMismatch",
+        "Result::Ok evidence",
+    ],
+    "same-origin API must recompute binder evidence from parameter/bound tables and reject schema or shape-hash mismatches",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_binder_validate_parameter_result"),

@@ -164,6 +164,8 @@ assertOrdered(
         "type_argument_count %i32",
         "type_parameter_bound_count %i32",
         "generic_binder_shape_hash %i32",
+        "generic_parameter_table_shape_hash %i32",
+        "generic_bound_table_shape_hash %i32",
         "type_argument_identity_hash %SelfhostMemoTraitStableTypeArgumentIdentityHash",
         "substitution_shape_hash %i32",
         "substituted_target_type_shape_hash %i32",
@@ -181,6 +183,8 @@ assertOrdered(
         "BinderEvidenceHashPlaceholder",
         "TypeArgumentCountNegative",
         "TypeArgumentCountMismatch %SelfhostMemoTraitPublicImplGenericBinderCountMismatch",
+        "BinderEvidenceParameterTableHashPlaceholder",
+        "BinderEvidenceBoundTableHashPlaceholder",
         "TypeArgumentIdentitySchemaPlaceholder",
         "TypeArgumentIdentityHashPlaceholder",
         "SubstitutionShapeSchemaPlaceholder",
@@ -212,6 +216,21 @@ assertOrdered(
     "errors must preserve binder, type-argument, substituted-shape, bound-solving, and derived-hash failures as typed variants",
 );
 assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_binder_hash_result"),
+    [
+        "eq evidence.schema_version 0",
+        "BinderEvidenceSchemaPlaceholder",
+        "eq evidence.parameter_table_shape_hash 0",
+        "BinderEvidenceParameterTableHashPlaceholder",
+        "eq evidence.bound_table_shape_hash 0",
+        "BinderEvidenceBoundTableHashPlaceholder",
+        "eq evidence.shape_hash 0",
+        "BinderEvidenceHashPlaceholder",
+        "Result::Ok evidence.shape_hash",
+    ],
+    "binder gate must reject schema, parameter table hash, bound table hash, and root hash placeholders separately",
+);
+assertOrdered(
     functionBlock(source, "selfhost_memo_trait_public_impl_generic_instantiation_substitution_shape_result"),
     [
         "eq evidence.schema_version 0",
@@ -225,6 +244,10 @@ assertOrdered(
         "not eq evidence.type_parameter_bound_count binder.type_parameter_bound_count",
         "SubstitutionShapeTypeParameterBoundCountMismatch",
         "not eq evidence.generic_binder_shape_hash binder_hash",
+        "SubstitutionShapeBinderHashMismatch",
+        "not eq evidence.generic_parameter_table_shape_hash binder.parameter_table_shape_hash",
+        "SubstitutionShapeBinderHashMismatch",
+        "not eq evidence.generic_bound_table_shape_hash binder.bound_table_shape_hash",
         "SubstitutionShapeBinderHashMismatch",
         "eq evidence.type_argument_identity_hash.schema_version 0",
         "SubstitutionShapeTypeArgumentIdentitySchemaPlaceholder",
@@ -298,8 +321,10 @@ assertOrdered(
         "substitution_evidence.substitution_shape_hash",
         "substitution_evidence.substituted_target_type_shape_hash",
         "substitution_evidence.substituted_trait_application_shape_hash",
+        "input.generic_binder_evidence.parameter_table_shape_hash",
+        "input.generic_binder_evidence.bound_table_shape_hash",
         "DerivedInstantiationShapeHashPlaceholder",
-        "SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count",
+        "SelfhostMemoTraitPublicImplGenericInstantiationEvidence schema input.generic_binder_evidence.type_parameter_count input.type_argument_count input.generic_binder_evidence.type_parameter_bound_count binder_hash input.generic_binder_evidence.parameter_table_shape_hash input.generic_binder_evidence.bound_table_shape_hash",
     ],
     "evidence API must validate argument count, binder evidence, type argument identity, substitution evidence, bound solving, and nonzero instantiation hash before success",
 );
