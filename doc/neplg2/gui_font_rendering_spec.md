@@ -1351,6 +1351,33 @@ gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status:
 
 F4al は consume step の `advance` を読まない。`Result` / `Option`、byte-backed lookup、consumer item next、consume-once、start helper、action payload direct match、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer consume summary
+
+F4am は `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` を、future loop が直接扱うための flat summary value へ変換する段階である。F4al が apply side だけを読む helper であるのに対し、F4am は F4al の state / status と既存 `advance` accessor を 1 value に束ねる。これは loop、iterator、real sink、byte lookup、renderer、rasterizer ではなく、すでに計算済みの state / status / advance を読むだけの pure projection である。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    status GuiSfntSimpleGlyphPathSinkActionApplyStatus
+    advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step:
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep
+    -> GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+```
+
+`summary_from_step` は次の 3 helper をそれぞれ 1 回だけ呼ぶ。
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state step
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status step
+gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance step
+```
+
+F4am は `advance` enum を新しく解釈しない。`Continue`、`Rejected`、`EndContour` の意味は F4ah の `GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance` contract に従う。F4am は `Result` / `Option`、byte-backed lookup、consumer item next、consume-once、start helper、action payload direct match、`Vec` / `push`、loop、current point state、outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

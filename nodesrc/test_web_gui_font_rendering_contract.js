@@ -3398,11 +3398,12 @@ assert(
     "alloc/gui/font/sfnt/glyf F4al must expose consume step apply state/status helpers",
 );
 assert(
-    guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state") &&
-        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status") &&
+    ((guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status")) ||
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step")) &&
         guiFontSfntPathTests.includes("path sink consumer consume once preserves apply result and advance") &&
         guiFontSfntPathTests.includes("path contour step public lookup follows cursor next contract"),
-    "gui font sfnt path doctests must use F4al consume step apply state/status helpers",
+    "gui font sfnt path doctests must cover F4al consume step apply state/status helpers directly or through F4am summary",
 );
 const pathSinkActionConsumeStepApplyState = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state");
 const pathSinkActionConsumeStepApplyStatus = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status");
@@ -3462,6 +3463,105 @@ for (const [sliceName, source, terminalFragment, terminalAccessor, oppositeAcces
         `alloc/gui/font/sfnt/glyf F4al ${sliceName} helper body must preserve NEPL prefix style without parentheses`,
     );
 }
+assertMatch(
+    spec,
+    /SFNT simple glyph path sink action consumer consume summary[\s\S]*GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary[\s\S]*state GuiSfntSimpleGlyphPathSinkActionApplyState[\s\S]*status GuiSfntSimpleGlyphPathSinkActionApplyStatus[\s\S]*advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance[\s\S]*F4am は `advance` enum を新しく解釈しない/,
+    "font spec must define F4am consume summary value without reinterpreting advance",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph path sink action consumer consume summary[\s\S]*future loop needs three values after each consume step[\s\S]*F4al still forbids `advance`, while F4am requires exactly one call to the existing advance accessor/,
+    "font detailed design must distinguish F4al apply summary from F4am full consume summary",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F4am: sfnt simple glyph path sink action consumer consume summary value[\s\S]*state \/ status \/ advance の flat summary value[\s\S]*F4al の apply-state\/status helper は引き続き `advance` を読まない/,
+    "font implementation plan must define F4am consume summary value and keep F4al advance-free",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:\s+state\s+%GuiSfntSimpleGlyphPathSinkActionApplyState\s+status\s+%GuiSfntSimpleGlyphPathSinkActionApplyStatus\s+advance\s+%GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance/,
+    "alloc/gui/font/sfnt/glyf F4am must expose consume summary fields",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:/,
+    "alloc/gui/font/sfnt/glyf F4am consume summary must implement Clone and Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary %fn GuiSfntSimpleGlyphPathSinkActionApplyState fn GuiSfntSimpleGlyphPathSinkActionApplyStatus fn GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionApplyState") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionApplyStatus") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step %fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary"),
+    "alloc/gui/font/sfnt/glyf F4am must expose consume summary constructor, accessors, and from-step helper",
+);
+assert(
+    guiFontSfntPathTests.includes("GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance"),
+    "gui font sfnt path doctests must use F4am consume summary value",
+);
+const pathSinkActionConsumeSummaryConstructor = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary");
+assert(
+    pathSinkActionConsumeSummaryConstructor.includes("GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary state status advance"),
+    "alloc/gui/font/sfnt/glyf F4am constructor must preserve state/status/advance order",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryConstructor,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4am constructor body must preserve NEPL prefix style without parentheses",
+);
+for (const [sliceName, helperName, fragment] of [
+    ["state", "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state", '*field::get_ref summary "state"'],
+    ["status", "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status", '*field::get_ref summary "status"'],
+    ["advance", "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance", '*field::get_ref summary "advance"'],
+]) {
+    const accessorSource = functionSlice(allocFontSfntGlyfImpl, helperName);
+    assert(accessorSource.includes(fragment), `alloc/gui/font/sfnt/glyf F4am ${sliceName} accessor must include ${fragment}`);
+    assertNoMatch(
+        accessorSource,
+        /[()]/,
+        `alloc/gui/font/sfnt/glyf F4am ${sliceName} accessor body must preserve NEPL prefix style without parentheses`,
+    );
+}
+const pathSinkActionConsumeSummaryFromStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step");
+for (const fragment of [
+    "let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state step",
+    "let status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status step",
+    "let advance %GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance step",
+    "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary state status advance",
+]) {
+    assert(pathSinkActionConsumeSummaryFromStep.includes(fragment), `alloc/gui/font/sfnt/glyf F4am summary-from-step helper must include ${fragment}`);
+}
+for (const [callName, message] of [
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state", "read F4al apply state exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status", "read F4al apply status exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance", "read consume advance exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary", "construct consume summary exactly once"],
+]) {
+    assert(
+        (pathSinkActionConsumeSummaryFromStep.match(new RegExp(`\\b${callName}\\b`, "g")) || []).length === 1,
+        `alloc/gui/font/sfnt/glyf F4am summary-from-step helper must ${message}`,
+    );
+}
+assertNoMatch(
+    pathSinkActionConsumeSummaryFromStep,
+    /\bResult\b|\bOption\b|\bgui_sfnt_lookup_|\bgui_sfnt_simple_glyph_path_sink_action_consumer_item_apply\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once\b|\bgui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once\b|\bgui_sfnt_parse_metadata\b|\bgui_sfnt_glyf_|\bgui_sfnt_classify_simple_glyph_curve_segment\b/,
+    "alloc/gui/font/sfnt/glyf F4am summary-from-step helper must not return Result/Option or call lookup/consume/start/lower helpers",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryFromStep,
+    /\b(?:Vec|push|action_index|command_index|loop_index|current_point|cursor|next_cursor|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4am summary-from-step helper must not allocate, loop, inspect payload variants, render, rasterize, or call host/platform APIs",
+);
+assertNoMatch(
+    pathSinkActionConsumeSummaryFromStep,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4am summary-from-step helper body must preserve NEPL prefix style without parentheses",
+);
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
     contourSpanWithTables,

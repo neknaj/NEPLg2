@@ -1858,6 +1858,58 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4am: sfnt simple glyph path sink action consumer consume summary value
+
+目的:
+
+- `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep` から、future consumer loop が直接扱う state / status / advance の flat summary value を作る。
+- F4al の apply summary helper と既存 `advance` accessor を 1 value に束ね、future loop が nested F4ai/F4af/F4al storage layout へ依存しないようにする。
+- F4am は contour-wide loop、iterator、real sink mutation、byte-backed lookup、command list、full outline allocation、renderer、rasterizer、platform API にはならない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_status`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_advance`
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step`
+- summary type は次の 3 fields を持つ。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    status GuiSfntSimpleGlyphPathSinkActionApplyStatus
+    advance GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance
+```
+
+- `summary_from_step` は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_state step` を 1 回だけ呼ぶ。
+- `summary_from_step` は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_apply_status step` を 1 回だけ呼ぶ。
+- `summary_from_step` は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step_advance step` を 1 回だけ呼ぶ。
+- F4al の apply-state/status helper は引き続き `advance` を読まない。F4am だけが full consume summary contract として既存 advance accessor を読む。
+- helper は `Result`、`Option`、byte-backed lookup、consumer item next lookup、consume-once、start helper、F4ab/F4z/F4y/F4v/lower lookup、metadata parser、`*_with_tables`、action payload direct match、`Vec`、`push`、loop、current point、renderer、rasterizer、platform API、host text API、font fallback を直接使わない。
+- Source policy で F4am docs、summary type、Clone / Copy、constructor/accessors、from-step exact call count、lookup / payload / renderer / platform API 禁止、括弧なし body を固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ai synthetic fixture を更新する。
+  - `Rejected` case と `NoAction` case で summary を作り、summary accessors から state / status / advance を読む。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の F4ak byte-backed fixture も更新する。
+  - start consume-once result から summary を作り、first action status / count / post-consume advance を summary accessors から読む。
+
+完了条件:
+
+- consume summary は state / status / advance を 1 value として持つ。
+- from-step helper は F4al state helper、F4al status helper、existing advance accessor をそれぞれ 1 回だけ読む。
+- hidden fallback、silent no-op、new traversal counter、full outline allocation を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:
