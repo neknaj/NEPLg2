@@ -1733,6 +1733,17 @@ pub fn gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor %fn &GuiSfnt
 pub fn gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot %fn &GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntSimpleGlyphPathSinkActionSlot \cursor:
     *field::get_ref cursor "action_slot"
 
+//: gui_sfnt_simple_glyph_path_sink_action_start_cursor: contour action stream の開始 cursor を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - 指定 contour の最初の action 位置を、edge 0 / event `First` / action `Primary` として[作/つく]ります。
+//: - この関数は unchecked value constructor です。byte 妥当性は検証しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_path_sink_action_start_cursor %fn GuiGlyphId fn i32 GuiSfntSimpleGlyphPathSinkActionCursor \glyph\contour_index:
+    let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index 0 GuiSfntSimpleGlyphPathSinkEventSlot::First
+    gui_sfnt_simple_glyph_path_sink_action_cursor contour_cursor GuiSfntSimpleGlyphPathSinkActionSlot::Primary
+
 //: GuiSfntSimpleGlyphPathSinkActionNext: sink action stream の次状態
 //:
 //: [目的/もくてき]:
@@ -3566,3 +3577,22 @@ pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_step %fn &ByteBuf fn Option
         Result::Ok sink_step:
             let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step &sink_step action_slot
             Result::Ok action_step
+
+//: gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor: 検証済み開始 cursor を[作/つく]る
+//:
+//: [目的/もくてき]:
+//: - byte-backed contour span lookup により、指定 contour が存在し valid span を持つことを[検証/けんしょう]します。
+//: - 成功時は pure start cursor helper に委譲し、最初の action payload は[読/よ]みません。
+//:
+//: [注意/ちゅうい]:
+//: - この関数は `gui_sfnt_lookup_simple_glyph_contour_span` にだけ委譲します。
+//: - sink policy、action step lookup、full outline allocation、rasterizer、render2d command、platform font API はこの関数の責務ではありません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor %fn &ByteBuf fn Option i32 fn GuiGlyphId fn i32 Result GuiSfntSimpleGlyphPathSinkActionCursor GuiSfntParseError \bytes\face_index\glyph\contour_index:
+    match gui_sfnt_lookup_simple_glyph_contour_span bytes face_index glyph contour_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _span:
+            let start_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+            Result::Ok start_cursor

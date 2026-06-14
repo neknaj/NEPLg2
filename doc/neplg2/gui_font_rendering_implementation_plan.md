@@ -1031,6 +1031,44 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
+## Phase F4w: sfnt simple glyph path sink action start cursor
+
+目的:
+
+- F4v の action traversal に、contour-local action stream の開始 cursor を追加する。
+- 開始 cursor を `edge 0` / `First` / `Primary` として型で固定する。
+- pure constructor と byte-backed validated entry point を分け、unchecked value construction と byte validation を混同しない。
+- action payload lookup、sink policy、full outline allocation、renderer、rasterizer、platform API は導入しない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `gui_sfnt_simple_glyph_path_sink_action_start_cursor`
+  - `gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor`
+- pure helper は `gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index 0 GuiSfntSimpleGlyphPathSinkEventSlot::First` を作り、`GuiSfntSimpleGlyphPathSinkActionSlot::Primary` と合成する。
+- pure helper は unchecked value constructor であり、byte 妥当性、contour 存在、span 範囲、point count を検証しない。
+- byte-backed helper は `gui_sfnt_lookup_simple_glyph_contour_span` を 1 回だけ呼び、成功した場合にだけ pure helper へ委譲する。
+- byte-backed helper は F4v action-step lookup、F4t sink-step lookup、F4s contour-step lookup、point / curve / path-command helper、sink policy、renderer、rasterizer、platform font API を呼ばない。
+- Source policy で F4w の doc contract、pure helper の `edge 0` / `First` / `Primary`、byte-backed helper の contour span lookup への 1 回委譲、追加 NEPL body に括弧がないことを固定する。
+- `tests/stdlib/gui_font_sfnt_glyf_path.n.md` の cheap typed assertion を拡張する。
+  - `gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph 3` が contour `3`、edge `0`、event slot `First`、action slot `Primary` を返すことを確認する。
+
+完了条件:
+
+- 開始 cursor は enum slot と既存 contour cursor で表現され、numeric action index や command index を持たない。
+- pure constructor は byte validation を行わないことが doc と実装で明示される。
+- byte-backed helper は contour span validation にだけ委譲し、action payload や policy を読まない。
+- hidden fallback、silent no-op、renderer/backend/platform dependency を追加しない。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
 ## Phase F5: outline, shaping, ruby, vertical, math bridge
 
 目的:

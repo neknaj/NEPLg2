@@ -723,7 +723,9 @@ fn main %impure fn void i32 \void:
     let continue_tail_traversal_ok %bool action_step_tail_continues_to_primary &continue_step 1 8 GuiSfntSimpleGlyphPathSinkEventSlot::First
     let end_tail_traversal_ok %bool and action_step_tail_ends_contour &keep_step action_step_tail_ends_contour &reject_step
     let action_traversal_ok %bool and primary_traversal_ok and continue_tail_traversal_ok end_tail_traversal_ok
-    test_assertion_exit_code assert "path sink policy keeps reject and close tail exclusive" and keep_ok and reject_ok and continue_ok and single_point_ok and action_projection_ok action_traversal_ok
+    let start_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph 3
+    let start_cursor_ok %bool action_cursor_matches &start_cursor 3 0 GuiSfntSimpleGlyphPathSinkEventSlot::First GuiSfntSimpleGlyphPathSinkActionSlot::Primary
+    test_assertion_exit_code assert "path sink policy keeps reject and close tail exclusive" and keep_ok and reject_ok and continue_ok and single_point_ok and action_projection_ok and action_traversal_ok start_cursor_ok
 ```
 
 ## path contour step public lookup follows cursor next contract

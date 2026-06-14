@@ -452,6 +452,19 @@ for (const fragment of [
 ]) {
     assert(spec.includes(fragment), `font spec F4v path sink action traversal contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path sink action start cursor",
+    "contour edge `0`、event slot `First`、action slot `Primary`",
+    "gui_sfnt_simple_glyph_path_sink_action_start_cursor:",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor:",
+    "unchecked value constructor",
+    "byte-backed entry point",
+    "`gui_sfnt_lookup_simple_glyph_contour_span` を 1 回だけ呼ぶ",
+    "F4v action step lookup、F4t sink step lookup、F4s contour step lookup",
+    "pure constructor が contour の存在や byte 妥当性を証明するものとして document してはならない",
+]) {
+    assert(spec.includes(fragment), `font spec F4w path sink action start cursor contract must mention ${fragment}`);
+}
 assertMatch(
     detailedDesign,
     /SFNT cmap table[\s\S]*GuiSfntCmapSubtableRecord[\s\S]*WindowsUnicodeBmpFormat4[\s\S]*idRangeOffset[\s\S]*MissingGlyphMapping/,
@@ -721,6 +734,20 @@ for (const fragment of [
 ]) {
     assert(detailedDesign.includes(fragment), `font detailed design F4v path sink action traversal contract must mention ${fragment}`);
 }
+for (const fragment of [
+    "SFNT simple glyph path sink action start cursor",
+    "F4w adds the entry position for the F4v action traversal stream",
+    "edge_index = 0",
+    "event_slot = First",
+    "action_slot = Primary",
+    "gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index",
+    "This constructor is intentionally unchecked",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor bytes face_index glyph contour_index",
+    "gui_sfnt_lookup_simple_glyph_contour_span bytes face_index glyph contour_index",
+    "must not call F4v action-step lookup, F4t sink-step lookup, F4s contour-step lookup",
+]) {
+    assert(detailedDesign.includes(fragment), `font detailed design F4w path sink action start cursor contract must mention ${fragment}`);
+}
 assertMatch(
     implementationPlan,
     /Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*Result GuiGlyphId GuiSfntParseError[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping|Phase F4c:[\s\S]*alloc\/gui\/font\/sfnt\/cmap\.nepl[\s\S]*UnsupportedCmapEncoding[\s\S]*UnsupportedCmapTableFormat[\s\S]*MalformedCmapRecord[\s\S]*MissingGlyphMapping[\s\S]*Result GuiGlyphId GuiSfntParseError/,
@@ -969,6 +996,21 @@ for (const fragment of [
     "byte-backed helper は F4t lookup にだけ委譲し",
 ]) {
     assert(implementationPlan.includes(fragment), `font implementation plan F4v path sink action traversal contract must mention ${fragment}`);
+}
+for (const fragment of [
+    "Phase F4w:",
+    "sfnt simple glyph path sink action start cursor",
+    "`edge 0` / `First` / `Primary`",
+    "pure constructor と byte-backed validated entry point",
+    "gui_sfnt_simple_glyph_path_sink_action_start_cursor",
+    "gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor",
+    "unchecked value constructor",
+    "byte-backed helper は `gui_sfnt_lookup_simple_glyph_contour_span` を 1 回だけ呼び",
+    "F4v action-step lookup、F4t sink-step lookup、F4s contour-step lookup",
+    "追加 NEPL body に括弧がない",
+    "contour `3`、edge `0`、event slot `First`、action slot `Primary`",
+]) {
+    assert(implementationPlan.includes(fragment), `font implementation plan F4w path sink action start cursor contract must mention ${fragment}`);
 }
 
 assertMatch(
@@ -2256,6 +2298,54 @@ assertNoMatch(
     pathSinkActionStepLookup,
     /\b(?:Option::None|Option::Some|Vec|push|action_index|command_index|loop_index|current_point|gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_|gui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_span|contour_point|contour_edge|curve_segment|path_command_pair|path_contour_step|path_sink_action\b)|gui_sfnt_classify_simple_glyph_curve_segment|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
     "alloc/gui/font/sfnt/glyf F4v sink action step lookup must only delegate to F4t lookup and pure action-step projection",
+);
+assert(
+    guiFontSfntPathTests.includes("start_cursor_ok") &&
+        guiFontSfntPathTests.includes("gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph 3") &&
+        guiFontSfntPathTests.includes("GuiSfntSimpleGlyphPathSinkEventSlot::First") &&
+        guiFontSfntPathTests.includes("GuiSfntSimpleGlyphPathSinkActionSlot::Primary"),
+    "gui font sfnt path doctest must cover F4w start cursor at contour 3 edge 0 First Primary",
+);
+const pathSinkActionStartCursor = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_path_sink_action_start_cursor");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_path_contour_cursor glyph contour_index 0 GuiSfntSimpleGlyphPathSinkEventSlot::First",
+    "gui_sfnt_simple_glyph_path_sink_action_cursor contour_cursor GuiSfntSimpleGlyphPathSinkActionSlot::Primary",
+]) {
+    assert(pathSinkActionStartCursor.includes(fragment), `alloc/gui/font/sfnt/glyf F4w pure start cursor must include ${fragment}`);
+}
+assertNoMatch(
+    pathSinkActionStartCursor,
+    /\b(?:Option|Result|GuiSfntParseError|Vec|push|action_index|command_index|loop_index|current_point|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|GuiSfntSimpleGlyphPathSinkPolicy|gui_sfnt_simple_glyph_path_sink_step|gui_sfnt_simple_glyph_path_contour_step|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4w pure start cursor must remain unchecked, allocation-free, and platform-free",
+);
+assertNoMatch(
+    pathSinkActionStartCursor,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4w pure start cursor body must preserve NEPL prefix style without parentheses",
+);
+const pathSinkActionStartCursorLookup = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_lookup_simple_glyph_path_sink_action_start_cursor");
+for (const fragment of [
+    "gui_sfnt_lookup_simple_glyph_contour_span bytes face_index glyph contour_index",
+    "Result::Err error",
+    "Result::Ok _span",
+    "gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index",
+    "Result::Ok start_cursor",
+]) {
+    assert(pathSinkActionStartCursorLookup.includes(fragment), `alloc/gui/font/sfnt/glyf F4w start cursor lookup must include ${fragment}`);
+}
+assert(
+    (pathSinkActionStartCursorLookup.match(/\bgui_sfnt_lookup_simple_glyph_contour_span\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F4w start cursor lookup must call contour span lookup exactly once",
+);
+assertNoMatch(
+    pathSinkActionStartCursorLookup,
+    /\b(?:Option::None|Option::Some|Vec|push|action_index|command_index|loop_index|current_point|gui_sfnt_parse_metadata|gui_sfnt_glyf_simple_|gui_sfnt_lookup_simple_glyph_(?:topology|point_stream|point|contour_point|contour_edge|curve_segment|path_command_pair|path_contour_step|path_sink_step|path_sink_action\b)|gui_sfnt_lookup_simple_glyph_path_sink_action_step|gui_sfnt_lookup_simple_glyph_path_sink_step|gui_sfnt_classify_simple_glyph_curve_segment|GuiSfntSimpleGlyphPathSinkPolicy|gui_sfnt_simple_glyph_path_sink_step|gui_sfnt_simple_glyph_path_contour_step|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F4w start cursor lookup must only validate contour span and delegate to pure start cursor",
+);
+assertNoMatch(
+    pathSinkActionStartCursorLookup,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F4w start cursor lookup body must preserve NEPL prefix style without parentheses",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
