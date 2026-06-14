@@ -8,6 +8,7 @@
 //: - `memo_trait_public_impl_generic_instantiation_projection_connector` は generic instantiation と canonical projection が同じ substitution authority から来ていることを検査します。
 //: - `memo_trait_public_impl_generic_concrete_coherence` は同じ concrete target / trait application へ複数の generic impl が到達していないことを検査します。
 //: - この module は、これらを同じ declaration / same binder / same original shape / same concrete shape として束ね、後続 materializer が読む 1 つの typed evidence にします。
+//: - materializer accepted path が raw final evidence vector を直接受け取らないように、materializer が `connector_result` を実行するための input owner table もこの module で管理します。
 //:
 //: [契約/けいやく]:
 //: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecord`、`SelfhostMemoTraitPublicImplGenericBoundSolvingStatus`、`SelfhostMemoTraitPublicImplGenericInstantiationEvidence`、`SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence`、`SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence` の typed field だけです。
@@ -18,12 +19,15 @@
 //: - bound solving status はこの connector でも `NoBounds` / `AllSolved` / `Unsolved` を再検査し、`AllSolved` evidence の schema が `selfhost_memo_trait_public_impl_generic_bound_solving_evidence_schema_version` と一致し、derived bound solution hash が instantiation evidence の `bound_solution_shape_hash` と一致しなければなりません。
 //: - connector evidence と coherence evidence は schema、instantiation shape hash、connector shape hash、target final shape、trait application final shape、canonical target / trait material が一致しなければなりません。
 //: - この module は operation classifier、candidate builder、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof を呼びません。generic impl candidate acceptance の最終判断は後続 materializer integration の責務です。
+//: - input table は最終 evidence ではなく、materializer が `connector_result` を呼ぶための typed input です。`evidence_recheck_result` は壊れた field を見つける防御的検査であり、producer provenance の代替ではありません。
 //: - `memo_trait_operation_classifier` の import は stage0 fixture が materializer record の trait source identity を作るためだけに使います。connector result path は classifier result や trusted registry を authority にしません。
 //:
 //: [現状/げんじょう]:
-//: - Phase 1 では evidence を束ねるだけです。`memo_trait_operation_public_impl_materializer` の `GenericImplInstantiationUnsupported` はこの slice でも維持します。
-//: - facade にはまだ re-export しません。generic materializer integration が operation candidate builder へ安全に接続される段階で公開範囲を再評価します。
-//: - hash formula は fixed-size field を束ねる小さな connector-local root です。後続で accepted path が実装されても、この evidence の field schema と error payload を変えずに candidate builder 接続だけを差し替えられます。
+//: - この connector 自体は evidence を束ねるだけで、operation impl candidate は作りません。
+//: - `memo_trait_operation_public_impl_materializer` には connector input table を受け取る generic-aware API があり、そこで materializer record ごとに `connector_result` を実行してから candidate builder input へ進めます。
+//: - connector table を受け取らない既存 materializer API は、従来通り `GenericImplInstantiationUnsupported` で fail-closed にします。
+//: - facade にはまだ re-export しません。full operation evidence orchestration が public surface materializer と proof boundary をまとめる段階で公開範囲を再評価します。
+//: - hash formula は fixed-size field を束ねる小さな connector-local root です。materializer accepted path は root だけを信用せず、recheck 関数で field から再検査します。
 //:
 //: [計算量/けいさんりょう]:
 //: - fixed-size record と evidence を照合するだけなので O(1) 時間・O(1) 追加空間です。
@@ -60,7 +64,9 @@
 //:     checks_exit_code shown
 //: ```
 
+#import "alloc/collections/vec" as v
 #import "alloc/hash/hash32" as *
+#import "core/field" as field
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -73,7 +79,7 @@
 #import "neplg2/core/ty/ty/memo_trait_operation_evidence" as *
 #import "neplg2/core/ty/ty/memo_trait_type_argument_identity" as *
 #import "./memo_trait_operation_classifier" as *
-#import "./memo_trait_operation_public_impl_materializer" as *
+#import "./memo_trait_operation_public_impl_materializer_record" as *
 #import "./memo_trait_public_impl_generic_binder" as *
 #import "./memo_trait_public_impl_generic_concrete_coherence" as *
 #import "./memo_trait_public_impl_generic_instantiation" as *
@@ -83,12 +89,14 @@
 //: SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence: materializer record と generic evidence 群を[束/たば]ねた accepted bridge evidence
 //:
 //: [契約/けいやく]:
-//: - `materializer_connector_shape_hash` は declaration、record header、binder evidence、instantiation / connector / coherence root を束ねた nonzero hash です。
-//: - `type_id` は session-local link です。永続 artifact identity や canonical type key ではありません。
+//: - `materializer_connector_shape_hash` は declaration、record header、concrete target TypeId、binder evidence、instantiation / connector / coherence root を束ねた nonzero hash です。
+//: - `type_id` は original materializer record 由来の session-local link です。永続 artifact identity や canonical type key ではありません。
+//: - `concrete_target_type_id` は substitution traversal が返した concrete target TypeId です。後続 materializer accepted path は generic definition 側の `type_id` ではなく、この TypeId を candidate lookup key に使います。
 //: - この evidence 単独では operation impl candidate を作りません。後続 materializer integration が classifier / purity / Resource proof と合わせて最終受理します。
 pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
     schema_version %i32
     type_id %SelfhostTypeId
+    concrete_target_type_id %SelfhostTypeId
     module_fingerprint %i32
     declaration_ordinal %i32
     type_parameter_count %i32
@@ -101,6 +109,7 @@ pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
     pre_substitution_trait_application_shape_hash %i32
     instantiation_shape_hash %i32
     connector_shape_hash %i32
+    substitution_shape_hash %i32
     coherence_shape_hash %i32
     substituted_target_type_shape_hash %i32
     substituted_trait_application_shape_hash %i32
@@ -112,6 +121,27 @@ pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
     trait_application_final_shape_hash %i32
     materializer_connector_shape_hash %i32
 
+//: SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput: materializer が connector result を[実行/じっこう]するための typed input
+//:
+//: [契約/けいやく]:
+//: - `declaration_ordinal` は lookup key です。accepted evidence の authority ではなく、materializer が source record と対応付けるためだけに使います。
+//: - この record は final evidence ではありません。materializer は必ず `connector_result(record, bound_status, instantiation, projection_connector, coherence)` を呼び、返った evidence だけを builder input へ進めます。
+pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput:
+    declaration_ordinal %i32
+    bound_status %SelfhostMemoTraitPublicImplGenericBoundSolvingStatus
+    instantiation %SelfhostMemoTraitPublicImplGenericInstantiationEvidence
+    projection_connector %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence
+    coherence %SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence
+
+//: SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable: connector input の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。materializer は borrow で読み、table を閉じません。
+//: - table は final evidence を保持しません。public struct constructor で table を直接作られても、materializer accepted path は table 中の evidence を信用せず、各 input から connector result を再計算します。
+//: - この table は session-local preflight input であり、永続 artifact や public surface hash の authority ではありません。
+pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable:
+    records %Vec SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput
+
 //: SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch: expected / actual mismatch payload
 pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch:
     expected %i32
@@ -122,6 +152,8 @@ pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch:
 //: [目的/もくてき]:
 //: - record header、generic binder、instantiation、connector、coherence のどこで不一致が起きたかを typed enum として分けます。
 pub enum SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind:
+    ConnectorInputTableAllocFailed %StdErrorKind
+    ConnectorInputTablePushFailed %StdErrorKind
     RecordDeclarationOrdinalMissing
     RecordDeclarationOrdinalPlaceholder
     RecordTargetShapeMissing
@@ -196,6 +228,8 @@ pub enum SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind:
     CoherenceTraitApplicationCanonicalPayloadHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
     CoherenceTraitApplicationFinalShapeMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
     CoherenceTraitApplicationFinalShapeHashPlaceholder
+    ConcreteTargetTypeIdInvalid %i32
+    MaterializerConnectorShapeHashMismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch
     DerivedMaterializerConnectorShapeHashPlaceholder
 
 //: SelfhostMemoTraitPublicImplGenericMaterializerConnectorStage0Summary: connector smoke の代表結果
@@ -215,6 +249,67 @@ impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
 impl Copy for SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence:
     fn copy_mark %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence \self:
         self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_input_new: materializer connector input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - この constructor は final evidence を作りません。`declaration_ordinal` と各 evidence field を束ね、materializer が後で `connector_result` を呼ぶための transport value を返します。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_input_new %fn i32 fn SelfhostMemoTraitPublicImplGenericBoundSolvingStatus fn SelfhostMemoTraitPublicImplGenericInstantiationEvidence fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput \declaration_ordinal\bound_status\instantiation\projection_connector\coherence:
+    SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput declaration_ordinal bound_status instantiation projection_connector coherence
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_new: connector input owner table を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - table は session-local owner です。永続 artifact identity、public surface hash、source path の authority は持ちません。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_new %impure fn void Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable records
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInputTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_free: connector input owner table を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_free %impure fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_len: connector input record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_len %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_get: index 位置の connector input を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `Option::None` は materializer 側で table read failure として扱います。
+//: - この helper は owner を消費しません。caller が table の lifetime を管理します。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_get %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable fn i32 Option SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput \table\index:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput field::get_ref table "records"
+    v::get records index
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_push: connector input を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - この関数は `table` owner を消費します。
+//: - input table は final evidence ではないため、この関数では connector result を実行しません。materializer accepted path が source record を持つ地点で connector result を実行します。
+//: - push 失敗時は `Vec` が返した owner を閉じ、`ConnectorInputTablePushFailed(error)` を返します。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_push %impure fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable impure fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \table\input:
+    let records %Vec SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput field::get table "records"
+    match v::push records input:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInputTablePushFailed error
 
 impl Clone for SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch:
     fn clone %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch \self:
@@ -730,9 +825,10 @@ fn selfhost_memo_trait_public_impl_generic_materializer_connector_instantiation_
                                     Result::Ok unit
 
 //: selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash: accepted bridge evidence の root hash を[作/つく]る
-fn selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence i32 \record\declaration_ordinal\target_shape\trait_shape\binder\bound_hash\connector\coherence:
+fn selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn SelfhostTypeId fn i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericBinderEvidence fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence i32 \record\concrete_target_type_id\declaration_ordinal\target_shape\trait_shape\binder\bound_hash\connector\coherence:
     let schema %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version
-    let type_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 selfhost_type_id_index record.type_id record.module_fingerprint
+    let type_id_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 selfhost_type_id_index record.type_id selfhost_type_id_index concrete_target_type_id
+    let type_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 type_id_material record.module_fingerprint
     let declaration_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 schema declaration_ordinal target_shape trait_shape
     let binder_table_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 binder.parameter_table_shape_hash binder.bound_table_shape_hash
     let binder_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 record.type_parameter_count record.type_parameter_bound_count binder.shape_hash binder_table_material
@@ -784,13 +880,13 @@ pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_result %fn
                                                                                                 Result::Ok binder:
                                                                                                     match selfhost_memo_trait_public_impl_generic_materializer_connector_coherence_match_result declaration_ordinal checked_connector checked_coherence:
                                                                                                         Result::Ok _unit:
-                                                                                                            let root_hash %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash record declaration_ordinal target_shape trait_shape binder bound_hash checked_connector checked_coherence
+                                                                                                            let root_hash %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_shape_hash record checked_instantiation.target_substitution_output_type_id declaration_ordinal target_shape trait_shape binder bound_hash checked_connector checked_coherence
                                                                                                             if:
                                                                                                                 eq root_hash 0
                                                                                                                 then:
                                                                                                                     Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedMaterializerConnectorShapeHashPlaceholder
                                                                                                                 else:
-                                                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version record.type_id record.module_fingerprint declaration_ordinal record.type_parameter_count record.type_parameter_bound_count binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash bound_hash target_shape trait_shape checked_instantiation.instantiation_shape_hash checked_connector.connector_shape_hash checked_coherence.coherence_shape_hash checked_instantiation.substituted_target_type_shape_hash checked_instantiation.substituted_trait_application_shape_hash checked_connector.target_canonical_fingerprint checked_connector.target_canonical_payload_hash checked_connector.target_final_shape_hash checked_connector.trait_application_canonical_fingerprint checked_connector.trait_application_canonical_payload_hash checked_connector.trait_application_final_shape_hash root_hash
+                                                                                                                    Result::Ok SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version record.type_id checked_instantiation.target_substitution_output_type_id record.module_fingerprint declaration_ordinal record.type_parameter_count record.type_parameter_bound_count binder.shape_hash binder.parameter_table_shape_hash binder.bound_table_shape_hash bound_hash target_shape trait_shape checked_instantiation.instantiation_shape_hash checked_connector.connector_shape_hash checked_connector.substitution_shape_hash checked_coherence.coherence_shape_hash checked_instantiation.substituted_target_type_shape_hash checked_instantiation.substituted_trait_application_shape_hash checked_connector.target_canonical_fingerprint checked_connector.target_canonical_payload_hash checked_connector.target_final_shape_hash checked_connector.trait_application_canonical_fingerprint checked_connector.trait_application_canonical_payload_hash checked_connector.trait_application_final_shape_hash root_hash
                                                                                                         Result::Err e:
                                                                                                             Result::Err e
                                                                                                 Result::Err e:
@@ -812,13 +908,102 @@ pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_result %fn
         Result::Err e:
             Result::Err e
 
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_shape_hash: accepted bridge evidence の field から root hash を[再計算/さいけいさん]する
+//:
+//: [契約/けいやく]:
+//: - この helper は accepted evidence の field だけを使います。source text、diagnostic、module path、public surface hash へ戻りません。
+//: - `substitution_shape_hash` を evidence に残すことで、後続 materializer が root を hash-only authority として信用せず field から再検査できます。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_shape_hash %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence i32 \evidence:
+    let type_id_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 selfhost_type_id_index evidence.type_id selfhost_type_id_index evidence.concrete_target_type_id
+    let type_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 type_id_material evidence.module_fingerprint
+    let declaration_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.schema_version evidence.declaration_ordinal evidence.pre_substitution_target_type_shape_hash evidence.pre_substitution_trait_application_shape_hash
+    let binder_table_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 evidence.generic_parameter_table_shape_hash evidence.generic_bound_table_shape_hash
+    let binder_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.type_parameter_count evidence.type_parameter_bound_count evidence.generic_binder_shape_hash binder_table_material
+    let substituted_shape_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 evidence.substituted_target_type_shape_hash evidence.substituted_trait_application_shape_hash
+    let target_canonical_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.target_canonical_fingerprint.schema_version evidence.target_canonical_fingerprint.root_hash evidence.target_canonical_payload_hash.schema_version evidence.target_canonical_payload_hash.payload_hash
+    let trait_canonical_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.trait_application_canonical_fingerprint.schema_version evidence.trait_application_canonical_fingerprint.root_hash evidence.trait_application_canonical_payload_hash.schema_version evidence.trait_application_canonical_payload_hash.payload_hash
+    let final_shape_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.target_final_shape_hash evidence.trait_application_final_shape_hash target_canonical_material trait_canonical_material
+    let evidence_material %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.instantiation_shape_hash evidence.connector_shape_hash evidence.coherence_shape_hash selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 evidence.bound_solution_shape_hash evidence.substitution_shape_hash substituted_shape_material final_shape_material
+    selfhost_memo_trait_public_impl_generic_materializer_connector_mix4 819401 type_material declaration_material selfhost_memo_trait_public_impl_generic_materializer_connector_mix2 binder_material evidence_material
+
+//: selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_recheck_result: public constructible な bridge evidence を[再検査/さいけんさ]する
+//:
+//: [契約/けいやく]:
+//: - materializer accepted path は、この関数を通した evidence だけを concrete generic candidate の preflight authority として扱います。
+//: - schema、concrete target TypeId、connector/coherence/substitution root、final shape、再計算 root を検査し、壊れた field を bool ではなく typed error として返します。
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_recheck_result %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind \evidence:
+    if:
+        eq evidence.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaPlaceholder
+        else:
+            if:
+                not eq evidence.schema_version selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSchemaMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_memo_trait_public_impl_generic_materializer_connector_schema_version evidence.schema_version
+                else:
+                    if:
+                        lt selfhost_type_id_index evidence.concrete_target_type_id 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConcreteTargetTypeIdInvalid selfhost_type_id_index evidence.concrete_target_type_id
+                        else:
+                            if:
+                                eq evidence.connector_shape_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorShapeHashPlaceholder
+                                else:
+                                    if:
+                                        eq evidence.substitution_shape_hash 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorSubstitutionShapeHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new 1 0
+                                        else:
+                                            if:
+                                                eq evidence.coherence_shape_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceShapeHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq evidence.target_final_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTargetFinalShapeHashPlaceholder
+                                                        else:
+                                                            if:
+                                                                eq evidence.trait_application_final_shape_hash 0
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorTraitApplicationFinalShapeHashPlaceholder
+                                                                else:
+                                                                    let expected_hash %i32 selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_shape_hash evidence
+                                                                    if:
+                                                                        eq expected_hash 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedMaterializerConnectorShapeHashPlaceholder
+                                                                        else:
+                                                                            if:
+                                                                                not eq expected_hash evidence.materializer_connector_shape_hash
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::MaterializerConnectorShapeHashMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new expected_hash evidence.materializer_connector_shape_hash
+                                                                                else:
+                                                                                    Result::Ok evidence
+
 //: selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq: mismatch payload が同じか[返/かえ]す
 fn selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch bool \a\b:
     and eq a.expected b.expected eq a.actual b.actual
 
 //: selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq: error kind が同じか[返/かえ]す
-fn selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind bool \a\b:
+pub fn selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind bool \a\b:
     match a:
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInputTableAllocFailed _alloc:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInputTableAllocFailed _other:
+                    true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInputTablePushFailed _push:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConnectorInputTablePushFailed _other:
+                    true
+                _:
+                    false
         SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalMissing:
             match b:
                 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordDeclarationOrdinalMissing:
@@ -1261,6 +1446,18 @@ fn selfhost_memo_trait_public_impl_generic_materializer_connector_error_kind_eq 
             match b:
                 SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::CoherenceTraitApplicationFinalShapeHashPlaceholder:
                     true
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConcreteTargetTypeIdInvalid index:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::ConcreteTargetTypeIdInvalid other:
+                    eq index other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::MaterializerConnectorShapeHashMismatch mismatch:
+            match b:
+                SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::MaterializerConnectorShapeHashMismatch other:
+                    selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_eq mismatch other
                 _:
                     false
         SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::DerivedMaterializerConnectorShapeHashPlaceholder:

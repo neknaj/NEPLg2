@@ -1,0 +1,644 @@
+#indent 4
+
+//: # check/module/memo_trait_public_impl_generic_concrete_coherence
+//: generic trait impl instantiation を operation materializer へ[渡/わた]す[前/まえ]に、同じ concrete target / trait application へ[複数/ふくすう]の impl が[到達/とうたつ]していないことを[検査/けんさ]する checker-layer module です。
+//:
+//: [目的/もくてき]:
+//: - `memo_trait_public_impl_generic_instantiation_projection_connector` は、generic instantiation evidence と canonical projection evidence が同じ substitution authority から来ていることを検査します。
+//: - この module は、その connector evidence を accepted path の候補として扱う前に、既に accepted と見なされた generic impl record table と照合します。
+//: - 同じ declaration / connector / canonical material が再投入された場合は exact duplicate として拒否します。
+//: - 異なる declaration または異なる connector が同じ concrete target / trait application へ到達する場合は、現段階では overlap unsupported として fail-closed に拒否します。
+//:
+//: [契約/けいやく]:
+//: - accepted authority は `SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence` と、caller が owner として渡す `SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable` の typed field だけです。
+//: - source text、span、lexeme、display name、diagnostic text、module path、public surface hash、HIR、Resource IR、backend artifact、proof store record、PrivateCache / PrivateState、prechecked artifact は coherence material に入りません。
+//: - connector evidence は public struct として構築可能なので、schema、connector hash placeholder、instantiation / substitution / projection / final shape placeholder、canonical fingerprint / payload schema と hash をこの module でも再検査します。
+//: - coherence key は target canonical fingerprint / payload hash / final shape と、trait application canonical fingerprint / payload hash / final shape の組です。`connector_shape_hash` だけ、または final shape だけを authority にしてはいけません。
+//: - この module は full overlap solver ではありません。generic parameter を含む blanket impl 同士の包含関係や unification は後続 solver の責務であり、今回の境界では concrete key collision だけを fail-closed に扱います。
+//: - 成功した evidence は、generic impl accepted path へ進むための 1 前提です。operation candidate materializer、method body purity、Drop no-escape、MemoKey / MemoValue aggregate proof、PrivateCache / PrivateState effect masking、prechecked artifact acceptance は後続 stage が別 evidence として検査します。
+//:
+//: [現状/げんじょう]:
+//: - Phase 1 では owner table を線形走査します。sorted index、bucket 化、merge cursor は後続最適化であり、今回固定する public contract には含めません。
+//: - `memo_trait_operation_public_impl_materializer` の `GenericImplInstantiationUnsupported` はこの slice では維持します。この module の成功は materializer accepted path を緩める根拠ではありません。
+//: - stage0 smoke は public connector evidence struct を直接組み立て、schema / placeholder rejection、empty table accepted、exact duplicate、concrete collision を確認します。
+//:
+//: [計算量/けいさんりょう]:
+//: - 既存 record 数を n とすると、現状の照合は O(n) 時間です。追加空間は loop index と hash accumulator だけなので O(1) です。
+//: - 後続で sorted index や trait-id bucket を導入する場合でも、canonical key、typed duplicate error、overlap unsupported error、materializer fail-closed contract は維持します。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: ##: [4] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/check/module/memo_trait_public_impl_generic_concrete_coherence" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     let summary selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0
+//:     let checks0 checks_new
+//:     let checks1 checks_push checks0 check is_ok summary.accepted
+//:     let checks2 checks_push checks1 check selfhost_memo_trait_public_impl_generic_concrete_coherence_error_result_eq summary.schema_placeholder SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaPlaceholder
+//:     let checks3 checks_push checks2 check selfhost_memo_trait_public_impl_generic_concrete_coherence_error_result_eq summary.target_final_placeholder SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetFinalShapeHashPlaceholder
+//:     let checks4 checks_push checks3 check selfhost_memo_trait_public_impl_generic_concrete_coherence_error_result_eq summary.duplicate selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_duplicate_error
+//:     let checks5 checks_push checks4 check selfhost_memo_trait_public_impl_generic_concrete_coherence_error_result_eq summary.overlap selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_overlap_error
+//:     let shown checks_print_report checks5
+//:     checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "alloc/hash/hash32" as *
+#import "core/field" as field
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key" as *
+#import "neplg2/core/ty/ty/memo_trait_canonical_key_payload" as *
+#import "./memo_trait_public_impl_generic_instantiation_projection_connector" as *
+
+//: SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord: coherence table に[保持/ほじ]する accepted generic impl key
+//:
+//: [契約/けいやく]:
+//: - `declaration_ordinal` は source scanner / materializer が割り当てる public impl declaration ordinal です。0 以下は placeholder として扱います。
+//: - canonical fingerprint と payload hash は schema 付きで保持します。root hash だけ、final shape だけ、connector hash だけで coherence key を作ることを避けるためです。
+pub struct SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord:
+    declaration_ordinal %i32
+    instantiation_shape_hash %i32
+    connector_shape_hash %i32
+    target_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    target_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    target_final_shape_hash %i32
+    trait_application_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    trait_application_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    trait_application_final_shape_hash %i32
+    coherence_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable: coherence record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。caller は不要になった時点で `selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_free` で閉じます。
+//: - table は shallow Clone / Copy を提供しません。record だけが Copy 可能です。
+pub struct SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable:
+    records %Vec SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord
+
+//: SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence: accepted coherence evidence
+//:
+//: [契約/けいやく]:
+//: - `coherence_shape_hash` は declaration ordinal、connector shape、instantiation shape、canonical target / trait application key を畳み込んだ nonzero hash です。
+//: - この evidence 単独では materializer accepted path を開きません。後続 stage は solver / connector / materializer の全 evidence を合わせて検査します。
+pub struct SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence:
+    schema_version %i32
+    declaration_ordinal %i32
+    instantiation_shape_hash %i32
+    connector_shape_hash %i32
+    target_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    target_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    target_final_shape_hash %i32
+    trait_application_canonical_fingerprint %SelfhostMemoTraitCanonicalTypeFingerprint
+    trait_application_canonical_payload_hash %SelfhostMemoTraitCanonicalKeyPayloadHash
+    trait_application_final_shape_hash %i32
+    coherence_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision: duplicate / overlap の診断 payload
+pub struct SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision:
+    existing_declaration_ordinal %i32
+    new_declaration_ordinal %i32
+    target_key_hash %i32
+    trait_application_key_hash %i32
+    existing_connector_shape_hash %i32
+    new_connector_shape_hash %i32
+
+//: SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind: coherence boundary の拒否理由
+//:
+//: [目的/もくてき]:
+//: - table owner setup、connector evidence schema、canonical material、duplicate、overlap unsupported を typed enum として分けます。
+pub enum SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind:
+    RecordTableAllocFailed %StdErrorKind
+    RecordPushFailed %StdErrorKind
+    ExistingRecordReadFailed %i32
+    DeclarationOrdinalPlaceholder
+    ConnectorSchemaPlaceholder
+    ConnectorSchemaMismatch %SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision
+    InstantiationShapeHashPlaceholder
+    ConnectorShapeHashPlaceholder
+    SubstitutionShapeHashPlaceholder
+    ProjectionShapeHashPlaceholder
+    TargetFinalShapeHashPlaceholder
+    TraitApplicationFinalShapeHashPlaceholder
+    TargetCanonicalFingerprintSchemaPlaceholder
+    TargetCanonicalFingerprintSchemaMismatch
+    TargetCanonicalFingerprintHashPlaceholder
+    TargetCanonicalPayloadSchemaPlaceholder
+    TargetCanonicalPayloadSchemaMismatch
+    TargetCanonicalPayloadHashPlaceholder
+    TraitApplicationCanonicalFingerprintSchemaPlaceholder
+    TraitApplicationCanonicalFingerprintSchemaMismatch
+    TraitApplicationCanonicalFingerprintHashPlaceholder
+    TraitApplicationCanonicalPayloadSchemaPlaceholder
+    TraitApplicationCanonicalPayloadSchemaMismatch
+    TraitApplicationCanonicalPayloadHashPlaceholder
+    DuplicateExactMatch %SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision
+    OverlapUnsupported %SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision
+    DerivedCoherenceShapeHashPlaceholder
+
+//: SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary: coherence smoke の代表結果
+pub struct SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary:
+    accepted %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind
+    schema_placeholder %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind
+    target_final_placeholder %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind
+    duplicate %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind
+    overlap %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind
+
+impl Clone for SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \self:
+        self
+
+impl Clone for SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary:
+    fn clone %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary:
+    fn copy_mark %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary \self:
+        self
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_record_new: coherence record を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_record_new %fn i32 fn i32 fn i32 fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalKeyPayloadHash fn i32 fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalKeyPayloadHash fn i32 fn i32 SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord \declaration_ordinal\instantiation_shape_hash\connector_shape_hash\target_fingerprint\target_payload\target_final_shape_hash\trait_fingerprint\trait_payload\trait_final_shape_hash\coherence_shape_hash:
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord declaration_ordinal instantiation_shape_hash connector_shape_hash target_fingerprint target_payload target_final_shape_hash trait_fingerprint trait_payload trait_final_shape_hash coherence_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_new: [空/から]の coherence table を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_new %impure fn void Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \void:
+    let records_result %Result Vec SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable records
+        Result::Err e:
+            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::RecordTableAllocFailed e
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_free: coherence table owner を[閉/と]じる
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_free %impure fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_len: coherence record 数を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_len %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable i32 \table:
+    let records %&Vec SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_push: coherence record を[追加/ついか]する
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_push %impure fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable impure fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \table\record:
+    let records %Vec SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord field::get table "records"
+    match v::push records record:
+        Result::Ok next_records:
+            Result::Ok SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable next_records
+        Result::Err e:
+            let error %StdErrorKind field::get e "error"
+            v::free v::vec_push_error_vec e
+            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::RecordPushFailed error
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version: coherence evidence schema version
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2: coherence hash 用の 2 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 %fn i32 fn i32 i32 \a\b:
+    mix xor mix a b
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_mix4: coherence hash 用の 4 field [混合/こんごう]
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_mix4 %fn i32 fn i32 fn i32 fn i32 i32 \a\b\c\d:
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 a b selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 c d
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_material: fingerprint の schema と hash を key material へ[畳/たた]み[込/こ]む
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_material %fn SelfhostMemoTraitCanonicalTypeFingerprint i32 \fingerprint:
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 fingerprint.schema_version fingerprint.root_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_material: canonical payload hash の schema と hash を key material へ[畳/たた]み[込/こ]む
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_material %fn SelfhostMemoTraitCanonicalKeyPayloadHash i32 \payload:
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 payload.schema_version payload.payload_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_target_key_hash: target 側 coherence key を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_target_key_hash %fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalKeyPayloadHash fn i32 i32 \fingerprint\payload\final_shape_hash:
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_mix4 812101 selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_material fingerprint selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_material payload final_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_trait_key_hash: trait application 側 coherence key を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_trait_key_hash %fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalKeyPayloadHash fn i32 i32 \fingerprint\payload\final_shape_hash:
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_mix4 812103 selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_material fingerprint selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_material payload final_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_new: duplicate / overlap payload を[作/つく]る
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision \existing_declaration\new_declaration\target_key_hash\trait_key_hash\existing_connector\new_connector:
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision existing_declaration new_declaration target_key_hash trait_key_hash existing_connector new_connector
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_record_from_evidence: accepted evidence を table record へ[写/うつ]す
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_record_from_evidence %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord \evidence:
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord evidence.declaration_ordinal evidence.instantiation_shape_hash evidence.connector_shape_hash evidence.target_canonical_fingerprint evidence.target_canonical_payload_hash evidence.target_final_shape_hash evidence.trait_application_canonical_fingerprint evidence.trait_application_canonical_payload_hash evidence.trait_application_final_shape_hash evidence.coherence_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_key_hash: connector evidence field から coherence root hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_key_hash %fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence i32 \declaration_ordinal\connector:
+    let target_key %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_target_key_hash connector.target_canonical_fingerprint connector.target_canonical_payload_hash connector.target_final_shape_hash
+    let trait_key %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_trait_key_hash connector.trait_application_canonical_fingerprint connector.trait_application_canonical_payload_hash connector.trait_application_final_shape_hash
+    let identity_material %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_mix4 declaration_ordinal connector.instantiation_shape_hash connector.connector_shape_hash connector.projection_shape_hash
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_mix4 812201 selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version identity_material selfhost_memo_trait_public_impl_generic_concrete_coherence_mix2 target_key trait_key
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_canonical_material_valid_result: connector の canonical material を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_canonical_material_valid_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \connector:
+    if:
+        eq connector.target_canonical_fingerprint.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalFingerprintSchemaPlaceholder
+        else:
+            if:
+                not eq connector.target_canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                then:
+                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalFingerprintSchemaMismatch
+                else:
+                    if:
+                        eq connector.target_canonical_fingerprint.root_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalFingerprintHashPlaceholder
+                        else:
+                            if:
+                                eq connector.target_canonical_payload_hash.schema_version 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalPayloadSchemaPlaceholder
+                                else:
+                                    if:
+                                        not eq connector.target_canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalPayloadSchemaMismatch
+                                        else:
+                                            if:
+                                                eq connector.target_canonical_payload_hash.payload_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalPayloadHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq connector.trait_application_canonical_fingerprint.schema_version 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalFingerprintSchemaPlaceholder
+                                                        else:
+                                                            if:
+                                                                not eq connector.trait_application_canonical_fingerprint.schema_version selfhost_memo_trait_canonical_type_fingerprint_schema_version
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalFingerprintSchemaMismatch
+                                                                else:
+                                                                    if:
+                                                                        eq connector.trait_application_canonical_fingerprint.root_hash 0
+                                                                        then:
+                                                                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalFingerprintHashPlaceholder
+                                                                        else:
+                                                                            if:
+                                                                                eq connector.trait_application_canonical_payload_hash.schema_version 0
+                                                                                then:
+                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalPayloadSchemaPlaceholder
+                                                                                else:
+                                                                                    if:
+                                                                                        not eq connector.trait_application_canonical_payload_hash.schema_version selfhost_memo_trait_canonical_key_payload_schema_version
+                                                                                        then:
+                                                                                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalPayloadSchemaMismatch
+                                                                                        else:
+                                                                                            if:
+                                                                                                eq connector.trait_application_canonical_payload_hash.payload_hash 0
+                                                                                                then:
+                                                                                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalPayloadHashPlaceholder
+                                                                                                else:
+                                                                                                    Result::Ok connector
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_valid_result: connector evidence の schema と placeholder を[検査/けんさ]する
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_valid_result %fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \connector:
+    if:
+        eq connector.schema_version 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaPlaceholder
+        else:
+            if:
+                not eq connector.schema_version selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version
+                then:
+                    let payload %SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_new 0 0 0 0 connector.schema_version selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version
+                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaMismatch payload
+                else:
+                    if:
+                        eq connector.instantiation_shape_hash 0
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::InstantiationShapeHashPlaceholder
+                        else:
+                            if:
+                                eq connector.connector_shape_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorShapeHashPlaceholder
+                                else:
+                                    if:
+                                        eq connector.substitution_shape_hash 0
+                                        then:
+                                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::SubstitutionShapeHashPlaceholder
+                                        else:
+                                            if:
+                                                eq connector.projection_shape_hash 0
+                                                then:
+                                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ProjectionShapeHashPlaceholder
+                                                else:
+                                                    if:
+                                                        eq connector.target_final_shape_hash 0
+                                                        then:
+                                                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetFinalShapeHashPlaceholder
+                                                        else:
+                                                            if:
+                                                                eq connector.trait_application_final_shape_hash 0
+                                                                then:
+                                                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationFinalShapeHashPlaceholder
+                                                                else:
+                                                                    selfhost_memo_trait_public_impl_generic_concrete_coherence_canonical_material_valid_result connector
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_payload: record と新規 connector から collision payload を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_payload %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision \record\declaration_ordinal\connector:
+    let target_key %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_target_key_hash connector.target_canonical_fingerprint connector.target_canonical_payload_hash connector.target_final_shape_hash
+    let trait_key %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_trait_key_hash connector.trait_application_canonical_fingerprint connector.trait_application_canonical_payload_hash connector.trait_application_final_shape_hash
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_new record.declaration_ordinal declaration_ordinal target_key trait_key record.connector_shape_hash connector.connector_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_eq: fingerprint が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_eq %fn SelfhostMemoTraitCanonicalTypeFingerprint fn SelfhostMemoTraitCanonicalTypeFingerprint bool \a\b:
+    and eq a.schema_version b.schema_version eq a.root_hash b.root_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_eq: payload hash が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_eq %fn SelfhostMemoTraitCanonicalKeyPayloadHash fn SelfhostMemoTraitCanonicalKeyPayloadHash bool \a\b:
+    and eq a.schema_version b.schema_version eq a.payload_hash b.payload_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_same_key: record と connector が同じ concrete impl key か[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_same_key %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence bool \record\connector:
+    let target_fingerprint_eq %bool selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_eq record.target_canonical_fingerprint connector.target_canonical_fingerprint
+    let target_payload_eq %bool selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_eq record.target_canonical_payload_hash connector.target_canonical_payload_hash
+    let target_shape_eq %bool eq record.target_final_shape_hash connector.target_final_shape_hash
+    let trait_fingerprint_eq %bool selfhost_memo_trait_public_impl_generic_concrete_coherence_fingerprint_eq record.trait_application_canonical_fingerprint connector.trait_application_canonical_fingerprint
+    let trait_payload_eq %bool selfhost_memo_trait_public_impl_generic_concrete_coherence_payload_eq record.trait_application_canonical_payload_hash connector.trait_application_canonical_payload_hash
+    let trait_shape_eq %bool eq record.trait_application_final_shape_hash connector.trait_application_final_shape_hash
+    let target_eq %bool and target_fingerprint_eq and target_payload_eq target_shape_eq
+    let trait_eq %bool and trait_fingerprint_eq and trait_payload_eq trait_shape_eq
+    and target_eq trait_eq
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_exact_record: record と connector が同じ accepted record か[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_exact_record %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence bool \record\declaration_ordinal\connector:
+    let same_key %bool selfhost_memo_trait_public_impl_generic_concrete_coherence_same_key record connector
+    let same_declaration %bool eq record.declaration_ordinal declaration_ordinal
+    let same_instantiation %bool eq record.instantiation_shape_hash connector.instantiation_shape_hash
+    let same_connector %bool eq record.connector_shape_hash connector.connector_shape_hash
+    let identity_eq %bool and same_declaration and same_instantiation same_connector
+    and same_key identity_eq
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_scan_loop: 既存 table と新規 connector を線形に[照合/しょうごう]する
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_scan_loop %fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable fn i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result unit SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \table\index\n\declaration_ordinal\connector:
+    if:
+        ge index n
+        then:
+            Result::Ok unit
+        else:
+            let records %&Vec SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord field::get_ref table "records"
+            match v::get records index:
+                Option::Some record:
+                    if:
+                        selfhost_memo_trait_public_impl_generic_concrete_coherence_exact_record record declaration_ordinal connector
+                        then:
+                            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DuplicateExactMatch selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_payload record declaration_ordinal connector
+                        else:
+                            if:
+                                selfhost_memo_trait_public_impl_generic_concrete_coherence_same_key record connector
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::OverlapUnsupported selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_payload record declaration_ordinal connector
+                                else:
+                                    selfhost_memo_trait_public_impl_generic_concrete_coherence_scan_loop table add index 1 n declaration_ordinal connector
+                Option::None:
+                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ExistingRecordReadFailed index
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_result: connector evidence と既存 record table から coherence evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `declaration_ordinal` は 1-origin の public impl declaration ordinal として扱います。
+//: - `existing` は既に同じ checker boundary で accepted された coherence record table です。
+//: - この関数は generic impl materializer の accepted path を開かず、coherence evidence だけを返します。
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_result %fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence fn &SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecordTable Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \declaration_ordinal\connector\existing:
+    if:
+        le declaration_ordinal 0
+        then:
+            Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DeclarationOrdinalPlaceholder
+        else:
+            match selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_valid_result connector:
+                Result::Ok checked_connector:
+                    let existing_count %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_len existing
+                    match selfhost_memo_trait_public_impl_generic_concrete_coherence_scan_loop existing 0 existing_count declaration_ordinal checked_connector:
+                        Result::Ok _unit:
+                            let coherence_hash %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_key_hash declaration_ordinal checked_connector
+                            if:
+                                eq coherence_hash 0
+                                then:
+                                    Result::Err SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DerivedCoherenceShapeHashPlaceholder
+                                else:
+                                    Result::Ok SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_schema_version declaration_ordinal checked_connector.instantiation_shape_hash checked_connector.connector_shape_hash checked_connector.target_canonical_fingerprint checked_connector.target_canonical_payload_hash checked_connector.target_final_shape_hash checked_connector.trait_application_canonical_fingerprint checked_connector.trait_application_canonical_payload_hash checked_connector.trait_application_final_shape_hash coherence_hash
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_eq: collision payload が同じか[返/かえ]す
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_eq %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceCollision bool \a\b:
+    let declaration_eq %bool and eq a.existing_declaration_ordinal b.existing_declaration_ordinal eq a.new_declaration_ordinal b.new_declaration_ordinal
+    let key_eq %bool and eq a.target_key_hash b.target_key_hash eq a.trait_application_key_hash b.trait_application_key_hash
+    let connector_eq %bool and eq a.existing_connector_shape_hash b.existing_connector_shape_hash eq a.new_connector_shape_hash b.new_connector_shape_hash
+    and declaration_eq and key_eq connector_eq
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_code: payload なし error kind を比較用 code へ[写/うつ]す
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_code %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind i32 \kind:
+    match kind:
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::RecordTableAllocFailed _:
+            1
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::RecordPushFailed _:
+            2
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ExistingRecordReadFailed _:
+            3
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DeclarationOrdinalPlaceholder:
+            4
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaPlaceholder:
+            5
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaMismatch _:
+            6
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::InstantiationShapeHashPlaceholder:
+            7
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorShapeHashPlaceholder:
+            8
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::SubstitutionShapeHashPlaceholder:
+            9
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ProjectionShapeHashPlaceholder:
+            10
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetFinalShapeHashPlaceholder:
+            11
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationFinalShapeHashPlaceholder:
+            12
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalFingerprintSchemaPlaceholder:
+            13
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalFingerprintSchemaMismatch:
+            14
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalFingerprintHashPlaceholder:
+            15
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalPayloadSchemaPlaceholder:
+            16
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalPayloadSchemaMismatch:
+            17
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TargetCanonicalPayloadHashPlaceholder:
+            18
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalFingerprintSchemaPlaceholder:
+            19
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalFingerprintSchemaMismatch:
+            20
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalFingerprintHashPlaceholder:
+            21
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalPayloadSchemaPlaceholder:
+            22
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalPayloadSchemaMismatch:
+            23
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::TraitApplicationCanonicalPayloadHashPlaceholder:
+            24
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DuplicateExactMatch _:
+            25
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::OverlapUnsupported _:
+            26
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DerivedCoherenceShapeHashPlaceholder:
+            27
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_eq: error kind と payload が同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_eq %fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind bool \a\b:
+    match a:
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaMismatch payload:
+            match b:
+                SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ConnectorSchemaMismatch other:
+                    selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_eq payload other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DuplicateExactMatch payload:
+            match b:
+                SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DuplicateExactMatch other:
+                    selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_eq payload other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::OverlapUnsupported payload:
+            match b:
+                SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::OverlapUnsupported other:
+                    selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_eq payload other
+                _:
+                    false
+        SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ExistingRecordReadFailed index:
+            match b:
+                SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::ExistingRecordReadFailed other:
+                    eq index other
+                _:
+                    false
+        _:
+            eq selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_code a selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_code b
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_error_result_eq: result が expected error と同じか[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_error_result_eq %fn Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind bool \result\expected:
+    match result:
+        Result::Ok _evidence:
+            false
+        Result::Err error:
+            selfhost_memo_trait_public_impl_generic_concrete_coherence_error_kind_eq error expected
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_summary_new: stage0 summary を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_summary_new %fn Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind fn Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind fn Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind fn Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind fn Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary \accepted\schema_placeholder\target_final_placeholder\duplicate\overlap:
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary accepted schema_placeholder target_final_placeholder duplicate overlap
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_fingerprint: stage0 用 canonical fingerprint を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_fingerprint %fn i32 SelfhostMemoTraitCanonicalTypeFingerprint \root_hash:
+    SelfhostMemoTraitCanonicalTypeFingerprint selfhost_memo_trait_canonical_type_fingerprint_schema_version root_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_payload: stage0 用 canonical payload hash を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_payload %fn i32 SelfhostMemoTraitCanonicalKeyPayloadHash \payload_hash:
+    SelfhostMemoTraitCanonicalKeyPayloadHash selfhost_memo_trait_canonical_key_payload_schema_version payload_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector: stage0 用 connector evidence を[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector %fn i32 fn i32 fn i32 SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence \schema\target_final_shape_hash\connector_shape_hash:
+    SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence schema 813001 813003 813005 813007 813009 813011 813013 (selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_fingerprint 813101) (selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_payload 813103) target_final_shape_hash (selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_fingerprint 813201) (selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_payload 813203) 813021 connector_shape_hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_empty: [空/から] table で coherence を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_empty %impure fn i32 impure fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \declaration_ordinal\connector:
+    match selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_new:
+        Result::Ok table:
+            let result %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_result declaration_ordinal connector &table
+            selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_free table
+            result
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_record_from_connector: stage0 用 record を connector と declaration から[作/つく]る
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_record_from_connector %fn i32 fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord \declaration_ordinal\connector:
+    let hash %i32 selfhost_memo_trait_public_impl_generic_concrete_coherence_connector_key_hash declaration_ordinal connector
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord declaration_ordinal connector.instantiation_shape_hash connector.connector_shape_hash connector.target_canonical_fingerprint connector.target_canonical_payload_hash connector.target_final_shape_hash connector.trait_application_canonical_fingerprint connector.trait_application_canonical_payload_hash connector.trait_application_final_shape_hash hash
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_with_record: 1 record 入り table で coherence を[評価/ひょうか]する
+fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_with_record %impure fn i32 impure fn SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence impure fn SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \declaration_ordinal\connector\record:
+    match selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_new:
+        Result::Ok table0:
+            match selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_push table0 record:
+                Result::Ok table1:
+                    let result %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_result declaration_ordinal connector &table1
+                    selfhost_memo_trait_public_impl_generic_concrete_coherence_record_table_free table1
+                    result
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_duplicate_error: stage0 duplicate の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_duplicate_error %fn void SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \void:
+    let connector %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version 813011 813031
+    let record %SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_record_from_connector 1 connector
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::DuplicateExactMatch selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_payload record 1 connector
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_overlap_error: stage0 overlap の期待 error
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_overlap_error %fn void SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind \void:
+    let connector %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version 813011 813031
+    let record %SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_record_from_connector 2 connector
+    SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind::OverlapUnsupported selfhost_memo_trait_public_impl_generic_concrete_coherence_collision_payload record 1 connector
+
+//: selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0: coherence の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0 %impure fn void SelfhostMemoTraitPublicImplGenericConcreteCoherenceStage0Summary \void:
+    let connector %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version 813011 813031
+    let schema_bad %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector 0 813011 813031
+    let target_final_bad %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_connector selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_schema_version 0 813031
+    let duplicate_record %SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_record_from_connector 1 connector
+    let overlap_record %SelfhostMemoTraitPublicImplGenericConcreteCoherenceRecord selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_record_from_connector 2 connector
+    let accepted %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_empty 1 connector
+    let schema_placeholder %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_empty 1 schema_bad
+    let target_final_placeholder %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_empty 1 target_final_bad
+    let duplicate %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_with_record 1 connector duplicate_record
+    let overlap %Result SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence SelfhostMemoTraitPublicImplGenericConcreteCoherenceErrorKind selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_eval_with_record 1 connector overlap_record
+    selfhost_memo_trait_public_impl_generic_concrete_coherence_stage0_summary_new accepted schema_placeholder target_final_placeholder duplicate overlap

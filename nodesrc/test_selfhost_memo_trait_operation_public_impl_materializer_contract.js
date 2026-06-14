@@ -44,9 +44,15 @@ function assertOrdered(text, snippets, message) {
 }
 
 const relPath = "stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl";
+const recordRelPath =
+    "stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer_record.nepl";
+const connectorRelPath =
+    "stdlib/neplg2/core/check/module/memo_trait_public_impl_generic_materializer_connector.nepl";
 const facadeRelPath = "stdlib/neplg2/core/check/module.nepl";
 const tySourceListRelPath = "nodesrc/selfhost_ty_sources.js";
 const source = read(relPath);
+const recordSource = read(recordRelPath);
+const connectorSource = read(connectorRelPath);
 const code = stripDocComments(source);
 const facade = read(facadeRelPath);
 const tySourceList = read(tySourceListRelPath);
@@ -74,11 +80,30 @@ assert.ok(
     "docs must reject source-derived authority for operation or method root materialization",
 );
 assert.ok(
-    source.includes("Drop record が現れた場合、classifier で shape を確認したうえで builder input に写し") &&
+        source.includes("Drop record が現れた場合、classifier で shape を確認したうえで builder input に写し") &&
         source.includes("`DropOperationUnsupportedUntilResourceProof`") &&
         source.includes("detailed generic binder evidence を持つ record は header evidence までは検査します") &&
-        source.includes("`GenericImplInstantiationUnsupported`"),
-    "docs must route Drop through the existing fail-closed builder boundary and stop generic records before operation candidate construction",
+        source.includes("`GenericImplInstantiationUnsupported`") &&
+        source.includes("connector input table を受け取る generic-aware API") &&
+        source.includes("matching input を見つけた後に `memo_trait_public_impl_generic_materializer_connector` の `connector_result` を実行") &&
+        source.includes("concrete target TypeId と final target / trait shape"),
+    "docs must route Drop through the existing fail-closed builder boundary and describe both the old no-connector generic rejection path and the connector-backed generic accepted path",
+);
+assertOrdered(
+    recordSource,
+    [
+        "# check/module/memo_trait_operation_public_impl_materializer_record",
+        "[目的/もくてき]:",
+        "[契約/けいやく]:",
+        "[現状/げんじょう]:",
+        "[計算量/けいさんりょう]:",
+    ],
+    "shared public impl materializer record module must document purpose, contract, current status, and complexity",
+);
+assert.ok(
+    recordSource.includes("両 module が互いを import すると dependency が cycle になるため") &&
+        recordSource.includes("record table owner、connector evidence、classifier、candidate builder、Resource proof は扱いません"),
+    "shared record docs must explain that the split exists to keep materializer and connector dependencies acyclic",
 );
 assert.doesNotMatch(
     facade,
@@ -96,18 +121,35 @@ assertOrdered(
         "#import \"./memo_trait_operation_classifier\" as *",
         "#import \"./memo_trait_operation_impl_candidate_builder\" as *",
         "#import \"./memo_trait_operation_impl_table\" as *",
+        "#import \"./memo_trait_operation_public_impl_materializer_record\" as *",
         "#import \"./memo_trait_public_impl_generic_binder\" as *",
+        "#import \"./memo_trait_public_impl_generic_materializer_connector\" as *",
         "#import \"./memo_trait_public_impl_header\" as *",
     ],
-    "materializer imports must go through classifier, candidate builder, impl table lookup helpers, generic binder evidence, and public impl header boundaries",
+    "materializer imports must go through classifier, candidate builder, impl table lookup helpers, generic binder evidence, generic materializer connector evidence, and public impl header boundaries",
 );
 assert.doesNotMatch(
     code,
     /#import ".*(?:resource|backend|memo_trait_proof_store|memo_trait_proof_artifact|memo_trait_proof_reader|memo_trait_proof_serializer|memo_trait_proof_preseed|memo_trait_proof_decoded|memo_trait_proof_payload_reader|memo_trait_canonical_key|memo_trait_operation_evidence_producer|memo_trait_operation_purity_gate|memo_trait_operation_body_check_resolver|memo_trait_operation_method_body|memo_trait_operation_drop_impl_resolver)/,
     "materializer must not import Resource IR, backend, proof store, canonical-key, producer, purity, body-check, method-body, or Drop resolver layers directly",
 );
-assertOrdered(
+assert.doesNotMatch(
     source,
+    /^pub struct SelfhostMemoTraitOperationPublicImplMaterializerRecord:/m,
+    "materializer body must not own the shared record type after the connector accepted path split",
+);
+assert.match(
+    recordSource,
+    /^pub fn selfhost_memo_trait_operation_public_impl_materializer_record_new /m,
+    "shared record module must own the typed constructor so connector fixtures do not import the materializer body",
+);
+assert.doesNotMatch(
+    source,
+    /^pub fn selfhost_memo_trait_operation_public_impl_materializer_record_new /m,
+    "materializer body must not keep a duplicate record constructor after the shared record split",
+);
+assertOrdered(
+    recordSource,
     [
         "pub struct SelfhostMemoTraitOperationPublicImplMaterializerRecord:",
         "type_id %SelfhostTypeId",
@@ -125,7 +167,31 @@ assertOrdered(
         "method_body_root %Option SelfhostHirExprId",
         "fuel %i32",
     ],
-    "materializer record must carry typed public impl header fields, generic binder evidence mode, classifier fields, method root, and fuel",
+    "shared materializer record must carry typed public impl header fields, generic binder evidence mode, classifier fields, method root, and fuel",
+);
+assert.doesNotMatch(
+    source,
+    /pub struct SelfhostMemoTraitOperationPublicImplMaterializerGenericConnectorTable:|selfhost_memo_trait_operation_public_impl_materializer_generic_connector_table_push|SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidenceTable/,
+    "materializer must not own, populate, or accept a raw generic connector evidence table",
+);
+assertOrdered(
+    connectorSource,
+    [
+        "pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput:",
+        "declaration_ordinal %i32",
+        "bound_status %SelfhostMemoTraitPublicImplGenericBoundSolvingStatus",
+        "instantiation %SelfhostMemoTraitPublicImplGenericInstantiationEvidence",
+        "projection_connector %SelfhostMemoTraitPublicImplGenericInstantiationProjectionConnectorEvidence",
+        "coherence %SelfhostMemoTraitPublicImplGenericConcreteCoherenceEvidence",
+        "pub struct SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable:",
+        "records %Vec SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput",
+    ],
+    "connector module must own the generic connector input table without storing final evidence",
+);
+assert.doesNotMatch(
+    connectorSource,
+    /SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidenceTable|selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_table_push_result/,
+    "connector module must not expose a final generic connector evidence table because materializer must run connector_result itself",
 );
 assertOrdered(
     source,
@@ -135,13 +201,17 @@ assertOrdered(
         "RecordPushFailed %StdErrorKind",
         "BuilderInputTableAllocFailed %StdErrorKind",
         "SourceReadFailed %i32",
+        "GenericConnectorReadFailed %i32",
+        "GenericConnectorMissing %i32",
+        "GenericConnectorDuplicate %i32",
         "HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind",
         "GenericImplInstantiationUnsupported",
+        "GenericConnectorRejected %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind",
         "ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind",
         "BuilderInputPushRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind",
         "CandidateBuilderRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind",
     ],
-    "materializer errors must distinguish setup, read, header, generic-instantiation, classifier, builder-input push, and candidate-builder failures",
+    "materializer errors must distinguish setup, connector table, read, header, generic-instantiation, connector rejection, classifier, builder-input push, and candidate-builder failures",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result"),
@@ -163,6 +233,46 @@ assert.doesNotMatch(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result"),
     /record\.trait_source\.operation|SelfhostMemoTraitOperationEvidenceKind::Copy|SelfhostMemoTraitOperationEvidenceKind::Drop|SelfhostMemoTraitOperationEvidenceKind::Eq|SelfhostMemoTraitOperationEvidenceKind::Hash/,
     "record_to_builder_input_result must not directly trust operation kind from source identity or hard-code operation variants",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_generic_connector_for_record_result"),
+    [
+        "selfhost_memo_trait_operation_public_impl_materializer_record_declaration_ordinal_result record",
+        "selfhost_memo_trait_operation_public_impl_materializer_generic_connector_lookup_loop connectors declaration_ordinal 0 none",
+        "selfhost_memo_trait_public_impl_generic_materializer_connector_result record input.bound_status input.instantiation input.projection_connector input.coherence",
+        "selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_recheck_result evidence",
+        "not selfhost_type_id_eq record.type_id checked.type_id",
+        "GenericConnectorRejected connector_error",
+        "not eq record.module_fingerprint checked.module_fingerprint",
+        "selfhost_memo_trait_operation_public_impl_materializer_shape_option_result record.target_type_shape_hash",
+        "RecordTargetShapeConnectorMismatch mismatch",
+        "selfhost_memo_trait_operation_public_impl_materializer_shape_option_result record.trait_application_shape_hash",
+        "RecordTraitApplicationShapeConnectorMismatch mismatch",
+        "Result::Ok checked",
+    ],
+    "generic connector lookup must require declaration ordinal, run connector_result in the materializer, recheck generated evidence, and compare record identity plus pre-substitution target and trait shapes before accepting a connector",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_generic_record_to_builder_input_result"),
+    [
+        "selfhost_memo_trait_operation_public_impl_materializer_generic_connector_for_record_result record connectors",
+        "selfhost_memo_trait_operation_public_impl_materializer_generic_header_input record connector",
+        "selfhost_memo_trait_operation_public_impl_materializer_generic_trait_application_input record connector",
+        "selfhost_memo_trait_public_impl_header_evidence_result impl_header",
+        "selfhost_memo_trait_operation_classifier_evidence_result trait_application",
+        "selfhost_memo_trait_operation_impl_candidate_builder_input_new connector.concrete_target_type_id classifier.operation impl_header trait_application some connector.target_final_shape_hash record.method_body_root record.fuel",
+    ],
+    "generic record conversion must use connector-rechecked concrete target TypeId and final target shape when building candidate input",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_with_generics_result"),
+    [
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:",
+        "selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result record",
+        "SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed _binder_evidence:",
+        "selfhost_memo_trait_operation_public_impl_materializer_generic_record_to_builder_input_result record connectors",
+    ],
+    "generic-aware record conversion must keep the old monomorphic path and require connector-backed conversion only for Detailed generic records",
 );
 assertOrdered(
     functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_builder_input_loop"),
@@ -192,6 +302,20 @@ assertOrdered(
         "CandidateBuilderRejected builder_error",
     ],
     "candidate table entry must close the temporary builder input owner after both builder success and builder rejection",
+);
+assertOrdered(
+    functionBlock(source, "selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_result"),
+    [
+        "selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_with_generics_result source connectors",
+        "selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result module &builder_inputs",
+        "Result::Ok candidates:",
+        "selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs",
+        "Result::Ok candidates",
+        "Result::Err builder_error:",
+        "selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs",
+        "CandidateBuilderRejected builder_error",
+    ],
+    "generic-aware candidate table entry must use the connector-backed builder input path and close the temporary builder input owner on success and builder rejection",
 );
 assert.doesNotMatch(
     code,

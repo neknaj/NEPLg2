@@ -962,6 +962,39 @@ performance note:
 
 この checkpoint 後の残件は、generic materializer connector evidence を `memo_trait_operation_public_impl_materializer` の accepted path 本体へ接続し、operation classifier / method body purity / Drop no-escape / aggregate proof と同じ operation candidate construction へ束ねることである。PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張は引き続き未実装である。
 
+## 2026-06-15 selfhost generic materializer accepted path checkpoint
+
+`stdlib/neplg2/core/check/module/memo_trait_operation_public_impl_materializer.nepl` の generic-aware accepted path を、generic materializer connector input に接続した。connector table を渡さない既存 API は従来どおり `Detailed` generic record を `GenericImplInstantiationUnsupported` で拒否する。一方で connector input table を渡す API は、matching declaration ordinal の input を探し、materializer record と input の bound solving status / instantiation evidence / projection connector evidence / coherence evidence から `selfhost_memo_trait_public_impl_generic_materializer_connector_result` をその場で実行する。
+
+この設計では public constructible な final evidence table を accepted authority にしない。`memo_trait_public_impl_generic_materializer_connector.nepl` は `SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput` と `SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable` だけを提供し、`SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidenceTable` は置かない。input table が直接構築されても、それ自体は final evidence ではないため、materializer は source record を持つ地点で connector result を再計算する。connector result から得た evidence は defensive `evidence_recheck_result`、record identity、module fingerprint、pre-substitution target shape、pre-substitution trait application shape の再照合を通った場合だけ、concrete target TypeId と final target / trait shape として candidate builder input へ渡される。
+
+shared record は `memo_trait_operation_public_impl_materializer_record.nepl` に分離した。これにより connector module は materializer body を import せず、materializer body は connector module を import しても cycle を作らない。record constructor は shared record module が持つため、connector fixture が materializer 本体へ依存しない。
+
+この accepted path は operation classifier、public impl header producer、candidate builder に接続するが、method body purity、Drop no-escape proof、MemoKey / MemoValue aggregate proof、PrivateCache / PrivateState masking、proof store、backend artifact、prechecked artifact は直接 import しない。これらは既存の method body fact / Drop proof / operation evidence connector / aggregate solver / private effect boundary の後続 stage で検査する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` と `nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js` で固定した。materializer が raw connector evidence table を所有・push・受理しないこと、connector module が final evidence table を公開しないこと、materializer が matching input から `connector_result` を実行すること、concrete target TypeId が producer root と recheck root の両方に含まれること、Resource / backend / proof store / PrivateCache / prechecked layer を直接 import しないこと、行数 / doc comment 長制限を追加しないことを確認する。
+
+subagent review では、Popper が connector-owned evidence table でも public struct constructor から self-consistent な final evidence table を直接構築できる点を blocker とした。今回の follow-up で final evidence table を廃止し、materializer が connector input から `connector_result` を実行する設計へ変更した。Tesla は同変更について blocker なしとし、public input table は final evidence ではないため現 checkpoint の source policy と defensive recheck で扱えると確認した。Popper の再レビューは timeout したが、元 blocker の対象だった final evidence table は実装から削除済みであり、同じ偽造経路は focused contract でも禁止している。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_shape_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_substitution_projection_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_instantiation_projection_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_concrete_coherence_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+
+performance note:
+
+- `memo_trait_operation_public_impl_materializer.nepl` focused doctest は約 191 秒、`memo_trait_public_impl_generic_materializer_connector.nepl` focused doctest は約 161 秒の wall time で pass した。これは owner-bearing stage0 fixture と現行 Resource static check の探索空間が主因であり、accepted path の semantic boundary とは分けて扱う。
+- table lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した typed input / connector-result boundary を保ったまま後から行える最適化である。
+
+この checkpoint 後の残件は、generic accepted path を operation evidence / aggregate proof / memo_call backend representation へ渡す上位 orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張である。
+
 ## 2026-06-14 selfhost Resource graph input scanner checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_operation_drop_resource_graph_input_scanner.nepl` を追加し、actual Resource IR graph walker が将来返す typed walker event table を既存 traversal collector の `SelfhostDropResourceGraphInput` へ正規化する checker-layer scanner boundary を作った。

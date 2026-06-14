@@ -10,11 +10,12 @@
 //: - この module は method body fact、Drop proof、operation evidence record、aggregate proof status を作りません。candidate table owner への接続は既存 `memo_trait_operation_impl_candidate_builder` に委譲します。
 //:
 //: [契約/けいやく]:
-//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、`SelfhostHirModule` borrow、operation classifier、candidate builder boundary だけです。
+//: - accepted authority は `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` の typed field、connector input table を使ってこの module 内で実行した `connector_result`、`SelfhostHirModule` borrow、operation classifier、candidate builder boundary だけです。
 //: - source text、span、lexeme、display name、diagnostic text、module path、method name string、trait name string、public surface hash から operation や HIR root を推測しません。
 //: - `type_id`、public impl header input、trait application input、resolved target shape、method body root、fuel は上流 materializer が型検査済み evidence として渡します。この module はそれらを raw source から再構築しません。
 //: - public impl header producer が header を拒否した場合は、candidate builder input を作らず `HeaderRejected` として fail-closed にします。
-//: - detailed generic binder evidence を持つ record は header evidence までは検査しますが、generic instantiation / bound solving が未接続であるため operation candidate へは流さず `GenericImplInstantiationUnsupported` として拒否します。
+//: - connector table を受け取らない既存 API では、detailed generic binder evidence を持つ record は header evidence までは検査しますが、operation candidate へは流さず `GenericImplInstantiationUnsupported` として拒否します。
+//: - connector input table を受け取る generic-aware API では、matching input を見つけた後に `memo_trait_public_impl_generic_materializer_connector` の `connector_result` を実行し、concrete target TypeId と final target / trait shape を使う場合だけ builder input へ進めます。
 //: - classifier が trait source と trait application shape の不一致を返した場合は、candidate builder input を作らず `ClassifierRejected` として fail-closed にします。
 //: - `source` record table と `module` は borrow です。この module はどちらも閉じません。
 //: - 内部で作る builder input table owner は、この module が success / failure の両方で閉じます。success の場合だけ output candidate table owner を caller へ返します。
@@ -23,7 +24,7 @@
 //:
 //: [現状/げんじょう]:
 //: - Phase 1 では actual AST / typed HIR public impl scanner はまだ未接続です。この module は、その scanner が作るべき typed record table の境界を先に固定します。
-//: - full public surface materialization、generic impl instantiation、trait coherence、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算は後続 slice の責務です。
+//: - full public surface materialization、trait coherence の完全な overlap solver、Drop body effect checker、Resource IR no-escape proof、Copy / Drop / Eq / Hash pure evidence の実計算は後続 slice の責務です。
 //: - facade にはまだ re-export しません。full operation evidence orchestration が public surface materializer と proof boundary をまとめる段階で公開範囲を再評価します。
 //:
 //: [計算量/けいさんりょう]:
@@ -87,36 +88,10 @@
 #import "./memo_trait_operation_classifier" as *
 #import "./memo_trait_operation_impl_candidate_builder" as *
 #import "./memo_trait_operation_impl_table" as *
+#import "./memo_trait_operation_public_impl_materializer_record" as *
 #import "./memo_trait_public_impl_generic_binder" as *
+#import "./memo_trait_public_impl_generic_materializer_connector" as *
 #import "./memo_trait_public_impl_header" as *
-
-//: SelfhostMemoTraitOperationPublicImplMaterializerRecord: actual public impl materializer が渡す typed operation impl record
-//:
-//: [目的/もくてき]:
-//: - public impl header、trait application identity、operation-specific body root を 1 つに束ね、candidate builder input や Drop fact projection へ安全に変換できる最小 payload にします。
-//:
-//: [契約/けいやく]:
-//: - `type_id` は operation proof を求める対象型です。session-local id であり、永続 artifact identity ではありません。
-//: - `module_fingerprint`、`declaration_ordinal`、`visibility`、`impl_kind`、`target_type_shape_hash`、`trait_application_shape_hash`、`type_parameter_count`、`type_parameter_bound_count` は `SelfhostMemoTraitPublicImplHeaderInput` へそのまま写します。
-//: - `generic_binder_evidence` は header input へそのまま写します。materializer は source text や record order から generic binder を復元しません。
-//: - `trait_source` と `trait_type_argument_count` は classifier input へ渡します。operation kind はここから classifier が導出します。
-//: - `method_body_root` は operation-specific body root です。Eq / Hash では method body root、Drop では Drop impl body root を表します。Copy では通常 `none` です。この materializer の candidate-table path は root の有無を operation matrix として検査せず、candidate builder / Drop fact orchestrator など後続の専用 boundary に任せます。
-//: - `fuel` は HIR traversal 上限です。0 以下や過大値の意味付けは method body checker / builder 側の責務です。
-pub struct SelfhostMemoTraitOperationPublicImplMaterializerRecord:
-    type_id %SelfhostTypeId
-    module_fingerprint %i32
-    declaration_ordinal %Option i32
-    visibility %SelfhostModuleDeclarationVisibility
-    impl_kind %SelfhostMemoTraitPublicImplHeaderKind
-    target_type_shape_hash %Option i32
-    trait_source %SelfhostMemoTraitOperationSourceIdentity
-    trait_type_argument_count %i32
-    trait_application_shape_hash %Option i32
-    type_parameter_count %i32
-    type_parameter_bound_count %i32
-    generic_binder_evidence %SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence
-    method_body_root %Option SelfhostHirExprId
-    fuel %i32
 
 //: SelfhostMemoTraitOperationPublicImplMaterializerRecordTable: typed materializer record の owner table
 //:
@@ -145,8 +120,12 @@ pub enum SelfhostMemoTraitOperationPublicImplMaterializerErrorKind:
     RecordPushFailed %StdErrorKind
     BuilderInputTableAllocFailed %StdErrorKind
     SourceReadFailed %i32
+    GenericConnectorReadFailed %i32
+    GenericConnectorMissing %i32
+    GenericConnectorDuplicate %i32
     HeaderRejected %SelfhostMemoTraitPublicImplHeaderErrorKind
     GenericImplInstantiationUnsupported
+    GenericConnectorRejected %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind
     ClassifierRejected %SelfhostMemoTraitOperationClassifierErrorKind
     BuilderInputPushRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
     CandidateBuilderRejected %SelfhostMemoTraitOperationImplCandidateBuilderErrorKind
@@ -158,14 +137,6 @@ pub struct SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary:
     duplicate_rejected %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
     drop_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
     generic_unsupported %Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind
-
-impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerRecord:
-    fn clone %fn &SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationPublicImplMaterializerRecord \self:
-        *self
-
-impl Copy for SelfhostMemoTraitOperationPublicImplMaterializerRecord:
-    fn copy_mark %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationPublicImplMaterializerRecord \self:
-        self
 
 impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary:
     fn clone %fn &SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary SelfhostMemoTraitOperationPublicImplMaterializerAcceptedSummary \self:
@@ -190,13 +161,6 @@ impl Clone for SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary:
 impl Copy for SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary:
     fn copy_mark %fn SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary SelfhostMemoTraitOperationPublicImplMaterializerStage0Summary \self:
         self
-
-//: selfhost_memo_trait_operation_public_impl_materializer_record_new: typed public impl materializer record を[作/つく]る
-//:
-//: [契約/けいやく]:
-//: - constructor は typed field を束ねるだけです。public impl header の妥当性、trait source の trust、method root の operation matrix はそれぞれ既存の header / classifier / builder 境界が検査します。
-pub fn selfhost_memo_trait_operation_public_impl_materializer_record_new %fn SelfhostTypeId fn i32 fn Option i32 fn SelfhostModuleDeclarationVisibility fn SelfhostMemoTraitPublicImplHeaderKind fn Option i32 fn SelfhostMemoTraitOperationSourceIdentity fn i32 fn Option i32 fn i32 fn i32 fn SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence fn Option SelfhostHirExprId fn i32 SelfhostMemoTraitOperationPublicImplMaterializerRecord \type_id\module_fingerprint\declaration_ordinal\visibility\impl_kind\target_type_shape_hash\trait_source\trait_type_argument_count\trait_application_shape_hash\type_parameter_count\type_parameter_bound_count\generic_binder_evidence\method_body_root\fuel:
-    SelfhostMemoTraitOperationPublicImplMaterializerRecord type_id module_fingerprint declaration_ordinal visibility impl_kind target_type_shape_hash trait_source trait_type_argument_count trait_application_shape_hash type_parameter_count type_parameter_bound_count generic_binder_evidence method_body_root fuel
 
 //: selfhost_memo_trait_operation_public_impl_materializer_record_table_new: [空/から]の materializer record table を[作/つく]る
 pub fn selfhost_memo_trait_operation_public_impl_materializer_record_table_new %impure fn void Result SelfhostMemoTraitOperationPublicImplMaterializerRecordTable StdErrorKind \void:
@@ -241,6 +205,158 @@ fn selfhost_memo_trait_operation_public_impl_materializer_header_input %fn Selfh
 //: selfhost_memo_trait_operation_public_impl_materializer_trait_application_input: materializer record から classifier input を[作/つく]る
 fn selfhost_memo_trait_operation_public_impl_materializer_trait_application_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord SelfhostMemoTraitOperationTraitApplicationInput \record:
     selfhost_memo_trait_operation_trait_application_input_new record.trait_source record.trait_type_argument_count record.trait_application_shape_hash
+
+//: selfhost_memo_trait_operation_public_impl_materializer_record_declaration_ordinal_result: record の public declaration ordinal を[取/と]り[出/だ]す
+fn selfhost_memo_trait_operation_public_impl_materializer_record_declaration_ordinal_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \record:
+    match record.declaration_ordinal:
+        Option::Some ordinal:
+            if:
+                eq ordinal 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::DeclarationOrdinalPlaceholder
+                else:
+                    if:
+                        lt ordinal 0
+                        then:
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::DeclarationOrdinalNegative
+                        else:
+                            Result::Ok ordinal
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected SelfhostMemoTraitPublicImplHeaderErrorKind::DeclarationOrdinalMissing
+
+//: selfhost_memo_trait_operation_public_impl_materializer_shape_option_result: shape hash option を[検査/けんさ]して[取/と]り[出/だ]す
+fn selfhost_memo_trait_operation_public_impl_materializer_shape_option_result %fn Option i32 fn SelfhostMemoTraitPublicImplHeaderErrorKind fn SelfhostMemoTraitPublicImplHeaderErrorKind Result i32 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \shape\missing_error\placeholder_error:
+    match shape:
+        Option::Some value:
+            if:
+                eq value 0
+                then:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected placeholder_error
+                else:
+                    Result::Ok value
+        Option::None:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected missing_error
+
+//: selfhost_memo_trait_operation_public_impl_materializer_generic_connector_lookup_loop: declaration ordinal に対応する generic connector input を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - 複数の input が同じ declaration ordinal を持つ場合は first-wins にせず `GenericConnectorDuplicate` で拒否します。
+//: - 読み取り失敗は `GenericConnectorReadFailed(index)` として typed payload に残します。
+fn selfhost_memo_trait_operation_public_impl_materializer_generic_connector_lookup_loop %fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable fn i32 fn i32 fn Option SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorInput SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \source\declaration_ordinal\index\found:
+    if:
+        ge index selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_len source
+        then:
+            match found:
+                Option::Some input:
+                    Result::Ok input
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing declaration_ordinal
+        else:
+            match selfhost_memo_trait_public_impl_generic_materializer_connector_input_table_get source index:
+                Option::Some input:
+                    if:
+                        eq input.declaration_ordinal declaration_ordinal
+                        then:
+                            match found:
+                                Option::Some _already:
+                                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate declaration_ordinal
+                                Option::None:
+                                    selfhost_memo_trait_operation_public_impl_materializer_generic_connector_lookup_loop source declaration_ordinal add index 1 some input
+                        else:
+                            selfhost_memo_trait_operation_public_impl_materializer_generic_connector_lookup_loop source declaration_ordinal add index 1 found
+                Option::None:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed index
+
+//: selfhost_memo_trait_operation_public_impl_materializer_generic_connector_for_record_result: record と matching connector input から evidence を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - input table は final evidence を保持しません。matching input を見つけた後、materializer record を渡して connector module の `connector_result` を必ず実行します。
+//: - `evidence_recheck_result` は producer provenance の代替ではなく、防御的な field consistency check です。producer 境界はこの関数内の `connector_result` 呼び出しです。
+//: - record の original target / trait shape と evidence の pre-substitution shape を照合し、別 declaration 用 input の混入を防ぎます。
+fn selfhost_memo_trait_operation_public_impl_materializer_generic_connector_for_record_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable Result SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \record\connectors:
+    match selfhost_memo_trait_operation_public_impl_materializer_record_declaration_ordinal_result record:
+        Result::Ok declaration_ordinal:
+            match selfhost_memo_trait_operation_public_impl_materializer_generic_connector_lookup_loop connectors declaration_ordinal 0 none:
+                Result::Ok input:
+                    match selfhost_memo_trait_public_impl_generic_materializer_connector_result record input.bound_status input.instantiation input.projection_connector input.coherence:
+                        Result::Ok evidence:
+                            match selfhost_memo_trait_public_impl_generic_materializer_connector_evidence_recheck_result evidence:
+                                Result::Ok checked:
+                                    if:
+                                        not selfhost_type_id_eq record.type_id checked.type_id
+                                        then:
+                                            let mismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new selfhost_type_id_index record.type_id selfhost_type_id_index checked.type_id
+                                            let connector_error %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::MaterializerConnectorShapeHashMismatch mismatch
+                                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected connector_error
+                                        else:
+                                            if:
+                                                not eq record.module_fingerprint checked.module_fingerprint
+                                                then:
+                                                    let mismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new record.module_fingerprint checked.module_fingerprint
+                                                    let connector_error %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::MaterializerConnectorShapeHashMismatch mismatch
+                                                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected connector_error
+                                                else:
+                                                    match selfhost_memo_trait_operation_public_impl_materializer_shape_option_result record.target_type_shape_hash SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashMissing SelfhostMemoTraitPublicImplHeaderErrorKind::TargetTypeShapeHashPlaceholder:
+                                                        Result::Ok target_shape:
+                                                            if:
+                                                                not eq target_shape checked.pre_substitution_target_type_shape_hash
+                                                                then:
+                                                                    let mismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new checked.pre_substitution_target_type_shape_hash target_shape
+                                                                    let connector_error %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTargetShapeConnectorMismatch mismatch
+                                                                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected connector_error
+                                                                else:
+                                                                    match selfhost_memo_trait_operation_public_impl_materializer_shape_option_result record.trait_application_shape_hash SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashMissing SelfhostMemoTraitPublicImplHeaderErrorKind::TraitApplicationShapeHashPlaceholder:
+                                                                        Result::Ok trait_shape:
+                                                                            if:
+                                                                                not eq trait_shape checked.pre_substitution_trait_application_shape_hash
+                                                                                then:
+                                                                                    let mismatch %SelfhostMemoTraitPublicImplGenericMaterializerConnectorMismatch selfhost_memo_trait_public_impl_generic_materializer_connector_mismatch_new checked.pre_substitution_trait_application_shape_hash trait_shape
+                                                                                    let connector_error %SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind SelfhostMemoTraitPublicImplGenericMaterializerConnectorErrorKind::RecordTraitApplicationShapeConnectorMismatch mismatch
+                                                                                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected connector_error
+                                                                                else:
+                                                                                    Result::Ok checked
+                                                                        Result::Err trait_error:
+                                                                            Result::Err trait_error
+                                                        Result::Err target_error:
+                                                            Result::Err target_error
+                                Result::Err connector_error:
+                                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected connector_error
+                        Result::Err connector_error:
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected connector_error
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_generic_header_input: generic connector evidence から concrete header input を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - candidate builder へ渡す header は concrete target / trait shape を持つ monomorphic header として作ります。
+//: - original generic binder evidence は connector evidence 側で検査済みであり、builder input へ count-only generic header として持ち込みません。
+fn selfhost_memo_trait_operation_public_impl_materializer_generic_header_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitPublicImplHeaderInput \record\evidence:
+    selfhost_memo_trait_public_impl_header_input_new record.visibility record.module_fingerprint some evidence.declaration_ordinal record.impl_kind some evidence.target_final_shape_hash some evidence.trait_application_final_shape_hash 0 0 selfhost_memo_trait_public_impl_header_monomorphic_binder_evidence
+
+//: selfhost_memo_trait_operation_public_impl_materializer_generic_trait_application_input: generic connector evidence から concrete trait application input を[作/つく]る
+fn selfhost_memo_trait_operation_public_impl_materializer_generic_trait_application_input %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn SelfhostMemoTraitPublicImplGenericMaterializerConnectorEvidence SelfhostMemoTraitOperationTraitApplicationInput \record\evidence:
+    selfhost_memo_trait_operation_trait_application_input_new record.trait_source record.trait_type_argument_count some evidence.trait_application_final_shape_hash
+
+//: selfhost_memo_trait_operation_public_impl_materializer_generic_record_to_builder_input_result: Detailed record を connector evidence 付きで builder input へ[変換/へんかん]する
+fn selfhost_memo_trait_operation_public_impl_materializer_generic_record_to_builder_input_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable Result SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \record\connectors:
+    match selfhost_memo_trait_operation_public_impl_materializer_generic_connector_for_record_result record connectors:
+        Result::Ok connector:
+            let impl_header %SelfhostMemoTraitPublicImplHeaderInput selfhost_memo_trait_operation_public_impl_materializer_generic_header_input record connector
+            let trait_application %SelfhostMemoTraitOperationTraitApplicationInput selfhost_memo_trait_operation_public_impl_materializer_generic_trait_application_input record connector
+            match selfhost_memo_trait_public_impl_header_evidence_result impl_header:
+                Result::Ok _header_evidence:
+                    match selfhost_memo_trait_operation_classifier_evidence_result trait_application:
+                        Result::Ok classifier:
+                            Result::Ok selfhost_memo_trait_operation_impl_candidate_builder_input_new connector.concrete_target_type_id classifier.operation impl_header trait_application some connector.target_final_shape_hash record.method_body_root record.fuel
+                        Result::Err classifier_error:
+                            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected classifier_error
+                Result::Err header_error:
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected header_error
+        Result::Err e:
+            Result::Err e
 
 //: selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result: 1 record を builder input へ[変換/へんかん]する
 //:
@@ -295,6 +411,42 @@ fn selfhost_memo_trait_operation_public_impl_materializer_builder_input_loop %im
                     selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder
                     Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed index
 
+//: selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_with_generics_result: 1 record を generic connector input table 付きで builder input へ[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - Monomorphic record は既存 path と同じ header / classifier 検査を通ります。
+//: - Detailed generic record は connector evidence 必須です。connector missing / duplicate / mismatch は typed error として拒否し、builder input を作りません。
+fn selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_with_generics_result %fn SelfhostMemoTraitOperationPublicImplMaterializerRecord fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable Result SelfhostMemoTraitOperationImplCandidateBuilderInput SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \record\connectors:
+    match record.generic_binder_evidence:
+        SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Monomorphic:
+            selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_result record
+        SelfhostMemoTraitPublicImplHeaderGenericBinderEvidence::Detailed _binder_evidence:
+            selfhost_memo_trait_operation_public_impl_materializer_generic_record_to_builder_input_result record connectors
+
+//: selfhost_memo_trait_operation_public_impl_materializer_builder_input_with_generics_loop: record table と generic connector input table から builder input table を[組/く]む
+fn selfhost_memo_trait_operation_public_impl_materializer_builder_input_with_generics_loop %impure fn SelfhostMemoTraitOperationImplCandidateBuilderInputTable impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable impure fn i32 Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \builder\source\connectors\index:
+    if:
+        ge index selfhost_memo_trait_operation_public_impl_materializer_record_table_len source
+        then:
+            Result::Ok builder
+        else:
+            let records %&Vec SelfhostMemoTraitOperationPublicImplMaterializerRecord field::get_ref source "records"
+            match v::get records index:
+                Option::Some record:
+                    match selfhost_memo_trait_operation_public_impl_materializer_record_to_builder_input_with_generics_result record connectors:
+                        Result::Ok builder_input:
+                            match selfhost_memo_trait_operation_impl_candidate_builder_input_table_push builder builder_input:
+                                Result::Ok next_builder:
+                                    selfhost_memo_trait_operation_public_impl_materializer_builder_input_with_generics_loop next_builder source connectors add index 1
+                                Result::Err push_error:
+                                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected push_error
+                        Result::Err e:
+                            selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder
+                            Result::Err e
+                Option::None:
+                    selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed index
+
 //: selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_result: public impl records から builder input table owner を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -307,6 +459,18 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_fro
         Result::Err alloc_error:
             Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputTableAllocFailed alloc_error
 
+//: selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_with_generics_result: public impl records から generic connector input 付きで builder input table owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `source` と `connectors` は borrow です。この関数は閉じません。
+//: - Detailed record がある場合は、matching connector input から connector result が生成され再検査に成功したときだけ concrete builder input を作ります。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_with_generics_result %impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable Result SelfhostMemoTraitOperationImplCandidateBuilderInputTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \source\connectors:
+    match selfhost_memo_trait_operation_impl_candidate_builder_input_table_new:
+        Result::Ok builder0:
+            selfhost_memo_trait_operation_public_impl_materializer_builder_input_with_generics_loop builder0 source connectors 0
+        Result::Err alloc_error:
+            Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputTableAllocFailed alloc_error
+
 //: selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_result: public impl records から candidate table owner を[作/つく]る
 //:
 //: [契約/けいやく]:
@@ -315,6 +479,24 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_fro
 //: - success の場合だけ output candidate table owner を caller へ返します。
 pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\source:
     match selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_result source:
+        Result::Ok builder_inputs:
+            match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result module &builder_inputs:
+                Result::Ok candidates:
+                    selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
+                    Result::Ok candidates
+                Result::Err builder_error:
+                    selfhost_memo_trait_operation_impl_candidate_builder_input_table_free builder_inputs
+                    Result::Err SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::CandidateBuilderRejected builder_error
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_result: generic connector input 付き public impl records から candidate table owner を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `module`、`source`、`connectors` は borrow です。この関数は閉じません。
+//: - builder input table owner は内部一時 owner です。candidate builder success / failure のどちらでも閉じます。
+pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_result %impure fn &SelfhostHirModule impure fn &SelfhostMemoTraitOperationPublicImplMaterializerRecordTable impure fn &SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable Result SelfhostMemoTraitOperationImplTable SelfhostMemoTraitOperationPublicImplMaterializerErrorKind \module\source\connectors:
+    match selfhost_memo_trait_operation_public_impl_materializer_builder_inputs_from_records_with_generics_result source connectors:
         Result::Ok builder_inputs:
             match selfhost_memo_trait_operation_impl_candidate_table_from_builder_inputs_result module &builder_inputs:
                 Result::Ok candidates:
@@ -378,9 +560,17 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_classifier_rejecte
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate _declaration:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::BuilderInputPushRejected _push:
                     false
@@ -404,9 +594,17 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_candidate_builder_
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate _declaration:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
@@ -434,9 +632,17 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_drop_unsupported_r
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate _declaration:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericImplInstantiationUnsupported:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
@@ -460,7 +666,15 @@ pub fn selfhost_memo_trait_operation_public_impl_materializer_generic_unsupporte
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::SourceReadFailed _read:
                     false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorReadFailed _read:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorMissing _declaration:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorDuplicate _declaration:
+                    false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::HeaderRejected _header:
+                    false
+                SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::GenericConnectorRejected _connector:
                     false
                 SelfhostMemoTraitOperationPublicImplMaterializerErrorKind::ClassifierRejected _classifier:
                     false
