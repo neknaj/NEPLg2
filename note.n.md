@@ -63580,3 +63580,49 @@ MERGE_APPROVED
 
 - F5t は collection owner / single push / typed read までであり、F5s drain result を collection へ流す loop は未実装である。
 - 次 slice では F5u として、F5s drain と collection push を owner-preserving に接続する。`StepBudgetExhausted` は typed terminal として残し、push failure では collection owner、cursor、last item、lower error metadata を失わないようにする。
+
+## 2026-06-15 selfhost generic surface orchestration checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035354039Z-MEMOKEY-AND-MEMOVALUE-NEED-STRUCTURA-592868B7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。`Result` / enum error、typed field authority、match による網羅、責務分割、DAG、丁寧な doc comment、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `memo_trait_public_impl_surface_orchestrator.nepl` に、generic connector input table を受け取る scanner-output entry と AST-record entry を追加した。
+- 新 entry は既存 path と同じ順序で public declaration evidence を normalizer と full public surface hash composer へ通し、operation record table だけを generic-aware materializer へ渡す。connector input table は public surface hash の authority ではない。
+- `SelfhostMemoTraitPublicImplSurfaceState` は従来どおり public surface hash と operation impl table owner を束ねる transport owner state として再利用し、connector table は state に保持しない。
+- focused doctest で露出した `memo_trait_public_impl_scanner.nepl` の missing import を修正した。scanner は materializer record table と constructor を直接使うため、`memo_trait_operation_public_impl_materializer_record` を明示 import する。materializer body の transitive import に依存する形は責務境界として不適切なので採用しない。
+- Resource IR、backend artifact、proof store、operation evidence producer、purity gate、method body、Drop resolver、PrivateCache / PrivateState、prechecked artifact はこの slice へ直接 import していない。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新し、generic-aware materializer accepted path が public impl surface state へ接続済みであることと、残件を記録した。
+
+### subagent_review
+
+- Popper review: blocker なし。generic-aware variant が materializer 呼び出しだけを `candidate_table_from_records_with_generics_result` に差し替え、既存の scanner output -> normalizer -> hash -> materializer の順序を保つ方針は既存 DAG に合うと確認した。
+- Required として、generic connector import allow-list、connector input table が final proof/evidence authority ではないことの doc comment、AST-record entry の scanner output cleanup、hash 成功後だけ generic-aware materializer へ進む source policy 固定が挙げられた。これらは同じ slice 内で反映済みである。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-public-impl-scanner-import.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- timeout_nonfatal: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-surface-orchestrator-generic-entry.json`
+
+### performance_observation
+
+- `memo_trait_public_impl_surface_orchestrator.nepl` focused doctest は、今回の修正前に `selfhost_memo_trait_operation_public_impl_materializer_record_new` undefined identifier で compile error になった。scanner の shared record module import を追加した後は、その compile error は解消した。
+- 最新の focused doctest は compile phase の 240 秒 timeout になった。これは今回の semantic boundary の失敗ではなく、owner-bearing stage0 fixture と現行 Resource static check の cold compile 探索空間に属する性能残件である。
+- stage0 fixture 分割、Resource initialized-state 探索範囲削減、generic connector table の sorted index 化、operation bucket 化は、今回固定した transport owner state / generic-aware materializer boundary を保ったまま後から進められる最適化である。
+
+### residual
+
+- PrivateCache / PrivateState effect masking、prechecked artifact 接続、memo_call backend representation は未実装である。
+- generic accepted path を memo_call backend representation へ渡す時には、operation impl table を最終 proof authority と混同せず、aggregate proof / purity / Drop no-escape / backend identity の各境界を個別に検査する必要がある。

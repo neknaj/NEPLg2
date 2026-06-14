@@ -7,7 +7,7 @@ resolved: false
 priority: P1
 type: architecture
 created: 2026-05-31
-updated: 2026-06-14
+updated: 2026-06-15
 target: "nepl-core/src/types.rs; nepl-core/src/typecheck; stdlib/std; stdlib/neplg2/core/ty"
 ---
 
@@ -994,6 +994,33 @@ performance note:
 - table lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した typed input / connector-result boundary を保ったまま後から行える最適化である。
 
 この checkpoint 後の残件は、generic accepted path を operation evidence / aggregate proof / memo_call backend representation へ渡す上位 orchestration、PrivateCache / PrivateState effect masking、prechecked artifact 接続、`.neplproof` reader / serializer と stable map / serialized index の実体、full public surface hash の拡張である。
+
+## 2026-06-15 selfhost generic surface orchestration checkpoint
+
+`memo_trait_public_impl_surface_orchestrator.nepl` に、generic connector input table を受け取る surface orchestration 入口を追加した。既存の monomorphic / fail-closed path は残し、新しい `selfhost_memo_trait_public_impl_surface_from_scanner_output_with_generic_connectors_result` と `selfhost_memo_trait_public_impl_surface_from_ast_records_with_generic_connectors_result` だけが generic-aware materializer API を呼ぶ。
+
+public surface normalizer と full public surface hash composer の順序は既存 path と同じである。generic connector input table は public surface hash の材料ではなく、scanner output の operation record table を `selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_result` へ渡すためだけに使う。これにより、generic materializer accepted path が作った concrete operation impl candidate table を、既存の `SelfhostMemoTraitPublicImplSurfaceState` へ接続した。
+
+この checkpoint でも raw final evidence table は受け取らない。surface orchestrator は `SelfhostMemoTraitPublicImplGenericMaterializerConnectorInputTable` を operation materializer へ渡すだけであり、materializer 側が matching input から `connector_result` を実行して concrete target TypeId と final target / trait shape を作る。Resource IR、backend artifact、proof store、PrivateCache / PrivateState、prechecked artifact は import しない。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` を更新して固定した。generic connector import allow-list、public surface hash への connector input 混入禁止、generic-aware materializer API の利用、scanner output owner cleanup、partial input items owner cleanup、forbidden lower-layer import 禁止、行数 / doc comment 長制限禁止を確認する。
+
+focused doctest の再実行では、scanner が `SelfhostMemoTraitOperationPublicImplMaterializerRecordTable` と constructor を使うにもかかわらず、shared record module を直接 import していないことが露出した。これは materializer body の transitive import に依存する形であり、責務境界として不適切であるため、`memo_trait_public_impl_scanner.nepl` へ `memo_trait_operation_public_impl_materializer_record` の明示 import を追加した。scanner は resolver record から operation materializer record table を作る module なので、record transport module への直接依存は許可し、Resource IR / backend / proof store / producer / purity / method body / Drop resolver への依存禁止は維持する。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_scanner_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_scanner.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-public-impl-scanner-import.json`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_surface_operation_proof_orchestrator_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js`
+- pass: `node nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js`
+- pass: `node nodesrc/test_selfhost_zenn_review_gate_contract.js`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check`
+- timeout_nonfatal: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_orchestrator.nepl --no-tree -j 1 --dist web/dist --assert-io --timeout-nonfatal -o tmp/selfhost-surface-orchestrator-generic-entry.json`。undefined identifier は解消済みで、残る失敗形は compile phase の 240 秒 timeout である。これは owner-bearing stage0 fixture と現行 Resource static check の cold compile 探索空間に属する既存性能課題として扱う。
+
+この checkpoint 後の残件は、PrivateCache / PrivateState effect masking、prechecked artifact 接続、memo_call backend representation である。generic connector lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した surface state / generic-aware materializer boundary を保ったまま後から実装できる最適化として扱う。
 
 ## 2026-06-14 selfhost Resource graph input scanner checkpoint
 

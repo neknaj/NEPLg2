@@ -111,10 +111,11 @@ assertOrdered(
         "#import \"neplg2/core/syntax/ast/module_ast\" as *",
         "#import \"./memo_trait_operation_classifier\" as *",
         "#import \"./memo_trait_operation_public_impl_materializer\" as *",
+        "#import \"./memo_trait_operation_public_impl_materializer_record\" as *",
         "#import \"./memo_trait_public_impl_header\" as *",
         "#import \"./memo_trait_public_surface_normalizer\" as *",
     ],
-    "scanner imports must stay on AST alignment, operation record, public impl header, and normalizer-compatible evidence boundaries",
+    "scanner imports must stay on AST alignment, operation classifier/materializer record, public impl header, and normalizer-compatible evidence boundaries",
 );
 assert.doesNotMatch(
     code,

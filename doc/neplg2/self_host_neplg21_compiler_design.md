@@ -1993,6 +1993,18 @@ source policy は `nodesrc/test_selfhost_memo_trait_public_impl_generic_material
 
 source policy は `nodesrc/test_selfhost_memo_trait_operation_public_impl_materializer_contract.js` と `nodesrc/test_selfhost_memo_trait_public_impl_generic_materializer_connector_contract.js` で固定する。materializer が shared record module を使い import cycle を作らないこと、materializer が raw connector evidence table を所有・push・受理しないこと、connector module が final evidence table を公開しないこと、materializer が matching input から `connector_result` を実行すること、concrete target TypeId が producer root と recheck root の両方に含まれること、Resource / backend / proof store / PrivateCache / prechecked layer を直接 import しないこと、行数 / doc comment 長制限を追加しないことを確認する。focused doctest は materializer 約 191 秒、generic materializer connector 約 161 秒の wall time で pass した。これは owner-bearing stage0 fixture と現行 Resource static check の探索空間による性能課題であり、semantic accepted path の誤りとは分けて扱う。table lookup の sorted index 化、operation bucket 化、stage0 fixture 分割は、この typed input / connector-result boundary を保ったまま後から行える最適化である。
 
+## 2026-06-15 MemoKey / MemoValue generic surface orchestration checkpoint
+
+`memo_trait_public_impl_surface_orchestrator.nepl` に、generic connector input table を受け取る surface orchestration 入口を追加した。既存の `selfhost_memo_trait_public_impl_surface_from_scanner_output_result` と `selfhost_memo_trait_public_impl_surface_from_ast_records_result` は monomorphic / generic fail-closed 互換 path として残す。新しい `*_with_generic_connectors_result` は、scanner output の public declaration evidence から public surface normalizer と full public surface hash composer を既存順序で通し、operation record table だけを `selfhost_memo_trait_operation_public_impl_materializer_candidate_table_from_records_with_generics_result` へ渡す。
+
+この checkpoint の目的は、generic materializer accepted path を operation evidence / aggregate proof pipeline が読む `SelfhostMemoTraitPublicImplSurfaceState` へ接続することである。`SelfhostMemoTraitPublicImplSurfaceState` は従来どおり public surface hash と operation impl table owner を束ねる transport owner state であり、complete proof ではない。generic connector input は public surface hash の材料ではなく、operation materializer 内で detailed generic record を concrete builder input へ変換するためだけに使う。hash 生成前に connector input を読むことも、connector input から public surface hash を作ることも許さない。
+
+この入口も raw final evidence table は受け取らない。materializer は connector input table から matching declaration ordinal を探し、materializer record と input の typed evidence 群を使って `connector_result` をその場で実行する。その結果だけが concrete target TypeId と final target / trait shape を持つ builder input へ進む。したがって、surface orchestrator は final evidence を信用するのではなく、generic-aware materializer boundary を呼び出す上位接続だけを担当する。
+
+source policy は `nodesrc/test_selfhost_memo_trait_public_impl_surface_orchestrator_contract.js` を更新して固定した。generic connector import は `memo_trait_public_impl_generic_materializer_connector` の input table type に限定し、Resource / backend / proof store / operation evidence producer / purity gate / method body / Drop resolver / candidate builder の直接 import 禁止を維持する。さらに generic scanner-output entry が public surface normalization / hash order を変えないこと、connector input を materializer にだけ渡すこと、partial input items と scanner output owner cleanup を保つこと、行数 / doc comment 長制限を追加しないことを確認する。
+
+この checkpoint 後の残件は、PrivateCache / PrivateState effect masking、prechecked artifact 接続、memo_call backend representation である。generic connector lookup の sorted index 化、operation bucket 化、stage0 fixture 分割、Resource initialized-state 探索範囲削減は、今回固定した transport owner state / generic-aware materializer boundary を保ったまま後から実装できる最適化として扱う。
+
 ## 既存 issue との対応
 
 現在の self-host 関連 issue は、この設計上では次の phase に属する。
