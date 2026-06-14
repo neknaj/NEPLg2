@@ -1,3 +1,27 @@
+# 2026-06-14 Agent2 GUI font sink action consumer apply step checkpoint
+
+- Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result と domain status の分離、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4ac の consumer item と F4ae の apply state を束ねる F4af: sink action consumer apply step を追加した。
+- subagent plan review: Pascal から `PLAN_APPROVED` を受けた。F4af は F4ae の apply result と F4ac の checked continuation を副作用なし・lookup なしで束ねるだけで、F4ad の traversal authority を奪わないため妥当とされた。
+- subagent implementation review: Popper から初回 `REVIEW_BLOCKED` を受けた。technical blocker はなく、`note.n.md` 未更新が process blocker とされたため、この checkpoint を追記した。
+- classification: GUI font SFNT simple glyph path sink action consumer apply step / apply result plus stored checked continuation / no F4ad lookup / no payload direct match / no renderer or platform dependency。
+- 変更内容:
+  - `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F4af を追加した。
+  - `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep` と `Clone` / `Copy` を追加した。
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step`、`gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step`、`gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next` を追加した。
+  - `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply` を追加した。これは consumer item の `action` と `next` を 1 回ずつ読み、`action` を F4ae apply helper へ 1 回だけ渡し、返った `apply_step` と保存済み `next` を束ねる。
+  - helper は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` も呼ばない。次 consumer item の byte-backed 解決は F4ad の責務として残す。
+  - helper は action payload を直接 `match` しない。`Reject`、`CloseContour`、`NoAction` の解釈は F4ae helper だけに委譲する。
+  - helper は `Result`、`Option`、`Vec`、`push`、loop、current point、lookup、metadata parser、renderer、rasterizer、platform API、host text API を直接使わない。
+  - `tests/stdlib/gui_font_sfnt_glyf_path.n.md` に synthetic consumer item apply の status / count / stored `EndContour` next 検査を追加した。
+  - `nodesrc/test_web_gui_font_rendering_contract.js` に F4af の docs / implementation source policy を追加した。
+- 検証:
+  - `node nodesrc/test_web_gui_font_rendering_contract.js` passed。
+  - `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1` は 7/7 passed。
+  - `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1` は 305/305 passed。
+  - `node nodesrc/issues.js check --dir issues` passed。
+  - `git diff --check` passed。CRLF warning のみ。
+  - `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。GUI/font policy は pass し、既存の `stdlib declaration doc gaps increased: 153 > 108` warning が残る。
+
 # 2026-06-14 Agent2 GUI font sink action apply state checkpoint
 
 - Zenn 記事: `https://zenn.dev/bem130/articles/1b352797de94e7` の静的検査、enum / match、Result と domain status の分離、platform 非依存、hidden fallback 禁止、doc/test 分離方針を確認し、F4ad の consumer item next の後段として F4ae: sink action apply state を追加した。

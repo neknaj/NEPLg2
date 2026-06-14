@@ -1194,6 +1194,29 @@ helper は action を `match` し、`EmitEvent` は `EmittedEvent event` と `em
 
 F4ae の count は test / diagnostic / contract 検査用の集計であり、cursor、next state、traversal authority ではない。走査位置と次 item の authority は F4ac/F4ad の consumer item next に残す。F4ae は `Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
 
+### SFNT simple glyph path sink action consumer apply step
+
+F4af は F4ac の consumer item を 1 action 分だけ F4ae の apply state に適用し、apply result と保存済み checked continuation を同じ typed value に束ねる段階である。これは advance helper、byte-backed lookup、contour-wide loop、real sink、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep:
+    apply_step GuiSfntSimpleGlyphPathSinkActionApplyStep
+    next GuiSfntSimpleGlyphPathSinkActionItemNext
+```
+
+```text
+gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply:
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    -> GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+```
+
+helper は `item.action` と `item.next` をそれぞれ 1 回だけ読む。`item.action` は `gui_sfnt_simple_glyph_path_sink_action_apply_state_apply_action state action` へ 1 回だけ渡し、返った `apply_step` と `item.next` の copy を `GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep` に束ねる。
+
+F4af は `GuiSfntSimpleGlyphPathSinkActionConsumerItemNext` を作らず、`gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next` も呼ばない。次 consumer item を byte-backed に解決する authority は F4ad に残す。F4af の `next` は F4ac packet に保存されている `GuiSfntSimpleGlyphPathSinkActionItemNext` であり、新しい traversal decision ではない。
+
+F4af は action payload を直接 `match` しない。`Reject`、`CloseContour`、`NoAction` の解釈は F4ae apply helper に委譲する。`Result`、`Option`、`Vec` / `push`、loop、current point state、outline allocation、lower lookup、metadata parser、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

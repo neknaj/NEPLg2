@@ -770,6 +770,13 @@ fn apply_state_counts_match %fn &GuiSfntSimpleGlyphPathSinkActionApplyState fn i
     let no_action_ok %bool eq expected_no_action gui_sfnt_simple_glyph_path_sink_action_apply_state_no_action_count state
     and emit_ok and reject_ok and close_ok no_action_ok
 
+fn consumer_apply_next_is_end %fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep bool \step:
+    match gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next step:
+        GuiSfntSimpleGlyphPathSinkActionItemNext::Continue _item:
+            false
+        GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+            true
+
 fn build_skip_step %fn GuiGlyphId fn i32 fn i32 fn GuiSfntSimpleGlyphCurveNoSegmentReason fn GuiSfntSimpleGlyphPathContourNext GuiSfntSimpleGlyphPathContourStep \glyph\contour\edge\reason\next:
     let cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_contour_cursor glyph contour edge GuiSfntSimpleGlyphPathSinkEventSlot::Second
     let skip_payload %GuiSfntSimpleGlyphPathSkipNoSegment gui_sfnt_simple_glyph_path_skip_no_segment contour edge reason
@@ -835,7 +842,16 @@ fn main %impure fn void i32 \void:
     let no_action_apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &no_action_apply_step
     let no_action_apply_ok %bool and apply_status_is_no_action &no_action_apply_status apply_state_counts_match &no_action_apply_state 1 1 1 1
     let action_apply_ok %bool and emit_apply_ok and reject_apply_ok and close_apply_ok no_action_apply_ok
-    test_assertion_exit_code assert "path sink policy keeps reject and close tail exclusive" and keep_ok and reject_ok and continue_ok and single_point_ok and action_projection_ok and action_traversal_ok and start_cursor_ok and action_step_advance_ok and action_step_item_ok action_apply_ok
+    let apply_consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item close_action GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+    let consumer_apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply apply_state0 &apply_consumer_item
+    let consumer_inner_apply_step %GuiSfntSimpleGlyphPathSinkActionApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_apply_step &consumer_apply_step
+    let consumer_apply_state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_apply_step_state &consumer_inner_apply_step
+    let consumer_apply_status %GuiSfntSimpleGlyphPathSinkActionApplyStatus gui_sfnt_simple_glyph_path_sink_action_apply_step_status &consumer_inner_apply_step
+    let consumer_apply_status_ok %bool apply_status_closes_contour &consumer_apply_status 1
+    let consumer_apply_count_ok %bool apply_state_counts_match &consumer_apply_state 0 0 1 0
+    let consumer_apply_next_ok %bool consumer_apply_next_is_end &consumer_apply_step
+    let consumer_apply_ok %bool and consumer_apply_status_ok and consumer_apply_count_ok consumer_apply_next_ok
+    test_assertion_exit_code assert "path sink policy keeps reject and close tail exclusive" and keep_ok and reject_ok and continue_ok and single_point_ok and action_projection_ok and action_traversal_ok and start_cursor_ok and action_step_advance_ok and action_step_item_ok and action_apply_ok consumer_apply_ok
 ```
 
 ## path contour step public lookup follows cursor next contract
