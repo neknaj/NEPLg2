@@ -2789,3 +2789,63 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5n.json -j 1
 git diff --check
 ```
+
+## Phase F5o: sfnt simple glyph outline point read step
+
+目的:
+
+- F5n の single point read を、allocation なしの cursor step として反復できるようにする。
+- `cursor.next_point_index == point_count` を正常終端 `End` として表し、`point_count` を越える cursor は `CursorOutOfRange` として返す。
+- 終端成功を返す前に storage / stream の shared precondition を検査し、forged mismatch を終端として隠さない。
+- Vec、edge/path storage、outline stream、rasterizer、renderer、platform API、host text API へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5o docs、cursor / status / step / error 型、shared precondition order、terminal branch before F5n、F5n exact one-call、禁止 API、括弧なし prefix style を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointReadCursor`
+  - `GuiSfntSimpleGlyphOutlinePointReadStepStatus`
+  - `GuiSfntSimpleGlyphOutlinePointReadStep`
+  - `GuiSfntSimpleGlyphOutlinePointReadStepErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointReadStepError`
+  - `gui_sfnt_simple_glyph_outline_storage_read_point_step`
+- error kind は次を持つ。
+  - `StorageCapacityInvalid`
+  - `StorageStreamGlyphMismatch`
+  - `StorageStreamContourCountMismatch`
+  - `StorageStreamPointCountMismatch`
+  - `CursorOutOfRange`
+  - `PointReadFailed`
+- error payload は requested cursor、storage capacity、stream topology、optional F5n point error を保持する。
+- validation / step は次の順序で行う。
+  - storage capacity と stream topology を読む
+  - capacity shape を検査する
+  - glyph、contour_count、point_count が一致することを検査する
+  - `point_index = cursor.next_point_index` を読む
+  - `point_index < 0` または `point_index > shared_point_count` なら `CursorOutOfRange`
+  - `point_index == shared_point_count` なら `point None` の `End` step を返す
+  - `0 <= point_index < shared_point_count` の場合だけ F5n point read を 1 回だけ呼ぶ
+  - F5n の失敗は `PointReadFailed` と optional point error で保持する
+  - F5n の成功値を `point Some` に入れ、`next_cursor = point_index + 1` の `Point` step を返す
+- doctest は first point success、last point success with `next_cursor == point_count`、terminal End with point None、cursor too far、F5n flag failure wrapping を検査する。
+- 実装前 plan review と実装後 implementation review を subagent で受け、指摘があれば修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- valid storage + stream + cursor から `Point` step と `End` step を区別して返せる。
+- `Point` step は `Some GuiSfntSimpleGlyphPoint`、`End` step は `None` を保持する。
+- `point_index == point_count` は F5n の `PointIndexOutOfRange` に落とさず、F5o の正常終端として返す。
+- `point_index > point_count` と負の cursor は `CursorOutOfRange` になる。
+- storage と stream の glyph / contour_count / point_count mismatch は終端判定より前に top-level error になる。
+- F5n の失敗は `PointReadFailed` と optional sub-error で保持される。
+- source policy が F5o docs、error 型、shared precondition before terminal, terminal branch before F5n, F5n exact one-call、direct F5k/F5l/F5m / lower loop / `vec::` / path / render / raster / platform / host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_step.n.md --no-tree -o tmp_gui_font_outline_point_step_f5o.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5o.json -j 1
+git diff --check
+```
