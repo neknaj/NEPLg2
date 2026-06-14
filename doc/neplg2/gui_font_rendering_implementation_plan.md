@@ -2116,7 +2116,53 @@ node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_g
 git diff --check
 ```
 
-## Phase F5: outline, shaping, ruby, vertical, math bridge
+## Phase F5a: sfnt simple glyph outline storage capacity and owner recovery contract
+
+目的:
+
+- F4aq の bounded traversal の後に、simple glyph outline storage が必要とする capacity を allocation-free な value として計算する。
+- capacity exceeded、invalid topology、command count overflow を enum branch として分離し、owner-taking allocation API の前に失敗時の owner recovery contract を固定する。
+- outline allocation、sink mutation、renderer、rasterizer、platform API、host text API、font substitute へ進まない。
+
+変更:
+
+- 先に source policy を追加し、F5a docs、value type、helper の責務、禁止 API、括弧なし body を固定する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlineStorageCapacity`
+  - `GuiSfntSimpleGlyphOutlineStorageLimit`
+  - `GuiSfntSimpleGlyphOutlineCapacityRejectReason`
+  - `GuiSfntSimpleGlyphOutlineCapacityRejected`
+  - `GuiSfntSimpleGlyphOutlineCapacityCheck`
+  - `gui_sfnt_simple_glyph_outline_storage_capacity_from_topology`
+  - `gui_sfnt_simple_glyph_outline_storage_capacity_check_limit`
+- capacity fields は glyph、contour_count、point_count、edge_count、path_command_pair_count、path_command_count とする。
+- `edge_count = point_count`、`path_command_pair_count = point_count`、`path_command_count = point_count * 2` とする。
+- `contour_count <= 0`、`point_count <= 0`、`contour_count > point_count` は `InvalidTopology topology` とする。
+- `point_count > 1073741823` は `CommandCountOverflow topology` とする。
+- limit の各値は 1 以上を許可容量として扱う。0 以下は unlimited ではなく capacity exceeded とする。
+- limit check は contour、point、edge、path command の順に最初の exceeded reason を返す。
+- capacity exceeded は `GuiSfntSimpleGlyphOutlineCapacityRejected` として reason、capacity、limit を保持する。
+- `GuiSfntSimpleGlyphOutlineCapacityRejectReason` は limit exceeded 専用であり、`InvalidTopology` と `CommandCountOverflow` は capacity が信頼できないため `GuiSfntSimpleGlyphOutlineCapacityCheck` の独立 variant とする。
+- F5a helper は `Vec`、`push`、outline point list、contour list、path command list、renderer、rasterizer、platform API、host text API、font substitute、byte-backed lookup、metadata parser、`*_with_tables`、F4aq drain helper、lower contour helper、point decoder を使わない。
+- doctest は synthetic topology と synthetic limit だけで分岐を検査する。byte-backed font fixture、renderer、raster、platform、host font API は使わない。
+
+完了条件:
+
+- valid topology から capacity が生成され、edge / path command count が仕様通りになる。
+- forged invalid topology、command count overflow、各 limit exceeded が enum branch として検査される。
+- F5a source policy が docs と implementation の責務逸脱を検出する。
+- F4aq の `StepBudgetExhausted` が capacity success として扱われていないことを docs / policy で固定する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_capacity.json -j 1
+node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1
+git diff --check
+```
+
+## Phase F5b+: outline, shaping, ruby, vertical, math bridge
 
 目的:
 
@@ -2124,5 +2170,5 @@ git diff --check
 
 注意:
 
-- この phase では public contract を変えず、F1/F2 で固定した型に実装を接続する。
+- F5a の capacity / owner recovery contract を保ったまま、owner-taking storage API、outline point stream、raster mask、render2d command へ順に接続する。
 - 未対応 feature は typed unsupported として返す。

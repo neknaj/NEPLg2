@@ -79,10 +79,12 @@ const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
+const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
     read("tests/stdlib/gui_font_sfnt_glyf.n.md"),
+    guiFontSfntOutlineCapacityTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -3883,6 +3885,96 @@ assertNoMatch(
     pathSinkActionStartConsumeSummaryDrainBudget,
     /[()]/,
     "alloc/gui/font/sfnt/glyf F4aq start drain helper body must preserve NEPL prefix style without parentheses",
+);
+assertMatch(
+    spec,
+    /SFNT simple glyph outline storage capacity[\s\S]*GuiSfntSimpleGlyphOutlineStorageCapacity[\s\S]*point_count \* 2[\s\S]*owner recovery contract[\s\S]*typed unsupported/,
+    "font spec must define F5a outline storage capacity, command count, and owner recovery contract",
+);
+assertMatch(
+    detailedDesign,
+    /SFNT simple glyph outline storage capacity and owner recovery boundary[\s\S]*F4aq drain result[\s\S]*StepBudgetExhausted summary[\s\S]*capacity planning is not successful[\s\S]*check_limit capacity limit/,
+    "font detailed design must define F5a data flow from F4aq and pure capacity limit checking",
+);
+assertMatch(
+    implementationPlan,
+    /Phase F5a: sfnt simple glyph outline storage capacity and owner recovery contract[\s\S]*先に source policy[\s\S]*gui_sfnt_simple_glyph_outline_storage_capacity_from_topology[\s\S]*gui_sfnt_simple_glyph_outline_storage_capacity_check_limit/,
+    "font implementation plan must define F5a source policy first and pure capacity helpers",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+struct\s+GuiSfntSimpleGlyphOutlineStorageCapacity:[\s\S]*glyph\s+%GuiGlyphId[\s\S]*contour_count\s+%i32[\s\S]*point_count\s+%i32[\s\S]*edge_count\s+%i32[\s\S]*path_command_pair_count\s+%i32[\s\S]*path_command_count\s+%i32[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineStorageLimit:/,
+    "alloc/gui/font/sfnt/glyf F5a must expose outline storage capacity and limit value types",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphOutlineCapacityRejectReason:\s+ContourCapacityExceeded\s+PointCapacityExceeded\s+EdgeCapacityExceeded\s+CommandCapacityExceeded[\s\S]*pub\s+struct\s+GuiSfntSimpleGlyphOutlineCapacityRejected:/,
+    "alloc/gui/font/sfnt/glyf F5a reject reasons must be limit-only and expose rejected payload",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /pub\s+enum\s+GuiSfntSimpleGlyphOutlineCapacityCheck:[\s\S]*Fits\s+%GuiSfntSimpleGlyphOutlineStorageCapacity[\s\S]*InvalidTopology\s+%GuiSfntSimpleGlyphTopology[\s\S]*CommandCountOverflow\s+%GuiSfntSimpleGlyphTopology[\s\S]*Rejected\s+%GuiSfntSimpleGlyphOutlineCapacityRejected/,
+    "alloc/gui/font/sfnt/glyf F5a must expose capacity check enum with explicit non-success states",
+);
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineStorageCapacity:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineStorageCapacity:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineStorageLimit:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineStorageLimit:[\s\S]*impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlineCapacityCheck:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlineCapacityCheck:/,
+    "alloc/gui/font/sfnt/glyf F5a values must implement Clone and Copy",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_capacity_from_topology %fn &GuiSfntSimpleGlyphTopology GuiSfntSimpleGlyphOutlineCapacityCheck") &&
+        allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_storage_capacity_check_limit %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn &GuiSfntSimpleGlyphOutlineStorageLimit GuiSfntSimpleGlyphOutlineCapacityCheck") &&
+        guiFontSfntOutlineCapacityTests.includes("outline_capacity_valid_topology_ok") &&
+        guiFontSfntOutlineCapacityTests.includes("outline_capacity_invalid_topology_ok") &&
+        guiFontSfntOutlineCapacityTests.includes("outline_capacity_command_overflow_ok") &&
+        guiFontSfntOutlineCapacityTests.includes("outline_capacity_limit_reject_ok"),
+    "alloc/gui/font/sfnt/glyf and doctests must expose and cover F5a outline capacity helpers",
+);
+const outlineCapacityFromTopology = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_capacity_from_topology");
+for (const fragment of [
+    "let contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count topology",
+    "let point_count %i32 gui_sfnt_simple_glyph_topology_point_count topology",
+    "if or or le contour_count 0 le point_count 0 gt contour_count point_count:",
+    "then GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology *topology",
+    "if gt point_count 1073741823:",
+    "then GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow *topology",
+    "let path_command_count %i32 mul point_count 2",
+    "GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity",
+]) {
+    assert(outlineCapacityFromTopology.includes(fragment), `alloc/gui/font/sfnt/glyf F5a capacity helper must include ${fragment}`);
+}
+assertNoMatch(
+    outlineCapacityFromTopology,
+    /\b(?:Vec|push|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5a capacity helper must stay allocation-free and independent from byte-backed lookup, rendering, and host/platform APIs",
+);
+assertNoMatch(
+    outlineCapacityFromTopology,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5a capacity helper body must preserve NEPL prefix style without parentheses",
+);
+const outlineCapacityCheckLimit = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_capacity_check_limit");
+for (const fragment of [
+    "let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity",
+    "let max_contours %i32 gui_sfnt_simple_glyph_outline_storage_limit_max_contours limit",
+    "if or le max_contours 0 gt contour_count max_contours:",
+    "GuiSfntSimpleGlyphOutlineCapacityRejectReason::ContourCapacityExceeded",
+    "GuiSfntSimpleGlyphOutlineCapacityRejectReason::PointCapacityExceeded",
+    "GuiSfntSimpleGlyphOutlineCapacityRejectReason::EdgeCapacityExceeded",
+    "GuiSfntSimpleGlyphOutlineCapacityRejectReason::CommandCapacityExceeded",
+    "GuiSfntSimpleGlyphOutlineCapacityCheck::Fits *capacity",
+]) {
+    assert(outlineCapacityCheckLimit.includes(fragment), `alloc/gui/font/sfnt/glyf F5a limit helper must include ${fragment}`);
+}
+assertNoMatch(
+    outlineCapacityCheckLimit,
+    /\b(?:Vec|push|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5a limit helper must stay allocation-free and independent from byte-backed lookup, rendering, and host/platform APIs",
+);
+assertNoMatch(
+    outlineCapacityCheckLimit,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5a limit helper body must preserve NEPL prefix style without parentheses",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

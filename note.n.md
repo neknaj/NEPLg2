@@ -62282,6 +62282,49 @@ MERGE_APPROVED
 - existing_warnings: nodesrc/test_stdlib_documentation_contract.js failed with exit code 1; stdlib declaration doc gaps increased: 153 > 108; Node WASI ExperimentalWarning
 - new_warnings: none
 
+## 2026-06-14 GUI font F5a outline capacity checkpoint
+
+### scope
+
+- branch: `gui-font-outline-owner-contract-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- zenn_policy: `https://zenn.dev/bem130/articles/1b352797de94e7` の方針に従い、文字列や silent no-op ではなく typed struct / enum branch で状態を分け、host / platform / renderer へ逃げない pure value boundary として実装した。
+- commit_policy: ユーザー指示に従い、F5a docs、source policy、stdlib 実装、doctest を細かく分けず、1 つの粗め checkpoint commit にまとめる。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5a の simple glyph outline storage capacity / owner recovery contract を追加した。
+- F5a は outline allocation ではなく、future owner-taking storage API の前に必要な contour / point / edge / path command capacity を value として計算する boundary である。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlineStorageCapacity`、`GuiSfntSimpleGlyphOutlineStorageLimit`、`GuiSfntSimpleGlyphOutlineCapacityRejectReason`、`GuiSfntSimpleGlyphOutlineCapacityRejected`、`GuiSfntSimpleGlyphOutlineCapacityCheck`、capacity helper、limit helper を追加した。
+- `InvalidTopology` と `CommandCountOverflow` は trusted capacity が作れない pre-capacity state なので、limit-only reject reason には入れず `GuiSfntSimpleGlyphOutlineCapacityCheck` の独立 variant として返す。
+- limit exceeded は `ContourCapacityExceeded`、`PointCapacityExceeded`、`EdgeCapacityExceeded`、`CommandCapacityExceeded` の順で最初の reason を返す。`max_* <= 0` は unlimited ではなく exceeded として扱う。
+- F5a helper は `Vec` / `push`、byte-backed lookup、metadata parser、`*_with_tables`、renderer、rasterizer、platform API、host text API、font substitute を使わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5a source policy を追加し、docs、value type、Clone / Copy、helper body の括弧なし prefix style、禁止 API を固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md` を追加し、synthetic topology / limit だけで valid、invalid topology、command count overflow、limit exceeded、fit limit を検査した。
+
+### subagent_review
+
+- Tesla plan review 1: PLAN_BLOCKED。`GuiSfntSimpleGlyphOutlineCapacityRejected` が capacity / limit を持つなら `InvalidTopology` と `CommandCountOverflow` を reject reason に入れるべきではない、という指摘を受けた。
+- 指摘に従い、reject reason を limit exceeded 専用へ修正し、pre-capacity failure は capacity check enum の独立 variant として明文化した。
+- Tesla plan review 2: PLAN_APPROVED。limit check order、allocation-free、byte-backed lookup / renderer / platform / host text 非依存、overflow guard、`max_* <= 0` exceeded、通常の constructor/accessor/Clone/Copy pattern を確認済み。
+- Tesla implementation review: REVIEW_APPROVED。F5a 実装は修正版設計と一致し、source policy と doctest も通過したと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_capacity.json -j 1`
+- pass: `node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf.n.md --no-tree -o tmp_gui_font_sfnt_glyf.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_path.n.md --no-tree -o tmp_gui_font_sfnt_glyf_path.json -j 1`
+- pass: `node nodesrc/issues.js check --dir issues`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass_with_existing_warning: `node nodesrc/run_source_policy_regressions.js --warn-only` は exit 0。既存 warning として `nodesrc/test_stdlib_documentation_contract.js failed with exit code 1` / `stdlib declaration doc gaps increased: 153 > 108` が残っている。Node の WASI ExperimentalWarning は環境由来の既存 warning として扱う。
+
+### residual
+
+- F5a は capacity planning の value layer であり、outline point storage、contour storage、path command storage、owner-taking allocation API、raster mask、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では、F5a の `CapacityCheck` を使う owner-taking outline storage API を作り、失敗 branch で input owner を失わない contract を実装する。
+
 ## 2026-06-14 selfhost generic substitution shape producer checkpoint
 
 ### scope

@@ -1489,6 +1489,70 @@ start helper は `gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_su
 
 F4aq は action payload direct match、`Vec` / `push`、full outline allocation、renderer、rasterizer、platform API、host text measurement、font fallback を直接使わない。`remaining_steps == 0` と `remaining_steps < 0` はどちらも `StepBudgetExhausted` であり、暗黙に描画や終端成功へ置換しない。
 
+### SFNT simple glyph outline storage capacity
+
+F5a は F4aq の bounded drain result から後続 outline storage の必要量を計算する境界である。ここでは contour / point / edge / path command の個数だけを扱い、point list、contour list、path command list、mask、renderer command、raster output、platform resource は作らない。
+
+F5a の入力は `GuiSfntSimpleGlyphTopology` と caller が選んだ `GuiSfntSimpleGlyphOutlineStorageLimit` である。`GuiSfntSimpleGlyphTopology` の単位は glyph 内の logical contour / logical point count であり、pixel、font unit scale、layout px、device px ではない。F5a の出力は allocation-free な value enum であり、成功・容量不足・topology 不正・command count overflow を文字列や panic に変換しない。
+
+```text
+GuiSfntSimpleGlyphOutlineStorageCapacity:
+    glyph GuiGlyphId
+    contour_count i32
+    point_count i32
+    edge_count i32
+    path_command_pair_count i32
+    path_command_count i32
+```
+
+`edge_count` は simple glyph contour を閉じた contour edge stream として読むため `point_count` と同じである。`path_command_pair_count` は各 edge が move / draw の pair を持つので `point_count` と同じである。`path_command_count` は `point_count * 2` である。`point_count > 1073741823` は i32 command count に入らないので `CommandCountOverflow` とする。
+
+```text
+GuiSfntSimpleGlyphOutlineStorageLimit:
+    max_contours i32
+    max_points i32
+    max_edges i32
+    max_path_commands i32
+```
+
+limit の各値は 1 以上を許可容量として扱う。0 以下は unlimited ではなく capacity exceeded である。これは caller の設定ミスを silent no-op にしないためである。
+
+```text
+GuiSfntSimpleGlyphOutlineCapacityRejectReason:
+    ContourCapacityExceeded
+    PointCapacityExceeded
+    EdgeCapacityExceeded
+    CommandCapacityExceeded
+```
+
+```text
+GuiSfntSimpleGlyphOutlineCapacityRejected:
+    reason GuiSfntSimpleGlyphOutlineCapacityRejectReason
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    limit GuiSfntSimpleGlyphOutlineStorageLimit
+```
+
+```text
+GuiSfntSimpleGlyphOutlineCapacityCheck:
+    Fits GuiSfntSimpleGlyphOutlineStorageCapacity
+    InvalidTopology GuiSfntSimpleGlyphTopology
+    CommandCountOverflow GuiSfntSimpleGlyphTopology
+    Rejected GuiSfntSimpleGlyphOutlineCapacityRejected
+```
+
+`InvalidTopology` は `contour_count <= 0`、`point_count <= 0`、`contour_count > point_count` を表す。これは byte parse error ではなく、capacity planning が受け取った topology value の domain 不正である。byte-backed topology lookup から来る通常経路では既に検査済みであるが、test / virtual event / future headless harness が value を直接作るため、この境界でも enum として明示する。
+
+`GuiSfntSimpleGlyphOutlineCapacityRejectReason` は capacity と limit を比較した後の limit exceed だけを表す。`InvalidTopology` と `CommandCountOverflow` は trusted capacity が作れない状態なので、`GuiSfntSimpleGlyphOutlineCapacityRejected` には入れず、`GuiSfntSimpleGlyphOutlineCapacityCheck` の独立 variant として返す。limit check は contour、point、edge、path command の順で最初の exceeded reason を返す。
+
+F4aq の `StepBudgetExhausted` は capacity success ではない。caller は同じ summary owner を保持したまま次の time slice を要求し、`EndContour` まで進めた後に capacity planning を呼ぶ。`Rejected` は policy/domain terminal なので、outline storage へ進まない。
+
+owner recovery contract:
+
+- F5a は owner を受け取らない pure value layer であり、入力 topology と limit を破棄しない。
+- 後続の owner-taking outline storage API は success / capacity exceeded / unsupported / invalid topology を enum で返し、失敗時には input owner と capacity check を返す。
+- 失敗 branch で point buffer、contour buffer、sink owner、font face owner を黙って捨ててはいけない。
+- 未対応 outline format、host font substitute、tofu glyph substitute、silent success への置換は禁止する。未対応 feature は typed unsupported として返す。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

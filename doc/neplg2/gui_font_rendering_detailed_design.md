@@ -1924,6 +1924,81 @@ gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary_drain_budget
 
 F4aq must not allocate `Vec`, push commands, match action payload variants, call lower contour/curve helpers directly, parse metadata, call `*_with_tables`, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. It is the final bounded traversal boundary before later phases decide owner recovery, outline storage, and command emission.
 
+## SFNT simple glyph outline storage capacity and owner recovery boundary
+
+F5a is the value-only boundary between bounded path traversal and future outline storage allocation. It consumes only checked topology values and capacity limits. It does not consume font bytes, does not allocate an outline, does not mutate a sink, and does not render.
+
+The data flow is:
+
+```text
+F4aq drain result
+    EndContour summary
+        -> summary owner remains with caller
+        -> caller may plan contour/outline storage from topology
+
+    StepBudgetExhausted summary
+        -> summary owner remains with caller
+        -> caller must request another work slice
+        -> capacity planning is not successful and not attempted for that unfinished contour
+
+    Rejected rejected
+        -> summary owner remains with rejected payload
+        -> caller reports policy/domain rejection
+        -> outline storage is not attempted
+```
+
+F5a does not call F4aq. The caller owns the scheduling boundary and only passes `GuiSfntSimpleGlyphTopology` to F5a after it has a complete contour traversal. This keeps time slicing separate from capacity planning and prevents a capacity helper from hiding unbounded byte-backed work.
+
+Capacity calculation is pure:
+
+```text
+capacity_from_topology topology:
+    contour_count = topology.contour_count
+    point_count = topology.point_count
+
+    if contour_count <= 0:
+        InvalidTopology topology
+    else if point_count <= 0:
+        InvalidTopology topology
+    else if contour_count > point_count:
+        InvalidTopology topology
+    else if point_count > 1073741823:
+        CommandCountOverflow topology
+    else:
+        Fits capacity:
+            glyph = topology.glyph
+            contour_count = contour_count
+            point_count = point_count
+            edge_count = point_count
+            path_command_pair_count = point_count
+            path_command_count = point_count * 2
+```
+
+Limit comparison is also pure:
+
+```text
+check_limit capacity limit:
+    if limit.max_contours <= 0 or capacity.contour_count > limit.max_contours:
+        Rejected ContourCapacityExceeded capacity limit
+    else if limit.max_points <= 0 or capacity.point_count > limit.max_points:
+        Rejected PointCapacityExceeded capacity limit
+    else if limit.max_edges <= 0 or capacity.edge_count > limit.max_edges:
+        Rejected EdgeCapacityExceeded capacity limit
+    else if limit.max_path_commands <= 0 or capacity.path_command_count > limit.max_path_commands:
+        Rejected CommandCapacityExceeded capacity limit
+    else:
+        Fits capacity
+```
+
+`InvalidTopology` and `CommandCountOverflow` do not carry a capacity value because capacity cannot be trusted. Capacity exceeded carries both `capacity` and `limit` so a later owner-taking allocation API can return the original owner plus enough data to present a precise typed error or retry with a different limit.
+
+F5a source policy:
+
+- `Vec`, `push`, point list, contour list, path command list, raster mask, render command, platform API, host text measurement, and font substitute logic are forbidden.
+- No byte-backed lookup, metadata parser, `*_with_tables`, F4aq drain helper, lower contour helper, or point decoder is called from capacity helpers.
+- `StepBudgetExhausted` is a continuation-required state, not capacity success.
+- All public states are enum / struct values, not strings.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

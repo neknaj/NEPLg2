@@ -159,6 +159,257 @@ pub fn gui_sfnt_simple_glyph_topology_point_data_offset %fn &GuiSfntSimpleGlyphT
 pub fn gui_sfnt_simple_glyph_topology_point_data_length %fn &GuiSfntSimpleGlyphTopology i32 \topology:
     *field::get_ref topology "point_data_length"
 
+//: GuiSfntSimpleGlyphOutlineStorageCapacity: simple glyph outline storage の[必要/ひつよう][容量/ようりょう]
+//:
+//: [目的/もくてき]:
+//: - outline を[確保/かくほ]する[前/まえ]に、contour / point / edge / path command の[数/かず]を typed value として[運/はこ]びます。
+//: - この[値/あたい]は glyph topology から[計算/けいさん]され、pixel buffer や platform resource を[持/も]ちません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlineStorageCapacity:
+    glyph %GuiGlyphId
+    contour_count %i32
+    point_count %i32
+    edge_count %i32
+    path_command_pair_count %i32
+    path_command_count %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlineStorageCapacity:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineStorageCapacity GuiSfntSimpleGlyphOutlineStorageCapacity \capacity:
+        *capacity
+
+impl Copy for GuiSfntSimpleGlyphOutlineStorageCapacity:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineStorageCapacity GuiSfntSimpleGlyphOutlineStorageCapacity \capacity:
+        capacity
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity: outline storage capacity value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity %fn GuiGlyphId fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlineStorageCapacity \glyph\contour_count\point_count\edge_count\path_command_pair_count\path_command_count:
+    GuiSfntSimpleGlyphOutlineStorageCapacity glyph contour_count point_count edge_count path_command_pair_count path_command_count
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_glyph: capacity の glyph id を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_glyph %fn &GuiSfntSimpleGlyphOutlineStorageCapacity GuiGlyphId \capacity:
+    *field::get_ref capacity "glyph"
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_contour_count: capacity の contour count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_contour_count %fn &GuiSfntSimpleGlyphOutlineStorageCapacity i32 \capacity:
+    *field::get_ref capacity "contour_count"
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_point_count: capacity の point count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_point_count %fn &GuiSfntSimpleGlyphOutlineStorageCapacity i32 \capacity:
+    *field::get_ref capacity "point_count"
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_edge_count: capacity の edge count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_edge_count %fn &GuiSfntSimpleGlyphOutlineStorageCapacity i32 \capacity:
+    *field::get_ref capacity "edge_count"
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count: capacity の command pair count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count %fn &GuiSfntSimpleGlyphOutlineStorageCapacity i32 \capacity:
+    *field::get_ref capacity "path_command_pair_count"
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count: capacity の path command count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count %fn &GuiSfntSimpleGlyphOutlineStorageCapacity i32 \capacity:
+    *field::get_ref capacity "path_command_count"
+
+//: GuiSfntSimpleGlyphOutlineStorageLimit: simple glyph outline storage の[許可/きょか][容量/ようりょう]
+//:
+//: [目的/もくてき]:
+//: - caller が[許可/きょか]する contour / point / edge / path command の[上限/じょうげん]を typed value として[運/はこ]びます。
+//: - 0 [以下/いか]は unlimited ではなく、明示的な capacity exceeded として[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlineStorageLimit:
+    max_contours %i32
+    max_points %i32
+    max_edges %i32
+    max_path_commands %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlineStorageLimit:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineStorageLimit GuiSfntSimpleGlyphOutlineStorageLimit \limit:
+        *limit
+
+impl Copy for GuiSfntSimpleGlyphOutlineStorageLimit:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineStorageLimit GuiSfntSimpleGlyphOutlineStorageLimit \limit:
+        limit
+
+//: gui_sfnt_simple_glyph_outline_storage_limit: outline storage limit value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_limit %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlineStorageLimit \max_contours\max_points\max_edges\max_path_commands:
+    GuiSfntSimpleGlyphOutlineStorageLimit max_contours max_points max_edges max_path_commands
+
+//: gui_sfnt_simple_glyph_outline_storage_limit_max_contours: contour [上限/じょうげん]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_limit_max_contours %fn &GuiSfntSimpleGlyphOutlineStorageLimit i32 \limit:
+    *field::get_ref limit "max_contours"
+
+//: gui_sfnt_simple_glyph_outline_storage_limit_max_points: point [上限/じょうげん]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_limit_max_points %fn &GuiSfntSimpleGlyphOutlineStorageLimit i32 \limit:
+    *field::get_ref limit "max_points"
+
+//: gui_sfnt_simple_glyph_outline_storage_limit_max_edges: edge [上限/じょうげん]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_limit_max_edges %fn &GuiSfntSimpleGlyphOutlineStorageLimit i32 \limit:
+    *field::get_ref limit "max_edges"
+
+//: gui_sfnt_simple_glyph_outline_storage_limit_max_path_commands: path command [上限/じょうげん]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_limit_max_path_commands %fn &GuiSfntSimpleGlyphOutlineStorageLimit i32 \limit:
+    *field::get_ref limit "max_path_commands"
+
+//: GuiSfntSimpleGlyphOutlineCapacityRejectReason: limit check の[拒否/きょひ][理由/りゆう]
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlineCapacityRejectReason:
+    ContourCapacityExceeded
+    PointCapacityExceeded
+    EdgeCapacityExceeded
+    CommandCapacityExceeded
+
+impl Clone for GuiSfntSimpleGlyphOutlineCapacityRejectReason:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineCapacityRejectReason GuiSfntSimpleGlyphOutlineCapacityRejectReason \reason:
+        *reason
+
+impl Copy for GuiSfntSimpleGlyphOutlineCapacityRejectReason:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineCapacityRejectReason GuiSfntSimpleGlyphOutlineCapacityRejectReason \reason:
+        reason
+
+//: GuiSfntSimpleGlyphOutlineCapacityRejected: capacity と limit を[保持/ほじ]する[拒否/きょひ] payload
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlineCapacityRejected:
+    reason %GuiSfntSimpleGlyphOutlineCapacityRejectReason
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    limit %GuiSfntSimpleGlyphOutlineStorageLimit
+
+impl Clone for GuiSfntSimpleGlyphOutlineCapacityRejected:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineCapacityRejected GuiSfntSimpleGlyphOutlineCapacityRejected \rejected:
+        *rejected
+
+impl Copy for GuiSfntSimpleGlyphOutlineCapacityRejected:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineCapacityRejected GuiSfntSimpleGlyphOutlineCapacityRejected \rejected:
+        rejected
+
+//: gui_sfnt_simple_glyph_outline_capacity_rejected: capacity exceeded payload を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_capacity_rejected %fn GuiSfntSimpleGlyphOutlineCapacityRejectReason fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphOutlineStorageLimit GuiSfntSimpleGlyphOutlineCapacityRejected \reason\capacity\limit:
+    GuiSfntSimpleGlyphOutlineCapacityRejected reason capacity limit
+
+//: gui_sfnt_simple_glyph_outline_capacity_rejected_reason: capacity exceeded [理由/りゆう]を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_capacity_rejected_reason %fn &GuiSfntSimpleGlyphOutlineCapacityRejected GuiSfntSimpleGlyphOutlineCapacityRejectReason \rejected:
+    *field::get_ref rejected "reason"
+
+//: gui_sfnt_simple_glyph_outline_capacity_rejected_capacity: rejected payload の capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_capacity_rejected_capacity %fn &GuiSfntSimpleGlyphOutlineCapacityRejected GuiSfntSimpleGlyphOutlineStorageCapacity \rejected:
+    *field::get_ref rejected "capacity"
+
+//: gui_sfnt_simple_glyph_outline_capacity_rejected_limit: rejected payload の limit を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_capacity_rejected_limit %fn &GuiSfntSimpleGlyphOutlineCapacityRejected GuiSfntSimpleGlyphOutlineStorageLimit \rejected:
+    *field::get_ref rejected "limit"
+
+//: GuiSfntSimpleGlyphOutlineCapacityCheck: outline storage capacity planning の[結果/けっか]
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlineCapacityCheck:
+    Fits %GuiSfntSimpleGlyphOutlineStorageCapacity
+    InvalidTopology %GuiSfntSimpleGlyphTopology
+    CommandCountOverflow %GuiSfntSimpleGlyphTopology
+    Rejected %GuiSfntSimpleGlyphOutlineCapacityRejected
+
+impl Clone for GuiSfntSimpleGlyphOutlineCapacityCheck:
+    fn clone %fn &GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck \check:
+        *check
+
+impl Copy for GuiSfntSimpleGlyphOutlineCapacityCheck:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlineCapacityCheck GuiSfntSimpleGlyphOutlineCapacityCheck \check:
+        check
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_from_topology: topology から outline storage capacity を[計算/けいさん]する
+//:
+//: [目的/もくてき]:
+//: - allocation の[前/まえ]に、simple glyph の contour / point count から command capacity を[求/もと]めます。
+//: - topology が forged value として[不正/ふせい]な[場合/ばあい]も panic せず enum branch で[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_from_topology %fn &GuiSfntSimpleGlyphTopology GuiSfntSimpleGlyphOutlineCapacityCheck \topology:
+    let contour_count %i32 gui_sfnt_simple_glyph_topology_contour_count topology
+    let point_count %i32 gui_sfnt_simple_glyph_topology_point_count topology
+    if or or le contour_count 0 le point_count 0 gt contour_count point_count:
+        then GuiSfntSimpleGlyphOutlineCapacityCheck::InvalidTopology *topology
+        else:
+            if gt point_count 1073741823:
+                then GuiSfntSimpleGlyphOutlineCapacityCheck::CommandCountOverflow *topology
+                else:
+                    let glyph %GuiGlyphId gui_sfnt_simple_glyph_topology_glyph topology
+                    let edge_count %i32 point_count
+                    let path_command_pair_count %i32 point_count
+                    let path_command_count %i32 mul point_count 2
+                    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_storage_capacity glyph contour_count point_count edge_count path_command_pair_count path_command_count
+                    GuiSfntSimpleGlyphOutlineCapacityCheck::Fits capacity
+
+//: gui_sfnt_simple_glyph_outline_storage_capacity_check_limit: capacity が caller limit に[収/おさ]まるか[調/しら]べる
+//:
+//: [目的/もくてき]:
+//: - contour、point、edge、path command の[順/じゅん]で[最初/さいしょ]の[超過/ちょうか]を enum branch として[返/かえ]します。
+//: - limit の 0 [以下/いか]は unlimited ではなく、明示的な[超過/ちょうか]として[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_storage_capacity_check_limit %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn &GuiSfntSimpleGlyphOutlineStorageLimit GuiSfntSimpleGlyphOutlineCapacityCheck \capacity\limit:
+    let contour_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_contour_count capacity
+    let max_contours %i32 gui_sfnt_simple_glyph_outline_storage_limit_max_contours limit
+    if or le max_contours 0 gt contour_count max_contours:
+        then:
+            let rejected %GuiSfntSimpleGlyphOutlineCapacityRejected gui_sfnt_simple_glyph_outline_capacity_rejected GuiSfntSimpleGlyphOutlineCapacityRejectReason::ContourCapacityExceeded *capacity *limit
+            GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected
+        else:
+            let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity
+            let max_points %i32 gui_sfnt_simple_glyph_outline_storage_limit_max_points limit
+            if or le max_points 0 gt point_count max_points:
+                then:
+                    let rejected %GuiSfntSimpleGlyphOutlineCapacityRejected gui_sfnt_simple_glyph_outline_capacity_rejected GuiSfntSimpleGlyphOutlineCapacityRejectReason::PointCapacityExceeded *capacity *limit
+                    GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected
+                else:
+                    let edge_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_edge_count capacity
+                    let max_edges %i32 gui_sfnt_simple_glyph_outline_storage_limit_max_edges limit
+                    if or le max_edges 0 gt edge_count max_edges:
+                        then:
+                            let rejected %GuiSfntSimpleGlyphOutlineCapacityRejected gui_sfnt_simple_glyph_outline_capacity_rejected GuiSfntSimpleGlyphOutlineCapacityRejectReason::EdgeCapacityExceeded *capacity *limit
+                            GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected
+                        else:
+                            let path_command_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count capacity
+                            let max_path_commands %i32 gui_sfnt_simple_glyph_outline_storage_limit_max_path_commands limit
+                            if or le max_path_commands 0 gt path_command_count max_path_commands:
+                                then:
+                                    let rejected %GuiSfntSimpleGlyphOutlineCapacityRejected gui_sfnt_simple_glyph_outline_capacity_rejected GuiSfntSimpleGlyphOutlineCapacityRejectReason::CommandCapacityExceeded *capacity *limit
+                                    GuiSfntSimpleGlyphOutlineCapacityCheck::Rejected rejected
+                                else:
+                                    GuiSfntSimpleGlyphOutlineCapacityCheck::Fits *capacity
+
 //: GuiSfntSimpleGlyphPointStream: simple glyph の raw point stream ranges
 //:
 //: [目的/もくてき]:
