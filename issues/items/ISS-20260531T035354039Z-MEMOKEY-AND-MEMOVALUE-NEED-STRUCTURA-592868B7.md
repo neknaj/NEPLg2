@@ -56,6 +56,32 @@ Accepted tests should cover primitive scalar/unit/structural Copy values; reject
 
 Current Phase 1 regression is covered by `cargo test -p nepl-core function_memo_call --test functions -- --nocapture`.
 
+## 2026-06-14 selfhost core type substitution traversal checkpoint
+
+`stdlib/neplg2/core/ty/ty/substitution.nepl` を追加し、generic substitution を raw substituted shape hash ではなく `SelfhostTypeArena` の actual typed traversal と schema 付き step stream evidence へ移すための core 境界を作った。
+
+この checkpoint は checker-layer materializer accepted path ではない。入力は arena owner、borrowed binding table、root TypeId であり、`Primitive` / `Named` は保持、`Parameter` は binding table と一致する場合だけ replacement TypeId へ置換、`Applied` / `Function` は child TypeId を再帰置換して新しい type record を arena に追加する。成功時は `SelfhostTypeSubstitutionResult` が updated arena、step table、evidence を所有する。
+
+accepted authority は `SelfhostTypeRecord`、`SelfhostTypeParameterBinding`、replacement `SelfhostTypeId`、typed step stream だけである。source text、span、display name、diagnostic、module path、public surface hash、HIR、Resource IR、backend、proof store、PrivateCache / PrivateState、prechecked artifact は authority にしない。
+
+失敗は `SelfhostTypeSubstitutionErrorKind` の enum data として保持する。invalid / duplicate binding、binding record read failure、replacement missing、source record missing、applied / function child missing、rebuild failure、fuel exhaustion、step stream hash placeholder、evidence mismatch を bool や表示文字列へ潰さず fail-closed にする。error equality は wildcard fallback ではなく、variant code と payload slot の網羅 match で比較する。
+
+Resource IR owner boundary として、callee が失敗時にも消費する owner を caller が再利用しないように、step table consumed、argument vector consumed、arena builder consumed の失敗 helper を分けた。これにより `Vec::push` failure、type arena rebuild failure、step push failure の各経路で二重解放や moved cell read を作らない。
+
+現在の計算量は、visited type node / edge 数を `n`、binding count を `b`、rebuild child count 合計を `a` とすると、binding duplicate validation が `O(b*b)`、parameter lookup が `O(n*b)`、applied / function rebuild が `O(a)` である。合計上界は `O(b*b + n*b + a)` であり、binding table sorted index、duplicate validation index、replacement lookup cache、substitution result memo は今回固定した typed authority / evidence / owner cleanup 契約を保って後続で置換できる最適化として扱う。
+
+source policy は `nodesrc/test_selfhost_type_substitution_contract.js` で固定した。facade export、`nodesrc/selfhost_ty_sources.js` 登録、`nodesrc/run_source_policy_regressions.js` 登録、checker / HIR / Resource / backend / proof store / private effect / public surface authority import 禁止、typed table / evidence / error enum、binding validation、broken record read fail-closed、typed TypeRecord dispatch、fuel guard、applied / function rebuild、step stream rehash、wildcard-free error equality、stage0 accepted / duplicate / invalid / missing error smoke、行数・doc comment 長制限禁止を確認する。
+
+subagent review では、重大指摘はなかった。Required 相当の中程度指摘として、binding table read `None` の success 扱い、source policy regression runner 登録漏れ、`selfhost_ty_sources.js` 登録漏れ、error equality の wildcard fallback が挙がったため、同じ checkpoint 内で修正した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_type_substitution_contract.js`
+- pass: `node nodesrc/test_selfhost_ty_split_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='120000'; node nodesrc/tests.js -i stdlib/neplg2/core/ty/ty/substitution.nepl --no-tree -o tmp/selfhost-type-substitution-engine.json -j 1 --assert-io --dist web/dist`
+
+この checkpoint 後の残件は、checker-layer generic substitution shape producer がこの core substitution evidence を消費して substituted target / trait application shape を actual traversal output 由来にすること、trait bound solver、generic coherence、generic instantiation evidence を materializer accepted path へ接続すること、PrivateCache / PrivateState effect masking、prechecked artifact 接続である。
+
 ## 2026-06-14 selfhost public impl surface operation proof orchestrator checkpoint
 
 `stdlib/neplg2/core/check/module/memo_trait_public_impl_surface_operation_proof_orchestrator.nepl` を追加し、Drop candidate 増補済み `SelfhostMemoTraitPublicImplSurfaceState` を既存 operation evidence / proof connector へ渡す上位 orchestration 境界を作った。

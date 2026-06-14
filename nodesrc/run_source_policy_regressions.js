@@ -220,6 +220,7 @@ const checks = [
     "nodesrc/test_selfhost_ty_split_contract.js",
     "nodesrc/test_selfhost_type_record_payload.js",
     "nodesrc/test_selfhost_type_key_contract.js",
+    "nodesrc/test_selfhost_type_substitution_contract.js",
     "nodesrc/test_selfhost_memo_trait_predicate_contract.js",
     "nodesrc/test_selfhost_memo_trait_layout_contract.js",
     "nodesrc/test_selfhost_memo_trait_policy_contract.js",
