@@ -1,3 +1,45 @@
+# 2026-06-14 Agent2 GUI font PointY storage/read bridge checkpoint
+
+## scope
+
+- branch: `gui-font-point-y-storage-read-20260614`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5i/F5j の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum error、owner recovery、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph point y coordinate population と point y byte reader bridge の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に PointY region ordering、logical point index、owner recovery、F5j の y-only boundary を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5i/F5j の実装順序と検証を追加した。
+- `GuiSfntSimpleGlyphPointYSlot`、`GuiSfntSimpleGlyphPointYPush`、`GuiSfntSimpleGlyphPointYPushError`、`GuiSfntSimpleGlyphPointYReadPush`、`GuiSfntSimpleGlyphPointYReadPushError` を追加した。owner-bearing payload には `Clone` / `Copy` を実装しない。
+- `GuiSfntSimpleGlyphPointYPushErrorKind` と `GuiSfntSimpleGlyphPointYReadPushErrorKind` を typed enum として定義し、validation failure、read failure、push failure を文字列へ潰さない。
+- `gui_sfnt_simple_glyph_outline_storage_push_point_y` は capacity / cursor / PointY region / logical point index を検査してから F5d region push を 1 回だけ呼ぶ。
+- `gui_sfnt_glyf_read_push_point_y` は y byte stream だけを読み、x range、endpoint array、contour span、full point decode、renderer / rasterizer / platform / host API には依存しない。
+- PointY の focused doctest は `tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md` へ分離し、既存巨大 storage doctest の 180 秒 timeout を悪化させないようにした。
+- `nodesrc/test_web_gui_font_rendering_contract.js` は private `struct` / `enum` も関数境界として扱い、巨大な `[\s\S]*` 正規表現を順序付き fragment 検査へ置き換えて source policy の実行時間を安定化した。
+
+## subagent_review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。PointY region は contour endpoint と PointX の後ろにあるため、2 contours / 4 points の fixture では `[6, 10)` を PointY として prefill する必要があると指摘された。
+- 計画を修正し、endpoint `[0, 2)`、PointX `[2, 6)`、PointY `[6, 10)` の順序、F5j の y-only boundary、bad x range を F5j が拒否しない test 方針を明文化した。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。F5i/F5j の source policy、owner recovery、no fallback、no platform dependency の範囲で実装開始が認められた。
+- Tesla implementation review は `REVIEW_APPROVED`。PointY prefill、logical index 導出順、F5j y-only 境界、owner-bearing Clone / Copy 禁止、lower error metadata の owner 消費前読み取り、focused PointY doctest の commit 対象化を確認済みである。
+
+## verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_y.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_point_y_f5j_current.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='360000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md --no-tree -o tmp_gui_font_sfnt_glyf_outline_storage_f5j_current.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='360000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5j_current.json -j 1`
+- pass: `git diff --check`
+
+## residual
+
+- 既存 `tests/stdlib/gui_font_sfnt_glyf_outline_storage.n.md` は 1 doctest block が大きく、追加後は 180 秒では timeout し、360 秒では通過する。後続で F5b/F5c/F5d/F5e/F5g/F5h ごとに doctest を分割する必要がある。
+- full point decode into outline storage、edge/path tag population、outline point storage to path/raster/render は未実装である。
+- outline font shaping、ruby / vertical / right-to-left layout、math text integration、raster / 2D rendering engine connection は後続 phase のままである。
+
 # 2026-06-14 Agent2 GUI font PointX byte reader bridge checkpoint
 
 ## scope

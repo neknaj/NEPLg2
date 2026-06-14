@@ -1982,6 +1982,108 @@ GuiSfntSimpleGlyphPointXReadPushError:
 
 F5h の x-only reader helper は bounded flag reads と `gui_sfnt_glyf_decode_x_delta` だけを使う。`gui_sfnt_glyf_decode_y_delta`、full point decode state、endpoint read、contour span read、path/raster/render/platform/host API は使わない。
 
+### SFNT simple glyph point y coordinate population
+
+F5i は F5d の `PointY` region cursor を使い、simple glyph の y coordinate scalar を owner-preserving に追加する。F5g と同じ storage contract を使うが、対象 region は `PointY` である。ここでは byte-backed flag stream や y delta decode をまだ読まない。
+
+`PointY` region は `ContourEndpoint` と `PointX` region の後ろにある。2 contours / 4 points の場合、scalar region は次の順である。
+
+```text
+ContourEndpoint [0, 2)
+PointX          [2, 6)
+PointY          [6, 10)
+```
+
+したがって `PointY` に push する前に、endpoint とすべての `PointX` slot が既に追加済みでなければならない。`PointY` cursor の `next_index` は scalar storage index であり、そのまま glyph logical point index ではない。
+
+```text
+logical_point_index = cursor.next_index - cursor.start
+```
+
+この変換は cursor が well-formed であり、cursor/capacity boundary が checked capacity と一致することを確認してからだけ行う。
+
+```text
+GuiSfntSimpleGlyphPointYSlot:
+    point_index i32
+    y i32
+
+GuiSfntSimpleGlyphPointYPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphPointYPushErrorKind:
+    StorageCapacityInvalid
+    CursorInvalid
+    CursorRegionMismatch
+    PointIndexMismatch
+    PointIndexOutOfRange
+    RegionPushFailed
+
+GuiSfntSimpleGlyphPointYPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point GuiSfntSimpleGlyphPointYSlot
+    kind GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphPointYPush` と `GuiSfntSimpleGlyphPointYPushError` は storage owner を持つため `Clone` / `Copy` にしない。`GuiSfntSimpleGlyphPointYSlot` と error kind は value-only なので `Clone` / `Copy` でよい。
+
+`gui_sfnt_simple_glyph_outline_storage_push_point_y` は F5g と同じ順序を守る。ただし cursor region は `PointY` でなければならず、最後に F5d の `gui_sfnt_simple_glyph_outline_storage_push_region_scalar` を 1 回だけ呼び、y scalar を追加する。
+
+F5i は y coordinate region の storage contract だけを扱い、byte decode、x coordinate、edge generation、path command generation、rasterizer、renderer、platform API、host text API へは進まない。
+
+### SFNT simple glyph point y byte reader bridge
+
+F5j は checked `GuiSfntSimpleGlyphPointStream` から 1 logical point の y coordinate だけを読み、F5i の `PointY` storage helper へ接続する。ここでは x coordinate、endpoint array、contour span、edge/path、rasterizer、renderer、platform API、host text API へ進まない。
+
+F5j は y-only boundary である。したがって forged stream の x range が壊れていても F5j は検査しない。x range validation は PointX / full point phase の責務である。同様に endpoint array failure は contour endpoint phase の責務であり、F5j の error domain へ混ぜない。
+
+success payload は storage owner と advanced PointY cursor を返す。
+
+```text
+GuiSfntSimpleGlyphPointYReadPush:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+```
+
+error payload も storage owner を返す。
+
+```text
+GuiSfntSimpleGlyphPointYReadPushErrorKind:
+    ReadFailed
+    PushFailed
+
+GuiSfntSimpleGlyphPointYReadPushError:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    point_index i32
+    point Option GuiSfntSimpleGlyphPointYSlot
+    kind GuiSfntSimpleGlyphPointYReadPushErrorKind
+    parse_error Option GuiSfntParseError
+    push_error_kind Option GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+```
+
+`GuiSfntSimpleGlyphPointYReadPush` と `GuiSfntSimpleGlyphPointYReadPushError` は storage owner を持つため `Clone` / `Copy` にしない。error kind は value-only なので `Clone` / `Copy` でよい。
+
+`gui_sfnt_glyf_read_push_point_y` は次の順序を守る。
+
+```text
+1. point_index が stream topology の point_count 内であることを検査する
+2. flag stream と y delta stream だけを読み、target point までの累積 y を得る
+3. read failure なら storage mutation を呼ばず ReadFailed を返す
+4. read success なら GuiSfntSimpleGlyphPointYSlot を作る
+5. F5i の gui_sfnt_simple_glyph_outline_storage_push_point_y を 1 回だけ呼ぶ
+6. push failure なら point、F5i error kind、F5d error kind、F5c storage push error kind を読む
+7. lower error data を読んだ後で storage owner を回収する
+8. PushFailed を返す
+```
+
+F5j の y-only reader helper は bounded flag reads と `gui_sfnt_glyf_decode_y_delta` だけを使う。`gui_sfnt_glyf_decode_x_delta`、full point decode state、endpoint read、contour span read、path/raster/render/platform/host API は使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
