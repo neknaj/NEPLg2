@@ -3069,3 +3069,66 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5s.json -j 1
 git diff --check
 ```
+
+## Phase F5t: sfnt simple glyph outline point stream item collection owner
+
+目的:
+
+- F5s の classified item stream を後続 phase が owner として保持できる allocator-backed collection boundary を追加する。
+- 今回は F5s drain-to-collection loop には進まず、empty collection allocation、single item push、single item read の contract だけを固定する。
+- F5b scalar slot storage limit と item collection limit を混ぜず、F5t 専用 limit を導入する。
+- push では public constructor で forged item が作れることを前提に、glyph、point index、kind を mutation 前に再検査する。
+- read は `Option` ではなく typed `Result` とし、invariant failure、out-of-range、missing slot を区別する。
+- path、raster、render、platform、host text API へ進まない。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。既存 `GuiSfntSimpleGlyphOutlineStorageLimit` の流用、item kind 再検証不足、`item_at Option` による invariant failure の隠蔽、lower `StdErrorKind` の欠落、F5s/F5r/F5o/F5p 非依存の明文化不足が指摘された。
+- 計画を修正し、F5t 専用 `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`、`ItemKindMismatch`、typed read error、push error の `storage_error Option StdErrorKind`、F5s/F5r/F5o/F5p 直接呼び出し禁止を追加した。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。実装開始可とされた。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollection`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocError`
+  - allocation error constructors/accessors
+  - collection observers/free
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_kind_is`
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError`
+  - push error constructors/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_push`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError`
+  - read error constructors/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`
+- allocation order は `capacity shape`、`max_items > 0`、`point_count <= max_items`、`vec::with_capacity point_count` とする。
+- free は collection owner を消費し、内部 `items` に対して `vec::free` を exactly once 呼ぶ。
+- push order は `capacity shape`、`len == item_count`、`cap == point_count`、`item_count < point_count`、glyph/index/kind 検査、`vec::push` exactly once とする。
+- read order は `capacity shape`、`len == item_count`、`cap == point_count`、index range、`vec::get` exactly once とする。
+- doctest は alloc success、invalid capacity、invalid limit、limit reject、push/read success、glyph mismatch、index mismatch、kind mismatch、collection full、public read out-of-range を検査する。
+- read length mismatch、read capacity mismatch、missing slot は owner-backed collection constructor の外部利用制限により doctest から forged owner を作らず、source policy で typed branch と実装順序を固定する。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5t 専用 limit があり、F5b scalar slot storage limit を使わない。
+- collection owner と push error は owner-bearing payload なので `Clone` / `Copy` を実装しない。
+- `Vec` capacity は `capacity.point_count` であり、scalar slot count ではない。
+- push failure では collection owner、rejected item、typed error kind、lower `StdErrorKind` option が失われない。
+- `vec::vec_push_error_kind &e` を `vec::vec_push_error_vec e` より前に読む。
+- item kind は item payload を信頼せず、F5q `kind_from_point` で再導出して検査する。
+- public read は `Option` ではなく typed `Result` を返す。
+- source policy が F5t docs、専用 limit、allocation/push/read order、owner-bearing payload 非 Clone / 非 Copy、F5s/F5r/F5o/F5p drain 非依存、lower byte reader/path/render/raster/platform/host API 禁止、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5t.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5t.json -j 1
+git diff --check
+```

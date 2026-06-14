@@ -63387,3 +63387,45 @@ MERGE_APPROVED
 
 - F5 outline storage doctest の timeout root cause は phase / scenario split で解消したが、compiler compile time 自体は重い。parallel 実行では heavy doctest 同士が重なると timeout し得るため、CI や runner 側では heavy doctest の scheduling policy を別途改善する余地がある。
 - 次 slice では F5k 以降として PointX/PointY を束ねた full point decode boundary、edge/path tag population、outline point stream、raster mask、render2d command emission へ進む。
+
+## 2026-06-15 GUI font outline point stream item collection checkpoint
+
+### scope
+
+- branch: `gui-font-outline-item-collection-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback ではなく、F5s の classified item stream を後続 phase へ渡す所有者境界を Result / enum / owner recovery で追加した。F5b scalar slot storage limit を流用せず、F5t 専用 limit を導入した。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5t の collection owner contract、専用 limit、push/read order、非依存 API、検証方針を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollection`、allocation / push / read error、alloc/free/observer、kind consistency helper、owner-preserving push、typed read helper を追加した。
+- allocation は `capacity shape`、`max_items > 0`、`point_count <= max_items`、`vec::with_capacity point_count` の順序にした。
+- push は `capacity shape`、`len == item_count`、`cap == point_count`、`item_count < point_count`、glyph/index/kind 検査、`vec::push` 1 回の順序にした。
+- `ItemKindMismatch` は F5q の `gui_sfnt_simple_glyph_outline_point_stream_item_kind_from_point` による再導出を authority とする。
+- push failure は collection owner、rejected item、typed kind、`storage_error Option StdErrorKind` を返す。`vec::vec_push_error_kind &e` は `vec::vec_push_error_vec e` より前に読む。
+- public read helper は `Option` ではなく `Result GuiSfntSimpleGlyphOutlinePointStreamItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError` を返す。forged owner invariant は typed read error kind と source policy で固定した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md` を追加し、alloc success、invalid capacity、invalid limit、limit reject、push/read success、glyph/index/kind mismatch、collection full、public read out-of-range を検査した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5t source policy を追加し、docs、API、owner-bearing payload 非 Clone / 非 Copy、allocation/push/read order、Vec operation count、F5s/F5r/F5o/F5p / lower byte reader / path / render / raster / platform / host API 禁止、括弧なし body を固定した。
+- `todo.md` に次 slice の F5u drain-to-collection boundary を追加した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。既存 `GuiSfntSimpleGlyphOutlineStorageLimit` の流用、item kind 再検証不足、`item_at Option` による invariant failure の隠蔽、lower `StdErrorKind` の欠落、F5s/F5r/F5o/F5p 非依存の明文化不足が指摘された。
+- Tesla plan review 2: `PLAN_APPROVED`。専用 collection limit、`ItemKindMismatch`、typed read error、push error の `storage_error Option StdErrorKind`、F5s/F5r/F5o/F5p 非依存を追加した改訂計画が承認された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。source policy が alloc の `vec::with_capacity` exact count と free helper の `vec::free` exact count を固定していないと指摘された。
+- Tesla implementation review 1 fixes: spec / detailed design / implementation plan に free contract を追加し、source policy に alloc `vec::with_capacity` exactly once、free helper slice、`vec::free` exactly once、free helper の forbidden API / no-parentheses 検査を追加した。
+- Tesla implementation review 2: `REVIEW_APPROVED`。blocker 解消、source policy と diff check pass、merge-ready と確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_f5t.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5t.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_drain_after_f5t.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5t は collection owner / single push / typed read までであり、F5s drain result を collection へ流す loop は未実装である。
+- 次 slice では F5u として、F5s drain と collection push を owner-preserving に接続する。`StepBudgetExhausted` は typed terminal として残し、push failure では collection owner、cursor、last item、lower error metadata を失わないようにする。

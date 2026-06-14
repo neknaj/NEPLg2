@@ -109,6 +109,7 @@ const guiFontSfntOutlinePointDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_
 const guiFontSfntOutlinePointStreamItemTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item.n.md");
 const guiFontSfntOutlinePointStreamItemStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_step.n.md");
 const guiFontSfntOutlinePointStreamItemDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_drain.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -132,6 +133,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemTests,
     guiFontSfntOutlinePointStreamItemStepTests,
     guiFontSfntOutlinePointStreamItemDrainTests,
+    guiFontSfntOutlinePointStreamItemCollectionTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -6809,6 +6811,265 @@ assert(
         guiFontSfntOutlinePointStreamItemDrainTests.includes("Option::None") &&
         guiFontSfntOutlinePointStreamItemDrainTests.includes("Option::Some item"),
     "F5s point stream item drain focused doctest must cover full End, partial/zero budget, terminal zero budget, cursor error, wrapped F5o failure, and classified last item",
+);
+const specF5t = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5t は F5s",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:",
+    "max_items i32",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind:",
+    "InvalidLimit",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollection:",
+    "items Vec GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "vec::free",
+    "ItemKindMismatch",
+    "storage_error",
+    "CollectionReadErrorKind",
+    "Option::None",
+    "F5t は次を直接呼ばない",
+]) {
+    assert(specF5t.includes(fragment), `font spec F5t point stream item collection must mention ${fragment}`);
+}
+const detailedF5t = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5t adds the first allocator-backed owner for classified point stream items",
+    "dedicated limit",
+    "Allocation order is fixed",
+    "items.len == item_count",
+    "vec::free` exactly once",
+    "ItemKindMismatch",
+    "vec::vec_push_error_kind &e",
+    "vec::vec_push_error_vec e",
+    "typed `Result`, not `Option`",
+    "vec::get exactly once",
+    "must not call F5s drain",
+]) {
+    assert(detailedF5t.includes(fragment), `font detailed design F5t point stream item collection must mention ${fragment}`);
+}
+const implementationPlanF5t = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5t: sfnt simple glyph outline point stream item collection owner"),
+);
+for (const fragment of [
+    "Tesla plan review は 1 回目 `PLAN_BLOCKED`",
+    "修正後の計画は Tesla review で `PLAN_APPROVED`",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind",
+    "capacity shape",
+    "max_items > 0",
+    "vec::with_capacity point_count",
+    "vec::free",
+    "vec::push",
+    "vec::get",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection.n.md",
+]) {
+    assert(implementationPlanF5t.includes(fragment), `font implementation plan F5t must mention ${fragment}`);
+}
+const pointStreamItemCollectionTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphContourSpan:"),
+);
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionLimit:",
+    "max_items %i32",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollection:",
+    "capacity %GuiSfntSimpleGlyphOutlineStorageCapacity",
+    "items %Vec GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "item_count %i32",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind:",
+    "InvalidCapacity",
+    "InvalidLimit",
+    "CapacityRejected",
+    "ItemStorageAllocFailed",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind:",
+    "CollectionLengthMismatch",
+    "CollectionCapacityMismatch",
+    "CollectionFull",
+    "ItemGlyphMismatch",
+    "ItemIndexMismatch",
+    "ItemKindMismatch",
+    "ItemStoragePushFailed",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:",
+    "collection %GuiSfntSimpleGlyphOutlinePointStreamItemCollection",
+    "item %GuiSfntSimpleGlyphOutlinePointStreamItem",
+    "storage_error %Option StdErrorKind",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind:",
+    "ItemIndexOutOfRange",
+    "ItemStorageMissing",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_push",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item",
+]) {
+    assert(pointStreamItemCollectionTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5t collection API must include ${fragment}`);
+}
+assertNoMatch(
+    pointStreamItemCollectionTypes,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollection:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollection:|impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushError:/,
+    "alloc/gui/font/sfnt/glyf F5t owner-bearing collection and push error must not implement Clone or Copy",
+);
+const pointStreamItemCollectionAlloc = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_alloc");
+for (const fragment of [
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid capacity:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::InvalidCapacity",
+    "let max_items %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_limit_max_items limit",
+    "if le max_items 0:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::InvalidLimit",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity",
+    "if gt point_count max_items:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::CapacityRejected",
+    "let items_result %Result Vec GuiSfntSimpleGlyphOutlinePointStreamItem StdErrorKind vec::with_capacity point_count",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollection *capacity items 0",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionAllocErrorKind::ItemStorageAllocFailed",
+]) {
+    assert(pointStreamItemCollectionAlloc.includes(fragment), `alloc/gui/font/sfnt/glyf F5t collection alloc must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionAlloc,
+    [
+        "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid",
+        "le max_items 0",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_point_count",
+        "gt point_count max_items",
+        "vec::with_capacity point_count",
+    ],
+    "alloc/gui/font/sfnt/glyf F5t collection alloc must validate capacity, dedicated limit, point count, then allocate point_count items",
+);
+assertNoMatch(
+    pointStreamItemCollectionAlloc,
+    /\bgui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check\b|\bgui_sfnt_simple_glyph_outline_storage_capacity_check_limit\b/,
+    "alloc/gui/font/sfnt/glyf F5t collection alloc must not use scalar slot count or F5b storage limit check",
+);
+assert(
+    (pointStreamItemCollectionAlloc.match(/\bvec::with_capacity\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5t collection alloc must call vec::with_capacity exactly once",
+);
+const pointStreamItemCollectionFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_free");
+for (const fragment of [
+    "fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_free %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollection unit",
+    "vec::free field::get collection \"items\"",
+]) {
+    assert(pointStreamItemCollectionFree.includes(fragment), `alloc/gui/font/sfnt/glyf F5t collection free must include ${fragment}`);
+}
+assert(
+    (pointStreamItemCollectionFree.match(/\bvec::free\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5t collection free must call vec::free exactly once",
+);
+const pointStreamItemCollectionPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_push");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity &collection",
+    "let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count &collection",
+    "let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len &collection",
+    "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap &collection",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::InvalidCapacity",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+    "if ne items_len item_count:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::CollectionLengthMismatch",
+    "if ne items_cap point_count:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::CollectionCapacityMismatch",
+    "if ge item_count point_count:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::CollectionFull",
+    "let item_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_outline_point_stream_item_point &item",
+    "gui_glyph_id_raw &item_glyph",
+    "gui_glyph_id_raw &capacity_glyph",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemGlyphMismatch",
+    "let point_index %i32 gui_sfnt_simple_glyph_point_index &item_point",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemIndexMismatch",
+    "if not gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemKindMismatch",
+    "match vec::push items item:",
+    "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+    "let returned_items %Vec GuiSfntSimpleGlyphOutlinePointStreamItem vec::vec_push_error_vec e",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPushErrorKind::ItemStoragePushFailed",
+]) {
+    assert(pointStreamItemCollectionPush.includes(fragment), `alloc/gui/font/sfnt/glyf F5t collection push must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPush,
+    [
+        "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid",
+        "if ne items_len item_count:",
+        "if ne items_cap point_count:",
+        "if ge item_count point_count:",
+        "ne item_glyph_raw capacity_glyph_raw",
+        "if ne point_index item_count:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item",
+        "match vec::push items item:",
+        "vec::vec_push_error_kind &e",
+        "vec::vec_push_error_vec e",
+    ],
+    "alloc/gui/font/sfnt/glyf F5t collection push must validate owner and item invariants before one Vec push and recover lower error kind before owner",
+);
+assert(
+    (pointStreamItemCollectionPush.match(/\bvec::push\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5t collection push must call vec::push exactly once",
+);
+const pointStreamItemCollectionRead = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+    "let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection",
+    "let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection",
+    "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::InvalidCapacity",
+    "let point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity",
+    "if ne items_len item_count:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::CollectionLengthMismatch",
+    "if ne items_cap point_count:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::CollectionCapacityMismatch",
+    "if or lt index 0 ge index item_count:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::ItemIndexOutOfRange",
+    "match vec::get items index:",
+    "Option::Some item:",
+    "Result::Ok item",
+    "Option::None:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadErrorKind::ItemStorageMissing",
+]) {
+    assert(pointStreamItemCollectionRead.includes(fragment), `alloc/gui/font/sfnt/glyf F5t collection read must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionRead,
+    [
+        "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid",
+        "if ne items_len item_count:",
+        "if ne items_cap point_count:",
+        "if or lt index 0 ge index item_count:",
+        "match vec::get items index:",
+    ],
+    "alloc/gui/font/sfnt/glyf F5t collection read must validate invariants before one Vec get",
+);
+assert(
+    (pointStreamItemCollectionRead.match(/\bvec::get\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5t collection read must call vec::get exactly once",
+);
+for (const body of [pointStreamItemCollectionAlloc, pointStreamItemCollectionFree, pointStreamItemCollectionPush, pointStreamItemCollectionRead]) {
+    assertNoMatch(
+        body,
+        /\bgui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_step_from_point_step\b|\bgui_sfnt_simple_glyph_outline_storage_read_point_step\b|\bgui_sfnt_simple_glyph_outline_storage_read_point_drain_budget\b|\bgui_sfnt_simple_glyph_outline_storage_read_point\b|\bgui_sfnt_glyf_read_point_flag_from_stream\b|\bgui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables\b/,
+        "alloc/gui/font/sfnt/glyf F5t collection helpers must not call F5s/F5r/F5o/F5p, lower byte/point readers, path/render/raster/platform/host APIs",
+    );
+    assertNoMatch(
+        body,
+        /[()]/,
+        "alloc/gui/font/sfnt/glyf F5t collection helper bodies must preserve NEPL prefix style without parentheses",
+    );
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_alloc_success_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_invalid_capacity_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_invalid_limit_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_limit_reject_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_push_read_success_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_glyph_mismatch_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_index_mismatch_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_kind_mismatch_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_full_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionTests.includes("item_collection_read_out_of_range_ok"),
+    "F5t point stream item collection focused doctest must cover alloc, dedicated limit, push/read success, typed push errors, full collection, and public typed read errors",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
