@@ -6017,6 +6017,49 @@ stroke / shadow rasterizer
 2D compositor
 ```
 
+### SFNT simple glyph alpha mask render command boundary
+
+F5bk は F5bj の per-sample `FillRect` correctness bridge を最終描画経路にしないため、core render command に `AlphaMaskRect` を追加する境界である。目的は、glyph の coverage mask を 1 pixel ごとの command stream へ展開せず、opaque resource handle と配置矩形と paint だけで renderer / host に渡せる no_alloc contract を作ることである。
+
+```text
+AlphaMaskId:
+    raw i32
+
+AlphaMaskRectCommand:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+```
+
+`AlphaMaskRect` は SourceOver 専用 command である。mask alpha と `GuiPaint` alpha は renderer 側で SourceOver contract に従って合成する。RGB は `GuiPaint` に由来し、mask は coverage / opacity だけを表す。任意の blend mode はこの payload に入れないため、F5bj と同じく non-SourceOver glyph blend は command 構築前に typed error で拒否する。
+
+core は mask byte storage、mask dimensions、resource lifetime、texture upload、renderer backend を保持しない。`AlphaMaskId` が見つからない場合、target が alpha mask command を扱えない場合、または resource dimensions が command rect と矛盾する場合は renderer / host 層が `Result` / `GuiError` で返す。silent no-op と fallback rasterization は禁止する。
+
+F5bk が追加する public API は次である。
+
+```text
+alpha_mask_id_new
+alpha_mask_id_raw
+alpha_mask_rect_command_mask_id
+alpha_mask_rect_command_rect
+alpha_mask_rect_command_paint
+render_command_alpha_mask_rect
+RenderCommand::AlphaMaskRect
+```
+
+F5bk は次を呼ばない。
+
+```text
+Vec / String / allocator
+DrawTarget / RenderTarget implementation
+platform / host APIs
+Canvas / DOM / minifb
+font internals
+font fallback
+zero-fill fallback
+2D compositor drain
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

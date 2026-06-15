@@ -6801,6 +6801,51 @@ GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind:
 
 F5bj may call `render_command_fill_rect`. It must not call `RenderTarget`, `DrawTarget`, platform APIs, backend APIs, font fallback, zero-fill helpers, stroke / shadow rasterizers, or 2D compositor APIs.
 
+## SFNT simple glyph alpha mask render command boundary
+
+F5bk adds the core command shape that the later compositor and host transport can consume without expanding a glyph mask into per-sample `FillRect` commands. It is a core/gui contract boundary, not a renderer implementation and not a fallback path.
+
+The new handle mirrors the existing `ImageId` / `TextRunId` pattern:
+
+```text
+AlphaMaskId:
+    raw i32
+```
+
+The payload is a no_alloc value:
+
+```text
+AlphaMaskRectCommand:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+```
+
+The corresponding command variant is:
+
+```text
+RenderCommand::AlphaMaskRect AlphaMaskRectCommand
+```
+
+`AlphaMaskRectCommand` is SourceOver only. It deliberately has no `GuiBlendMode` field. The renderer resolves `mask_id`, reads the mask resource outside core, and draws the mask into `rect` using `GuiPaint` as the source color. RGB comes from `GuiPaint`. Effective source alpha is derived from mask alpha and `GuiPaint` alpha under the SourceOver contract. If the glyph paint asks for `Copy`, `Multiply`, `Screen`, or any future non-SourceOver blend, the glyph renderer must fail before constructing `AlphaMaskRectCommand`.
+
+This rule prevents the same semantic loss that F5bj had to avoid for `FillRectCommand`. The command boundary is a typed resource operation, not an instruction to reinterpret unsupported blend as SourceOver and not a request to fall back to a pixel loop.
+
+Core does not store or inspect mask bytes. Core also does not know mask width, height, stride, texture upload state, cache entries, browser canvas handles, native surface handles, or font table owners. Those are alloc/std/platform/renderer responsibilities. If the renderer cannot resolve `AlphaMaskId`, if dimensions are incompatible with the target, or if the backend does not support the command, it returns `Result` / `GuiError` at that layer. It must not silently ignore the command.
+
+The helper functions are deliberately O(1):
+
+```text
+alpha_mask_id_new raw
+alpha_mask_id_raw id
+alpha_mask_rect_command_mask_id command
+alpha_mask_rect_command_rect command
+alpha_mask_rect_command_paint command
+render_command_alpha_mask_rect mask_id rect paint
+```
+
+F5bk must not introduce `Vec`, `String`, allocator calls, platform calls, RenderTarget / DrawTarget implementation, Canvas / DOM / minifb bindings, font fallback, byte-backed font lookup, or compositor drain. Later slices can bind a completed fill alpha mask owner to an `AlphaMaskId` resource table and can define tile / row / bitmap transport, but that storage boundary is not part of F5bk.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
