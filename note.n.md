@@ -1,3 +1,43 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action consume summary drain checkpoint
+
+## scope
+
+- branch: `gui-font-collection-summary-drain-f5al-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5al の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action consume summary drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5al の collection-backed advance-once / drain budget / start drain boundary、terminal-before-budget、F5ak/F5aj authority、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5al の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5al source policy を追加した。docs/API/summary state exact one-call/summary terminal exact one-call/F5aj exact one-call/F5ak exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget` を追加した。
+- F5al advance-once は summary state / terminal を読み、`Continue` だけ F5aj consume-once に進める。`Rejected` / `EndContour` は `Result::Ok` の typed terminal として返す。
+- F5al drain は terminal-before-budget を守り、`StepBudgetExhausted` を success terminal として返す。positive budget の `Continue` だけ advance-once に進める。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md` を追加し、advance-once、terminal handling、budget zero/negative、recursive drain、start drain、no Vec / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5ak start summary を入口にし、F5aj consume-once を advance-once の唯一の collection-backed continuation authority にする設計が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、新規 focused doctest の stage と note の状態更新が必要という運用指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 focused doctest は staged `A` となり、note の状態更新と staged set の意図した 8 ファイル、tmp / `NUL` の除外が確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_f5al.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_start_consumer_f5al_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5al.json -j 1` 774/774 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5al は collection-backed consume summary drain までであり、drain result から outline storage / path command owner へ渡す境界、raster mask、render2d command emission は未実装である。
+- F5al focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink action start consumer checkpoint
 
 ## scope

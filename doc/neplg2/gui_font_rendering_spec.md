@@ -3914,6 +3914,60 @@ sink traversal / real sink mutation
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action consume summary drain
+
+F5al は F5ak の collection-backed start consume summary と F5aj の consume-once をつなぎ、collection-backed action consumer を explicit budget 内で domain terminal まで進める boundary である。F4aq の byte-backed drain と同じ terminal contract を使うが、byte-backed glyph lookup へ戻らない。これは outline allocation、sink mutation、renderer、rasterizer、platform API を持たない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+advance-once helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary` を 1 回だけ読み、続いて `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を 1 回だけ読む。`Continue item` の場合だけ F5aj `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy` を 1 回だけ呼ぶ。成功時だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を 1 回だけ呼び、新しい summary を `Continue` として返す。`Rejected` と `EndContour` は parse error ではなく `Result::Ok` の domain terminal として返す。
+
+drain helper は terminal-before-budget の順序を守り、budget 判定より先に `summary_terminal` を 1 回だけ読む。`Rejected reason` と `EndContour` は budget を消費せず、current summary と一緒に `Result::Ok` で返す。`Continue` かつ `remaining_steps <= 0` は `StepBudgetExhausted current_summary` を返す。`Continue` かつ `remaining_steps > 0` の場合だけ F5al advance-once を 1 回だけ呼び、`Result::Err error` はそのまま伝播する。advance-once が `Continue next_summary` を返した場合は `remaining_steps - 1` で同じ drain helper へ再帰する。advance-once が保守上 `Rejected` または `EndContour` を返した場合は、advance-once に渡した current summary を drain result に入れる。
+
+start drain helper は F5ak `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary collection state contour_index policy` を 1 回だけ呼び、成功時だけ F5al drain helper へ 1 回渡す。start drain helper は F5al advance-once、F5aj consume-once、F5ak の lower start helper、F4 byte-backed helper を直接呼ばない。
+
+F5al は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action*
+gui_sfnt_glyf_*_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event*
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item
+F5ak lower start helpers from start drain helper
+F5aj consume-once from start drain helper
+F5al advance-once from start drain helper
+action payload direct match
+vec::
+push
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -9248,6 +9248,77 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             let summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
             Result::Ok summary
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once: collection 由来の summary を 1 step [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - summary の state と terminal を 1 回ずつ[読/よ]みます。
+//: - `Continue` の[場合/ばあい]だけ F5aj consume-once helper に[委譲/いじょう]し、成功時だけ pure summary projection を[呼/よ]びます。
+//: - `Rejected` と `EndContour` は error ではなく typed domain terminal として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\summary\policy:
+    let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary
+    let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary
+    match terminal:
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consume_step:
+                    let next_summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget: collection 由来の summary traversal を budget 内で[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - summary terminal を最初に 1 回だけ[読/よ]み、terminal-before-budget の順序を守ります。
+//: - `Continue` かつ `remaining_steps <= 0` は `StepBudgetExhausted` として[返/かえ]します。
+//: - positive budget の `Continue` だけが F5al advance-once helper を 1 回[呼/よ]びます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\summary\policy\remaining_steps:
+    let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary
+    match terminal:
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:
+            let rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected reason *summary
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour *summary
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:
+            if le remaining_steps 0:
+                then Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted *summary
+                else:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once collection summary policy:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok advance:
+                            match advance:
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary:
+                                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget collection &next_summary policy sub remaining_steps 1
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason:
+                                    let rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected reason *summary
+                                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected
+                                GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:
+                                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour *summary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget: collection glyph 由来の summary traversal を start から budget 内で[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F5ak start consume summary helper を 1 回だけ[呼/よ]び、成功時だけ F5al drain budget helper へ[渡/わた]します。
+//: - F5al advance-once、lower start helper、byte-backed lookup、renderer/platform API は直接[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\state\contour_index\policy\remaining_steps:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary collection state contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok summary:
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget collection &summary policy remaining_steps
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
