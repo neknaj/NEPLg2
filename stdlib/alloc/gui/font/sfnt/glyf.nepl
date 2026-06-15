@@ -18149,6 +18149,365 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error
     let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get error "owner"
     gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord: alpha mask resource table の metadata record
+//:
+//: [目的/もくてき]:
+//: - alpha storage owner を保持せず、id と描画 metadata だけを table index に[登録/とうろく]します。
+//: - host-visible resource や renderability は証明しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord:
+    mask_id %AlphaMaskId
+    rect %GuiRect
+    paint %GuiPaint
+    width_px %i32
+    height_px %i32
+    cell_count %i32
+    alpha_max %i32
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord \record:
+        *record
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord \record:
+        record
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record %fn AlphaMaskId fn GuiRect fn GuiPaint fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord \mask_id\rect\paint\width_px\height_px\cell_count\alpha_max:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord mask_id rect paint width_px height_px cell_count alpha_max
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord AlphaMaskId \record:
+    *field::get_ref record "mask_id"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiRect \record:
+    *field::get_ref record "rect"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_paint %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiPaint \record:
+    *field::get_ref record "paint"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord i32 \record:
+    *field::get_ref record "width_px"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_height_px %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord i32 \record:
+    *field::get_ref record "height_px"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_cell_count %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord i32 \record:
+    *field::get_ref record "cell_count"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_alpha_max %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord i32 \record:
+    *field::get_ref record "alpha_max"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_raw %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord i32 \record:
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id record
+    alpha_mask_id_raw &mask_id
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner: metadata-only alpha mask table
+//:
+//: [目的/もくてき]:
+//: - Copy record だけを Vec に保持し、alpha storage owner は table から分離します。
+//: - `lookup` は metadata を返すだけで、storage borrow や host upload を表しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner:
+    records %Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_owner %fn Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner \records:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner records
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_new %fn i32 Result GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner StdErrorKind \capacity:
+    match vec::with_capacity capacity:
+        Result::Err storage_error:
+            Result::Err storage_error
+        Result::Ok records:
+            Result::Ok gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_owner records
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_len %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner i32 \table:
+    let records %&Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord field::get_ref table "records"
+    vec::len records
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_contains %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner fn AlphaMaskId bool \table\mask_id:
+    let target_raw %i32 alpha_mask_id_raw &mask_id
+    let records %&Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut found %bool false
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_raw %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_raw &record
+                            if eq record_raw target_raw:
+                                then:
+                                    set found true
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    found
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_lookup %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner fn AlphaMaskId Option GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord \table\mask_id:
+    let target_raw %i32 alpha_mask_id_raw &mask_id
+    let records %&Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord field::get_ref table "records"
+    let record_count %i32 vec::len records
+    let mut index %i32 0
+    let mut output %Option GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord none
+    let mut done %bool false
+    while not done:
+        do:
+            if ge index record_count:
+                then:
+                    set done true
+                else:
+                    match vec::get records index:
+                        Option::Some record:
+                            let record_raw %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_raw &record
+                            if eq record_raw target_raw:
+                                then:
+                                    set output some record
+                                    set done true
+                                else:
+                                    set index add index 1
+                        Option::None:
+                            set done true
+    output
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner unit \table:
+    let records %Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord field::get table "records"
+    vec::free records
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner: table 登録済み mask storage owner
+//:
+//: [目的/もくてき]:
+//: - metadata table 登録と同じ record を保持しつつ、実 storage owner は reservation owner として保持します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner:
+    reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner
+    record %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner \reservation\record:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner reservation record
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_record %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord \resource:
+    *field::get_ref resource "record"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner unit \resource:
+    let reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get resource "reservation"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_free reservation
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner: table と registered resource の同時 owner
+//:
+//: [目的/もくてき]:
+//: - 成功時に table だけを取り出して resource owner を失うことを防ぐため、両方を同じ所有者付き value に束ねます。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner:
+    table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner
+    resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_registration_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner \table\resource:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner table resource
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_registration_owner_record %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord \registration:
+    let resource %&GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner field::get_ref registration "resource"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_record resource
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_registration_owner_with <.R> %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner impure fn impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner .R .R \registration\callback:
+    let table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner field::get registration "table"
+    let resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner field::get registration "resource"
+    callback table resource
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_registration_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner unit \registration:
+    let table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner field::get registration "table"
+    let resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner field::get registration "resource"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_free table
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_free resource
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind: table 登録の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind:
+    InvalidMaskId
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    InvalidAlphaMax
+    AlphaCellCountMismatch
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+    RectMetadataMismatch
+    PaintMetadataMismatch
+    DuplicateMaskId
+    TablePushFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind
+    table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner
+    reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner
+    storage_error %Option StdErrorKind
+
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterRejected:
+    table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner
+    reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner fn Option StdErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError \kind\table\reservation\storage_error:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError kind table reservation storage_error
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_simple %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError \kind\table\reservation:
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error kind table reservation storage_error
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_push_failed %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner fn StdErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError \table\reservation\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::TablePushFailed table reservation storage_error
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_storage_error %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_rejected %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterRejected \error:
+    let table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner field::get error "table"
+    let reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get error "reservation"
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterRejected table reservation
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterRejected impure fn impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner .R .R \rejected\callback:
+    let table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner field::get rejected "table"
+    let reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get rejected "reservation"
+    callback table reservation
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError unit \error:
+    let table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner field::get error "table"
+    let reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get error "reservation"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_free table
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_free reservation
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_kind_from_reservation %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::InvalidMaskId:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::InvalidMaskId
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeInvalidWidth:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeInvalidWidth
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeInvalidHeight:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeInvalidHeight
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeInvalidSampleScale:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeInvalidSampleScale
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeCoverageMaxMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeCoverageMaxMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeCellCountMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeCellCountMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::InvalidAlphaMax:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::InvalidAlphaMax
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::AlphaCellCountMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::AlphaCellCountMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::AlphaStorageLenMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::AlphaStorageLenMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::AlphaStorageCapacityMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::AlphaStorageCapacityMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::UnsupportedBlendMode:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::UnsupportedBlendMode
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_rgba_equal %fn Rgba8888 fn Rgba8888 bool \left\right:
+    let left_r %i32 cast rgba8888_r &left
+    let left_g %i32 cast rgba8888_g &left
+    let left_b %i32 cast rgba8888_b &left
+    let left_a %i32 cast rgba8888_a &left
+    let right_r %i32 cast rgba8888_r &right
+    let right_g %i32 cast rgba8888_g &right
+    let right_b %i32 cast rgba8888_b &right
+    let right_a %i32 cast rgba8888_a &right
+    and and eq left_r right_r eq left_g right_g and eq left_b right_b eq left_a right_a
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_paint_equal %fn GuiPaint fn GuiPaint bool \left\right:
+    let left_color %Rgba8888 gui_paint_color &left
+    let right_color %Rgba8888 gui_paint_color &right
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_rgba_equal left_color right_color
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_rect_matches_owner %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner bool \reservation:
+    let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref reservation "owner"
+    let rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_rect reservation
+    let origin %GuiPoint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin owner
+    let size %GuiSize gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_size owner
+    let origin_matches %bool and eq gui_rect_x &rect gui_point_x &origin eq gui_rect_y &rect gui_point_y &origin
+    let size_matches %bool and eq gui_rect_width &rect gui_size_width &size eq gui_rect_height &rect gui_size_height &size
+    and origin_matches size_matches
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_paint_matches_owner %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner bool \reservation:
+    let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref reservation "owner"
+    let reservation_paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_paint reservation
+    let owner_paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_fill_paint owner
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_paint_equal reservation_paint owner_paint
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind \reservation:
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_mask_id reservation
+    let raw %i32 alpha_mask_id_raw &mask_id
+    if le raw 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::InvalidMaskId
+        else:
+            let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref reservation "owner"
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_invariants owner:
+                Result::Err reservation_error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_kind_from_reservation reservation_error_kind
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_blend owner:
+                        Result::Err reservation_error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_kind_from_reservation reservation_error_kind
+                        Result::Ok _:
+                            if not gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_rect_matches_owner reservation:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::RectMetadataMismatch
+                                else:
+                                    if not gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_paint_matches_owner reservation:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::PaintMetadataMismatch
+                                        else:
+                                            let rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_rect reservation
+                                            let paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_paint reservation
+                                            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape owner
+                                            let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+                                            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shape
+                                            let cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+                                            let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max owner
+                                            let record %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record mask_id rect paint width_px height_px cell_count alpha_max
+                                            Result::Ok record
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterError \table\reservation:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation &reservation:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_simple error_kind table reservation
+        Result::Ok record:
+            let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id &record
+            if gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_contains &table mask_id:
+                then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_simple GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::DuplicateMaskId table reservation
+                else:
+                    let records %Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord field::get table "records"
+                    match vec::push records record:
+                        Result::Ok next_records:
+                            let next_table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_owner next_records
+                            let resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner reservation record
+                            Result::Ok gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_registration_owner next_table resource
+                        Result::Err push_error:
+                            let storage_error_value %StdErrorKind vec::vec_push_error_kind &push_error
+                            let returned_records %Vec GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord vec::vec_push_error_vec push_error
+                            let returned_table %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_owner returned_records
+                            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_register_error_push_failed returned_table reservation storage_error_value
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

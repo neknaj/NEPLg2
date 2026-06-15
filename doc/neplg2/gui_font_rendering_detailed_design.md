@@ -6901,6 +6901,48 @@ Recovery is explicit. A start error keeps the original completed fill alpha mask
 
 F5bl must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, per-sample FillRect fallback, alpha Vec copy helpers, or a 2D compositor drain.
 
+## SFNT simple glyph alpha mask resource table boundary
+
+F5bm is the internal alloc/font registration boundary after F5bl. It consumes the reservation owner and inserts a Copy metadata record into a private resource table. The alpha storage owner is not stored inside the table `Vec`; it remains inside a registered resource owner that is returned together with the updated table owner.
+
+This shape is intentional. A generic owner-bearing resource `Vec` would require a consuming destructor for every stored mask owner. Until that owner list / drain contract is explicitly proven, F5bm keeps the table as metadata-only and keeps the storage owner in a separate owner-bearing value. The success owner therefore contains both parts:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner:
+    table GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+```
+
+The table can answer metadata questions:
+
+```text
+contains AlphaMaskId -> bool
+lookup AlphaMaskId -> Option ResourceRecord
+len -> i32
+```
+
+`lookup` does not borrow or expose alpha storage. It proves only that the metadata id is present in the private table. It does not prove host upload, renderability, texture lifetime, backend support, or presentation readiness.
+
+Registration order:
+
+```text
+1. re-read AlphaMaskId from reservation metadata
+2. reject non-positive id
+3. revalidate completed fill alpha mask owner shape and alpha storage invariants
+4. revalidate SourceOver
+5. rederive rect from owner origin and size and compare with reservation rect
+6. compare reservation paint with owner fill paint
+7. scan existing metadata records for duplicate id
+8. push the new metadata record
+9. return updated table + registered resource owner
+```
+
+The `vec::push` happens only after all semantic checks pass. A push failure returns the original table owner and reservation owner through a typed owner-bearing error. No partial registration is allowed, and no metadata-only success may escape without the corresponding storage owner.
+
+The success continuation is callback-shaped: it consumes the registration owner and invokes the callback with the updated table owner and the registered resource owner at the same time. The error recovery path is also pair-shaped: the error can be converted into a rejected owner that keeps the table owner and reservation owner together, and the rejected owner can only be consumed by a callback receiving both owners. F5bm must not expose split consuming accessors that return only table or only reservation.
+
+F5bm must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, per-sample FillRect bridge, sample cursor, alpha Vec copy helpers, owner-bearing Vec payload storage, or a 2D compositor drain.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

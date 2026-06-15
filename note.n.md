@@ -65400,3 +65400,52 @@ MERGE_APPROVED
 
 - F5bk は core command contract までであり、completed fill alpha mask owner から `AlphaMaskId` resource table への登録、tile / bitmap formal transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
 - 次 slice では F5bk を authority として alpha-mask resource binding / tile command / compositor drain のどれかに進む。
+
+## 2026-06-16 GUI font rendering F5bm alpha mask resource table boundary
+
+### scope
+
+- F5bm は F5bl の reservation owner を消費し、Copy metadata record を private metadata-only table に登録する内部 alloc/font 境界である。
+- table は alpha storage owner を `Vec` に保持しない。成功 owner は updated table owner と registered resource owner を同時に持つ。
+- F5bm は host-visible resource 登録、transport、`RenderCommand::AlphaMaskRect` emission、2D compositor drain、platform / backend API には進まない。
+
+### plan_review
+
+- Planck plan review は `PLAN_APPROVED`。
+- owner-bearing resource を `Vec` に持つ設計は、この slice では避ける。`Vec` payload destructor で reservation owner を確実に閉じる contract は未証明のため、metadata-only table と registered resource owner の pair にする。
+- registration は push 前に nonzero id、reservation owner invariant、SourceOver、rect / paint metadata、duplicate id を検査する。
+- push failure は元 table owner と reservation owner を typed error から回収できるようにし、partial registration を禁止する。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bm の metadata-only table contract、owner pair、registration order、禁止依存を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord`、metadata-only table owner、registered resource owner、registration owner、owner-bearing register error を追加した。
+- table new / len / contains / lookup / free、record derivation、registration、registration owner free、register error recovery / free を追加した。
+- implementation review 1 の指摘に従い、table だけ / reservation だけを返す split consuming accessor を削除した。success continuation は updated table owner と registered resource owner を同時に callback へ渡す helper にし、error recovery は table owner と reservation owner を同時に保持する rejected owner + callback helper にした。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md` を追加し、source policy coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bm source policy を追加した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bm.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bm_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bm_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bm.json -j 1` は 1136/1136 pass。
+- pass after review fix: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bm_after_review.json -j 1`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bm_after_review.json -j 1`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bm_after_review.json -j 1`
+- pass after review fix: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bm_after_review.json -j 1` は 1136/1136 pass。
+
+### subagent_review
+
+- Planck implementation review 1 は `REVIEW_BLOCKED`。`register_error_table` / `register_error_reservation` が error 全体を消費して片方の owner だけを返せるため、table または reservation の片側を失えると指摘された。
+- 指摘に従い split consuming accessor を削除し、success owner と error recovery を pair callback 型へ変更した。source policy でも split consuming accessor 禁止を追加した。
+- Planck follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 8 ファイルで、metadata-only table、owner-bearing Vec payload 禁止、duplicate-before-push、push failure recovery、command / fallback / platform 不介入、pair callback source policy が確認された。
+
+### residual
+
+- F5bm は private metadata table と owner pair までであり、registered resource からの `RenderCommand::AlphaMaskRect` emission、formal tile / bitmap transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
