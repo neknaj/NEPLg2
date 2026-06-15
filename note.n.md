@@ -65307,3 +65307,49 @@ MERGE_APPROVED
 
 - F5bj は per-sample SourceOver FillRect correctness bridge であり、FHD 60fps 向けの alpha-mask / tile command、formal 2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
 - 次 slice では F5bj の sample command bridge を authority として command drain / alpha-mask command 境界へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。
+
+## 2026-06-16 GUI font rendering F5bk core alpha mask render command boundary
+
+### scope
+
+- F5bk は F5bj の per-sample `FillRect` correctness bridge を最終 FHD 60fps path にしないため、core render command に SourceOver-only alpha mask command を追加する境界である。
+- core は opaque `AlphaMaskId`、`AlphaMaskRectCommand`、`RenderCommand::AlphaMaskRect`、constructor/accessor だけを持ち、mask storage、renderer、host transport、font internals、fallback は持たない。
+- non-SourceOver glyph blend は F5bj と同じく command 構築前に fail closed とする。
+
+### plan_review
+
+- Planck plan review は `PLAN_APPROVED`。
+- 指摘として、`default paint semantics` を避け、`AlphaMaskRect` は SourceOver 専用 command と明記することが求められた。
+- mask alpha と `GuiPaint` alpha の合成意味、RGB が `GuiPaint` 由来であること、mask storage / dimensions 解決が core 外であること、missing / unsupported resource が renderer / host の `Result` になることを docs に固定する方針で承認された。
+
+### implementation
+
+- `stdlib/core/gui/render_command.nepl` に `AlphaMaskId` を追加した。`raw %i32` を保持し、`Clone` / `Copy`、`alpha_mask_id_new`、`alpha_mask_id_raw` を持つ。
+- `AlphaMaskRectCommand` を追加した。`mask_id %AlphaMaskId`、`rect %GuiRect`、`paint %GuiPaint` を保持し、`Clone` / `Copy` と field accessor を持つ。
+- `RenderCommand` に `AlphaMaskRect %AlphaMaskRectCommand` を追加し、`render_command_alpha_mask_rect` で constructor を公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bk の SourceOver-only contract、mask alpha / paint alpha 合成、no storage / no platform / no fallback policy を追加した。
+- `tests/stdlib/gui_core_alpha_mask_command.n.md` を追加し、handle、accessor、enum variant、SourceOver-only contract、no alloc / no platform / no fallback policy の coverage label と runnable smoke を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bk source policy を追加した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node --check nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `node nodesrc/test_stdlib_gui_render_command_doc_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bk.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5bk.json -j 1` は 10/10 pass。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core.n.md --no-tree -o tmp_gui_core_f5bk_regression.json -j 1` は 9/9 pass。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_sample_command_bridge_f5bk_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Planck implementation review 1 は `REVIEW_BLOCKED`。F5bk implementation 自体に content blocker はないが、既存 `nodesrc/test_stdlib_gui_render_command_doc_contract.js` が古い `TextRunId` / `ImageId` だけの top contract を固定しており、`AlphaMaskId` 追加後の render command doc contract と矛盾していると指摘された。
+- 指摘に従い、render command doc contract script を `TextRunId` / `ImageId` / `AlphaMaskId` の top contract、`AlphaMaskRectCommand` runnable doctest、SourceOver alpha mask semantics、mask alpha / paint alpha、mask storage / dimensions 外部化を固定するように更新した。
+- Planck implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消され、F5bk は opaque handle / Copy payload / enum variant / constructor/accessor に限定され、alloc/std/platform/backend/font internals/fallback へ進んでいないこと、SourceOver-only contract により F5bj の blend semantic loss を再導入していないことが確認された。
+
+### residual
+
+- F5bk は core command contract までであり、completed fill alpha mask owner から `AlphaMaskId` resource table への登録、tile / bitmap formal transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
+- 次 slice では F5bk を authority として alpha-mask resource binding / tile command / compositor drain のどれかに進む。

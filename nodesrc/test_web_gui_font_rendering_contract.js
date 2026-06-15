@@ -90,6 +90,7 @@ const coreGuiFacade = read("stdlib/core/gui.nepl");
 const coreGuiPrelude = read("stdlib/core/gui/prelude.nepl");
 const stdGuiFacade = read("stdlib/std/gui.nepl");
 const guiCoreTests = read("tests/stdlib/gui_core.n.md");
+const guiCoreAlphaMaskCommandTests = read("tests/stdlib/gui_core_alpha_mask_command.n.md");
 const guiStdTests = read("tests/stdlib/gui_std.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -15540,6 +15541,98 @@ assert(
     renderCommandCoreImpl.includes("pub fn gui_paint_color %fn &GuiPaint Rgba8888") &&
         renderCommandCoreImpl.includes("*field::get_ref paint \"color\""),
     "core/gui/render_command must expose gui_paint_color accessor for structured paint reads",
+);
+assert(
+    spec.includes("### SFNT simple glyph alpha mask render command boundary") &&
+        detailedDesign.includes("## SFNT simple glyph alpha mask render command boundary") &&
+        implementationPlan.includes("## Phase F5bk: sfnt simple glyph alpha mask render command boundary"),
+    "GUI font docs must document F5bk alpha mask render command boundary",
+);
+assert(
+    renderCommandCore.includes("AlphaMaskRectCommand: alpha mask resource") &&
+        renderCommandCore.includes("この command は SourceOver") &&
+        renderCommandCore.includes("mask alpha と `GuiPaint` alpha") &&
+        renderCommandCore.includes("renderer [層/そう]が `Result` / `GuiError`"),
+    "core/gui/render_command must document SourceOver alpha-mask command semantics, alpha composition, and Result-based renderer errors",
+);
+assertNoMatch(
+    renderCommandCore,
+    /default paint semantics/i,
+    "core/gui/render_command F5bk docs must avoid ambiguous default paint semantics wording",
+);
+const alphaMaskHandleRegion = renderCommandCoreImpl.slice(
+    renderCommandCoreImpl.indexOf("pub struct AlphaMaskId:"),
+    renderCommandCoreImpl.indexOf("pub struct GuiPaint:"),
+);
+const alphaMaskRectCommandRegion = renderCommandCoreImpl.slice(
+    renderCommandCoreImpl.indexOf("pub struct AlphaMaskRectCommand:"),
+    renderCommandCoreImpl.indexOf("pub struct TextCellRunCommand:"),
+);
+const renderCommandEnumRegion = renderCommandCoreImpl.slice(
+    renderCommandCoreImpl.indexOf("pub enum RenderCommand:"),
+    renderCommandCoreImpl.indexOf("impl Clone for RenderCommand:"),
+);
+const alphaMaskCoreFunctions = [
+    functionSlice(renderCommandCoreImpl, "alpha_mask_id_new"),
+    functionSlice(renderCommandCoreImpl, "alpha_mask_rect_command_mask_id"),
+    functionSlice(renderCommandCoreImpl, "alpha_mask_rect_command_rect"),
+    functionSlice(renderCommandCoreImpl, "alpha_mask_rect_command_paint"),
+    functionSlice(renderCommandCoreImpl, "render_command_alpha_mask_rect"),
+    functionSlice(renderCommandCoreImpl, "alpha_mask_id_raw"),
+].join("\n");
+const alphaMaskCoreRegion = [alphaMaskHandleRegion, alphaMaskRectCommandRegion, renderCommandEnumRegion, alphaMaskCoreFunctions].join("\n");
+for (const fragment of [
+    "pub struct AlphaMaskId:",
+    "raw %i32",
+    "impl Clone for AlphaMaskId:",
+    "impl Copy for AlphaMaskId:",
+    "pub struct AlphaMaskRectCommand:",
+    "mask_id %AlphaMaskId",
+    "rect %GuiRect",
+    "paint %GuiPaint",
+    "impl Clone for AlphaMaskRectCommand:",
+    "impl Copy for AlphaMaskRectCommand:",
+    "AlphaMaskRect %AlphaMaskRectCommand",
+    "fn alpha_mask_id_new %fn i32 AlphaMaskId",
+    "fn alpha_mask_id_raw %fn &AlphaMaskId i32",
+    "fn alpha_mask_rect_command_mask_id %fn &AlphaMaskRectCommand AlphaMaskId",
+    "fn alpha_mask_rect_command_rect %fn &AlphaMaskRectCommand GuiRect",
+    "fn alpha_mask_rect_command_paint %fn &AlphaMaskRectCommand GuiPaint",
+    "fn render_command_alpha_mask_rect %fn AlphaMaskId fn GuiRect fn GuiPaint RenderCommand",
+]) {
+    assert(alphaMaskCoreRegion.includes(fragment), `core/gui/render_command F5bk alpha mask command contract must include ${fragment}`);
+}
+for (const fragment of [
+    "pub fn alpha_mask_id_new %fn i32 AlphaMaskId",
+    "pub fn alpha_mask_id_raw %fn &AlphaMaskId i32",
+    "pub fn alpha_mask_rect_command_mask_id %fn &AlphaMaskRectCommand AlphaMaskId",
+    "pub fn alpha_mask_rect_command_rect %fn &AlphaMaskRectCommand GuiRect",
+    "pub fn alpha_mask_rect_command_paint %fn &AlphaMaskRectCommand GuiPaint",
+    "pub fn render_command_alpha_mask_rect %fn AlphaMaskId fn GuiRect fn GuiPaint RenderCommand",
+]) {
+    assert(renderCommandCoreImpl.includes(fragment), `core/gui/render_command F5bk alpha mask command public API must include ${fragment}`);
+}
+assertOrderedFragments(
+    functionSlice(renderCommandCoreImpl, "render_command_alpha_mask_rect"),
+    [
+        "RenderCommand::AlphaMaskRect",
+        "AlphaMaskRectCommand mask_id rect paint",
+    ],
+    "core/gui/render_command F5bk constructor must wrap AlphaMaskRectCommand in the RenderCommand variant",
+);
+assertNoMatch(
+    alphaMaskCoreRegion,
+    /\b(?:Vec|String|alloc|std|platform|Canvas|DOM|minifb|RenderTarget|DrawTarget|FontFace|CoreText|DirectWrite|fontconfig|fallback)\b/,
+    "core/gui/render_command F5bk alpha mask command must not depend on allocation, platform, backend, target, font internals, or fallback paths",
+);
+assertNoMatch(alphaMaskCoreRegion, /[()]/, "core/gui/render_command F5bk alpha mask implementation must preserve NEPL prefix style without parentheses");
+assert(
+    guiCoreAlphaMaskCommandTests.includes("core_alpha_mask_rect_command_handle_ok") &&
+        guiCoreAlphaMaskCommandTests.includes("core_alpha_mask_rect_command_accessors_ok") &&
+        guiCoreAlphaMaskCommandTests.includes("core_alpha_mask_rect_command_variant_ok") &&
+        guiCoreAlphaMaskCommandTests.includes("core_alpha_mask_rect_command_source_over_only_contract") &&
+        guiCoreAlphaMaskCommandTests.includes("core_alpha_mask_rect_command_no_alloc_no_platform_no_fallback"),
+    "F5bk gui core alpha mask command focused doctest must cover handle, accessors, variant, SourceOver-only contract, and no allocation/platform/fallback policy",
 );
 const renderFillAlphaMaskSampleCommandBridgeRegion = allocFontSfntGlyfImpl.slice(
     allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind:"),

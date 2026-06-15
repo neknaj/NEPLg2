@@ -289,6 +289,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bk: sfnt simple glyph alpha mask render command boundary
+
+目的:
+
+- F5bj の per-sample `FillRect` correctness bridge を最終描画経路にせず、core render command に alpha mask resource handle command を追加する。
+- `AlphaMaskId` と `AlphaMaskRectCommand` は no_alloc / Copy value とし、mask storage、renderer、host transport、font internals は core に入れない。
+- `AlphaMaskRect` は SourceOver 専用 command とし、non-SourceOver glyph blend は command 構築前に fail closed とする。
+
+plan review:
+
+- Planck plan review は `PLAN_APPROVED`。
+- 指摘として、`default paint semantics` のような曖昧な表現は使わず、SourceOver 専用 command と明記する。
+- mask alpha と `GuiPaint` alpha の合成意味、RGB が `GuiPaint` 由来であること、mask storage / dimensions 解決が core 外であること、missing / unsupported resource が renderer / host の `Result` になることを docs に固定する。
+- core 実装は `Vec` / alloc / std / platform / backend / `RenderTarget` / `DrawTarget` / Canvas / DOM / minifb / font internals / fallback を持ち込まない。
+
+変更:
+
+- `stdlib/core/gui/render_command.nepl` に `AlphaMaskId` を追加する。`raw %i32` を保持し、`Clone` / `Copy`、`alpha_mask_id_new`、`alpha_mask_id_raw` を持つ。
+- `AlphaMaskRectCommand` を追加する。`mask_id %AlphaMaskId`、`rect %GuiRect`、`paint %GuiPaint` を保持し、`Clone` / `Copy` と field accessor を持つ。
+- `RenderCommand` に `AlphaMaskRect %AlphaMaskRectCommand` を追加する。
+- `render_command_alpha_mask_rect` を追加し、`AlphaMaskRectCommand` を `RenderCommand::AlphaMaskRect` に包む。
+- `tests/stdlib/gui_core_alpha_mask_command.n.md` を追加し、handle、accessor、enum variant、SourceOver-only contract、no alloc / no platform / no fallback policy の coverage label と runnable smoke を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bk source policy を追加する。
+
+完了条件:
+
+- source policy と render command doc contract が docs、Planck approval、`AlphaMaskId` handle、constructor/raw accessor、`AlphaMaskRectCommand` fields/accessors、`RenderCommand::AlphaMaskRect`、`render_command_alpha_mask_rect`、SourceOver-only docs、mask alpha / paint alpha 合成 contract、no allocation / no platform / no fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `stdlib/core/gui/render_command.nepl` doctest と `tests/stdlib/gui_core_alpha_mask_command.n.md` focused doctest が通る。
+- implementation review で F5bk が storage / target / backend / platform / fallback / font internals に進んでいないこと、F5bj の blend semantic loss を再導入していないこと、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bk 後の alpha-mask resource binding、tile / bitmap formal transport、2D compositor drain、stroke / shadow 専用 raster boundary を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+node --check nodesrc/test_stdlib_gui_render_command_doc_contract.js
+node nodesrc/test_stdlib_gui_render_command_doc_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bk.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5bk.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
