@@ -5078,6 +5078,104 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path command stream sink plan
+
+F5ay は F5ax の completed prepare drain terminal を authority として、後続の explicit command sink / raster mask writer が必要とする容量だけを value-only plan として固定する境界である。これは real sink、path object construction、rasterization、render2d command emission ではない。
+
+F5ay の入力は `PathCommandStreamPrepareSummary` 単体ではない。`StepBudgetExhausted` の partial summary が completed summary と同じ count shape を持つことがあるため、summary 単体を受け取る API は final sink / raster capacity plan の authority にならない。F5ay は必ず F5ax の drain terminal を受け取る。
+
+```text
+path command stream sink plan input:
+    PathCommandStreamPrepareDrainTerminal
+
+success authority:
+    PrepareDrainTerminal.Completed summary cursor emitted_count
+
+rejected terminal:
+    PrepareDrainTerminal.StepBudgetExhausted summary cursor emitted_count
+```
+
+`StepBudgetExhausted` は `PrepareNotCompleted` error になる。silent no-op や partial plan へ変換してはいけない。
+
+F5ay の plan は次を保持する。
+
+```text
+PathCommandStreamSinkPlan:
+    total_count i32
+    emitted_count i32
+    draw_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    path_segment_capacity i32
+    raster_edge_capacity i32
+    last_path_command_index i32
+```
+
+capacity derivation:
+
+```text
+draw_count = line_to_count + quadratic_to_count
+path_segment_capacity = move_to_count + line_to_count + quadratic_to_count
+raster_edge_capacity = line_to_count + quadratic_to_count
+prepared_count = path_segment_capacity + skip_no_segment_count
+```
+
+`SkipNoSegment` は source command として count するが、actual path segment capacity と raster edge capacity には入れない。これは no segment command が後続 mask edge を生成しないためである。
+
+検査順は次である。
+
+```text
+1. terminal が Completed であることを確認する
+2. total_count / move_to_count / line_to_count / quadratic_to_count / skip_no_segment_count / emitted_count が非負であることを確認する
+3. total_count > 0 であることを確認する
+4. last_path_command_index >= 0 であることを確認する
+5. move + line、move + line + quadratic、line + quadratic、prepared_count を overflow guard 付きで計算する
+6. prepared_count == total_count を確認する
+7. emitted_count == total_count を確認する
+8. draw_count と raster_edge_capacity の一致を確認する
+```
+
+overflow guard は `2147483647 - left` を先に計算し、`right` が残余を超える場合は `CountOverflow` を返す。raw `i32` addition の wraparound に依存してはいけない。
+
+F5ay error は enum と typed context で表す。
+
+```text
+PathCommandStreamSinkPlanErrorKind:
+    PrepareNotCompleted
+    NegativeTotalCount
+    NegativeMoveToCount
+    NegativeLineToCount
+    NegativeQuadraticToCount
+    NegativeSkipNoSegmentCount
+    NegativeEmittedCount
+    NoCommandsPrepared
+    LastPathCommandIndexInvalid
+    CountOverflow
+    PreparedCountMismatch
+    EmittedCountMismatch
+    DrawCountMismatch
+```
+
+F5ay は次を直接呼ばない。
+
+```text
+F5ax prepare drain
+F5ax prepare step
+F5aw step helper
+F5av lookup
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+storage mutation
+Vec allocation / push
+path object materialization
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
