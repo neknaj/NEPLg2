@@ -1,3 +1,47 @@
+# 2026-06-15 Agent2 GUI font contour endpoint push boundary checkpoint
+
+## scope
+
+- branch: `gui-font-contour-endpoint-push-boundary-f5ap-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ap の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action contour endpoint push の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ap の F5ao start terminal authority、F5e typed endpoint push、success returned state、error metadata-before-storage recovery、pass-through terminal の順序を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ap の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に contour endpoint push owner、owner-recovering contour endpoint push error、push terminal、start terminal to endpoint push boundary を追加した。
+- F5ap public helper は F5ao start terminal と typed endpoint slot だけを受け取り、`Started` branch だけで F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` に進める。
+- success branch は F5e returned cursor、returned previous endpoint、returned storage を使って push owner を作る。input endpoint から状態を再計算しない。
+- error branch は lower error kind、region error kind、storage push error kind を storage 回収前に読み、returned storage と保存済み summary / cursor / previous endpoint から start owner を復元して `Result::Err` で返す。
+- `Rejected` / `StepBudgetExhausted` branch は endpoint を読まず、F5e push、storage consume、owner/error construction を行わず typed `Ok` terminal として返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ap source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/Started branch order/F5e exact one-call/success returned state/error metadata-before-storage/pass-through branch no endpoint/no push/no consume/no owner construction/no byte-backed read-push/no traversal/no render/platform/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md` を追加し、types、Started calls F5e once、success returned state、error start owner recovery、Rejected no endpoint/no push、StepBudget no endpoint/no push、no fallback / no byte-backed read-push の source policy coverage label を固定した。
+- `todo.md` は F5ap 完了後の次作業として、push owner を authority にして contour endpoint region の残り slot を埋める completion boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5e lower error metadata を storage 回収前に読み、success branch は returned state を使い、`Rejected` / `StepBudgetExhausted` branch は endpoint / F5e / storage / owner construction に触れないことが条件として確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、`note.n.md` の implementation review status が pending のまま残っていることだけが運用 blocker として指摘された。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。前回の note-only blocker は解消され、staged set は意図した 8 ファイルのままで追加 blocker はないと判断された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 214 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_f5ap.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_f5ap_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ap.json -j 1` 824/824 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ap は contour endpoint を 1 件だけ push する boundary であり、remaining contour endpoint drain、point x / point y / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5ap focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
 # 2026-06-15 Agent2 GUI font contour endpoint start boundary checkpoint
 
 ## scope

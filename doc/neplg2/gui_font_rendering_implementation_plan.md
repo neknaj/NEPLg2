@@ -4035,3 +4035,56 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ao.json -j 1
 git diff --check
 ```
+
+## Phase F5ap: sfnt simple glyph outline point stream item collection path sink action contour endpoint push
+
+目的:
+
+- F5ao の contour endpoint start terminal を authority とし、`Started` branch だけを F5e typed contour endpoint push へ進める。
+- endpoint slot を 1 件だけ push し、成功時は returned storage / cursor / previous endpoint を持つ owner を返す。
+- push failure では lower error metadata を storage 回収前に読み、returned storage と保存済み summary / cursor / previous endpoint から start owner を復元する。
+- `Rejected` / `StepBudgetExhausted` は endpoint push failure ではなく typed terminal として `Ok` で返し、endpoint read、F5e push、storage consume、owner/error construction を行わない。
+- byte-backed endpoint read / read-push、F4 lookup、F5al/F5ak/F5aj traversal、path sink traversal、point / curve / path command population、raster/render/platform/host API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review は `PLAN_APPROVED`。
+- F5ap は F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint` を exactly once 呼ぶ typed owner-recovery boundary とし、F5e の lower error metadata を storage 回収より前に読むことが条件である。
+- success branch は F5e returned cursor / returned storage / returned previous endpoint を使い、入力 endpoint から状態を再計算しない。
+- `Rejected` / `StepBudgetExhausted` branch は endpoint を読まず、F5e push、storage consume、owner/error construction も行わない。
+- owner-bearing `ContourEndpointPushOwner`、`ContourEndpointPushError`、`ContourEndpointPushTerminal` は `Clone` / `Copy` を実装しない。
+- source policy は byte-backed read-push helper である `gui_sfnt_glyf_read_push_contour_endpoint` と `gui_sfnt_glyf_read_contour_endpoint` を明示的に禁止する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner` を追加する。
+- push owner は F5e returned storage、F5ao summary、F5e returned cursor、`some` に包んだ returned previous endpoint を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError` を追加する。
+- push error は recovered start owner、rejected endpoint、F5e push error kind、optional region error kind、optional storage push error kind を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal` を追加する。
+- push terminal enum は `Pushed PushOwner`、`Rejected DrainRejected`、`StepBudgetExhausted DrainSummary` だけを持ち、`Clone` / `Copy` を実装しない。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint` を追加する。
+- `Started` branch では start owner を消費する前に summary、cursor、previous endpoint を borrow-copy し、start owner storage を exactly once 消費する。
+- `Started` branch は F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint` を exactly once 呼ぶ。
+- F5e success branch は `gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed`、`gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed`、`gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed` の returned state から push owner を構築する。
+- F5e error branch は `gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error`、`gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error`、`gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error` を読んでから `gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error` で storage を回収する。
+- error branch は returned storage と保存済み summary / cursor / previous endpoint から `ContourEndpointStartOwner` を復元し、`Result::Err ContourEndpointPushError` を返す。
+- `Rejected` / `StepBudgetExhausted` branch は typed terminal を `Ok` で返し、endpoint 引数を読まず、F5e push / storage consume / owner construction / error construction を行わない。
+
+完了条件:
+
+- source policy が docs、types、owner no Clone/Copy、error no Clone/Copy、terminal no Clone/Copy、Started branch の borrow-copy / storage consume / F5e call order、success returned-state use、error metadata-before-storage recovery、pass-through branch の no endpoint/no push/no consume、forbidden byte-backed read-push / traversal / render / platform API、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md` に types、Started calls F5e once、success returned state、error start owner recovery、Rejected no endpoint/no push、StepBudget no endpoint/no push、no fallback/no byte-backed read-push coverage label を追加する。
+- implementation review で lower error metadata read before storage recovery、success returned state usage、pass-through branches、owner-bearing no Clone/Copy、source policy の forbidden API 固定を確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_f5ap.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_f5ap_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ap.json -j 1
+git diff --check
+```

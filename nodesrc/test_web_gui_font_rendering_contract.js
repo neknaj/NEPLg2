@@ -131,6 +131,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDra
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -176,6 +177,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -10232,7 +10234,7 @@ assert(
 );
 const specF5ao = spec.slice(
     spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action contour endpoint start"),
-    spec.indexOf("### Supported font containers"),
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action contour endpoint push"),
 );
 for (const fragment of [
     "F5ao は F5an の storage terminal を authority",
@@ -10262,7 +10264,7 @@ for (const fragment of [
 }
 const detailedF5ao = detailedDesign.slice(
     detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action contour endpoint start boundary"),
-    detailedDesign.indexOf("## Metrics fixed-point"),
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action contour endpoint push boundary"),
 );
 for (const fragment of [
     "F5ao consumes the F5an storage terminal",
@@ -10288,6 +10290,7 @@ for (const fragment of [
 }
 const implementationPlanF5ao = implementationPlan.slice(
     implementationPlan.indexOf("## Phase F5ao: sfnt simple glyph outline point stream item collection path sink action contour endpoint start"),
+    implementationPlan.indexOf("## Phase F5ap: sfnt simple glyph outline point stream item collection path sink action contour endpoint push"),
 );
 for (const fragment of [
     "PLAN_BLOCKED",
@@ -10502,6 +10505,246 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_step_budget_no_cursor_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_no_fallback_no_byte_backed_no_push"),
     "F5ao point stream item collection path sink action contour endpoint start focused doctest must cover types, borrowed storage capacity, owner recovery, cursor start, pass-through terminals, and no fallback/no push policy",
+);
+const specF5ap = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action contour endpoint push"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5ap は F5ao の contour endpoint start terminal を authority",
+    "Started StartOwner",
+    "endpoint slot を 1 件だけ受け取り",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint:",
+    "summary、cursor、previous endpoint を borrow-copy",
+    "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint",
+    "returned storage、returned cursor、returned previous endpoint",
+    "lower metadata を storage 回収より前に読む",
+    "gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error",
+    "gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error",
+    "gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error",
+    "gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error",
+    "returned storage と保存済みの summary、cursor、previous endpoint",
+    "`Rejected drain_rejected` と `StepBudgetExhausted drain_summary`",
+    "endpoint を読まず",
+    "`ContourEndpointPushOwner`、`ContourEndpointPushError`、`ContourEndpointPushTerminal` は owner を含むため `Clone` / `Copy` を実装しない",
+    "byte-backed endpoint read / read-push helper",
+    "font fallback",
+]) {
+    assert(specF5ap.includes(fragment), `font spec F5ap contour endpoint push must mention ${fragment}`);
+}
+const detailedF5ap = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action contour endpoint push boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5ap consumes the F5ao contour endpoint start terminal",
+    "pushes exactly one typed `GuiSfntSimpleGlyphContourEndpointSlot`",
+    "Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError",
+    "ContourEndpointPushTerminal:",
+    "ContourEndpointPushOwner:",
+    "ContourEndpointPushError:",
+    "borrow summary from start owner",
+    "consume start owner storage exactly once",
+    "call F5e gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint exactly once",
+    "read next_cursor from pushed",
+    "consume pushed storage",
+    "read push_error_kind from push_error",
+    "read region_error_kind from push_error",
+    "read storage_push_error_kind from push_error",
+    "consume returned storage from push_error",
+    "reconstruct ContourEndpointStartOwner returned_storage summary cursor previous_endpoint",
+    "must read lower metadata before consuming `push_error`",
+    "must use F5e returned state",
+    "`Rejected` and `StepBudgetExhausted` are pass-through domain terminals",
+    "do not inspect the endpoint argument, call F5e, consume storage, or construct owner/error payloads",
+    "`ContourEndpointPushOwner`, `ContourEndpointPushError`, and `ContourEndpointPushTerminal` contain owner values and must not implement `Clone` or `Copy`",
+    "gui_sfnt_glyf_read_push_contour_endpoint",
+    "font fallback",
+]) {
+    assert(detailedF5ap.includes(fragment), `font detailed design F5ap contour endpoint push must mention ${fragment}`);
+}
+const implementationPlanF5ap = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5ap: sfnt simple glyph outline point stream item collection path sink action contour endpoint push"),
+);
+for (const fragment of [
+    "PLAN_APPROVED",
+    "lower error metadata を storage 回収より前に読む",
+    "success branch は F5e returned cursor / returned storage / returned previous endpoint を使い",
+    "Rejected` / `StepBudgetExhausted` branch は endpoint を読まず",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint",
+    "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint",
+    "gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error",
+    "gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md",
+]) {
+    assert(implementationPlanF5ap.includes(fragment), `font implementation plan F5ap must mention ${fragment}`);
+}
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:",
+    "storage %GuiSfntSimpleGlyphOutlineStorage",
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor",
+    "previous_endpoint %Option i32",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:",
+    "owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner",
+    "endpoint %GuiSfntSimpleGlyphContourEndpointSlot",
+    "push_error_kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind",
+    "region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind",
+    "storage_push_error_kind %Option StdErrorKind",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:",
+    "Pushed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner",
+    "Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal impure fn GuiSfntSimpleGlyphContourEndpointSlot Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError",
+]) {
+    assert(allocFontSfntGlyfImpl.includes(fragment), `alloc/gui/font/sfnt/glyf F5ap contour endpoint push API must include ${fragment}`);
+}
+const pointStreamItemCollectionPathSinkActionContourEndpointPushOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointPushOwnerType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:/,
+    "alloc/gui/font/sfnt/glyf F5ap ContourEndpointPushOwner must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionContourEndpointPushErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:"),
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointPushErrorType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:/,
+    "alloc/gui/font/sfnt/glyf F5ap ContourEndpointPushError must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionContourEndpointPushTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointPushTerminalType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:/,
+    "alloc/gui/font/sfnt/glyf F5ap ContourEndpointPushTerminal must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint");
+for (const fragment of [
+    "match terminal:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started owner:",
+    "let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_summary &owner",
+    "let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_cursor &owner",
+    "let previous_endpoint %Option i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_previous_endpoint &owner",
+    "let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage owner",
+    "match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:",
+    "Result::Ok pushed:",
+    "let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed",
+    "let next_previous_endpoint_value %i32 gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed",
+    "let next_previous_endpoint %Option i32 some next_previous_endpoint_value",
+    "let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed",
+    "let push_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner next_storage summary next_cursor next_previous_endpoint",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::Pushed push_owner",
+    "Result::Err push_error:",
+    "let push_error_kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error",
+    "let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error",
+    "let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error",
+    "let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error",
+    "let recovered_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner returned_storage summary cursor previous_endpoint",
+    "let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error recovered_owner endpoint push_error_kind region_error_kind storage_push_error_kind",
+    "Result::Err error",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected:",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::Rejected drain_rejected",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary:",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::StepBudgetExhausted drain_summary",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.includes(fragment), `alloc/gui/font/sfnt/glyf F5ap contour endpoint push body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint,
+    [
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started owner:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_summary &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_cursor &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_previous_endpoint &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage owner",
+        "gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint",
+        "Result::Ok pushed:",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed",
+        "some next_previous_endpoint_value",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner next_storage summary next_cursor next_previous_endpoint",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::Pushed push_owner",
+        "Result::Err push_error:",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner returned_storage summary cursor previous_endpoint",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error recovered_owner endpoint push_error_kind region_error_kind storage_push_error_kind",
+        "Result::Err error",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::Rejected drain_rejected",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::StepBudgetExhausted drain_summary",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ap contour endpoint push must borrow state, call F5e, preserve returned state, and recover owner in order",
+);
+for (const [name, expected, message] of [
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_summary", 1, "borrow summary exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_cursor", 1, "borrow cursor exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_previous_endpoint", 1, "borrow previous endpoint exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage", 1, "consume start owner storage exactly once"],
+    ["gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint", 1, "call F5e endpoint push exactly once"],
+    ["gui_sfnt_simple_glyph_contour_endpoint_push_error_storage", 1, "recover lower push error storage exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner", 1, "construct push owner exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error", 1, "construct push error exactly once"],
+]) {
+    assert(
+        (pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.match(new RegExp(`\\b${name}\\b`, "g")) || []).length === expected,
+        `alloc/gui/font/sfnt/glyf F5ap contour endpoint push must ${message}`,
+    );
+}
+const contourEndpointPushStartedStart = pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started owner:");
+const contourEndpointPushRejectedStart = pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected:");
+const contourEndpointPushStepBudgetStart = pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary:");
+assert(contourEndpointPushStartedStart >= 0 && contourEndpointPushRejectedStart > contourEndpointPushStartedStart && contourEndpointPushStepBudgetStart > contourEndpointPushRejectedStart, "alloc/gui/font/sfnt/glyf F5ap push must expose Started, Rejected, and StepBudgetExhausted branches in order");
+const contourEndpointPushRejectedBranch = pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.slice(contourEndpointPushRejectedStart, contourEndpointPushStepBudgetStart);
+const contourEndpointPushStepBudgetBranch = pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint.slice(contourEndpointPushStepBudgetStart);
+for (const [branch, name] of [
+    [contourEndpointPushRejectedBranch, "Rejected"],
+    [contourEndpointPushStepBudgetBranch, "StepBudgetExhausted"],
+]) {
+    assertNoMatch(
+        branch,
+        /\bendpoint\b|\bgui_sfnt_simple_glyph_outline_storage_push_contour_endpoint\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error\b|\bgui_sfnt_simple_glyph_contour_endpoint_push_error_storage\b/,
+        `alloc/gui/font/sfnt/glyf F5ap ${name} branch must not inspect endpoint, push, consume storage, or construct owner/error payloads`,
+    );
+}
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint,
+    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_read_push_contour_endpoint|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5ap contour endpoint push must not call traversal, byte-backed read-push, render, raster, or host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalPushEndpoint,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ap push body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_started_calls_f5e_once_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_success_uses_returned_state_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_error_recovers_start_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_rejected_no_endpoint_no_push_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_step_budget_no_endpoint_no_push_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTests.includes("path_sink_action_contour_endpoint_push_no_fallback_no_byte_backed_read_push"),
+    "F5ap point stream item collection path sink action contour endpoint push focused doctest must cover types, F5e call, returned state, owner recovery, pass-through terminals, and no fallback/no byte-backed read-push policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
