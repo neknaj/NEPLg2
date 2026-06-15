@@ -63934,3 +63934,45 @@ MERGE_APPROVED
 
 - F5af は collection-backed sink step までであり、action slot traversal、action next、contour-wide sink traversal は未実装である。
 - 次 slice では F5af を authority として collection-backed sink action step / action next boundary へ進む。
+
+## 2026-06-15 GUI font rendering F5ag collection path sink action step
+
+### scope
+
+- F5ag は F5af collection-backed sink step lookup を authority とし、`GuiSfntSimpleGlyphPathSinkActionCursor` から `GuiSfntSimpleGlyphPathSinkActionStep` を 1 つ返す境界である。
+- action cursor は contour cursor と action slot に分ける。collection lookup は contour cursor だけを受け取り、action slot は pure action-step projection にだけ渡す。
+- fallback、silent no-op、byte-backed lookup への復帰、lower collection helper 直接呼び出し、renderer / rasterizer / platform / host API への漏れは禁止する。
+
+### plan_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ag は F5af と pure `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` の thin boundary として coherent であり、新しい error type は不要と判断された。
+- source policy は F5af と pure projection のみを許可し、F5ae/F5ad/F5ac/F5aa 直接呼び出し、byte-backed F4 helper、Vec / push、sink traversal、consumer、render/raster/platform API、括弧構文を禁止する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step` を追加した。
+- helper は `gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor` と `gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot` で cursor を分解し、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` を 1 回だけ呼ぶ。
+- F5af error は wrap せず `Result::Err error` として返し、success path では `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` を 1 回だけ呼ぶ。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ag の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md` を追加し、primary action、tail action、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ag source policy を追加し、cursor split、F5af exact one-call、pure action-step projection exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed action step advance / action item boundary へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。source policy 本体は 900 秒制限で実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_f5ag.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_step_f5ag_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ag.json -j 1` は 760/760 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面の blocker はないが、新規 doctest が untracked のため commit set に含める必要があると指摘された。
+- 新規 doctest を staged add した後の Tesla implementation review 2 は `REVIEW_APPROVED`。F5ag helper は action cursor split、F5af exact one-call、unchanged error propagation、pure action-step projection exact one-call を守り、byte-backed / lower / render / platform path への漏れがないと確認された。
+
+### residual
+
+- F5ag は action step 1 件の lookup までであり、checked advance、action step item、consumer item、contour-wide sink traversal は未実装である。
+- 次 slice では F5ag を authority として collection-backed action step advance / action item boundary へ進む。

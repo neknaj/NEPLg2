@@ -4007,6 +4007,40 @@ Policy rejection is not an exceptional condition. `gui_sfnt_simple_glyph_path_si
 
 F5af may call only F5ae and `gui_sfnt_simple_glyph_path_sink_step_from_contour_step`. It must not call F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, action step/traversal helpers, event consumers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink action step boundary
+
+F5ag is the collection-backed sink action step boundary. It mirrors byte-backed F4v `gui_sfnt_lookup_simple_glyph_path_sink_action_step`, but its sink step authority is F5af rather than font bytes or table metadata.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathSinkActionCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ag intentionally does not introduce a new error type. It adds no fallible authority beyond F5af, so F5af errors must be propagated unchanged.
+
+The required order is:
+
+```text
+split action cursor into contour cursor and action slot
+call F5af collection path sink step lookup exactly once
+if F5af Err:
+    return the same error
+if F5af Ok:
+    call pure action-step projection exactly once with sink step and action slot
+    return GuiSfntSimpleGlyphPathSinkActionStep
+```
+
+The helper splits the action cursor with `gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor` and `gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot`. Only the contour cursor is passed to F5af. The action slot stays outside the collection lookup and is passed to the pure projection after F5af succeeds.
+
+The action and next-state decision remains owned by `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step`. Primary action slots advance to the tail slot of the same contour cursor. Tail action slots advance according to the source contour step next state. Policy rejection remains a successful action payload and is not converted to `Result::Err`.
+
+F5ag may call only F5af and the pure action-step projection, plus the two action-cursor accessors needed to split the cursor. It must not call F5ae/F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, action advance/item/consumer helpers, event consumers, sink traversal, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

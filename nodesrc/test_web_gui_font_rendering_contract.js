@@ -122,6 +122,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindPairTests = re
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindAtTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathContourStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -158,6 +159,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindAtTests,
     guiFontSfntOutlinePointStreamItemCollectionPathContourStepTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkStepTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -8734,6 +8736,112 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkStepTests.includes("path_sink_step_error_propagates_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkStepTests.includes("path_sink_step_no_vec_no_fallback_no_byte_backed_traversal"),
     "F5af point stream item collection path sink step focused doctest must cover primary action, tail close, error propagation, and no fallback policy",
+);
+const specF5ag = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action step"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5ag は F5af",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step:",
+    "cursor GuiSfntSimpleGlyphPathSinkActionCursor",
+    "-> Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError",
+    "action cursor",
+    "error を wrap せず",
+    "gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step",
+    "Primary",
+    "Tail",
+]) {
+    assert(specF5ag.includes(fragment), `font spec F5ag collection path sink action step must mention ${fragment}`);
+}
+const detailedF5ag = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action step boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5ag is the collection-backed sink action step boundary",
+    "does not introduce a new error type",
+    "F5af errors must be propagated unchanged",
+    "splits the action cursor",
+    "may call only F5af and the pure action-step projection",
+]) {
+    assert(detailedF5ag.includes(fragment), `font detailed design F5ag collection path sink action step must mention ${fragment}`);
+}
+const implementationPlanF5ag = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5ag: sfnt simple glyph outline point stream item collection path sink action step"),
+);
+for (const fragment of [
+    "PLAN_APPROVED",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step",
+    "gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md",
+]) {
+    assert(implementationPlanF5ag.includes(fragment), `font implementation plan F5ag must mention ${fragment}`);
+}
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionCursor fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError"),
+    "alloc/gui/font/sfnt/glyf F5ag must expose collection-backed path sink action step helper",
+);
+const pointStreamItemCollectionPathSinkActionStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step");
+for (const fragment of [
+    "let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor &cursor",
+    "let action_slot %GuiSfntSimpleGlyphPathSinkActionSlot gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot &cursor",
+    "match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step collection contour_cursor policy:",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok sink_step:",
+    "let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step &sink_step action_slot",
+    "Result::Ok action_step",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionStep.includes(fragment), `alloc/gui/font/sfnt/glyf F5ag path sink action step body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionStep,
+    [
+        "gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor &cursor",
+        "gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot &cursor",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step collection contour_cursor policy",
+        "Result::Err error:",
+        "Result::Err error",
+        "Result::Ok sink_step:",
+        "gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step &sink_step action_slot",
+        "Result::Ok action_step",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ag must split action cursor, propagate F5af errors, and project successful sink steps into action steps",
+);
+assert(
+    (pointStreamItemCollectionPathSinkActionStep.match(/\bgui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ag must read action contour cursor exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathSinkActionStep.match(/\bgui_sfnt_simple_glyph_path_sink_action_cursor_action_slot\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ag must read action slot exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathSinkActionStep.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ag must call F5af path sink step exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathSinkActionStep.match(/\bgui_sfnt_simple_glyph_path_sink_action_step_from_sink_step\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ag must call pure action-step projection exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStep,
+    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphPathSinkActionStep|push|GuiSfntParseError|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_lookup_simple_glyph_path_sink_action_step|gui_sfnt_lookup_simple_glyph_path_sink_step|gui_sfnt_lookup_simple_glyph_path_contour_step|gui_sfnt_lookup_simple_glyph_path_command_pair|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_path_sink_action_step_advance|gui_sfnt_simple_glyph_path_sink_action_step_item|Consumer|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5ag must not allocate, call F5ae/F5ad/F5ac/F5aa/lower helpers directly, traverse sinks/actions, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStep,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ag body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepTests.includes("path_sink_action_step_primary_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepTests.includes("path_sink_action_step_tail_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepTests.includes("path_sink_action_step_error_propagates_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepTests.includes("path_sink_action_step_no_vec_no_fallback_no_byte_backed_traversal"),
+    "F5ag point stream item collection path sink action step focused doctest must cover primary action, tail action, error propagation, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
