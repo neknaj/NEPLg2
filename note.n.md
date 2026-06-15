@@ -1,3 +1,49 @@
+# 2026-06-16 Agent2 GUI font path command stream prepare checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-stream-prepare-f5ax-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ax の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、F5aw authority の再利用を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream prepare の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ax の prepare summary、prepare action、single command classification、prepare step、bounded prepare drain、F5aw / F5av 呼び出し制限を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ax の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PathCommandValue` の `path_command_index` accessor を追加した。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary` を追加した。summary は total / MoveTo / LineTo / QuadraticTo / SkipNoSegment count と last path command index だけを持つ value-only record である。
+- initial summary helper は count をすべて `0`、last path command index を `-1` とする。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction` と `PrepareUpdate` を追加した。action は command kind count の domain action であり、renderer command ではない。
+- private summary increment helper は `PathCommandValue` から path command index と command payload をそれぞれ 1 回だけ読み、`GuiSfntSimpleGlyphPathCommand` を `match` して 1 種類の count だけを増やす。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep` を `Prepared action summary next_cursor` / `Completed summary cursor` の enum として追加した。completed branch は dummy action / dummy command value を持たない。
+- public prepare step は F5aw `path_command_stream_step` を exactly once 呼び、F5av lookup を直接呼ばない。lower completed は summary を変えず、lower emitted だけ summary increment helper を通す。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal` を `Completed summary cursor emitted_count` / `StepBudgetExhausted summary cursor emitted_count` の enum として追加した。
+- public prepare drain は `remaining_steps <= 0` では prepare step も F5aw step も呼ばず `StepBudgetExhausted summary cursor 0` を返す。positive budget では F5ax prepare step helper だけを呼ぶ。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ax source policy を追加した。docs/types/value-only Clone/Copy/initial summary/path command value accessor/single command classification/no dummy completed value/prepare step F5aw exactly once/no F5av/direct drain prepare-step-only/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md` を追加し、types、initial summary、accessor、single classification、completed no dummy、F5aw once、drain terminal、budget no step、no fallback / no byte-backed / no traversal / no Vec / no raster の source policy coverage label を固定した。
+- `todo.md` は F5ax 完了後の次作業として、explicit command sink / raster mask preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5ax は sink ではなく prepare summary boundary として扱い、counts と `last_path_command_index` の value-only summary を最初の render preparation contract にする方針で承認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、staged set は意図した 8 ファイル、tmp / `NUL` artifacts は unstaged、F5ax の source policy / doctest / implementation は approved plan と一致すると確認された。blocker はこの note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_prepare_f5ax.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_f5ax_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ax.json -j 1` 1008/1008 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ax は path command stream prepare summary までであり、real command sink、raster mask、render2d command emission は未実装である。
+
 # 2026-06-16 Agent2 GUI font path command stream cursor checkpoint
 
 ## scope

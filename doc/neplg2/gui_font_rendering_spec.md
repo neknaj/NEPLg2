@@ -4971,6 +4971,113 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path command stream prepare
+
+F5ax は F5aw の `PathCommandStreamStep` を authority として、path command stream を後続 command sink / raster mask / render2d command emission へ渡す前の prepare summary に畳む境界である。これは real sink ではなく、path object construction でもない。`Vec` に command を蓄積せず、raster / render / platform API にも進まない。
+
+F5ax の最小 contract は次である。
+
+```text
+prepare summary:
+    total_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    last_path_command_index i32
+
+prepare step input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    summary PathCommandStreamPrepareSummary
+    cursor PathCommandStreamCursor
+
+prepare step output:
+    Result PathCommandStreamPrepareStep PathCommandStreamPrepareStepError
+
+prepare drain input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    summary PathCommandStreamPrepareSummary
+    cursor PathCommandStreamCursor
+    remaining_steps i32
+
+prepare drain output:
+    Result PathCommandStreamPrepareDrainTerminal PathCommandStreamPrepareStepError
+```
+
+`PathCommandStreamPrepareSummary` は value-only であり、storage owner や collection reference を含まない。initial summary はすべての count を `0`、`last_path_command_index` を `-1` とする。
+
+1 command を summary へ反映する action は explicit enum とする。
+
+```text
+PathCommandStreamPrepareAction:
+    CountedMoveTo
+    CountedLineTo
+    CountedQuadraticTo
+    CountedSkipNoSegment
+```
+
+summary update は `PathCommandValue` の command payload を 1 回だけ読み、`GuiSfntSimpleGlyphPathCommand` を `match` して、次のうち 1 つだけを increment する。
+
+```text
+MoveTo        -> move_to_count
+LineTo        -> line_to_count
+QuadraticTo   -> quadratic_to_count
+SkipNoSegment -> skip_no_segment_count
+```
+
+同時に `total_count` を 1 増やし、`last_path_command_index` を `PathCommandValue.path_command_index` に更新する。`PathCommandValue` の field を直接読む範囲を広げず、public accessor を通す。
+
+prepare step は explicit enum を返す。
+
+```text
+PathCommandStreamPrepareStep:
+    Prepared PathCommandStreamPrepareAction PathCommandStreamPrepareSummary PathCommandStreamCursor
+    Completed PathCommandStreamPrepareSummary PathCommandStreamCursor
+```
+
+`Completed` は dummy `PathCommandValue` や dummy action を持たない。step の順序は次である。
+
+```text
+call F5aw PathCommandStreamStep exactly once
+if F5aw returns Err:
+    return PrepareStepError with current summary and cursor
+if F5aw returns Completed cursor:
+    return Completed summary cursor
+if F5aw returns Emitted value next_cursor:
+    update summary from value
+    return Prepared action updated_summary next_cursor
+```
+
+F5ax step は F5av lookup を直接呼ばない。command acquisition は必ず F5aw step helper だけを通す。
+
+bounded prepare drain は explicit terminal を返す。
+
+```text
+PathCommandStreamPrepareDrainTerminal:
+    Completed PathCommandStreamPrepareSummary PathCommandStreamCursor emitted_count
+    StepBudgetExhausted PathCommandStreamPrepareSummary PathCommandStreamCursor emitted_count
+```
+
+prepare drain は `remaining_steps <= 0` の場合、prepare step helper も F5aw step helper も呼ばず `StepBudgetExhausted summary cursor 0` を返す。budget がある場合は F5ax prepare step helper だけを呼ぶ。drain から F5aw step helper や F5av lookup を直接呼んではいけない。
+
+F5ax は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+F5av lookup
+F5aw step helper from prepare drain
+storage mutation
+Vec allocation / push
+path object materialization
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

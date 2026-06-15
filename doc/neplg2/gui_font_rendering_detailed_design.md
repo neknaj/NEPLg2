@@ -5508,6 +5508,131 @@ F5aw step helper from drain only
 
 F5aw must not call byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, storage mutation, `Vec`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path command stream prepare boundary
+
+F5ax is the first consumer-shaped boundary after F5aw, but it is still not a real sink. It consumes F5aw stream steps into a small value-only preparation summary so later phases can decide how to allocate or schedule command sink / raster mask / render2d work without forcing this phase to build a path object.
+
+The prepare summary is value-only:
+
+```text
+PathCommandStreamPrepareSummary:
+    total_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    last_path_command_index i32
+```
+
+The initial summary is:
+
+```text
+total_count = 0
+move_to_count = 0
+line_to_count = 0
+quadratic_to_count = 0
+skip_no_segment_count = 0
+last_path_command_index = -1
+```
+
+The summary intentionally stores counts only. It does not store command payloads, references to the collection, storage owners, path objects, or renderer commands.
+
+One prepared command is represented by a small domain action:
+
+```text
+PathCommandStreamPrepareAction:
+    CountedMoveTo
+    CountedLineTo
+    CountedQuadraticTo
+    CountedSkipNoSegment
+```
+
+The action is diagnostic / scheduling data only. It is not a render command, not a raster operation, and not a sink callback.
+
+The private update helper reads the command payload from `PathCommandValue` exactly once:
+
+```text
+summary_increment_from_value summary value:
+    path_command_index = path_command_value_path_command_index value
+    command = path_command_value_command value
+    match command:
+        MoveTo:
+            increment total_count and move_to_count
+            last_path_command_index = path_command_index
+            action = CountedMoveTo
+        LineTo:
+            increment total_count and line_to_count
+            last_path_command_index = path_command_index
+            action = CountedLineTo
+        QuadraticTo:
+            increment total_count and quadratic_to_count
+            last_path_command_index = path_command_index
+            action = CountedQuadraticTo
+        SkipNoSegment:
+            increment total_count and skip_no_segment_count
+            last_path_command_index = path_command_index
+            action = CountedSkipNoSegment
+```
+
+The helper returns both the action and the updated summary, so the public step never needs to match the command a second time.
+
+The public prepare step is:
+
+```text
+path_command_stream_prepare_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    summary PathCommandStreamPrepareSummary
+    cursor PathCommandStreamCursor
+    -> Result PathCommandStreamPrepareStep PathCommandStreamPrepareStepError
+```
+
+The step terminal is explicit:
+
+```text
+PathCommandStreamPrepareStep:
+    Prepared PathCommandStreamPrepareAction PathCommandStreamPrepareSummary PathCommandStreamCursor
+    Completed PathCommandStreamPrepareSummary PathCommandStreamCursor
+```
+
+The completed branch does not carry a dummy action or dummy command value.
+
+The step order is:
+
+```text
+call F5aw PathCommandStreamStep exactly once
+if lower step returns Err:
+    return PrepareStepError current_summary cursor lower_step_error
+if lower step returns Completed completed_cursor:
+    return Completed current_summary completed_cursor
+if lower step returns Emitted value next_cursor:
+    update = summary_increment_from_value current_summary value
+    return Prepared update.action update.summary next_cursor
+```
+
+F5ax does not revalidate the cursor directly. Cursor / owner / collection authority stays in F5aw. F5ax preserves the typed lower error and attaches the current summary and cursor to the error context.
+
+The bounded prepare drain terminal is:
+
+```text
+PathCommandStreamPrepareDrainTerminal:
+    Completed PathCommandStreamPrepareSummary PathCommandStreamCursor emitted_count
+    StepBudgetExhausted PathCommandStreamPrepareSummary PathCommandStreamCursor emitted_count
+```
+
+When `remaining_steps <= 0`, prepare drain returns `StepBudgetExhausted summary cursor 0` and does not call the prepare step helper. With a positive budget, drain calls only the F5ax prepare step helper. It never calls F5aw step or F5av lookup directly. Recursive drain accumulates `emitted_count` and carries the updated summary through each prepared step.
+
+F5ax may call:
+
+```text
+F5aw PathCommandStreamStep from prepare step only
+F5ax prepare step from prepare drain only
+PathCommandValue path_command_index accessor
+PathCommandValue command accessor
+```
+
+F5ax must not call byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, F5av lookup, F5aw step from prepare drain, storage mutation, `Vec`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -40,6 +40,53 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5ax: sfnt simple glyph outline point stream item collection path command stream prepare
+
+目的:
+
+- F5aw の `PathCommandStreamStep` を authority として、path command stream を value-only prepare summary に畳む。
+- 後続 command sink / raster mask / render2d command emission の前段階として、command 種別 count と last path command index だけを保持する。
+- full path object construction、`Vec` allocation、sink mutation、raster / render / platform / host API へ進まない。
+- F5av lookup を直接呼ばず、command acquisition は F5aw step helper だけを通す。
+
+plan review:
+
+- Tesla plan review は `PLAN_APPROVED`。
+- F5ax は sink ではなく prepare summary boundary として扱い、counts と `last_path_command_index` の value-only summary を最初の render preparation contract にする方針で承認された。
+- F5ax prepare drain は F5aw step を直接呼ばず、F5ax prepare step helper だけを呼ぶ。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary` を追加する。`total_count`、`move_to_count`、`line_to_count`、`quadratic_to_count`、`skip_no_segment_count`、`last_path_command_index` を持ち、`Clone` / `Copy` を実装する。
+- initial summary helper は count をすべて `0`、`last_path_command_index` を `-1` とする。
+- `PathCommandValue` の `path_command_index` accessor を追加し、F5ax は field を直接読まない。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction` を追加する。`CountedMoveTo`、`CountedLineTo`、`CountedQuadraticTo`、`CountedSkipNoSegment` の enum とし、`Clone` / `Copy` を実装する。
+- private summary increment helper は `PathCommandValue` の command payload を 1 回だけ読み、`GuiSfntSimpleGlyphPathCommand` を `match` して 1 種類の count だけを増やす。`total_count` は常に 1 増やし、`last_path_command_index` は accessor で読んだ path command index へ更新する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep` を `Prepared action summary next_cursor` / `Completed summary cursor` の enum として追加する。completed branch は dummy action / dummy command value を持たない。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepError` は current summary、cursor、lower F5aw step error を `Option` で保持する。
+- public prepare step は F5aw `path_command_stream_step` を exactly once 呼ぶ。lower completed は summary を変えず `Completed`、lower emitted は summary increment helper を 1 回呼び `Prepared` を返す。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal` を `Completed summary cursor emitted_count` / `StepBudgetExhausted summary cursor emitted_count` の enum として追加する。
+- public prepare drain は `remaining_steps <= 0` では prepare step も F5aw step も呼ばず `StepBudgetExhausted summary cursor 0` を返す。positive budget では F5ax prepare step helper だけを呼ぶ。
+
+完了条件:
+
+- source policy が docs、types、Summary / Action / Update / Step / StepError / DrainTerminal value-only Clone/Copy、initial summary、PathCommandValue path_command_index accessor、command accessor exactly once、command variant match、single counter increment、completed no dummy action/value、prepare step F5aw step exactly once / no F5av lookup、prepare drain prepare-step-only / budget exhausted no step、forbidden byte-backed / old traversal / Vec / path object / raster / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md` に types、initial summary、path command value accessor、single command classification、prepare step completed no dummy、prepare step uses F5aw once、prepare drain terminal variants、budget exhausted no step、no fallback/no byte-backed/no traversal/no Vec/no raster の coverage label を追加する。
+- implementation review で docs / source policy / doctest / note / todo が揃っていること、drain から F5aw step / F5av lookup を直接呼んでいないこと、実描画 API へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の explicit command sink / raster mask preparation boundary へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_prepare_f5ax.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_f5ax_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ax.json -j 1
+git diff --check
+```
+
 ## Phase F5aw: sfnt simple glyph outline point stream item collection path command stream cursor
 
 目的:
