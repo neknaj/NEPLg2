@@ -6846,6 +6846,61 @@ render_command_alpha_mask_rect mask_id rect paint
 
 F5bk must not introduce `Vec`, `String`, allocator calls, platform calls, RenderTarget / DrawTarget implementation, Canvas / DOM / minifb bindings, font fallback, byte-backed font lookup, or compositor drain. Later slices can bind a completed fill alpha mask owner to an `AlphaMaskId` resource table and can define tile / row / bitmap transport, but that storage boundary is not part of F5bk.
 
+## SFNT simple glyph alpha mask resource reservation boundary
+
+F5bl is the internal alloc/font reservation boundary between the completed fill alpha mask owner and the future resource table. It deliberately stops before table registration and before command construction. The reservation object proves only that a completed mask owner, a nonzero `AlphaMaskId`, a `GuiRect`, and a `GuiPaint` have been checked and kept together under one owner-bearing value.
+
+F5bl must not claim that the id is registered, unique, uploaded, host-visible, or renderable. Those facts belong to a later resource-table boundary that consumes the reservation owner and registers the alpha storage before constructing `RenderCommand::AlphaMaskRect`.
+
+The value-only config is:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:
+    mask_id AlphaMaskId
+```
+
+The success owner is private to `alloc/gui/font/sfnt/glyf`:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner:
+    owner GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+```
+
+`owner` keeps the alpha Vec and raster edge owner alive. `mask_id`, `rect`, and `paint` are copied values derived from the config and completed owner. The success owner and the start error own storage and therefore must not implement `Clone` or `Copy`. The config is value-only and may implement both.
+
+Validation order is stable:
+
+```text
+validate config mask id
+    AlphaMaskId.raw <= 0 -> InvalidMaskId
+
+validate completed owner shape
+    width_px <= 0 -> ShapeInvalidWidth
+    height_px <= 0 -> ShapeInvalidHeight
+    sample_scale <= 0 -> ShapeInvalidSampleScale
+    sample_scale * sample_scale overflow or mismatch -> ShapeCoverageMaxMismatch
+    width_px * height_px overflow or mismatch -> ShapeCellCountMismatch
+
+validate completed owner alpha storage
+    alpha_max <= 0 -> InvalidAlphaMax
+    owner.cell_count != shape.cell_count -> AlphaCellCountMismatch
+    alpha_cells.len != shape.cell_count -> AlphaStorageLenMismatch
+    alpha_cells.cap != shape.cell_count -> AlphaStorageCapacityMismatch
+
+validate blend
+    SourceOver -> Ok
+    other -> UnsupportedBlendMode
+```
+
+The rect is built from `owner.origin` and `owner.size`. No alpha cell is copied. No sample cursor is opened. No per-sample `FillRect` bridge is called. The success path only packs metadata and the existing owner into the reservation owner.
+
+Recovery is explicit. A start error keeps the original completed fill alpha mask owner and the config. A consuming success recovery helper returns the original `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` so a later internal registration boundary can consume the reservation without field projection. Value accessors for `mask_id`, `rect`, and `paint` may be read before recovery.
+
+F5bl must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, per-sample FillRect fallback, alpha Vec copy helpers, or a 2D compositor drain.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
