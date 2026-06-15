@@ -5281,6 +5281,114 @@ F5au may call `gui_sfnt_simple_glyph_outline_storage_read_edge_owner` only throu
 
 `PathCommandTagCompleteOwner`, `PathCommandTagDrainError`, and `PathCommandTagDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `PathCommandTagSlot`, `PathCommandTagDrainErrorKind`, `PathCommandTag`, `EdgeOwnerMarker`, and `EdgeOwnerReadError` are small value types and may implement `Clone` and `Copy`.
 
+## SFNT simple glyph outline point stream item collection path command value lookup boundary
+
+F5av consumes no owner. It borrows a `PathCommandTagCompleteOwner`, validates it against the collection, reads one stored PathCommandTag scalar, re-reads the collection-backed source event, and returns one typed path command value only if the stored tag and source tag match. It is a value lookup boundary, not a stream builder.
+
+The storage-level scalar read helper is:
+
+```text
+gui_sfnt_simple_glyph_outline_storage_read_path_command_tag:
+    storage &GuiSfntSimpleGlyphOutlineStorage
+    path_command_index i32
+    -> Result PathCommandTag PathCommandTagReadError
+```
+
+It validates storage capacity shape, scalar slot count, scalar storage capacity, path command index range, PathCommandTag region readiness, scalar slot presence, and known scalar value. Scalar values are the same stable F5au values. Unknown scalar values return `PathCommandTagScalarUnknown` with the observed scalar in the error payload. No default tag is chosen.
+
+The complete owner helpers are:
+
+```text
+path_command_tag_complete_owner_storage_capacity:
+    owner &PathCommandTagCompleteOwner
+    -> GuiSfntSimpleGlyphOutlineStorageCapacity
+
+path_command_tag_complete_owner_read_path_command_tag:
+    owner &PathCommandTagCompleteOwner
+    path_command_index i32
+    -> Result PathCommandTag PathCommandTagReadError
+
+path_command_tag_complete_owner_read_edge_owner:
+    owner &PathCommandTagCompleteOwner
+    edge_index i32
+    -> Result EdgeOwnerMarker EdgeOwnerReadError
+```
+
+All three helpers use `field::get_ref owner "storage"` and must not call the consuming `complete_owner_storage` accessor.
+
+The value type is:
+
+```text
+PathCommandValue:
+    path_command_index i32
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    event_slot PathSinkEventSlot
+    stored_tag PathCommandTag
+    source_tag PathCommandTag
+    command PathCommand
+```
+
+It is value-only and may implement `Clone` / `Copy`. It carries the source mapping so later stream preparation can preserve diagnostics without recomputing the slot origin.
+
+The error type is value-only:
+
+```text
+PathCommandValueError:
+    kind PathCommandValueErrorKind
+    capacity StorageCapacity
+    path_command_index i32
+    edge_index i32
+    tag_error Option PathCommandTagReadError
+    stored_tag Option PathCommandTag
+    edge_owner_error Option EdgeOwnerReadError
+    edge_owner Option EdgeOwnerMarker
+    span_error Option CollectionContourSpanError
+    span Option ContourSpan
+    event_error Option CollectionCurveSegmentError
+    source_event Option PathSinkEvent
+    source_tag Option PathCommandTag
+```
+
+It contains no storage owner because the public API borrows complete owner and never moves storage.
+
+The public API is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    path_command_index i32
+    -> Result PathCommandValue PathCommandValueError
+```
+
+The authority order is strict:
+
+```text
+summary = owner.summary
+summary_capacity = summary.capacity
+storage_capacity = non-consuming complete owner storage capacity
+require summary_capacity == storage_capacity
+collection_capacity = collection.capacity
+require collection_capacity == summary_capacity
+require 0 <= path_command_index < summary_capacity.path_command_count
+derive edge_index and event_slot
+read stored tag
+read Edge owner
+read collection span
+read source event
+derive source tag
+compare tags
+return command
+```
+
+The source event read must call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` exactly once after span validation. The function then derives `source_kind` from that event and maps it to `source_tag`. F5av must not call `path_sink_event_kind_at` separately because that would duplicate source derivation and risk divergence between tag and payload.
+
+This is where `SkipNoSegment` reason is recovered. The stored tag only proves that the scalar region recorded a skip command; the reason comes from `GuiSfntSimpleGlyphPathCommand::SkipNoSegment` inside the source event. A mismatch between stored tag and source tag is `TagMismatch`, never a no-op or inferred replacement command.
+
+F5av may call the collection-backed source event helper and pure event/tag helpers. It must not call byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, storage mutation, path command stream builders, `Vec`, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

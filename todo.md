@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5au の PathCommandTagCompleteOwner を authority とし、PathCommandTag scalar region と collection-backed path sink event kind source から path command value / stream preparation boundary へ進める owner recovery 付き境界を追加する。SkipNoSegment reason は scalar ではなく source から再導出し、byte-backed lookup、old sink traversal、raster/render/platform API へ戻らない contract を固定する
+- F5av の PathCommandValue を authority とし、bounded path command stream cursor / stream preparation boundary を追加する。storage owner を消費しない read phase と、後続の stream cursor owner phaseを分け、byte-backed lookup、old sink traversal、raster/render/platform API へ戻らない contract を固定する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

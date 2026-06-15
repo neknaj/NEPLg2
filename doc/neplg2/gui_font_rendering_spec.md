@@ -4755,6 +4755,123 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path command value lookup
+
+F5av は F5au の `PathCommandTagCompleteOwner` を authority として、PathCommandTag scalar と collection-backed path sink event source を照合し、1 logical path command index に対応する `GuiSfntSimpleGlyphPathCommand` payload を read-only に返す境界である。これは path command stream construction ではなく、raster / render / platform API へも進まない。
+
+F5av の最小 contract は次である。
+
+```text
+input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner
+    path_command_index i32
+
+output:
+    Result PathCommandValue PathCommandValueError
+```
+
+`PathCommandTagCompleteOwner` は storage owner を含むが、F5av public lookup は owner を borrow するだけである。成功時も失敗時も storage は消費されない。storage mutation、`Vec` allocation、sink mutation、full stream construction は行わない。
+
+authority check order は次である。
+
+```text
+authority check order:
+    summary capacity from complete owner
+    owner storage capacity without consuming complete owner
+    summary capacity == owner storage capacity
+    collection capacity == summary capacity
+    0 <= path_command_index < capacity.path_command_count
+```
+
+authority check が終わる前に PathCommandTag scalar、Edge owner scalar、collection span、source event を読んではいけない。
+
+logical mapping は F5au と同じである。
+
+```text
+edge_index = div_s path_command_index 2
+event_slot_ordinal = rem_s path_command_index 2
+0 => First
+1 => Second
+```
+
+storage-level PathCommandTag read helper は次の typed error を返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePathCommandTagReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    PathCommandIndexOutOfRange
+    PathCommandTagNotReady
+    PathCommandTagSlotMissing
+    PathCommandTagScalarUnknown
+```
+
+unknown scalar は `MoveTo` などへ推測変換しない。`PathCommandTagScalarUnknown` と observed `Option i32` scalar を返す。
+
+F5av の value / error は次である。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue:
+    path_command_index i32
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    event_slot GuiSfntSimpleGlyphPathSinkEventSlot
+    stored_tag GuiSfntSimpleGlyphPathCommandTag
+    source_tag GuiSfntSimpleGlyphPathCommandTag
+    command GuiSfntSimpleGlyphPathCommand
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueErrorKind:
+    StorageSummaryCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PathCommandIndexInvalid
+    EventSlotOrdinalInvalid
+    PathCommandTagReadFailed
+    EdgeOwnerReadFailed
+    EdgeOwnerGlyphMismatch
+    EdgeOwnerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    EventSourceFailed
+    TagMismatch
+```
+
+`PathCommandValueError` は owner を含まない value-only error でよい。これは public lookup が owner を消費しないためである。error は storage tag read error、stored tag、Edge owner read error、Edge owner marker、span error、span、event error、source event、source tag を `Option` で保持し、fallback や string parsing なしに失敗地点を `match` できる形にする。
+
+payload 復元は次の順序で行う。
+
+```text
+read stored PathCommandTag scalar from complete owner storage
+read Edge owner scalar from complete owner storage
+validate edge owner glyph == capacity glyph
+validate edge owner index == edge_index
+read collection contour span for edge owner contour_index
+validate span glyph/index/range/count and edge containment
+contour_edge_index = edge_index - span.start_point_index
+read collection path sink event at contour_index contour_edge_index event_slot exactly once
+derive source tag from source event
+require stored tag == source tag
+return command payload from source event
+```
+
+`SkipNoSegment` reason は PathCommandTag scalar からは得られないため、必ず source event payload から再導出する。stored tag と source tag が一致しない場合は `TagMismatch` を返し、別の tag や no-op へ fallback してはいけない。
+
+F5av は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+path command stream construction
+storage mutation
+Vec allocation / push
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
