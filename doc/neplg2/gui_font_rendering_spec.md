@@ -3704,6 +3704,62 @@ sink traversal / consumer APIs
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action item next and consumer item
+
+F5ai は F5ah の collection-backed action step item を authority として、checked advance を次 action item へ進め、同じ境界で current action payload と checked next state を future sink consumer 用 packet に束ねる段階である。これは byte-backed F4ab/F4ac を collection-backed item stream に写したものであり、byte buffer、font table metadata、sink traversal、real sink mutation、renderer、rasterizer、platform API へ戻らない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+action item next helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を exactly once 読み、その enum だけを `match` する。
+
+```text
+advance = Continue next_step
+    -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &next_step policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item
+
+advance = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+```
+
+`EndContour` は successful terminal state であり、`Option::None`、`Result::Err`、silent no-op、hidden fallback に変換しない。`Result::Err` は `Continue next_step` の下位 F5ah lookup から来た typed collection contour step error だけを伝播する。
+
+consumer item helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_step item` を exactly once 読み、`gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step` で current action を exactly once value として copy する。next state は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next collection item policy` を exactly once 呼んで得る。`Result::Err` は wrap せず、`Result::Ok next` の場合だけ `GuiSfntSimpleGlyphPathSinkActionConsumerItem action next` を返す。
+
+F5ai は action payload を解釈しない。`EmitEvent`、`Reject`、`NoAction`、`CloseContour` は consumer item の `action` に保持され、後続の明示 consumer / apply phase が読む。F5ai は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_lookup_simple_glyph_path_sink_action_item_next
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_advance
+gui_sfnt_lookup_simple_glyph_path_sink_action_step
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_lookup_simple_glyph_path_contour_step
+vec::
+push
+consumer apply / consume / traversal APIs
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
