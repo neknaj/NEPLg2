@@ -4369,6 +4369,103 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action PointY drain
+
+F5as は F5ar の `PointYStartOwner` を authority として、collection-backed point stream item source から PointY region の scalar slot を bounded drain し、全 PointY slot 完了後だけ Edge region cursor start へ進む owner-recovery boundary である。F5as は edge value population、path command population、byte-backed coordinate reader、path sink traversal、renderer、platform API を直接呼ばない。
+
+`PointYStartOwner` は public constructor を持つため、F5as は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == PointY
+    cursor matches summary capacity PointY region
+    collection capacity == summary capacity
+```
+
+この順序より前に collection item read、PointY push、Edge cursor start、storage consume を行ってはいけない。各 authority failure は current `PointYStartOwner` を保持した typed error として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PointSourceReadFailed
+    PointSourceGlyphMismatch
+    PointSourceIndexMismatch
+    PointSourceKindMismatch
+    PointYPushFailed
+    EdgeCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainErrorKind
+    point_index i32
+    read_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError
+    item Option GuiSfntSimpleGlyphOutlinePointStreamItem
+    point Option GuiSfntSimpleGlyphPointYSlot
+    push_error_kind Option GuiSfntSimpleGlyphPointYPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainTerminal:
+    EdgeStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_y_start_owner_drain_to_edge_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::Edge` で Edge cursor を開始する。成功した場合は storage を消費して `EdgeStarted EdgeStartOwner` を返す。失敗した場合は `EdgeCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、collection read も mutation も行わず `StepBudgetExhausted PointYStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、logical point index は `next_index - start` である。PointY source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection point_index` だけである。read failure は lower `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionReadError` と current owner を保持した `PointSourceReadFailed` とする。
+
+read success 後は、item payload が forged でないことを caller 側で再検査する。item point の glyph raw id は summary capacity glyph raw id と一致しなければならない。item point index は `point_index` と一致しなければならない。`gui_sfnt_simple_glyph_outline_point_stream_item_kind_matches_point &item` は true でなければならない。失敗した場合は `PointSourceGlyphMismatch`、`PointSourceIndexMismatch`、`PointSourceKindMismatch` として item を保持した typed error を返し、PointY push へ進まない。
+
+PointY push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_point_y storage cursor point` を 1 回だけ呼ぶ。PointY push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_point_y_push_error_kind &push_error
+read gui_sfnt_simple_glyph_point_y_push_error_point &push_error
+read gui_sfnt_simple_glyph_point_y_push_error_region_error_kind &push_error
+read gui_sfnt_simple_glyph_point_y_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_point_y_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `PointYStartOwner` を復元し、`PointYPushFailed` を返す。push success は F5i returned storage、returned cursor だけから次の PointYStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`EdgeStartOwner`、`PointYDrainError`、`PointYDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`PointYDrainErrorKind` は value enum なので `Clone` / `Copy` を実装してよい。
+
+F5as は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX read / read-push helper
+byte-backed PointY read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+PointX value push
+edge value population
+path command population
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

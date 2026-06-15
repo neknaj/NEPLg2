@@ -4862,6 +4862,117 @@ F5ar may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_i
 
 `PointYStartOwner`, `PointXDrainError`, and `PointXDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `PointXDrainErrorKind` is a small value enum and may implement `Clone` / `Copy`.
 
+## SFNT simple glyph outline point stream item collection path sink action PointY drain boundary
+
+F5as consumes an F5ar `PointYStartOwner`, fills PointY scalar slots from the already materialized point stream item collection, and starts the Edge scalar region cursor only after the PointY region is complete. It is not an edge builder and does not populate edge values.
+
+Because `PointYStartOwner` is publicly constructible, F5as treats it as forgeable. The public drain boundary must prove all three authorities match before interpreting the cursor or consuming storage:
+
+```text
+authority check order:
+    read summary capacity from PointYStartOwner
+    read owner storage capacity without consuming PointYStartOwner
+    require summary capacity == owner storage capacity
+    read cursor from PointYStartOwner
+    require cursor well formed
+    require cursor region is PointY
+    require cursor matches summary capacity PointY region
+    read collection capacity
+    require collection capacity == summary capacity
+```
+
+The capacity comparison covers glyph raw id, contour count, point count, edge count, path command pair count, and path command count. Cursor validation covers start / next / end bounds and the PointY region boundaries derived from summary capacity.
+
+The public API shape is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_y_start_owner_drain_to_edge_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner PointYStartOwner
+    remaining_steps i32
+    -> Result PointYDrainTerminal PointYDrainError
+```
+
+The owned types are:
+
+```text
+EdgeStartOwner:
+    storage
+    summary
+    cursor
+
+PointYDrainTerminal:
+    EdgeStarted EdgeStartOwner
+    StepBudgetExhausted PointYStartOwner
+
+PointYDrainError:
+    owner PointYStartOwner
+    kind PointYDrainErrorKind
+    point_index i32
+    read_error Option CollectionReadError
+    item Option PointStreamItem
+    point Option PointYSlot
+    push_error_kind Option PointYPushErrorKind
+    region_error_kind Option RegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+```
+
+`PointYDrainErrorKind` separates authority failure, source failure, push failure, and Edge cursor start failure:
+
+```text
+StorageSummaryCapacityMismatch
+CursorInvalid
+CursorRegionMismatch
+CursorCapacityMismatch
+CollectionSummaryCapacityMismatch
+PointSourceReadFailed
+PointSourceGlyphMismatch
+PointSourceIndexMismatch
+PointSourceKindMismatch
+PointYPushFailed
+EdgeCursorStartFailed
+```
+
+Each authority failure returns `PointYDrainError` with the original PointYStartOwner. No authority failure may consume storage or read a collection item.
+
+The trusted drain body runs only after the public authority checks:
+
+```text
+cursor = owner.cursor
+next_index = cursor.next_index
+end = cursor.end
+
+if next_index == end:
+    start Edge cursor from summary capacity
+    if cursor start fails:
+        return EdgeCursorStartFailed with current PointYStartOwner
+    consume storage from PointYStartOwner
+    return EdgeStarted EdgeStartOwner
+
+if remaining_steps <= 0:
+    return StepBudgetExhausted PointYStartOwner
+
+point_index = next_index - cursor.start
+call collection read item once
+validate item glyph == capacity glyph
+validate item point_index == point_index
+validate item kind matches point payload
+build PointYSlot from item y coordinate
+call internal PointYStartOwner point-y push helper once
+recurse with remaining_steps - 1
+```
+
+Completion is checked before the step budget. This lets a caller finish a boundary and advance to `EdgeStartOwner` even with zero remaining mutation steps when the PointY region is already complete. StepBudgetExhausted is checked before `collection_read_item` and before PointY push, so a budget-limited caller can retry deterministically without duplicate reads or mutations.
+
+The collection read helper validates collection length, capacity, and requested index. It does not prove that a public-constructor item payload still matches the item index, glyph, or kind. Therefore F5as must perform glyph, point index, and kind checks after read and before PointY push. This caller-side validation is the boundary that makes forged collection items fail closed without changing the lower read helper.
+
+The internal PointY push helper is the only F5as helper allowed to call F5i `gui_sfnt_simple_glyph_outline_storage_push_point_y`. It must borrow summary and cursor before consuming storage. If F5i fails, it must read `gui_sfnt_simple_glyph_point_y_push_error_kind &push_error`. It must read `gui_sfnt_simple_glyph_point_y_push_error_point &push_error`. It must read `gui_sfnt_simple_glyph_point_y_push_error_region_error_kind &push_error`. It must read `gui_sfnt_simple_glyph_point_y_push_error_push_error_kind &push_error`. These reads must happen before calling `gui_sfnt_simple_glyph_point_y_push_error_storage push_error`. The recovered storage plus saved summary/cursor reconstruct the current `PointYStartOwner`.
+
+F5as may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item` only after the public authority checks pass and only when `remaining_steps > 0`. It may call `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity` for `GuiSfntSimpleGlyphOutlineScalarRegion::Edge` only in the completion branch. It must not call `gui_sfnt_glyf_read_push_point_x`, `gui_sfnt_glyf_read_point_x_from_stream`, `gui_sfnt_glyf_read_push_point_y`, `gui_sfnt_glyf_read_point_y_from_stream`, F4 byte-backed lookup helpers, F5al/F5ak/F5aj traversal helpers, lower collection path helpers, table helpers, `Vec`, path command fill, sink mutation, PointX push, edge value population, path command population, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
+`EdgeStartOwner`, `PointYDrainError`, and `PointYDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `PointYDrainErrorKind` is a value enum and may implement `Clone` and `Copy`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
