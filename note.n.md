@@ -63976,3 +63976,46 @@ MERGE_APPROVED
 
 - F5ag は action step 1 件の lookup までであり、checked advance、action step item、consumer item、contour-wide sink traversal は未実装である。
 - 次 slice では F5ag を authority として collection-backed action step advance / action item boundary へ進む。
+
+## 2026-06-15 GUI font rendering F5ah collection action step advance and item
+
+### scope
+
+- F5ah は F5ag collection-backed action step lookup を authority とし、typed next state から checked advance を作る境界である。
+- action step item は現在 step の value copy と checked advance を束ねるだけで、action payload の解釈、consumer、sink mutation、contour-wide traversal は行わない。
+- `EndContour` は `Result::Err` や `Option::None` にせず、successful terminal enum として保持する。
+
+### plan_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ah は既存 byte-backed F4y/F4z の advance/item split を mirror しつつ、F5ag を唯一の collection-backed lookup authority とする計画として妥当と判断された。
+- source policy は advance helper の `action_step_next` exactly once、`Continue` で F5ag exactly once、item helper の advance exactly once、`*step` copy、no action payload inspection、F5af/F5ae/F5ad/F5ac/F5aa 直接呼び出し禁止を固定する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance` を追加した。
+- advance helper は `gui_sfnt_simple_glyph_path_sink_action_step_next step` を読み、`Continue cursor` では `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection cursor policy` へ 1 回だけ委譲し、`EndContour` は successful terminal value として返す。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item` を追加した。
+- item helper は collection-backed advance helper に 1 回だけ委譲し、success path では `let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step` で現在 step を明示 copy して `gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance` を返す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ah の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md` を追加し、continue advance、end advance、item copy、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ah source policy を追加し、body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed action item next / consumer item boundary へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。source policy 本体は 900 秒制限で実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_item_f5ah.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_f5ah_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ah.json -j 1` は 762/762 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面の blocker はないが、新規 doctest が untracked のため commit set に含める必要があると指摘された。
+- 新規 doctest を staged add した後の Tesla implementation review 2 は `REVIEW_APPROVED`。F5ah helper は typed next read exactly once、Continue だけの F5ag delegation、EndContour success terminal、`*step` copy と item construction を守り、残る content blocker はないと確認された。
+
+### residual
+
+- F5ah は action step item までであり、action item next、consumer item、consume/apply loop、contour-wide sink traversal は未実装である。
+- 次 slice では F5ah を authority として collection-backed action item next / consumer item boundary へ進む。

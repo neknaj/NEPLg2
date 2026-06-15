@@ -3662,3 +3662,43 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ag.json -j 1
 git diff --check
 ```
+
+## Phase F5ah: sfnt simple glyph outline point stream item collection path sink action step advance and item
+
+目的:
+
+- F5ag collection-backed action step lookup を authority として、typed next state を checked advance へ変換する。
+- 現在 action step と checked advance を `GuiSfntSimpleGlyphPathSinkActionStepItem` に束ねる。
+- `EndContour` は `Result::Err` や `Option::None` にせず、successful terminal enum として保持する。
+- action payload の解釈、consumer、contour-wide traversal、sink mutation、render/raster/platform/host API へ進まない。
+
+変更:
+
+- Tesla plan review は `PLAN_APPROVED`。F5ah は既存 byte-backed F4y/F4z の advance/item split を mirror しつつ、F5ag を唯一の collection-backed lookup authority とする計画として妥当である。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance` を追加する。
+- advance helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_step_next` を exactly once 呼ぶ。
+- `Continue cursor` の場合だけ source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step` を exactly once 呼ぶ。
+- `EndContour` は `Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour` として返す。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item` を追加する。
+- item helper は source 上 collection-backed advance helper を exactly once 呼ぶ。
+- item helper は success path で `let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step` により現在 step を明示 copy し、`gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance` を返す。
+- helper は F5af/F5ae/F5ad/F5ac/F5aa 直接呼び出し、byte-backed F4 lookup、metadata parser、`*_with_tables`、lower collection helpers、`Vec` / `push`、sink traversal、consumer、render/raster/platform/host API を呼ばない。
+
+完了条件:
+
+- F5ah advance helper が step next read -> Continue/F5ag lookup または EndContour success terminal の順序を守る。
+- F5ah item helper が advance lookup -> error propagation -> current step copy -> item construction の順序を守る。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md` に continue advance、end advance、item copy、error propagation、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、helper body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_item_f5ah.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_f5ah_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ah.json -j 1
+git diff --check
+```

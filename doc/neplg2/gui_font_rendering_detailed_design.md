@@ -4041,6 +4041,59 @@ The action and next-state decision remains owned by `gui_sfnt_simple_glyph_path_
 
 F5ag may call only F5af and the pure action-step projection, plus the two action-cursor accessors needed to split the cursor. It must not call F5ae/F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, action advance/item/consumer helpers, event consumers, sink traversal, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink action step advance and item boundary
+
+F5ah is the collection-backed action step advance and item boundary. It mirrors byte-backed F4y/F4z, but its next-step authority is F5ag rather than font bytes or table metadata.
+
+The public boundaries are:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ah intentionally does not introduce a new error type. The only fallible action is delegated F5ag lookup, so F5ag errors must be propagated unchanged.
+
+The advance helper order is:
+
+```text
+read step.next exactly once
+if next is Continue cursor:
+    call F5ag collection path sink action step lookup exactly once
+    if F5ag Err:
+        return the same error
+    if F5ag Ok:
+        return Continue next_step
+if next is EndContour:
+    return Ok EndContour
+```
+
+`EndContour` is a successful terminal state and must not be represented as `Option::None`, `Result::Err`, or a hidden no-op. Policy rejection remains an action payload in the current or next step and does not change traversal in F5ah.
+
+The item helper order is:
+
+```text
+call collection action step advance exactly once
+if advance Err:
+    return the same error
+if advance Ok:
+    copy the current step value
+    construct GuiSfntSimpleGlyphPathSinkActionStepItem
+```
+
+The item helper must not inspect action payloads. `Reject`, `NoAction`, `CloseContour`, and actual sink mutation belong to later consumer phases.
+
+F5ah may call only `gui_sfnt_simple_glyph_path_sink_action_step_next`, F5ag, the collection-backed F5ah advance helper from the item helper, the pure item constructor, and `*step` value copy. It must not call F5af/F5ae/F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, action consumer helpers, sink traversal, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

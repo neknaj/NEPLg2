@@ -9038,6 +9038,42 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step &sink_step action_slot
             Result::Ok action_step
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance: collection 由来の action step を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - 現在 step の typed next state だけを[読/よ]みます。action payload は[読/よ]みません。
+//: - `Continue` の[場合/ばあい]だけ F5ag action step lookup に[委譲/いじょう]します。
+//: - `EndContour` は error ではなく、successful terminal value として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\step\policy:
+    match gui_sfnt_simple_glyph_path_sink_action_step_next step:
+        GuiSfntSimpleGlyphPathSinkActionNext::Continue cursor:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection cursor policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_step:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step
+        GuiSfntSimpleGlyphPathSinkActionNext::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item: collection 由来の action step と checked advance を[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - collection-backed advance helper にだけ[委譲/いじょう]します。
+//: - error は wrap せず、そのまま[返/かえ]します。
+//: - success では現在 step を value として copy し、checked advance と同じ item に[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\step\policy:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_advance collection step policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok advance:
+            let stored_step %GuiSfntSimpleGlyphPathSinkActionStep *step
+            let item %GuiSfntSimpleGlyphPathSinkActionStepItem gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance
+            Result::Ok item
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
