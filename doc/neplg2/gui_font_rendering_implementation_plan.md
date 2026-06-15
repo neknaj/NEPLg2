@@ -40,6 +40,57 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5bb: sfnt simple glyph outline point stream item collection raster mask writer
+
+目的:
+
+- F5ba の completed `PathCommandStreamSinkWriterOwner` を authority とし、`LineTo` / `QuadraticTo` だけを raster mask scalar Vec へ書く内部 writer を追加する。
+- current point は raster edge start point の authority になるため、F5bb owner は module-private transition-only owner とし、public constructor、`Clone`、`Copy` を持たせない。
+- `MoveTo` と `SkipNoSegment` はどちらも scalar を出さないが、別々の progress count として保持し、forged progress が kind count を隠せないようにする。
+- F5bb は scalar stream writer で止め、path object materialization、rasterization、render2d、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- `skip_without_mask_count` では `MoveTo` と `SkipNoSegment` の forged progress を隠せるため、kind 別 count を分ける必要があると指摘された。
+- current point を public owner state として信頼すると forged mid-state から任意 start point を作れるため、private transition-only owner contract または再導出境界が必要だと指摘された。
+- stable tag scalar は F5au helper を通すことを source policy に固定する必要があると指摘された。
+- revised plan では private owner、private constructor、start / advance / recovery だけの生成、kind 別 progress count、F5au tag scalar helper を明示した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner` を module-private struct として追加する。inner F5ba writer owner、written_count、raster_mask_scalar_count、move_to_count、line_to_count、quadratic_to_count、skip_no_segment_count、last_path_command_index、has_current_point、current_x2、current_y2 を保持する。
+- F5bb owner constructor は private function に限定し、public constructor を作らない。owner / step / error は Vec owner を含むため `Clone` / `Copy` は実装しない。
+- `RasterMaskWriterStartErrorKind` / `RasterMaskWriterStartError` を追加する。start は F5az plan/capacity、path sink Vec cap/len、raster mask Vec cap/len、inner F5ba completed progress を検査する。
+- `RasterMaskWriterPushErrorKind` / `RasterMaskWriterPushError` を追加する。push error は current or reconstructed F5bb owner、rejected `PathCommandValue`、capacity error option、rejected scalar option、storage error option を保持する。
+- `raster_mask_writer_owner_validate_for_push` を追加する。F5az plan/capacity 再検査、path sink complete state、raster mask len/count、inner F5ba complete progress、F5bb kind progress、aggregate progress、path command index、stored/source/command tag consistency を検査する。
+- `raster_mask_writer_owner_push_scalar` を追加する。`vec::push` failure では `vec_push_error_kind &e` を先に読み、`vec_push_error_vec e` で Vec を回収し、F5az owner、F5ba writer owner、F5bb writer owner を unchanged progress/current point で復元する。
+- `MoveTo` push は scalar を書かず、current point を move x2/y2 に更新し、move_to_count を進める。
+- `LineTo` push は current point を要求し、F5au stable tag scalar 2、start_x2、start_y2、end_x2、end_y2 の順に 5 scalar を書き、line_to_count と raster_mask_scalar_count を進める。
+- `QuadraticTo` push は current point を要求し、F5au stable tag scalar 3、start_x2、start_y2、control_x2、control_y2、end_x2、end_y2 の順に 7 scalar を書き、quadratic_to_count と raster_mask_scalar_count を進める。
+- `SkipNoSegment` push は scalar を書かず、current point を維持し、skip_no_segment_count を進める。
+- `raster_mask_writer_owner_free` を追加し、inner F5ba writer owner free に委譲する。
+
+完了条件:
+
+- source policy が docs、private owner、no public constructor、no Clone/Copy、start/push error kind、start validation order、push validation order、inner complete checks、separate kind progress counts、F5au stable tag scalar helper、LineTo 5 scalar order、QuadraticTo 7 scalar order、MoveTo / SkipNoSegment no push、current point missing typed error、push failure recovery order、partial append fail-closed、forbidden F5av/F5aw / byte-backed / old traversal / path object / raster / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md` に types、private owner、start validation、push validation、inner complete checks、kind progress bounds、stable scalar order、current point behavior、push recovery、partial failure fail-closed、no fallback/no byte-backed/no traversal/no render policy の coverage label を追加する。
+- implementation review で plan review 指摘がすべて反映されていること、current point が public forged authority になっていないこと、multi scalar failure の recovery が F5ba と同じ順序であることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の raster mask finalization / path object boundary phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_mask_writer_f5bb.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_writer_f5bb_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bb.json -j 1
+git diff --check
+```
+
 ## Phase F5ba: sfnt simple glyph outline point stream item collection path command stream sink writer
 
 目的:

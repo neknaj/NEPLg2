@@ -5434,6 +5434,97 @@ render / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection raster mask writer
+
+F5bb は F5ba の completed path command stream sink writer owner を authority とし、`LineTo` と `QuadraticTo` だけを raster mask scalar Vec へ書き込む内部 writer 境界である。これは glyph mask rasterization、path object materialization、render2d command emission、platform present ではない。
+
+F5bb の writer owner は transition-only の内部型であり、public に forge できる owner として公開しない。current point は raster edge start point の authority になるため、public constructor、`Clone`、`Copy` を持たせない。owner は start、push transition、push failure recovery だけが生成する。
+
+writer start の入力は F5ba writer owner である。F5bb は start 時に F5ba が完全に path sink scalar stream を書き終えていることを再検査する。
+
+```text
+start validation order:
+    1. inner F5az owner plan を読む
+    2. capacity_from_plan で plan を再検査する
+    3. stored capacity と derived capacity の一致を確認する
+    4. path sink Vec cap == path_sink_scalar_capacity
+    5. raster mask Vec cap == raster_mask_scalar_capacity
+    6. path sink Vec len == path_sink_scalar_capacity
+    7. raster mask Vec len == 0
+    8. F5ba written_count == plan.total_count
+    9. F5ba path_sink_scalar_count == path_sink_scalar_capacity
+    10. F5ba kind counts == plan kind counts
+    11. F5ba last_path_command_index == plan.last_path_command_index
+```
+
+writer push の入力は F5bb owner と F5aw `PathCommandValue` である。`PathCommandValue` は public value なので、stored tag、source tag、command payload tag は push ごとに再検査する。
+
+```text
+raster mask scalar format:
+
+LineTo:
+    tag = 2
+    start_x2
+    start_y2
+    end_x2
+    end_y2
+
+QuadraticTo:
+    tag = 3
+    start_x2
+    start_y2
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+
+MoveTo:
+    no scalar
+    current point を更新する
+
+SkipNoSegment:
+    no scalar
+    current point を変更しない
+```
+
+`tag = 2` と `tag = 3` は F5au の stable path command tag scalar であり、writer は `gui_sfnt_simple_glyph_path_command_tag_scalar_value` を通して書く。独自の magic number や backend-specific tag を使わない。
+
+F5bb は progress count を kind ごとに保持し、合計検査の前に個別に非負 / plan 上限を検査する。
+
+```text
+RasterMaskWriterOwner:
+    inner F5ba WriterOwner
+    written_count
+    raster_mask_scalar_count
+    move_to_count
+    line_to_count
+    quadratic_to_count
+    skip_no_segment_count
+    last_path_command_index
+    has_current_point
+    current_x2
+    current_y2
+```
+
+`MoveTo` と `SkipNoSegment` はどちらも scalar を出さないが、同じ no-mask count にまとめてはいけない。forged progress が `MoveTo` 超過を `SkipNoSegment` 分で隠せるため、必ず separate count として扱う。
+
+`LineTo` と `QuadraticTo` は current point がない状態では `CurrentPointMissing` として失敗する。fallback の原点、直前 command 推測、silent skip は禁止する。
+
+multi scalar command の途中で `vec::push` が失敗した場合、F5bb は Vec rollback を行わない。error payload は部分 append 済み Vec を含む writer owner を返すが、raster progress は進めない。この owner は cleanup / diagnostic only であり、次の push は `raster_mask_scalars_len == raster_mask_scalar_count` 再検査で拒否される。
+
+F5bb は次を直接呼ばない。
+
+```text
+F5av path command value lookup
+F5aw stream step / drain
+byte-backed lookup helper
+old path sink action traversal
+path object materialization
+rasterization
+render / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -6010,6 +6010,105 @@ vec push error accessors
 
 F5ba must not call F5av path command value lookup, F5aw stream step or drain, byte-backed lookup helpers, old path sink traversal, raster mask writer, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection raster mask writer boundary
+
+F5bb consumes the completed F5ba writer owner and writes the raster mask scalar stream reserved by F5az. This is still not a rasterizer. It serializes line and quadratic edge inputs in a stable scalar format for a later bounded raster mask builder.
+
+The extra authority is current point state. Because current point cannot be proven from plan/count/capacity alone, F5bb keeps its writer owner transition-only:
+
+```text
+module-private struct
+no public constructor
+no Clone
+no Copy
+created only by start / private advance / private push failure recovery
+```
+
+The owner keeps separate progress counts:
+
+```text
+inner completed F5ba writer owner
+written_count
+raster_mask_scalar_count
+move_to_count
+line_to_count
+quadratic_to_count
+skip_no_segment_count
+last_path_command_index
+has_current_point
+current_x2
+current_y2
+```
+
+`MoveTo` and `SkipNoSegment` are both zero-scalar transitions, but they must not share one no-mask counter. `MoveTo` updates current point and is bounded by plan `move_to_count`; `SkipNoSegment` preserves current point and is bounded by plan `skip_no_segment_count`.
+
+Start revalidates the completed inner writer:
+
+```text
+F5az plan/capacity revalidation
+stored capacity equality
+path sink Vec cap/len equals path sink capacity
+raster mask Vec cap equals raster mask capacity
+raster mask Vec len is zero
+inner F5ba written_count equals plan.total_count
+inner F5ba path_sink_scalar_count equals path sink capacity
+inner F5ba kind counts equal plan kind counts
+inner F5ba last index equals plan.last_path_command_index
+```
+
+Push validation keeps partial append failure fail-closed before checking the next command:
+
+```text
+F5az plan/capacity revalidation
+path sink complete state remains complete
+raster mask Vec len equals raster_mask_scalar_count
+inner F5ba completed progress still matches plan
+F5bb kind progress is nonnegative and within plan counts
+aggregate F5bb progress equals written_count
+PathCommandValue index equals written_count
+stored/source/command tags match
+variant-specific room and current-point checks
+```
+
+The raster scalar stream uses the F5au stable tag helper:
+
+```text
+LineTo:
+    gui_sfnt_simple_glyph_path_command_tag_scalar_value LineTo
+    start_x2
+    start_y2
+    end_x2
+    end_y2
+
+QuadraticTo:
+    gui_sfnt_simple_glyph_path_command_tag_scalar_value QuadraticTo
+    start_x2
+    start_y2
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+```
+
+`LineTo` and `QuadraticTo` require an existing current point. Missing current point is a typed `CurrentPointMissing` error. F5bb must not synthesize `(0, 0)`, skip the segment, or fall back to platform drawing.
+
+Push failure recovery mirrors F5ba. The lower `vec::push` error kind is read before the failed Vec owner is recovered. F5az owner, F5ba writer owner, and F5bb writer owner are reconstructed with unchanged F5bb progress and current point. Partial append is not rolled back; the next push fails `raster_mask_scalars_len == raster_mask_scalar_count`.
+
+F5bb may call:
+
+```text
+F5az owner accessors
+F5az capacity_from_plan
+F5ba writer owner accessors
+PathCommandValue accessors
+PathCommand payload accessors
+F5au tag scalar helper
+vec::push
+vec push error accessors
+```
+
+F5bb must not call F5av path command value lookup, F5aw stream step or drain, byte-backed lookup helpers, old path sink traversal, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

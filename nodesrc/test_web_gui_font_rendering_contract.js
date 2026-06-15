@@ -143,6 +143,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests =
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -200,6 +201,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests,
+    guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -13783,6 +13785,273 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_skip_no_segment_no_push_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_no_fallback_no_byte_backed_no_traversal_no_raster"),
     "F5ba path command stream sink writer focused doctest must cover types, value tag accessors, start/push validation, kind progress bounds, tag consistency, scalar order, progress, push recovery, partial failure, skip no-push, and no fallback/no-byte-backed/no-traversal/no-raster policy",
+);
+assert(spec.includes("### SFNT simple glyph outline point stream item collection raster mask writer"), "GUI font spec must document F5bb raster mask writer boundary");
+assert(detailedDesign.includes("## SFNT simple glyph outline point stream item collection raster mask writer boundary"), "GUI font detailed design must document F5bb raster mask writer boundary");
+assert(implementationPlan.includes("## Phase F5bb: sfnt simple glyph outline point stream item collection raster mask writer"), "GUI font implementation plan must include F5bb phase");
+assert(
+    spec.includes("LineTo:\n    tag = 2\n    start_x2") &&
+        spec.includes("QuadraticTo:\n    tag = 3\n    start_x2") &&
+        detailedDesign.includes("module-private struct") &&
+        implementationPlan.includes("Tesla revised plan review は `PLAN_APPROVED`"),
+    "GUI font docs must pin F5bb private transition owner, stable raster scalar tags, and approved plan review",
+);
+const rasterMaskWriterOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner "),
+);
+assert(rasterMaskWriterOwnerType.length > 0, "alloc/gui/font/sfnt/glyf F5bb must define private RasterMaskWriterOwner");
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner:/,
+    "alloc/gui/font/sfnt/glyf F5bb RasterMaskWriterOwner must not be public because current point is transition authority",
+);
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5bb RasterMaskWriterOwner constructor must not be public",
+);
+for (const fragment of [
+    "writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner",
+    "written_count %i32",
+    "raster_mask_scalar_count %i32",
+    "move_to_count %i32",
+    "line_to_count %i32",
+    "quadratic_to_count %i32",
+    "skip_no_segment_count %i32",
+    "last_path_command_index %i32",
+    "has_current_point %bool",
+    "current_x2 %i32",
+    "current_y2 %i32",
+]) {
+    assert(rasterMaskWriterOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bb RasterMaskWriterOwner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterStartError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterStep",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushError",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bb ${typeName} owns Vec-backed or transition state and must not implement Clone/Copy`,
+    );
+}
+const rasterMaskWriterStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterStartError:"),
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenNotZero",
+    "InnerWrittenCountMismatch",
+    "InnerPathSinkScalarCountMismatch",
+    "InnerMoveToCountMismatch",
+    "InnerLineToCountMismatch",
+    "InnerQuadraticToCountMismatch",
+    "InnerSkipNoSegmentCountMismatch",
+    "InnerLastPathCommandIndexMismatch",
+]) {
+    assert(rasterMaskWriterStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bb start error kind must include ${fragment}`);
+}
+const rasterMaskWriterPushErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterPushError:"),
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenMismatch",
+    "InnerWrittenCountMismatch",
+    "MoveToProgressInvalid",
+    "LineToProgressInvalid",
+    "QuadraticToProgressInvalid",
+    "SkipNoSegmentProgressInvalid",
+    "ProgressCountMismatch",
+    "CommandIndexOutOfOrder",
+    "StoredSourceTagMismatch",
+    "CommandStoredTagMismatch",
+    "CommandSourceTagMismatch",
+    "CurrentPointMissing",
+    "MoveToCountExceeded",
+    "LineToCountExceeded",
+    "QuadraticToCountExceeded",
+    "SkipNoSegmentCountExceeded",
+    "RasterMaskScalarCapacityExceeded",
+    "RasterMaskScalarPushFailed",
+]) {
+    assert(rasterMaskWriterPushErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bb push error kind must include ${fragment}`);
+}
+const rasterMaskWriterStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_start");
+assertOrderedFragments(
+    rasterMaskWriterStart,
+    [
+        "field::get_ref &writer \"owner\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "PathSinkScalarCapacityMismatch",
+        "RasterMaskScalarCapacityMismatch",
+        "PathSinkScalarLenMismatch",
+        "RasterMaskScalarLenNotZero",
+        "InnerWrittenCountMismatch",
+        "InnerPathSinkScalarCountMismatch",
+        "InnerMoveToCountMismatch",
+        "InnerLineToCountMismatch",
+        "InnerQuadraticToCountMismatch",
+        "InnerSkipNoSegmentCountMismatch",
+        "InnerLastPathCommandIndexMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner writer 0 0 0 0 0 0 -1 false 0 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb start must validate capacity, complete path sink state, inner progress, then create private zero-progress raster owner",
+);
+const rasterMaskWriterValidateForPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_validate_for_push");
+assertOrderedFragments(
+    rasterMaskWriterValidateForPush,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "PathSinkScalarLenMismatch",
+        "RasterMaskScalarLenMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_validate_inner_complete writer plan derived_capacity value",
+        "WrittenCountInvalid",
+        "MoveToProgressInvalid",
+        "LineToProgressInvalid",
+        "QuadraticToProgressInvalid",
+        "SkipNoSegmentProgressInvalid",
+        "ProgressCountMismatch",
+        "CommandIndexOutOfOrder",
+        "CommandIndexOutOfRange",
+        "StoredSourceTagMismatch",
+        "gui_sfnt_simple_glyph_path_command_tag_from_command &command",
+        "CommandStoredTagMismatch",
+        "CommandSourceTagMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb push validation must revalidate storage, inner complete state, progress, command index, and tags",
+);
+const rasterMaskWriterPushScalar = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_push_scalar");
+assertOrderedFragments(
+    rasterMaskWriterPushScalar,
+    [
+        "vec::push raster_mask_scalars scalar",
+        "Result::Err e:",
+        "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+        "let returned_raster_mask_scalars %Vec i32 vec::vec_push_error_vec e",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner plan capacity path_sink_scalars returned_raster_mask_scalars",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner returned_inner_owner inner_written_count inner_path_sink_scalar_count inner_move_to_count inner_line_to_count inner_quadratic_to_count inner_skip_no_segment_count inner_last_path_command_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner returned_inner written_count raster_mask_scalar_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index has_current_point current_x2 current_y2",
+        "RasterMaskScalarPushFailed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb scalar push failure must read lower error before Vec recovery and reconstruct all owners with unchanged raster progress/current point",
+);
+const rasterMaskWriterPushMoveTo = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_push_move_to");
+assertOrderedFragments(
+    rasterMaskWriterPushMoveTo,
+    [
+        "MoveToCountExceeded",
+        "gui_sfnt_simple_glyph_path_move_to_x2 &command",
+        "gui_sfnt_simple_glyph_path_move_to_y2 &command",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_advance writer path_command_index 0 1 0 0 0 true x2 y2",
+        "MovedCurrentPoint",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb MoveTo must update current point without writing raster scalars",
+);
+assertNoMatch(rasterMaskWriterPushMoveTo, /\bvec::push\b|gui_sfnt_simple_glyph_path_command_tag_scalar_value/, "alloc/gui/font/sfnt/glyf F5bb MoveTo must not push or write tag scalar");
+const rasterMaskWriterPushLineTo = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_push_line_to");
+assertOrderedFragments(
+    rasterMaskWriterPushLineTo,
+    [
+        "LineToCountExceeded",
+        "CurrentPointMissing",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_remaining_scalar_ok &writer 5",
+        "GuiSfntSimpleGlyphPathCommandTag::LineTo",
+        "gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag",
+        "current_x2",
+        "current_y2",
+        "gui_sfnt_simple_glyph_path_line_to_x2 &command",
+        "gui_sfnt_simple_glyph_path_line_to_y2 &command",
+        "after_start_x value start_y2",
+        "after_start_y value end_x2",
+        "after_end_x value end_y2",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_advance after_end_y path_command_index 5 0 1 0 0 true end_x2 end_y2",
+        "WrittenLineEdge",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb LineTo must require current point and write tag/start/end scalar order",
+);
+const rasterMaskWriterPushQuadraticTo = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_push_quadratic_to");
+assertOrderedFragments(
+    rasterMaskWriterPushQuadraticTo,
+    [
+        "QuadraticToCountExceeded",
+        "CurrentPointMissing",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_remaining_scalar_ok &writer 7",
+        "GuiSfntSimpleGlyphPathCommandTag::QuadraticTo",
+        "gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag",
+        "current_x2",
+        "current_y2",
+        "gui_sfnt_simple_glyph_path_quadratic_to_control_x2 &command",
+        "gui_sfnt_simple_glyph_path_quadratic_to_control_y2 &command",
+        "gui_sfnt_simple_glyph_path_quadratic_to_end_x2 &command",
+        "gui_sfnt_simple_glyph_path_quadratic_to_end_y2 &command",
+        "after_start_x value start_y2",
+        "after_start_y value control_x2",
+        "after_control_x value control_y2",
+        "after_control_y value end_x2",
+        "after_end_x value end_y2",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_advance after_end_y path_command_index 7 0 0 1 0 true end_x2 end_y2",
+        "WrittenQuadraticEdge",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb QuadraticTo must require current point and write tag/start/control/end scalar order",
+);
+const rasterMaskWriterPushSkip = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_push_skip_no_segment");
+assertOrderedFragments(
+    rasterMaskWriterPushSkip,
+    [
+        "SkipNoSegmentCountExceeded",
+        "has_current_point",
+        "current_x2",
+        "current_y2",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_advance writer path_command_index 0 0 0 0 1 has_current_point current_x2 current_y2",
+        "SkippedNoSegment",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bb SkipNoSegment must preserve current point without raster scalar push",
+);
+assertNoMatch(rasterMaskWriterPushSkip, /\bvec::push\b|gui_sfnt_simple_glyph_path_command_tag_scalar_value/, "alloc/gui/font/sfnt/glyf F5bb SkipNoSegment must not push or write tag scalar");
+for (const [slice, name] of [
+    [rasterMaskWriterStart, "raster start"],
+    [rasterMaskWriterValidateForPush, "raster push validation"],
+    [rasterMaskWriterPushScalar, "raster scalar push"],
+    [rasterMaskWriterPushMoveTo, "raster move"],
+    [rasterMaskWriterPushLineTo, "raster line"],
+    [rasterMaskWriterPushQuadraticTo, "raster quadratic"],
+    [rasterMaskWriterPushSkip, "raster skip"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_push_value"), "raster push value"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|GuiSfntSimpleGlyphPathSinkAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5bb ${name} must not use byte-backed lookup, old traversal, render/platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bb ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_private_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_start_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_push_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_inner_complete_checks_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_kind_progress_bounds_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_stable_scalar_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_current_point_behavior_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_push_failure_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_partial_failure_fail_closed_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_no_fallback_no_byte_backed_no_traversal_no_render"),
+    "F5bb raster mask writer focused doctest must cover types, private owner, start/push validation, inner complete checks, progress bounds, scalar order, current point, push recovery, partial failure, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
