@@ -1,3 +1,49 @@
+# 2026-06-15 Agent2 GUI font path command value lookup checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-value-boundary-f5av-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5av の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner 非消費 read boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command value lookup の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5av の CompleteOwner borrow authority、PathCommandTag scalar read helper、CompleteOwner non-consuming helper、source event exactly once、stored tag / source tag 照合、`SkipNoSegment` reason source payload recovery を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5av の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_path_command_tag_from_scalar_value` と `gui_sfnt_simple_glyph_path_command_tag_eq` を追加した。unknown scalar は代替値へ変換せず `Option::None` とし、storage read helper が typed error へ変換する。
+- `GuiSfntSimpleGlyphOutlinePathCommandTagReadErrorKind`、`GuiSfntSimpleGlyphOutlinePathCommandTagReadError`、`gui_sfnt_simple_glyph_outline_storage_read_path_command_tag` を追加した。storage capacity shape、scalar slot count、scalar storage capacity、path command index range、PathCommandTag region readiness、slot presence、known scalar value を検査し、storage owner は消費しない。
+- `PathCommandTagCompleteOwner` の non-consuming storage capacity accessor、private PathCommandTag read helper、private Edge owner read helper を追加した。いずれも `field::get_ref owner "storage"` だけを使い、consuming storage accessor は呼ばない。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue` を追加した。path command index、edge index、contour index、contour edge index、event slot、stored tag、source tag、command payload を保持する value-only record である。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueErrorKind` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueError` を追加した。public lookup は owner を borrow するだけなので、error は owner recovery payload を持たない value-only context である。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value` を追加した。summary capacity、owner storage capacity、collection capacity、path command index を検査してから stored tag、Edge owner、collection span、source event へ進む。
+- source event は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を span validation 後に exactly once 呼ぶ。source kind は返った event から導出し、`path_sink_event_kind_at` は呼ばない。
+- stored tag と source tag が一致しない場合は `TagMismatch` を返す。別 tag への推測変換、silent no-op、font 代替解決、byte-backed lookup、old sink traversal、stream construction、raster/render/platform API へは進まない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5av source policy を追加した。docs/API/value-only Clone/Copy/non-consuming helpers/authority check order/scalar read validation/source event exactly once/source kind from event/tag mismatch/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md` を追加し、types、authority checks、PathCommandTag scalar read、CompleteOwner / Edge owner non-consuming read、source event exactly once、source kind from event、tag mismatch、SkipNoSegment reason rederive、no fallback / no byte-backed / no stream / no raster の source policy coverage label を固定した。
+- `todo.md` は F5av 完了後の次作業として、PathCommandValue を authority にした bounded path command stream cursor / stream preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5av は read-only value lookup boundary とし、source event は exactly once で読み、source kind は event から導出し、tag mismatch は fallback ではなく typed error にする設計で承認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、F5av public/helper read が owner を消費しないこと、storage mutation / Vec allocation / fallback がないこと、source event exactly once と source kind from event が守られていること、tag mismatch が typed error であること、staged set が意図した 8 ファイルのみであることは確認された。blocker はこの note の implementation review status が pending のままだったことだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_value_f5av.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_f5av_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5av.json -j 1` 970/970 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5av は 1 command value の read-only lookup までであり、bounded stream cursor、command stream preparation、raster mask、render2d command emission は未実装である。
+- F5av focused doctest の実呼び出しは source policy smoke だけで、詳細な value mismatch scenario は現行 wasm doctest compiler の compile time が解消されるまで `glyf.nepl` 全体 doctest と source policy で固定する。
+
 # 2026-06-15 Agent2 GUI font PathCommandTag drain boundary checkpoint
 
 ## scope

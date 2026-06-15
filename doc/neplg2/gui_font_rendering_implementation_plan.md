@@ -40,6 +40,53 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5av: sfnt simple glyph outline point stream item collection path command value lookup
+
+目的:
+
+- SFNT simple glyph outline point stream item collection path command value lookup を F5au 後続の read-only boundary として実装する。
+- F5au の `PathCommandTagCompleteOwner` を authority とし、owner storage の PathCommandTag scalar と collection-backed source event を照合して 1 logical path command value を返す。
+- `PathCommandTagCompleteOwner` は borrow し、storage owner を消費しない。成功時も失敗時も owner recovery は不要である。
+- `SkipNoSegment` reason は scalar から推測せず、collection-backed source event payload から再導出する。
+- full stream construction、raster/render/platform/host API、font fallback、byte-backed lookup、old sink traversal へ進まない。
+
+plan review:
+
+- Tesla plan review は `PLAN_APPROVED`。
+- F5av は read-only value lookup boundary とし、stream construction / raster / render / platform には進めない。
+- source event は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を span validation 後に exactly once 呼び、kind は返った event から導出する。`path_sink_event_kind_at` を別に呼んで payload と tag source を二重化しない。
+- stored tag と source tag が一致しない場合は `TagMismatch` を返し、fallback / no-op / inferred replacement command にしない。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_path_command_tag_from_scalar_value` と `gui_sfnt_simple_glyph_path_command_tag_eq` を追加する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePathCommandTagReadErrorKind`、`GuiSfntSimpleGlyphOutlinePathCommandTagReadError`、`gui_sfnt_simple_glyph_outline_storage_read_path_command_tag` を追加する。
+- storage-level PathCommandTag read helper は capacity shape、scalar slot count、scalar storage capacity、path command index range、PathCommandTag region readiness、slot presence、known scalar value を検査し、unknown scalar は `PathCommandTagScalarUnknown` として返す。storage owner は消費しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に CompleteOwner の non-consuming storage capacity accessor、private read path command tag helper、private read edge owner helper を追加する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue` を追加する。value は path command index、edge index、contour index、contour edge index、event slot、stored tag、source tag、command payload を保持し、value-only なので `Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueErrorKind` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValueError` を追加する。error は owner を含まず、typed context を `Option` で保持する。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value` を追加する。
+- public function は summary capacity、non-consuming owner storage capacity、collection capacity、path command index を固定順で検査してから storage tag read / Edge owner read / collection span / source event へ進む。
+
+完了条件:
+
+- source policy が docs、types、PathCommandTagReadError value-only Clone/Copy、PathCommandValue / Error value-only Clone/Copy、CompleteOwner non-consuming capacity accessor、CompleteOwner read helper non-consuming、authority order、index mapping、PathCommandTag scalar read validation、source event exactly once、source kind derived from event、tag mismatch branch、SkipNoSegment reason source payload recovery、forbidden byte-backed / traversal / stream / render / raster / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md` に types、authority checks、scalar read checks、source event exactly once、tag mismatch、SkipNoSegment reason rederive、no fallback/no byte-backed/no stream/no raster の coverage label を追加する。
+- implementation review で value lookup が owner を消費しないこと、storage mutation が無いこと、event source が二重化していないこと、source policy / doctest / note / todo が揃っていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の path command stream preparation / bounded stream cursor boundary に進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_value_f5av.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_f5av_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5av.json -j 1
+git diff --check
+```
+
 Subagent review:
 
 - 実装前に文書レビューを受ける。
