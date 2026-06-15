@@ -4645,6 +4645,110 @@ The success branch must use F5e returned state, not recompute state from the inp
 
 F5ap may call only the typed F5e endpoint push helper. It must not call `gui_sfnt_glyf_read_push_contour_endpoint`, `gui_sfnt_glyf_read_contour_endpoint`, F4 byte-backed lookup helpers, F5al/F5ak/F5aj traversal helpers, lower collection path helpers, table helpers, `Vec`, path command fill, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path sink action contour endpoint drain boundary
+
+F5aq consumes an F5ap `ContourEndpointPushOwner`, fills the remaining contour endpoint slots from the already materialized point stream item collection, and starts the PointX scalar region cursor only after the contour endpoint region is complete. It is not a full outline builder and does not push PointX values.
+
+Because `ContourEndpointPushOwner` is publicly constructible, F5aq treats it as forgeable. The public drain boundary must prove all three authorities match before interpreting the cursor or consuming storage:
+
+```text
+authority check order:
+    read summary capacity from PushOwner
+    read owner storage capacity without consuming PushOwner
+    require summary capacity == owner storage capacity
+    read PushOwner cursor
+    require cursor well formed
+    require cursor region is ContourEndpoint
+    require cursor start/end match summary capacity ContourEndpoint region
+    read collection capacity
+    require collection capacity == summary capacity
+```
+
+The capacity comparison covers glyph raw id, contour count, point count, edge count, path command pair count, and path command count. These checks must precede any call to `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span`, any PointX cursor start, and any consuming owner storage accessor.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner ContourEndpointPushOwner
+    remaining_steps i32
+    -> Result ContourEndpointDrainTerminal ContourEndpointDrainError
+```
+
+The terminal and owner shape is:
+
+```text
+PointXStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary DrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+ContourEndpointDrainTerminal:
+    PointXStarted PointXStartOwner
+    StepBudgetExhausted ContourEndpointPushOwner
+```
+
+`PointXStarted` means only that the PointX cursor has been started. It does not mean any x coordinate value was decoded or pushed. That work belongs to the next PointX population boundary.
+
+The error shape is:
+
+```text
+ContourEndpointDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointSourceFailed
+    EndpointPushFailed
+    PointXCursorStartFailed
+
+ContourEndpointDrainError:
+    owner ContourEndpointPushOwner
+    kind ContourEndpointDrainErrorKind
+    contour_index i32
+    source_error Option ContourSpanError
+    endpoint Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+```
+
+Each authority failure returns `ContourEndpointDrainError` with the original PushOwner and no lower optional payload. `EndpointSourceFailed` stores the lower collection contour span error. `EndpointPushFailed` stores the rejected endpoint and lower F5e/F5d/F5c metadata. `PointXCursorStartFailed` stores the lower cursor start `StdErrorKind`.
+
+After authority success, cursor interpretation is valid:
+
+```text
+if next_index == end:
+    start PointX cursor from summary capacity
+    if cursor start fails:
+        return Err PointXCursorStartFailed owner lower_cursor_error
+    consume PushOwner storage
+    return Ok PointXStarted PointXStartOwner storage summary point_x_cursor
+
+if next_index < end and remaining_steps <= 0:
+    return Ok StepBudgetExhausted owner
+
+if next_index < end and remaining_steps > 0:
+    contour_index = next_index - start
+    call collection contour span once
+    on span failure:
+        return Err EndpointSourceFailed owner lower_span_error
+    endpoint = GuiSfntSimpleGlyphContourEndpointSlot contour_index span.end_point_index
+    call internal PushOwner endpoint push helper once
+    on push failure:
+        return Err EndpointPushFailed recovered_push_owner lower_metadata
+    recurse with returned PushOwner and remaining_steps - 1
+```
+
+The internal PushOwner endpoint push helper is the only F5aq helper allowed to call F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint`. It must borrow summary, cursor, and previous endpoint before consuming storage. If F5e fails, it must read `gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error`, `gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error`, and `gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error` before calling `gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error`. The recovered storage plus saved summary/cursor/previous endpoint reconstruct the current `ContourEndpointPushOwner`.
+
+F5aq may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` only after the public authority checks pass. It must not call `gui_sfnt_glyf_read_push_contour_endpoint`, `gui_sfnt_glyf_read_contour_endpoint`, F4 byte-backed lookup helpers, F5al/F5ak/F5aj traversal helpers, lower collection path helpers, table helpers, `Vec`, path command fill, sink mutation, PointX push, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
+`PointXStartOwner`, `ContourEndpointDrainError`, and `ContourEndpointDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `ContourEndpointDrainErrorKind` is a small value enum and may implement `Clone` / `Copy`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
