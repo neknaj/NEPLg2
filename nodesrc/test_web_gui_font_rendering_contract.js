@@ -130,6 +130,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTest
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -174,6 +175,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -10043,7 +10045,7 @@ assert(
 );
 const specF5an = spec.slice(
     spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action storage owner"),
-    spec.indexOf("### Supported font containers"),
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action contour endpoint start"),
 );
 for (const fragment of [
     "F5an は F5am の capacity 付き drain outcome を authority",
@@ -10065,7 +10067,7 @@ for (const fragment of [
 }
 const detailedF5an = detailedDesign.slice(
     detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action storage owner boundary"),
-    detailedDesign.indexOf("## Metrics fixed-point"),
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action contour endpoint start boundary"),
 );
 for (const fragment of [
     "F5an consumes the F5am drain outcome",
@@ -10090,6 +10092,7 @@ for (const fragment of [
 }
 const implementationPlanF5an = implementationPlan.slice(
     implementationPlan.indexOf("## Phase F5an: sfnt simple glyph outline point stream item collection path sink action storage owner"),
+    implementationPlan.indexOf("## Phase F5ao: sfnt simple glyph outline point stream item collection path sink action contour endpoint start"),
 );
 for (const fragment of [
     "PLAN_APPROVED",
@@ -10226,6 +10229,279 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_alloc_error_preserves_summary_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_no_fallback_no_byte_backed_traversal"),
     "F5an point stream item collection path sink action storage owner focused doctest must cover types, EndContour allocation, Rejected and StepBudget terminals, allocation error context, and no fallback policy",
+);
+const specF5ao = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action contour endpoint start"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5ao は F5an の storage terminal を authority",
+    "`Allocated StorageOwner` の場合だけ F5d contour endpoint region cursor start",
+    "forged owner を fail-closed",
+    "summary capacity と owner 内 storage の trusted capacity を非消費で比較",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:",
+    "StorageSummaryCapacityMismatch",
+    "CursorStartFailed",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint:",
+    "`field::get_ref owner \"storage\"`",
+    "consuming accessor なので、capacity mismatch や cursor start failure の前には呼ばない",
+    "glyph、contour count、point count、edge count、path command pair count、path command count",
+    "F5d `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint` を 1 回だけ呼ぶ",
+    "cursor start が成功した場合だけ、F5an の consuming storage accessor を 1 回だけ呼び",
+    "`previous_endpoint = none`",
+    "`Rejected` と `StepBudgetExhausted`",
+    "capacity match、storage capacity read、cursor start、storage consume を行わない",
+    "`ContourEndpointStartOwner`、`ContourEndpointStartError`、`ContourEndpointStartTerminal` は owner を含むため `Clone` / `Copy` を実装しない",
+    "endpoint push",
+    "font fallback",
+]) {
+    assert(specF5ao.includes(fragment), `font spec F5ao contour endpoint start must mention ${fragment}`);
+}
+const detailedF5ao = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action contour endpoint start boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5ao consumes the F5an storage terminal",
+    "does not push any endpoint slot",
+    "Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError",
+    "StorageSummaryCapacityMismatch",
+    "CursorStartFailed",
+    "non-consuming storage capacity accessor",
+    "field::get_ref owner \"storage\"",
+    "must not call the consuming `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner` accessor",
+    "borrow owner and compare summary capacity with storage capacity",
+    "return Err ContourEndpointStartError owner StorageSummaryCapacityMismatch none",
+    "call gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity ContourEndpoint",
+    "return Err ContourEndpointStartError owner CursorStartFailed some cursor_error",
+    "consume owner.storage exactly once",
+    "construct ContourEndpointStartOwner storage summary cursor none",
+    "Glyph comparison uses the existing raw `GuiGlyphId` comparison helper",
+    "`Rejected` and `StepBudgetExhausted` are pass-through domain terminals",
+    "do not call capacity match, non-consuming storage capacity read, cursor start, or consuming storage accessors",
+    "`ContourEndpointStartOwner`, `ContourEndpointStartError`, and `ContourEndpointStartTerminal` contain owner values and must not implement `Clone` or `Copy`",
+]) {
+    assert(detailedF5ao.includes(fragment), `font detailed design F5ao contour endpoint start must mention ${fragment}`);
+}
+const implementationPlanF5ao = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5ao: sfnt simple glyph outline point stream item collection path sink action contour endpoint start"),
+);
+for (const fragment of [
+    "PLAN_BLOCKED",
+    "PLAN_APPROVED",
+    "storage_owner_storage_capacity &owner",
+    "field::get_ref owner \"storage\"",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint",
+    "`Allocated` branch では capacity match を先に行い",
+    "cursor start failure は `Err CursorStartFailed`",
+    "cursor start success 後だけ consuming `storage_owner_storage owner` を exactly once 呼び",
+    "`Rejected` / `StepBudgetExhausted` branch は typed terminal を `Ok`",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md",
+]) {
+    assert(implementationPlanF5ao.includes(fragment), `font implementation plan F5ao must mention ${fragment}`);
+}
+for (const fragment of [
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlineStorageCapacity",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:",
+    "storage %GuiSfntSimpleGlyphOutlineStorage",
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor",
+    "previous_endpoint %Option i32",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:",
+    "StorageSummaryCapacityMismatch",
+    "CursorStartFailed",
+    "impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:",
+    "impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:",
+    "owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner",
+    "cursor_error %Option StdErrorKind",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:",
+    "Started %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner",
+    "Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError",
+]) {
+    assert(allocFontSfntGlyfImpl.includes(fragment), `alloc/gui/font/sfnt/glyf F5ao contour endpoint start API must include ${fragment}`);
+}
+const pointStreamItemCollectionPathSinkActionStorageOwnerStorageCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity");
+for (const fragment of [
+    "let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner \"storage\"",
+    "gui_sfnt_simple_glyph_outline_storage_capacity storage",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionStorageOwnerStorageCapacity.includes(fragment), `alloc/gui/font/sfnt/glyf F5ao storage capacity accessor must include ${fragment}`);
+}
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageOwnerStorageCapacity,
+    /\bfield::get owner "storage"\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage\b/,
+    "alloc/gui/font/sfnt/glyf F5ao storage capacity accessor must not consume owner storage",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageOwnerStorageCapacity,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ao storage capacity accessor must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionPathSinkActionStorageOwnerCapacityMatchesSummary = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary");
+for (const fragment of [
+    "let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary owner",
+    "let summary_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary",
+    "let storage_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity owner",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_matches &summary_capacity &storage_capacity",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionStorageOwnerCapacityMatchesSummary.includes(fragment), `alloc/gui/font/sfnt/glyf F5ao capacity-match helper must include ${fragment}`);
+}
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageOwnerCapacityMatchesSummary,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage\b|gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity|gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint|gui_sfnt_glyf_read_push_contour_endpoint/,
+    "alloc/gui/font/sfnt/glyf F5ao capacity-match helper must only borrow owner capacity and compare summary",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageOwnerCapacityMatchesSummary,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ao capacity-match helper must preserve NEPL prefix style without parentheses",
+);
+const simpleGlyphOutlineStorageCapacityMatches = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_capacity_matches");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_outline_storage_capacity_glyph left",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_glyph right",
+    "gui_sfnt_simple_glyph_outline_point_read_glyphs_match &left_glyph &right_glyph",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_contour_count left",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_point_count left",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_edge_count left",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count left",
+    "gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count left",
+]) {
+    assert(simpleGlyphOutlineStorageCapacityMatches.includes(fragment), `alloc/gui/font/sfnt/glyf F5ao capacity equality helper must include ${fragment}`);
+}
+const pointStreamItemCollectionPathSinkActionContourEndpointStartOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:"),
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointStartOwnerType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:/,
+    "alloc/gui/font/sfnt/glyf F5ao ContourEndpointStartOwner must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionContourEndpointStartErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:"),
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointStartErrorType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:/,
+    "alloc/gui/font/sfnt/glyf F5ao ContourEndpointStartError must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionContourEndpointStartTerminalType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:/,
+    "alloc/gui/font/sfnt/glyf F5ao ContourEndpointStartTerminal must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint");
+for (const fragment of [
+    "match terminal:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner:",
+    "if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary &owner:",
+    "let none_cursor_error %Option StdErrorKind none",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind::StorageSummaryCapacityMismatch",
+    "Result::Err error",
+    "let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary &owner",
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary",
+    "match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:",
+    "Result::Err cursor_error_value:",
+    "let cursor_error %Option StdErrorKind some cursor_error_value",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind::CursorStartFailed",
+    "Result::Ok cursor:",
+    "let previous_endpoint %Option i32 none",
+    "let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner",
+    "let start_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner storage summary cursor previous_endpoint",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started start_owner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected:",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary:",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.includes(fragment), `alloc/gui/font/sfnt/glyf F5ao storage terminal contour endpoint start body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint,
+    [
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary &owner",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind::StorageSummaryCapacityMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary",
+        "gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint",
+        "Result::Err cursor_error_value:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind::CursorStartFailed",
+        "Result::Ok cursor:",
+        "let previous_endpoint %Option i32 none",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner storage summary cursor previous_endpoint",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started start_owner",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ao storage terminal contour endpoint start must guard capacity, start cursor, then consume storage in order",
+);
+for (const [name, expected, message] of [
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary", 1, "check storage owner and summary capacity exactly once"],
+    ["gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity", 1, "start contour endpoint cursor exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage", 1, "consume storage owner exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner", 1, "construct start owner exactly once"],
+]) {
+    assert(
+        (pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.match(new RegExp(`\\b${name}\\b`, "g")) || []).length === expected,
+        `alloc/gui/font/sfnt/glyf F5ao storage terminal contour endpoint start must ${message}`,
+    );
+}
+const contourEndpointStartAllocatedStart = pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner:");
+const contourEndpointStartRejectedStart = pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected:");
+const contourEndpointStartStepBudgetStart = pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary:");
+assert(contourEndpointStartAllocatedStart >= 0 && contourEndpointStartRejectedStart > contourEndpointStartAllocatedStart && contourEndpointStartStepBudgetStart > contourEndpointStartRejectedStart, "alloc/gui/font/sfnt/glyf F5ao start must expose Allocated, Rejected, and StepBudgetExhausted branches in order");
+const contourEndpointStartRejectedBranch = pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.slice(contourEndpointStartRejectedStart, contourEndpointStartStepBudgetStart);
+const contourEndpointStartStepBudgetBranch = pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint.slice(contourEndpointStartStepBudgetStart);
+assertNoMatch(
+    contourEndpointStartRejectedBranch,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity\b|\bgui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage\b/,
+    "alloc/gui/font/sfnt/glyf F5ao Rejected branch must not capacity-check, start cursor, or consume storage",
+);
+assertNoMatch(
+    contourEndpointStartStepBudgetBranch,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity\b|\bgui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage\b/,
+    "alloc/gui/font/sfnt/glyf F5ao StepBudgetExhausted branch must not capacity-check, start cursor, or consume storage",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint,
+    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_read_push_contour_endpoint|gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5ao contour endpoint start must not call traversal, byte-backed, endpoint push, render, raster, or host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageTerminalStartContourEndpoint,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ao start body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_borrows_storage_capacity_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_capacity_mismatch_recovers_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_allocated_starts_cursor_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_rejected_no_cursor_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_step_budget_no_cursor_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTests.includes("path_sink_action_contour_endpoint_start_no_fallback_no_byte_backed_no_push"),
+    "F5ao point stream item collection path sink action contour endpoint start focused doctest must cover types, borrowed storage capacity, owner recovery, cursor start, pass-through terminals, and no fallback/no push policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

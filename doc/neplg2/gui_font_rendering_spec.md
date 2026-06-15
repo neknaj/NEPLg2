@@ -4066,6 +4066,69 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action contour endpoint start
+
+F5ao は F5an の storage terminal を authority として、`Allocated StorageOwner` の場合だけ F5d contour endpoint region cursor start へ進む owner-recovery boundary である。F5ao は endpoint slot population、byte-backed endpoint read、path sink traversal、renderer、platform API を直接呼ばない。
+
+F5an の `StorageOwner` は public constructor を持つため、F5ao は forged owner を fail-closed に扱う。cursor start より前に summary capacity と owner 内 storage の trusted capacity を非消費で比較し、一致しない場合は original owner を保持した `ContourEndpointStartError` を返す。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity:
+    owner &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    -> GuiSfntSimpleGlyphOutlineStorageCapacity
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint Option i32
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind
+    cursor_error Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:
+    Started GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint:
+    terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError
+```
+
+`storage_owner_storage_capacity` は owner を消費しない。implementation は `field::get_ref owner "storage"` で borrowed storage を得て、既存の `gui_sfnt_simple_glyph_outline_storage_capacity storage` を呼ぶ。`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner` は consuming accessor なので、capacity mismatch や cursor start failure の前には呼ばない。
+
+`Allocated owner` branch では、summary capacity と borrowed storage capacity の glyph、contour count、point count、edge count、path command pair count、path command count が一致することを先に検査する。不一致なら `StorageSummaryCapacityMismatch` を `Result::Err` で返し、error payload が original owner を保持する。
+
+capacity が一致した後だけ、F5d `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint` を 1 回だけ呼ぶ。cursor start が失敗した場合は `CursorStartFailed` と cursor error を保持した `Result::Err` を返し、original owner を失わない。
+
+cursor start が成功した場合だけ、F5an の consuming storage accessor を 1 回だけ呼び、`previous_endpoint = none` を持つ `Started ContourEndpointStartOwner` を返す。`Rejected` と `StepBudgetExhausted` は typed terminal として `Result::Ok` で通過し、capacity match、storage capacity read、cursor start、storage consume を行わない。
+
+`ContourEndpointStartOwner`、`ContourEndpointStartError`、`ContourEndpointStartTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`ContourEndpointStartErrorKind` は owner を含まないため `Clone` / `Copy` を実装してよい。
+
+F5ao は次を直接呼ばない。
+
+```text
+F5al start / advance / drain helper
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+lower collection path event / contour / step helpers
+byte-backed table helper
+Vec / push
+endpoint push
+point / curve / path command population
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -9474,6 +9474,36 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlineStorage \owner:
     field::get owner "storage"
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity: owner 内 storage の trusted capacity を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - owner を[消費/しょうひ]せず、borrowed storage から capacity を[読/よ]みます。
+//: - F5ao の forged owner 検査で、失敗時にも original owner を caller へ[戻/もど]せるようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_capacity storage
+
+fn gui_sfnt_simple_glyph_outline_storage_capacity_matches %fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn &GuiSfntSimpleGlyphOutlineStorageCapacity bool \left\right:
+    let left_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph left
+    let right_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph right
+    let glyph_ok %bool gui_sfnt_simple_glyph_outline_point_read_glyphs_match &left_glyph &right_glyph
+    let contour_ok %bool eq gui_sfnt_simple_glyph_outline_storage_capacity_contour_count left gui_sfnt_simple_glyph_outline_storage_capacity_contour_count right
+    let point_ok %bool eq gui_sfnt_simple_glyph_outline_storage_capacity_point_count left gui_sfnt_simple_glyph_outline_storage_capacity_point_count right
+    let edge_ok %bool eq gui_sfnt_simple_glyph_outline_storage_capacity_edge_count left gui_sfnt_simple_glyph_outline_storage_capacity_edge_count right
+    let path_pair_ok %bool eq gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count left gui_sfnt_simple_glyph_outline_storage_capacity_path_command_pair_count right
+    let path_command_ok %bool eq gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count left gui_sfnt_simple_glyph_outline_storage_capacity_path_command_count right
+    let contour_point_ok %bool and contour_ok point_ok
+    let edge_path_pair_ok %bool and edge_ok path_pair_ok
+    and glyph_ok and contour_point_ok and edge_path_pair_ok path_command_ok
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner bool \owner:
+    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary owner
+    let summary_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+    let storage_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity owner
+    gui_sfnt_simple_glyph_outline_storage_capacity_matches &summary_capacity &storage_capacity
+
 //: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError: drain summary authority 付き storage allocation error
 //:
 //: [目的/もくてき]:
@@ -9547,6 +9577,151 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary:
             Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner: contour endpoint region cursor 開始済みの storage owner
+//:
+//: [目的/もくてき]:
+//: - F5an storage owner と F5d cursor start を[結/むす]び、後続の endpoint population が[使/つか]う最初の cursor と previous endpoint を[保持/ほじ]します。
+//: - storage を[含/ふく]む owner なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint %Option i32
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner: contour endpoint 開始済み owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner \storage\summary\cursor\previous_endpoint:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner storage summary cursor previous_endpoint
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_summary: 開始済み owner の authority summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \owner:
+    *field::get_ref owner "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_cursor: 開始済み owner の contour endpoint cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    *field::get_ref owner "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_previous_endpoint: 開始済み owner の previous endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_previous_endpoint %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner Option i32 \owner:
+    *field::get_ref owner "previous_endpoint"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage: 開始済み owner から storage を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - この関数は owner を[消費/しょうひ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner GuiSfntSimpleGlyphOutlineStorage \owner:
+    field::get owner "storage"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind: contour endpoint start boundary の[失敗/しっぱい][理由/りゆう]
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorStartFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError: owner recovery 付き contour endpoint start error
+//:
+//: [目的/もくてき]:
+//: - capacity mismatch や cursor start [失敗/しっぱい]でも original storage owner を[失/うしな]わず caller へ[戻/もど]します。
+//: - owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError:
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind
+    cursor_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error: owner recovery 付き error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError \owner\kind\cursor_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError owner kind cursor_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error_kind: start error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error_cursor_error: cursor start sub-error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error_cursor_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError Option StdErrorKind \error:
+    *field::get_ref error "cursor_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error_owner: start error から original owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal: contour endpoint start boundary の terminal
+//:
+//: [目的/もくてき]:
+//: - `Started` だけが cursor 開始済み owner を[持/も]ちます。
+//: - `Rejected` と `StepBudgetExhausted` は F5an terminal を owner なしで[通過/つうか]させます。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal:
+    Started %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner
+    Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint: storage terminal から contour endpoint cursor 開始へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - `Allocated` の場合だけ F5d cursor start へ[進/すす]みます。
+//: - forged owner を[検出/けんしゅつ]するため、summary capacity と borrowed storage capacity が[一致/いっち]することを先に[検査/けんさ]します。
+//: - capacity mismatch と cursor start [失敗/しっぱい]では original owner を[保持/ほじ]した `Result::Err` を[返/かえ]します。
+//: - cursor start 成功後にだけ storage owner を[消費/しょうひ]し、`previous_endpoint = none` の開始済み owner を[返/かえ]します。
+//: - endpoint push、byte-backed traversal、render/platform API へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner:
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary &owner:
+                then:
+                    let none_cursor_error %Option StdErrorKind none
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind::StorageSummaryCapacityMismatch none_cursor_error
+                    Result::Err error
+                else:
+                    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary &owner
+                    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+                    match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:
+                        Result::Err cursor_error_value:
+                            let cursor_error %Option StdErrorKind some cursor_error_value
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind::CursorStartFailed cursor_error
+                            Result::Err error
+                        Result::Ok cursor:
+                            let previous_endpoint %Option i32 none
+                            let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner
+                            let start_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner storage summary cursor previous_endpoint
+                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started start_owner
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected:
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary:
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
