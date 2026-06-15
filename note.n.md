@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font path command stream sink owner checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-sink-owner-f5az-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5az の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、forged public plan の再検査、partial allocation cleanup を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream sink owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5az の forged sink plan revalidation、scalar format、0 capacity owner、typed error、allocation order、cleanup order、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5az の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に F5ay `SinkPlan` の不足 accessor を追加した。F5az は plan field を直接読まず、accessor を通して forged value を検査する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity` を追加した。capacity は path sink scalar capacity、raster mask scalar capacity、path segment capacity、raster edge capacity を持つ value-only record である。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind` と `SinkOwnerAllocError` を追加した。coarse `InvalidPlan` は使わず、negative count / capacity、last index invalid、prepared / emitted / draw / path / raster mismatch、count overflow、path sink / raster mask allocation failure を enum で分離する。
+- `SinkOwnerAllocError` は plan、`capacity Option`、`storage_error Option StdErrorKind` を保持する。allocation failure では lower `StdErrorKind` を保持し、validation / overflow では storage error を `None` にする。
+- checked add helper は `2147483647 - left` を使う residual guard、checked multiply helper は `2147483647 / factor` を使う factor guard を通してから arithmetic を行う。
+- path sink scalar capacity は MoveTo 3、LineTo 3、QuadraticTo 5、raster mask scalar capacity は LineTo 5、QuadraticTo 7 で導出する。`SkipNoSegment` は scalar capacity に入れない。
+- `SkipNoSegment` だけの completed plan は `with_capacity 0` による valid empty Vec owner として扱う契約を docs/source policy に固定した。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner` を追加した。owner は plan、capacity、path sink scalar Vec、raster mask scalar Vec を持ち、`Clone` / `Copy` を実装しない。
+- `sink_owner_alloc` は capacity derivation 後、path sink scalar Vec、raster mask scalar Vec の順に確保する。1 本目の allocation failure では free せず、2 本目の allocation failure では lower error を保持してから 1 本目の Vec を 1 回だけ free する。
+- owner の plan / capacity accessor、path sink / raster mask Vec len/cap accessor、owner free を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5az source policy を追加した。docs/types/value-only Clone/Copy/owner no Clone/Copy/error payload/precise validation/checked add/mul/scalar constants/capacity derivation/zero capacity success/allocation order/cleanup/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md` を追加し、types、accessors、precise validation、checked add/mul、capacity derivation、zero capacity success、allocation order、cleanup、no fallback / no byte-backed / no traversal / no push / no render の source policy coverage label を固定した。
+- `todo.md` は F5az 完了後の次作業として、real command sink writer へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。coarse `InvalidPlan` の禁止、typed validation failure の細分化、allocation failure の lower `StdErrorKind` 保持、raster Vec allocation failure 時の cleanup order 固定が必要と指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。追加条件として、`SkipNoSegment` only completed plan の 0 capacity allocation を valid owner として明文化するよう指摘された。
+- Tesla implementation review は `REVIEW_APPROVED`。precise validation kinds、`capacity` / `storage_error` payload、owner no Clone/Copy、zero-capacity owner contract、checked add / mul、second allocation cleanup order、writer / raster / render / platform / byte-backed / traversal / `vec::push` leakage なし、focused doctest staged を確認した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_owner_f5az.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_plan_f5az_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5az.json -j 1` 1048/1048 passed
+
+## remaining
+
+- F5az は scalar storage owner allocation までであり、real command sink writer、raster mask writer、render2d command emission は未実装である。
+
 # 2026-06-16 Agent2 GUI font path command stream sink plan checkpoint
 
 ## scope

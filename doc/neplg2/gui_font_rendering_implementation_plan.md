@@ -40,6 +40,58 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5az: sfnt simple glyph outline point stream item collection path command stream sink owner
+
+目的:
+
+- F5ay の completed `PathCommandStreamSinkPlan` を authority として、後続 explicit command sink writer と raster mask writer が使う scalar storage owner を確保する。
+- F5az は allocation owner boundary までで止め、real writer、raster mask writer、render2d command emission、platform API へ進まない。
+- public `SinkPlan` は forged value の可能性があるため、全 count / capacity / derived invariant を再検査する。
+- `SkipNoSegment` だけの completed plan は 0 容量 Vec owner を持つ valid success として扱い、silent no-op や `NoCommandsPrepared` にしない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- coarse `InvalidPlan` ではなく、negative count、empty total、last index invalid、prepared / emitted / draw / path / raster mismatch、overflow を typed error kind として分離する必要があると指摘された。
+- allocation error は `capacity Option` だけでなく lower `StdErrorKind` を `storage_error Option` として保持する必要があると指摘された。
+- raster Vec allocation failure では lower error を保持してから path sink Vec owner を 1 回だけ free し、path sink Vec allocation failure では free しないことを source policy で固定する必要があると指摘された。
+- revised plan では error kind を細分化し、`SinkOwnerAllocError` を `kind / plan / capacity Option / storage_error Option` の value-only payload とし、cleanup order を source policy に入れる。
+- Tesla revised plan review は `PLAN_APPROVED`。追加条件として、`SkipNoSegment` only completed plan の 0 capacity allocation を valid owner として明文化する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に F5ay plan の不足 accessor を追加する。`emitted_count`、`move_to_count`、`line_to_count`、`quadratic_to_count`、`skip_no_segment_count`、`last_path_command_index` を public accessor で読む。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity` を追加する。`path_sink_scalar_capacity`、`raster_mask_scalar_capacity`、`path_segment_capacity`、`raster_edge_capacity` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind` を追加する。negative count / capacity、last index invalid、prepared / emitted / draw / path / raster mismatch、count overflow、path sink scalar storage allocation failure、raster mask scalar storage allocation failure を enum variant で表す。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError` を追加する。`kind`、`plan`、`capacity Option`、`storage_error Option StdErrorKind` を保持する value-only record とする。
+- plan shape guard は public `SinkPlan` accessor だけを使い、forged direct field access を避ける。
+- checked add helper は `2147483647 - left` を先に計算し、`right` が残余を超える場合に `CountOverflow` を返す。
+- checked multiply helper は `2147483647 / factor` を先に計算し、`count` が許容値を超える場合に `CountOverflow` を返す。
+- scalar format constant は MoveTo path sink 3、LineTo path sink 3、QuadraticTo path sink 5、LineTo raster mask 5、QuadraticTo raster mask 7 とする。
+- `sink_owner_capacity_from_plan` は `path_segment_capacity == move + line + quadratic`、`prepared_count == path_segment_capacity + skip`、`emitted_count == total_count`、`raster_edge_capacity == line + quadratic`、`draw_count == raster_edge_capacity` を検査してから scalar capacity を返す。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner` を追加する。plan、capacity、path sink scalar Vec、raster mask scalar Vec を持つ owner record とし、`Clone` / `Copy` を実装しない。
+- owner の plan / capacity accessor、path sink scalar Vec len/cap accessor、raster mask scalar Vec len/cap accessor、owner free を追加する。
+- `sink_owner_alloc` は capacity derivation 後、path sink scalar Vec、raster mask scalar Vec の順に `vec::with_capacity` で確保する。1 本目の失敗では free しない。2 本目の失敗では lower error を保持し、1 本目の Vec を 1 回だけ free してから error を返す。
+
+完了条件:
+
+- source policy が docs、types、F5ay missing accessors、capacity Clone/Copy、owner no Clone/Copy、error kind variants、alloc error payload、plan shape guard、checked add、checked multiply、scalar width constants、capacity derivation invariant、0 capacity owner success contract、allocation order、path allocation failure no-free、raster allocation failure exactly-one-free、owner len/cap accessors、owner free、forbidden F5ax/F5aw/F5av / byte-backed / old traversal / `vec::push` / path object / raster / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md` に types、plan accessors、precise validation kinds、checked add/mul、capacity derivation、skip-only zero capacity success、allocation order、second allocation cleanup、no fallback/no byte-backed/no traversal/no push/no render の coverage label を追加する。
+- implementation review で docs / source policy / doctest / note / todo が揃っていること、粗い `InvalidPlan` がないこと、storage allocation lower error を保持していること、raster allocation failure の cleanup order が正しいことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の real command sink writer / raster mask writer phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_owner_f5az.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_plan_f5az_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5az.json -j 1
+git diff --check
+```
+
 ## Phase F5ay: sfnt simple glyph outline point stream item collection path command stream sink plan
 
 目的:

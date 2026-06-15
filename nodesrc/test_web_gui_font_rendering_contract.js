@@ -141,6 +141,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandValueT
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -196,6 +197,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -13256,6 +13258,284 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests.includes("path_command_stream_sink_plan_count_invariants_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests.includes("path_command_stream_sink_plan_no_fallback_no_byte_backed_no_traversal_no_vec_no_raster"),
     "F5ay path command stream sink plan focused doctest must cover types, completed authority, budget rejection, count guard, checked add, capacity derivation, invariants, and no fallback/no-byte-backed/no-traversal/no-Vec/no-raster policy",
+);
+assert(spec.includes("### SFNT simple glyph outline point stream item collection path command stream sink owner"), "GUI font spec must document F5az path command stream sink owner boundary");
+assert(detailedDesign.includes("## SFNT simple glyph outline point stream item collection path command stream sink owner boundary"), "GUI font detailed design must document F5az path command stream sink owner boundary");
+assert(implementationPlan.includes("## Phase F5az: sfnt simple glyph outline point stream item collection path command stream sink owner"), "GUI font implementation plan must include F5az phase");
+assert(
+    spec.includes("path_sink_scalar_capacity = 0") &&
+        spec.includes("raster_mask_scalar_capacity = 0") &&
+        detailedDesign.includes("vec::with_capacity 0") &&
+        implementationPlan.includes("0 容量 Vec owner"),
+    "GUI font docs must pin skip-only completed plans as valid zero-capacity sink owners",
+);
+for (const [name, fieldName] of [
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_emitted_count", "emitted_count"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count", "move_to_count"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count", "line_to_count"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count", "quadratic_to_count"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count", "skip_no_segment_count"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index", "last_path_command_index"],
+]) {
+    const accessor = functionSlice(allocFontSfntGlyfImpl, name);
+    assert(accessor.includes(`*field::get_ref plan "${fieldName}"`), `alloc/gui/font/sfnt/glyf F5az requires SinkPlan accessor ${name}`);
+    assertNoMatch(accessor, /[()]/, `alloc/gui/font/sfnt/glyf F5az SinkPlan accessor ${name} must preserve NEPL prefix style without parentheses`);
+}
+const pathCommandStreamSinkOwnerCapacityType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity "),
+);
+for (const fragment of [
+    "path_sink_scalar_capacity %i32",
+    "raster_mask_scalar_capacity %i32",
+    "path_segment_capacity %i32",
+    "raster_edge_capacity %i32",
+]) {
+    assert(pathCommandStreamSinkOwnerCapacityType.includes(fragment), `alloc/gui/font/sfnt/glyf F5az SinkOwnerCapacity must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamSinkOwnerCapacityType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity:/,
+    "alloc/gui/font/sfnt/glyf F5az SinkOwnerCapacity is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamSinkOwnerAllocErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:"),
+);
+for (const fragment of [
+    "NegativeTotalCount",
+    "NegativeEmittedCount",
+    "NegativeMoveToCount",
+    "NegativeLineToCount",
+    "NegativeQuadraticToCount",
+    "NegativeSkipNoSegmentCount",
+    "NegativePathSegmentCapacity",
+    "NegativeRasterEdgeCapacity",
+    "NegativeDrawCount",
+    "LastPathCommandIndexInvalid",
+    "NoCommandsPrepared",
+    "PathSegmentCapacityMismatch",
+    "RasterEdgeCapacityMismatch",
+    "PreparedCountMismatch",
+    "EmittedCountMismatch",
+    "DrawCountMismatch",
+    "CountOverflow",
+    "PathSinkScalarStorageAllocFailed",
+    "RasterMaskScalarStorageAllocFailed",
+]) {
+    assert(pathCommandStreamSinkOwnerAllocErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5az SinkOwnerAllocErrorKind must include ${fragment}`);
+}
+assertNoMatch(pathCommandStreamSinkOwnerAllocErrorKindType, /\bInvalidPlan\b/, "alloc/gui/font/sfnt/glyf F5az must not collapse forged plan failures into InvalidPlan");
+assertMatch(
+    pathCommandStreamSinkOwnerAllocErrorKindType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind:/,
+    "alloc/gui/font/sfnt/glyf F5az SinkOwnerAllocErrorKind is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamSinkOwnerAllocErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error"),
+);
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind",
+    "plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan",
+    "capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity",
+    "storage_error %Option StdErrorKind",
+]) {
+    assert(pathCommandStreamSinkOwnerAllocErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5az SinkOwnerAllocError must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamSinkOwnerAllocErrorType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:/,
+    "alloc/gui/font/sfnt/glyf F5az SinkOwnerAllocError is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamSinkOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner "),
+);
+for (const fragment of [
+    "plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan",
+    "capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity",
+    "path_sink_scalars %Vec i32",
+    "raster_mask_scalars %Vec i32",
+]) {
+    assert(pathCommandStreamSinkOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5az SinkOwner must include ${fragment}`);
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner\b|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner\b/,
+    "alloc/gui/font/sfnt/glyf F5az SinkOwner owns Vec storage and must not implement Clone/Copy",
+);
+const pathCommandStreamSinkOwnerPlanShapeGuard = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan_shape_guard");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerPlanShapeGuard,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_emitted_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_path_segment_capacity plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_raster_edge_capacity plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index plan",
+        "NegativeTotalCount",
+        "NegativeEmittedCount",
+        "NegativeMoveToCount",
+        "NegativeLineToCount",
+        "NegativeQuadraticToCount",
+        "NegativeSkipNoSegmentCount",
+        "NegativePathSegmentCapacity",
+        "NegativeRasterEdgeCapacity",
+        "NegativeDrawCount",
+        "NoCommandsPrepared",
+        "LastPathCommandIndexInvalid",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az plan shape guard must use SinkPlan accessors and typed validation failures",
+);
+const pathCommandStreamSinkOwnerCheckedAdd = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerCheckedAdd,
+    [
+        "let max_i32 %i32 2147483647",
+        "let remaining %i32 sub max_i32 left",
+        "if gt right remaining:",
+        "CountOverflow",
+        "Result::Ok add left right",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az checked add must guard with i32 max residual before adding",
+);
+const pathCommandStreamSinkOwnerCheckedMul = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerCheckedMul,
+    [
+        "let max_i32 %i32 2147483647",
+        "let max_factor_count %i32 div max_i32 factor",
+        "if gt count max_factor_count:",
+        "CountOverflow",
+        "Result::Ok mul count factor",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az checked multiply must guard with i32 max factor count before multiplying",
+);
+const pathCommandStreamSinkOwnerPathSinkScalarCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalar_capacity_from_plan");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerPathSinkScalarCapacity,
+    [
+        "let move_to_path_sink_scalar_width %i32 3",
+        "let line_to_path_sink_scalar_width %i32 3",
+        "let quadratic_to_path_sink_scalar_width %i32 5",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul move_to_count move_to_path_sink_scalar_width plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul line_to_count line_to_path_sink_scalar_width plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul quadratic_to_count quadratic_to_path_sink_scalar_width plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add move_to_scalars line_to_scalars plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add move_line_scalars quadratic_to_scalars plan",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az path sink scalar capacity must use fixed scalar widths and checked arithmetic",
+);
+const pathCommandStreamSinkOwnerRasterMaskScalarCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalar_capacity_from_plan");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerRasterMaskScalarCapacity,
+    [
+        "let line_to_raster_mask_scalar_width %i32 5",
+        "let quadratic_to_raster_mask_scalar_width %i32 7",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul line_to_count line_to_raster_mask_scalar_width plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul quadratic_to_count quadratic_to_raster_mask_scalar_width plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add line_to_scalars quadratic_to_scalars plan",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az raster mask scalar capacity must use fixed scalar widths and checked arithmetic",
+);
+const pathCommandStreamSinkOwnerCapacityFromPlan = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerCapacityFromPlan,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan_shape_guard plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_segment_capacity_from_plan plan",
+        "PathSegmentCapacityMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_prepared_count_from_plan plan derived_path_segment_capacity",
+        "PreparedCountMismatch",
+        "EmittedCountMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_edge_capacity_from_plan plan",
+        "RasterEdgeCapacityMismatch",
+        "DrawCountMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalar_capacity_from_plan plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalar_capacity_from_plan plan",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity path_sink_scalar_capacity raster_mask_scalar_capacity plan_path_segment_capacity plan_raster_edge_capacity",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az capacity derivation must revalidate forged SinkPlan and derive scalar capacities before allocation",
+);
+const pathCommandStreamSinkOwnerAlloc = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerAlloc,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan plan",
+        "vec::with_capacity path_sink_scalar_capacity",
+        "Result::Err path_sink_error:",
+        "PathSinkScalarStorageAllocFailed",
+        "Result::Ok path_sink_scalars:",
+        "vec::with_capacity raster_mask_scalar_capacity",
+        "Result::Err raster_mask_error:",
+        "let storage_error %StdErrorKind raster_mask_error",
+        "vec::free path_sink_scalars",
+        "RasterMaskScalarStorageAllocFailed",
+        "Result::Ok raster_mask_scalars:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner *plan capacity path_sink_scalars raster_mask_scalars",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az allocation must derive capacity, allocate in order, preserve lower errors, and clean partial owner on second allocation failure",
+);
+const pathSinkFailureSlice = pathCommandStreamSinkOwnerAlloc.slice(
+    pathCommandStreamSinkOwnerAlloc.indexOf("Result::Err path_sink_error:"),
+    pathCommandStreamSinkOwnerAlloc.indexOf("Result::Ok path_sink_scalars:"),
+);
+assertNoMatch(pathSinkFailureSlice, /\bvec::free\b/, "alloc/gui/font/sfnt/glyf F5az path sink allocation failure must not call vec::free");
+const rasterMaskFailureSlice = pathCommandStreamSinkOwnerAlloc.slice(
+    pathCommandStreamSinkOwnerAlloc.indexOf("Result::Err raster_mask_error:"),
+    pathCommandStreamSinkOwnerAlloc.indexOf("Result::Ok raster_mask_scalars:"),
+);
+const rasterMaskFailureFreeCount = (rasterMaskFailureSlice.match(/\bvec::free\b/g) || []).length;
+assert(rasterMaskFailureFreeCount === 1, "alloc/gui/font/sfnt/glyf F5az raster mask allocation failure must call vec::free exactly once");
+const pathCommandStreamSinkOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_free");
+assertOrderedFragments(
+    pathCommandStreamSinkOwnerFree,
+    [
+        "field::get owner \"path_sink_scalars\"",
+        "field::get owner \"raster_mask_scalars\"",
+        "vec::free path_sink_scalars",
+        "vec::free raster_mask_scalars",
+    ],
+    "alloc/gui/font/sfnt/glyf F5az owner free must consume and free both Vec owners",
+);
+for (const [slice, name] of [
+    [pathCommandStreamSinkOwnerPlanShapeGuard, "plan shape guard"],
+    [pathCommandStreamSinkOwnerCheckedAdd, "checked add"],
+    [pathCommandStreamSinkOwnerCheckedMul, "checked multiply"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_segment_capacity_from_plan"), "path segment capacity"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_prepared_count_from_plan"), "prepared count"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_edge_capacity_from_plan"), "raster edge capacity"],
+    [pathCommandStreamSinkOwnerPathSinkScalarCapacity, "path sink scalar capacity"],
+    [pathCommandStreamSinkOwnerRasterMaskScalarCapacity, "raster mask scalar capacity"],
+    [pathCommandStreamSinkOwnerCapacityFromPlan, "capacity from plan"],
+    [pathCommandStreamSinkOwnerAlloc, "owner alloc"],
+    [pathCommandStreamSinkOwnerFree, "owner free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|GuiSfntSimpleGlyphPathSinkAction::|vec::push|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5az ${name} must not use byte-backed lookup, old traversal, Vec push, render/raster/platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5az ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_plan_accessors_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_precise_validation_kinds_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_checked_add_mul_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_capacity_derivation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_skip_only_zero_capacity_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_allocation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_second_alloc_cleanup_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_no_fallback_no_byte_backed_no_traversal_no_push_no_render"),
+    "F5az path command stream sink owner focused doctest must cover types, accessors, precise validation, checked arithmetic, capacity derivation, zero-capacity success, allocation order, cleanup, and no fallback/no-byte-backed/no-traversal/no-push/no-render policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
