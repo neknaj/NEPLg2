@@ -1,3 +1,45 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path command pair checkpoint
+
+## scope
+
+- branch: `gui-font-collection-path-command-pair-f5z-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5z の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command pair の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5z の collection-backed path command pair boundary、F5y exact one-call、pure pair projection exact one-call、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5z の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair` を追加した。
+- F5z は F5y `gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment` を exactly once 呼び、F5y error を wrap せずにそのまま返す。
+- F5z は F5y success segment を `gui_sfnt_simple_glyph_curve_segment_path_command_pair` へ exactly once 渡し、`GuiSfntSimpleGlyphPathCommandPair` を返す。
+- F5z は新しい error enum を作らない。pure pair projection は失敗しないため、F5y error domain をそのまま使う。
+- `NoSegment` は F4o と同じく explicit `SkipNoSegment` pair として保持し、`Option::None`、silent no-op、fallback に変換しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md` を追加し、line pair、quadratic pair、no-segment skip pair、F5y error propagation、no Vec / no fallback / no sink traversal の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5y 実呼び出しで timeout する問題を継承するため `skip` としている。contract は source policy と `glyf.nepl` 全体 doctest で固定している。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5z は F5y と既存 pure path command pair projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- Tesla plan review の implementation note に従い、source policy の byte-backed 禁止 pattern は `gui_sfnt_lookup_simple_glyph_curve_segment` / `gui_sfnt_lookup_simple_glyph_path_command_pair` と `_with_tables` helper に絞り、意図した F5y collection-backed curve segment call を弾かないようにした。
+- Tesla implementation review は 1 回目 `IMPLEMENTATION_BLOCKED`。code/design blocker はなく、新規 focused doctest file を commit 対象へ stage する必要があるという指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 F5z focused doctest は staged `A` となり、tmp / `NUL` は commit 対象から除外された状態で承認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_pair_f5z.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_curve_segment_f5z_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5z.json -j 1` 742/742 passed
+
+## remaining
+
+- F5z は collection-backed single-edge path command pair までであり、collection-backed path sink event、outline traversal、raster mask、render2d command emission は未実装である。
+- F5z focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection curve segment checkpoint
 
 ## scope

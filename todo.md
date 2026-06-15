@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5y の collection-backed curve segment lookup を使い、path tag population / outline traversal へ進む次の owner-preserving boundary を追加する。byte-backed F4 helper、storage reader、raster/render/platform API へ戻らず、curve segment から path command への contract を固定する
+- F5z の collection-backed path command pair lookup を使い、path sink event / outline traversal へ進む次の owner-preserving boundary を追加する。byte-backed F4 helper、storage reader、raster/render/platform API へ戻らず、path command pair から sink-facing event への contract を固定する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

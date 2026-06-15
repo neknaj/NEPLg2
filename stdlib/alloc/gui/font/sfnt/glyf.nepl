@@ -8763,6 +8763,25 @@ pub fn gui_sfnt_simple_glyph_curve_segment_path_command_pair %fn &GuiSfntSimpleG
     let draw_command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_curve_segment_draw_command segment
     gui_sfnt_simple_glyph_path_command_pair move_command draw_command
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair: collection から path command pair を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - F5y の collection-backed curve segment を authority として、1 edge の move / draw command pair を[返/かえ]します。
+//: - F5y error は wrap せず、そのまま caller に[返/かえ]します。
+//:
+//: [制約/せいやく]:
+//: - byte-backed lookup、metadata parser、sink traversal、raster / render / platform API は[呼/よ]びません。
+//: - `NoSegment` は explicit `SkipNoSegment` pair として[保持/ほじ]し、silent no-op にはしません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 Result GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \collection\contour_index\edge_index:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok segment:
+            let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment
+            Result::Ok pair
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
