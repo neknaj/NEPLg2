@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5ad の collection-backed path sink event at と F5ac の kind at lookup を使い、collection-backed contour step boundary を追加する。contour span lookup failure と event/kind lookup failure を混ぜない F5 専用 typed error を設計し、byte-backed F4 helper、storage reader、raster/render/platform API へ戻らず、typed slot から traversal-facing contract を固定する
+- F5ae の collection-backed path contour step を authority とし、collection-backed sink step / action step boundary を追加する。policy decision、tail close handling、action next を typed value として分離し、F4 byte-backed helper、F5aa/F5ac 直接呼び出し、sink traversal、raster/render/platform API へ戻らない contract を固定する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

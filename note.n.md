@@ -63853,3 +63853,47 @@ MERGE_APPROVED
 
 - F5ad は typed slot から event を読む lookup までであり、kind lookup は F5ac、contour cursor / next state / full traversal は未実装である。
 - 次 slice では F5ad event at と F5ac kind at を使い、span lookup failure と event/kind lookup failure を明示的に分ける F5 contour step error を追加して collection-backed contour step へ進む。
+
+## 2026-06-15 GUI font collection path contour step checkpoint
+
+### scope
+
+- branch: `gui-font-collection-path-contour-step-f5ae-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、span lookup failure、cursor glyph mismatch、event lookup failure を専用 `Result` error enum で分ける。kind は返された event から導き、同じ edge を F5ac で二重導出しない。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError` を追加した。
+- F5ae error kind は `ContourSpanFailed`、`CursorGlyphMismatch`、`PathSinkEventFailed` の 3 種にした。
+- error payload は collection capacity、cursor、contour_index、edge_index、slot、span_error option、event_error option を保持する。
+- `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を追加した。
+- F5ae は collection contour span lookup を exactly once 呼び、span 成功後に cursor glyph と collection capacity glyph を比較する。
+- glyph mismatch では `CursorGlyphMismatch` を返し、F5ad event lookup へ進まない。
+- F5ae は F5ad `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を exactly once 呼び、成功した event から `gui_sfnt_simple_glyph_path_sink_event_kind` で kind を導く。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ae の contract、失敗分離、F5ac 非依存、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md` を追加し、first / second line step、end contour、span error、cursor glyph mismatch、event error、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ae source policy を追加し、docs、typed error payload、helper body order、F5ad exact one-call、event-kind exact one-call、cursor-next exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed sink step / action step boundary へ更新した。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。cursor が glyph を持つのに F5ad/F5aa collection helpers は collection 側の glyph を authority としており、cursor glyph と collection capacity glyph の一致を検査しないと forged cursor を成功 step に混ぜられると指摘された。
+- Tesla revised plan review: `PLAN_APPROVED`。`CursorGlyphMismatch` を専用 error kind として追加し、span 成功後かつ event lookup 前に glyph identity check を置く方針が承認された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。source policy が読む新規 focused doctest file が未追跡のままだと commit tree から欠落するため、commit set へ追加するよう指摘された。
+- Tesla implementation review 1 fixes: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md` を明示的に staging 対象へ含めた。
+- Tesla implementation review 2: `REVIEW_APPROVED`。新規 F5ae doctest file が staged add になり、前回 blocker は解消した。未追跡 `tmp_*.json` と `NUL` は commit set 外であり、`git diff --cached --check` が pass していると確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_contour_step_f5ae.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_at_f5ae_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ae.json -j 1` は 758/758 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5ae は collection-backed contour step までであり、sink policy decision、primary/tail action step、contour-wide action traversal は未実装である。
+- 次 slice では F5ae を authority として collection-backed sink step / action step boundary へ進む。F4 byte-backed helper、F5aa/F5ac 直接呼び出し、renderer/raster/platform API へ戻らない。

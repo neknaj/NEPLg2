@@ -3549,3 +3549,43 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ad.json -j 1
 git diff --check
 ```
+
+## Phase F5ae: sfnt simple glyph outline point stream item collection path contour step
+
+目的:
+
+- F5v collection-backed contour span lookup と F5ad collection-backed path sink event at lookup を接続し、`GuiSfntSimpleGlyphPathContourCursor` から `GuiSfntSimpleGlyphPathContourStep` を返す。
+- contour span failure、cursor glyph identity failure、event lookup failure を同じ error に潰さず、F5ae 専用 typed error として分ける。
+- F5ac は kind-only sibling boundary として残し、F5ae の内部では返された event から kind を導くことで edge の二重導出を避ける。
+
+変更:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。cursor が glyph を持つのに collection helper は collection 側の glyph を authority としており、cursor glyph と collection capacity glyph の一致を検査しないと forged cursor を成功 step に混ぜられる、という指摘を受けた。
+- revised Tesla plan review は `PLAN_APPROVED`。`CursorGlyphMismatch` を専用 error kind として追加し、span 成功後かつ event lookup 前に glyph identity check を置く。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError` を追加する。
+- error kind は `ContourSpanFailed`、`CursorGlyphMismatch`、`PathSinkEventFailed` の 3 種にする。
+- error payload は collection capacity、cursor、contour_index、edge_index、slot、span_error option、event_error option を保持する。
+- `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を追加する。
+- helper は source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` を exactly once 呼ぶ。
+- helper は source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を exactly once 呼ぶ。
+- helper は source 上 `gui_sfnt_simple_glyph_path_sink_event_kind`、`gui_sfnt_simple_glyph_path_contour_next_from_cursor`、`gui_sfnt_simple_glyph_path_contour_step` をそれぞれ exactly once 呼ぶ。
+- helper は F5ac/F5ab/F5aa 直接呼び出し、byte-backed F4 lookup、metadata parser、`*_with_tables`、F5z/F5y/F5x/F5w、drain/point-step、`Vec` / `push`、sink traversal、event consumer/action、render/raster/platform/host API を呼ばない。
+
+完了条件:
+
+- F5ae public helper が span lookup -> cursor glyph check -> F5ad event lookup -> event kind projection -> cursor next -> step constructor の順序を守る。
+- F5ae public helper が `CursorGlyphMismatch` では F5ad event lookup へ進まない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md` に first line step、second line step、end contour、span error、cursor glyph mismatch、event error、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、typed error payload、helper body order、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_contour_step_f5ae.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_at_f5ae_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ae.json -j 1
+git diff --check
+```
