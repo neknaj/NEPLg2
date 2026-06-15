@@ -6943,6 +6943,36 @@ The success continuation is callback-shaped: it consumes the registration owner 
 
 F5bm must not call `render_command_alpha_mask_rect`, `render_command_fill_rect`, DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, per-sample FillRect bridge, sample cursor, alpha Vec copy helpers, owner-bearing Vec payload storage, or a 2D compositor drain.
 
+## SFNT simple glyph alpha mask prepared command boundary
+
+F5bn consumes a registered resource owner and prepares the `RenderCommand::AlphaMaskRect` value that will later be consumed by a formal transport or compositor drain owner. This is not command stream emission. The command is a Copy value, so exposing it through an accessor or arbitrary callback would allow callers to keep the command after dropping the registered resource owner. That would reintroduce a dangling `AlphaMaskId` command.
+
+The F5bn owner is therefore a sealed internal owner-bearing value:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+    command RenderCommand
+```
+
+It may expose metadata derived from the resource record, but it must not expose the raw `RenderCommand`, a `&RenderCommand`, or a generic callback receiving `RenderCommand`. The only complete consumption path in this slice is free. A later formal transport / drain owner will consume this prepared owner and decide how command and resource lifetime are held together while the command is presented.
+
+Prepare order:
+
+```text
+1. read the stored resource record
+2. reject non-positive AlphaMaskId
+3. rederive the expected record from the internal reservation owner
+4. map reservation invariant, SourceOver, rect, and paint errors into typed prepared-command errors
+5. compare mask id, rect, paint, width, height, cell count, and alpha max
+6. call render_command_alpha_mask_rect only after the records match
+7. store the returned RenderCommand inside the prepared owner without exposing it
+```
+
+The error path keeps the registered resource owner and never stores a command. Recovery may pass only the registered resource owner to a callback, or free it.
+
+F5bn must not call DrawTarget, RenderTarget, platform APIs, host APIs, backend APIs, Canvas, DOM, minifb, font fallback, zero-fill fallback, per-sample FillRect bridge, sample cursor, resource table lookup, alpha Vec copy helpers, tile / bitmap transport, or a 2D compositor drain. It must not call `render_command_fill_rect`. It may call `render_command_alpha_mask_rect` only in the validated success path and only to store the command inside the prepared owner.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

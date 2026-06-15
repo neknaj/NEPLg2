@@ -65449,3 +65449,46 @@ MERGE_APPROVED
 ### residual
 
 - F5bm は private metadata table と owner pair までであり、registered resource からの `RenderCommand::AlphaMaskRect` emission、formal tile / bitmap transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
+
+## 2026-06-16 GUI font rendering F5bn alpha mask prepared command owner boundary
+
+### scope
+
+- F5bn は F5bm の registered resource owner を消費し、stored record と internal reservation 由来の expected record を再検証してから `RenderCommand::AlphaMaskRect` を作る内部 alloc/font 境界である。
+- `RenderCommand` は Copy value なので、raw command を accessor や arbitrary callback で外へ出さない。prepared owner が registered resource owner と command を同時に保持する。
+- F5bn は command stream emission、formal tile / bitmap transport、2D compositor drain、host-visible resource upload、platform / backend API には進まない。
+
+### plan_review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。success callback が raw `RenderCommand` を arbitrary `.R` callback へ渡すと、callback が command だけを保持でき、registered resource owner を失った dangling `AlphaMaskId` command を作れると指摘された。
+- 改訂計画では raw command accessor / callback を禁止し、prepared owner 内部に command を保存するだけにした。
+- Planck revised plan review は `PLAN_APPROVED`。raw Copy `RenderCommand` escape を source policy で禁止し、formal transport / drain owner を次の消費境界として残す条件で実装開始を承認された。
+
+### implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bn の prepared owner contract、raw command escape 禁止、formal transport / drain owner 残件を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner`、prepared command error kind、owner-bearing error、rejected owner、record equality、registered resource prepare function を追加した。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_prepare_command` は stored record を読み、nonzero id、internal reservation からの expected record、record equality を検査し、成功時だけ `render_command_alpha_mask_rect` を呼ぶ。返った command は prepared owner 内部に保存し、raw command accessor は持たない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md` を追加し、source policy coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bn source policy を追加した。`prepared_command_owner_command` / `prepared_command_owner_with` / command field projection / command callback / target / platform / fallback / table lookup / sample cursor / transport / compositor を禁止している。
+- `todo.md` は F5bn 後の formal transport / drain owner、tile / bitmap transport、2D compositor drain、stroke / shadow 専用 raster boundary の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bn.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_table_f5bn_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bn_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bn.json -j 1` は 1137/1137 pass。
+
+### subagent_review
+
+- Planck implementation review は `REVIEW_APPROVED`。raw Copy `RenderCommand` は `PreparedCommandOwner` 内部に閉じており、`prepared_command_owner_command` / `prepared_command_owner_with` / command field projection / command callback は見つからないと確認された。
+- `render_command_alpha_mask_rect` は stored record と reservation-derived expected record の検証後にだけ呼ばれ、返った command は owner 内部へ保存されている。prepared owner / error / rejected owner は owner-bearing で Clone / Copy を持たず、error recovery は registered resource owner だけを返すと確認された。
+- table lookup、RenderTarget / DrawTarget、platform / backend、transport / compositor / tile、FillRect fallback、sample cursor fallback へ進んでいないことが確認された。
+- commit 粒度の follow-up review では `PLAN_APPROVED: Candidate C`。software 2D compositor drain は pixel buffer / surface owner、alpha storage borrow、dirty region、stride / format、SourceOver 合成 error、FHD 60fps 目標との関係を先に設計する必要があるため、commit 粒度を粗くする目的で F5bn と同じ commit へ未設計の transport / compositor を押し込まない方針が承認された。
+
+### residual
+
+- F5bn は prepared owner までであり、prepared owner を formal transport / drain owner へ移す境界、tile / bitmap formal transport、2D compositor drain、host renderer 実装、stroke / shadow rasterization は未実装である。
