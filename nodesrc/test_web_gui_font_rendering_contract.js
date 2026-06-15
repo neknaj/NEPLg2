@@ -136,6 +136,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionContourEndpointDr
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPointXDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPointYDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_y_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -186,6 +187,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPointXDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPointYDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -12058,6 +12060,393 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTests.includes("path_sink_action_edge_drain_step_budget_no_source_no_push_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTests.includes("path_sink_action_edge_drain_no_fallback_no_byte_backed_no_traversal_no_curve_segment"),
     "F5at point stream item collection path sink action Edge drain focused doctest must cover types, authority checks, endpoint/span/edge source checks, push failures, completion, budget, and no fallback/no byte-backed/no curve-segment policy",
+);
+const specF5au = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action PathCommandTag drain"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5au は F5at の `PathCommandTagStartOwner` を authority",
+    "owner storage の Edge owner scalar と collection-backed path sink event kind source",
+    "全 PathCommandTag slot 完了後だけ complete owner",
+    "logical path command index:",
+    "cursor.next_index - cursor.start",
+    "edge index:",
+    "logical path command index / 2",
+    "event slot:",
+    "logical path command index % 2",
+    "MoveTo        1",
+    "LineTo        2",
+    "QuadraticTo   3",
+    "SkipNoSegment 4",
+    "reason は scalar へ保存しない",
+    "cursor region == PathCommandTag",
+    "cursor matches summary capacity PathCommandTag region",
+    "`next_index` を PathCommandTag region start に固定しない",
+    "GuiSfntSimpleGlyphPathCommandTag:",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerMarker:",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind:",
+    "EdgeOwnerReadFailed",
+    "EdgeOwnerGlyphMismatch",
+    "EdgeOwnerIndexMismatch",
+    "ContourSpanInvariantMismatch",
+    "EventKindSourceFailed",
+    "TagPushFailed",
+    "PathCommandTagCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner",
+    "field::get_ref owner \"storage\"",
+    "gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at collection contour_index contour_edge_index event_slot",
+    "read gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error",
+    "`PathCommandTagCompleteOwner`、`PathCommandTagDrainError`、`PathCommandTagDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない",
+]) {
+    assert(specF5au.includes(fragment), `font spec F5au PathCommandTag drain must mention ${fragment}`);
+}
+const detailedF5au = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action PathCommandTag drain boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5au consumes an F5at `PathCommandTagStartOwner`",
+    "logical_path_command_index = cursor.next_index - cursor.start",
+    "edge_index = div_s logical_path_command_index 2",
+    "event_slot_ordinal = rem_s logical_path_command_index 2",
+    "SkipNoSegment 4",
+    "must never use absolute cursor `next_index` as a command index",
+    "authority check order:",
+    "read owner storage capacity without consuming PathCommandTagStartOwner",
+    "require cursor region is PathCommandTag",
+    "must not require `cursor.next_index == cursor.start`",
+    "PathCommandTagSlot:",
+    "PathCommandTagCompleteOwner:",
+    "PathCommandTagDrainTerminal:",
+    "PathCommandTagDrainError:",
+    "PathCommandTagDrainErrorKind",
+    "EventSlotOrdinalInvalid",
+    "EdgeOwnerReadFailed",
+    "EventKindSourceFailed",
+    "TagPushFailed",
+    "Each authority failure returns `PathCommandTagDrainError` with the original PathCommandTagStartOwner",
+    "path_command_index = next_index - cursor.start",
+    "call private non-consuming Edge owner helper once",
+    "validate marker glyph == capacity glyph",
+    "validate marker edge_index == edge_index",
+    "call collection contour span once",
+    "validate span glyph/index/range/count and span contains edge_index",
+    "call path sink event kind source once",
+    "map event kind to PathCommandTag",
+    "call internal PathCommandTagStartOwner tag push helper once",
+    "read `gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error`",
+    "read `gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error`",
+    "before calling `gui_sfnt_simple_glyph_outline_region_push_error_storage push_error`",
+    "It reads storage with `field::get_ref owner \"storage\"`",
+    "calls `gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index`",
+    "may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at` only in the same branch",
+    "`PathCommandTagCompleteOwner`, `PathCommandTagDrainError`, and `PathCommandTagDrainTerminal` contain owner values and must not implement `Clone` or `Copy`",
+]) {
+    assert(detailedF5au.includes(fragment), `font detailed design F5au PathCommandTag drain must mention ${fragment}`);
+}
+const implementationPlanF5au = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5au: sfnt simple glyph outline point stream item collection path sink action PathCommandTag drain"),
+);
+for (const fragment of [
+    "PLAN_BLOCKED",
+    "PLAN_APPROVED",
+    "logical path command index は `cursor.next_index - cursor.start`",
+    "absolute cursor `next_index` を command index として使わない",
+    "Edge owner scalar read は storage-level helper",
+    "gui_sfnt_simple_glyph_outline_region_push_error_kind",
+    "gui_sfnt_simple_glyph_outline_region_push_error_scalar_value",
+    "gui_sfnt_simple_glyph_outline_region_push_error_storage push_error",
+    "GuiSfntSimpleGlyphPathCommandTag",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerMarker",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage_capacity",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_read_edge_owner",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_push_tag",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md",
+]) {
+    assert(implementationPlanF5au.includes(fragment), `font implementation plan F5au must mention ${fragment}`);
+}
+for (const fragment of [
+    "pub enum GuiSfntSimpleGlyphPathCommandTag:",
+    "MoveTo",
+    "LineTo",
+    "QuadraticTo",
+    "SkipNoSegment",
+    "impl Clone for GuiSfntSimpleGlyphPathCommandTag:",
+    "impl Copy for GuiSfntSimpleGlyphPathCommandTag:",
+    "pub fn gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind %fn &GuiSfntSimpleGlyphPathSinkEventKind GuiSfntSimpleGlyphPathCommandTag",
+    "pub fn gui_sfnt_simple_glyph_path_command_tag_scalar_value %fn &GuiSfntSimpleGlyphPathCommandTag i32",
+    "pub struct GuiSfntSimpleGlyphOutlineEdgeOwnerMarker:",
+    "edge_index %i32",
+    "contour_index %i32",
+    "pub enum GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind:",
+    "EdgeOwnerNotReady",
+    "EdgeOwnerContourOutOfRange",
+    "pub fn gui_sfnt_simple_glyph_outline_storage_read_edge_owner %fn &GuiSfntSimpleGlyphOutlineStorage fn i32 Result GuiSfntSimpleGlyphOutlineEdgeOwnerMarker GuiSfntSimpleGlyphOutlineEdgeOwnerReadError",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot:",
+    "path_command_index %i32",
+    "event_slot %GuiSfntSimpleGlyphPathSinkEventSlot",
+    "tag %GuiSfntSimpleGlyphPathCommandTag",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner GuiSfntSimpleGlyphOutlineStorageCapacity",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind:",
+    "PathCommandIndexInvalid",
+    "EventSlotOrdinalInvalid",
+    "EdgeOwnerReadFailed",
+    "EventKindSourceFailed",
+    "TagPushFailed",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError:",
+    "owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner",
+    "edge_owner_error %Option GuiSfntSimpleGlyphOutlineEdgeOwnerReadError",
+    "event_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError",
+    "tag_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal:",
+    "PathCommandTagCompleted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError",
+]) {
+    assert(allocFontSfntGlyfImpl.includes(fragment), `alloc/gui/font/sfnt/glyf F5au PathCommandTag drain API must include ${fragment}`);
+}
+const pathCommandTagCompleteOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner"),
+);
+assertNoMatch(
+    pathCommandTagCompleteOwnerType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:/,
+    "alloc/gui/font/sfnt/glyf F5au PathCommandTagCompleteOwner must not implement Clone or Copy",
+);
+const pathCommandTagDrainErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_error"),
+);
+assertNoMatch(
+    pathCommandTagDrainErrorType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError:/,
+    "alloc/gui/font/sfnt/glyf F5au PathCommandTagDrainError must not implement Clone or Copy",
+);
+const pathCommandTagDrainTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_push_tag"),
+);
+assertNoMatch(
+    pathCommandTagDrainTerminalType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal:/,
+    "alloc/gui/font/sfnt/glyf F5au PathCommandTagDrainTerminal must not implement Clone or Copy",
+);
+const pathCommandTagStartOwnerStorageCapacity = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage_capacity");
+for (const fragment of [
+    "let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner \"storage\"",
+    "gui_sfnt_simple_glyph_outline_storage_capacity storage",
+]) {
+    assert(pathCommandTagStartOwnerStorageCapacity.includes(fragment), `alloc/gui/font/sfnt/glyf F5au PathCommandTagStartOwner storage capacity accessor must include ${fragment}`);
+}
+assertNoMatch(
+    pathCommandTagStartOwnerStorageCapacity,
+    /\bfield::get owner "storage"\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage\b/,
+    "alloc/gui/font/sfnt/glyf F5au PathCommandTagStartOwner storage capacity accessor must not consume owner storage",
+);
+const pathCommandTagStartOwnerReadEdgeOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_read_edge_owner");
+for (const fragment of [
+    "let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner \"storage\"",
+    "gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index",
+]) {
+    assert(pathCommandTagStartOwnerReadEdgeOwner.includes(fragment), `alloc/gui/font/sfnt/glyf F5au Edge owner helper must include ${fragment}`);
+}
+assertNoMatch(
+    pathCommandTagStartOwnerReadEdgeOwner,
+    /\bfield::get owner "storage"\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage\b/,
+    "alloc/gui/font/sfnt/glyf F5au Edge owner helper must not consume owner storage",
+);
+const edgeOwnerStorageRead = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_storage_read_edge_owner");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_outline_storage_capacity_shape_is_valid &capacity",
+    "gui_sfnt_simple_glyph_outline_storage_scalar_slot_count_check &capacity",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind::ScalarSlotCountMismatch",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind::ScalarStorageCapacityMismatch",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind::EdgeIndexOutOfRange",
+    "let edge_slot_index %i32 add add contour_count point_count add point_count edge_index",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind::EdgeOwnerNotReady",
+    "gui_sfnt_simple_glyph_outline_storage_scalar_slot_get storage edge_slot_index",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind::EdgeOwnerSlotMissing",
+    "GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind::EdgeOwnerContourOutOfRange",
+    "gui_sfnt_simple_glyph_outline_edge_owner_marker glyph edge_index contour_index",
+]) {
+    assert(edgeOwnerStorageRead.includes(fragment), `alloc/gui/font/sfnt/glyf F5au storage Edge owner read helper must include ${fragment}`);
+}
+const pathCommandTagDrainPublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget");
+for (const fragment of [
+    "let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_summary &owner",
+    "let summary_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary",
+    "let storage_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage_capacity &owner",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_matches &summary_capacity &storage_capacity:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::StorageSummaryCapacityMismatch",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::CursorInvalid",
+    "GuiSfntSimpleGlyphOutlineScalarRegion::PathCommandTag:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::CursorRegionMismatch",
+    "if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &summary_capacity:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::CursorCapacityMismatch",
+    "let collection_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+    "if not gui_sfnt_simple_glyph_outline_storage_capacity_matches &collection_capacity &summary_capacity:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::CollectionSummaryCapacityMismatch",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget_trusted collection owner remaining_steps",
+]) {
+    assert(pathCommandTagDrainPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5au public PathCommandTag drain authority body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pathCommandTagDrainPublic,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_summary &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage_capacity &owner",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_matches &summary_capacity &storage_capacity",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_cursor &owner",
+        "gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor",
+        "gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor",
+        "GuiSfntSimpleGlyphOutlineScalarRegion::PathCommandTag:",
+        "gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &summary_capacity",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+        "gui_sfnt_simple_glyph_outline_storage_capacity_matches &collection_capacity &summary_capacity",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget_trusted collection owner remaining_steps",
+    ],
+    "alloc/gui/font/sfnt/glyf F5au public PathCommandTag drain must validate storage, cursor, and collection authorities before trusted drain",
+);
+assertNoMatch(
+    pathCommandTagDrainPublic,
+    /\b(?:gui_sfnt_simple_glyph_outline_storage_read_edge_owner|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_storage_push_region_scalar|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage owner)\b/,
+    "alloc/gui/font/sfnt/glyf F5au public authority function must not read edge owner/source, push tag, or consume storage before authority check",
+);
+assertNoMatch(
+    pathCommandTagDrainPublic,
+    /eq\s+next_index\s+start|ne\s+next_index\s+start|cursor_start.*next_index|next_index.*cursor_start/,
+    "alloc/gui/font/sfnt/glyf F5au public authority must not require cursor next_index to equal PathCommandTag region start",
+);
+const pathCommandTagDrainTrusted = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget_trusted");
+for (const fragment of [
+    "let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor",
+    "let end %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor",
+    "if eq next_index end:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage owner",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner storage summary",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal::PathCommandTagCompleted complete_owner",
+    "if le remaining_steps 0:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal::StepBudgetExhausted owner",
+    "let path_command_index %i32 sub next_index start",
+    "let edge_index %i32 div_s path_command_index 2",
+    "let event_slot_ordinal %i32 rem_s path_command_index 2",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::EventSlotOrdinalInvalid",
+    "GuiSfntSimpleGlyphPathSinkEventSlot::First",
+    "GuiSfntSimpleGlyphPathSinkEventSlot::Second",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_read_edge_owner &owner edge_index",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::EdgeOwnerIndexMismatch",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind::EdgeOwnerGlyphMismatch",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_error_span_value_failed owner path_command_index edge_index edge_owner span",
+    "let contour_edge_index %i32 sub edge_index span_start_point_index",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at collection contour_index contour_edge_index event_slot",
+    "gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind &event_kind",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot path_command_index edge_index contour_index contour_edge_index event_slot tag",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_push_tag owner event_kind tag_slot",
+    "let next_remaining_steps %i32 sub remaining_steps 1",
+]) {
+    assert(pathCommandTagDrainTrusted.includes(fragment), `alloc/gui/font/sfnt/glyf F5au trusted PathCommandTag drain body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pathCommandTagDrainTrusted,
+    [
+        "if eq next_index end:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner storage summary",
+        "if le remaining_steps 0:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal::StepBudgetExhausted owner",
+        "let path_command_index %i32 sub next_index start",
+        "let edge_index %i32 div_s path_command_index 2",
+        "let event_slot_ordinal %i32 rem_s path_command_index 2",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_read_edge_owner &owner edge_index",
+        "gui_sfnt_simple_glyph_outline_edge_owner_marker_edge_index &edge_owner",
+        "gui_sfnt_simple_glyph_outline_edge_owner_marker_glyph &edge_owner",
+        "gui_sfnt_simple_glyph_outline_edge_owner_marker_contour_index &edge_owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index",
+        "let span_contains_edge %bool and le span_start_point_index edge_index le edge_index span_end_point_index",
+        "let contour_edge_index %i32 sub edge_index span_start_point_index",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at collection contour_index contour_edge_index event_slot",
+        "gui_sfnt_simple_glyph_path_command_tag_from_sink_event_kind &event_kind",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot path_command_index edge_index contour_index contour_edge_index event_slot tag",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_push_tag owner event_kind tag_slot",
+        "sub remaining_steps 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5au trusted drain must complete, budget, logical index mapping, edge owner/source checks, push, and recurse in order",
+);
+const pathCommandTagDrainPushHelper = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_push_tag");
+for (const fragment of [
+    "let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_summary &owner",
+    "let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_cursor &owner",
+    "let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_path_command_index &tag_slot",
+    "let scalar_value %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_slot_scalar_value &tag_slot",
+    "let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage owner",
+    "match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value:",
+    "gui_sfnt_simple_glyph_outline_region_push_cursor &pushed",
+    "gui_sfnt_simple_glyph_outline_region_push_storage pushed",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner next_storage summary next_cursor",
+    "gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error",
+    "gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error",
+    "gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error",
+    "gui_sfnt_simple_glyph_outline_region_push_error_storage push_error",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner returned_storage summary cursor",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain_error_push_failed recovered_owner path_command_index edge_index event_kind tag_slot scalar_value_value region_error_kind storage_push_error_kind",
+]) {
+    assert(pathCommandTagDrainPushHelper.includes(fragment), `alloc/gui/font/sfnt/glyf F5au PathCommandTag push helper must include ${fragment}`);
+}
+assertOrderedFragments(
+    pathCommandTagDrainPushHelper,
+    [
+        "gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error",
+        "gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error",
+        "gui_sfnt_simple_glyph_outline_region_push_error_storage push_error",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner returned_storage summary cursor",
+    ],
+    "alloc/gui/font/sfnt/glyf F5au PathCommandTag push helper must read lower metadata before storage recovery",
+);
+assertNoMatch(
+    [pathCommandTagStartOwnerStorageCapacity, pathCommandTagStartOwnerReadEdgeOwner, edgeOwnerStorageRead, pathCommandTagDrainPublic, pathCommandTagDrainTrusted, pathCommandTagDrainPushHelper].join("\n"),
+    /\b(?:gui_sfnt_glyf_read_push_point_x|gui_sfnt_glyf_read_point_x_from_stream|gui_sfnt_glyf_read_push_point_y|gui_sfnt_glyf_read_point_y_from_stream|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|gui_sfnt_simple_glyph_outline_storage_push_point_x|gui_sfnt_simple_glyph_outline_storage_push_point_y|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5au PathCommandTag drain must not call byte-backed, old traversal, command stream, render, raster, host, platform, or fallback APIs",
+);
+for (const [slice, name] of [
+    [pathCommandTagStartOwnerStorageCapacity, "PathCommandTagStartOwner storage capacity accessor"],
+    [pathCommandTagStartOwnerReadEdgeOwner, "Edge owner helper"],
+    [edgeOwnerStorageRead, "storage Edge owner read helper"],
+    [pathCommandTagDrainPublic, "public drain"],
+    [pathCommandTagDrainTrusted, "trusted drain"],
+    [pathCommandTagDrainPushHelper, "push helper"],
+]) {
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5au ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_authority_checks_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_partial_restart_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_logical_index_mapping_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_edge_owner_non_consuming_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_span_event_source_checks_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_push_failure_recovers_path_command_tag_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_push_error_metadata_before_storage_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_completion_returns_complete_owner_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_step_budget_no_source_no_push_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests.includes("path_sink_action_path_command_tag_drain_no_fallback_no_byte_backed_no_traversal_no_raster"),
+    "F5au point stream item collection path sink action PathCommandTag drain focused doctest must cover types, authority checks, partial restart, source checks, push failures, completion, budget, and no fallback/no byte-backed/no-raster policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
