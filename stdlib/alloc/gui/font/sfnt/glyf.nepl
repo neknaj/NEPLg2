@@ -9004,6 +9004,22 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_s
                             let step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_contour_step cursor event kind next
                             Result::Ok step
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step: collection 由来の contour step を sink ownership boundary に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - F5ae contour step lookup の `Result::Err` は wrap せず、そのまま[返/かえ]します。
+//: - policy reject は `Result::Err` ではなく、`GuiSfntSimpleGlyphPathSinkStep` の primary action として[保持/ほじ]します。
+//: - byte-backed lookup、F5aa/F5ac/F5ad 直接呼び出し、sink traversal、raster / render / platform API は[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathContourCursor fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\cursor\policy:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step collection cursor:
+        Result::Err error:
+            Result::Err error
+        Result::Ok contour_step:
+            let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy &contour_step
+            Result::Ok sink_step
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

@@ -3979,6 +3979,34 @@ F5ac remains a kind-only sibling boundary. F5ae must not call F5ac because doing
 
 F5ae may call F5v contour span lookup, F5ad event lookup, the pure event-kind projection, the private cursor-next helper, and the pure contour-step constructor. It must not call F5ac/F5ab/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5z/F5y/F5x/F5w lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer/action APIs, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink step boundary
+
+F5af is the collection-backed sink step boundary. It mirrors byte-backed F4t `gui_sfnt_lookup_simple_glyph_path_sink_step`, but its contour step authority is F5ae rather than font bytes or table metadata.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5af intentionally does not introduce a new error type. It has no additional fallible data authority beyond F5ae, so F5ae errors must be propagated unchanged:
+
+```text
+match F5ae collection cursor:
+    Err error:
+        Err error
+    Ok contour_step:
+        sink_step_from_contour_step policy contour_step
+```
+
+Policy rejection is not an exceptional condition. `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` keeps the existing contract: unsupported off-curve starts become `GuiSfntSimpleGlyphPathSinkPrimaryAction::Reject`, and reject steps have `NoTailAction`. Close-contour tail handling remains in the pure F4t helper.
+
+F5af may call only F5ae and `gui_sfnt_simple_glyph_path_sink_step_from_contour_step`. It must not call F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, action step/traversal helpers, event consumers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

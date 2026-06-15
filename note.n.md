@@ -63897,3 +63897,40 @@ MERGE_APPROVED
 
 - F5ae は collection-backed contour step までであり、sink policy decision、primary/tail action step、contour-wide action traversal は未実装である。
 - 次 slice では F5ae を authority として collection-backed sink step / action step boundary へ進む。F4 byte-backed helper、F5aa/F5ac 直接呼び出し、renderer/raster/platform API へ戻らない。
+
+## 2026-06-15 GUI font collection path sink step checkpoint
+
+### scope
+
+- branch: `gui-font-collection-sink-step-f5af-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、F5ae の typed `Result` をそのまま返す。policy reject は error にせず、既存 sink step payload の enum に保持する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` を追加した。
+- F5af は F5ae `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を authority とし、error を wrap せず `Result::Err error` として返す。
+- F5af success path は pure `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` を呼び、policy decision と tail close handling を既存 F4t sink step contract に委譲する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5af の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md` を追加し、primary line、tail close、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5af source policy を追加し、F5ae exact one-call、pure sink-step projection exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed sink action step / action next boundary へ更新した。
+
+### subagent_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5af は F5ae と pure `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` の thin composition として coherent であり、新しい error type は不要と判断された。
+- Tesla implementation review: `REVIEW_APPROVED`。新規 doctest は staged add であり、helper は F5ae exact one-call、error unchanged propagation、pure sink-step projection のみを使う。byte-backed/lower helper leakage、fallback、policy reject/error-domain drift はないと確認された。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。5 分制限では timeout したため、source policy 本体は 900 秒制限で再実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_step_f5af.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_contour_step_f5af_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5af.json -j 1` は 759/759 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5af は collection-backed sink step までであり、action slot traversal、action next、contour-wide sink traversal は未実装である。
+- 次 slice では F5af を authority として collection-backed sink action step / action next boundary へ進む。
