@@ -6109,6 +6109,95 @@ vec push error accessors
 
 F5bb must not call F5av path command value lookup, F5aw stream step or drain, byte-backed lookup helpers, old path sink traversal, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection raster edge owner boundary
+
+F5bc converts the completed F5bb raster mask scalar stream into typed edge values. It is still an internal owner boundary. It does not scan-convert curves, generate coverage, emit render2d commands, call platform APIs, or ask any font fallback mechanism for substitute geometry.
+
+Value edge types are scalar-only:
+
+```text
+GuiSfntSimpleGlyphRasterLineEdge:
+    start_x2
+    start_y2
+    end_x2
+    end_y2
+
+GuiSfntSimpleGlyphRasterQuadraticEdge:
+    start_x2
+    start_y2
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+
+GuiSfntSimpleGlyphRasterEdge:
+    Line GuiSfntSimpleGlyphRasterLineEdge
+    Quadratic GuiSfntSimpleGlyphRasterQuadraticEdge
+```
+
+These value types may implement `Clone` / `Copy`. The storage owners must not:
+
+```text
+module-private drain owner
+    F5bb raster mask writer owner
+    Vec GuiSfntSimpleGlyphRasterEdge
+    scalar_index
+    edge_count
+    line_edge_count
+    quadratic_edge_count
+
+module-private completed owner
+    F5bb raster mask writer owner
+    Vec GuiSfntSimpleGlyphRasterEdge
+    final scalar and edge counts
+```
+
+Start performs a full authority check before allocating the typed edge Vec. It reuses F5az capacity derivation rather than trusting stored capacity alone, then verifies F5ba inner completion and F5bb outer completion. Expected edge count is `line_to_count + quadratic_to_count`; negative count or overflow is rejected before allocation. The Vec capacity is exactly `capacity.raster_edge_capacity`.
+
+Start errors are owner-bearing. Every start failure returns the original F5bb writer owner, so the caller can recover or free it. Allocation failure keeps lower `StdErrorKind`; no default empty typed edge Vec is fabricated.
+
+Scalar read is private and non-consuming. It reads the nested raster mask Vec by shared reference and returns typed scalar read errors:
+
+```text
+ScalarIndexNegative
+ScalarIndexOutOfRange
+ScalarStorageLengthMismatch
+ScalarStorageCapacityMismatch
+ScalarSlotMissing
+```
+
+`ScalarSlotMissing` is specifically `vec::get` returning `Option::None` after the explicit length/capacity checks. It is not converted to zero and does not retry through another representation.
+
+Drain parses records with a budget:
+
+```text
+complete:
+    return RasterEdgesCompleted completed_owner
+
+not complete and budget exhausted:
+    return StepBudgetExhausted drain_owner
+
+tag 2:
+    read exactly 5 scalar values
+    push Line edge
+    require scalar_index + 5 and line_edge_count + 1
+
+tag 3:
+    read exactly 7 scalar values
+    push Quadratic edge
+    require scalar_index + 7 and quadratic_edge_count + 1
+
+tag 1 or tag 4:
+    UnexpectedNonRasterTag
+
+other tag:
+    MalformedRasterMaskTag
+```
+
+The progress guard runs after a successful push and before recursion. It prevents a buggy step helper from returning an owner with a stale scalar index, double-incremented edge count, or mismatched line/quadratic count.
+
+Push failure recovery owns exactly one drain owner. The lower `vec::push` error kind is read before the failed Vec owner is recovered, then the unchanged drain owner is reconstructed with the recovered Vec and returned in `RasterEdgeDrainError`. Completed owner and drain owner each have explicit free functions that close the typed edge Vec and then close the F5bb writer owner exactly once.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
