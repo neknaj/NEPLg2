@@ -148,6 +148,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests = read("te
 const guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterCoverageScanConverterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -210,6 +211,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterCoverageScanConverterTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -14949,6 +14951,181 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_budget_completion_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_no_fallback_no_render"),
     "F5bf raster packed mask owner focused doctest must cover config/start, shape/raw validation, invariants, read/normalize, push recovery, completion/free, and no fallback policy",
+);
+assert(spec.includes("### SFNT simple glyph render fill alpha mask boundary"), "GUI font spec must document F5bg render fill alpha mask boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render fill alpha mask boundary"), "GUI font detailed design must document F5bg render fill alpha mask boundary");
+assert(implementationPlan.includes("## Phase F5bg: sfnt simple glyph render fill alpha mask boundary"), "GUI font implementation plan must include F5bg phase");
+assert(
+    implementationPlan.includes("Tesla revised plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("F5bg deliberately does not accept `GuiGlyphPaint`") &&
+        detailedDesign.includes("zero-copy owner handoff"),
+    "GUI font docs must pin F5bg approved plan, GuiGlyphPaint rejection, and owner handoff",
+);
+const renderFillAlphaMaskRegion = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:"),
+);
+const renderFillAlphaMaskConfigType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:"),
+);
+const renderFillAlphaMaskOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner "),
+);
+const renderFillAlphaMaskStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind:"),
+);
+assert(renderFillAlphaMaskRegion.length > 0, "alloc/gui/font/sfnt/glyf F5bg must define render fill alpha mask region");
+assertNoMatch(
+    renderFillAlphaMaskRegion,
+    /\bGuiGlyphPaint\b|\bgui_glyph_paint_|\bstroke\b|\bshadow\b/,
+    "alloc/gui/font/sfnt/glyf F5bg must not accept full glyph paint, stroke, or shadow binding",
+);
+for (const fragment of [
+    "origin %GuiPoint",
+    "fill_paint %GuiPaint",
+    "blend %GuiBlendMode",
+]) {
+    assert(renderFillAlphaMaskConfigType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bg config must include ${fragment}`);
+}
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskConfig\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskConfig\b/,
+    "alloc/gui/font/sfnt/glyf F5bg config is value-only and must implement Clone/Copy",
+);
+for (const fragment of [
+    "edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner",
+    "shape %GuiSfntSimpleGlyphRasterCoverageShape",
+    "alpha_cells %Vec i32",
+    "cell_count %i32",
+    "alpha_max %i32",
+    "origin %GuiPoint",
+    "fill_paint %GuiPaint",
+    "blend %GuiBlendMode",
+]) {
+    assert(renderFillAlphaMaskOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bg owner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+    "GuiSfntSimpleGlyphRenderFillAlphaMaskStartError",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bg ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:|pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskOwner:|pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskStartError:|pub fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5bg boundary types and owner constructor must remain private",
+);
+for (const fragment of [
+    "ShapeInvalidWidth",
+    "ShapeInvalidHeight",
+    "ShapeInvalidSampleScale",
+    "ShapeCoverageMaxMismatch",
+    "ShapeCellCountMismatch",
+    "InvalidAlphaMax",
+    "AlphaCellCountMismatch",
+    "AlphaStorageLenMismatch",
+    "AlphaStorageCapacityMismatch",
+]) {
+    assert(renderFillAlphaMaskStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bg start error kind must include ${fragment}`);
+}
+const renderFillAlphaMaskPackedShape = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_owner_shape");
+const renderFillAlphaMaskPackedCellCount = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_owner_cell_count");
+const renderFillAlphaMaskPackedAlphaMax = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_max");
+const renderFillAlphaMaskPackedCellsLen = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_cells_len");
+const renderFillAlphaMaskPackedCellsCap = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_cells_cap");
+for (const [slice, fieldName] of [
+    [renderFillAlphaMaskPackedShape, "shape"],
+    [renderFillAlphaMaskPackedCellCount, "cell_count"],
+    [renderFillAlphaMaskPackedAlphaMax, "alpha_max"],
+    [renderFillAlphaMaskPackedCellsLen, "alpha_cells len"],
+    [renderFillAlphaMaskPackedCellsCap, "alpha_cells cap"],
+]) {
+    assert(slice.length > 0, `alloc/gui/font/sfnt/glyf F5bg must add packed owner accessor for ${fieldName}`);
+}
+const renderFillAlphaMaskValidateShape = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_validate_shape");
+assertOrderedFragments(
+    renderFillAlphaMaskValidateShape,
+    [
+        "ShapeInvalidWidth",
+        "ShapeInvalidHeight",
+        "ShapeInvalidSampleScale",
+        "ShapeCoverageMaxMismatch",
+        "ShapeCellCountMismatch",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bg shape validation must be fail-closed before owner handoff",
+);
+const renderFillAlphaMaskInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_packed_owner_invariants");
+assertOrderedFragments(
+    renderFillAlphaMaskInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_validate_shape &shape",
+        "InvalidAlphaMax",
+        "AlphaCellCountMismatch",
+        "AlphaStorageLenMismatch",
+        "AlphaStorageCapacityMismatch",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bg invariant must check shape, alpha max, cell count, alpha len, and alpha cap",
+);
+const renderFillAlphaMaskStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_start");
+assertOrderedFragments(
+    renderFillAlphaMaskStart,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_packed_owner_invariants &packed_owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error error_kind packed_owner config",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_config_origin &config",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_config_fill_paint &config",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_config_blend &config",
+        "let edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner field::get packed_owner \"edge_owner\"",
+        "let alpha_cells %Vec i32 field::get packed_owner \"alpha_cells\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner edge_owner shape alpha_cells cell_count alpha_max origin fill_paint blend",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bg start must validate before destructure and preserve fill paint/blend",
+);
+const renderFillAlphaMaskStartErrorOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_packed_owner");
+assert(renderFillAlphaMaskStartErrorOwner.includes("field::get error \"packed_owner\""), "alloc/gui/font/sfnt/glyf F5bg start error must expose packed owner recovery");
+const renderFillAlphaMaskFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free");
+const renderFillAlphaMaskStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_free");
+assertOrderedFragments(
+    renderFillAlphaMaskFree,
+    [
+        "vec::free alpha_cells",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free edge_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bg completed owner free must release alpha cells before edge owner",
+);
+assert(renderFillAlphaMaskStartErrorFree.includes("gui_sfnt_simple_glyph_raster_packed_mask_owner_free packed_owner"), "alloc/gui/font/sfnt/glyf F5bg start error free must close recovered packed owner");
+for (const [slice, name] of [
+    [renderFillAlphaMaskValidateShape, "render fill alpha mask shape validation"],
+    [renderFillAlphaMaskInvariant, "render fill alpha mask invariant"],
+    [renderFillAlphaMaskStart, "render fill alpha mask start"],
+    [renderFillAlphaMaskFree, "render fill alpha mask owner free"],
+    [renderFillAlphaMaskStartErrorFree, "render fill alpha mask start error free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|GuiSfntSimpleGlyphPathSinkAction::|zero_fill|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|GuiGlyphPaint|gui_glyph_paint_|stroke|shadow|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5bg ${name} must not use byte-backed lookup, old traversal, zero-fill, command/target/platform APIs, full glyph paint, stroke, shadow, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bg ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_config_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_shape_alpha_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_fill_paint_blend_preserved_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_owner_handoff_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests.includes("render_fill_alpha_mask_no_platform_no_command"),
+    "F5bg render fill alpha mask focused doctest must cover config, shape/alpha validation, paint preservation, owner handoff, recovery, free, and no platform/command policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

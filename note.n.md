@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font render fill alpha mask boundary checkpoint
+
+## scope
+
+- branch: `gui-font-render2d-alpha-mask-f5bg-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bg の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、shape / alpha storage invariant、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph render fill alpha mask boundary の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bg の fill-only config、full `GuiGlyphPaint` 非受理、shape / alpha storage revalidation、owner handoff、free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bg の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に F5bf completed packed owner の shape / cell_count / alpha_max / alpha Vec len / cap accessor を追加した。
+- value-only `GuiSfntSimpleGlyphRenderFillAlphaMaskConfig` を追加し、`Clone` / `Copy` を実装した。config は origin、fill paint、blend mode だけを保持し、full glyph paint、stroke、shadow は受けない。
+- private `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` を追加した。edge owner、shape、alpha cell Vec、cell_count、alpha_max、origin、fill_paint、blend を保持し、owner-bearing type は `Clone` / `Copy` を実装しない。
+- start error は original packed owner と config を保持し、kind / config / packed owner recovery helper と start error free helper を持つ。
+- start は shape invariant、`alpha_max > 0`、packed owner cell_count、alpha Vec len / cap を検査してから packed owner を destructure する。
+- success path は edge owner、shape、alpha cells、cell_count、alpha_max、origin、fill_paint、blend を completed render fill alpha mask owner へ移す。RenderCommand emission や platform 接続は行わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bg source policy を追加した。docs/types/private owner/recovery/shape alpha validation/fill paint and blend preservation/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md` を追加し、F5bg source policy coverage label を固定した。
+- `todo.md` は F5bg 完了後の次作業として、render command / 2D compositor boundary と full glyph paint binding へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。当初案の `GuiGlyphPaint` config は stroke-only や shadow-bearing paint を fill coverage に落としてしまう危険があり、hidden stroke / shadow fallback になると指摘された。
+- 指摘を受け、F5bg config から `GuiGlyphPaint` を削除し、`GuiPaint` と `GuiBlendMode` を持つ fill alpha mask 専用境界へ修正した。
+- stroke / shadow / full glyph paint binding は F5bg では扱わず、後続境界で明示的に accept / reject する契約にした。
+- Tesla revised plan review は `PLAN_APPROVED`。fill paint と blend の exact preservation、zero-copy owner handoff、shape / alpha storage revalidation before destructuring が実装条件として承認された。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容 blocker はなく、`tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md` が未追跡で commit 対象に入っていないことと、この review 結果を note に記録することが commit-readiness blocker として指摘された。
+- 指摘を受け、新規 focused doctest を他の F5bg ファイルとともに stage し、note に review blocker を記録した。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。staged files は意図した 8 files のみで、前回の commit-readiness blocker は解消済みと確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_boundary_f5bg.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_packed_mask_owner_f5bg_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bg.json -j 1` 1113/1113 passed
+
+## remaining
+
+- F5bg は fill alpha mask owner handoff までであり、RenderCommand emission、2D compositor、stroke / shadow / full glyph paint binding、glyph bitmap composition、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では F5bg owner を authority として、render command / 2D compositor boundary または full glyph paint binding の明示 accept / reject 境界へ進む。
+
 # 2026-06-16 Agent2 GUI font raster packed mask owner checkpoint
 
 ## scope

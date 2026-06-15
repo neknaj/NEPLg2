@@ -26,6 +26,9 @@
 #import "core/cast" as *
 #import "core/field" as field
 #import "core/gui/font" as *
+#import "core/gui/geometry" as *
+#import "core/gui/render_command" as *
+#import "core/gui/render_style" as *
 #import "core/math" as *
 #import "core/option" as *
 #import "core/result" as *
@@ -16646,6 +16649,23 @@ struct GuiSfntSimpleGlyphRasterPackedMaskOwner:
 fn gui_sfnt_simple_glyph_raster_packed_mask_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterPackedMaskOwner \edge_owner\shape\alpha_cells\cell_count\alpha_max:
     GuiSfntSimpleGlyphRasterPackedMaskOwner edge_owner shape alpha_cells cell_count alpha_max
 
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner_shape %fn &GuiSfntSimpleGlyphRasterPackedMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shape"
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRasterPackedMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_max %fn &GuiSfntSimpleGlyphRasterPackedMaskOwner i32 \owner:
+    *field::get_ref owner "alpha_max"
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRasterPackedMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRasterPackedMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
 //: GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind: packed mask start failure reason
 //:
 //: neplg2:test[skip]
@@ -17052,6 +17072,215 @@ fn gui_sfnt_simple_glyph_raster_packed_mask_pack_terminal_free %impure fn GuiSfn
             gui_sfnt_simple_glyph_raster_packed_mask_owner_free completed
         GuiSfntSimpleGlyphRasterPackedMaskPackTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_free owner
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskConfig: fill alpha mask を render 境界へ渡す設定
+//:
+//: [目的/もくてき]:
+//: - F5bf で完成した alpha mask に、配置 origin、fill paint、blend mode を結びつけます。
+//: - stroke や shadow は扱わず、後続の専用境界が別に検査します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:
+    origin %GuiPoint
+    fill_paint %GuiPaint
+    blend %GuiBlendMode
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskConfig GuiSfntSimpleGlyphRenderFillAlphaMaskConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskConfig GuiSfntSimpleGlyphRenderFillAlphaMaskConfig \config:
+        config
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_config %fn GuiPoint fn GuiPaint fn GuiBlendMode GuiSfntSimpleGlyphRenderFillAlphaMaskConfig \origin\fill_paint\blend:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskConfig origin fill_paint blend
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_config_origin %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskConfig GuiPoint \config:
+    *field::get_ref config "origin"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_config_fill_paint %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskConfig GuiPaint \config:
+    *field::get_ref config "fill_paint"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_config_blend %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskConfig GuiBlendMode \config:
+    *field::get_ref config "blend"
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskOwner: render 境界へ渡す fill alpha mask owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskOwner:
+    edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells %Vec i32
+    cell_count %i32
+    alpha_max %i32
+    origin %GuiPoint
+    fill_paint %GuiPaint
+    blend %GuiBlendMode
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 fn i32 fn GuiPoint fn GuiPaint fn GuiBlendMode GuiSfntSimpleGlyphRenderFillAlphaMaskOwner \edge_owner\shape\alpha_cells\cell_count\alpha_max\origin\fill_paint\blend:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskOwner edge_owner shape alpha_cells cell_count alpha_max origin fill_paint blend
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiPoint \owner:
+    *field::get_ref owner "origin"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_fill_paint %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiPaint \owner:
+    *field::get_ref owner "fill_paint"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_blend %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiBlendMode \owner:
+    *field::get_ref owner "blend"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shape"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_size %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSize \owner:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape owner
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+    let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px &shape
+    gui_size_new width_px height_px
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner i32 \owner:
+    *field::get_ref owner "alpha_max"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind: fill alpha mask 境界の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind:
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    InvalidAlphaMax
+    AlphaCellCountMismatch
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskStartError: fill alpha mask 境界の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskStartError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind
+    packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner
+    config %GuiSfntSimpleGlyphRenderFillAlphaMaskConfig
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind fn GuiSfntSimpleGlyphRasterPackedMaskOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskConfig GuiSfntSimpleGlyphRenderFillAlphaMaskStartError \kind\packed_owner\config:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskStartError kind packed_owner config
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskStartError GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_config %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskStartError GuiSfntSimpleGlyphRenderFillAlphaMaskConfig \error:
+    *field::get_ref error "config"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_packed_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskStartError GuiSfntSimpleGlyphRasterPackedMaskOwner \error:
+    field::get error "packed_owner"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_validate_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_start_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_start_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_packed_owner_invariants %fn &GuiSfntSimpleGlyphRasterPackedMaskOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \packed_owner:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_packed_mask_owner_shape packed_owner
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_validate_shape &shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_max packed_owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::InvalidAlphaMax
+                else:
+                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_raster_packed_mask_owner_cell_count packed_owner
+                    if ne owner_cell_count shape_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::AlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_cells_len packed_owner
+                            if ne alpha_cells_len shape_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::AlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_raster_packed_mask_owner_alpha_cells_cap packed_owner
+                                    if ne alpha_cells_cap shape_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind::AlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_start %impure fn GuiSfntSimpleGlyphRasterPackedMaskOwner impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskConfig Result GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderFillAlphaMaskStartError \packed_owner\config:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_packed_owner_invariants &packed_owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error error_kind packed_owner config
+        Result::Ok _:
+            let origin %GuiPoint gui_sfnt_simple_glyph_render_fill_alpha_mask_config_origin &config
+            let fill_paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_config_fill_paint &config
+            let blend %GuiBlendMode gui_sfnt_simple_glyph_render_fill_alpha_mask_config_blend &config
+            let edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner field::get packed_owner "edge_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape field::get packed_owner "shape"
+            let alpha_cells %Vec i32 field::get packed_owner "alpha_cells"
+            let cell_count %i32 field::get packed_owner "cell_count"
+            let alpha_max %i32 field::get packed_owner "alpha_max"
+            let render_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_owner edge_owner shape alpha_cells cell_count alpha_max origin fill_paint blend
+            Result::Ok render_owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner unit \owner:
+    let edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner field::get owner "edge_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free edge_owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskStartError unit \error:
+    let packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner field::get error "packed_owner"
+    gui_sfnt_simple_glyph_raster_packed_mask_owner_free packed_owner
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:

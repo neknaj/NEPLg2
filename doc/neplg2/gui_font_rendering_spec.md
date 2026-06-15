@@ -5821,6 +5821,62 @@ platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph render fill alpha mask boundary
+
+F5bg は F5bf の completed packed alpha mask owner を authority として、2D renderer に渡す直前の fill alpha mask owner へ所有権を移す境界である。この phase は `RenderCommand` を発行せず、pixel buffer を作らず、DrawTarget / RenderTarget / platform / host API に接続しない。目的は、normalized alpha cells を保持したまま、描画位置、fill paint、blend mode を 1 つの owner にまとめることである。
+
+F5bg は full `GuiGlyphPaint` を受け取らない。F5bf の alpha mask は glyph fill coverage であり、stroke、shadow、full paint をこの境界で受けると、それらを無視する危険がある。そのため F5bg の config は fill paint と blend mode だけを持つ。
+
+```text
+RenderFillAlphaMaskConfig:
+    origin
+    fill_paint
+    blend
+```
+
+config は value-only で `Clone` / `Copy` を許可する。owner は module-private で `Clone` / `Copy` を実装しない。
+
+```text
+RenderFillAlphaMaskOwner:
+    edge_owner
+    shape
+    alpha_cells
+    cell_count
+    alpha_max
+    origin
+    fill_paint
+    blend
+```
+
+start は packed owner を消費する前に必ず次を再検査する。
+
+```text
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == shape.sample_scale * shape.sample_scale
+shape.cell_count == shape.width_px * shape.height_px
+packed_owner.alpha_max > 0
+packed_owner.cell_count == shape.cell_count
+packed_owner.alpha_cells.len == shape.cell_count
+packed_owner.alpha_cells.cap == shape.cell_count
+```
+
+検査に失敗した場合は start error が original packed owner と config を保持する。caller は packed owner を回収して free するか、diagnostic に使える。success の場合は packed owner の edge owner、shape、alpha cell Vec、cell count、alpha max をそのまま移し、config の origin、fill paint、blend をそのまま completed owner に保持する。これは buffer copy でも command emission でもない。
+
+F5bg は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke / shadow binding
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
