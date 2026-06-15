@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5bd の raster coverage mask writer owner を authority とし、line / quadratic edge の scan conversion / coverage computation を coverage cell push boundary へ接続する。private owner recovery、typed edge Vec len/cap revalidation、coverage value range、zero-fill fallback 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止を維持する
+- F5be の raster coverage scan converter を authority とし、completed coverage mask owner から packed / render2d mask boundary へ進める。zero-fill fallback 禁止、partial mask completion 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、typed terminal、shape/cell-index invariant revalidation を維持する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

@@ -40,6 +40,61 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5be: sfnt simple glyph raster coverage scan converter
+
+目的:
+
+- F5bd の coverage mask writer owner を authority とし、line / quadratic typed raster edge から cell coverage を計算して `push_cell` boundary へ接続する。
+- scan conversion を再開可能な owner と budgeted drain として実装し、GUI scheduler / headless test / native backend が同じ処理を time slice で進められるようにする。
+- quadratic は `quadratic_segment_count` を持つ明示 config による deterministic flattening として扱い、0 coverage fallback や platform fallback を行わない。
+- F5be は coverage scan converter で止め、packed mask conversion、render2d command、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- F5bd coverage shape の再検証が不足し、malformed shape が `%`、`/`、sample loop、coverage range へ到達しうると指摘された。
+- `cell_index > shape.cell_count` が typed error ではなく coordinate derivation へ進みうるため、drain/step の cell index bounds を completion/budget より前に固定する必要があると指摘された。
+- revised plan では shape invariant validation と cell-index bounds error を追加する。
+- Tesla revised plan review は `PLAN_APPROVED`。shape revalidation before math/push、cell-index bounds before completion/budget/scan、explicit quadratic segment config、typed `StepBudgetExhausted` terminal は実装開始条件を満たす。
+
+変更:
+
+- `GuiSfntSimpleGlyphRasterCoverageScanConfig` を追加する。value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRasterCoverageScanOwner` を module-private owner として追加する。F5bd writer owner、scan config、cell_index を保持し、`Clone` / `Copy` は実装しない。
+- `RasterCoverageScanStartErrorKind` / `RasterCoverageScanStartError` を追加する。start error は original F5bd writer owner を必ず保持し、recovery helper で回収できる。
+- start は `quadratic_segment_count > 0`、coverage shape invariant、writer written/cell Vec state、edge owner count、typed edge Vec len/cap を再検査する。
+- coverage shape invariant は `width_px > 0`、`height_px > 0`、`sample_scale > 0`、`coverage_max == sample_scale * sample_scale`、`cell_count == width_px * height_px` を検査し、通過前に cell coordinate math、sample loop、edge scan、`push_cell` へ進まない。
+- edge read helper を追加する。negative index、out of range、edge Vec len/cap mismatch、`vec::get None` を typed error にする。
+- i64 scaled coordinate helper を追加し、sample coordinate と edge coordinate を同じ `x2 * sample_scale` 空間へ変換する。
+- line crossing helper を追加する。even-odd rule、strict y-range active check、i64 cross product、dy sign に応じた比較を固定する。
+- quadratic crossing helper を追加する。`quadratic_segment_count` による deterministic segment endpoints を作り、line crossing helper だけへ渡す。
+- sample coverage helper を追加し、sample point ごとの crossing count parity を coverage increment に変換する。
+- cell coverage helper を追加し、`sample_scale * sample_scale` sample を走査して `0 <= coverage <= coverage_max` を計算する。
+- step helper を追加し、1 cell coverage を計算して F5bd `push_cell` へ渡し、push failure では recovered writer を保持した scan owner を返す。
+- bounded drain terminal を追加する。`Completed` と `StepBudgetExhausted` を success enum で分け、completion は F5bd writer completion の exact completed branch だけを成功とする。
+- drain / step は completion と budget より前に `0 <= cell_index <= shape.cell_count` を検査し、`CellIndexNegative` / `CellIndexExceedsCellCount` は owner-bearing typed error として返す。
+- step 成功後に `cell_index + 1` と `written_cell_count + 1` の hard progress guard を入れる。
+- scan owner / terminal / error の free helper を追加し、writer owner を exactly once close できるようにする。
+
+完了条件:
+
+- source policy が docs、plan review approval、scan config `Clone` / `Copy`、private scan owner、owner no `Clone` / `Copy`、start error writer recovery、scan error owner recovery、start validation order、coverage shape revalidation before math/push、cell-index bounds before completion/budget/scan、edge storage revalidation、edge read typed error、scaled sample coordinate、line crossing i64 cross product、quadratic explicit segment config、cell coverage sampling、push_cell integration、bounded drain terminal、hard progress guard、free functions、forbidden byte-backed / old traversal / zero-fill / packed mask / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md` に start validation、line crossing、quadratic segment policy、cell coverage sampling、push integration、budgeted terminal、no fallback/no render policy の coverage label を追加する。
+- implementation review で writer owner が start/step/completion failure から必ず回収可能であること、`StepBudgetExhausted` が success terminal であり zero-fill completion ではないこと、quadratic が明示 config で処理されていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の packed / render2d mask boundary phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_scan_converter_f5be.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_mask_writer_f5be_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5be.json -j 1
+git diff --check
+```
+
 ## Phase F5bd: sfnt simple glyph raster coverage mask writer owner
 
 目的:
