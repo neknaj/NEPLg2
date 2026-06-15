@@ -63779,3 +63779,40 @@ MERGE_APPROVED
 
 - F5t は collection owner / single push / typed read までであり、F5s drain result を collection へ流す loop は未実装である。
 - 次 slice では F5u として、F5s drain と collection push を owner-preserving に接続する。`StepBudgetExhausted` は typed terminal として残し、push failure では collection owner、cursor、last item、lower error metadata を失わないようにする。
+
+## 2026-06-15 GUI font collection path sink event kind at checkpoint
+
+### scope
+
+- branch: `gui-font-collection-path-event-kind-at-f5ac-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、F5ab error をそのまま返す `Result` と `GuiSfntSimpleGlyphPathSinkEventSlot` enum による typed slot selection で、invalid index を型から排除する。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at` を追加した。
+- F5ac は F5ab `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair` を authority とし、成功時だけ pure `gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at` へ typed slot を渡す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ac の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md` を追加し、first / second slot、NoSegment skip、error propagation、no fallback/no Vec/no sink traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ac source policy を追加し、F5ab exact one-call、pure typed-slot projection exact one-call、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の path sink event at / outline traversal boundary へ更新した。
+
+### subagent_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ac は F5ab と既存 pure typed-slot kind projection の thin composition として scope が適切であり、`GuiSfntSimpleGlyphPathSinkEventSlot` が closed input domain なので新しい error enum は不要と判断された。
+- Tesla implementation review 1: `REVIEW_BLOCKED`。F5ac helper の設計と forbidden dependency は問題ないが、focused doctest file が未追跡のままだと commit tree から欠落して source policy が失敗するため、commit set へ追加するよう指摘された。
+- Tesla implementation review 1 fixes: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md` を明示的に staging 対象へ含める。
+- Tesla implementation review 2: `REVIEW_APPROVED`。focused doctest file が staged add になり、`note.n.md` に blocked review と fix が記録され、`git diff --cached --check` が pass しているため blocker 解消と確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_at_f5ac.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_pair_f5ac_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ac.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5ac は typed slot から kind を読む lookup までであり、payload event selection、contour cursor、full traversal は未実装である。
+- 次 slice では F5ac を authority として、path sink event at または collection-backed contour traversal へ進む。
