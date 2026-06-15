@@ -142,6 +142,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bh: sfnt simple glyph render glyph paint binding boundary
+
+目的:
+
+- F5bg の fill alpha mask owner start を authority とし、full `GuiGlyphPaint` から現在の renderer が扱える fill-only subset を明示的に取り出す。
+- stroke / shadow は黙って無視せず、owner-bearing typed error として返す。
+- success owner は既存の `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` とし、F5bh では新しい completed owner や command stream を作らない。
+- `RenderCommand` emission、DrawTarget / RenderTarget、2D compositor、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- lower F5bg error から kind を読む前に lower error を消費しないこと、start signature と success owner type を明記すること、stroke-only / shadow-only paint を `MissingFillPaint` で覆い隠さない validation precedence を固定することが指摘された。
+- revised plan では start signature を `Result GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderGlyphPaintStartError` と明記し、validation order を stroke -> shadow -> fill に固定する。
+- F5bg lower error は `gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_kind &lower_error` で kind を読んだ後に packed owner recovery accessor で消費する。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderGlyphPaintConfig` を追加する。`origin` と `paint` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind` を追加する。`MissingFillPaint`、`UnsupportedStrokePaint`、`UnsupportedShadowPaint`、`FillAlphaMaskStartFailed` を持つ。
+- `GuiSfntSimpleGlyphRenderGlyphPaintStartError` を追加する。kind、packed owner、config、lower F5bg error kind の `Option` を保持する。
+- direct validation failure は `lower_kind = Option::None` として返す。
+- F5bg delegated failure は lower kind を `Option::Some` として保持し、recovered packed owner と original config を返す。
+- `gui_sfnt_simple_glyph_render_glyph_paint_owner_start` を追加する。stroke Some、non-NoShadow、fill None をこの順に検査し、fill-only の場合だけ F5bg config を作って `gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_start` へ委譲する。
+- error kind / config / lower kind / packed owner recovery helper と、start error free helper を追加する。
+
+完了条件:
+
+- source policy が docs、plan review blocker と revised approval、config `Clone` / `Copy`、start error no `Clone` / `Copy`、private boundary、return type、validation precedence、F5bg lower error kind read before recovery、owner-bearing error、no RenderCommand / DrawTarget / RenderTarget / platform / fallback / stroke rasterizer / shadow rasterizer、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md` に config、fill-only accepted path、stroke-before-missing-fill reject、shadow-before-missing-fill reject、missing fill、lower error recovery、no platform / no command policy の coverage label を追加する。
+- implementation review で unsupported stroke / shadow が hidden fill-only success になっていないこと、F5bg lower error owner recovery order、staged doctest と note/todo 更新を確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bh 後の render command / 2D compositor boundary、stroke / shadow dedicated raster boundary を明示した残件へ更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_glyph_paint_binding_f5bh.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_boundary_f5bh_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bh.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

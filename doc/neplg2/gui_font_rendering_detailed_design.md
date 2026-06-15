@@ -6598,6 +6598,64 @@ The completed owner free helper releases `alpha_cells` before closing `edge_owne
 
 F5bg must not call byte-backed lookup helpers, old traversal helpers, zero-fill helpers, `RenderCommand` constructors, `DrawTarget` / `RenderTarget`, platform APIs, host APIs, font fallback, or any stroke / shadow binding helper.
 
+## SFNT simple glyph render glyph paint binding boundary
+
+F5bh is the explicit full `GuiGlyphPaint` binding boundary for the F5bg fill alpha mask owner. It accepts a full glyph paint value but only forwards the fill-only subset that the current alpha mask can represent. This is not a compositor boundary and not a render command boundary.
+
+The config is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderGlyphPaintConfig:
+    origin GuiPoint
+    paint GuiGlyphPaint
+```
+
+`GuiSfntSimpleGlyphRenderGlyphPaintConfig` may implement `Clone` / `Copy`. The start error owns a packed mask owner and must not implement `Clone` / `Copy`.
+
+The start signature is:
+
+```text
+GuiSfntSimpleGlyphRasterPackedMaskOwner
+GuiSfntSimpleGlyphRenderGlyphPaintConfig
+-> Result GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderGlyphPaintStartError
+```
+
+The validation order is part of the contract:
+
+```text
+stroke Some        -> UnsupportedStrokePaint
+SingleShadow       -> UnsupportedShadowPaint
+ShadowRun          -> UnsupportedShadowPaint
+fill None          -> MissingFillPaint
+fill Some + no unsupported paint -> delegate to F5bg
+```
+
+Stroke and shadow are checked before fill. This prevents stroke-only or shadow-only paint from being reported as a missing fill and makes unsupported drawing modes explicit. If stroke and shadow are both present, stroke wins because it is the first unsupported mode in the stable validation order.
+
+The accepted path constructs the existing F5bg config from:
+
+```text
+origin from GuiSfntSimpleGlyphRenderGlyphPaintConfig
+fill_paint from GuiGlyphPaint.fill
+blend from GuiGlyphPaint.blend
+```
+
+It then calls `gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_start`. The returned success owner is exactly `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner`; F5bh does not introduce a second completed owner and does not copy the alpha storage.
+
+Failure is owner-bearing:
+
+```text
+GuiSfntSimpleGlyphRenderGlyphPaintStartError:
+    kind GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind
+    packed_owner GuiSfntSimpleGlyphRasterPackedMaskOwner
+    config GuiSfntSimpleGlyphRenderGlyphPaintConfig
+    lower_kind Option GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind
+```
+
+For direct validation failures, `lower_kind` is `Option::None`. When F5bg start fails, F5bh reads `gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_kind &lower_error` before consuming `lower_error` through packed owner recovery. It then returns `FillAlphaMaskStartFailed` with `lower_kind = Option::Some lower_kind` and the recovered packed owner.
+
+F5bh must not call `RenderCommand` constructors, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, stroke rasterizers, shadow rasterizers, or 2D compositor APIs. Unsupported stroke / shadow must not become a hidden fill-only success.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

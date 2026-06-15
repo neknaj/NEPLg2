@@ -17282,6 +17282,117 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_free %impure fn GuiS
     let packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner field::get error "packed_owner"
     gui_sfnt_simple_glyph_raster_packed_mask_owner_free packed_owner
 
+//: GuiSfntSimpleGlyphRenderGlyphPaintConfig: glyph paint を fill alpha mask 境界へ結びつける設定
+//:
+//: [目的/もくてき]:
+//: - full glyph paint を受け取り、現在の実装が扱える fill-only paint だけを F5bg 境界へ渡します。
+//: - stroke と shadow は黙って無視せず、専用の typed error として返します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderGlyphPaintConfig:
+    origin %GuiPoint
+    paint %GuiGlyphPaint
+
+impl Clone for GuiSfntSimpleGlyphRenderGlyphPaintConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderGlyphPaintConfig GuiSfntSimpleGlyphRenderGlyphPaintConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderGlyphPaintConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderGlyphPaintConfig GuiSfntSimpleGlyphRenderGlyphPaintConfig \config:
+        config
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_config %fn GuiPoint fn GuiGlyphPaint GuiSfntSimpleGlyphRenderGlyphPaintConfig \origin\paint:
+    GuiSfntSimpleGlyphRenderGlyphPaintConfig origin paint
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_config_origin %fn &GuiSfntSimpleGlyphRenderGlyphPaintConfig GuiPoint \config:
+    *field::get_ref config "origin"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_config_paint %fn &GuiSfntSimpleGlyphRenderGlyphPaintConfig GuiGlyphPaint \config:
+    *field::get_ref config "paint"
+
+//: GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind: glyph paint binding 境界の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind:
+    MissingFillPaint
+    UnsupportedStrokePaint
+    UnsupportedShadowPaint
+    FillAlphaMaskStartFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderGlyphPaintStartError: glyph paint binding の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderGlyphPaintStartError:
+    kind %GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind
+    packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner
+    config %GuiSfntSimpleGlyphRenderGlyphPaintConfig
+    lower_kind %Option GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error %fn GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind fn GuiSfntSimpleGlyphRasterPackedMaskOwner fn GuiSfntSimpleGlyphRenderGlyphPaintConfig fn Option GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind GuiSfntSimpleGlyphRenderGlyphPaintStartError \kind\packed_owner\config\lower_kind:
+    GuiSfntSimpleGlyphRenderGlyphPaintStartError kind packed_owner config lower_kind
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_simple %fn GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind fn GuiSfntSimpleGlyphRasterPackedMaskOwner fn GuiSfntSimpleGlyphRenderGlyphPaintConfig GuiSfntSimpleGlyphRenderGlyphPaintStartError \kind\packed_owner\config:
+    let lower_kind %Option GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind Option::None
+    gui_sfnt_simple_glyph_render_glyph_paint_start_error kind packed_owner config lower_kind
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_with_lower %fn GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind fn GuiSfntSimpleGlyphRasterPackedMaskOwner fn GuiSfntSimpleGlyphRenderGlyphPaintConfig fn GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind GuiSfntSimpleGlyphRenderGlyphPaintStartError \kind\packed_owner\config\lower_kind_value:
+    let lower_kind %Option GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind Option::Some lower_kind_value
+    gui_sfnt_simple_glyph_render_glyph_paint_start_error kind packed_owner config lower_kind
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_kind %fn &GuiSfntSimpleGlyphRenderGlyphPaintStartError GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_config %fn &GuiSfntSimpleGlyphRenderGlyphPaintStartError GuiSfntSimpleGlyphRenderGlyphPaintConfig \error:
+    *field::get_ref error "config"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_lower_kind %fn &GuiSfntSimpleGlyphRenderGlyphPaintStartError Option GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind \error:
+    *field::get_ref error "lower_kind"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_packed_owner %fn GuiSfntSimpleGlyphRenderGlyphPaintStartError GuiSfntSimpleGlyphRasterPackedMaskOwner \error:
+    field::get error "packed_owner"
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_owner_start %impure fn GuiSfntSimpleGlyphRasterPackedMaskOwner impure fn GuiSfntSimpleGlyphRenderGlyphPaintConfig Result GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderGlyphPaintStartError \packed_owner\config:
+    let paint %GuiGlyphPaint gui_sfnt_simple_glyph_render_glyph_paint_config_paint &config
+    let stroke %Option GuiStroke gui_glyph_paint_stroke &paint
+    match stroke:
+        Option::Some _stroke:
+            Result::Err gui_sfnt_simple_glyph_render_glyph_paint_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind::UnsupportedStrokePaint packed_owner config
+        Option::None:
+            let shadows %GuiShadowRef gui_glyph_paint_shadows &paint
+            match shadows:
+                GuiShadowRef::SingleShadow _shadow:
+                    Result::Err gui_sfnt_simple_glyph_render_glyph_paint_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind::UnsupportedShadowPaint packed_owner config
+                GuiShadowRef::ShadowRun _id:
+                    Result::Err gui_sfnt_simple_glyph_render_glyph_paint_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind::UnsupportedShadowPaint packed_owner config
+                GuiShadowRef::NoShadow:
+                    let fill %Option GuiPaint gui_glyph_paint_fill &paint
+                    match fill:
+                        Option::None:
+                            Result::Err gui_sfnt_simple_glyph_render_glyph_paint_start_error_simple GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind::MissingFillPaint packed_owner config
+                        Option::Some fill_paint:
+                            let origin %GuiPoint gui_sfnt_simple_glyph_render_glyph_paint_config_origin &config
+                            let blend %GuiBlendMode gui_glyph_paint_blend &paint
+                            let fill_config %GuiSfntSimpleGlyphRenderFillAlphaMaskConfig gui_sfnt_simple_glyph_render_fill_alpha_mask_config origin fill_paint blend
+                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_start packed_owner fill_config:
+                                Result::Ok render_owner:
+                                    Result::Ok render_owner
+                                Result::Err lower_error:
+                                    let lower_kind %GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_kind &lower_error
+                                    let recovered_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_packed_owner lower_error
+                                    Result::Err gui_sfnt_simple_glyph_render_glyph_paint_start_error_with_lower GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind::FillAlphaMaskStartFailed recovered_owner config lower_kind
+
+fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_free %impure fn GuiSfntSimpleGlyphRenderGlyphPaintStartError unit \error:
+    let packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner field::get error "packed_owner"
+    gui_sfnt_simple_glyph_raster_packed_mask_owner_free packed_owner
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

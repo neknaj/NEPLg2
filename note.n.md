@@ -65155,3 +65155,49 @@ MERGE_APPROVED
 
 - F5ai は action item next / consumer item までであり、consumer item next、consume/apply loop、contour-wide sink traversal は未実装である。
 - 次 slice では F5ai を authority として collection-backed consumer item next / consume-once boundary へ進む。
+
+## 2026-06-16 GUI font rendering F5bh render glyph paint binding boundary
+
+### scope
+
+- F5bh は F5bg の fill alpha mask owner start を authority とし、full `GuiGlyphPaint` を受ける最初の binding boundary である。
+- 現時点で受理するのは fill-only paint だけであり、stroke / shadow は fill coverage へ黙って縮退させず typed error として返す。
+- F5bh は `RenderCommand` emission、DrawTarget / RenderTarget、2D compositor、stroke rasterizer、shadow rasterizer、platform / host API、font fallback へ進まない。
+
+### plan_review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- lower F5bg error の kind を owner recovery 前に読むこと、start signature と success owner type を明示すること、stroke-only / shadow-only paint を `MissingFillPaint` で覆い隠さない validation precedence を固定することが指摘された。
+- revised plan では start signature を `Result GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderGlyphPaintStartError` とし、validation order を stroke -> shadow -> fill に固定した。
+- F5bg lower error は `gui_sfnt_simple_glyph_render_fill_alpha_mask_start_error_kind &lower_error` で kind を読んでから packed owner recovery accessor で消費する。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderGlyphPaintConfig` を追加した。`origin` と `paint` を保持する value-only record で、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderGlyphPaintStartErrorKind` と owner-bearing `GuiSfntSimpleGlyphRenderGlyphPaintStartError` を追加した。
+- direct validation failure は `lower_kind = Option::None` とし、F5bg delegated failure は lower kind を `Option::Some` として保持して recovered packed owner と original config を返す。
+- `gui_sfnt_simple_glyph_render_glyph_paint_owner_start` は stroke Some、non-NoShadow、fill None の順に検査し、fill-only の場合だけ F5bg fill alpha mask owner start へ委譲する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bh の contract、validation precedence、lower error recovery order、依存禁止を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md` を追加し、config、fill-only accepted path、stroke / shadow / missing-fill reject、lower recovery、no platform / no command policy の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bh source policy を追加した。
+- `todo.md` は F5bh 後の render command / 2D compositor boundary と、stroke / shadow 専用境界の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_glyph_paint_binding_f5bh.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_boundary_f5bh_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bh.json -j 1` は 1116/1116 pass。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。code / source policy / doctest / staging の content blocker はないが、F5bh checkpoint の subagent review 欄が pending のままだったため、mergeable staged set として記録更新が必要と指摘された。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回の note-only blocker は解消され、staged set は意図した 8 files のみで、新規 focused doctest も含まれ、`git diff --cached --check` も pass と確認された。
+
+### residual
+
+- F5bh は full glyph paint の explicit accept / reject boundary までであり、`RenderCommand` emission、2D compositor、stroke rasterization、shadow rasterization は未実装である。
+- 次 slice では F5bh の accepted fill-only owner を authority として render command / 2D compositor boundary へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。

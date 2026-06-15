@@ -5877,6 +5877,47 @@ font fallback
 stroke / shadow binding
 ```
 
+### SFNT simple glyph render glyph paint binding boundary
+
+F5bh は F5bg の fill alpha mask owner start を authority とし、full `GuiGlyphPaint` を受ける最初の境界である。ただし、この phase は stroke rasterization、shadow rasterization、2D compositor、`RenderCommand` emission へは進まない。現在の alpha mask は fill coverage だけを表すため、受理できる paint は `fill = Some paint`、`stroke = None`、`shadows = NoShadow` のみである。
+
+F5bh は unsupported paint を黙って fill-only として扱わない。validation precedence は次で固定する。
+
+```text
+1. stroke が Some なら UnsupportedStrokePaint
+2. shadows が SingleShadow または ShadowRun なら UnsupportedShadowPaint
+3. fill が None なら MissingFillPaint
+4. fill Some / stroke None / NoShadow の場合だけ F5bg fill alpha mask start へ委譲
+```
+
+この順序により、stroke-only paint や shadow-only paint は `MissingFillPaint` ではなく、対応外の描画モードとして明示される。複数の unsupported mode が同時にある場合は、stroke が shadow より先に報告される。これは診断の一貫性を保つための contract である。
+
+```text
+RenderGlyphPaintConfig:
+    origin
+    paint
+```
+
+start は次を返す。
+
+```text
+Result RenderFillAlphaMaskOwner RenderGlyphPaintStartError
+```
+
+error は owner-bearing であり、失敗した場合でも `GuiSfntSimpleGlyphRasterPackedMaskOwner` を回収できる。F5bg への委譲後に lower error が発生した場合は、lower error kind を `Option::Some` として保持し、packed owner を回収して `FillAlphaMaskStartFailed` へ包む。lower error kind は lower error を消費して owner を取り出す前に読み取る。
+
+F5bh は次を呼ばない。
+
+```text
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke rasterizer
+shadow rasterizer
+2D compositor
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
