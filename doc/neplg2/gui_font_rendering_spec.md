@@ -6173,6 +6173,52 @@ alpha Vec copy
 2D compositor drain
 ```
 
+### SFNT simple glyph alpha mask prepared command boundary
+
+F5bn は F5bm の registered resource owner を消費し、`RenderCommand::AlphaMaskRect` を作るための metadata を再検証したうえで、resource owner と command を同じ prepared owner に閉じ込める内部 alloc/font 境界である。この phase は command stream emission ではない。`RenderCommand` は Copy value なので、raw command を accessor や任意 callback で外へ出すと resource owner を失った dangling `AlphaMaskId` command を作れる。したがって F5bn は raw command escape を禁止する。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+    command RenderCommand
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+```
+
+prepare は次の順で実行する。
+
+```text
+1. registered resource の stored record を読む
+2. AlphaMaskId.raw <= 0 を InvalidMaskId として拒否する
+3. internal reservation から expected record を再導出する
+4. reservation invariant / SourceOver / rect / paint metadata の不一致を typed error にする
+5. stored record と expected record の mask id、rect、paint、width、height、cell count、alpha max を比較する
+6. 一致した場合だけ render_command_alpha_mask_rect を呼ぶ
+7. 返った RenderCommand は prepared owner の内部に保存する
+```
+
+prepared owner は `RenderCommand` を返す accessor、borrow accessor、または arbitrary callback helper を持たない。command は後続の formal transport / drain owner が resource lifetime と command lifetime を同時に所有する境界でだけ消費する。error path も command を保持せず、registered resource owner を typed error から回収または free できる形にする。
+
+F5bn は次を呼ばない。
+
+```text
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+per-sample FillRect bridge
+sample cursor
+resource table lookup
+owner-bearing Vec payload
+alpha Vec copy
+tile / bitmap transport
+2D compositor drain
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -157,6 +157,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursor
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -224,6 +225,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -16297,6 +16299,183 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests.includes("render_fill_alpha_mask_resource_table_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests.includes("render_fill_alpha_mask_resource_table_no_command_no_platform_no_fallback"),
     "F5bm render fill alpha mask resource table focused doctest must cover record, metadata-only table, owner pair, validation, duplicate, lookup, push recovery, free, and no command/platform/fallback policy",
+);
+assert(
+    spec.includes("F5bn") &&
+        spec.includes("raw command escape") &&
+        detailedDesign.includes("prepared command boundary") &&
+        detailedDesign.includes("must not expose the raw `RenderCommand`") &&
+        implementationPlan.includes("Phase F5bn") &&
+        implementationPlan.includes("PLAN_BLOCKED") &&
+        implementationPlan.includes("PLAN_APPROVED"),
+    "docs must record F5bn prepared command boundary, raw command escape blocker, and revised plan approval",
+);
+const renderFillAlphaMaskResourcePreparedCommandStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:");
+const renderFillAlphaMaskResourcePreparedCommandEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:", renderFillAlphaMaskResourcePreparedCommandStartIndex);
+const renderFillAlphaMaskResourcePreparedCommandRegion = allocFontSfntGlyfImpl.slice(renderFillAlphaMaskResourcePreparedCommandStartIndex, renderFillAlphaMaskResourcePreparedCommandEndIndex);
+assert(renderFillAlphaMaskResourcePreparedCommandStartIndex >= 0 && renderFillAlphaMaskResourcePreparedCommandEndIndex > renderFillAlphaMaskResourcePreparedCommandStartIndex, "alloc/gui/font/sfnt/glyf F5bn prepared command region must exist before coordinate delta code");
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:",
+    "resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner",
+    "command %RenderCommand",
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandError:",
+    "kind %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind",
+    "resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner",
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandRejected:",
+]) {
+    assert(renderFillAlphaMaskResourcePreparedCommandRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bn prepared command region must include ${fragment}`);
+}
+for (const fragment of [
+    "InvalidMaskId",
+    "ShapeInvalidWidth",
+    "ShapeInvalidHeight",
+    "ShapeInvalidSampleScale",
+    "ShapeCoverageMaxMismatch",
+    "ShapeCellCountMismatch",
+    "InvalidAlphaMax",
+    "AlphaCellCountMismatch",
+    "AlphaStorageLenMismatch",
+    "AlphaStorageCapacityMismatch",
+    "UnsupportedBlendMode",
+    "RectMetadataMismatch",
+    "PaintMetadataMismatch",
+    "ResourceRecordMismatch",
+    "UnexpectedTableRegisterState",
+]) {
+    assert(renderFillAlphaMaskResourcePreparedCommandRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bn prepared command error kind must include ${fragment}`);
+}
+assertNoMatch(
+    renderFillAlphaMaskResourcePreparedCommandRegion,
+    /impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandError:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandError:/,
+    "alloc/gui/font/sfnt/glyf F5bn prepared command owner and error must be owner-bearing and no Clone/Copy",
+);
+assertNoMatch(
+    renderFillAlphaMaskResourcePreparedCommandRegion,
+    /\bgui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_(?:command|with)\b|\bfield::get(?:_ref)? owner "command"\b|\bcallback resource command\b|%fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner RenderCommand|%fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner RenderCommand/,
+    "alloc/gui/font/sfnt/glyf F5bn must not expose raw Copy RenderCommand before formal transport/drain owner",
+);
+const renderFillAlphaMaskResourcePreparedCommandOwnerRecord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_record");
+const renderFillAlphaMaskResourcePreparedCommandOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_free");
+const renderFillAlphaMaskResourcePreparedCommandErrorRejected = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error_rejected");
+const renderFillAlphaMaskResourcePreparedCommandRejectedWith = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_rejected_with");
+const renderFillAlphaMaskResourcePreparedCommandErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error_free");
+const renderFillAlphaMaskResourcePreparedCommandErrorMap = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error_kind_from_table_register");
+const renderFillAlphaMaskResourcePreparedCommandRecordEqual = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_record_equal");
+const renderFillAlphaMaskResourcePrepareCommand = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_prepare_command");
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandOwnerRecord,
+    [
+        "field::get_ref owner \"resource\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_record resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn owner record accessor may expose metadata only",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandOwnerFree,
+    [
+        "field::get owner \"resource\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_free resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn owner free must close registered resource owner",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandErrorRejected,
+    [
+        "field::get error \"resource\"",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandRejected resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn error rejected owner must keep registered resource owner",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandRejectedWith,
+    [
+        "field::get rejected \"resource\"",
+        "callback resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn rejected recovery continuation must return only the registered resource owner",
+);
+assertNoMatch(renderFillAlphaMaskResourcePreparedCommandRejectedWith, /\bRenderCommand\b|\bcallback resource command\b|\bfield::get(?:_ref)? rejected "command"\b/, "alloc/gui/font/sfnt/glyf F5bn rejected recovery must not pass raw command");
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandErrorFree,
+    [
+        "field::get error \"resource\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_free resource",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn error free must close registered resource owner",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandErrorMap,
+    [
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::InvalidMaskId",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind::InvalidMaskId",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::UnsupportedBlendMode",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind::UnsupportedBlendMode",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::DuplicateMaskId",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind::UnexpectedTableRegisterState",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn must map lower validation errors and unreachable table states explicitly",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePreparedCommandRecordEqual,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id left",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id right",
+        "alpha_mask_id_raw &left_id",
+        "alpha_mask_id_raw &right_id",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_rect_equal left_rect right_rect",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_paint_equal left_paint right_paint",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px left",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_height_px left",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_cell_count left",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_alpha_max left",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn record equality must compare id, rect, paint, dimensions, cell count, and alpha max",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskResourcePrepareCommand,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_record &resource",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id &record",
+        "alpha_mask_id_raw &mask_id",
+        "le raw 0",
+        "field::get_ref resource \"reservation\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation reservation",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_error_kind_from_table_register lower_kind",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_record_equal &record &expected_record",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandErrorKind::ResourceRecordMismatch",
+        "render_command_alpha_mask_rect mask_id rect paint",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner resource command",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bn prepare must revalidate registered resource before storing AlphaMaskRect command in owner",
+);
+for (const [slice, name] of [
+    [renderFillAlphaMaskResourcePreparedCommandOwnerRecord, "prepared command owner record"],
+    [renderFillAlphaMaskResourcePreparedCommandOwnerFree, "prepared command owner free"],
+    [renderFillAlphaMaskResourcePreparedCommandErrorRejected, "prepared command error rejected"],
+    [renderFillAlphaMaskResourcePreparedCommandRejectedWith, "prepared command rejected continuation"],
+    [renderFillAlphaMaskResourcePreparedCommandErrorFree, "prepared command error free"],
+    [renderFillAlphaMaskResourcePreparedCommandErrorMap, "prepared command error map"],
+    [renderFillAlphaMaskResourcePreparedCommandRecordEqual, "prepared command record equality"],
+    [renderFillAlphaMaskResourcePrepareCommand, "registered resource prepare command"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:render_command_fill_rect|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command|gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_lookup|tile|bitmap|transport|compositor|stroke|shadow|partial|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5bn ${name} must not use fill-rect fallback, target/platform APIs, sample cursor, table lookup, transport, compositor, stroke/shadow, owner-bearing vec copy, or partial completion`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bn ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_owner_pair_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_no_raw_command_escape_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_record_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_record_equality_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_source_over_inherited_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_record_mismatch_fail_closed_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_error_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests.includes("render_fill_alpha_mask_resource_prepared_command_no_stream_no_platform_no_fallback"),
+    "F5bn render fill alpha mask resource prepared command focused doctest must cover owner pair, no raw command escape, revalidation, equality, SourceOver, mismatch, recovery, free, and no stream/platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
