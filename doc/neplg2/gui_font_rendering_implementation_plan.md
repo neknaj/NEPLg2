@@ -40,6 +40,60 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5bf: sfnt simple glyph raster packed mask owner
+
+目的:
+
+- F5be の completed coverage mask owner を authority とし、raw coverage cell を normalized alpha cell へ変換する。
+- completed packed mask owner は raw coverage cells を保持せず、completion 時に raw coverage cell Vec を解放して edge owner と alpha cell Vec だけを保持する。
+- render2d command、pixel buffer、DrawTarget / RenderTarget、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- `alpha_cells.len == cell_index` と `alpha_cells.cap == shape.cell_count` の pack-owner invariant が budget/read/push/completion より前に必要と指摘された。
+- `vec::push` failure で部分的に進んだ alpha Vec が戻る可能性を、通常継続可能状態として扱わない contract が必要と指摘された。
+- revised plan では `AlphaStorageLenMismatch` / `AlphaStorageCapacityMismatch` と `pack_owner_invariants` を追加し、drain / step / complete の入口で必ず検査する。
+- push failure から回収した owner は cleanup / diagnostic 用であり、次に処理へ戻す場合も invariant を通過したときだけ続行できると明文化する。
+- Tesla revised plan review は `PLAN_APPROVED`。`alpha_max` only config、typed owner-bearing error、raw coverage cells の completion-time free、edge owner exactly once preservation は実装開始条件を満たす。
+
+変更:
+
+- `GuiSfntSimpleGlyphRasterPackedMaskConfig` を追加する。`alpha_max` だけを持つ value-only record とし、`Clone` / `Copy` を実装する。
+- F5bd completed coverage owner の shape / cell_count / cells len / cells cap を読む内部 helper を追加する。
+- `GuiSfntSimpleGlyphRasterPackedMaskPackOwner` を module-private transition owner として追加する。completed coverage owner、alpha cell Vec、config、cell_index を保持する。
+- `GuiSfntSimpleGlyphRasterPackedMaskOwner` を module-private completed owner として追加する。edge owner、shape、alpha cell Vec、cell_count、alpha_max を保持し、raw coverage cells は保持しない。
+- `RasterPackedMaskStartErrorKind` / `RasterPackedMaskStartError` を追加する。start error は original completed coverage owner を必ず保持し、storage allocation failure は lower `StdErrorKind` を保持する。
+- start は `alpha_max > 0`、shape invariant、`coverage_max * alpha_max` overflow、raw coverage owner cell_count / len / cap、alpha cell Vec allocation の順に検査する。
+- `RasterPackedMaskErrorKind` / `RasterPackedMaskError` を追加する。conversion error は pack owner を保持し、raw cell index / storage error を必要に応じて保持する。
+- `pack_owner_invariants` を追加し、cell index、shape invariant、cell upper bound、alpha Vec len/cap、coverage owner cell_count / raw cells len/cap を検査する。
+- drain / step / complete は budget handling、raw cell read、normalization、alpha push、completion より前に `pack_owner_invariants` を通す。
+- raw coverage read helper を追加し、`vec::get None`、negative coverage、coverage exceeds max を typed error にする。
+- alpha normalize helper を追加し、`coverage * alpha_max / coverage_max` を integer-only で行い、multiply overflow を typed error にする。
+- step helper は 1 raw coverage cell を alpha cell へ変換して push し、push failure では lower storage error kind を読んでから recovered alpha Vec を pack owner に戻す。
+- bounded drain terminal を追加する。`PackedMaskCompleted` と `StepBudgetExhausted` を success enum で分ける。
+- completion は exact invariant だけで成功し、raw coverage cell Vec を free して edge owner / shape / alpha cell Vec を completed packed mask owner へ移す。
+- pack owner / completed owner / terminal free helper を追加し、owner を exactly once close する。
+
+完了条件:
+
+- source policy が docs、plan review approval、config `Clone` / `Copy`、private pack/completed owner、owner no `Clone` / `Copy`、start validation order、start error coverage owner recovery、pack invariant before budget/read/push/completion、typed alpha storage errors、raw cell read typed errors、alpha normalization overflow guard、push failure recovery contract、bounded terminal、completion raw cell free before packed owner finalization、free functions、forbidden byte-backed / old traversal / zero-fill / render2d / DrawTarget / RenderTarget / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md` に config/start、shape/raw cell revalidation、pack invariant、raw cell read、alpha normalize、push recovery、budget/completion/free、no fallback/no render policy の coverage label を追加する。
+- implementation review で raw coverage owner が start/error/free path から必ず回収可能であること、completed owner が raw coverage Vec を保持しないこと、edge owner が exactly once 引き継がれることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の render2d glyph alpha mask boundary phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_packed_mask_owner_f5bf.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_scan_converter_f5bf_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bf.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

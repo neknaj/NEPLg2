@@ -5740,6 +5740,87 @@ render / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph raster packed mask owner
+
+F5bf は F5be の completed coverage mask owner を authority として、raw coverage cell を normalized alpha cell へ変換する内部 owner 境界である。この phase は coverage cell を alpha cell に正規化するだけで、render2d command、pixel buffer、platform present、font fallback には進まない。
+
+packed mask config は value-only である。
+
+```text
+RasterPackedMaskConfig:
+    alpha_max
+```
+
+`alpha_max <= 0` は `InvalidAlphaMax` として拒否する。coverage owner の shape は新しい trust boundary として再検査する。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+coverage_max * alpha_max does not overflow i32
+```
+
+F5bf の transition owner は module-private で、completed coverage owner、alpha cell Vec、config、cell_index を保持する。completed packed mask owner は raw coverage cells を保持しない。completion 時に raw coverage cells を解放し、edge owner と shape と alpha cells だけを completed packed mask owner に移す。
+
+```text
+PackedMaskPackOwner:
+    coverage_owner
+    alpha_cells
+    config
+    cell_index
+
+PackedMaskOwner:
+    edge_owner
+    shape
+    alpha_cells
+    cell_count
+    alpha_max
+```
+
+drain / step / completion は、budget、raw cell read、alpha push、completion より前に pack owner invariant を検査する。
+
+```text
+cell_index >= 0
+shape invariant is valid
+cell_index <= shape.cell_count
+alpha_cells.len == cell_index
+alpha_cells.cap == shape.cell_count
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+```
+
+この検査により、`vec::push` 失敗時に Vec が部分的に進んだ場合でも、回収された owner をそのまま通常継続できるとは扱わない。回収 owner は cleanup / diagnostic のために返され、次に処理へ戻す場合も invariant を通過したときだけ進める。
+
+1 step は raw coverage cell を 1 個読み、range を検査して alpha に変換する。
+
+```text
+0 <= coverage <= shape.coverage_max
+coverage * alpha_max does not overflow i32
+alpha = coverage * alpha_max / shape.coverage_max
+push alpha
+cell_index += 1
+```
+
+`StepBudgetExhausted` は successful terminal だが completed mask ではない。`PackedMaskCompleted` は `cell_index == shape.cell_count` かつ alpha cell Vec が exact length/capacity のときだけ返す。partial completion、zero-fill、best-effort completion は禁止する。
+
+F5bf は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+render2d command
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

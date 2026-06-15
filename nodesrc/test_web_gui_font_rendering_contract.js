@@ -147,6 +147,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests = read("t
 const guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterCoverageScanConverterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -207,6 +208,8 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests,
+    guiFontSfntOutlinePointStreamItemCollectionRasterCoverageScanConverterTests,
+    guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -14715,6 +14718,237 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRasterCoverageScanConverterTests.includes("raster_coverage_scan_push_budget_completion_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRasterCoverageScanConverterTests.includes("raster_coverage_scan_no_fallback_no_render"),
     "F5be raster coverage scan converter focused doctest must cover start validation, shape revalidation, cell bounds, line/quadratic coverage, push/budget/completion, and no fallback policy",
+);
+assert(spec.includes("### SFNT simple glyph raster packed mask owner"), "GUI font spec must document F5bf raster packed mask owner");
+assert(detailedDesign.includes("## SFNT simple glyph raster packed mask owner boundary"), "GUI font detailed design must document F5bf raster packed mask owner boundary");
+assert(implementationPlan.includes("## Phase F5bf: sfnt simple glyph raster packed mask owner"), "GUI font implementation plan must include F5bf phase");
+assert(
+    implementationPlan.includes("Tesla revised plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("alpha_cells.len == cell_index") &&
+        detailedDesign.includes("completion-time raw cell release"),
+    "GUI font docs must pin F5bf approved plan, alpha storage invariant, and completion-time raw cell release",
+);
+const rasterPackedMaskConfigType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterPackedMaskConfig:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterPackedMaskPackOwner:"),
+);
+const rasterPackedMaskPackOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterPackedMaskPackOwner:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterPackedMaskOwner:"),
+);
+const rasterPackedMaskCompletedOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterPackedMaskOwner:"),
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind:"),
+);
+assert(rasterPackedMaskConfigType.length > 0, "alloc/gui/font/sfnt/glyf F5bf must define packed mask config");
+assert(rasterPackedMaskConfigType.includes("alpha_max %i32"), "alloc/gui/font/sfnt/glyf F5bf config must include alpha_max");
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRasterPackedMaskConfig\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRasterPackedMaskConfig\b/,
+    "alloc/gui/font/sfnt/glyf F5bf config is value-only and must implement Clone/Copy",
+);
+for (const fragment of [
+    "coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner",
+    "alpha_cells %Vec i32",
+    "config %GuiSfntSimpleGlyphRasterPackedMaskConfig",
+    "cell_index %i32",
+]) {
+    assert(rasterPackedMaskPackOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bf pack owner must include ${fragment}`);
+}
+for (const fragment of [
+    "edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner",
+    "shape %GuiSfntSimpleGlyphRasterCoverageShape",
+    "alpha_cells %Vec i32",
+    "cell_count %i32",
+    "alpha_max %i32",
+]) {
+    assert(rasterPackedMaskCompletedOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bf completed owner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRasterPackedMaskPackOwner",
+    "GuiSfntSimpleGlyphRasterPackedMaskOwner",
+    "GuiSfntSimpleGlyphRasterPackedMaskStartError",
+    "GuiSfntSimpleGlyphRasterPackedMaskError",
+    "GuiSfntSimpleGlyphRasterPackedMaskPackTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bf ${typeName} owns transition state and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRasterPackedMaskPackOwner:|pub struct GuiSfntSimpleGlyphRasterPackedMaskOwner:|pub fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner\b|pub fn gui_sfnt_simple_glyph_raster_packed_mask_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5bf pack/completed owners and constructors must remain private",
+);
+const rasterPackedMaskStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind:"),
+);
+for (const fragment of [
+    "InvalidAlphaMax",
+    "ShapeInvalidWidth",
+    "ShapeInvalidHeight",
+    "ShapeInvalidSampleScale",
+    "ShapeCoverageMaxMismatch",
+    "ShapeCellCountMismatch",
+    "AlphaScaleOverflow",
+    "RawCellCountMismatch",
+    "RawCellStorageLenMismatch",
+    "RawCellStorageCapacityMismatch",
+    "AlphaStorageAllocFailed",
+]) {
+    assert(rasterPackedMaskStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bf start error kind must include ${fragment}`);
+}
+const rasterPackedMaskStartErrorCoverageOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_start_error_coverage_owner");
+assert(rasterPackedMaskStartErrorCoverageOwner.includes("field::get error \"coverage_owner\""), "alloc/gui/font/sfnt/glyf F5bf start error must expose consuming coverage owner recovery");
+const rasterPackedMaskStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_start");
+assertOrderedFragments(
+    rasterPackedMaskStart,
+    [
+        "InvalidAlphaMax",
+        "gui_sfnt_simple_glyph_raster_packed_mask_validate_shape_for_start &shape",
+        "gui_sfnt_simple_glyph_raster_packed_mask_alpha_scale_is_valid_for_start &shape &config",
+        "RawCellCountMismatch",
+        "RawCellStorageLenMismatch",
+        "RawCellStorageCapacityMismatch",
+        "vec::with_capacity shape_cell_count",
+        "gui_sfnt_simple_glyph_raster_packed_mask_start_error_storage_failed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf start must validate alpha, shape, scale overflow, raw cells, then allocate alpha cells",
+);
+const rasterPackedMaskInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants");
+assertOrderedFragments(
+    rasterPackedMaskInvariant,
+    [
+        "CellIndexNegative",
+        "gui_sfnt_simple_glyph_raster_packed_mask_validate_shape_for_pack &shape",
+        "CellIndexExceedsCellCount",
+        "AlphaStorageLenMismatch",
+        "AlphaStorageCapacityMismatch",
+        "RawCellCountMismatch",
+        "RawCellStorageLenMismatch",
+        "RawCellStorageCapacityMismatch",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf invariant must check index, shape, alpha storage, and raw coverage storage",
+);
+const rasterPackedMaskReadCell = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_read_coverage_cell");
+assertOrderedFragments(
+    rasterPackedMaskReadCell,
+    [
+        "vec::get cells cell_index",
+        "RawCellSlotMissing",
+        "RawCoverageNegative",
+        "RawCoverageExceedsMax",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf raw cell read must use typed slot and coverage range errors",
+);
+const rasterPackedMaskNormalize = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_normalize_alpha");
+assertOrderedFragments(
+    rasterPackedMaskNormalize,
+    [
+        "gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape",
+        "gui_sfnt_simple_glyph_raster_packed_mask_config_alpha_max config",
+        "let max_coverage %i32 div_s max_i32 alpha_max",
+        "AlphaScaleOverflow",
+        "let scaled %i32 mul coverage_value alpha_max",
+        "Result::Ok div_s scaled coverage_max",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf alpha normalization must guard overflow and use integer scaling",
+);
+const rasterPackedMaskStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_step");
+assertOrderedFragments(
+    rasterPackedMaskStep,
+    [
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants &owner",
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_read_coverage_cell &owner",
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_normalize_alpha &owner coverage_value",
+        "vec::push alpha_cells alpha_value",
+        "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+        "let returned_alpha_cells %Vec i32 vec::vec_push_error_vec e",
+        "gui_sfnt_simple_glyph_raster_packed_mask_error_storage_failed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf step must check invariant before read/push and recover Vec push failure",
+);
+const rasterPackedMaskComplete = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_complete");
+assertOrderedFragments(
+    rasterPackedMaskComplete,
+    [
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants &owner",
+        "CompletionIncomplete",
+        "let config %GuiSfntSimpleGlyphRasterPackedMaskConfig field::get owner \"config\"",
+        "let alpha_cells %Vec i32 field::get owner \"alpha_cells\"",
+        "let coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get owner \"coverage_owner\"",
+        "let edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner field::get coverage_owner \"edge_owner\"",
+        "let raw_cells %Vec i32 field::get coverage_owner \"cells\"",
+        "vec::free raw_cells",
+        "gui_sfnt_simple_glyph_raster_packed_mask_owner edge_owner shape_value alpha_cells raw_cell_count alpha_max",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf completion must free raw cells and preserve edge owner exactly once",
+);
+const rasterPackedMaskDrain = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_drain_to_complete_budget");
+assertOrderedFragments(
+    rasterPackedMaskDrain,
+    [
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants &owner",
+        "eq cell_index cell_count",
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_complete owner",
+        "PackedMaskCompleted",
+        "StepBudgetExhausted",
+        "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_step owner",
+        "ProgressInvariantInvalid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf drain must check invariant before completion/budget/read/push and keep typed terminals",
+);
+const rasterPackedMaskPackFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_free");
+const rasterPackedMaskCompletedFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_owner_free");
+const rasterPackedMaskTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_packed_mask_pack_terminal_free");
+for (const [slice, name] of [
+    [rasterPackedMaskStart, "packed mask start"],
+    [rasterPackedMaskInvariant, "packed mask invariant"],
+    [rasterPackedMaskReadCell, "packed mask raw read"],
+    [rasterPackedMaskNormalize, "packed mask normalize"],
+    [rasterPackedMaskStep, "packed mask step"],
+    [rasterPackedMaskComplete, "packed mask complete"],
+    [rasterPackedMaskDrain, "packed mask drain"],
+    [rasterPackedMaskPackFree, "packed mask pack free"],
+    [rasterPackedMaskCompletedFree, "packed mask completed free"],
+    [rasterPackedMaskTerminalFree, "packed mask terminal free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|GuiSfntSimpleGlyphPathSinkAction::|zero_fill|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5bf ${name} must not use byte-backed lookup, old traversal, zero-fill, render/platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bf ${name} must preserve NEPL prefix style without parentheses`);
+}
+assertOrderedFragments(
+    rasterPackedMaskPackFree,
+    [
+        "vec::free alpha_cells",
+        "gui_sfnt_simple_glyph_raster_coverage_mask_owner_free coverage_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf pack owner free must release alpha cells before raw coverage owner",
+);
+assertOrderedFragments(
+    rasterPackedMaskCompletedFree,
+    [
+        "vec::free alpha_cells",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free edge_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bf completed owner free must release alpha cells before edge owner",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_config_start_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_shape_raw_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_owner_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_read_alpha_normalize_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_push_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_budget_completion_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests.includes("raster_packed_mask_no_fallback_no_render"),
+    "F5bf raster packed mask owner focused doctest must cover config/start, shape/raw validation, invariants, read/normalize, push recovery, completion/free, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
