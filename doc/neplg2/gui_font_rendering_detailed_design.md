@@ -5389,6 +5389,125 @@ This is where `SkipNoSegment` reason is recovered. The stored tag only proves th
 
 F5av may call the collection-backed source event helper and pure event/tag helpers. It must not call byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, storage mutation, path command stream builders, `Vec`, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path command stream cursor boundary
+
+F5aw is the first stream preparation boundary after F5av. It does not materialize a path object and does not collect commands into `Vec`. It only gives callers a typed cursor, a one-step read, and a bounded drain terminal that can later be connected to scheduler / render preparation layers.
+
+The cursor is value-only:
+
+```text
+PathCommandStreamCursor:
+    next_index i32
+    end_index i32
+```
+
+The public cursor constructor is:
+
+```text
+path_command_tag_complete_owner_path_command_stream_cursor:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    start_index i32
+    -> Result PathCommandStreamCursor PathCommandStreamCursorError
+```
+
+It borrows the complete owner. It must not call the consuming complete-owner storage accessor. The authority order is:
+
+```text
+summary = owner.summary
+summary_capacity = summary.capacity
+storage_capacity = non-consuming complete owner storage capacity
+require summary_capacity == storage_capacity
+collection_capacity = collection.capacity
+require collection_capacity == summary_capacity
+require capacity shape is valid
+path_command_count = summary_capacity.path_command_count
+require 0 <= start_index <= path_command_count
+cursor = PathCommandStreamCursor start_index path_command_count
+```
+
+`start_index == path_command_count` is a completed cursor. It is not an empty-stream fallback. Forged empty / malformed capacity is rejected by the existing capacity-shape contract.
+
+Cursor validation is shared by step:
+
+```text
+PathCommandStreamCursorErrorKind:
+    StorageSummaryCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    StorageCapacityInvalid
+    StartIndexInvalid
+    CursorInvalid
+```
+
+`CursorInvalid` covers `end_index != capacity.path_command_count`, `next_index < 0`, and `next_index > end_index`. It is a typed error instead of clamping the index.
+
+The step terminal is an enum:
+
+```text
+PathCommandStreamStep:
+    Emitted PathCommandValue PathCommandStreamCursor
+    Completed PathCommandStreamCursor
+```
+
+The completed branch has no dummy value. The step function is:
+
+```text
+path_command_stream_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    cursor PathCommandStreamCursor
+    -> Result PathCommandStreamStep PathCommandStreamStepError
+```
+
+The step order is:
+
+```text
+validate collection / owner capacity authority
+validate cursor against capacity
+if cursor.next_index >= cursor.end_index:
+    return Completed cursor
+else:
+    call F5av PathCommandValue lookup exactly once
+    return Emitted value advanced_cursor
+```
+
+The F5av lookup call must be inside the non-terminal branch only. A completed cursor never reads source events and never re-enters F5av.
+
+The bounded drain terminal is also explicit:
+
+```text
+PathCommandStreamDrainTerminal:
+    Completed PathCommandStreamCursor emitted_count
+    StepBudgetExhausted PathCommandStreamCursor emitted_count
+```
+
+The drain function is:
+
+```text
+path_command_stream_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    cursor PathCommandStreamCursor
+    remaining_steps i32
+    -> Result PathCommandStreamDrainTerminal PathCommandStreamStepError
+```
+
+When `remaining_steps <= 0`, drain returns `StepBudgetExhausted cursor 0` and does not call the step helper. With a positive budget, drain calls only the F5aw step helper. It never calls F5av lookup directly. Recursive drain accumulates `emitted_count` and returns either the final completed cursor or the cursor where the budget ended.
+
+F5aw may call:
+
+```text
+path_command_tag_complete_owner_summary
+path_command_tag_complete_owner_storage_capacity
+point_stream_item_collection_capacity
+storage_capacity_shape_is_valid
+storage_capacity_path_command_count
+F5av PathCommandValue lookup from step only
+F5aw step helper from drain only
+```
+
+F5aw must not call byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, storage mutation, `Vec`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

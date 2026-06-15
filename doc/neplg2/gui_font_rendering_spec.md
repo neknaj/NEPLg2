@@ -4872,6 +4872,105 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path command stream cursor
+
+F5aw は F5av の `PathCommandValue` lookup を順序付きに読むための bounded cursor / stream preparation 境界である。これは full stream object construction ではなく、`Vec` に command を蓄積しない。raster / render / platform API にも進まない。
+
+F5aw の最小 contract は次である。
+
+```text
+cursor create input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    start_index i32
+
+cursor create output:
+    Result PathCommandStreamCursor PathCommandStreamCursorError
+
+step input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    cursor PathCommandStreamCursor
+
+step output:
+    Result PathCommandStreamStep PathCommandStreamStepError
+
+drain input:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner &PathCommandTagCompleteOwner
+    cursor PathCommandStreamCursor
+    remaining_steps i32
+
+drain output:
+    Result PathCommandStreamDrainTerminal PathCommandStreamStepError
+```
+
+`PathCommandStreamCursor` は value-only であり、storage owner を含まない。
+
+```text
+PathCommandStreamCursor:
+    next_index i32
+    end_index i32
+```
+
+cursor create の authority check order は次である。
+
+```text
+summary capacity from complete owner
+owner storage capacity without consuming complete owner
+summary capacity == owner storage capacity
+collection capacity == summary capacity
+capacity shape is valid
+0 <= start_index <= capacity.path_command_count
+end_index = capacity.path_command_count
+```
+
+`start_index == path_command_count` は完了済み cursor として許可する。これは empty stream fallback ではなく、既に全 command を読んだ位置を表す。capacity shape 自体は既存 F5a contract に従い、`point_count <= 0` や `path_command_count != point_count * 2` は typed error にする。
+
+step は explicit enum を返す。
+
+```text
+PathCommandStreamStep:
+    Emitted PathCommandValue PathCommandStreamCursor
+    Completed PathCommandStreamCursor
+```
+
+`Completed` は dummy `PathCommandValue` を持たない。step の順序は次である。
+
+```text
+validate collection / owner / cursor authority
+if cursor.next_index >= cursor.end_index:
+    return Completed cursor
+else:
+    call F5av PathCommandValue lookup exactly once with cursor.next_index
+    return Emitted value advanced_cursor
+```
+
+bounded drain は explicit terminal を返す。
+
+```text
+PathCommandStreamDrainTerminal:
+    Completed PathCommandStreamCursor emitted_count
+    StepBudgetExhausted PathCommandStreamCursor emitted_count
+```
+
+drain は `remaining_steps <= 0` の場合、step helper も F5av lookup も呼ばず `StepBudgetExhausted cursor 0` を返す。budget がある場合は F5aw step helper だけを呼ぶ。drain から F5av lookup を直接呼んではいけない。
+
+F5aw は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+F5av lookup from drain function
+storage mutation
+Vec allocation / push
+path object materialization
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

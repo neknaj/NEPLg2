@@ -1,3 +1,47 @@
+# 2026-06-16 Agent2 GUI font path command stream cursor checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-stream-cursor-f5aw-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5aw の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner 非消費 read boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream cursor の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5aw の cursor creation authority order、completed cursor contract、step terminal enum、bounded drain terminal enum、F5av lookup 許可位置、drain が F5aw step helper だけを呼ぶ制約を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5aw の plan review blocker と修正条件、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor`、cursor error kind / error、cursor validation、non-consuming capacity authority helper、public cursor creation boundary を追加した。
+- public cursor creation は summary capacity、owner storage capacity、collection capacity、capacity shape、start index を順に検査する。`start_index == path_command_count` は completed cursor として許可し、forged empty / malformed capacity は既存 capacity shape contract で拒否する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep` を `Emitted value next_cursor` / `Completed cursor` の enum として追加した。completed branch は dummy `PathCommandValue` を持たない。
+- step function は capacity / cursor authority を検査し、`next_index >= end_index` の場合は F5av lookup を呼ばず `Completed` を返す。未完了 branch だけで F5av lookup を exactly once 呼び、成功時に cursor を 1 つ進める。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamDrainTerminal` を `Completed cursor emitted_count` / `StepBudgetExhausted cursor emitted_count` の enum として追加した。
+- bounded drain は `remaining_steps <= 0` では step helper も F5av lookup も呼ばず `StepBudgetExhausted cursor 0` を返す。positive budget では F5aw step helper だけを呼び、F5av lookup は直接呼ばない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5aw source policy を追加した。docs/types/value-only Clone/Copy/capacity authority order/non-consuming owner/cursor validation/completed no dummy/no lookup/step F5av exactly once/drain step only/budget no step/no lookup/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md` を追加し、types、authority checks、cursor validation、completed no value/no lookup、step emits via F5av once、drain terminal variants、budget no step/no lookup、no fallback / no byte-backed / no traversal / no Vec / no raster の source policy coverage label を固定した。
+- `todo.md` は F5aw 完了後の次作業として、path command stream consumer / render preparation boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。step は dummy value を必要としない enum にすること、drain terminal は Completed / StepBudgetExhausted を分けること、drain は F5av lookup ではなく F5aw step helper だけを呼ぶこと、empty stream success を別に作らないことが指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor_f5aw.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_path_command_value_f5aw_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aw.json -j 1` 986/986 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5aw は bounded cursor / step / drain terminal までであり、path command sink、raster mask、render2d command emission は未実装である。
+
 # 2026-06-15 Agent2 GUI font path command value lookup checkpoint
 
 ## scope
