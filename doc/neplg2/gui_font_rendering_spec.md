@@ -5605,6 +5605,78 @@ render / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph raster coverage mask writer owner
+
+F5bd は F5bc の completed raster edge owner を authority として、scan conversion が後続 phase で書き込む coverage cell buffer を確保する内部 owner 境界である。ここでは edge を走査して pixel coverage を計算しない。2D render command、platform present、font fallback にも進まない。
+
+coverage mask の寸法は edge owner から推測しない。caller は `RasterCoverageConfig` を渡し、F5bd はその config を検査して `RasterCoverageShape` に固定する。topology bounds、font size、writing mode、subpixel policy から config を作る boundary は別 phase とする。これにより、F5bd は forged config を受け取った場合でも panic や fallback をせず、typed error と owner recovery で返せる。
+
+```text
+RasterCoverageConfig:
+    origin_x2
+    origin_y2
+    width_px
+    height_px
+    sample_scale
+    max_cell_count
+
+RasterCoverageShape:
+    origin_x2
+    origin_y2
+    width_px
+    height_px
+    sample_scale
+    coverage_max
+    cell_count
+```
+
+config validation は次の順序で行う。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+max_cell_count > 0
+sample_scale * sample_scale does not overflow i32
+width_px * height_px does not overflow i32
+cell_count <= max_cell_count
+completed edge owner count still matches its nested sink plan and capacity
+typed edge Vec len equals edge_count
+typed edge Vec cap equals capacity.raster_edge_capacity
+coverage cell Vec allocation with capacity = cell_count
+```
+
+`coverage_max` は `sample_scale * sample_scale` である。coverage cell は `0 <= coverage <= coverage_max` の整数値で、初期実装では scalar coverage として i32 Vec に保持する。anti-aliased mask の packed byte / bit representation は後続最適化であり、この phase では ABI に固定しない。
+
+F5bd owner は completed edge owner と coverage cell Vec を保持する module-private owner である。public constructor、`Clone`、`Copy` は持たせない。start error と push error は必ず owner を保持し、caller は recovery helper で owner を回収して free できる。
+
+F5bd は新しい allocation boundary なので、F5bc completion をそのまま信頼しない。completed edge owner の count と nested plan/capacity を照合した後、typed edge Vec の `len == edge_count` と `cap == capacity.raster_edge_capacity` も検査する。不一致は `EdgeStorageLenMismatch` / `EdgeStorageCapacityMismatch` として返し、coverage cell Vec allocation へ進まない。
+
+push は scan conversion ではない。後続 phase の scan converter が計算した 1 cell coverage を writer owner へ渡すための owner-preserving mutation boundary である。push は次を検査する。
+
+```text
+coverage cell Vec len == written_cell_count
+coverage cell Vec cap == shape.cell_count
+written_cell_count < shape.cell_count
+coverage value >= 0
+coverage value <= shape.coverage_max
+vec::push failure returns the unchanged owner and rejected coverage value
+```
+
+completed owner は `written_cell_count == shape.cell_count` の場合だけ生成する。未完了 owner から empty completed mask を作ること、足りない cell を 0 で埋めること、overflow 時に小さい mask へ縮退することは禁止する。
+
+F5bd は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+edge scan conversion
+coverage computation
+packed mask conversion
+render / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

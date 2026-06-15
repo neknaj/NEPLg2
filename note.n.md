@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font raster coverage mask writer checkpoint
+
+## scope
+
+- branch: `gui-font-raster-edge-coverage-f5bd-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bd の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、overflow guard、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph raster coverage mask writer owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bd の coverage config/shape、typed edge Vec len/cap revalidation、writer/completed owner、push/completion/free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bd の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に scalar-only `GuiSfntSimpleGlyphRasterCoverageConfig` / `GuiSfntSimpleGlyphRasterCoverageShape` を追加した。value-only のため `Clone` / `Copy` を実装した。
+- shape derivation は width、height、sample scale、max cell count、`sample_scale * sample_scale` overflow、`width * height` overflow、cell count limit の順に検査する。
+- F5bc completed edge owner について、edge_count、line_edge_count、quadratic_edge_count、nested plan/capacity だけでなく typed edge Vec の len/cap も revalidation してから coverage cell Vec を確保する。
+- private `GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner` と completed `GuiSfntSimpleGlyphRasterCoverageMaskOwner` を追加した。owner-bearing types は `Clone` / `Copy` を実装しない。
+- start error は original F5bc edge owner を保持し、`raster_coverage_start_error_edge_owner` で回収できる。
+- push は coverage cell Vec len/cap、mask full、coverage negative、coverage exceeds max を typed error として返し、Vec push failure では lower error kind を読んでから Vec owner を回収する。
+- completion は Vec len/cap を再検査し、`written_cell_count == shape.cell_count` のときだけ completed owner を返す。partial owner の zero-fill completion は行わない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bd source policy を追加した。docs/types/private owner/shape validation/edge storage revalidation/start recovery/push recovery/completion/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md` を追加し、F5bd source policy coverage label を固定した。
+- `todo.md` は F5bd 完了後の次作業として、edge scan conversion / coverage computation へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。completed edge owner の count だけでは typed edge Vec の len/cap 不整合を検出できず、新しい allocation boundary として弱いと指摘された。
+- 指摘を受け、F5bd start で `EdgeStorageLenMismatch` / `EdgeStorageCapacityMismatch` を追加し、coverage cell Vec allocation 前に typed edge Vec len/cap を再検査するよう spec/design/plan に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面 blocker はなく、この note の `implementation review: pending` 更新漏れだけが commit-readiness blocker として指摘された。
+- 指摘を受け、この note に review result を記録する。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_mask_writer_f5bd.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_edge_owner_f5bd_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bd.json -j 1` 1096/1096 passed
+
+## remaining
+
+- F5bd は coverage cell writer owner までであり、edge scan conversion、coverage computation、packed / anti-aliased mask conversion、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では F5bd writer owner を authority として、line / quadratic edge の scan conversion step と coverage cell push を接続する。
+
 # 2026-06-16 Agent2 GUI font raster edge owner checkpoint
 
 ## scope

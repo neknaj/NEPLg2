@@ -145,6 +145,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -204,6 +205,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -14295,6 +14297,198 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_free_contract_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_no_fallback_no_byte_backed_no_traversal_no_render"),
     "F5bc raster edge owner focused doctest must cover types, start validation, recovery, scalar read, record parsing, budget progress, push recovery, free, and no fallback policy",
+);
+assert(spec.includes("### SFNT simple glyph raster coverage mask writer owner"), "GUI font spec must document F5bd raster coverage mask writer boundary");
+assert(detailedDesign.includes("## SFNT simple glyph raster coverage mask writer owner boundary"), "GUI font detailed design must document F5bd raster coverage mask writer boundary");
+assert(implementationPlan.includes("## Phase F5bd: sfnt simple glyph raster coverage mask writer owner"), "GUI font implementation plan must include F5bd phase");
+assert(
+    implementationPlan.includes("Tesla revised plan review は `PLAN_APPROVED`") &&
+        spec.includes("EdgeStorageLenMismatch") &&
+        detailedDesign.includes("CoverageMaskIncomplete"),
+    "GUI font docs must pin F5bd approved plan, typed edge Vec revalidation, and incomplete terminal contract",
+);
+const rasterCoverageConfigType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageConfig:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageShape:"),
+);
+const rasterCoverageShapeType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageShape:"),
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRasterCoverageStartErrorKind:"),
+);
+assert(rasterCoverageConfigType.length > 0, "alloc/gui/font/sfnt/glyf F5bd must define GuiSfntSimpleGlyphRasterCoverageConfig");
+assert(rasterCoverageShapeType.length > 0, "alloc/gui/font/sfnt/glyf F5bd must define GuiSfntSimpleGlyphRasterCoverageShape");
+for (const fragment of ["origin_x2 %i32", "origin_y2 %i32", "width_px %i32", "height_px %i32", "sample_scale %i32", "max_cell_count %i32"]) {
+    assert(rasterCoverageConfigType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bd config must include ${fragment}`);
+}
+for (const fragment of ["origin_x2 %i32", "origin_y2 %i32", "width_px %i32", "height_px %i32", "sample_scale %i32", "coverage_max %i32", "cell_count %i32"]) {
+    assert(rasterCoverageShapeType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bd shape must include ${fragment}`);
+}
+for (const typeName of ["GuiSfntSimpleGlyphRasterCoverageConfig", "GuiSfntSimpleGlyphRasterCoverageShape"]) {
+    assertMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b[\\s\\S]*impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bd ${typeName} is value-only and must implement Clone/Copy`,
+    );
+}
+const rasterCoverageWriterOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageMaskOwner:"),
+);
+const rasterCoverageCompletedOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageMaskOwner:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterCoverageStartError:"),
+);
+assert(rasterCoverageWriterOwnerType.length > 0, "alloc/gui/font/sfnt/glyf F5bd must define private coverage writer owner");
+assert(rasterCoverageCompletedOwnerType.length > 0, "alloc/gui/font/sfnt/glyf F5bd must define private coverage completed owner");
+for (const fragment of [
+    "edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner",
+    "shape %GuiSfntSimpleGlyphRasterCoverageShape",
+    "cells %Vec i32",
+    "written_cell_count %i32",
+]) {
+    assert(rasterCoverageWriterOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bd writer owner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner",
+    "GuiSfntSimpleGlyphRasterCoverageMaskOwner",
+    "GuiSfntSimpleGlyphRasterCoverageStartError",
+    "GuiSfntSimpleGlyphRasterCoveragePushError",
+    "GuiSfntSimpleGlyphRasterCoverageCompletionError",
+    "GuiSfntSimpleGlyphRasterCoverageCompletionTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bd ${typeName} owns transition state and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner:|pub struct GuiSfntSimpleGlyphRasterCoverageMaskOwner:|pub fn gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner\b|pub fn gui_sfnt_simple_glyph_raster_coverage_mask_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5bd writer/completed owner and constructors must remain private",
+);
+const rasterCoverageStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRasterCoverageStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRasterCoverageStartErrorKind:"),
+);
+for (const fragment of [
+    "InvalidWidth",
+    "InvalidHeight",
+    "InvalidSampleScale",
+    "InvalidMaxCellCount",
+    "CoverageMaxOverflow",
+    "CellCountOverflow",
+    "CellCountLimitExceeded",
+    "EdgeCountMismatch",
+    "LineEdgeCountMismatch",
+    "QuadraticEdgeCountMismatch",
+    "EdgeCountSumMismatch",
+    "EdgeStorageLenMismatch",
+    "EdgeStorageCapacityMismatch",
+    "CellStorageAllocFailed",
+]) {
+    assert(rasterCoverageStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bd start error kind must include ${fragment}`);
+}
+const rasterCoverageShapeFromConfig = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_shape_from_config");
+assertOrderedFragments(
+    rasterCoverageShapeFromConfig,
+    [
+        "InvalidWidth",
+        "InvalidHeight",
+        "InvalidSampleScale",
+        "InvalidMaxCellCount",
+        "CoverageMaxOverflow",
+        "CellCountOverflow",
+        "CellCountLimitExceeded",
+        "gui_sfnt_simple_glyph_raster_coverage_shape",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bd shape derivation must validate dimensions, sample scale, overflow, and limit before shape construction",
+);
+const rasterCoverageStartErrorEdgeOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_start_error_edge_owner");
+assert(rasterCoverageStartErrorEdgeOwner.includes("field::get error \"edge_owner\""), "alloc/gui/font/sfnt/glyf F5bd start error must expose consuming edge owner recovery");
+const rasterCoverageStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_start");
+assertOrderedFragments(
+    rasterCoverageStart,
+    [
+        "gui_sfnt_simple_glyph_raster_coverage_shape_from_config &config",
+        "EdgeCountMismatch",
+        "LineEdgeCountMismatch",
+        "QuadraticEdgeCountMismatch",
+        "EdgeCountSumMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_edges_len &edge_owner",
+        "EdgeStorageLenMismatch",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_edges_cap &edge_owner",
+        "EdgeStorageCapacityMismatch",
+        "vec::with_capacity cell_count",
+        "gui_sfnt_simple_glyph_raster_coverage_start_error_storage_failed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bd start must derive shape, revalidate edge counts and typed edge Vec storage, then allocate coverage cells",
+);
+const rasterCoveragePush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_push_cell");
+assertOrderedFragments(
+    rasterCoveragePush,
+    [
+        "gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_cells_len &owner",
+        "CellStorageLenMismatch",
+        "gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_cells_cap &owner",
+        "CellStorageCapacityMismatch",
+        "MaskFull",
+        "CoverageNegative",
+        "CoverageExceedsMax",
+        "vec::push cells coverage_value",
+        "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+        "let returned_cells %Vec i32 vec::vec_push_error_vec e",
+        "gui_sfnt_simple_glyph_raster_coverage_push_error_storage_failed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bd push must validate storage shape, range, and Vec push recovery order",
+);
+const rasterCoverageComplete = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_complete");
+assertOrderedFragments(
+    rasterCoverageComplete,
+    [
+        "CellStorageLenMismatch",
+        "CellStorageCapacityMismatch",
+        "eq written_cell_count cell_count",
+        "CoverageMaskCompleted",
+        "CoverageMaskIncomplete",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bd completion must reject malformed storage and only complete exactly full masks",
+);
+const rasterCoverageWriterFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_mask_writer_owner_free");
+const rasterCoverageCompletedFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_raster_coverage_mask_owner_free");
+for (const [slice, name] of [
+    [rasterCoverageShapeFromConfig, "coverage shape derivation"],
+    [rasterCoverageStart, "coverage start"],
+    [rasterCoveragePush, "coverage push"],
+    [rasterCoverageComplete, "coverage completion"],
+    [rasterCoverageWriterFree, "coverage writer free"],
+    [rasterCoverageCompletedFree, "coverage completed free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|GuiSfntSimpleGlyphPathSinkAction::|scan_convert|scanline|edge_intersection|coverage_compute|packed_mask|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5bd ${name} must not use byte-backed lookup, old traversal, scan conversion, render/platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bd ${name} must preserve NEPL prefix style without parentheses`);
+}
+assertOrderedFragments(
+    rasterCoverageWriterFree,
+    [
+        "vec::free cells",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free edge_owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bd writer free must release coverage cells before F5bc edge owner",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_config_shape_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_shape_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_start_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_edge_storage_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_owner_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_push_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_completion_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterCoverageMaskWriterTests.includes("raster_coverage_no_fallback_no_scan_no_render"),
+    "F5bd raster coverage mask writer focused doctest must cover config/shape, validation order, edge storage revalidation, recovery, push, completion/free, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

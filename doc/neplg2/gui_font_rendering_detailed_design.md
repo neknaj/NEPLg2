@@ -6198,6 +6198,109 @@ The progress guard runs after a successful push and before recursion. It prevent
 
 Push failure recovery owns exactly one drain owner. The lower `vec::push` error kind is read before the failed Vec owner is recovered, then the unchanged drain owner is reconstructed with the recovered Vec and returned in `RasterEdgeDrainError`. Completed owner and drain owner each have explicit free functions that close the typed edge Vec and then close the F5bb writer owner exactly once.
 
+## SFNT simple glyph raster coverage mask writer owner boundary
+
+F5bd allocates and owns the coverage cell buffer that a later scan conversion phase will fill. It consumes a completed F5bc raster edge owner and a validated-by-construction candidate config, then either returns a module-private writer owner or an owner-bearing start error. It does not inspect old byte-backed path helpers, scan-convert edges, compute coverage values, emit render2d commands, call host APIs, or request font fallback.
+
+The config and shape are value records:
+
+```text
+GuiSfntSimpleGlyphRasterCoverageConfig:
+    origin_x2
+    origin_y2
+    width_px
+    height_px
+    sample_scale
+    max_cell_count
+
+GuiSfntSimpleGlyphRasterCoverageShape:
+    origin_x2
+    origin_y2
+    width_px
+    height_px
+    sample_scale
+    coverage_max
+    cell_count
+```
+
+`coverage_max = sample_scale * sample_scale`. This keeps subpixel sampling explicit while leaving packed storage, gamma handling, and anti-aliased color conversion to later renderer phases. The first storage representation is `Vec i32` with `cap == cell_count`. The vector length is the number of cells written by later scan conversion.
+
+Shape derivation is fail-closed:
+
+```text
+if width_px <= 0:
+    InvalidWidth
+if height_px <= 0:
+    InvalidHeight
+if sample_scale <= 0:
+    InvalidSampleScale
+if max_cell_count <= 0:
+    InvalidMaxCellCount
+if sample_scale * sample_scale overflows:
+    CoverageMaxOverflow
+if width_px * height_px overflows:
+    CellCountOverflow
+if cell_count > max_cell_count:
+    CellCountLimitExceeded
+```
+
+The edge owner is revalidated before allocation. F5bd reads the nested plan/capacity through the F5bc completed owner and verifies:
+
+```text
+edge_count == capacity.raster_edge_capacity
+line_edge_count == plan.line_to_count
+quadratic_edge_count == plan.quadratic_to_count
+line_edge_count + quadratic_edge_count == edge_count
+typed edge Vec len == edge_count
+typed edge Vec cap == capacity.raster_edge_capacity
+```
+
+These checks duplicate F5bc completion checks intentionally. F5bd is a new trust boundary because it allocates a new coverage buffer and must not assume forged private state became valid merely because the type name matches.
+
+Edge Vec storage mismatch uses distinct typed errors:
+
+```text
+EdgeStorageLenMismatch
+EdgeStorageCapacityMismatch
+```
+
+Coverage cell allocation is attempted only after both count invariants and Vec storage invariants pass.
+
+The writer owner is module-private:
+
+```text
+GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner:
+    edge_owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner
+    shape GuiSfntSimpleGlyphRasterCoverageShape
+    cells Vec i32
+    written_cell_count i32
+```
+
+It has no public constructor and no `Clone` / `Copy` implementation. Start errors retain exactly one completed edge owner. Allocation failure keeps the lower `StdErrorKind` separately from validation errors. Free closes the coverage cell Vec first, then closes the F5bc edge owner exactly once.
+
+Push is a writer mutation boundary, not scan conversion:
+
+```text
+validate cells.len == written_cell_count
+validate cells.cap == shape.cell_count
+validate written_cell_count < shape.cell_count
+validate coverage_value >= 0
+validate coverage_value <= shape.coverage_max
+vec::push coverage_value
+advance written_cell_count by 1
+```
+
+On `vec::push` failure, the lower error kind is read before recovering the failed Vec owner. The returned error owns the unchanged writer owner and the rejected coverage value. Completion requires exact fill:
+
+```text
+if written_cell_count == shape.cell_count:
+    CoverageMaskCompleted completed_owner
+else:
+    CoverageMaskIncomplete writer_owner
+```
+
+There is no zero-fill fallback and no best-effort partial mask completion.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

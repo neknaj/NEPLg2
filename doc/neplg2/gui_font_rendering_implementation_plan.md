@@ -40,6 +40,53 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5bd: sfnt simple glyph raster coverage mask writer owner
+
+目的:
+
+- F5bc の completed raster edge owner を authority とし、scan conversion が後続 phase で埋める coverage cell buffer の owner boundary を追加する。
+- coverage 寸法は edge から暗黙推測せず、`RasterCoverageConfig` を検査して `RasterCoverageShape` に固定する。
+- `coverage_max = sample_scale * sample_scale`、`cell_count = width_px * height_px` を overflow guard 付きで計算する。
+- F5bd は coverage buffer writer で止め、edge scan conversion、coverage computation、packed mask conversion、2D render command、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- completed edge owner の count だけでは typed edge Vec の len/cap 不整合を検出できず、新しい allocation boundary として弱いと指摘された。
+- revised plan では `EdgeStorageLenMismatch` / `EdgeStorageCapacityMismatch` を追加し、coverage cell Vec allocation 前に typed edge Vec len/cap を再検査する。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRasterCoverageConfig` と `GuiSfntSimpleGlyphRasterCoverageShape` を追加する。どちらも scalar-only value record とし、`Clone` / `Copy` を実装する。
+- coverage shape derive helper を追加し、width、height、sample scale、max cell count、coverage max overflow、cell count overflow、cell count limit を typed error として返す。
+- `GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner` を module-private owner として追加する。completed F5bc edge owner、coverage shape、coverage cell Vec、written_cell_count を保持する。
+- `RasterCoverageStartErrorKind` / `RasterCoverageStartError` を追加する。start error は original edge owner を必ず保持し、`raster_coverage_start_error_edge_owner` で回収できる。
+- start は config shape derivation、F5bc edge owner revalidation、coverage cell Vec allocation の順に検査する。
+- edge owner revalidation は edge_count、line_edge_count、quadratic_edge_count、capacity.raster_edge_capacity、plan.line_to_count、plan.quadratic_to_count、typed edge Vec len、typed edge Vec cap を照合する。
+- `RasterCoveragePushErrorKind` / `RasterCoveragePushError` を追加する。push error は unchanged writer owner と rejected coverage value を保持し、lower `StdErrorKind` は `Option` として分離する。
+- `raster_coverage_mask_writer_owner_push_cell` を追加し、Vec len/cap、full check、coverage value range、`vec::push` recovery order、written count advance を固定する。
+- completed owner、completion terminal、free 関数を追加し、full mask 以外を completed としない。
+
+完了条件:
+
+- source policy が docs、plan review approval、config/shape value type `Clone` / `Copy`、private writer/completed owner、owner no `Clone` / `Copy`、shape derivation validation order、edge owner revalidation、typed edge Vec len/cap revalidation、start error owner recovery、push error owner recovery、push validation order、Vec push recovery order、exact completion、free functions、forbidden byte-backed / old traversal / scan conversion / coverage computation / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md` に config shape、start validation、owner recovery、push validation、completion/free、no fallback/no scan/no render policy の coverage label を追加する。
+- implementation review で F5bc edge owner が start/push failure から必ず回収可能であること、coverage buffer が partial completion や zero-fill fallback を持たないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の edge scan conversion / coverage computation phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_mask_writer_f5bd.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_edge_owner_f5bd_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bd.json -j 1
+git diff --check
+```
+
 ## Phase F5bc: sfnt simple glyph outline point stream item collection raster edge owner
 
 目的:
