@@ -238,6 +238,57 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bj: sfnt simple glyph render fill alpha mask sample command bridge boundary
+
+目的:
+
+- F5bi の sample cursor を authority とし、1 sample を 1 typed `RenderCommand::FillRect` へ変換する command bridge を追加する。
+- これは高速 compositor が無い場合の fallback ではなく、alpha scale、paint access、cursor recovery、command emission の correctness boundary である。
+- 現行 `FillRectCommand` は blend payload を持たないため、`GuiBlendMode::SourceOver` だけを受理し、それ以外は `UnsupportedBlendMode` で fail closed にする。
+- command conversion が成功する前に cursor を進めず、失敗時は元 cursor と rejected sample を error から回収できるようにする。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。
+- `FillRectCommand` が blend を保持しないため、`sample.blend` を捨てると hidden fallback / semantic loss になると指摘された。
+- F5bi の owning `sample_cursor_step` を先に呼ぶと、command conversion failure 時に sample 消費済みで command 未発行という partial completion になり得ると指摘された。
+- revised plan では `SourceOver` only validation と、conversion succeeds before cursor advances rule を追加した。
+- command conversion failure は元 cursor と `rejected_sample = Some sample` を保持する。F5bi invariant/read failure は `rejected_sample = None` とする。
+- Planck revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `core/gui/render_command.nepl` に `gui_paint_color` accessor を追加する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind` を追加する。`InvalidAlphaMax`、`AlphaNegative`、`AlphaExceedsMax`、`PaintAlphaMultiplyOverflow`、`ScaledAlphaOutOfRange`、`UnsupportedBlendMode` を持つ。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError` を追加し、value-only rejected sample を保持する。
+- sample command paint helper を追加し、`gui_paint_color` で RGB と paint alpha を読み、checked alpha scaling の後にだけ `cast i32 u8` を行う。
+- sample render command helper を追加し、absolute sample position から 1x1 `GuiRect` を作って `render_command_fill_rect` を返す。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind` を追加し、F5bi invariant/read failure と command conversion failure を typed に区別する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorError` を追加し、cursor と `Option rejected_sample` を保持する。
+- command cursor terminal を追加し、`Command RenderCommand next_cursor` と `Completed owner` を表す。
+- command cursor step を追加する。`cell_index == cell_count` は read より前に completed とし、`cell_index < cell_count` では `read &cursor`、sample command conversion、owner handoff to next cursor の順に進める。
+- error / terminal free helper を追加する。
+
+完了条件:
+
+- source policy が docs、Planck revised approval、`gui_paint_color` accessor、SourceOver-only validation、unsupported blend error、checked alpha scale before cast、transparent zero alpha command、exact one sample to one FillRect command、conversion-before-advance、rejected sample recovery、owner-bearing error/terminal no `Clone` / `Copy`、free helpers、no RenderTarget / DrawTarget / platform / fallback / zero-fill / stroke / shadow / partial completion、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md` に paint accessor、SourceOver-only、checked alpha scale、transparent zero alpha、FillRect emission、conversion-before-advance、rejected sample recovery、terminal free、no platform / target / fallback policy の coverage label を追加する。
+- implementation review で F5bj が target/backend/platform に進んでいないこと、blend semantic loss と partial completion の blocker が解消されていること、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bj 後の alpha-mask/tile command、2D compositor drain、stroke / shadow 専用 raster boundary を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge_f5bj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor_f5bj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5bj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bj.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
