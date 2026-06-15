@@ -3937,3 +3937,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5am.json -j 1
 git diff --check
 ```
+
+## Phase F5an: sfnt simple glyph outline point stream item collection path sink action storage owner
+
+目的:
+
+- F5am の capacity 付き drain outcome を authority とし、`EndContour` だけを F5b outline storage allocation へ進める。
+- `Rejected` / `StepBudgetExhausted` は storage allocation error ではなく typed terminal として caller へ戻し、owner を作らない。
+- slot population、path command owner fill、sink traversal、render/raster/platform/host API へ進まない。
+- caller が別 collection / 別 drain result / byte-backed traversal result を組み合わせて owner allocation へ進める API を作らない。
+
+plan review:
+
+- Tesla plan review は `PLAN_APPROVED`。
+- `Result StorageTerminal StorageAllocError` は妥当である。allocation failure だけが新しい fallible operation であり、`Rejected` / `StepBudgetExhausted` は typed domain terminal として `Result::Ok` に残す。
+- empty F5b storage owner の allocation だけに留め、slot population / path owner fill は後続 slice へ分ける。
+- F5am outcome を authority とし、F5b allocation validation を使うため、F5an で別の collection/drain pairing check は追加しない。ただし separate collection / drain input を public API にしないことを document する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner` を追加する。
+- `StorageOwner` は `GuiSfntSimpleGlyphOutlineStorage` と `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary` を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError` を追加する。
+- `StorageAllocError` は `DrainSummary` と `GuiSfntSimpleGlyphOutlineStorageAllocError` を保持し、owner を含まないため `Clone` / `Copy` を実装する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal` を追加する。
+- terminal enum は `Allocated StorageOwner`、`Rejected DrainRejected`、`StepBudgetExhausted DrainSummary` だけを持ち、`Clone` / `Copy` を実装しない。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner` を追加する。
+- `EndContour` branch では drain summary から capacity を exactly once 読み、F5b `gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit` を exactly once 呼ぶ。
+- allocation 成功時は `Ok Allocated StorageOwner` を返し、allocation 失敗時だけ `Err StorageAllocError` を返す。
+- `Rejected` / `StepBudgetExhausted` branch は storage allocation を呼ばず、それぞれ typed terminal を `Ok` で返す。
+
+完了条件:
+
+- source policy が docs、types、owner no Clone/Copy、terminal no Clone/Copy、storage allocation call count、EndContour-only allocation、forbidden API、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md` に EndContour allocation success、allocation failure、Rejected no allocation、StepBudgetExhausted no allocation、summary-preserving error、no fallback/no byte-backed traversal coverage label を追加する。
+- implementation review で `Rejected` / `StepBudgetExhausted` branch が allocation を呼ばないこと、owner-bearing types が Clone/Copy でないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_storage_owner_f5an.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_drain_outcome_f5an_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5an.json -j 1
+git diff --check
+```

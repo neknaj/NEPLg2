@@ -1,3 +1,45 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action storage owner checkpoint
+
+## scope
+
+- branch: `gui-font-drain-outcome-owner-boundary-f5an-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5an の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action storage owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5an の F5am outcome authority、`EndContour` only allocation、domain terminal と allocation failure の分離、owner no Clone/Copy、slot population 分離を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5an の plan review 結果、実装条件、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5an source policy を追加した。docs/API/owner no Clone/Copy/terminal no Clone/Copy/capacity exact one-call/F5b allocation exact one-call/Rejected と StepBudgetExhausted の no allocation/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に storage owner、summary-preserving storage allocation error、storage terminal、F5am outcome to storage owner boundary を追加した。
+- F5an public helper は F5am outcome と storage limit だけを受け取り、`EndContour` だけ F5b `gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit` に進める。`Rejected` / `StepBudgetExhausted` は owner を作らず typed `Ok` terminal として返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md` を追加し、storage owner types、EndContour allocation、Rejected no owner、StepBudgetExhausted no owner、allocation error summary preservation、no fallback / no byte-backed traversal の source policy coverage label を固定した。
+- `todo.md` は F5an 完了後の次作業として、allocated storage owner から scalar slot population 計画境界へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。`Result StorageTerminal StorageAllocError` は妥当で、allocation failure だけを `Err`、`Rejected` / `StepBudgetExhausted` は typed domain terminal として `Ok` に残す判断が承認された。
+- Tesla は、empty F5b storage owner allocation だけに留め、slot population / path owner fill は後続 slice に分ける設計を承認した。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、新規 focused doctest が未追跡であること、`note.n.md` / `todo.md` が未更新であることが運用 blocker として指摘された。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。新規 focused doctest、`note.n.md`、`todo.md` の更新が staged set に含まれ、追加 blocker はないと判断された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 203 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_storage_owner_f5an.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_drain_outcome_f5an_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5an.json -j 1` 794/794 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5an は storage owner allocation boundary までであり、allocated storage owner の scalar slot population、path command owner fill、raster mask、render2d command emission は未実装である。
+- F5an focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功するが約 203 秒かかる。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink action drain outcome checkpoint
 
 ## scope
