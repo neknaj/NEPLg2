@@ -3838,3 +3838,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ak.json -j 1
 git diff --check
 ```
+
+## Phase F5al: sfnt simple glyph outline point stream item collection path sink action consume summary drain
+
+目的:
+
+- F5ak start consume summary と F5aj consume-once をつなぎ、collection-backed action consumer summary を explicit budget 内で terminal まで進める。
+- F4aq の byte-backed drain と同じ `EndContour` / `Rejected` / `StepBudgetExhausted` terminal contract を使いながら、F4 byte-backed helper、lower F5 direct traversal、sink mutation、render/raster/platform/host API へ戻らない。
+- `summary_state` / `summary_terminal` / F5aj consume-once / pure summary projection の exact one-call boundary を source policy で固定する。
+
+変更:
+
+- Tesla plan review は `PLAN_APPROVED`。F5ak start summary を入口にし、F5aj consume-once を advance-once の唯一の collection-backed continuation authority にする設計が妥当と判断された。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once` を追加する。
+- advance-once helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary` を exactly once 呼ぶ。
+- advance-once helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を exactly once 呼ぶ。
+- `Continue item` の場合だけ source 上 F5aj `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy` を exactly once 呼ぶ。
+- F5aj success の場合だけ source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を exactly once 呼ぶ。
+- advance-once helper は `Rejected` / `EndContour` を `Result::Ok` の typed terminal として返す。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget` を追加する。
+- drain helper は budget 判定より前に `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary` を exactly once 呼ぶ。
+- `Rejected` と `EndContour` は budget を消費せず current summary と一緒に返す。
+- `Continue` かつ `remaining_steps <= 0` は `StepBudgetExhausted current_summary` を返す。
+- `Continue` かつ `remaining_steps > 0` の場合だけ F5al advance-once helper を exactly once 呼ぶ。
+- advance-once が `Result::Err error` を返した場合は、その contour step error をそのまま返す。
+- advance-once が `Continue next_summary` を返した場合は、`remaining_steps - 1` で drain helper を exactly one recursive step だけ進める。
+- advance-once が保守上 `Rejected` / `EndContour` を返した場合は、advance-once に渡した current summary を drain result に入れる。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget` を追加する。
+- start drain helper は F5ak `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary` を exactly once 呼び、成功時だけ F5al drain helper を exactly once 呼ぶ。
+- start drain helper は F5al advance-once、F5aj consume-once、F5ak lower start helper を直接呼ばない。
+- helper は F4 byte-backed lookup、lower collection path event / contour / step helper、payload direct match、`Vec` / `push`、sink traversal、render/raster/platform/host API、font fallback を呼ばない。
+
+完了条件:
+
+- F5al advance-once が summary state / terminal を exactly once 読み、`Continue` の場合だけ F5aj consume-once と summary projection を使う。
+- F5al drain helper が terminal-before-budget を守り、budget exhaustion と domain terminal と contour step error を混同しない。
+- F5al start drain helper が F5ak start summary -> F5al drain だけを合成し、下位 helper へ直接戻らない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md` に advance-once、terminal handling、drain budget zero/negative、recursive drain、start drain、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、helper body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_f5al.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_start_consumer_f5al_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5al.json -j 1
+git diff --check
+```

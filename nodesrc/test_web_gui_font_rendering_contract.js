@@ -127,6 +127,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStepItemTests = r
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerItemTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerNextTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -168,6 +169,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerItemTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerNextTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -9410,7 +9412,7 @@ assert(
 );
 const specF5ak = spec.slice(
     spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action start consumer"),
-    spec.indexOf("### Supported font containers"),
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action consume summary drain"),
 );
 for (const fragment of [
     "F5ak は collection-backed action stream",
@@ -9433,7 +9435,7 @@ for (const fragment of [
 }
 const detailedF5ak = detailedDesign.slice(
     detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action start consumer boundary"),
-    detailedDesign.indexOf("## Metrics fixed-point"),
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action consume summary drain boundary"),
 );
 for (const fragment of [
     "F5ak is the collection-backed contour start consumer boundary",
@@ -9451,6 +9453,7 @@ for (const fragment of [
 }
 const implementationPlanF5ak = implementationPlan.slice(
     implementationPlan.indexOf("## Phase F5ak: sfnt simple glyph outline point stream item collection path sink action start consumer"),
+    implementationPlan.indexOf("## Phase F5al: sfnt simple glyph outline point stream item collection path sink action consume summary drain"),
 );
 for (const fragment of [
     "PLAN_BLOCKED",
@@ -9648,6 +9651,222 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests.includes("path_sink_action_start_consumer_error_propagates_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests.includes("path_sink_action_start_consumer_no_vec_no_fallback_no_byte_backed_traversal"),
     "F5ak point stream item collection path sink action start consumer focused doctest must cover capacity glyph authority, start item, start consumer, consume once, summary projection, error propagation, and no fallback policy",
+);
+const specF5al = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action consume summary drain"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5al は F5ak の collection-backed start consume summary",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget:",
+    "summary_state",
+    "summary_terminal",
+    "F5aj `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy`",
+    "terminal-before-budget",
+    "StepBudgetExhausted current_summary",
+    "F5ak `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary collection state contour_index policy`",
+    "F5al advance-once from start drain helper",
+    "font fallback",
+]) {
+    assert(specF5al.includes(fragment), `font spec F5al collection summary drain must mention ${fragment}`);
+}
+const detailedF5al = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action consume summary drain boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5al is the collection-backed bounded consume summary drain",
+    "read summary state exactly once",
+    "read summary terminal exactly once",
+    "call F5aj collection consume-once exactly once",
+    "call pure summary projection exactly once",
+    "read summary terminal exactly once",
+    "if remaining_steps <= 0",
+    "call F5al advance-once exactly once",
+    "recurse with remaining_steps - 1",
+    "call F5ak start consume summary exactly once",
+    "call F5al drain budget exactly once",
+    "must not call F5al advance-once, F5aj consume-once, or F5ak lower start helpers directly",
+]) {
+    assert(detailedF5al.includes(fragment), `font detailed design F5al collection summary drain must mention ${fragment}`);
+}
+const implementationPlanF5al = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5al: sfnt simple glyph outline point stream item collection path sink action consume summary drain"),
+);
+for (const fragment of [
+    "PLAN_APPROVED",
+    "F5ak start consume summary",
+    "F5aj consume-once",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md",
+]) {
+    assert(implementationPlanF5al.includes(fragment), `font implementation plan F5al must mention ${fragment}`);
+}
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError"),
+    "alloc/gui/font/sfnt/glyf F5al must expose collection-backed consume summary advance once helper",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError"),
+    "alloc/gui/font/sfnt/glyf F5al must expose collection-backed consume summary drain budget helper",
+);
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError"),
+    "alloc/gui/font/sfnt/glyf F5al must expose collection-backed start consume summary drain budget helper",
+);
+const pointStreamItemCollectionPathSinkActionConsumeSummaryAdvanceOnce = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once");
+for (const fragment of [
+    "let state %GuiSfntSimpleGlyphPathSinkActionApplyState gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary",
+    "let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item:",
+    "match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy:",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok consume_step:",
+    "let next_summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionConsumeSummaryAdvanceOnce.includes(fragment), `alloc/gui/font/sfnt/glyf F5al consume summary advance once body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionConsumeSummaryAdvanceOnce,
+    [
+        "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state summary",
+        "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue item:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &item policy",
+        "Result::Err error:",
+        "Result::Err error",
+        "Result::Ok consume_step:",
+        "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step",
+        "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary",
+    ],
+    "alloc/gui/font/sfnt/glyf F5al advance once must read state and terminal before delegating Continue to F5aj consume-once",
+);
+for (const [name, expected, message] of [
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_state", 1, "read summary state exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal", 1, "read summary terminal exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once", 1, "call F5aj consume-once exactly once"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step", 1, "project next summary exactly once"],
+]) {
+    assert(
+        (pointStreamItemCollectionPathSinkActionConsumeSummaryAdvanceOnce.match(new RegExp(`\\b${name}\\b`, "g")) || []).length === expected,
+        `alloc/gui/font/sfnt/glyf F5al advance once must ${message}`,
+    );
+}
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionConsumeSummaryAdvanceOnce,
+    /\b(?:Option::None|Option::Some|vec::|Vec\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5al advance once must not allocate, reinterpret actions, call start/lower/byte-backed helpers directly, traverse, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionConsumeSummaryAdvanceOnce,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5al advance once body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionPathSinkActionConsumeSummaryDrainBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget");
+for (const fragment of [
+    "let terminal %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:",
+    "let rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected reason *summary",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:",
+    "Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour *summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:",
+    "if le remaining_steps 0:",
+    "then Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted *summary",
+    "match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once collection summary policy:",
+    "Result::Err error:",
+    "Result::Err error",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget collection &next_summary policy sub remaining_steps 1",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Rejected reason:",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::EndContour:",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionConsumeSummaryDrainBudget.includes(fragment), `alloc/gui/font/sfnt/glyf F5al consume summary drain body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionConsumeSummaryDrainBudget,
+    [
+        "gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal summary",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Rejected reason:",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::EndContour:",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryTerminal::Continue _item:",
+        "if le remaining_steps 0:",
+        "then Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted *summary",
+        "else:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once collection summary policy",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance::Continue next_summary:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget collection &next_summary policy sub remaining_steps 1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5al drain must read terminal before budget and recurse only after positive-budget advance Continue",
+);
+for (const [name, expected, message] of [
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal", 1, "read summary terminal exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once", 1, "call F5al advance-once exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget", 2, "contain only its signature and one recursive call"],
+    ["gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_rejected", 2, "construct rejected payload only for terminal and advance rejected branches"],
+]) {
+    assert(
+        (pointStreamItemCollectionPathSinkActionConsumeSummaryDrainBudget.match(new RegExp(`\\b${name}\\b`, "g")) || []).length === expected,
+        `alloc/gui/font/sfnt/glyf F5al drain must ${message}`,
+    );
+}
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionConsumeSummaryDrainBudget,
+    /\b(?:Option::None|Option::Some|vec::|Vec\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5al drain must not allocate, project summaries itself, call start/F5aj/lower/byte-backed helpers directly, traverse, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionConsumeSummaryDrainBudget,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5al drain body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget");
+for (const fragment of [
+    "match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary collection state contour_index policy:",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok summary:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget collection &summary policy remaining_steps",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainBudget.includes(fragment), `alloc/gui/font/sfnt/glyf F5al start drain body must include ${fragment}`);
+}
+assert(
+    (pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainBudget.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5al start drain must call F5ak start consume summary exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainBudget.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5al start drain must call F5al drain exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainBudget,
+    /\b(?:GuiGlyphId|Option::None|Option::Some|vec::|Vec\s+GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step|gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5al start drain must only compose F5ak start summary and F5al drain, without lower/start/advance/byte-backed/render/platform calls",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainBudget,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5al start drain body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_advance_once_continue_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_advance_once_terminal_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_advance_once_uses_f5aj_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_drain_budget_zero_negative_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_drain_budget_continue_recurses_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_start_consume_summary_drain_uses_f5ak_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_drain_no_vec_no_fallback_no_byte_backed_traversal"),
+    "F5al point stream item collection path sink action consume summary drain focused doctest must cover advance once, terminal handling, budget, recursion, start drain, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

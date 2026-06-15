@@ -4318,6 +4318,90 @@ if start consume-once Ok:
 
 Only the start item helper may call F5ag and F5ah directly. Higher F5ak helpers must use the immediately lower F5ak helper and the already established F5ai/F5aj authority. F5ak must not call byte-backed F4 helpers, accept caller supplied glyphs, inspect action payload variants, call consumer next, advance/drain summaries, allocate `Vec`, push items, traverse a real sink, mutate a sink, rasterize, emit render commands, call platform APIs, or call host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink action consume summary drain boundary
+
+F5al is the collection-backed bounded consume summary drain. It mirrors the F4ao/F4aq summary advance and drain shape, but its only traversal authority is the F5ak start summary plus F5aj consume-once chain. It never re-enters byte-backed glyph lookup.
+
+The public boundaries are:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    summary &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+The advance-once helper order is:
+
+```text
+read summary state exactly once
+read summary terminal exactly once
+if terminal is Continue item:
+    call F5aj collection consume-once exactly once
+    if F5aj Err:
+        return the same error
+    if F5aj Ok consume_step:
+        call pure summary projection exactly once
+        return Continue next_summary
+if terminal is Rejected reason:
+    return Ok Rejected reason
+if terminal is EndContour:
+    return Ok EndContour
+```
+
+`Rejected` and `EndContour` are typed success terminals. They are not converted into errors, ignored as no-op, or interpreted as a fallback path.
+
+The drain helper order is:
+
+```text
+read summary terminal exactly once
+if terminal is Rejected reason:
+    return Ok Rejected reason current_summary
+if terminal is EndContour:
+    return Ok EndContour current_summary
+if terminal is Continue:
+    if remaining_steps <= 0:
+        return Ok StepBudgetExhausted current_summary
+    else:
+        call F5al advance-once exactly once
+        if advance Err:
+            return the same error
+        if advance Ok Continue next_summary:
+            recurse with remaining_steps - 1
+        if advance Ok Rejected reason:
+            return Ok Rejected reason current_summary
+        if advance Ok EndContour:
+            return Ok EndContour current_summary
+```
+
+The start drain helper composes F5ak start summary and F5al drain only:
+
+```text
+call F5ak start consume summary exactly once
+if start Err:
+    return the same error
+if start Ok summary:
+    call F5al drain budget exactly once
+```
+
+F5al must not allocate `Vec`, push commands, match action payload variants, call lower collection path event / contour / step helpers directly, call F4 byte-backed lookup helpers, call `*_with_tables`, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. The start drain helper additionally must not call F5al advance-once, F5aj consume-once, or F5ak lower start helpers directly; it owns only start summary to drain composition.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
