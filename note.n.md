@@ -1,3 +1,50 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection curve segment checkpoint
+
+## scope
+
+- branch: `gui-font-collection-curve-segment-f5y-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5y の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection curve segment の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5y の collection-backed curve segment lookup、F5x exact one-call、edge invariant 再検査、条件付き F5w lookahead、lookahead invariant 再検査、missing lookahead の上位合成禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5y の plan review 経緯、実装中に行った helper 分割、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind`、`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment` と accessors を追加した。
+- F5y public wrapper は F5x contour edge lookup を exactly once 呼び、F5x failure を `ContourEdgeFailed` として lower error payload ごと保持する。
+- F5y は F5x success 後に private edge invariant helper で span、capacity、edge index、next local index、start/end local index、absolute point index を curve decision より前に再検査する。
+- F5y は start が on-curve かつ end が off-curve の場合だけ F5w contour point lookup を exactly once 呼び、lower failure を `LookaheadPointFailed` として保持する。
+- F5y は lookahead success 後に private lookahead invariant helper で span、local index、absolute point index を再検査してから、既存の curve segment classifier へ `Option::Some lookahead` を渡す。
+- F5y は lookahead 不要 branch では F5w を呼ばず、classifier へ `Option::None` を渡す。上位で `MissingLookahead` を合成して lookup を省略する fallback は行わない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md` を追加し、line、explicit quadratic、implied midpoint、single point no segment、off-curve start no segment、F5x failure wrapping、F5w lookahead failure wrapping の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5y 実呼び出しで 180 秒を超えるため `skip` としている。実行可能性は source policy と `stdlib/alloc/gui/font/sfnt/glyf.nepl` 全体 doctest で検査し、将来 compiler 側の compile time が改善された時点で unskip する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5y source policy を追加し、docs/API/F5x exact one-call/F5w conditional exact one-call/private invariant helper/forbidden API/括弧なし prefix style/test coverage label を検査する。
+
+## subagent review
+
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。error payload の明示、F5x success 後の edge/span invariant 再検査、F5w 呼び出しを必要 branch だけに限定すること、source policy を必須指摘として受けた。
+- Tesla follow-up plan review は `PLAN_APPROVED`。F5x を authority とし、edge invariant、conditional lookahead、lookahead invariant、classifier projection の順で実装する方針が承認された。
+- F5y 実呼び出し doctest が compile timeout したため、public wrapper を小さく保ち、edge invariant / lookahead invariant / checked-edge branch を private helper に分割する方針を Tesla に確認した。
+- Tesla direction review は `IMPLEMENTATION_DIRECTION_APPROVED`。private helper は許可され、source policy は public wrapper と helper body の両方を検査する条件が示された。
+- Tesla implementation review は 1 回目 `IMPLEMENTATION_BLOCKED`。code-level blocker はなく、未追跡 doctest file の commit 対象化、`note.n.md` の F5y checkpoint 追加、`todo.md` の残件更新が必要とされた。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 doctest file は staged `A` となり、tmp / `NUL` は commit 対象から除外された状態で承認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_curve_segment_f5y.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_edge_f5y_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5y.json -j 1` 741/741 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5y は collection-backed curve segment lookup までであり、collection-backed path tag population、outline traversal、raster mask、render2d command emission は未実装である。
+- F5y focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と full `glyf.nepl` doctest で固定している。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection contour edge checkpoint
 
 ## scope

@@ -3315,3 +3315,47 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5x.json -j 1
 git diff --check
 ```
+
+## Phase F5y: sfnt simple glyph outline point stream item collection curve segment
+
+目的:
+
+- F5x の collection-backed contour edge を authority とし、contour-local edge index から `GuiSfntSimpleGlyphCurveSegment` を 1 つだけ分類する。
+- needed lookahead がある場合だけ F5w point lookup を呼び、F4 byte-backed curve helper、F5 storage reader、drain、path/raster/render/platform/host API へ戻らない。
+- 後続の collection-backed path tag population が使う curve segment boundary を、owner-preserving collection API と typed `Result` に固定する。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は 1 回目 `PLAN_BLOCKED`。F5y error payload が `kind`、`contour_index`、`edge_index`、computed local indices、capacity、lower edge/lookahead errors、accepted edge/lookahead、collection diagnostics を保持すること、F5x success 後に edge/span invariant を lookahead 判定より前に visible に再検査することが必須指摘だった。
+- 計画を修正し、`ContourEdgeFailed`、`LookaheadPointFailed`、`CurveSegmentInvariantInvalid` の 3 kind とし、`edge_error`、`lookahead_error`、`edge`、`lookahead`、`next_contour_point_index`、`lookahead_contour_point_index`、`item_count`、`items_len`、`items_cap` を error payload に保持する方針にした。
+- 修正後の計画は Tesla review で `PLAN_APPROVED`。F5y は F5x contour edge lookup を exactly once 呼び、edge/span invariant、on-curve 判定、必要な場合だけ F5w lookahead lookup、lookahead invariant validation、pure classifier call の順で実装する。
+- `alloc/gui/font/sfnt/glyf.nepl` に次を追加する。
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind`
+  - `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError`
+  - error constructor/accessors
+  - `gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment`
+- doctest は line、explicit quadratic、implied midpoint、single point no segment、off-curve start no segment、edge failure wrapping、lookahead contour-end wrap を検査する。public F5x/F5w が拒否する impossible success shape は source policy で固定する。
+- 実装後は subagent implementation review を受け、指摘があれば source policy、stdlib、doctest、文書を修正する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+完了条件:
+
+- F5y は F5x `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge` を source 上 exactly once 呼ぶ。
+- F5y は F5x success edge の span glyph、contour_index、start/end/count、capacity range、edge index、wrapped next index、start/end local index、start/end absolute point index を lookahead 判定より前に再検査する。
+- F5y は start が on-curve かつ end が off-curve の場合だけ F5w `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point` を source 上 exactly once 呼ぶ。
+- F5y は needed lookahead lookup が失敗した場合、`Option::None` を classifier に渡さず `LookaheadPointFailed` を返す。
+- F5y は lookahead の span、local index、absolute point index を再検査してから `gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead` を呼ぶ。
+- F5y は lookahead 不要 path では F5w を呼ばず、`lookahead_contour_point_index = -1` として `gui_sfnt_classify_simple_glyph_curve_segment edge Option::None` を呼ぶ。
+- single-point contour と off-curve start は valid `NoSegment` success として返し、F5y error へ変換しない。
+- source policy が F5y docs、public API、F5x exact one-call、F5w conditional exact one-call、edge invariant before lookahead 判定、lookahead invariant before classifier、forbidden API、括弧なし prefix style を検査する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_curve_segment_f5y.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_contour_edge_f5y_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5y.json -j 1
+git diff --check
+```

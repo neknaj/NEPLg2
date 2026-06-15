@@ -3142,6 +3142,91 @@ path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection curve segment
+
+F5y は F5x の collection-backed contour edge を authority として、1 本の edge から `GuiSfntSimpleGlyphCurveSegment` を分類する境界である。必要な lookahead point がある場合だけ F5w を呼び、F4 byte-backed curve segment helper や storage reader へ戻らない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+success は既存 `GuiSfntSimpleGlyphCurveSegment` を返す。`NoSegment` は valid topology state であり、parse error ではない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:
+    ContourEdgeFailed
+    LookaheadPointFailed
+    CurveSegmentInvariantInvalid
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind
+    contour_index i32
+    edge_index i32
+    next_contour_point_index i32
+    lookahead_contour_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    edge_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    lookahead_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    edge Option GuiSfntSimpleGlyphContourEdge
+    lookahead Option GuiSfntSimpleGlyphContourPoint
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+F5y は次の順序を守る。
+
+```text
+1. collection から capacity / item_count / items_len / items_cap を読む
+2. F5x contour edge lookup を exactly once 呼ぶ
+3. F5x error は ContourEdgeFailed として edge_error に保持する
+4. F5x success edge から start / end / span / next_contour_point_index を読む
+5. edge span の glyph、contour_index、start/end/count、capacity range を再検査する
+6. start / end span が edge span と一致することを再検査する
+7. start local index == edge_index を再検査する
+8. end local index == next_contour_point_index を再検査する
+9. start absolute index == span.start_point_index + edge_index を再検査する
+10. end absolute index == span.start_point_index + next_contour_point_index を再検査する
+11. recomputed next index が edge metadata と一致することを再検査する
+12. edge invariant failure は CurveSegmentInvariantInvalid とし、lookahead 判定へ進まない
+13. start on-curve かつ end off-curve の場合だけ lookahead index を計算する
+14. lookahead index は next_contour_point_index + 1 を使い、contour end では 0 に wrap する
+15. needed lookahead は F5w contour point lookup を exactly once 呼んで読む
+16. needed lookahead failure は LookaheadPointFailed として lookahead_error に保持する
+17. lookahead span / local index / absolute index を再検査する
+18. lookahead invariant failure は CurveSegmentInvariantInvalid とする
+19. needed lookahead success は gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead を返す
+20. lookahead 不要 path は F5w を呼ばず、gui_sfnt_classify_simple_glyph_curve_segment edge Option::None を返す
+```
+
+F5y は required lookahead を読めない場合に `Option::None` を渡して `MissingLookahead` を作ってはならない。`MissingLookahead` は lower pure classifier の防御的 state であり、collection-backed boundary では needed lookahead の失敗を `LookaheadPointFailed` として返す。一方で、1 point contour と off-curve start は valid `NoSegment` success として保持する。
+
+F5y は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+path helpers
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

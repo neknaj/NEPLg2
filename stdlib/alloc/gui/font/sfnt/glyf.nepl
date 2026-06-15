@@ -6264,6 +6264,291 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge %
                                                 else:
                                                     Result::Ok gui_sfnt_simple_glyph_contour_edge start end edge_index next_contour_point_index
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind: collection-backed curve segment lookup の typed reason
+//:
+//: [目的/もくてき]:
+//: - contour edge lookup の失敗、needed lookahead lookup の失敗、F5x 成功後の invariant 破れを[分/わ]けます。
+//: - needed lookahead を読めない場合は lower classifier の `MissingLookahead` へ落とさず、typed error として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:
+    ContourEdgeFailed
+    LookaheadPointFailed
+    CurveSegmentInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError: curve segment lookup failure context
+//:
+//: [目的/もくてき]:
+//: - F5y boundary の[診断/しんだん]情報を、lower error、accepted edge/lookahead、collection diagnostics として[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind
+    contour_index %i32
+    edge_index %i32
+    next_contour_point_index %i32
+    lookahead_contour_point_index %i32
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    edge %Option GuiSfntSimpleGlyphContourEdge
+    lookahead %Option GuiSfntSimpleGlyphContourPoint
+    item_count %i32
+    items_len %i32
+    items_cap %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error: curve segment error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError fn Option GuiSfntSimpleGlyphContourEdge fn Option GuiSfntSimpleGlyphContourPoint fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \kind\contour_index\edge_index\next_contour_point_index\lookahead_contour_point_index\capacity\edge_error\lookahead_error\edge\lookahead\item_count\items_len\items_cap:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError kind contour_index edge_index next_contour_point_index lookahead_contour_point_index capacity edge_error lookahead_error edge lookahead item_count items_len items_cap
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_kind: error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_contour_index: contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_contour_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "contour_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_edge_index: edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "edge_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_next_local_index: edge end local index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_next_local_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "next_contour_point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_lookahead_local_index: lookahead local index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_lookahead_local_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "lookahead_contour_point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_capacity: error capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_edge_error: lower edge error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_edge_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \error:
+    *field::get_ref error "edge_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_lookahead_error: lower lookahead error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_lookahead_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError \error:
+    *field::get_ref error "lookahead_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_edge: accepted edge option を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_edge %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError Option GuiSfntSimpleGlyphContourEdge \error:
+    *field::get_ref error "edge"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_lookahead: accepted lookahead option を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_lookahead %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError Option GuiSfntSimpleGlyphContourPoint \error:
+    *field::get_ref error "lookahead"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_item_count: collection item count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_item_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "item_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_items_len: Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_items_len %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "items_len"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_items_cap: Vec cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_items_cap %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError i32 \error:
+    *field::get_ref error "items_cap"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \kind\contour_index\edge_index\next_contour_point_index\lookahead_contour_point_index\capacity\item_count\items_len\items_cap:
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let lookahead %Option GuiSfntSimpleGlyphContourPoint none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error kind contour_index edge_index next_contour_point_index lookahead_contour_point_index capacity edge_error lookahead_error edge lookahead item_count items_len items_cap
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_with_edge_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind fn i32 fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphContourEdge fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \kind\contour_index\edge_index\next_contour_point_index\lookahead_contour_point_index\capacity\edge_value\item_count\items_len\items_cap:
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge some edge_value
+    let lookahead %Option GuiSfntSimpleGlyphContourPoint none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error kind contour_index edge_index next_contour_point_index lookahead_contour_point_index capacity edge_error lookahead_error edge lookahead item_count items_len items_cap
+
+fn gui_sfnt_simple_glyph_contour_edge_matches_collection_curve_segment_request %fn &GuiSfntSimpleGlyphContourEdge fn &GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 bool \edge\capacity\contour_index\edge_index:
+    let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start edge
+    let end %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_end edge
+    let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start
+    let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph capacity
+    let capacity_glyph_raw %i32 gui_glyph_id_raw &capacity_glyph
+    let capacity_point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count capacity
+    let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span
+    let span_glyph_raw %i32 gui_glyph_id_raw &span_glyph
+    let span_index %i32 gui_sfnt_simple_glyph_contour_span_index &span
+    let span_start_point_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &span
+    let span_end_point_index %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &span
+    let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+    let expected_span_point_count %i32 add sub span_end_point_index span_start_point_index 1
+    let edge_index_value %i32 gui_sfnt_simple_glyph_contour_edge_index edge
+    let next_contour_point_index %i32 gui_sfnt_simple_glyph_contour_edge_next_local_index edge
+    let expected_next_contour_point_index %i32 if:
+        eq add edge_index 1 span_point_count
+        then:
+            0
+        else:
+            add edge_index 1
+    let span_glyph_ok %bool eq span_glyph_raw capacity_glyph_raw
+    let span_index_ok %bool eq span_index contour_index
+    let span_start_ok %bool not lt span_start_point_index 0
+    let span_end_order_ok %bool not lt span_end_point_index span_start_point_index
+    let span_end_capacity_ok %bool lt span_end_point_index capacity_point_count
+    let span_point_count_ok %bool eq span_point_count expected_span_point_count
+    let span_identity_ok %bool and span_glyph_ok span_index_ok
+    let span_range_left_ok %bool and span_start_ok span_end_order_ok
+    let span_range_right_ok %bool and span_end_capacity_ok span_point_count_ok
+    let span_shape_ok %bool and span_identity_ok and span_range_left_ok span_range_right_ok
+    let start_matches_span %bool gui_sfnt_simple_glyph_contour_point_matches_span &start &span edge_index
+    let end_matches_span %bool gui_sfnt_simple_glyph_contour_point_matches_span &end &span next_contour_point_index
+    let start_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &start
+    let end_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &end
+    let start_absolute_point_index %i32 gui_sfnt_simple_glyph_point_index &start_point
+    let end_absolute_point_index %i32 gui_sfnt_simple_glyph_point_index &end_point
+    let expected_start_absolute_point_index %i32 add span_start_point_index edge_index
+    let expected_end_absolute_point_index %i32 add span_start_point_index next_contour_point_index
+    let start_absolute_ok %bool eq start_absolute_point_index expected_start_absolute_point_index
+    let end_absolute_ok %bool eq end_absolute_point_index expected_end_absolute_point_index
+    let edge_index_ok %bool eq edge_index_value edge_index
+    let next_index_ok %bool eq next_contour_point_index expected_next_contour_point_index
+    let edge_shape_left_ok %bool and span_shape_ok and edge_index_ok next_index_ok
+    let edge_shape_mid_ok %bool and start_matches_span end_matches_span
+    let edge_shape_right_ok %bool and start_absolute_ok end_absolute_ok
+    and edge_shape_left_ok and edge_shape_mid_ok edge_shape_right_ok
+
+fn gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge %fn &GuiSfntSimpleGlyphContourPoint fn &GuiSfntSimpleGlyphContourEdge fn i32 bool \lookahead\edge\lookahead_contour_point_index:
+    let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start edge
+    let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start
+    let span_start_point_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &span
+    let lookahead_matches_span %bool gui_sfnt_simple_glyph_contour_point_matches_span lookahead &span lookahead_contour_point_index
+    let lookahead_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point lookahead
+    let lookahead_absolute_point_index %i32 gui_sfnt_simple_glyph_point_index &lookahead_point
+    let expected_lookahead_absolute_point_index %i32 add span_start_point_index lookahead_contour_point_index
+    let lookahead_absolute_ok %bool eq lookahead_absolute_point_index expected_lookahead_absolute_point_index
+    and lookahead_matches_span lookahead_absolute_ok
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 fn GuiSfntSimpleGlyphOutlineStorageCapacity fn i32 fn i32 fn i32 fn GuiSfntSimpleGlyphContourEdge Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \collection\contour_index\edge_index\capacity\item_count\items_len\items_cap\edge:
+    let edge_valid %bool gui_sfnt_simple_glyph_contour_edge_matches_collection_curve_segment_request &edge &capacity contour_index edge_index
+    let next_contour_point_index %i32 gui_sfnt_simple_glyph_contour_edge_next_local_index &edge
+    if not edge_valid:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error_with_edge_empty GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::CurveSegmentInvariantInvalid contour_index edge_index next_contour_point_index -1 capacity edge item_count items_len items_cap
+            Result::Err error
+        else:
+            let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start &edge
+            let end %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_end &edge
+            let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start
+            let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+            let start_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &start
+            let end_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &end
+            let start_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &start_point
+            let end_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &end_point
+            let needs_lookahead %bool if:
+                start_on_curve
+                then:
+                    not end_on_curve
+                else:
+                    false
+            if needs_lookahead:
+                then:
+                    let lookahead_contour_point_index %i32 if:
+                        eq add next_contour_point_index 1 span_point_count
+                        then:
+                            0
+                        else:
+                            add next_contour_point_index 1
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index lookahead_contour_point_index:
+                        Result::Err lookahead_error_value:
+                            let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+                            let lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError some lookahead_error_value
+                            let edge_option %Option GuiSfntSimpleGlyphContourEdge some edge
+                            let lookahead %Option GuiSfntSimpleGlyphContourPoint none
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::LookaheadPointFailed contour_index edge_index next_contour_point_index lookahead_contour_point_index capacity edge_error lookahead_error edge_option lookahead item_count items_len items_cap
+                            Result::Err error
+                        Result::Ok lookahead:
+                            let lookahead_valid %bool gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge &lookahead &edge lookahead_contour_point_index
+                            if not lookahead_valid:
+                                then:
+                                    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+                                    let lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+                                    let edge_option %Option GuiSfntSimpleGlyphContourEdge some edge
+                                    let lookahead_option %Option GuiSfntSimpleGlyphContourPoint some lookahead
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::CurveSegmentInvariantInvalid contour_index edge_index next_contour_point_index lookahead_contour_point_index capacity edge_error lookahead_error edge_option lookahead_option item_count items_len items_cap
+                                    Result::Err error
+                                else:
+                                    Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead
+                else:
+                    let lookahead_contour_point_index %i32 -1
+                    Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::None
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment: collection から curve segment を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - F5x contour edge lookup を exactly once [呼/よ]び、edge/span invariant を[再検査/さいけんさ]してから curve 分類へ進みます。
+//: - start が on-curve かつ end が off-curve の場合だけ F5w lookahead point lookup を[呼/よ]びます。
+//: - needed lookahead failure は `LookaheadPointFailed` として[返/かえ]し、`MissingLookahead` success へ変換しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \collection\contour_index\edge_index:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection
+    let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection
+    let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index edge_index:
+        Result::Err edge_error_value:
+            let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError some edge_error_value
+            let lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError none
+            let edge %Option GuiSfntSimpleGlyphContourEdge none
+            let lookahead %Option GuiSfntSimpleGlyphContourPoint none
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::ContourEdgeFailed contour_index edge_index -1 -1 capacity edge_error lookahead_error edge lookahead item_count items_len items_cap
+            Result::Err error
+        Result::Ok edge:
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection contour_index edge_index capacity item_count items_len items_cap edge
+
 //: GuiSfntSimpleGlyphCurveNoSegmentReason: topology edge が drawable segment を[持/も]たない理由
 //:
 //: [目的/もくてき]:
