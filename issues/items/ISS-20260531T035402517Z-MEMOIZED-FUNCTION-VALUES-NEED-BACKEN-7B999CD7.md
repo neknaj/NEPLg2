@@ -160,3 +160,32 @@ request が 0 件なら backend materialization は不要として `SelfhostMemo
 - function identity equality / hash / raw address / debug observation の禁止。
 - `MemoKey` / `MemoValue` aggregate proof と request stream / preflight の接続。
 - `.neplobj` / prechecked artifact 用 stable request key への投影。
+
+## 2026-06-15 selfhost backend private-cache request-evidence gate checkpoint
+
+selfhost 側に `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` を追加し、memoized backend request と request occurrence evidence を照合する gate を作った。
+
+この checkpoint は sealed private cache backend representation そのものではない。private cache allocation、cache lookup / insert、cache region identity、PrivateCache / PrivateState surface fold、Resource no-escape proof producer、Wasm / LLVM bytes、永続 `.neplobj` / `.neplproof` artifact は作らない。目的は、backend accepted path へ進む前に、現在の HIR root で実際に収集された memoized request occurrence と proof record が一致していることだけを fail-closed に確認することである。
+
+accepted gate 本体は module-private である。内部 entrypoint は borrowed `SelfhostHirModule`、root `SelfhostHirExprId`、traversal fuel、`body_module_fingerprint`、borrowed proof table だけを受け取る。caller supplied request table は受け取らず、内部で request table を構築する。構築後、各 entry の `memoized_expr_id` から HIR expression を引き直し、request builder を再実行して、`request_kind`、`source_function_def_id`、`function_ty`、`source_effect`、`type_arg_count` を再照合する。
+
+proof key は `memoized_expr_id`、`source_function_def_id`、`function_ty`、`root_expr_id`、`body_module_fingerprint`、`request_kind`、`source_effect`、`type_arg_count`、`proof_kind`、`proof_schema_version` を持つ。`proof_kind` は現段階では `RequestOccurrenceGateEvidence` だけであり、後続の Resource no-escape proof や identity observation ban proof と混同しないための field である。`RequestEvidenceProven` は request occurrence evidence が一致したことだけを表し、PrivateCache proof 全体の完了を意味しない。
+
+proof record、proof table、proof table push、accepted gate 本体は module-private にした。NEPL の public struct は constructor / field payload の直組み可能性を持つため、push だけを private にしても producer-owned 契約にはならない。missing proof、`RequestEvidenceRefuted`、duplicate proof、current root の request に対応しない orphan proof は enum error として fail-closed にする。成功時も executable backend plan は作らず、non-executable summary だけを返す。
+
+subagent review では、status 名が広すぎると PrivateCache proof 完了と誤読されること、public push と public proof table / record constructor / table field が trust bypass になること、proof key に request kind / source effect / type arg count / proof kind / schema version が必要なこと、orphan proof を拒否すべきことが blocker / required として指摘された。実装では `RequestEvidenceProven` / `RequestEvidenceRefuted`、private proof record、private proof table、private writer、private accepted gate、orphan rejection、source policy regression を追加して対応した。
+
+検証:
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp_memo_gate_tests.json`
+
+残件:
+
+- sealed memoized backend representation。
+- producer-owned Resource proof boundary。
+- PrivateCache / PrivateState effect masking と Resource no-escape proof。
+- function identity equality / hash / raw address / debug observation の禁止。
+- `MemoKey` / `MemoValue` aggregate proof と request stream / proof gate の接続。
+- `.neplobj` / `.neplproof` / prechecked artifact 用 stable request key への投影。
+- proof lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割。

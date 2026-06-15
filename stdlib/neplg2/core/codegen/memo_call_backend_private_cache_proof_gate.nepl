@@ -1,0 +1,803 @@
+#indent 4
+
+//: # codegen/memo_call_backend_private_cache_proof_gate
+//: memo_call backend request に PrivateCache proof record を[結/むす]び[付/つ]ける checker/codegen boundary です。
+//:
+//: [目的/もくてき]:
+//: - `memo_call_backend_preflight` は、HIR root から memoized backend request を内部収集し、PrivateCache proof が未接続の非空 request を fail-closed に止めます。この module はその次段として、caller が渡す proof table をそのまま authority にせず、HIR root から request table を再構築したうえで proof key を厳密に照合します。
+//: - memoized function value を backend lowering へ進めるためには、source function identity、memoized occurrence、root body、body module fingerprint が同じ PrivateCache proof によって裏付けられている必要があります。この条件を typed key と enum status で表し、表示名や source token に依存しない境界として固定します。
+//: - proof が揃っている場合でも、この stage は実行可能な backend plan ではなく、non-executable summary だけを返します。cache allocation、lookup、insert、sealed representation、Wasm / LLVM bytes は後続 stage が別の proof boundary で扱います。
+//:
+//: [契約/けいやく]:
+//: - public entrypoint は borrowed `SelfhostHirModule`、root expression id、traversal fuel、body module fingerprint、borrowed proof table だけを受け取ります。caller supplied request table は受け取りません。
+//: - request table は `selfhost_memo_call_backend_request_table_from_hir_root_result` で内部構築し、各 entry は `memoized_expr_id` から HIR expression を引き直して request builder を再実行します。
+//: - accepted proof key は `memoized_expr_id`、`source_function_def_id`、`function_ty`、`root_expr_id`、`body_module_fingerprint`、`request_kind`、`source_effect`、`type_arg_count`、`proof_kind`、`proof_schema_version` の完全一致を要求します。`SelfhostDefId` や `SelfhostTypeId` だけの proof reuse は認めません。
+//: - `body_module_fingerprint == 0` は placeholder origin なので、非空 request に対する key と proof record として拒否します。
+//: - proof status が `RequestEvidenceProven` の場合だけ accepted summary の `proven_request_count` を増やします。この status は「この module 内 gate に必要な request occurrence evidence が producer-owned path から渡された」ことだけを表し、PrivateCache effect masking や Resource no-escape proof の完了を意味しません。
+//: - missing、`RequestEvidenceRefuted`、duplicate、root request に対応しない orphan proof は typed error として fail-closed にします。
+//: - diagnostic symbol、diagnostic span、関数名、`memo_call` という文字列、source text は proof lookup や accepted 判定の authority ではありません。
+//:
+//: [現状/げんじょう]:
+//: - proof table は session-local owner table です。永続 `.neplproof` / `.neplobj` artifact ではありません。永続 artifact key へ投影するには、module source identity、typed public surface hash、policy hash、stable type argument identity を別 boundary で合成する必要があります。
+//: - PrivateCache / PrivateState internal effect の fold、Resource IR no-escape proof 生成、cache hit / miss observation ban、function identity observation ban、sealed cache backend representation は未接続です。この module は、それらが存在しない状態で backend bytes を作らないための request-evidence gate だけを担当します。
+//: - Phase 1 では proof record / proof table / proof table writer / gate 本体は module-private です。後続の Resource proof producer が接続されるまでは、外部 module が arbitrary `RequestEvidenceProven` record を table に注入したり、その table を accepted gate に渡したりできないようにします。
+//:
+//: [計算量/けいさんりょう]:
+//: - request collection と HIR 再照合は root subtree の expression 数を `n`、memoized request 数を `m` とすると O(n + m) 時間です。
+//: - proof lookup は現状、request ごとに proof table を線形走査するため proof record 数を `p` とすると O(m * p) 時間です。
+//: - sorted index 化、root / fingerprint bucket 化、stable artifact sidecar index は、この exact key / duplicate rejection / fail-closed status contract を保ったまま後続 stage で置換できます。
+//:
+//: neplg2:test[stdio, normalize_newlines]
+//: stdout: mlstr:
+//: ##: Checked [ok,ok,ok,ok]
+//: ##: [0] ok
+//: ##: [1] ok
+//: ##: [2] ok
+//: ##: [3] ok
+//: exit_code: 0
+//: ```neplg2
+//:| #entry main
+//:| #target std
+//:| #import "core/result" as *
+//:| #import "neplg2/core/codegen/memo_call_backend_private_cache_proof_gate" as *
+//:| #import "std/test" as *
+//: fn main %impure fn void i32 \void:
+//:     match selfhost_memo_call_backend_private_cache_proof_gate_stage0:
+//:         Result::Ok summary:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 check_eq_i32 1 summary.accepted_request_count
+//:             let checks2 checks_push checks1 check_eq_i32 1 summary.accepted_proof_count
+//:             let checks3 checks_push checks2 check selfhost_memo_call_backend_private_cache_proof_gate_missing_result_eq summary.missing_rejected selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:             let checks4 checks_push checks3 check selfhost_memo_call_backend_private_cache_proof_gate_refuted_result_eq summary.refuted_rejected selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+//:             let shown checks_print_report checks4
+//:             checks_exit_code shown
+//:         Result::Err _setup:
+//:             let checks0 checks_new
+//:             let checks1 checks_push checks0 Result::Err "memo_call private cache proof gate stage0 setup failed"
+//:             let shown checks_print_report checks1
+//:             checks_exit_code shown
+//: ```
+
+#import "alloc/collections/vec" as v
+#import "core/field" as field
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "neplg2/core/hir/hir" as *
+#import "neplg2/core/infra/span" as *
+#import "neplg2/core/resolve/name_resolver" as *
+#import "neplg2/core/ty/effect" as *
+#import "neplg2/core/ty/ty" as *
+#import "./memo_call_backend_request" as *
+#import "./memo_call_backend_request_table" as *
+
+//: SelfhostMemoCallBackendPrivateCacheProofStatus: memo_call PrivateCache request-evidence の[状態/じょうたい]
+//:
+//: [目的/もくてき]:
+//: - gate が要求する request occurrence evidence の成功と反証を bool に潰さず、match の網羅性検査で分岐できるようにします。
+//:
+//: [契約/けいやく]:
+//: - `RequestEvidenceProven` はこの gate の入力 record が request occurrence と一致したことを表すだけです。PrivateCache region の non-escape、effect masking、backend cache correctness を証明した status として扱ってはいけません。
+enum SelfhostMemoCallBackendPrivateCacheProofStatus:
+    RequestEvidenceProven
+    RequestEvidenceRefuted
+
+//: SelfhostMemoCallBackendPrivateCacheProofKind: proof record が何を証明する record かを示す分類
+//:
+//: [目的/もくてき]:
+//: - 将来 `PrivateCacheRegionNoEscape` や `NoObservation` などの proof が増えたとき、request occurrence gate 用 record と混同しないようにします。
+pub enum SelfhostMemoCallBackendPrivateCacheProofKind:
+    RequestOccurrenceGateEvidence
+
+//: SelfhostMemoCallBackendPrivateCacheProofKey: memo_call PrivateCache proof と request を[結/むす]び[付/つ]ける key
+//:
+//: [契約/けいやく]:
+//: - `memoized_expr_id` は同じ source function を複数回 memoize した occurrence を区別します。
+//: - `source_function_def_id` と `function_ty` は HIR leaf の function identity から得た typed evidence です。
+//: - `root_expr_id` と `body_module_fingerprint` は session-local HIR id の origin を縛り、別 root / 別 module の proof reuse を防ぎます。
+//: - `request_kind`、`source_effect`、`type_arg_count` は request manifest の semantic field を key に含め、generic request や impure source を別 proof として扱います。
+//: - `proof_kind` と `proof_schema_version` は、この record が request occurrence gate 用 evidence であることと key shape を明示します。後続の no-escape proof や identity-observation proof と混同してはいけません。
+pub struct SelfhostMemoCallBackendPrivateCacheProofKey:
+    memoized_expr_id %SelfhostHirExprId
+    source_function_def_id %SelfhostDefId
+    function_ty %SelfhostTypeId
+    root_expr_id %SelfhostHirExprId
+    body_module_fingerprint %i32
+    request_kind %SelfhostMemoCallBackendRequestKind
+    source_effect %SelfhostEffectKind
+    type_arg_count %i32
+    proof_kind %SelfhostMemoCallBackendPrivateCacheProofKind
+    proof_schema_version %i32
+
+//: SelfhostMemoCallBackendPrivateCacheProofRecord: 1 つの memo_call proof status
+//:
+//: [契約/けいやく]:
+//: - record は proof producer が対象にした request key と、その gate-evidence status だけを保持します。
+//: - `RequestEvidenceProven` 以外の status は accepted summary を作りません。
+struct SelfhostMemoCallBackendPrivateCacheProofRecord:
+    key %SelfhostMemoCallBackendPrivateCacheProofKey
+    status %SelfhostMemoCallBackendPrivateCacheProofStatus
+
+//: SelfhostMemoCallBackendPrivateCacheProofTable: memo_call PrivateCache proof record の owner table
+//:
+//: [契約/けいやく]:
+//: - `records` は owner buffer です。この table 自体に `Clone` / `Copy` を実装してはいけません。
+//: - table は module-private です。外部 module は proof record owner buffer を直組みして accepted gate へ渡せません。
+struct SelfhostMemoCallBackendPrivateCacheProofTable:
+    records %Vec SelfhostMemoCallBackendPrivateCacheProofRecord
+
+//: SelfhostMemoCallBackendPrivateCacheProofGateSummary: proof gate の accepted summary
+//:
+//: [目的/もくてき]:
+//: - この summary は backend bytes ではなく、同じ HIR root 由来の memoized request が proof table で裏付けられたことだけを表します。
+pub struct SelfhostMemoCallBackendPrivateCacheProofGateSummary:
+    request_count %i32
+    proven_request_count %i32
+
+//: SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary: proof gate smoke の代表結果
+//:
+//: [目的/もくてき]:
+//: - accepted proof、missing proof、refuted proof を 1 つの doctest で確認できるようにします。
+pub struct SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
+    accepted_request_count %i32
+    accepted_proof_count %i32
+    missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+    refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind
+
+//: SelfhostMemoCallBackendPrivateCacheProofGateErrorKind: proof gate の失敗分類
+//:
+//: [目的/もくてき]:
+//: - request collection、HIR 再照合、proof table construction、proof lookup、refuted proof を表示文ではなく enum payload として返します。
+pub enum SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
+    RequestCollectionFailed %SelfhostMemoCallBackendRequestCollectorErrorKind
+    RequestEntryMissing %i32
+    RequestExpressionMissing %SelfhostHirExprId
+    RequestRecheckRejected %SelfhostMemoCallBackendRequestRejection
+    RequestIdentityMismatch %SelfhostHirExprId
+    BodyModuleFingerprintPlaceholder
+    ProofTableAllocFailed %StdErrorKind
+    ProofRecordPushFailed %StdErrorKind
+    ProofRecordReadFailed %i32
+    ProofMissing %SelfhostMemoCallBackendPrivateCacheProofKey
+    ProofRefuted %SelfhostMemoCallBackendPrivateCacheProofKey
+    ProofDuplicate %SelfhostMemoCallBackendPrivateCacheProofKey
+    ProofOrphan %SelfhostMemoCallBackendPrivateCacheProofKey
+    Stage0FixtureAllocFailed %StdErrorKind
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofStatus:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofStatus \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofStatus:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofStatus \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofKind SelfhostMemoCallBackendPrivateCacheProofKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofKind SelfhostMemoCallBackendPrivateCacheProofKind \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofKey:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofKey SelfhostMemoCallBackendPrivateCacheProofKey \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofKey:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofKey SelfhostMemoCallBackendPrivateCacheProofKey \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofRecord:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofRecord SelfhostMemoCallBackendPrivateCacheProofRecord \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofRecord:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofRecord SelfhostMemoCallBackendPrivateCacheProofRecord \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateSummary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateSummary \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateSummary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateSummary \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary \self:
+        self
+
+impl Clone for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
+    fn clone %fn &SelfhostMemoCallBackendPrivateCacheProofGateErrorKind SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \self:
+        *self
+
+impl Copy for SelfhostMemoCallBackendPrivateCacheProofGateErrorKind:
+    fn copy_mark %fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \self:
+        self
+
+//: selfhost_memo_call_backend_private_cache_proof_schema_version: gate proof key schema の version を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - schema version は永続 artifact ABI ではありません。この module 内の request-evidence key shape を区別するための session-local constant です。
+pub fn selfhost_memo_call_backend_private_cache_proof_schema_version %fn void i32 \void:
+    1
+
+//: selfhost_memo_call_backend_private_cache_proof_key_new: proof key を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - caller は request manifest から得た semantic field を渡します。この関数は proof kind と schema version を module 内 constant で補い、外部 caller が別 kind / 別 schema の key を合成できないようにします。
+//: - `body_module_fingerprint == 0` の拒否は table push と request-entry key 生成側で行います。この constructor は field を正規の順序で束ねるだけです。
+fn selfhost_memo_call_backend_private_cache_proof_key_new %fn SelfhostHirExprId fn SelfhostDefId fn SelfhostTypeId fn SelfhostHirExprId fn i32 fn SelfhostMemoCallBackendRequestKind fn SelfhostEffectKind fn i32 SelfhostMemoCallBackendPrivateCacheProofKey \memoized_expr_id\source_function_def_id\function_ty\root_expr_id\body_module_fingerprint\request_kind\source_effect\type_arg_count:
+    SelfhostMemoCallBackendPrivateCacheProofKey memoized_expr_id source_function_def_id function_ty root_expr_id body_module_fingerprint request_kind source_effect type_arg_count SelfhostMemoCallBackendPrivateCacheProofKind::RequestOccurrenceGateEvidence selfhost_memo_call_backend_private_cache_proof_schema_version
+
+//: selfhost_memo_call_backend_private_cache_proof_record_new: proof record を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_proof_record_new %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofRecord \key\status:
+    SelfhostMemoCallBackendPrivateCacheProofRecord key status
+
+//: selfhost_memo_call_backend_private_cache_proof_table_new: [空/から]の proof table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_proof_table_new %impure fn void Result SelfhostMemoCallBackendPrivateCacheProofTable SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \void:
+    let records_result %Result Vec SelfhostMemoCallBackendPrivateCacheProofRecord StdErrorKind v::new
+    match records_result:
+        Result::Ok records:
+            Result::Ok SelfhostMemoCallBackendPrivateCacheProofTable records
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofTableAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_proof_table_free: proof table の owner buffer を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_proof_table_free %impure fn SelfhostMemoCallBackendPrivateCacheProofTable unit \table:
+    v::free field::get table "records"
+
+//: selfhost_memo_call_backend_private_cache_proof_table_len: proof record 数を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_proof_table_len %fn &SelfhostMemoCallBackendPrivateCacheProofTable i32 \table:
+    let records %&Vec SelfhostMemoCallBackendPrivateCacheProofRecord field::get_ref table "records"
+    v::len records
+
+//: selfhost_memo_call_backend_private_cache_proof_table_push: proof record を table に[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `body_module_fingerprint == 0` の record は placeholder origin なので拒否し、table owner を閉じます。
+//: - push 失敗時は `Vec` が返した owner を閉じ、lower `StdErrorKind` を保持します。
+fn selfhost_memo_call_backend_private_cache_proof_table_push %impure fn SelfhostMemoCallBackendPrivateCacheProofTable impure fn SelfhostMemoCallBackendPrivateCacheProofRecord Result SelfhostMemoCallBackendPrivateCacheProofTable SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \table\record:
+    if:
+        eq record.key.body_module_fingerprint 0
+        then:
+            selfhost_memo_call_backend_private_cache_proof_table_free table
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            let records %Vec SelfhostMemoCallBackendPrivateCacheProofRecord field::get table "records"
+            match v::push records record:
+                Result::Ok next_records:
+                    Result::Ok SelfhostMemoCallBackendPrivateCacheProofTable next_records
+                Result::Err e:
+                    let error %StdErrorKind field::get e "error"
+                    v::free v::vec_push_error_vec e
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed error
+
+//: selfhost_memo_call_backend_private_cache_proof_status_eq: proof status が同じ variant か[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_proof_status_eq %fn SelfhostMemoCallBackendPrivateCacheProofStatus fn SelfhostMemoCallBackendPrivateCacheProofStatus bool \a\b:
+    match a:
+        SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven:
+            match b:
+                SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted:
+                    false
+        SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted:
+            match b:
+                SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted:
+                    true
+
+//: selfhost_memo_call_backend_private_cache_proof_kind_eq: proof kind が同じ variant か[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_proof_kind_eq %fn SelfhostMemoCallBackendPrivateCacheProofKind fn SelfhostMemoCallBackendPrivateCacheProofKind bool \a\b:
+    match a:
+        SelfhostMemoCallBackendPrivateCacheProofKind::RequestOccurrenceGateEvidence:
+            match b:
+                SelfhostMemoCallBackendPrivateCacheProofKind::RequestOccurrenceGateEvidence:
+                    true
+
+//: selfhost_memo_call_backend_private_cache_request_kind_eq: request kind が同じ variant か[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_request_kind_eq %fn SelfhostMemoCallBackendRequestKind fn SelfhostMemoCallBackendRequestKind bool \a\b:
+    match a:
+        SelfhostMemoCallBackendRequestKind::MemoCall:
+            match b:
+                SelfhostMemoCallBackendRequestKind::MemoCall:
+                    true
+
+//: selfhost_memo_call_backend_private_cache_proof_key_eq: proof key が同じ request boundary を指すか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_proof_key_eq %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheProofKey bool \a\b:
+    and:
+        eq selfhost_hir_expr_id_index a.memoized_expr_id selfhost_hir_expr_id_index b.memoized_expr_id
+        and:
+            selfhost_def_id_eq a.source_function_def_id b.source_function_def_id
+            and:
+                selfhost_type_id_eq a.function_ty b.function_ty
+                and:
+                    eq selfhost_hir_expr_id_index a.root_expr_id selfhost_hir_expr_id_index b.root_expr_id
+                    and:
+                        eq a.body_module_fingerprint b.body_module_fingerprint
+                        and:
+                            selfhost_memo_call_backend_private_cache_request_kind_eq a.request_kind b.request_kind
+                            and:
+                                selfhost_effect_kind_eq a.source_effect b.source_effect
+                                and:
+                                    eq a.type_arg_count b.type_arg_count
+                                    and:
+                                        selfhost_memo_call_backend_private_cache_proof_kind_eq a.proof_kind b.proof_kind
+                                        eq a.proof_schema_version b.proof_schema_version
+
+//: selfhost_memo_call_backend_private_cache_proof_key_from_entry_result: request entry から proof key を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_proof_key_from_entry_result %fn SelfhostMemoCallBackendRequestTableEntry fn SelfhostHirExprId fn i32 Result SelfhostMemoCallBackendPrivateCacheProofKey SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \entry\root_expr_id\body_module_fingerprint:
+    if:
+        eq body_module_fingerprint 0
+        then:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder
+        else:
+            Result::Ok selfhost_memo_call_backend_private_cache_proof_key_new entry.memoized_expr_id entry.request.source_function_def_id entry.request.function_ty root_expr_id body_module_fingerprint entry.request.request_kind entry.request.source_effect entry.request.type_arg_count
+
+//: selfhost_memo_call_backend_private_cache_proof_lookup_finish: proof lookup の最終状態を[畳/たた]む
+fn selfhost_memo_call_backend_private_cache_proof_lookup_finish %fn SelfhostMemoCallBackendPrivateCacheProofKey fn Option SelfhostMemoCallBackendPrivateCacheProofStatus Result SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \key\found:
+    match found:
+        Option::Some status:
+            Result::Ok status
+        Option::None:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing key
+
+//: selfhost_memo_call_backend_private_cache_proof_lookup_loop: proof table から matching status を[探/さが]す
+//:
+//: [契約/けいやく]:
+//: - matching proof が 2 件以上ある場合は `ProofDuplicate` として拒否します。record order による first-wins は使いません。
+fn selfhost_memo_call_backend_private_cache_proof_lookup_loop %fn &SelfhostMemoCallBackendPrivateCacheProofTable fn SelfhostMemoCallBackendPrivateCacheProofKey fn i32 fn Option SelfhostMemoCallBackendPrivateCacheProofStatus Result SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \proofs\key\idx\found:
+    if:
+        ge idx selfhost_memo_call_backend_private_cache_proof_table_len proofs
+        then:
+            selfhost_memo_call_backend_private_cache_proof_lookup_finish key found
+        else:
+            let records %&Vec SelfhostMemoCallBackendPrivateCacheProofRecord field::get_ref proofs "records"
+            match v::get records idx:
+                Option::Some record:
+                    if:
+                        selfhost_memo_call_backend_private_cache_proof_key_eq record.key key
+                        then:
+                            match found:
+                                Option::Some _existing:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofDuplicate key
+                                Option::None:
+                                    selfhost_memo_call_backend_private_cache_proof_lookup_loop proofs key add idx 1 some record.status
+                        else:
+                            selfhost_memo_call_backend_private_cache_proof_lookup_loop proofs key add idx 1 found
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_proof_lookup_result: key に対応する proof status を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_proof_lookup_result %fn &SelfhostMemoCallBackendPrivateCacheProofTable fn SelfhostMemoCallBackendPrivateCacheProofKey Result SelfhostMemoCallBackendPrivateCacheProofStatus SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \proofs\key:
+    selfhost_memo_call_backend_private_cache_proof_lookup_loop proofs key 0 none
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_request_record_matches: table entry と HIR 再構築 request が一致するか[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - diagnostic metadata は比較しません。`diagnostic_symbol` と `diagnostic_span` は表示・source map 用であり、identity authority ではないためです。
+fn selfhost_memo_call_backend_private_cache_proof_gate_request_record_matches %fn &SelfhostMemoCallBackendRequestTableEntry fn SelfhostMemoCallBackendRequest bool \entry\rebuilt:
+    let stored %SelfhostMemoCallBackendRequest *field::get_ref entry "request"
+    let stored_kind_ok %bool match stored.request_kind:
+        SelfhostMemoCallBackendRequestKind::MemoCall:
+            true
+    let rebuilt_kind_ok %bool match rebuilt.request_kind:
+        SelfhostMemoCallBackendRequestKind::MemoCall:
+            true
+    let def_id_ok %bool selfhost_def_id_eq stored.source_function_def_id rebuilt.source_function_def_id
+    let type_ok %bool selfhost_type_id_eq stored.function_ty rebuilt.function_ty
+    let stored_effect_ok %bool selfhost_effect_kind_eq stored.source_effect SelfhostEffectKind::Pure
+    let rebuilt_effect_ok %bool selfhost_effect_kind_eq rebuilt.source_effect SelfhostEffectKind::Pure
+    let type_args_ok %bool and eq stored.type_arg_count 0 eq rebuilt.type_arg_count 0
+    and stored_kind_ok and rebuilt_kind_ok and and def_id_ok type_ok and and stored_effect_ok rebuilt_effect_ok type_args_ok
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result: 1 request entry を HIR に対して[再/さい][検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result %fn &SelfhostHirModule fn SelfhostMemoCallBackendRequestTableEntry Result unit SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \module\entry:
+    match selfhost_hir_module_get_expr module entry.memoized_expr_id:
+        Option::Some expr:
+            match selfhost_memo_call_backend_request_from_hir_expr_result &expr:
+                Result::Ok rebuilt:
+                    if:
+                        selfhost_memo_call_backend_private_cache_proof_gate_request_record_matches &entry rebuilt
+                        then:
+                            Result::Ok unit
+                        else:
+                            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestIdentityMismatch entry.memoized_expr_id
+                Result::Err request_error:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestRecheckRejected SelfhostMemoCallBackendRequestRejection entry.memoized_expr_id request_error.kind
+        Option::None:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestExpressionMissing entry.memoized_expr_id
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_recheck_loop_result: request table を左から[再/さい][検査/けんさ]する
+fn selfhost_memo_call_backend_private_cache_proof_gate_recheck_loop_result %fn &SelfhostHirModule fn &SelfhostMemoCallBackendRequestTable fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \module\table\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok unit
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_proof_gate_recheck_entry_result module entry:
+                        Result::Ok _unit:
+                            selfhost_memo_call_backend_private_cache_proof_gate_recheck_loop_result module table add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_status_result: matching proof status を accepted / rejected に[畳/たた]む
+fn selfhost_memo_call_backend_private_cache_proof_gate_status_result %fn SelfhostMemoCallBackendPrivateCacheProofKey fn SelfhostMemoCallBackendPrivateCacheProofStatus Result unit SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \key\status:
+    match status:
+        SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven:
+            Result::Ok unit
+        SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRefuted key
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_entry_result: 1 request entry に proof を[適用/てきよう]する
+fn selfhost_memo_call_backend_private_cache_proof_gate_entry_result %fn &SelfhostMemoCallBackendPrivateCacheProofTable fn SelfhostMemoCallBackendRequestTableEntry fn SelfhostHirExprId fn i32 Result unit SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \proofs\entry\root_expr_id\body_module_fingerprint:
+    match selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint:
+        Result::Ok key:
+            match selfhost_memo_call_backend_private_cache_proof_lookup_result proofs key:
+                Result::Ok status:
+                    selfhost_memo_call_backend_private_cache_proof_gate_status_result key status
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_apply_loop_result: request table 全体へ proof table を[適用/てきよう]する
+fn selfhost_memo_call_backend_private_cache_proof_gate_apply_loop_result %fn &SelfhostMemoCallBackendRequestTable fn &SelfhostMemoCallBackendPrivateCacheProofTable fn SelfhostHirExprId fn i32 fn i32 fn i32 Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \table\proofs\root_expr_id\body_module_fingerprint\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok idx
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_proof_gate_entry_result proofs entry root_expr_id body_module_fingerprint:
+                        Result::Ok _unit:
+                            selfhost_memo_call_backend_private_cache_proof_gate_apply_loop_result table proofs root_expr_id body_module_fingerprint add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_request_table_contains_key_loop: request table が proof key に対応する entry を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - proof table に root subtree 外の orphan proof が混ざっても accepted summary にしないため、proof record 側から request table へ逆引きします。
+fn selfhost_memo_call_backend_private_cache_proof_gate_request_table_contains_key_loop %fn &SelfhostMemoCallBackendRequestTable fn SelfhostHirExprId fn i32 fn SelfhostMemoCallBackendPrivateCacheProofKey fn i32 fn i32 Result bool SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \table\root_expr_id\body_module_fingerprint\key\idx\n:
+    if:
+        ge idx n
+        then:
+            Result::Ok false
+        else:
+            match selfhost_memo_call_backend_request_table_get_entry table idx:
+                Option::Some entry:
+                    match selfhost_memo_call_backend_private_cache_proof_key_from_entry_result entry root_expr_id body_module_fingerprint:
+                        Result::Ok entry_key:
+                            if:
+                                selfhost_memo_call_backend_private_cache_proof_key_eq entry_key key
+                                then:
+                                    Result::Ok true
+                                else:
+                                    selfhost_memo_call_backend_private_cache_proof_gate_request_table_contains_key_loop table root_expr_id body_module_fingerprint key add idx 1 n
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing idx
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_validate_orphan_loop: proof table に orphan record がないか[検査/けんさ]する
+//:
+//: [契約/けいやく]:
+//: - proof record が request table のどの entry key とも一致しない場合は `ProofOrphan` として拒否します。
+//: - proof table の読み取り失敗は `ProofRecordReadFailed` として保持します。
+fn selfhost_memo_call_backend_private_cache_proof_gate_validate_orphan_loop %fn &SelfhostMemoCallBackendRequestTable fn &SelfhostMemoCallBackendPrivateCacheProofTable fn SelfhostHirExprId fn i32 fn i32 fn i32 fn i32 Result unit SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \table\proofs\root_expr_id\body_module_fingerprint\idx\proof_count\request_count:
+    if:
+        ge idx proof_count
+        then:
+            Result::Ok unit
+        else:
+            let records %&Vec SelfhostMemoCallBackendPrivateCacheProofRecord field::get_ref proofs "records"
+            match v::get records idx:
+                Option::Some record:
+                    match selfhost_memo_call_backend_private_cache_proof_gate_request_table_contains_key_loop table root_expr_id body_module_fingerprint record.key 0 request_count:
+                        Result::Ok found:
+                            if:
+                                found
+                                then:
+                                    selfhost_memo_call_backend_private_cache_proof_gate_validate_orphan_loop table proofs root_expr_id body_module_fingerprint add idx 1 proof_count request_count
+                                else:
+                                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofOrphan record.key
+                        Result::Err e:
+                            Result::Err e
+                Option::None:
+                    Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed idx
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_from_collected_table_result: 内部収集済み table を[検査/けんさ]し owner を[閉/と]じる
+fn selfhost_memo_call_backend_private_cache_proof_gate_from_collected_table_result %impure fn &SelfhostHirModule impure fn SelfhostMemoCallBackendRequestTable impure fn SelfhostHirExprId impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheProofTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \module\table\root_expr_id\body_module_fingerprint\proofs:
+    let request_count %i32 selfhost_memo_call_backend_request_table_len &table
+    match selfhost_memo_call_backend_private_cache_proof_gate_recheck_loop_result module &table 0 request_count:
+        Result::Ok _unit:
+            match selfhost_memo_call_backend_private_cache_proof_gate_apply_loop_result &table proofs root_expr_id body_module_fingerprint 0 request_count:
+                Result::Ok proven_count:
+                    let proof_count %i32 selfhost_memo_call_backend_private_cache_proof_table_len proofs
+                    match selfhost_memo_call_backend_private_cache_proof_gate_validate_orphan_loop &table proofs root_expr_id body_module_fingerprint 0 proof_count request_count:
+                        Result::Ok _orphan_checked:
+                            selfhost_memo_call_backend_request_table_free table
+                            Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateSummary request_count proven_count
+                        Result::Err e:
+                            selfhost_memo_call_backend_request_table_free table
+                            Result::Err e
+                Result::Err e:
+                    selfhost_memo_call_backend_request_table_free table
+                    Result::Err e
+        Result::Err e:
+            selfhost_memo_call_backend_request_table_free table
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result: HIR root の memo_call PrivateCache proof gate を[実行/じっこう]する
+//:
+//: [契約/けいやく]:
+//: - request table はこの関数の内部で作り、成功・失敗どちらでも閉じます。
+//: - proof table は borrow であり、この関数は閉じません。
+fn selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result %impure fn &SelfhostHirModule impure fn SelfhostHirExprId impure fn i32 impure fn i32 impure fn &SelfhostMemoCallBackendPrivateCacheProofTable Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \module\root\fuel\body_module_fingerprint\proofs:
+    match selfhost_memo_call_backend_request_table_from_hir_root_result module root fuel:
+        Result::Ok table:
+            selfhost_memo_call_backend_private_cache_proof_gate_from_collected_table_result module table root body_module_fingerprint proofs
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_error_code: gate error kind の比較用 code を[返/かえ]す
+fn selfhost_memo_call_backend_private_cache_proof_gate_error_code %fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind i32 \error:
+    match error:
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed _e:
+            1
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing _index:
+            2
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestExpressionMissing _expr_id:
+            3
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestRecheckRejected _rejection:
+            4
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestIdentityMismatch _expr_id:
+            5
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder:
+            6
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofTableAllocFailed _e:
+            7
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed _e:
+            8
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed _index:
+            9
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing _key:
+            10
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRefuted _key:
+            11
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofDuplicate _key:
+            12
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofOrphan _key:
+            13
+        SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed _e:
+            14
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_error_kind_eq: gate error が同じ分類か[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_proof_gate_error_kind_eq %fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind bool \a\b:
+    eq selfhost_memo_call_backend_private_cache_proof_gate_error_code a selfhost_memo_call_backend_private_cache_proof_gate_error_code b
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_error_result_eq: error result が期待分類と key を持つか[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_proof_gate_error_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            let kind_ok %bool selfhost_memo_call_backend_private_cache_proof_gate_error_kind_eq actual expected
+            let key_ok %bool match actual:
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRefuted actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofDuplicate actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofOrphan actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed _e:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing _index:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestExpressionMissing _expr_id:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestRecheckRejected _rejection:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestIdentityMismatch _expr_id:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofTableAllocFailed _e:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed _e:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed _index:
+                    true
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed _e:
+                    true
+            and kind_ok key_ok
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_missing_result_eq: missing proof error が expected key を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - payload 付き enum constructor を doctest 側で直接組み立てず、前置呼び出し境界を単純に保ったまま proof missing を確認します。
+pub fn selfhost_memo_call_backend_private_cache_proof_gate_missing_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRefuted _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofOrphan _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing _index:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestRecheckRejected _rejection:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestIdentityMismatch _expr_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed _index:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_refuted_result_eq: refuted proof error が expected key を持つか[返/かえ]す
+//:
+//: [目的/もくてき]:
+//: - proof が存在しても `RequestEvidenceRefuted` なら accepted summary にしないことを doctest で確認します。
+pub fn selfhost_memo_call_backend_private_cache_proof_gate_refuted_result_eq %fn Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind fn SelfhostMemoCallBackendPrivateCacheProofKey bool \result\expected_key:
+    match result:
+        Result::Ok _value:
+            false
+        Result::Err actual:
+            match actual:
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRefuted actual_key:
+                    selfhost_memo_call_backend_private_cache_proof_key_eq actual_key expected_key
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofMissing _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofDuplicate _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofOrphan _key:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestCollectionFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestEntryMissing _index:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestExpressionMissing _expr_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestRecheckRejected _rejection:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::RequestIdentityMismatch _expr_id:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::BodyModuleFingerprintPlaceholder:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofTableAllocFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordPushFailed _e:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::ProofRecordReadFailed _index:
+                    false
+                SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed _e:
+                    false
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key: stage0 の期待 key を[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key %fn void SelfhostMemoCallBackendPrivateCacheProofKey \void:
+    let memoized_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let root_expr_id %SelfhostHirExprId selfhost_hir_expr_id_new 0
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    selfhost_memo_call_backend_private_cache_proof_key_new memoized_expr_id def_id function_ty root_expr_id 77 SelfhostMemoCallBackendRequestKind::MemoCall SelfhostEffectKind::Pure 0
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module: stage0 用 HIR module を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module %impure fn SelfhostTypeId impure fn SelfhostSourceSpan impure fn SelfhostDefId Result SelfhostHirModule StdErrorKind \function_ty\span\def_id:
+    match selfhost_hir_module_new:
+        Result::Ok module0:
+            let pure_identity %SelfhostHirFunctionValueIdentity selfhost_hir_function_value_identity_monomorphic "memo_source" def_id function_ty SelfhostEffectKind::Pure
+            let memo_expr %SelfhostHirExpr selfhost_hir_expr_memoized_function_value function_ty span pure_identity
+            match selfhost_hir_module_add_expr module0 memo_expr:
+                Result::Ok expr_alloc:
+                    Result::Ok selfhost_hir_module_expr_alloc_into_module expr_alloc
+                Result::Err e:
+                    Result::Err e
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_single_proof_table: 1 record の proof table を[作/つく]る
+fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_single_proof_table %impure fn SelfhostMemoCallBackendPrivateCacheProofStatus Result SelfhostMemoCallBackendPrivateCacheProofTable SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \status:
+    match selfhost_memo_call_backend_private_cache_proof_table_new:
+        Result::Ok table0:
+            let key %SelfhostMemoCallBackendPrivateCacheProofKey selfhost_memo_call_backend_private_cache_proof_gate_stage0_expected_key
+            let record %SelfhostMemoCallBackendPrivateCacheProofRecord selfhost_memo_call_backend_private_cache_proof_record_new key status
+            selfhost_memo_call_backend_private_cache_proof_table_push table0 record
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_summary_result: stage0 module と proof table を閉じながら gate を[実行/じっこう]する
+fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_summary_result %impure fn SelfhostMemoCallBackendPrivateCacheProofStatus Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \status:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_single_proof_table status:
+                Result::Ok proofs:
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result &module root 8 77 &proofs
+                    selfhost_memo_call_backend_private_cache_proof_table_free proofs
+                    selfhost_hir_module_free module
+                    result
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_empty_result: proof なしの gate rejection を[実行/じっこう]する
+fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_empty_result %impure fn void Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \void:
+    let span %SelfhostSourceSpan source_span_new_unchecked 1 2 3
+    let def_id %SelfhostDefId selfhost_def_id_new 41
+    let function_ty %SelfhostTypeId selfhost_type_id_new 11
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_build_memoized_module function_ty span def_id:
+        Result::Ok module:
+            match selfhost_memo_call_backend_private_cache_proof_table_new:
+                Result::Ok proofs:
+                    let root %SelfhostHirExprId selfhost_hir_expr_id_new 0
+                    let result %Result SelfhostMemoCallBackendPrivateCacheProofGateSummary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_from_hir_root_result &module root 8 77 &proofs
+                    selfhost_memo_call_backend_private_cache_proof_table_free proofs
+                    selfhost_hir_module_free module
+                    match result:
+                        Result::Ok summary:
+                            Result::Ok summary.proven_request_count
+                        Result::Err e:
+                            Result::Err e
+                Result::Err e:
+                    selfhost_hir_module_free module
+                    Result::Err e
+        Result::Err e:
+            Result::Err SelfhostMemoCallBackendPrivateCacheProofGateErrorKind::Stage0FixtureAllocFailed e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_i32_result: proof status 付き gate rejection を i32 result へ[写/うつ]す
+fn selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_i32_result %impure fn SelfhostMemoCallBackendPrivateCacheProofStatus Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \status:
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_summary_result status:
+        Result::Ok summary:
+            Result::Ok summary.proven_request_count
+        Result::Err e:
+            Result::Err e
+
+//: selfhost_memo_call_backend_private_cache_proof_gate_stage0: proof gate 境界の代表 smoke を[返/かえ]す
+pub fn selfhost_memo_call_backend_private_cache_proof_gate_stage0 %impure fn void Result SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary SelfhostMemoCallBackendPrivateCacheProofGateErrorKind \void:
+    match selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_summary_result SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceProven:
+        Result::Ok accepted:
+            let missing_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_empty_result
+            let refuted_rejected %Result i32 SelfhostMemoCallBackendPrivateCacheProofGateErrorKind selfhost_memo_call_backend_private_cache_proof_gate_stage0_run_i32_result SelfhostMemoCallBackendPrivateCacheProofStatus::RequestEvidenceRefuted
+            Result::Ok SelfhostMemoCallBackendPrivateCacheProofGateStage0Summary accepted.request_count accepted.proven_request_count missing_rejected refuted_rejected
+        Result::Err e:
+            Result::Err e

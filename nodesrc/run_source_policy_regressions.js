@@ -311,6 +311,7 @@ const checks = [
     "nodesrc/test_selfhost_memo_call_backend_request_contract.js",
     "nodesrc/test_selfhost_memo_call_backend_request_table_contract.js",
     "nodesrc/test_selfhost_memo_call_backend_preflight_contract.js",
+    "nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js",
     "nodesrc/test_selfhost_name_resolver_report_contract.js",
     "nodesrc/test_selfhost_type_resolver_split_contract.js",
     "nodesrc/test_selfhost_type_resolver_prefix_input.js",

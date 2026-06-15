@@ -63747,3 +63747,41 @@ MERGE_APPROVED
 - sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
 - `MemoKey` / `MemoValue` aggregate proof と preflight の接続、prechecked artifact / `.neplobj` stable request key への投影は後続 slice で行う。
 - preflight recheck loop の sorted index 化、stage0 fixture 分割、full source policy runner の長時間化解消は、今回固定した HIR-root authority / fail-closed proof boundary を保てるため後続最適化として扱う。
+
+## 2026-06-15 selfhost memo_call backend private-cache request-evidence gate checkpoint
+
+### scope
+
+- branch: `work/selfhost-generic-materializer-accepted-path`
+- current_issue: `ISS-20260531T035402517Z-MEMOIZED-FUNCTION-VALUES-NEED-BACKEN-7B999CD7`
+- zenn_policy: 2026-06-15 に https://zenn.dev/bem130/articles/1b352797de94e7 を再確認した。typed enum error、Result、match による網羅、責務分割、DAG、丁寧な doc comment、契約と現状の分離、試作段階でも品質を落とさない方針を優先した。行数や doc comment 量を制限する検査は追加していない。
+
+### implementation
+
+- `stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl` を追加し、memoized backend request と request occurrence evidence を照合する gate を作った。
+- accepted gate 本体は module-private である。内部 entrypoint は borrowed `SelfhostHirModule`、root `SelfhostHirExprId`、traversal fuel、`body_module_fingerprint`、borrowed proof table だけを受け取る。caller supplied request table は受け取らず、内部で HIR root から request table を再構築する。
+- 各 request entry は `memoized_expr_id` から HIR expression を引き直し、`selfhost_memo_call_backend_request_from_hir_expr_result` を再実行して、request kind、source function DefId、function TypeId、source effect、type argument count を再照合する。
+- proof key は `memoized_expr_id`、`source_function_def_id`、`function_ty`、`root_expr_id`、`body_module_fingerprint`、`request_kind`、`source_effect`、`type_arg_count`、`proof_kind`、`proof_schema_version` を持つ。`DefId` / `TypeId` だけの proof reuse は認めない。
+- proof status は `RequestEvidenceProven` / `RequestEvidenceRefuted` とした。これは request occurrence evidence の一致だけを表し、PrivateCache effect masking、Resource no-escape proof、sealed backend representation、cache correctness の完了ではない。
+- proof record、proof table、proof table push、accepted gate 本体は module-private とし、外部 module が arbitrary `RequestEvidenceProven` record を table に注入して accepted gate に渡せる経路を公開しない。
+- missing proof、refuted proof、duplicate proof、current root の request に対応しない orphan proof を typed enum error で fail-closed にした。
+- success は executable backend plan ではなく `SelfhostMemoCallBackendPrivateCacheProofGateSummary` の non-executable summary だけを返す。
+- `nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js` を追加し、`nodesrc/run_source_policy_regressions.js` に登録した。
+- `doc/neplg2/self_host_neplg21_compiler_design.md`、対象 issue、`todo.md` を更新した。
+
+### subagent_review
+
+- Tesla review: blocker として、public constructible proof table と public push が trust bypass になること、`Proven` という広い status 名が PrivateCache proof 完了と誤読されること、key に request kind / source effect / type arg count / proof kind / schema version が必要であること、orphan proof を拒否すべきことが指摘された。追加レビューでは、push だけを private にしても public proof table / record constructor / table field から直組みできるため不十分だと指摘された。
+- Popper review: blocker として、missing / refuted proof を `Ok` の ready/deferred plan に混ぜると後続 backend が実行可能 plan と誤認すること、success summary が backend bytes や cache operation plan に見えてはいけないことが指摘された。
+- 対応として、status 名を `RequestEvidenceProven` / `RequestEvidenceRefuted` に変更し、proof key field を拡張し、proof kind / schema version を internal constructor で補い、proof record / proof table / writer / accepted gate を module-private にし、orphan proof rejection と source policy regression を追加した。
+
+### verification_current
+
+- pass: `node nodesrc/test_selfhost_memo_call_backend_private_cache_proof_gate_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=240000 node nodesrc/tests.js -i stdlib/neplg2/core/codegen/memo_call_backend_private_cache_proof_gate.nepl --no-tree -j 1 --dist web/dist --assert-io -o tmp_memo_gate_tests.json`
+
+### residual
+
+- sealed memoized backend representation、PrivateCache / PrivateState effect masking、Resource no-escape proof、identity observation ban は未実装である。
+- `MemoKey` / `MemoValue` aggregate proof と proof gate の接続、producer-owned Resource proof boundary、prechecked artifact / `.neplobj` / `.neplproof` stable key 投影は後続 slice で行う。
+- proof lookup の sorted index 化、root / fingerprint bucket 化、stage0 fixture 分割は、今回固定した exact key / duplicate rejection / orphan rejection / non-executable summary contract を保てるため後続最適化として扱う。
