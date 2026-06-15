@@ -9112,6 +9112,69 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
             Result::Ok consumer_item
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next: collection 由来の consumer item を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - consumer item の checked next だけを[読/よ]みます。
+//: - `Continue` の[場合/ばあい]だけ F5ai consumer item helper に[委譲/いじょう]します。
+//: - current action payload、apply、consume、byte-backed lookup、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\item\policy:
+    let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item
+    match next:
+        GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_consumer_item:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
+        GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance: collection 由来の apply step 後続を 1 step [進/すす]める
+//:
+//: [契約/けいやく]:
+//: - apply terminal 判定を 1 回だけ使います。
+//: - `Continue` の[場合/ばあい]だけ保存済み checked next を[読/よ]み、F5ai consumer item helper に[委譲/いじょう]します。
+//: - original consumer item や action payload は[再解釈/さいかいしゃく]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\step\policy:
+    match gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step:
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Continue continue_step:
+            let next %GuiSfntSimpleGlyphPathSinkActionItemNext gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step
+            match next:
+                GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok next_consumer_item:
+                            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer_item
+                GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::Rejected reason:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason
+        GuiSfntSimpleGlyphPathSinkActionConsumerApplyTerminal::EndContour _end_step:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once: collection 由来の consumer item を 1 つ[消費/しょうひ]する
+//:
+//: [契約/けいやく]:
+//: - pure apply helper を 1 回だけ呼び、collection apply advance helper を 1 回だけ呼びます。
+//: - apply step と advance を[捨/す]てず consume step に[束/たば]ねます。
+//: - loop、real sink、payload direct match、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn &GuiSfntSimpleGlyphPathSinkActionConsumerItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\state\item\policy:
+    let apply_step %GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance collection &apply_step policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok advance:
+            let consume_step %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance
+            Result::Ok consume_step
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

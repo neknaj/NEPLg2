@@ -3743,3 +3743,51 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ai.json -j 1
 git diff --check
 ```
+
+## Phase F5aj: sfnt simple glyph outline point stream item collection path sink action consumer next and consume once
+
+目的:
+
+- F5ai collection-backed action consumer item を authority として、consumer next、apply advance、consume-once の 3 境界を追加する。
+- byte-backed F4ad/F4ah/F4ai と同じ typed value 分割を collection-backed item stream へ写す。
+- consumer apply advance の Continue branch では apply step に保存済みの checked next を authority とし、original consumer item や action payload を再解釈しない。
+- byte-backed F4 lookup、lower F5 collection helper、sink traversal、real sink mutation、render/raster/platform/host API へ戻らない。
+
+変更:
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`consumer_apply_advance` の Continue branch で saved next を読む順序と、元 item/action payload を再解釈しない禁止条件を明文化する必要があると指摘された。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。saved next authority、F5ai helper だけに戻る境界、helper ごとの source policy 分離が妥当と判断された。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next` を追加する。
+- consumer item next helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next` を exactly once 呼ぶ。
+- `Continue next_item` の場合だけ source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy` を exactly once 呼ぶ。
+- `EndContour` は `Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour` として返す。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance` を追加する。
+- apply advance helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step` を exactly once 呼ぶ。
+- `Continue continue_step` の場合だけ source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step` を exactly once 呼ぶ。
+- saved next が `Continue next_item` の場合だけ source 上 F5ai consumer item helper を exactly once 呼ぶ。
+- `Rejected reason` と `EndContour` は typed terminal advance として `Result::Ok` で返す。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once` を追加する。
+- consume-once helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item` を exactly once 呼び、collection apply advance helper を exactly once 呼ぶ。
+- consume-once helper は success path で `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance` を exactly once 呼ぶ。
+- helper は byte-backed F4 lookup、F5ah/F5ag/F5af/F5ae/F5ad/F5ac/F5aa 直接呼び出し、lower collection helpers、`Vec` / `push`、payload direct match、original item/action reinterpretation、sink traversal、render/raster/platform/host API を呼ばない。
+
+完了条件:
+
+- F5aj consumer item next helper が consumer next read -> Continue/F5ai consumer item lookup または EndContour success terminal の順序を守る。
+- F5aj consumer apply advance helper が terminal read -> Continue saved next read -> Continue/F5ai consumer item lookup または typed terminal success の順序を守る。
+- F5aj consume-once helper が apply -> collection apply advance -> consume step construction の順序を守る。
+- original item/action payload を `consumer_apply_advance` が再解釈しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md` に consumer item next、apply advance saved next、consume-once、error propagation、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、helper body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_next_f5aj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_item_f5aj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aj.json -j 1
+git diff --check
+```

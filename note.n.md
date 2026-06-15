@@ -1,3 +1,44 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action consumer next checkpoint
+
+## scope
+
+- branch: `gui-font-collection-consumer-next-f5aj-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5aj の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action consumer next and consume once の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5aj の collection-backed consumer next / apply advance / consume-once boundary、F5ai authority、saved next authority、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5aj の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5aj source policy を追加し、docs/API/F5ai exact one-call/saved next exact one-call/consume step construction/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once` を追加した。
+- F5aj は F5ai `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item` を next item lookup authority とし、F4 byte-backed helper や lower F5 collection helper へ戻らない。
+- F5aj apply advance は terminal read 後、`Continue` の場合だけ apply step に保存済みの next を exactly once 読み、original consumer item や action payload を再解釈しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md` を追加し、consumer item next、apply advance saved next、terminal handling、consume-once、error propagation、no Vec / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`consumer_apply_advance` の Continue branch で saved next を読む順序と、元 item/action payload を再解釈しない禁止条件の明文化が必要と指摘された。
+- Tesla plan review 2 回目は `PLAN_APPROVED`。saved next authority、F5ai helper だけに戻る境界、helper ごとの source policy 分離が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、新規 focused doctest file を commit 対象へ stage する必要があるという指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。新規 F5aj focused doctest は staged `A` となり、tmp / `NUL` は commit 対象から除外された状態で承認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_next_f5aj.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_item_f5aj_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aj.json -j 1` 767/767 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5aj は collection-backed consumer next / apply advance / single consume boundary までであり、collection-backed start consumer、consume summary、budgeted drain、outline traversal、raster mask、render2d command emission は未実装である。
+- F5aj focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink event kind pair checkpoint
 
 ## scope
