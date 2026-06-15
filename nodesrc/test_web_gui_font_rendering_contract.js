@@ -114,6 +114,7 @@ const guiFontSfntOutlinePointStreamItemCollectionDrainTests = read("tests/stdlib
 const guiFontSfntOutlinePointStreamItemCollectionContourSpanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_span.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionContourPointTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -142,6 +143,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionContourSpanTests,
     guiFontSfntOutlinePointStreamItemCollectionContourPointTests,
     guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests,
+    guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -7738,6 +7740,245 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests.includes("EdgeIndexOutOfRange") &&
         guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests.includes("FinalContourEndMismatch"),
     "F5x point stream item collection contour edge focused doctest must cover wrap success, second contour, one-point self-wrap, span failure, edge range, and topology failure propagation",
+);
+const specF5y = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection curve segment"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5y は F5x",
+    "collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection",
+    "edge_index i32",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:",
+    "ContourEdgeFailed",
+    "LookaheadPointFailed",
+    "CurveSegmentInvariantInvalid",
+    "edge_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError",
+    "lookahead_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError",
+    "edge Option GuiSfntSimpleGlyphContourEdge",
+    "lookahead Option GuiSfntSimpleGlyphContourPoint",
+    "F5x contour edge lookup を exactly once 呼ぶ",
+    "needed lookahead は F5w contour point lookup を exactly once 呼んで読む",
+    "required lookahead を読めない場合に `Option::None` を渡して `MissingLookahead` を作ってはならない",
+    "1 point contour と off-curve start は valid `NoSegment` success",
+    "F5y は次を直接呼ばない",
+]) {
+    assert(specF5y.includes(fragment), `font spec F5y collection curve segment must mention ${fragment}`);
+}
+const detailedF5y = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection curve segment boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5y is the collection-backed equivalent",
+    "composes F5x contour edge lookup with one optional F5w lookahead point lookup",
+    "does not call the byte-backed curve segment helper",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:",
+    "Call F5x collection contour edge lookup exactly once",
+    "Validate edge span glyph == capacity glyph",
+    "Validate start span matches the edge span",
+    "Validate end span matches the edge span",
+    "Validate edge_index metadata == requested edge_index",
+    "Validate recomputed next index matches edge metadata",
+    "Only after edge invariant succeeds, inspect start/end on-curve flags",
+    "If start is on-curve and end is off-curve, compute lookahead_contour_point_index",
+    "Needed lookahead calls F5w contour point lookup exactly once",
+    "Needed lookahead success must validate lookahead span matches edge span",
+    "Return gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead",
+    "If lookahead is not needed, do not call F5w",
+    "F5y must not produce `MissingLookahead` by skipping a needed lookup",
+]) {
+    assert(detailedF5y.includes(fragment), `font detailed design F5y collection curve segment must mention ${fragment}`);
+}
+const implementationPlanF5y = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5y: sfnt simple glyph outline point stream item collection curve segment"),
+);
+for (const fragment of [
+    "Tesla plan review は 1 回目 `PLAN_BLOCKED`",
+    "F5y error payload",
+    "修正後の計画は Tesla review で `PLAN_APPROVED`",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment",
+    "F5x `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge` を source 上 exactly once 呼ぶ",
+    "F5w `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point` を source 上 exactly once 呼ぶ",
+    "needed lookahead lookup が失敗した場合、`Option::None` を classifier に渡さず `LookaheadPointFailed` を返す",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md",
+]) {
+    assert(implementationPlanF5y.includes(fragment), `font implementation plan F5y must mention ${fragment}`);
+}
+const pointStreamItemCollectionCurveSegmentTypes = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("//: GuiSfntSimpleGlyphCurveNoSegmentReason:"),
+);
+for (const fragment of [
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind:",
+    "ContourEdgeFailed",
+    "LookaheadPointFailed",
+    "CurveSegmentInvariantInvalid",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:",
+    "next_contour_point_index %i32",
+    "lookahead_contour_point_index %i32",
+    "edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError",
+    "lookahead_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError",
+    "edge %Option GuiSfntSimpleGlyphContourEdge",
+    "lookahead %Option GuiSfntSimpleGlyphContourPoint",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment",
+]) {
+    assert(pointStreamItemCollectionCurveSegmentTypes.includes(fragment), `alloc/gui/font/sfnt/glyf F5y curve segment API must include ${fragment}`);
+}
+const pointStreamItemCollectionCurveSegmentPublic = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+    "let item_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_item_count collection",
+    "let items_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_len collection",
+    "let items_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_items_cap collection",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index edge_index",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::ContourEdgeFailed",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection contour_index edge_index capacity item_count items_len items_cap edge",
+]) {
+    assert(pointStreamItemCollectionCurveSegmentPublic.includes(fragment), `alloc/gui/font/sfnt/glyf F5y curve segment body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionCurveSegmentPublic,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index edge_index",
+        "Result::Err edge_error_value:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::ContourEdgeFailed",
+        "Result::Ok edge:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge collection contour_index edge_index capacity item_count items_len items_cap edge",
+    ],
+    "alloc/gui/font/sfnt/glyf F5y public body must wrap F5x errors and delegate checked edge handling",
+);
+assert(
+    (pointStreamItemCollectionCurveSegmentPublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5y curve segment public body must call F5x contour edge exactly once",
+);
+assert(
+    (pointStreamItemCollectionCurveSegmentPublic.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5y curve segment public body must delegate to checked-edge helper exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentPublic,
+    /\b(?:vec::|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5y curve segment public body must not use direct Vec, byte-backed lookup, drains, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentPublic,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5y curve segment public body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionCurveSegmentEdgeInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_contour_edge_matches_collection_curve_segment_request");
+for (const fragment of [
+    "let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start edge",
+    "let end %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_end edge",
+    "let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start",
+    "let expected_span_point_count %i32 add sub span_end_point_index span_start_point_index 1",
+    "let expected_next_contour_point_index %i32 if:",
+    "let span_shape_ok %bool and span_identity_ok and span_range_left_ok span_range_right_ok",
+    "gui_sfnt_simple_glyph_contour_point_matches_span &start &span edge_index",
+    "gui_sfnt_simple_glyph_contour_point_matches_span &end &span next_contour_point_index",
+    "let expected_start_absolute_point_index %i32 add span_start_point_index edge_index",
+    "let expected_end_absolute_point_index %i32 add span_start_point_index next_contour_point_index",
+    "and edge_shape_left_ok and edge_shape_mid_ok edge_shape_right_ok",
+]) {
+    assert(pointStreamItemCollectionCurveSegmentEdgeInvariant.includes(fragment), `alloc/gui/font/sfnt/glyf F5y edge invariant helper must include ${fragment}`);
+}
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentEdgeInvariant,
+    /\b(?:Result|Option|gui_sfnt_simple_glyph_outline_point_stream_item_collection_|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|vec::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F5y edge invariant helper must stay pure over typed edge/capacity accessors",
+);
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentEdgeInvariant,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5y edge invariant helper body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionCurveSegmentLookaheadInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge");
+for (const fragment of [
+    "let start %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start edge",
+    "let span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start",
+    "let lookahead_matches_span %bool gui_sfnt_simple_glyph_contour_point_matches_span lookahead &span lookahead_contour_point_index",
+    "let expected_lookahead_absolute_point_index %i32 add span_start_point_index lookahead_contour_point_index",
+    "and lookahead_matches_span lookahead_absolute_ok",
+]) {
+    assert(pointStreamItemCollectionCurveSegmentLookaheadInvariant.includes(fragment), `alloc/gui/font/sfnt/glyf F5y lookahead invariant helper must include ${fragment}`);
+}
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentLookaheadInvariant,
+    /\b(?:Result|Option|gui_sfnt_simple_glyph_outline_point_stream_item_collection_|gui_sfnt_lookup_|gui_sfnt_parse_metadata|gui_sfnt_glyf_|gui_sfnt_classify_simple_glyph_curve_segment|vec::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer)\b/,
+    "alloc/gui/font/sfnt/glyf F5y lookahead invariant helper must stay pure over typed point/edge accessors",
+);
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentLookaheadInvariant,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5y lookahead invariant helper body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionCurveSegmentFromEdge = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment_from_edge");
+for (const fragment of [
+    "let edge_valid %bool gui_sfnt_simple_glyph_contour_edge_matches_collection_curve_segment_request &edge &capacity contour_index edge_index",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::CurveSegmentInvariantInvalid",
+    "let start_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &start_point",
+    "let end_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &end_point",
+    "let needs_lookahead %bool if:",
+    "let lookahead_contour_point_index %i32 if:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index lookahead_contour_point_index",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::LookaheadPointFailed",
+    "let lookahead_valid %bool gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge &lookahead &edge lookahead_contour_point_index",
+    "Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead",
+    "let lookahead_contour_point_index %i32 -1",
+    "Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::None",
+]) {
+    assert(pointStreamItemCollectionCurveSegmentFromEdge.includes(fragment), `alloc/gui/font/sfnt/glyf F5y checked-edge helper must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionCurveSegmentFromEdge,
+    [
+        "let edge_valid %bool gui_sfnt_simple_glyph_contour_edge_matches_collection_curve_segment_request &edge &capacity contour_index edge_index",
+        "if not edge_valid:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::CurveSegmentInvariantInvalid",
+        "let start_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &start_point",
+        "let end_on_curve %bool gui_sfnt_simple_glyph_point_on_curve &end_point",
+        "let needs_lookahead %bool if:",
+        "if needs_lookahead:",
+        "let lookahead_contour_point_index %i32 if:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point collection contour_index lookahead_contour_point_index",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::LookaheadPointFailed",
+        "let lookahead_valid %bool gui_sfnt_simple_glyph_contour_lookahead_matches_curve_segment_edge &lookahead &edge lookahead_contour_point_index",
+        "if not lookahead_valid:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind::CurveSegmentInvariantInvalid",
+        "Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead",
+        "let lookahead_contour_point_index %i32 -1",
+        "Result::Ok gui_sfnt_classify_simple_glyph_curve_segment edge Option::None",
+    ],
+    "alloc/gui/font/sfnt/glyf F5y checked-edge helper must validate edge before flags, conditionally read lookahead, validate lookahead, and classify",
+);
+assert(
+    (pointStreamItemCollectionCurveSegmentFromEdge.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5y checked-edge helper must call F5w contour point exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentFromEdge,
+    /\b(?:vec::|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_glyf_read_contour_endpoint|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathCommand|GuiSfntSimpleGlyphPathSink|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5y checked-edge helper must not use direct Vec, byte-backed lookup, drains, path/render/raster/platform/host APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionCurveSegmentFromEdge,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5y checked-edge helper body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_line_without_lookahead_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_explicit_quadratic_with_lookahead_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_implied_midpoint_with_lookahead_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_single_point_no_segment_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_off_curve_start_no_segment_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_edge_failure_wraps_range_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("curve_segment_lookahead_wraps_contour_end_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("LookaheadPointFailed") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("EdgeIndexOutOfRange") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("SinglePointContour") &&
+        guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("OffCurveStart"),
+    "F5y point stream item collection curve segment focused doctest must cover line, quadratics, no-segment states, edge failure wrapping, and lookahead wrapping",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

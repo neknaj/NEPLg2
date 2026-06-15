@@ -3724,6 +3724,77 @@ One-point contours are valid. For `span.point_count == 1` and `edge_index == 0`,
 
 F5x may call F5v, F5w, point / span / edge / capacity accessors, and `gui_sfnt_simple_glyph_contour_edge`. It must not call F4 byte-backed contour helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection curve segment boundary
+
+F5y is the collection-backed equivalent of the old F4l curve segment lookup. It composes F5x contour edge lookup with one optional F5w lookahead point lookup. It does not call the byte-backed curve segment helper and does not consume the collection owner.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphCurveSegment GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+The error payload is diagnostic data, not owner recovery:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentErrorKind
+    contour_index i32
+    edge_index i32
+    next_contour_point_index i32
+    lookahead_contour_point_index i32
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    edge_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    lookahead_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourPointError
+    edge Option GuiSfntSimpleGlyphContourEdge
+    lookahead Option GuiSfntSimpleGlyphContourPoint
+    item_count i32
+    items_len i32
+    items_cap i32
+```
+
+The required order is:
+
+```text
+1. Read collection capacity / item_count / items_len / items_cap for diagnostics.
+2. Call F5x collection contour edge lookup exactly once.
+3. Convert F5x error to ContourEdgeFailed with edge_error Some.
+4. On F5x success, read edge start, edge end, edge index, next_contour_point_index, and start span.
+5. Validate edge span glyph == capacity glyph.
+6. Validate edge span contour_index == requested contour_index.
+7. Validate edge span start_point_index >= 0.
+8. Validate edge span end_point_index >= start_point_index.
+9. Validate edge span end_point_index < capacity.point_count.
+10. Validate edge span point_count == end_point_index - start_point_index + 1.
+11. Validate edge_index metadata == requested edge_index.
+12. Validate recomputed next index matches edge metadata.
+13. Validate start span matches the edge span.
+14. Validate end span matches the edge span.
+15. Validate start local index == edge_index.
+16. Validate end local index == next_contour_point_index.
+17. Validate start absolute point index == span.start_point_index + edge_index.
+18. Validate end absolute point index == span.start_point_index + next_contour_point_index.
+19. Only after edge invariant succeeds, inspect start/end on-curve flags.
+20. If start is on-curve and end is off-curve, compute lookahead_contour_point_index by wrapping next_contour_point_index + 1 at span.point_count.
+21. Needed lookahead calls F5w contour point lookup exactly once.
+22. Needed lookahead failure becomes LookaheadPointFailed with lookahead_error Some.
+23. Needed lookahead success must validate lookahead span matches edge span.
+24. Validate lookahead local index == lookahead_contour_point_index.
+25. Validate lookahead absolute point index == span.start_point_index + lookahead_contour_point_index.
+26. Return gui_sfnt_classify_simple_glyph_curve_segment edge Option::Some lookahead.
+27. If lookahead is not needed, do not call F5w and return gui_sfnt_classify_simple_glyph_curve_segment edge Option::None.
+```
+
+F5y must not produce `MissingLookahead` by skipping a needed lookup. `MissingLookahead` remains part of the lower pure classifier contract for callers that pass `Option::None` directly, but the collection-backed boundary has enough topology to know when lookahead is required. If the required F5w lookup fails, the result is `LookaheadPointFailed`.
+
+Single-point contours and off-curve start edges remain successful `NoSegment` classifications. They are valid topology states and must not be reclassified as F5y errors.
+
+F5y may call F5x, F5w, point / span / edge / capacity accessors, and `gui_sfnt_classify_simple_glyph_curve_segment`. It must not call F4 byte-backed contour or curve helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
