@@ -4088,3 +4088,66 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ap.json -j 1
 git diff --check
 ```
+
+## Phase F5aq: sfnt simple glyph outline point stream item collection path sink action contour endpoint drain
+
+目的:
+
+- F5ap の `ContourEndpointPushOwner` を authority とし、collection-backed contour span から remaining contour endpoint slots を bounded drain する。
+- contour endpoint region が完了した場合だけ PointX region cursor を開始し、PointX value push は次 phase に残す。
+- PushOwner は public constructor を持つため、summary capacity、owner storage capacity、cursor、collection capacity を検査してから cursor interpretation / span lookup / storage consume へ進む。
+- span source failure、F5e push failure、PointX cursor start failure を別 enum reason にし、それぞれ current PushOwner を保持または復元して返す。
+- byte-backed endpoint read / read-push、F4 lookup、F5al/F5ak/F5aj traversal、path sink traversal、PointX value push、raster/render/platform/host API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。collection contour span は collection 自体の topology だけを検査するため、PushOwner と collection capacity の照合が必要だと指摘された。
+- Tesla plan review 2 は `PLAN_BLOCKED`。PushOwner も public constructor を持つため、summary / collection だけでなく owner 内 storage capacity と cursor validity も検査する必要があると指摘された。
+- Tesla plan review 3 は `PLAN_APPROVED`。
+- authority check は次の順に固定する。
+  - summary capacity == owner storage capacity
+  - cursor well formed
+  - cursor region is `ContourEndpoint`
+  - cursor matches summary capacity `ContourEndpoint` region
+  - collection capacity == summary capacity
+- 各 authority failure は owner-preserving typed error とする。
+- `next_index` / `start` / `end` は authority check 後だけ読む。
+- completion branch は PointX cursor start のみ行い、PointX value push はしない。
+- span failure、PointX cursor failure、F5e push failure は別 typed error とし、current PushOwner を保持または復元する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner` を追加する。
+- PointXStartOwner は storage、summary、PointX cursor を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind` を追加する。
+- error kind は `StorageSummaryCapacityMismatch`、`CursorInvalid`、`CursorRegionMismatch`、`CursorCapacityMismatch`、`CollectionSummaryCapacityMismatch`、`EndpointSourceFailed`、`EndpointPushFailed`、`PointXCursorStartFailed` を持つ。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError` を追加する。
+- drain error は current PushOwner、kind、contour_index、optional span source error、optional endpoint、optional F5e/F5d/F5c metadata、optional PointX cursor error を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal` を追加する。
+- terminal は `PointXStarted PointXStartOwner` と `StepBudgetExhausted ContourEndpointPushOwner` のみを持ち、`Clone` / `Copy` を実装しない。
+- PushOwner の non-consuming storage capacity accessor `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage_capacity` を追加する。
+- internal push helper `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_push_endpoint` を追加し、F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint` を exactly once 呼ぶ。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget` を追加する。
+- public boundary は authority check を終えた後だけ trusted drain helper へ委譲する。
+- trusted drain helper は `next_index == end` なら PointX cursor start、`remaining_steps <= 0` なら owner-preserving StepBudget、budget がある場合だけ collection contour span を exactly once 呼ぶ。
+- span success では `gui_sfnt_simple_glyph_contour_span_end_point_index &span` から endpoint slot を作る。
+- push success は returned state から次 PushOwner を作り `remaining_steps - 1` で継続する。
+
+完了条件:
+
+- source policy が docs、types、PointXStartOwner / DrainError / DrainTerminal no Clone/Copy、PushOwner non-consuming storage capacity accessor、authority check order、span lookup before authority 禁止、span failure owner preservation、push failure owner recovery、PointX cursor failure owner preservation、completion-only PointX cursor start、StepBudget no span/no push、forbidden byte-backed / traversal / render / platform / font fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md` に types、authority checks、source span once、span failure recovery、push failure recovery、completion PointX start only、StepBudget no span/no push、no fallback/no byte-backed/no traversal coverage label を追加する。
+- implementation review で authority check order、owner-preserving error、F5e lower metadata before storage recovery、PointX value push absence、forbidden API 固定を確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の PointX population boundary に進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_f5aq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_f5aq_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aq.json -j 1
+git diff --check
+```

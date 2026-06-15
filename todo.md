@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5ap の contour endpoint push owner を authority とし、contour endpoint region の remaining slot を typed endpoint source から owner recovery 付きで埋める completion boundary を追加する。全 contour endpoint 完了後だけ point x region cursor start へ進め、F4 byte-backed helper、lower F5 直接呼び出し、sink traversal、raster/render/platform API へ戻らない contract を固定する
+- F5aq の PointXStartOwner を authority とし、collection-backed point stream item source から PointX region の scalar slot を owner recovery 付きで埋める population boundary を追加する。PointX value 完了後だけ PointY region cursor start へ進め、byte-backed coordinate reader、sink traversal、raster/render/platform API へ戻らない contract を固定する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

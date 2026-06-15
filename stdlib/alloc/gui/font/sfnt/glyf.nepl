@@ -9870,6 +9870,308 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary:
             Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::StepBudgetExhausted drain_summary
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner: PointX region cursor [開始/かいし]済み owner
+//:
+//: [目的/もくてき]:
+//: - contour endpoint region が[完了/かんりょう]した後だけ、PointX region の[先頭/せんとう] cursor と storage owner を[束/たば]ねます。
+//: - この owner は PointX value population の入力境界であり、PointX value 自体は[追加/ついか]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner: PointX 開始 owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner \storage\summary\cursor:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner storage summary cursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_summary: PointX 開始 owner の summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \owner:
+    *field::get_ref owner "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_cursor: PointX 開始 owner の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    *field::get_ref owner "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_storage: PointX 開始 owner から storage を[取/と]り[出/だ]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner GuiSfntSimpleGlyphOutlineStorage \owner:
+    field::get owner "storage"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind: collection-backed contour endpoint drain [失敗/しっぱい] reason
+//:
+//: [目的/もくてき]:
+//: - forged PushOwner、別 collection、span source failure、F5e push failure、PointX cursor start failure を enum で[分離/ぶんり]します。
+//: - 暗黙の代替処理は[行/おこな]わず、caller が `match` で[失敗/しっぱい]箇所を[区別/くべつ]できます。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointSourceFailed
+    EndpointPushFailed
+    PointXCursorStartFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError: PushOwner recovery 付き drain error
+//:
+//: [目的/もくてき]:
+//: - F5aq でどの段階の失敗が起きても、現在の PushOwner を caller に[返/かえ]せるようにします。
+//: - span source / endpoint push / PointX cursor start の lower metadata は `Option` で[分離/ぶんり]し、該当しない branch では `None` にします。
+//: - owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError:
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind
+    contour_index %i32
+    source_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+    cursor_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error: drain error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind fn i32 fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError fn Option GuiSfntSimpleGlyphContourEndpointSlot fn Option GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \owner\kind\contour_index\source_error\endpoint\push_error_kind\region_error_kind\storage_push_error_kind\cursor_error_kind:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError owner kind contour_index source_error endpoint push_error_kind region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \owner\kind\contour_index:
+    let source_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot none
+    let push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error owner kind contour_index source_error endpoint push_error_kind region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_source_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner fn i32 fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \owner\contour_index\source_error_value:
+    let source_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError some source_error_value
+    let endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot none
+    let push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::EndpointSourceFailed contour_index source_error endpoint push_error_kind region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_push_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner fn i32 fn GuiSfntSimpleGlyphContourEndpointSlot fn GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \owner\contour_index\endpoint_value\push_error_kind_value\region_error_kind_value\storage_push_error_kind_value:
+    let source_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot some endpoint_value
+    let push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind some push_error_kind_value
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::EndpointPushFailed contour_index source_error endpoint push_error_kind region_error_kind_value storage_push_error_kind_value cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_point_x_cursor_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner fn StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \owner\cursor_error_value:
+    let source_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let endpoint %Option GuiSfntSimpleGlyphContourEndpointSlot none
+    let push_error_kind %Option GuiSfntSimpleGlyphContourEndpointPushErrorKind none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind some cursor_error_value
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::PointXCursorStartFailed -1 source_error endpoint push_error_kind region_error_kind storage_push_error_kind cursor_error_kind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_kind: drain error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_contour_index: drain error の contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_contour_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError i32 \error:
+    *field::get_ref error "contour_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_source_error: lower span error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_source_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError \error:
+    *field::get_ref error "source_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_endpoint: rejected endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_endpoint %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError Option GuiSfntSimpleGlyphContourEndpointSlot \error:
+    *field::get_ref error "endpoint"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_push_error_kind: lower F5e error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError Option GuiSfntSimpleGlyphContourEndpointPushErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_region_error_kind: lower F5d error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_region_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_storage_push_error_kind: lower F5c push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_storage_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_cursor_error_kind: PointX cursor start error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_cursor_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError Option StdErrorKind \error:
+    *field::get_ref error "cursor_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_owner: drain error から PushOwner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal: contour endpoint drain terminal
+//:
+//: [目的/もくてき]:
+//: - `PointXStarted` は contour endpoint region が[完了/かんりょう]し、PointX cursor を[開始/かいし]した状態です。
+//: - `StepBudgetExhausted` は PushOwner を[保持/ほじ]したまま次 slice へ[継続/けいぞく]できる状態です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal:
+    PointXStarted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage_capacity: PushOwner 内 storage の capacity を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - owner を[消費/しょうひ]せず、forged PushOwner の storage / summary mismatch を[検査/けんさ]できるようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_capacity storage
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_push_endpoint %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner impure fn GuiSfntSimpleGlyphContourEndpointSlot Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \owner\endpoint:
+    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_summary &owner
+    let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_cursor &owner
+    let previous_endpoint %Option i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_previous_endpoint &owner
+    let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage owner
+    match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:
+        Result::Ok pushed:
+            let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed
+            let next_previous_endpoint_value %i32 gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed
+            let next_previous_endpoint %Option i32 some next_previous_endpoint_value
+            let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed
+            let next_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner next_storage summary next_cursor next_previous_endpoint
+            Result::Ok next_owner
+        Result::Err push_error:
+            let push_error_kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error
+            let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error
+            let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error
+            let recovered_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner returned_storage summary cursor previous_endpoint
+            let contour_index %i32 gui_sfnt_simple_glyph_contour_endpoint_slot_contour_index &endpoint
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_push_failed recovered_owner contour_index endpoint push_error_kind region_error_kind storage_push_error_kind
+            Result::Err error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget_trusted %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \collection\owner\remaining_steps:
+    let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_cursor &owner
+    let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    let end %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+    if eq next_index end:
+        then:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_summary &owner
+            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+            match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PointX:
+                Result::Err cursor_error_value:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_point_x_cursor_failed owner cursor_error_value
+                    Result::Err error
+                Result::Ok point_x_cursor:
+                    let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage owner
+                    let point_x_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner storage summary point_x_cursor
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal::PointXStarted point_x_owner
+        else:
+            if le remaining_steps 0:
+                then:
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal::StepBudgetExhausted owner
+                else:
+                    let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+                    let contour_index %i32 sub next_index start
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index:
+                        Result::Err source_error:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_source_failed owner contour_index source_error
+                            Result::Err error
+                        Result::Ok span:
+                            let end_point_index %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                            let endpoint %GuiSfntSimpleGlyphContourEndpointSlot gui_sfnt_simple_glyph_contour_endpoint_slot contour_index end_point_index
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_push_endpoint owner endpoint:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    let next_remaining_steps %i32 sub remaining_steps 1
+                                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget_trusted collection next_owner next_remaining_steps
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget: collection source から endpoint region を[埋/う]め、完了時だけ PointX cursor を[開始/かいし]する
+//:
+//: [契約/けいやく]:
+//: - PushOwner は public constructor を[持/も]つため、summary capacity、owner storage capacity、cursor、collection capacity をこの順で[検査/けんさ]してから処理します。
+//: - collection span failure、F5e push failure、PointX cursor start failure はそれぞれ別 enum reason にし、現在の PushOwner を[保持/ほじ]して[返/かえ]します。
+//: - endpoint source は collection-backed contour span のみで、byte-backed endpoint read、path sink traversal、renderer、platform API、font の代替解決へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError \collection\owner\remaining_steps:
+    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_summary &owner
+    let summary_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+    let storage_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage_capacity &owner
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_matches &summary_capacity &storage_capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::StorageSummaryCapacityMismatch -1
+            Result::Err error
+        else:
+            let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_cursor &owner
+            if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::CursorInvalid -1
+                    Result::Err error
+                else:
+                    let region %GuiSfntSimpleGlyphOutlineScalarRegion gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor
+                    let is_contour_region %bool match region:
+                        GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint:
+                            true
+                        _:
+                            false
+                    if not is_contour_region:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::CursorRegionMismatch -1
+                            Result::Err error
+                        else:
+                            if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &summary_capacity:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::CursorCapacityMismatch -1
+                                    Result::Err error
+                                else:
+                                    let collection_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+                                    if not gui_sfnt_simple_glyph_outline_storage_capacity_matches &collection_capacity &summary_capacity:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind::CollectionSummaryCapacityMismatch -1
+                                            Result::Err error
+                                        else:
+                                            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget_trusted collection owner remaining_steps
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

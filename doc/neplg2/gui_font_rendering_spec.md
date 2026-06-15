@@ -4192,6 +4192,87 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action contour endpoint drain
+
+F5aq は F5ap の `ContourEndpointPushOwner` を authority として、collection-backed contour span から残りの contour endpoint slot を bounded drain し、全 contour endpoint 完了後だけ PointX region cursor start へ進む owner-recovery boundary である。F5aq は PointX value push、byte-backed endpoint read、path sink traversal、renderer、platform API を直接呼ばない。
+
+`ContourEndpointPushOwner` は public constructor を持つため、F5aq は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == ContourEndpoint
+    cursor matches summary capacity ContourEndpoint region
+    collection capacity == summary capacity
+```
+
+この順序より前に span lookup、PointX cursor start、storage consume、F5e push を行ってはいけない。各 authority failure は current `ContourEndpointPushOwner` を保持した typed error として返す。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointSourceFailed
+    EndpointPushFailed
+    PointXCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainErrorKind
+    contour_index i32
+    source_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    endpoint Option GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind Option GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal:
+    PointXStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_drain_to_point_x_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PointX` で PointX cursor を開始する。成功した場合は storage を消費して `PointXStarted PointXStartOwner` を返す。失敗した場合は `PointXCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、span lookup も mutation も行わず `StepBudgetExhausted ContourEndpointPushOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、contour index は `next_index - start` である。endpoint source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index` だけである。span failure は lower `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError` と current owner を保持した `EndpointSourceFailed` とする。span success は span の `end_point_index` から `GuiSfntSimpleGlyphContourEndpointSlot` を作る。
+
+F5e push は internal push helper だけが呼ぶ。helper は summary、cursor、previous endpoint を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint` を 1 回だけ呼ぶ。F5e failure では lower metadata を storage 回収より前に読み、returned storage と保存済み summary、cursor、previous endpoint から `ContourEndpointPushOwner` を復元し、`EndpointPushFailed` を返す。
+
+push success は F5e returned storage、returned cursor、returned previous endpoint だけから次の PushOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PointXStartOwner`、`ContourEndpointDrainError`、`ContourEndpointDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。
+
+F5aq は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed endpoint read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+PointX value push
+point / curve / path command population
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
