@@ -40,6 +40,60 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5ba: sfnt simple glyph outline point stream item collection path command stream sink writer
+
+目的:
+
+- F5az の `PathCommandStreamSinkOwner` を authority とし、F5aw の `PathCommandValue` を path sink scalar Vec へ書く real writer を追加する。
+- writer は `PathCommandValue` を直接受け取り、F5av lookup、F5aw step / drain、byte-backed lookup、old path sink traversal へ戻らない。
+- `PathCommandValue` は public value として forged 可能なので、stored tag、source tag、command payload tag を再検査してから push する。
+- `SkipNoSegment` は explicit step として progress だけを進め、scalar は一切 push しない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- 成功 result 型、owner-bearing error payload、start validation order、multi scalar push failure atomicity、remaining capacity check が不足していると指摘された。
+- revised plan では `WriterOwner`、`WriterStep`、`WriterStartError`、`WriterPushError` を明示し、start は `Result WriterOwner WriterStartError`、push は `Result WriterStep WriterPushError` とする。
+- Tesla plan review 2 は `PLAN_BLOCKED`。
+- public `PathCommandValue` の stored/source tag と command-derived tag の一致検査、stable tag scalar 値、success progress 更新、push 前 writer 再検査、partial append failure owner の fail-closed 化を source policy に固定する必要があると指摘された。
+- Tesla final plan review は `PLAN_APPROVED`。特に `path_sink_scalars_len == path_sink_scalar_count`、`raster_mask_scalars_len == 0`、push failure recovery order、variant ごとの progress 更新、`SkipNoSegment` no-push を固定する。
+
+変更:
+
+- `PathCommandValue` に `stored_tag` と `source_tag` の public accessor を追加する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner` を追加する。F5az owner、written_count、path_sink_scalar_count、move_to_count、line_to_count、quadratic_to_count、skip_no_segment_count、last_path_command_index を保持し、`Clone` / `Copy` は実装しない。
+- F5az `SinkOwnerCapacity` の private equality helper を追加し、stored capacity と derived capacity を field-by-field で比較する。
+- `WriterStartErrorKind` と owner-bearing `WriterStartError` を追加する。start error は original F5az owner、capacity derivation error option、derived capacity option、stored capacity、observed len/cap を保持する。
+- `writer_owner_start` を追加する。plan、capacity_from_plan、stored capacity equality、path cap、raster cap、path len 0、raster len 0 の順に検査し、progress all zero / last index -1 の writer owner を返す。
+- `WriterStep` を追加する。`WrittenMoveTo`、`WrittenLineTo`、`WrittenQuadraticTo`、`SkippedNoSegment` が next writer owner を保持する。
+- `WriterPushErrorKind` と owner-bearing `WriterPushError` を追加する。push error は current or reconstructed writer owner、rejected `PathCommandValue`、capacity error option、rejected scalar option、storage error option を保持する。
+- `gui_sfnt_simple_glyph_path_command_tag_from_command` を追加し、command payload から expected tag を導く。
+- `writer_owner_validate_for_push` を追加する。F5az plan/capacity 再検査、Vec cap equality、`path_sink_scalars_len == path_sink_scalar_count`、`raster_mask_scalars_len == 0`、written count、kind 別 progress count の非負 / plan 上限、aggregate progress、path command index、stored/source/command tag consistency を検査する。
+- `writer_owner_push_scalar` を追加する。`vec::push` failure では `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec を回収し、F5az owner と writer owner を復元する。
+- MoveTo / LineTo writer は stable tag scalar 1 / 2、x2、y2 の順に 3 scalar を push し、成功時に progress を 1 command / 3 scalar だけ進める。
+- QuadraticTo writer は stable tag scalar 3、control_x2、control_y2、end_x2、end_y2 の順に 5 scalar を push し、成功時に progress を 1 command / 5 scalar だけ進める。
+- SkipNoSegment writer は scalar を push せず、success step として `written_count`、`skip_no_segment_count`、`last_path_command_index` だけ進める。
+- `writer_owner_free` を追加し、inner F5az owner free に委譲する。
+
+完了条件:
+
+- source policy が docs、PathCommandValue tag accessors、writer owner type、writer owner no Clone/Copy、start/push error kind、owner-bearing error payload、start validation order、push prevalidation、stored/source/command tag checks、stable tag scalar order、remaining scalar capacity check、push failure recovery order、partial append owner fail-closed guard、success progress update、SkipNoSegment no push、forbidden F5av/F5aw / byte-backed / old traversal / raster / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md` に types、PathCommandValue tag accessors、start validation、push validation、tag scalar order、progress update、push failure recovery、partial failure fail-closed、SkipNoSegment no push、no fallback/no byte-backed/no traversal/no raster の coverage label を追加する。
+- implementation review で plan review 指摘がすべて反映されていること、multi scalar failure の owner recovery と progress 未更新が一致することを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の raster mask writer または batch append repair helper phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_writer_f5ba.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_owner_f5ba_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ba.json -j 1
+git diff --check
+```
+
 ## Phase F5az: sfnt simple glyph outline point stream item collection path command stream sink owner
 
 目的:

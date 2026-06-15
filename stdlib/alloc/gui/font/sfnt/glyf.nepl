@@ -12331,6 +12331,18 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue i32 \value:
     *field::get_ref value "path_command_index"
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag: storage から[読/よ]んだ tag を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiSfntSimpleGlyphPathCommandTag \value:
+    *field::get_ref value "stored_tag"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag: collection source から[再導出/さいどうしゅつ]した tag を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiSfntSimpleGlyphPathCommandTag \value:
+    *field::get_ref value "source_tag"
+
 //: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command: command payload を[読/よ]む
 //:
 //: neplg2:test[skip]
@@ -13871,6 +13883,574 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
     let raster_mask_scalars %Vec i32 field::get owner "raster_mask_scalars"
     vec::free path_sink_scalars
     vec::free raster_mask_scalars
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner: path command scalar writer の進行状態
+//:
+//: [目的/もくてき]:
+//: - F5az の sink owner を[消費/しょうひ]しながら、F5aw の `PathCommandValue` を path sink scalar format へ[書/か]き[込/こ]む所有者です。
+//: - writer progress と Vec len を同時に[検査/けんさ]することで、partial append failure owner を通常継続へ[戻/もど]さない fail-closed 境界にします。
+//: - Vec owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner:
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner
+    written_count %i32
+    path_sink_scalar_count %i32
+    move_to_count %i32
+    line_to_count %i32
+    quadratic_to_count %i32
+    skip_no_segment_count %i32
+    last_path_command_index %i32
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner: writer owner value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner \owner\written_count\path_sink_scalar_count\move_to_count\line_to_count\quadratic_to_count\skip_no_segment_count\last_path_command_index:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner owner written_count path_sink_scalar_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count: writer の処理済み command 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "written_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count: writer が確定した path scalar 数を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "path_sink_scalar_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "move_to_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "line_to_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "quadratic_to_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "skip_no_segment_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_last_path_command_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner i32 \writer:
+    *field::get_ref writer "last_path_command_index"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity bool \left\right:
+    let left_path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity left
+    let right_path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity right
+    let left_raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity left
+    let right_raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity right
+    let left_path_segment_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_segment_capacity left
+    let right_path_segment_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_segment_capacity right
+    let left_raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity left
+    let right_raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity right
+    and eq left_path_sink_scalar_capacity right_path_sink_scalar_capacity and eq left_raster_mask_scalar_capacity right_raster_mask_scalar_capacity and eq left_path_segment_capacity right_path_segment_capacity eq left_raster_edge_capacity right_raster_edge_capacity
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind: writer start [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind:
+    OwnerPlanRejected
+    StoredCapacityMismatch
+    PathSinkScalarCapacityMismatch
+    RasterMaskScalarCapacityMismatch
+    PathSinkScalarLenNotZero
+    RasterMaskScalarLenNotZero
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError: writer start failure context
+//:
+//: [目的/もくてき]:
+//: - start failure は元の F5az owner を[保持/ほじ]して返し、呼び[出/だ]し側が cleanup できます。
+//: - capacity derivation failure、stored capacity、Vec len/cap を[分/わ]け、coarse invalid owner にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner
+    capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
+    derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+    stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+    path_sink_scalars_len %i32
+    path_sink_scalars_cap %i32
+    raster_mask_scalars_len %i32
+    raster_mask_scalars_cap %i32
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error: writer start error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError \kind\owner\capacity_error\derived_capacity\stored_capacity\path_sink_scalars_len\path_sink_scalars_cap\raster_mask_scalars_len\raster_mask_scalars_cap:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError kind owner capacity_error derived_capacity stored_capacity path_sink_scalars_len path_sink_scalars_cap raster_mask_scalars_len raster_mask_scalars_cap
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_kind: start error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_owner: start error から owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner \error:
+    field::get error "owner"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_capacity_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError \owner\capacity_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity &owner
+    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len &owner
+    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap &owner
+    let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len &owner
+    let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap &owner
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind::OwnerPlanRejected owner capacity_error derived_capacity stored_capacity path_sink_scalars_len path_sink_scalars_cap raster_mask_scalars_len raster_mask_scalars_cap
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_with_capacity %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError \kind\owner\derived_capacity_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
+    let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity &owner
+    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len &owner
+    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap &owner
+    let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len &owner
+    let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap &owner
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error kind owner capacity_error derived_capacity stored_capacity path_sink_scalars_len path_sink_scalars_cap raster_mask_scalars_len raster_mask_scalars_cap
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_start: F5az owner を writer owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - plan、derived capacity、stored capacity、Vec cap、Vec len をこの順で[検査/けんさ]します。
+//: - path sink / raster mask の既存 len が 0 ではない owner は拒否し、partial append failure owner の通常継続を[防/ふせ]ぎます。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_start %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError \owner:
+    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan &owner
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+        Result::Err capacity_error:
+            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_capacity_failed owner capacity_error
+        Result::Ok derived_capacity:
+            let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity &owner
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches &stored_capacity &derived_capacity:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_with_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind::StoredCapacityMismatch owner derived_capacity
+                else:
+                    let expected_path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &derived_capacity
+                    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap &owner
+                    if ne path_sink_scalars_cap expected_path_sink_scalar_capacity:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_with_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind::PathSinkScalarCapacityMismatch owner derived_capacity
+                        else:
+                            let expected_raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &derived_capacity
+                            let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap &owner
+                            if ne raster_mask_scalars_cap expected_raster_mask_scalar_capacity:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_with_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind::RasterMaskScalarCapacityMismatch owner derived_capacity
+                                else:
+                                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len &owner
+                                    if ne path_sink_scalars_len 0:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_with_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind::PathSinkScalarLenNotZero owner derived_capacity
+                                        else:
+                                            let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len &owner
+                                            if ne raster_mask_scalars_len 0:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_start_error_with_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind::RasterMaskScalarLenNotZero owner derived_capacity
+                                                else:
+                                                    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner owner 0 0 0 0 0 0 -1
+                                                    Result::Ok writer
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep: push 成功の typed terminal
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep:
+    WrittenMoveTo %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    WrittenLineTo %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    WrittenQuadraticTo %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    SkippedNoSegment %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind: writer push [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind:
+    OwnerPlanRejected
+    StoredCapacityMismatch
+    PathSinkScalarCapacityMismatch
+    RasterMaskScalarCapacityMismatch
+    PathSinkScalarLenMismatch
+    RasterMaskScalarLenNotZero
+    WrittenCountInvalid
+    MoveToProgressInvalid
+    LineToProgressInvalid
+    QuadraticToProgressInvalid
+    SkipNoSegmentProgressInvalid
+    ProgressCountMismatch
+    CommandIndexOutOfOrder
+    CommandIndexOutOfRange
+    StoredSourceTagMismatch
+    CommandStoredTagMismatch
+    CommandSourceTagMismatch
+    MoveToCountExceeded
+    LineToCountExceeded
+    QuadraticToCountExceeded
+    SkipNoSegmentCountExceeded
+    PathSinkScalarCapacityExceeded
+    PathSinkScalarPushFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError: writer push failure context
+//:
+//: [目的/もくてき]:
+//: - push failure は current writer owner と rejected value を[保持/ほじ]し、storage failure では rejected scalar と lower error を[残/のこ]します。
+//: - multi scalar command の途中失敗では Vec rollback せず、partial append owner は cleanup / diagnostic only として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner
+    value %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue
+    capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
+    rejected_scalar %Option i32
+    storage_error %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error: writer push error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option i32 fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \kind\writer\value\capacity_error\rejected_scalar\storage_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError kind writer value capacity_error rejected_scalar storage_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_kind: push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_writer: push error から writer owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_writer %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner \error:
+    field::get error "writer"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \kind\writer\value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let rejected_scalar %Option i32 none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error kind writer value capacity_error rejected_scalar storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_capacity_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value\capacity_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
+    let rejected_scalar %Option i32 none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::OwnerPlanRejected writer value capacity_error rejected_scalar storage_error
+
+fn gui_sfnt_simple_glyph_path_command_tag_from_command %fn &GuiSfntSimpleGlyphPathCommand GuiSfntSimpleGlyphPathCommandTag \command:
+    match *command:
+        GuiSfntSimpleGlyphPathCommand::MoveTo _:
+            GuiSfntSimpleGlyphPathCommandTag::MoveTo
+        GuiSfntSimpleGlyphPathCommand::LineTo _:
+            GuiSfntSimpleGlyphPathCommandTag::LineTo
+        GuiSfntSimpleGlyphPathCommand::QuadraticTo _:
+            GuiSfntSimpleGlyphPathCommandTag::QuadraticTo
+        GuiSfntSimpleGlyphPathCommand::SkipNoSegment _:
+            GuiSfntSimpleGlyphPathCommandTag::SkipNoSegment
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_validate_for_push %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value:
+    let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref &writer "owner"
+    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+        Result::Err capacity_error:
+            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_capacity_failed writer value capacity_error
+        Result::Ok derived_capacity:
+            let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity owner
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches &stored_capacity &derived_capacity:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::StoredCapacityMismatch writer value
+                else:
+                    let path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &derived_capacity
+                    let raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &derived_capacity
+                    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap owner
+                    if ne path_sink_scalars_cap path_sink_scalar_capacity:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::PathSinkScalarCapacityMismatch writer value
+                        else:
+                            let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap owner
+                            if ne raster_mask_scalars_cap raster_mask_scalar_capacity:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::RasterMaskScalarCapacityMismatch writer value
+                                else:
+                                    let path_sink_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count &writer
+                                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len owner
+                                    if ne path_sink_scalars_len path_sink_scalar_count:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::PathSinkScalarLenMismatch writer value
+                                        else:
+                                            let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len owner
+                                            if ne raster_mask_scalars_len 0:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::RasterMaskScalarLenNotZero writer value
+                                                else:
+                                                    let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count &plan
+                                                    let written_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count &writer
+                                                    if or lt written_count 0 gt written_count total_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::WrittenCountInvalid writer value
+                                                        else:
+                                                            let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count &writer
+                                                            let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count &writer
+                                                            let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count &writer
+                                                            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count &writer
+                                                            let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                                                            if or lt move_to_count 0 gt move_to_count plan_move_to_count:
+                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::MoveToProgressInvalid writer value
+                                                                else:
+                                                                    let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                                                                    if or lt line_to_count 0 gt line_to_count plan_line_to_count:
+                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::LineToProgressInvalid writer value
+                                                                        else:
+                                                                            let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                                                            if or lt quadratic_to_count 0 gt quadratic_to_count plan_quadratic_to_count:
+                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::QuadraticToProgressInvalid writer value
+                                                                                else:
+                                                                                    let plan_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
+                                                                                    if or lt skip_no_segment_count 0 gt skip_no_segment_count plan_skip_no_segment_count:
+                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::SkipNoSegmentProgressInvalid writer value
+                                                                                        else:
+                                                                                            let counted_total %i32 add add move_to_count line_to_count add quadratic_to_count skip_no_segment_count
+                                                                                            if ne counted_total written_count:
+                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::ProgressCountMismatch writer value
+                                                                                                else:
+                                                                                                    let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+                                                                                                    if ne path_command_index written_count:
+                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::CommandIndexOutOfOrder writer value
+                                                                                                        else:
+                                                                                                            if not lt path_command_index total_count:
+                                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::CommandIndexOutOfRange writer value
+                                                                                                                else:
+                                                                                                                    let stored_tag %GuiSfntSimpleGlyphPathCommandTag gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value
+                                                                                                                    let source_tag %GuiSfntSimpleGlyphPathCommandTag gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag &value
+                                                                                                                    if not gui_sfnt_simple_glyph_path_command_tag_eq &stored_tag &source_tag:
+                                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::StoredSourceTagMismatch writer value
+                                                                                                                        else:
+                                                                                                                            let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value
+                                                                                                                            let command_tag %GuiSfntSimpleGlyphPathCommandTag gui_sfnt_simple_glyph_path_command_tag_from_command &command
+                                                                                                                            if not gui_sfnt_simple_glyph_path_command_tag_eq &command_tag &stored_tag:
+                                                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::CommandStoredTagMismatch writer value
+                                                                                                                                else:
+                                                                                                                                    if not gui_sfnt_simple_glyph_path_command_tag_eq &command_tag &source_tag:
+                                                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::CommandSourceTagMismatch writer value
+                                                                                                                                        else Result::Ok writer
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn i32 bool \writer\width:
+    let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+    let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity owner
+    let path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
+    let path_sink_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count writer
+    let remaining %i32 sub path_sink_scalar_capacity path_sink_scalar_count
+    not gt width remaining
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value\scalar:
+    let owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get writer "owner"
+    let written_count %i32 field::get writer "written_count"
+    let path_sink_scalar_count %i32 field::get writer "path_sink_scalar_count"
+    let move_to_count %i32 field::get writer "move_to_count"
+    let line_to_count %i32 field::get writer "line_to_count"
+    let quadratic_to_count %i32 field::get writer "quadratic_to_count"
+    let skip_no_segment_count %i32 field::get writer "skip_no_segment_count"
+    let last_path_command_index %i32 field::get writer "last_path_command_index"
+    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan field::get owner "plan"
+    let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity field::get owner "capacity"
+    let path_sink_scalars %Vec i32 field::get owner "path_sink_scalars"
+    let raster_mask_scalars %Vec i32 field::get owner "raster_mask_scalars"
+    match vec::push path_sink_scalars scalar:
+        Result::Ok next_path_sink_scalars:
+            let next_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner plan capacity next_path_sink_scalars raster_mask_scalars
+            let next_writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner next_owner written_count path_sink_scalar_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
+            Result::Ok next_writer
+        Result::Err e:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &e
+            let returned_path_sink_scalars %Vec i32 vec::vec_push_error_vec e
+            let returned_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner plan capacity returned_path_sink_scalars raster_mask_scalars
+            let returned_writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner returned_owner written_count path_sink_scalar_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
+            let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+            let rejected_scalar %Option i32 some scalar
+            let storage_error %Option StdErrorKind some storage_error_value
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::PathSinkScalarPushFailed returned_writer value capacity_error rejected_scalar storage_error
+            Result::Err error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner \writer\path_command_index\scalar_width\move_to_delta\line_to_delta\quadratic_to_delta\skip_no_segment_delta:
+    let owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get writer "owner"
+    let written_count %i32 field::get writer "written_count"
+    let path_sink_scalar_count %i32 field::get writer "path_sink_scalar_count"
+    let move_to_count %i32 field::get writer "move_to_count"
+    let line_to_count %i32 field::get writer "line_to_count"
+    let quadratic_to_count %i32 field::get writer "quadratic_to_count"
+    let skip_no_segment_count %i32 field::get writer "skip_no_segment_count"
+    let next_written_count %i32 add written_count 1
+    let next_path_sink_scalar_count %i32 add path_sink_scalar_count scalar_width
+    let next_move_to_count %i32 add move_to_count move_to_delta
+    let next_line_to_count %i32 add line_to_count line_to_delta
+    let next_quadratic_to_count %i32 add quadratic_to_count quadratic_to_delta
+    let next_skip_no_segment_count %i32 add skip_no_segment_count skip_no_segment_delta
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner owner next_written_count next_path_sink_scalar_count next_move_to_count next_line_to_count next_quadratic_to_count next_skip_no_segment_count path_command_index
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_variant_room_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind bool \writer\kind:
+    match kind:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::MoveToCountExceeded:
+            let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+            let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+            let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count writer
+            ge count limit
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::LineToCountExceeded:
+            let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+            let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+            let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count writer
+            ge count limit
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::QuadraticToCountExceeded:
+            let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+            let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+            let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count writer
+            ge count limit
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::SkipNoSegmentCountExceeded:
+            let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref writer "owner"
+            let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+            let limit %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
+            let count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count writer
+            ge count limit
+        _:
+            false
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_move_to %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue impure fn GuiSfntSimpleGlyphPathMoveTo Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value\command:
+    if gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_variant_room_error &writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::MoveToCountExceeded:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::MoveToCountExceeded writer value
+        else:
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok &writer 3:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::PathSinkScalarCapacityExceeded writer value
+                else:
+                    let tag %GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphPathCommandTag::MoveTo
+                    let tag_scalar %i32 gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar writer value tag_scalar:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok after_tag:
+                            let x2 %i32 gui_sfnt_simple_glyph_path_move_to_x2 &command
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_tag value x2:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok after_x:
+                                    let y2 %i32 gui_sfnt_simple_glyph_path_move_to_y2 &command
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_x value y2:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok after_y:
+                                            let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+                                            let next_writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_y path_command_index 3 1 0 0 0
+                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep::WrittenMoveTo next_writer
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_line_to %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue impure fn GuiSfntSimpleGlyphPathLineTo Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value\command:
+    if gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_variant_room_error &writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::LineToCountExceeded:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::LineToCountExceeded writer value
+        else:
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok &writer 3:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::PathSinkScalarCapacityExceeded writer value
+                else:
+                    let tag %GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphPathCommandTag::LineTo
+                    let tag_scalar %i32 gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar writer value tag_scalar:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok after_tag:
+                            let x2 %i32 gui_sfnt_simple_glyph_path_line_to_x2 &command
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_tag value x2:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok after_x:
+                                    let y2 %i32 gui_sfnt_simple_glyph_path_line_to_y2 &command
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_x value y2:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok after_y:
+                                            let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+                                            let next_writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_y path_command_index 3 0 1 0 0
+                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep::WrittenLineTo next_writer
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_quadratic_to %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue impure fn GuiSfntSimpleGlyphPathQuadraticTo Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value\command:
+    if gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_variant_room_error &writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::QuadraticToCountExceeded:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::QuadraticToCountExceeded writer value
+        else:
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok &writer 5:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::PathSinkScalarCapacityExceeded writer value
+                else:
+                    let tag %GuiSfntSimpleGlyphPathCommandTag GuiSfntSimpleGlyphPathCommandTag::QuadraticTo
+                    let tag_scalar %i32 gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar writer value tag_scalar:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok after_tag:
+                            let control_x2 %i32 gui_sfnt_simple_glyph_path_quadratic_to_control_x2 &command
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_tag value control_x2:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok after_control_x:
+                                    let control_y2 %i32 gui_sfnt_simple_glyph_path_quadratic_to_control_y2 &command
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_control_x value control_y2:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok after_control_y:
+                                            let end_x2 %i32 gui_sfnt_simple_glyph_path_quadratic_to_end_x2 &command
+                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_control_y value end_x2:
+                                                Result::Err error:
+                                                    Result::Err error
+                                                Result::Ok after_end_x:
+                                                    let end_y2 %i32 gui_sfnt_simple_glyph_path_quadratic_to_end_y2 &command
+                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar after_end_x value end_y2:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok after_end_y:
+                                                            let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+                                                            let next_writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_end_y path_command_index 5 0 0 1 0
+                                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep::WrittenQuadraticTo next_writer
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_skip_no_segment %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue fn GuiSfntSimpleGlyphPathSkipNoSegment Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value\_command:
+    if gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_variant_room_error &writer GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::SkipNoSegmentCountExceeded:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind::SkipNoSegmentCountExceeded writer value
+        else:
+            let path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index &value
+            let next_writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance writer path_command_index 0 0 0 0 1
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep::SkippedNoSegment next_writer
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value: 1 path command value を path sink scalar Vec へ[書/か]く
+//:
+//: [契約/けいやく]:
+//: - `PathCommandValue` は public value なので stored tag、source tag、command payload tag を push 前に[再検査/さいけんさ]します。
+//: - `MoveTo` / `LineTo` は tag scalar、x2、y2 の 3 scalar、`QuadraticTo` は tag scalar、control x2、control y2、end x2、end y2 の 5 scalar を[書/か]きます。
+//: - `SkipNoSegment` は explicit step として progress だけを[進/すす]め、scalar は 1 件も push しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandValue Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError \writer\value:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_validate_for_push writer value:
+        Result::Err error:
+            Result::Err error
+        Result::Ok checked_writer:
+            let command %GuiSfntSimpleGlyphPathCommand gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command &value
+            match command:
+                GuiSfntSimpleGlyphPathCommand::MoveTo move_to:
+                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_move_to checked_writer value move_to
+                GuiSfntSimpleGlyphPathCommand::LineTo line_to:
+                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_line_to checked_writer value line_to
+                GuiSfntSimpleGlyphPathCommand::QuadraticTo quadratic_to:
+                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_quadratic_to checked_writer value quadratic_to
+                GuiSfntSimpleGlyphPathCommand::SkipNoSegment skip_no_segment:
+                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_skip_no_segment checked_writer value skip_no_segment
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free: writer owner の Vec storage を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner unit \writer:
+    let owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get writer "owner"
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_free owner
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:

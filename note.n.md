@@ -1,3 +1,55 @@
+# 2026-06-16 Agent2 GUI font path command stream sink writer checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-sink-writer-f5ba-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ba の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、forged public value の再検査、owner recovery、partial append failure の fail-closed 化を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream sink writer の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ba の writer start / push boundary、PathCommandValue tag revalidation、path sink scalar format、partial append failure owner、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ba の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PathCommandValue` の `stored_tag` / `source_tag` accessor を追加した。writer は public value を trusted value として扱わず、stored / source / command-derived tag を push 前に再検査する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner` を追加した。writer owner は F5az owner、written count、path sink scalar count、kind 別 count、last path command index を持ち、Vec owner を含むため `Clone` / `Copy` を実装しない。
+- `WriterStartErrorKind` / `WriterStartError` を追加した。start error は original F5az owner、capacity derivation error option、derived capacity option、stored capacity、observed Vec len/cap を保持する。
+- `writer_owner_start` は plan、capacity_from_plan、stored capacity equality、path cap、raster cap、path len 0、raster len 0 の順に検査し、progress all zero / last index -1 の writer owner を返す。
+- `WriterStep` を追加した。`WrittenMoveTo`、`WrittenLineTo`、`WrittenQuadraticTo`、`SkippedNoSegment` が next writer owner を保持する。
+- `WriterPushErrorKind` / `WriterPushError` を追加した。push error は current or reconstructed writer owner、rejected `PathCommandValue`、capacity error option、rejected scalar option、storage error option を保持する。
+- `writer_owner_validate_for_push` は F5az plan/capacity 再検査、Vec cap equality、`path_sink_scalars_len == path_sink_scalar_count`、`raster_mask_scalars_len == 0`、written count、kind 別 progress count の非負 / plan 上限、aggregate progress、path command index、stored/source/command tag consistency を検査する。
+- `writer_owner_push_scalar` は `vec::push` failure 時に `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec を回収し、F5az owner と writer owner を復元する。
+- MoveTo / LineTo writer は stable tag scalar 1 / 2、x2、y2 の順に 3 scalar を push し、成功時に progress を 1 command / 3 scalar 進める。
+- QuadraticTo writer は stable tag scalar 3、control_x2、control_y2、end_x2、end_y2 の順に 5 scalar を push し、成功時に progress を 1 command / 5 scalar 進める。
+- SkipNoSegment writer は scalar を push せず、explicit `SkippedNoSegment` step として `written_count`、`skip_no_segment_count`、`last_path_command_index` だけ進める。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ba source policy を追加した。docs/types/no Clone/Copy/tag accessors/start validation/push validation/kind progress bounds/stable scalar order/push recovery/partial failure fail-closed/SkipNoSegment no-push/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md` を追加し、F5ba source policy coverage label を固定した。
+- `todo.md` は F5ba 完了後の次作業として、raster mask scalar writer へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。成功 result 型、owner-bearing error payload、start validation order、multi scalar push failure atomicity、remaining capacity check の明文化が必要と指摘された。
+- Tesla plan review 2 は `PLAN_BLOCKED`。public `PathCommandValue` の stored/source/command tag 再検査、stable tag scalar 値、success progress 更新、push 前 writer 再検査、partial append failure owner の fail-closed 化を source policy に固定する必要があると指摘された。
+- Tesla final plan review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。kind 別 progress count の個別非負 / plan 上限検査がなく、合計一致だけでは forged progress を通し得ると指摘された。また focused doctest stage と note 更新を指摘された。
+- 指摘を受け、`MoveToProgressInvalid` / `LineToProgressInvalid` / `QuadraticToProgressInvalid` / `SkipNoSegmentProgressInvalid` を追加し、kind 別 count を個別検査してから aggregate progress を検査するよう修正した。docs/source policy/focused doctest label も追従した。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。kind 別 count 検査、tag 再検査、partial append failure fail-closed、SkipNoSegment no-push、forbidden API、source policy / focused doctest 追従が確認された。
+- Peirce の計画レビューは旧計画に対する `PLAN_REVIEW_BLOCKED` だったが、主な指摘は partial append failure owner、path sink scalar count、raster Vec len/cap 再検査、kind count bounds、stable tag helperであり、最終実装で反映済みである。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_writer_f5ba_progress_fix.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_owner_f5ba_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ba_progress_fix.json -j 1` 1068/1068 passed
+
+## remaining
+
+- F5ba は path sink scalar writer までであり、raster mask writer、path object materialization、render2d command emission は未実装である。
+- multi scalar push failure の partial append owner は cleanup / diagnostic only であり、再開可能な scalar-progress writer や batch append helper は必要になった段階で別 phase として設計する。
+
 # 2026-06-16 Agent2 GUI font path command stream sink owner checkpoint
 
 ## scope

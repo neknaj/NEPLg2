@@ -142,6 +142,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStream
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -198,6 +199,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -13536,6 +13538,251 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_second_alloc_cleanup_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests.includes("path_command_stream_sink_owner_no_fallback_no_byte_backed_no_traversal_no_push_no_render"),
     "F5az path command stream sink owner focused doctest must cover types, accessors, precise validation, checked arithmetic, capacity derivation, zero-capacity success, allocation order, cleanup, and no fallback/no-byte-backed/no-traversal/no-push/no-render policy",
+);
+assert(spec.includes("### SFNT simple glyph outline point stream item collection path command stream sink writer"), "GUI font spec must document F5ba path command stream sink writer boundary");
+assert(detailedDesign.includes("## SFNT simple glyph outline point stream item collection path command stream sink writer boundary"), "GUI font detailed design must document F5ba path command stream sink writer boundary");
+assert(implementationPlan.includes("## Phase F5ba: sfnt simple glyph outline point stream item collection path command stream sink writer"), "GUI font implementation plan must include F5ba phase");
+assert(
+    spec.includes("MoveTo:\n    tag = 1") &&
+        spec.includes("LineTo:\n    tag = 2") &&
+        spec.includes("QuadraticTo:\n    tag = 3") &&
+        spec.includes("SkipNoSegment:\n    no scalar") &&
+        detailedDesign.includes("path_sink_scalars_len == path_sink_scalar_count") &&
+        implementationPlan.includes("Tesla final plan review は `PLAN_APPROVED`"),
+    "GUI font docs must pin F5ba stable scalar tags, no-scalar skip, fail-closed len/count guard, and approved plan review",
+);
+for (const [name, fieldName] of [
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag", "stored_tag"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag", "source_tag"],
+]) {
+    const accessor = functionSlice(allocFontSfntGlyfImpl, name);
+    assert(accessor.includes(`*field::get_ref value "${fieldName}"`), `alloc/gui/font/sfnt/glyf F5ba requires PathCommandValue accessor ${name}`);
+    assertNoMatch(accessor, /[()]/, `alloc/gui/font/sfnt/glyf F5ba PathCommandValue accessor ${name} must preserve NEPL prefix style without parentheses`);
+}
+const pathCommandStreamSinkWriterOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner "),
+);
+for (const fragment of [
+    "owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner",
+    "written_count %i32",
+    "path_sink_scalar_count %i32",
+    "move_to_count %i32",
+    "line_to_count %i32",
+    "quadratic_to_count %i32",
+    "skip_no_segment_count %i32",
+    "last_path_command_index %i32",
+]) {
+    assert(pathCommandStreamSinkWriterOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ba WriterOwner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStep",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5ba ${typeName} owns Vec-backed state and must not implement Clone/Copy`,
+    );
+}
+const pathCommandStreamSinkWriterStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterStartError:"),
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenNotZero",
+    "RasterMaskScalarLenNotZero",
+]) {
+    assert(pathCommandStreamSinkWriterStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ba start error kind must include ${fragment}`);
+}
+const pathCommandStreamSinkWriterPushErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterPushError:"),
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenNotZero",
+    "WrittenCountInvalid",
+    "MoveToProgressInvalid",
+    "LineToProgressInvalid",
+    "QuadraticToProgressInvalid",
+    "SkipNoSegmentProgressInvalid",
+    "ProgressCountMismatch",
+    "CommandIndexOutOfOrder",
+    "CommandIndexOutOfRange",
+    "StoredSourceTagMismatch",
+    "CommandStoredTagMismatch",
+    "CommandSourceTagMismatch",
+    "MoveToCountExceeded",
+    "LineToCountExceeded",
+    "QuadraticToCountExceeded",
+    "SkipNoSegmentCountExceeded",
+    "PathSinkScalarCapacityExceeded",
+    "PathSinkScalarPushFailed",
+]) {
+    assert(pathCommandStreamSinkWriterPushErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ba push error kind must include ${fragment}`);
+}
+const pathCommandStreamSinkWriterStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_start");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterStart,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan &owner",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "PathSinkScalarCapacityMismatch",
+        "RasterMaskScalarCapacityMismatch",
+        "PathSinkScalarLenNotZero",
+        "RasterMaskScalarLenNotZero",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner owner 0 0 0 0 0 0 -1",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba start must validate plan, capacity, Vec caps, Vec lens, then initialize zero progress",
+);
+const pathCommandStreamSinkWriterValidateForPush = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_validate_for_push");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterValidateForPush,
+    [
+        "field::get_ref &writer \"owner\"",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "PathSinkScalarCapacityMismatch",
+        "RasterMaskScalarCapacityMismatch",
+        "let path_sink_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count &writer",
+        "PathSinkScalarLenMismatch",
+        "RasterMaskScalarLenNotZero",
+        "WrittenCountInvalid",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan",
+        "MoveToProgressInvalid",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan",
+        "LineToProgressInvalid",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan",
+        "QuadraticToProgressInvalid",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan",
+        "SkipNoSegmentProgressInvalid",
+        "ProgressCountMismatch",
+        "CommandIndexOutOfOrder",
+        "CommandIndexOutOfRange",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_stored_tag &value",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_source_tag &value",
+        "StoredSourceTagMismatch",
+        "gui_sfnt_simple_glyph_path_command_tag_from_command &command",
+        "CommandStoredTagMismatch",
+        "CommandSourceTagMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba push validation must revalidate owner, progress, command index, and stored/source/command tags",
+);
+const pathCommandStreamSinkWriterPushScalar = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_scalar");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterPushScalar,
+    [
+        "vec::push path_sink_scalars scalar",
+        "Result::Err e:",
+        "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+        "let returned_path_sink_scalars %Vec i32 vec::vec_push_error_vec e",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner plan capacity returned_path_sink_scalars raster_mask_scalars",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner returned_owner written_count path_sink_scalar_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index",
+        "PathSinkScalarPushFailed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba scalar push failure must read lower error before Vec recovery and reconstruct owners with unchanged progress",
+);
+const pathCommandStreamSinkWriterPushMoveTo = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_move_to");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterPushMoveTo,
+    [
+        "MoveToCountExceeded",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok &writer 3",
+        "GuiSfntSimpleGlyphPathCommandTag::MoveTo",
+        "gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag",
+        "gui_sfnt_simple_glyph_path_move_to_x2 &command",
+        "gui_sfnt_simple_glyph_path_move_to_y2 &command",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_y path_command_index 3 1 0 0 0",
+        "WrittenMoveTo",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba MoveTo writer must push tag/x/y and update progress once",
+);
+const pathCommandStreamSinkWriterPushLineTo = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_line_to");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterPushLineTo,
+    [
+        "LineToCountExceeded",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok &writer 3",
+        "GuiSfntSimpleGlyphPathCommandTag::LineTo",
+        "gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag",
+        "gui_sfnt_simple_glyph_path_line_to_x2 &command",
+        "gui_sfnt_simple_glyph_path_line_to_y2 &command",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_y path_command_index 3 0 1 0 0",
+        "WrittenLineTo",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba LineTo writer must push tag/x/y and update progress once",
+);
+const pathCommandStreamSinkWriterPushQuadraticTo = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_quadratic_to");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterPushQuadraticTo,
+    [
+        "QuadraticToCountExceeded",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_remaining_scalar_ok &writer 5",
+        "GuiSfntSimpleGlyphPathCommandTag::QuadraticTo",
+        "gui_sfnt_simple_glyph_path_command_tag_scalar_value &tag",
+        "gui_sfnt_simple_glyph_path_quadratic_to_control_x2 &command",
+        "gui_sfnt_simple_glyph_path_quadratic_to_control_y2 &command",
+        "gui_sfnt_simple_glyph_path_quadratic_to_end_x2 &command",
+        "gui_sfnt_simple_glyph_path_quadratic_to_end_y2 &command",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance after_end_y path_command_index 5 0 0 1 0",
+        "WrittenQuadraticTo",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba QuadraticTo writer must push tag/control/end and update progress once",
+);
+const pathCommandStreamSinkWriterPushSkip = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_push_skip_no_segment");
+assertOrderedFragments(
+    pathCommandStreamSinkWriterPushSkip,
+    [
+        "SkipNoSegmentCountExceeded",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_advance writer path_command_index 0 0 0 0 1",
+        "SkippedNoSegment",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ba SkipNoSegment writer must advance progress without scalar push",
+);
+assertNoMatch(pathCommandStreamSinkWriterPushSkip, /\bvec::push\b|gui_sfnt_simple_glyph_path_command_tag_scalar_value/, "alloc/gui/font/sfnt/glyf F5ba SkipNoSegment must not push or write tag scalar");
+for (const [slice, name] of [
+    [pathCommandStreamSinkWriterStart, "writer start"],
+    [pathCommandStreamSinkWriterValidateForPush, "writer push validation"],
+    [pathCommandStreamSinkWriterPushScalar, "writer scalar push"],
+    [pathCommandStreamSinkWriterPushMoveTo, "writer move"],
+    [pathCommandStreamSinkWriterPushLineTo, "writer line"],
+    [pathCommandStreamSinkWriterPushQuadraticTo, "writer quadratic"],
+    [pathCommandStreamSinkWriterPushSkip, "writer skip"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_push_value"), "writer push value"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|GuiSfntSimpleGlyphPathSinkAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5ba ${name} must not use byte-backed lookup, old traversal, render/platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5ba ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_path_command_value_tag_accessors_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_start_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_push_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_kind_progress_bounds_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_tag_consistency_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_stable_scalar_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_progress_update_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_push_failure_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_partial_failure_fail_closed_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_skip_no_segment_no_push_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests.includes("path_command_stream_sink_writer_no_fallback_no_byte_backed_no_traversal_no_raster"),
+    "F5ba path command stream sink writer focused doctest must cover types, value tag accessors, start/push validation, kind progress bounds, tag consistency, scalar order, progress, push recovery, partial failure, skip no-push, and no fallback/no-byte-backed/no-traversal/no-raster policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

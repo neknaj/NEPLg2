@@ -5302,6 +5302,138 @@ render / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path command stream sink writer
+
+F5ba は F5az の `SinkOwner` を authority とし、F5aw の `PathCommandValue` を path sink scalar Vec へ書き込む real writer 境界である。これは raster mask writer、path object materialization、rasterization、render2d command emission、platform present ではない。
+
+F5ba は `PathCommandValue` を入力にする。byte-backed lookup、F5av lookup、F5aw stream step、old path sink traversal へ戻って command を再取得しない。ただし `PathCommandValue` は public value なので、writer は push 前に内部整合を再検査する。
+
+```text
+writer start input:
+    SinkOwner
+
+writer start success:
+    WriterOwner owner progress
+
+writer push input:
+    WriterOwner
+    PathCommandValue
+
+writer push success:
+    WrittenMoveTo WriterOwner
+    WrittenLineTo WriterOwner
+    WrittenQuadraticTo WriterOwner
+    SkippedNoSegment WriterOwner
+```
+
+`WriterOwner` は F5az owner と進行状況を保持する。
+
+```text
+PathCommandStreamSinkWriterOwner:
+    owner SinkOwner
+    written_count i32
+    path_sink_scalar_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    last_path_command_index i32
+```
+
+`WriterOwner` と writer step / error は Vec owner を含むため `Clone` / `Copy` を実装しない。
+
+writer start の検査順は次である。
+
+```text
+1. owner plan を読む
+2. capacity_from_plan で plan を再検査し derived capacity を得る
+3. stored capacity と derived capacity が一致することを確認する
+4. path sink Vec cap が path_sink_scalar_capacity と一致することを確認する
+5. raster mask Vec cap が raster_mask_scalar_capacity と一致することを確認する
+6. path sink Vec len が 0 であることを確認する
+7. raster mask Vec len が 0 であることを確認する
+8. progress を all zero、last_path_command_index = -1 として開始する
+```
+
+writer push 前の再検査は次である。
+
+```text
+1. F5az plan / capacity を再検査する
+2. stored capacity と derived capacity が一致することを確認する
+3. path / raster Vec cap が capacity と一致することを確認する
+4. path sink Vec len == path_sink_scalar_count を確認する
+5. raster mask Vec len == 0 を確認する
+6. progress count が非負で plan count 内にあることを確認する
+7. move_to_count + line_to_count + quadratic_to_count + skip_no_segment_count == written_count を確認する
+8. value.path_command_index == written_count を確認する
+9. value.path_command_index < plan.total_count を確認する
+10. value.stored_tag == value.source_tag を確認する
+11. command payload から導いた tag が stored_tag / source_tag と一致することを確認する
+12. command kind ごとの remaining count と path sink scalar remaining capacity を確認する
+```
+
+kind 別 progress count は、合計検査の前に個別に検査する。negative count や plan 上限超過は `MoveToProgressInvalid`、`LineToProgressInvalid`、`QuadraticToProgressInvalid`、`SkipNoSegmentProgressInvalid` の typed error として返す。
+
+path sink scalar format は F5au の stable tag scalar を使う。
+
+```text
+MoveTo:
+    tag = 1
+    x2
+    y2
+
+LineTo:
+    tag = 2
+    x2
+    y2
+
+QuadraticTo:
+    tag = 3
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+
+SkipNoSegment:
+    no scalar
+```
+
+`SkipNoSegment` は explicit step として `written_count`、`skip_no_segment_count`、`last_path_command_index` だけを進める。tag scalar も座標 scalar も書かない。
+
+push 成功時の progress 更新は固定である。
+
+```text
+written_count += 1
+path_sink_scalar_count += scalar_width
+matching_command_count += 1
+last_path_command_index = value.path_command_index
+```
+
+multi scalar command の途中で `vec::push` が失敗した場合、F5ba は Vec rollback を行わない。error payload は部分 append 済み Vec を含む writer owner を返す。ただし progress は進めない。この owner は cleanup / diagnostic only であり、通常の push continuation は `path_sink_scalars_len == path_sink_scalar_count` 再検査で拒否される。
+
+push failure では必ず lower error kind を先に読み、その後 Vec を回収する。
+
+```text
+vec::vec_push_error_kind &error
+vec::vec_push_error_vec error
+reconstruct SinkOwner
+reconstruct WriterOwner
+```
+
+F5ba は次を直接呼ばない。
+
+```text
+F5av path command value lookup
+F5aw stream step / drain
+byte-backed lookup helper
+old path sink action traversal
+raster mask writer
+path object materialization
+rasterization
+render / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
