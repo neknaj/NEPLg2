@@ -6730,6 +6730,77 @@ All step failures wrap the cursor in `GuiSfntSimpleGlyphRenderFillAlphaMaskSampl
 
 F5bi must not call byte-backed lookup helpers, old traversal helpers, zero-fill helpers, `RenderCommand` constructors, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, stroke / shadow rasterizers, or 2D compositor APIs.
 
+## SFNT simple glyph render fill alpha mask sample command bridge boundary
+
+F5bj is a SourceOver only bridge from the F5bi sample stream to the existing core `RenderCommand::FillRect` value. It is a correctness bridge, not the final FHD 60fps compositor path and not a backend fallback. The bridge converts exactly one alpha-mask sample into exactly one 1x1 logical fill rectangle command.
+
+The current `FillRectCommand` payload is:
+
+```text
+FillRectCommand:
+    rect GuiRect
+    paint GuiPaint
+```
+
+It does not carry `GuiBlendMode`. Therefore F5bj validates the sample blend before command construction:
+
+```text
+GuiBlendMode::SourceOver -> Ok
+Copy / Multiply / Screen -> UnsupportedBlendMode
+```
+
+This prevents semantic loss. F5bj must not silently drop `sample.blend`, and it must not reinterpret unsupported blend modes as SourceOver.
+
+The paint path reads the original fill paint through `gui_paint_color`, not through an ad-hoc field read. It preserves RGB channels and scales only alpha:
+
+```text
+base_color = gui_paint_color sample.fill_paint
+paint_alpha = base_color.a
+scaled_alpha = sample.alpha * paint_alpha / sample.alpha_max
+command_color = rgba8888_new base.r base.g base.b scaled_alpha
+command_paint = gui_paint_solid command_color
+```
+
+Alpha scaling is fail-closed:
+
+```text
+sample.alpha_max <= 0 -> InvalidAlphaMax
+sample.alpha < 0 -> AlphaNegative
+sample.alpha > sample.alpha_max -> AlphaExceedsMax
+sample.alpha * paint_alpha overflow -> PaintAlphaMultiplyOverflow
+scaled alpha outside 0..255 -> ScaledAlphaOutOfRange
+```
+
+`sample.alpha == 0` and `paint_alpha == 0` still produce a transparent `FillRect` command. They are not treated as skip/no-op states. This keeps the command bridge observable and avoids hidden control flow.
+
+The cursor command step is deliberately not implemented by calling the owning F5bi `sample_cursor_step`. The rule is that conversion succeeds before the cursor advances:
+
+```text
+validate cursor invariants
+if cell_index > cell_count:
+    return error with cursor
+if cell_index == cell_count:
+    return Completed owner
+read sample by reference
+convert sample to command
+if conversion failed:
+    return error with original cursor and rejected_sample
+move owner into next cursor
+return Command command next_cursor
+```
+
+This avoids partial completion. A command conversion failure never consumes the cursor. A sample cursor invariant/read failure returns `rejected_sample = None`, while command conversion failure returns `rejected_sample = Some sample`. Progress invariant failure owns the next cursor and keeps the sample in the error payload.
+
+The cursor command error kind keeps F5bi read/invariant errors separate from command conversion errors:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind:
+    SampleCursorFailed GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind
+    CommandFailed GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind
+```
+
+F5bj may call `render_command_fill_rect`. It must not call `RenderTarget`, `DrawTarget`, platform APIs, backend APIs, font fallback, zero-fill helpers, stroke / shadow rasterizers, or 2D compositor APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

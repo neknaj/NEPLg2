@@ -573,6 +573,42 @@ pub fn image_id_new %fn i32 ImageId \raw:
 pub fn gui_paint_solid %fn Rgba8888 GuiPaint \color:
     GuiPaint color
 
+//: gui_paint_color: fill paint の color を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - renderer や font rasterizer が `GuiPaint` の[内部/ないぶ] field 名に[依存/いぞん]せず、solid color を O(1) で[取得/しゅとく]します。
+//:
+//: neplg2:test
+//: ```neplg2
+//:| #entry main
+//:| #indent 4
+//:| #target std
+//:| #import "core/cast" as *
+//:| #import "core/gui/color" as *
+//:| #import "core/gui/render_command" as *
+//: #import "std/test" as test
+//:
+//: fn run_case %fn void i32 \void:
+//:     let r %u8 cast 10
+//:     let g %u8 cast 20
+//:     let b %u8 cast 30
+//:     let a %u8 cast 40
+//:     let color %Rgba8888 rgba8888_new r g b a
+//:     let paint %GuiPaint gui_paint_solid color
+//:     let read_color %Rgba8888 gui_paint_color &paint
+//:     cast rgba8888_a &read_color
+//:
+//: fn main %impure fn void i32 \void:
+//:     let actual %i32 run_case
+//:     let report:
+//:         test::test_report_new "core_gui_render_command_gui_paint_color_doc"
+//:         |> test::test_report_push test::assert_eq_i32 "alpha" 40 actual
+//:     let shown test::test_report_print_stdout report
+//:     test::test_report_exit_code shown
+//: ```
+pub fn gui_paint_color %fn &GuiPaint Rgba8888 \paint:
+    *field::get_ref paint "color"
+
 //: gui_stroke_new: stroke を[作/つく]る
 pub fn gui_stroke_new %fn Rgba8888 fn i32 GuiStroke \color\width:
     GuiStroke color width

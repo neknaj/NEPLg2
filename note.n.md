@@ -65253,3 +65253,57 @@ MERGE_APPROVED
 
 - F5bi は completed fill alpha mask owner の sample cursor 境界までであり、`RenderCommand` emission、2D compositor、stroke rasterization、shadow rasterization は未実装である。
 - 次 slice では F5bi sample stream を authority として 2D compositor / render command bridge へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。
+
+## 2026-06-16 GUI font rendering F5bj render fill alpha mask sample command bridge boundary
+
+### scope
+
+- F5bj は F5bi の completed fill alpha mask sample cursor を authority とし、1 sample を 1 typed `RenderCommand::FillRect` へ変換する correctness bridge である。
+- この bridge は高速 compositor が無い場合の fallback ではない。FHD 60fps path は後続の alpha-mask / tile command と 2D compositor drain で扱う。
+- 現行 `FillRectCommand` は blend を payload に持たないため、`GuiBlendMode::SourceOver` のみを受理し、それ以外は `UnsupportedBlendMode` で fail closed にする。
+- command conversion が成功する前に cursor を進めず、失敗時は元 cursor と rejected sample を回収できる。
+
+### plan_review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。
+- `sample.blend` を `FillRectCommand` へ落とすと blend semantic loss になるため、`SourceOver` 以外を typed error として拒否する必要があると指摘された。
+- F5bi の owning `sample_cursor_step` を先に呼ぶと、command conversion failure 時に sample 消費済みで command 未発行という partial completion になり得ると指摘された。
+- revised plan では SourceOver-only validation、conversion succeeds before cursor advances rule、command conversion failure の元 cursor + rejected sample recovery を追加した。
+- Planck revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `stdlib/core/gui/render_command.nepl` に `gui_paint_color` accessor を追加した。font renderer / compositor が `GuiPaint` の field 名へ直接依存しないようにする。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind` を追加した。alpha max、alpha range、multiply overflow、scaled alpha range、unsupported blend を typed error とする。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError` を追加し、value-only rejected sample を保持する。
+- sample command paint helper を追加し、`gui_paint_color` で base color を読み、RGB を保持しつつ alpha だけを `sample.alpha * paint.alpha / sample.alpha_max` で scale する。
+- `cast i32 u8` の前に negative / max / overflow / scaled alpha range をすべて検査する。
+- `sample.alpha == 0` または `paint.alpha == 0` は skip/no-op ではなく透明 `FillRect` command を返す。
+- sample render command helper を追加し、absolute sample position から 1x1 `GuiRect` を作り `render_command_fill_rect` を返す。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind`、owner-bearing cursor error、command cursor terminal を追加した。
+- command cursor step は `cell_index == cell_count` を read より先に completed とし、`read &cursor`、sample command conversion、owner handoff to next cursor の順に進める。
+- command conversion failure では元 cursor と `rejected_sample = Some sample` を error に保持し、F5bi invariant/read failure では `rejected_sample = None` とする。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bj の contract、SourceOver-only、checked alpha scale、conversion-before-advance、依存禁止を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md` を追加し、paint accessor、SourceOver-only、checked alpha scale、transparent zero alpha、FillRect emission、conversion-before-advance、rejected sample recovery、terminal free、no platform / target / fallback policy の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bj source policy を追加した。
+- `todo.md` は F5bj 後の alpha-mask / tile command、2D compositor drain、formal render command transport、stroke / shadow 専用境界の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge_f5bj.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor_f5bj_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/core/gui/render_command.nepl --no-tree -o tmp_gui_core_render_command_f5bj.json -j 1` は 9/9 pass。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bj.json -j 1` は 1127/1127 pass。
+
+### subagent_review
+
+- Planck implementation review は `REVIEW_APPROVED`。F5bj は fallback ではなく correctness bridge として閉じており、SourceOver-only validation により blend semantic loss は解消済み、conversion success before cursor advance と rejected sample recovery により partial completion も解消済みと確認された。
+- Planck は追加で `node nodesrc\test_web_gui_font_rendering_contract.js` と `git diff --check` を確認し、commit 可能と判断した。ただし未追跡の `NUL` と多数の `tmp_*.json` / profile は commit に含めず、新規 focused doctest file だけ stage するよう指摘された。
+
+### residual
+
+- F5bj は per-sample SourceOver FillRect correctness bridge であり、FHD 60fps 向けの alpha-mask / tile command、formal 2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+- 次 slice では F5bj の sample command bridge を authority として command drain / alpha-mask command 境界へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。

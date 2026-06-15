@@ -5978,6 +5978,45 @@ stroke / shadow rasterizer
 2D compositor
 ```
 
+### SFNT simple glyph render fill alpha mask sample command bridge boundary
+
+F5bj は F5bi の sample cursor を authority とし、1 sample を 1 typed `RenderCommand::FillRect` へ変換する境界である。これは高速 compositor が無い場合の fallback ではない。目的は、後続の 2D renderer / compositor へ進む前に、alpha scale、paint access、cursor recovery、command emission の最小契約を静的に固定することである。
+
+現行の `FillRectCommand` は blend mode を payload に持たない。そのため F5bj は `GuiBlendMode::SourceOver` だけを受理し、`Copy` / `Multiply` / `Screen` は `UnsupportedBlendMode` として fail closed に返す。`sample.blend` を黙って捨ててはいけない。
+
+alpha は次の式で scale する。
+
+```text
+command_alpha = sample.alpha * paint.alpha / sample.alpha_max
+```
+
+ただし `cast i32 u8` の前に次を検査する。
+
+```text
+sample.alpha_max <= 0 -> InvalidAlphaMax
+sample.alpha < 0 -> AlphaNegative
+sample.alpha > sample.alpha_max -> AlphaExceedsMax
+sample.alpha * paint.alpha overflow -> PaintAlphaMultiplyOverflow
+scaled alpha not in 0..255 -> ScaledAlphaOutOfRange
+```
+
+`sample.alpha == 0` または `paint.alpha == 0` は透明な `FillRect` command を返す。silent skip や no-op にしてはいけない。
+
+cursor command step は `cell_index == cell_count` を `read` より先に `Completed owner` として扱う。`cell_index > cell_count` は completion ではなく error である。`cell_index < cell_count` の場合は、F5bi cursor を参照で `read` し、command 変換が成功してから owner を取り出して next cursor を作る。command 変換に失敗した場合は元 cursor と rejected sample を error に保持し、cursor を進めない。
+
+F5bj は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke / shadow rasterizer
+2D compositor
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -67,6 +67,8 @@ const coreFont = read("stdlib/core/gui/font.nepl");
 const coreFontImpl = withoutComments(coreFont);
 const renderStyle = read("stdlib/core/gui/render_style.nepl");
 const renderStyleImpl = withoutComments(renderStyle);
+const renderCommandCore = read("stdlib/core/gui/render_command.nepl");
+const renderCommandCoreImpl = withoutComments(renderCommandCore);
 const fontResource = read("stdlib/std/gui/font_resource.nepl");
 const fontResourceImpl = withoutComments(fontResource);
 const allocGuiFacade = read("stdlib/alloc/gui.nepl");
@@ -151,6 +153,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRasterPackedMaskOwnerTests = re
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -216,6 +219,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests,
     guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests,
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -15522,6 +15526,226 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests.includes("render_fill_alpha_mask_sample_cursor_recovery_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests.includes("render_fill_alpha_mask_sample_cursor_no_platform_no_command"),
     "F5bi render fill alpha mask sample cursor focused doctest must cover start, completed owner invariant, bounds, checked position, alpha read, terminal, recovery/free, and no platform/command policy",
+);
+assert(spec.includes("### SFNT simple glyph render fill alpha mask sample command bridge boundary"), "GUI font spec must document F5bj render fill alpha mask sample command bridge boundary");
+assert(detailedDesign.includes("## SFNT simple glyph render fill alpha mask sample command bridge boundary"), "GUI font detailed design must document F5bj render fill alpha mask sample command bridge boundary");
+assert(implementationPlan.includes("## Phase F5bj: sfnt simple glyph render fill alpha mask sample command bridge boundary"), "GUI font implementation plan must include F5bj phase");
+assert(
+    implementationPlan.includes("Planck revised plan review は `PLAN_APPROVED`") &&
+        detailedDesign.includes("SourceOver only bridge") &&
+        detailedDesign.includes("conversion succeeds before the cursor advances"),
+    "GUI font docs must pin F5bj approved plan, SourceOver-only command bridge, and conversion-before-advance rule",
+);
+assert(
+    renderCommandCoreImpl.includes("pub fn gui_paint_color %fn &GuiPaint Rgba8888") &&
+        renderCommandCoreImpl.includes("*field::get_ref paint \"color\""),
+    "core/gui/render_command must expose gui_paint_color accessor for structured paint reads",
+);
+const renderFillAlphaMaskSampleCommandBridgeRegion = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:"),
+);
+const renderFillAlphaMaskSampleCommandErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind:"),
+);
+const renderFillAlphaMaskSampleCommandErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError:"),
+);
+const renderFillAlphaMaskSampleCommandCursorErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind:"),
+);
+const renderFillAlphaMaskSampleCommandCursorErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_error "),
+);
+const renderFillAlphaMaskSampleCommandCursorTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_step "),
+);
+assert(renderFillAlphaMaskSampleCommandBridgeRegion.length > 0, "alloc/gui/font/sfnt/glyf F5bj must define render fill alpha mask sample command bridge region");
+for (const fragment of [
+    "InvalidAlphaMax",
+    "AlphaNegative",
+    "AlphaExceedsMax",
+    "PaintAlphaMultiplyOverflow",
+    "ScaledAlphaOutOfRange",
+    "UnsupportedBlendMode",
+]) {
+    assert(renderFillAlphaMaskSampleCommandErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj sample command error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind",
+    "rejected_sample %GuiSfntSimpleGlyphRenderFillAlphaMaskSample",
+]) {
+    assert(renderFillAlphaMaskSampleCommandErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj sample command error must include ${fragment}`);
+}
+for (const fragment of [
+    "SampleCursorFailed %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind",
+    "CommandFailed %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandErrorKind",
+]) {
+    assert(renderFillAlphaMaskSampleCommandCursorErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj cursor command error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind",
+    "cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor",
+    "rejected_sample %Option GuiSfntSimpleGlyphRenderFillAlphaMaskSample",
+]) {
+    assert(renderFillAlphaMaskSampleCommandCursorErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj cursor command error must include ${fragment}`);
+}
+for (const fragment of [
+    "Command %RenderCommand %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor",
+    "Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+]) {
+    assert(renderFillAlphaMaskSampleCommandCursorTerminalType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bj cursor command terminal must include ${fragment}`);
+}
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError\b/,
+    "alloc/gui/font/sfnt/glyf F5bj sample command error is value-only and must implement Clone/Copy",
+);
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorError",
+    "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bj ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderFillAlphaMaskSampleCommandBridgeRegion,
+    /pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandError:|pub enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal:|pub fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command\b|pub fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_step\b/,
+    "alloc/gui/font/sfnt/glyf F5bj boundary types and functions must remain private",
+);
+const renderFillAlphaMaskSampleCommandValidateBlend = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_validate_blend");
+assertOrderedFragments(
+    renderFillAlphaMaskSampleCommandValidateBlend,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_blend sample",
+        "GuiBlendMode::SourceOver",
+        "Result::Ok unit",
+        "UnsupportedBlendMode",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bj blend validation must accept SourceOver only and reject unsupported blend modes",
+);
+const renderFillAlphaMaskSampleCommandScaleAlpha = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_scale_alpha");
+assertOrderedFragments(
+    renderFillAlphaMaskSampleCommandScaleAlpha,
+    [
+        "le alpha_max 0",
+        "InvalidAlphaMax",
+        "lt alpha 0",
+        "AlphaNegative",
+        "gt alpha alpha_max",
+        "AlphaExceedsMax",
+        "eq alpha 0",
+        "eq paint_alpha 0",
+        "let max_i32 %i32 2147483647",
+        "let max_alpha %i32 div_s max_i32 paint_alpha",
+        "gt alpha max_alpha",
+        "PaintAlphaMultiplyOverflow",
+        "let scaled_alpha %i32 div_s mul alpha paint_alpha alpha_max",
+        "lt scaled_alpha 0",
+        "gt scaled_alpha 255",
+        "ScaledAlphaOutOfRange",
+        "Result::Ok scaled_alpha",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bj alpha scale must be checked before i32-to-u8 cast",
+);
+const renderFillAlphaMaskSampleCommandPaint = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_paint");
+assertOrderedFragments(
+    renderFillAlphaMaskSampleCommandPaint,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_validate_blend sample",
+        "gui_paint_color &fill_paint",
+        "rgba8888_a &base_color",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_scale_alpha sample_alpha alpha_max paint_alpha",
+        "cast scaled_alpha",
+        "rgba8888_new",
+        "gui_paint_solid command_color",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bj command paint must preserve RGB, scale alpha, and construct paint through core accessor/constructor",
+);
+const renderFillAlphaMaskSampleRenderCommand = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command");
+assertOrderedFragments(
+    renderFillAlphaMaskSampleRenderCommand,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_paint sample",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_error error_kind *sample",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_position sample",
+        "gui_rect_new",
+        "render_command_fill_rect command_rect command_paint",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bj sample render command must convert exactly one sample to one FillRect command",
+);
+const renderFillAlphaMaskSampleCommandCursorStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_step");
+assertOrderedFragments(
+    renderFillAlphaMaskSampleCommandCursorStep,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_invariants &cursor",
+        "let cell_index %i32",
+        "gt cell_index cell_count",
+        "eq cell_index cell_count",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Completed owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_read &cursor",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command &sample",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorErrorKind::CommandFailed command_error_kind",
+        "cursor",
+        "rejected_sample",
+        "let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get cursor \"owner\"",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Command command next_cursor",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bj cursor command step must complete before read, convert before advancing, and keep recovery payloads",
+);
+assertNoMatch(
+    renderFillAlphaMaskSampleCommandCursorStep,
+    /\bgui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_step\b/,
+    "alloc/gui/font/sfnt/glyf F5bj cursor command step must not consume F5bi step before command conversion succeeds",
+);
+const renderFillAlphaMaskSampleCommandCursorErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_error_free");
+const renderFillAlphaMaskSampleCommandCursorTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_terminal_free");
+assert(renderFillAlphaMaskSampleCommandCursorErrorFree.includes("gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor"), "alloc/gui/font/sfnt/glyf F5bj cursor command error free must close recovered cursor");
+assertOrderedFragments(
+    renderFillAlphaMaskSampleCommandCursorTerminalFree,
+    [
+        "Command _command cursor",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor",
+        "Completed owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bj cursor command terminal free must close the owner through the active terminal variant",
+);
+for (const [slice, name] of [
+    [renderFillAlphaMaskSampleCommandValidateBlend, "sample command blend validation"],
+    [renderFillAlphaMaskSampleCommandScaleAlpha, "sample command alpha scale"],
+    [renderFillAlphaMaskSampleCommandPaint, "sample command paint"],
+    [renderFillAlphaMaskSampleRenderCommand, "sample render command"],
+    [renderFillAlphaMaskSampleCommandCursorStep, "sample command cursor step"],
+    [renderFillAlphaMaskSampleCommandCursorErrorFree, "sample command cursor error free"],
+    [renderFillAlphaMaskSampleCommandCursorTerminalFree, "sample command cursor terminal free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|GuiSfntSimpleGlyphPathSinkAction::|zero_fill|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|stroke|shadow|partial)\b/,
+        `alloc/gui/font/sfnt/glyf F5bj ${name} must not use byte-backed lookup, old traversal, zero-fill, target/platform APIs, font fallback, stroke/shadow, or partial completion`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bj ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_gui_paint_color_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_source_over_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_alpha_scale_checked_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_alpha_zero_transparent_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_fill_rect_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_cursor_success_before_advance_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_cursor_rejected_sample_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_cursor_terminal_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_no_platform_no_target_no_fallback"),
+    "F5bj render fill alpha mask sample command bridge focused doctest must cover paint accessor, SourceOver-only, checked alpha, transparent zero alpha, FillRect emission, conversion-before-advance, recovery/free, and no platform/target/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
