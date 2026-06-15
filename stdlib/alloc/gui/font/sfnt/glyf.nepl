@@ -8801,6 +8801,25 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_even
             let event_pair %GuiSfntSimpleGlyphPathSinkEventPair gui_sfnt_simple_glyph_path_command_pair_sink_event_pair &pair
             Result::Ok event_pair
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair: collection から sink event kind pair を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - F5aa の collection-backed sink event pair を authority とし、1 edge の first / second kind pair を[返/かえ]します。
+//: - F5aa error は wrap せず、そのまま caller に[返/かえ]します。
+//:
+//: [制約/せいやく]:
+//: - byte-backed lookup、metadata parser、sink traversal、raster / render / platform API は[呼/よ]びません。
+//: - kind projection は total なので、新しい error enum は[作/つく]りません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 Result GuiSfntSimpleGlyphPathSinkEventKindPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \collection\contour_index\edge_index:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair collection contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok event_pair:
+            let kind_pair %GuiSfntSimpleGlyphPathSinkEventKindPair gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair &event_pair
+            Result::Ok kind_pair
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

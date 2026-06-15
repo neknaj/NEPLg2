@@ -1,3 +1,46 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink event kind pair checkpoint
+
+## scope
+
+- branch: `gui-font-collection-path-event-kind-pair-f5ab-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ab の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink event kind pair の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ab の collection-backed path sink event kind pair boundary、F5aa exact one-call、pure kind pair projection exact one-call、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ab の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ab source policy を追加し、docs/API/F5aa exact one-call/pure kind pair projection exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair` を追加した。
+- F5ab は F5aa `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を exactly once 呼び、F5aa error を wrap せずにそのまま返す。
+- F5ab は F5aa success event pair を `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` へ exactly once 渡し、`GuiSfntSimpleGlyphPathSinkEventKindPair` を返す。
+- F5ab は新しい error enum を作らない。pure kind pair projection は失敗しないため、F5aa error domain をそのまま使う。
+- `NoSegment` は F4q と同じく explicit `SkipNoSegment` kind pair として保持し、`Option::None`、silent no-op、fallback に変換しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md` を追加し、line kind pair、quadratic kind pair、no-segment skip kind pair、F5aa error propagation、no Vec / no fallback / no sink traversal の source policy coverage label を固定した。
+- focused doctest は現行 wasm doctest compiler が F5aa/F5z/F5y 実呼び出しで timeout する問題を継承するため `skip` としている。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
+## subagent review
+
+- Tesla plan review は `PLAN_APPROVED`。F5ab は F5aa と既存 pure path sink event kind pair projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- Tesla plan review の implementation note に従い、source policy の sink 禁止 pattern は意図した `gui_sfnt_simple_glyph_path_sink_event_pair_kind_pair` 呼び出しを許し、traversal / consumer / action / renderer / raster / platform / host API を弾く粒度にした。
+- Tesla implementation review は `IMPLEMENTATION_APPROVED`。F5ab helper は意図した thin boundary であり、new doctest は staged `A`、tmp / `NUL` は commit 対象外のままであることが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_pair_f5ab.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_pair_f5ab_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ab.json -j 1` 744/744 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ab は collection-backed single-edge path sink event kind pair までであり、collection-backed typed slot selection、outline traversal、raster mask、render2d command emission は未実装である。
+- F5ab focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink event pair checkpoint
 
 ## scope
