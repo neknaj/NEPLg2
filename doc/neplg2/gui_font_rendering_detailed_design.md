@@ -4402,6 +4402,55 @@ if start Ok summary:
 
 F5al must not allocate `Vec`, push commands, match action payload variants, call lower collection path event / contour / step helpers directly, call F4 byte-backed lookup helpers, call `*_with_tables`, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. The start drain helper additionally must not call F5al advance-once, F5aj consume-once, or F5ak lower start helpers directly; it owns only start summary to drain composition.
 
+## SFNT simple glyph outline point stream item collection path sink action drain outcome boundary
+
+F5am is the collection-backed drain outcome packet boundary. It does not advance traversal. Its only purpose is to attach the authoritative collection capacity to the F5al terminal drain result before later owner-taking outline/path boundaries decide whether an owner can be allocated.
+
+The public boundary is intentionally narrow:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+There is a private projection helper, but it is not a public API. This prevents a caller from forging an arbitrary pairing between one collection capacity and a drain result produced from another collection or from another traversal policy.
+
+The public helper order is:
+
+```text
+call F5al start drain exactly once
+if F5al start drain Err:
+    return the same error
+if F5al start drain Ok drain:
+    call private outcome projection exactly once
+    return Ok outcome
+```
+
+The private projection order is:
+
+```text
+read collection capacity exactly once
+match drain exactly once
+if drain is EndContour summary:
+    construct DrainSummary capacity summary
+    return EndContour DrainSummary
+if drain is Rejected rejected:
+    construct DrainRejected capacity rejected
+    return Rejected DrainRejected
+if drain is StepBudgetExhausted summary:
+    construct DrainSummary capacity summary
+    return StepBudgetExhausted DrainSummary
+```
+
+`GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary` stores `GuiSfntSimpleGlyphOutlineStorageCapacity` and `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary`. `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected` stores `GuiSfntSimpleGlyphOutlineStorageCapacity` and the existing `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected`. The outcome enum has only `EndContour`, `Rejected`, and `StepBudgetExhausted`; each branch keeps enough typed data for the next boundary to use `match` instead of stringly state or fallback.
+
+F5am must not allocate an owner, push path commands, consume another item, call lower F5 helpers, call F4 byte-backed lookup helpers, call table helpers, traverse a sink, mutate a sink, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. The public helper must call F5al start drain once and the private projection once; the private projection must not call F5al start drain, F5al advance/drain, F5ak, F5aj, lower path helpers, or byte-backed lookup.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

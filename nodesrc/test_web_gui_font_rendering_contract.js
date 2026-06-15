@@ -128,6 +128,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerItemTests
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerNextTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -170,6 +171,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerNextTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -9654,7 +9656,7 @@ assert(
 );
 const specF5al = spec.slice(
     spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action consume summary drain"),
-    spec.indexOf("### Supported font containers"),
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action drain outcome"),
 );
 for (const fragment of [
     "F5al は F5ak の collection-backed start consume summary",
@@ -9674,7 +9676,7 @@ for (const fragment of [
 }
 const detailedF5al = detailedDesign.slice(
     detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action consume summary drain boundary"),
-    detailedDesign.indexOf("## Metrics fixed-point"),
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action drain outcome boundary"),
 );
 for (const fragment of [
     "F5al is the collection-backed bounded consume summary drain",
@@ -9694,6 +9696,7 @@ for (const fragment of [
 }
 const implementationPlanF5al = implementationPlan.slice(
     implementationPlan.indexOf("## Phase F5al: sfnt simple glyph outline point stream item collection path sink action consume summary drain"),
+    implementationPlan.indexOf("## Phase F5am: sfnt simple glyph outline point stream item collection path sink action drain outcome"),
 );
 for (const fragment of [
     "PLAN_APPROVED",
@@ -9867,6 +9870,173 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_start_consume_summary_drain_uses_f5ak_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests.includes("path_sink_action_consume_summary_drain_no_vec_no_fallback_no_byte_backed_traversal"),
     "F5al point stream item collection path sink action consume summary drain focused doctest must cover advance once, terminal handling, budget, recursion, start drain, and no fallback policy",
+);
+const specF5am = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action drain outcome"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5am は F5al の collection-backed start drain result",
+    "value-only boundary",
+    "drain result と collection capacity を任意に組み合わせる public projection API は提供しない",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget:",
+    "F5al `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget collection state contour_index policy remaining_steps`",
+    "private projection を 1 回だけ呼び",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+    "既存の `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected`",
+    "public forged collection/drain pairing API",
+]) {
+    assert(specF5am.includes(fragment), `font spec F5am drain outcome must mention ${fragment}`);
+}
+const detailedF5am = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action drain outcome boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5am is the collection-backed drain outcome packet boundary",
+    "There is a private projection helper, but it is not a public API",
+    "prevents a caller from forging an arbitrary pairing",
+    "call F5al start drain exactly once",
+    "call private outcome projection exactly once",
+    "read collection capacity exactly once",
+    "match drain exactly once",
+    "construct DrainSummary capacity summary",
+    "construct DrainRejected capacity rejected",
+    "return StepBudgetExhausted DrainSummary",
+    "The public helper must call F5al start drain once and the private projection once",
+    "the private projection must not call F5al start drain, F5al advance/drain, F5ak, F5aj",
+]) {
+    assert(detailedF5am.includes(fragment), `font detailed design F5am drain outcome must mention ${fragment}`);
+}
+const implementationPlanF5am = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5am: sfnt simple glyph outline point stream item collection path sink action drain outcome"),
+);
+for (const fragment of [
+    "PLAN_BLOCKED",
+    "PLAN_APPROVED",
+    "public forged pairing API",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md",
+]) {
+    assert(implementationPlanF5am.includes(fragment), `font implementation plan F5am must mention ${fragment}`);
+}
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:",
+    "capacity %GuiSfntSimpleGlyphOutlineStorageCapacity",
+    "summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary %fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:",
+    "rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected %fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:",
+    "EndContour %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError",
+]) {
+    assert(allocFontSfntGlyfImpl.includes(fragment), `alloc/gui/font/sfnt/glyf F5am drain outcome API must include ${fragment}`);
+}
+assert(
+    !allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome %fn"),
+    "alloc/gui/font/sfnt/glyf F5am private projection must not be a public forged collection/drain pairing API",
+);
+const pointStreamItemCollectionPathSinkActionDrainOutcome = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome");
+for (const fragment of [
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+    "match *drain:",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour summary:",
+    "let drain_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary capacity summary",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected:",
+    "let drain_rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected capacity rejected",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected",
+    "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted summary:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionDrainOutcome.includes(fragment), `alloc/gui/font/sfnt/glyf F5am private projection body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionDrainOutcome,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection",
+        "match *drain:",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour summary:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary capacity summary",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected capacity rejected",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected",
+        "GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted summary:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary capacity summary",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary",
+    ],
+    "alloc/gui/font/sfnt/glyf F5am private projection must read capacity before mapping each typed terminal",
+);
+for (const [name, expected, message] of [
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity", 1, "read collection capacity exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary", 2, "construct summary packet only for EndContour and StepBudgetExhausted"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected", 1, "construct rejected packet exactly once"],
+]) {
+    assert(
+        (pointStreamItemCollectionPathSinkActionDrainOutcome.match(new RegExp(`\\b${name}\\b`, "g")) || []).length === expected,
+        `alloc/gui/font/sfnt/glyf F5am private projection must ${message}`,
+    );
+}
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionDrainOutcome,
+    /\b(?:Option::None|Option::Some|vec::|Vec\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5am private projection must not allocate, call traversal helpers, byte-backed helpers, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionDrainOutcome,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5am private projection body must preserve NEPL prefix style without parentheses",
+);
+const pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainOutcomeBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget");
+for (const fragment of [
+    "match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget collection state contour_index policy remaining_steps:",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok drain:",
+    "let outcome %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome collection &drain",
+    "Result::Ok outcome",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainOutcomeBudget.includes(fragment), `alloc/gui/font/sfnt/glyf F5am public start outcome body must include ${fragment}`);
+}
+assert(
+    (pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainOutcomeBudget.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5am public start outcome must call F5al start drain exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainOutcomeBudget.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5am public start outcome must call private projection exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainOutcomeBudget,
+    /\b(?:GuiGlyphId|Option::None|Option::Some|vec::|Vec\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_terminal|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5am public start outcome must not allocate, call lower traversal helpers, byte-backed helpers, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStartConsumeSummaryDrainOutcomeBudget,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5am public start outcome body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_private_projection_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_prevents_public_forged_pairing_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_start_uses_f5al_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_terminal_mapping_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_no_owner_no_fallback_no_byte_backed_traversal"),
+    "F5am point stream item collection path sink action drain outcome focused doctest must cover outcome types, private projection, no public forged pairing, F5al composition, terminal mapping, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

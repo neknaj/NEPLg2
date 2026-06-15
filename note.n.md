@@ -1,3 +1,44 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action drain outcome checkpoint
+
+## scope
+
+- branch: `gui-font-collection-drain-outcome-f5am-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5am の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action drain outcome の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5am の value-only outcome packet boundary、public forged pairing API 禁止、private projection の権限範囲を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5am の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5am source policy を追加した。docs/API/private projection 非 public/capacity exact one-call/F5al start drain exact one-call/private projection exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に capacity 付き drain summary、capacity 付き drain rejected、drain outcome enum、private projection、public start drain outcome helper を追加した。
+- F5am public helper は F5al start drain を 1 回だけ呼び、成功時だけ private projection に渡す。private projection は同じ collection の capacity を 1 回だけ読み、typed terminal を outcome に写す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md` を追加し、outcome types、private projection、public forged pairing prevention、F5al composition、terminal mapping、no owner / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。任意の collection と任意の drain result を受け取る public projection helper は、capacity と drain result の forged pairing を許すため危険と指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。public API を start drain outcome helper だけにし、同じ public call 内で F5al start drain を exactly once 呼び、その success result だけを private projection に exactly once 渡す設計が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、`note.n.md` に implementation review 結果を明示する必要があるという運用指摘だった。
+- Tesla は、public forged collection/drain pairing が private projection と public start outcome helper により防がれていること、private projection が traversal authority を持たないこと、新規 focused doctest と意図した 8 ファイルが staged であり tmp / `NUL` が除外されていることを確認した。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。前回の note-only blocker は解消され、staged set は意図した 8 ファイルのままで、追加 blocker はないと判断された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_drain_outcome_f5am.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_f5am_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5am.json -j 1` 784/784 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5am は capacity 付き drain outcome までであり、`EndContour` を outline storage / path command owner へ渡す owner-taking boundary、raster mask、render2d command emission は未実装である。
+- F5am focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink action consume summary drain checkpoint
 
 ## scope

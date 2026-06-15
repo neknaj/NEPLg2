@@ -3968,6 +3968,57 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action drain outcome
+
+F5am は F5al の collection-backed start drain result を、同じ collection の capacity と一緒に後続 outline / path owner 境界へ渡すための value-only boundary である。F5am は owner allocation、path command push、sink mutation、rasterizer、renderer、platform API、host text API、font fallback を持たない。
+
+F5am の public API は start drain から outcome までを同じ呼び出しで行う helper だけである。drain result と collection capacity を任意に組み合わせる public projection API は提供しない。private projection は、public start outcome helper が F5al start drain に成功した直後の drain value だけを capacity 付き outcome に写すための内部 helper である。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    summary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    rejected GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:
+    EndContour GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+public start outcome helper は F5al `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget collection state contour_index policy remaining_steps` を 1 回だけ呼ぶ。`Result::Err error` はそのまま返す。`Result::Ok drain` の場合だけ private projection を 1 回だけ呼び、private projection は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection` を 1 回だけ読んで、`EndContour`、`Rejected`、`StepBudgetExhausted` を capacity 付き outcome へ写す。
+
+`Rejected` は string や fallback state に変換しない。既存の `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected` を capacity と一緒に保持し、後続 boundary が enum `match` で拒否理由と停止 summary を扱えるようにする。`StepBudgetExhausted` も成功ではなく追加 work slice が必要な typed terminal として扱う。
+
+F5am は次を直接呼ばない。
+
+```text
+F5al advance-once
+F5al drain helper from private projection
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+lower collection path event / contour / step helpers
+byte-backed table helper
+Vec / push
+path command owner allocation
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+public forged collection/drain pairing API
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
