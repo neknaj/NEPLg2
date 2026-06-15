@@ -5677,6 +5677,69 @@ render / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph raster coverage scan converter
+
+F5be は F5bd の coverage mask writer owner を authority として、typed raster edge を even-odd rule で走査し、1 pixel cell ごとの coverage value を F5bd の `push_cell` boundary へ渡す内部 scan conversion 境界である。ここで初めて line / quadratic edge から coverage を計算する。ただし、この phase は packed mask conversion、color blend、2D render command、platform present、font fallback へ進まない。
+
+scan conversion は再開可能な owner として表す。
+
+```text
+RasterCoverageScanConfig:
+    quadratic_segment_count
+
+RasterCoverageScanOwner:
+    writer_owner
+    scan_config
+    cell_index
+```
+
+`quadratic_segment_count` は quadratic edge を deterministic line segment sequence として評価するための明示的な品質 policy である。値が 0 以下なら `InvalidQuadraticSegmentCount` を返す。quadratic edge を line edge として黙って扱うこと、未対応として 0 coverage にすること、platform text stack へ逃がすことは禁止する。
+
+F5be は F5bd の shape を再検査する。`RasterCoverageShape` は private writer に入っているが、scan conversion は `%`、`/`、sample loop、coverage range を使う新しい trust boundary なので、F5bd の検査結果をそのまま仮定しない。
+
+```text
+width_px > 0
+height_px > 0
+sample_scale > 0
+coverage_max == sample_scale * sample_scale
+cell_count == width_px * height_px
+```
+
+不一致は `ShapeInvalid` 系の typed error として writer owner を保持したまま返す。shape invariant が通る前に cell coordinate math、edge scan、`push_cell` へ進んではならない。
+
+coverage は `shape.sample_scale * shape.sample_scale` 個の subpixel sample を数える。cell `cell_index` は `cell_x = cell_index % width_px`、`cell_y = cell_index / width_px` に分解する。sample coordinate は edge coordinate と同じ doubled-coordinate を `sample_scale` 倍した整数空間で扱う。
+
+```text
+sample_x = (origin_x2 + cell_x * 2) * sample_scale + (sample_x_index * 2 + 1)
+sample_y = (origin_y2 + cell_y * 2) * sample_scale + (sample_y_index * 2 + 1)
+edge_x = edge_x2 * sample_scale
+edge_y = edge_y2 * sample_scale
+```
+
+line crossing は `y0 > sample_y` と `y1 > sample_y` が異なる場合だけ評価する。交点比較は i64 の cross product で行い、除算や float を使わない。`dy > 0` の場合は左辺 `<` 右辺、`dy < 0` の場合は左辺 `>` 右辺で crossing とする。quadratic edge は `quadratic_segment_count` による t 分割で line segment に変換し、各 segment を同じ crossing helper へ渡す。
+
+```text
+if inside by odd crossing count:
+    coverage += 1
+else:
+    coverage unchanged
+```
+
+F5be は `cell_index == shape.cell_count` を complete 条件とする。complete 時は F5bd の writer completion を呼び、exactly full mask だけを `CoverageScanCompleted` として返す。`StepBudgetExhausted` は error ではなく「caller が今回与えた time slice を使い切った」typed terminal である。silent success、zero-fill completion、partial mask completion は禁止する。
+
+drain / step は complete 判定より前に `0 <= cell_index <= shape.cell_count` を検査する。`cell_index < 0` と `cell_index > shape.cell_count` は owner-bearing typed error であり、`StepBudgetExhausted` や completed mask へ変換しない。
+
+F5be は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+packed mask conversion
+render / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

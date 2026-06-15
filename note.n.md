@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font raster coverage scan converter checkpoint
+
+## scope
+
+- branch: `gui-font-raster-scan-coverage-f5be-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5be の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、shape invariant revalidation、cell-index bounds、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph raster coverage scan converter の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5be の scan config/owner、shape revalidation、integer sample coordinate、line crossing、quadratic segment policy、step/drain/free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5be の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に value-only `GuiSfntSimpleGlyphRasterCoverageScanConfig` を追加し、`Clone` / `Copy` を実装した。
+- private `GuiSfntSimpleGlyphRasterCoverageScanOwner` を追加した。F5bd writer owner、scan config、cell_index を保持し、owner-bearing type は `Clone` / `Copy` を実装しない。
+- start は `quadratic_segment_count > 0`、coverage shape invariant、writer written/cell Vec state、edge owner count、typed edge Vec len/cap を再検査してから scan owner を作る。
+- coverage shape invariant は `width_px > 0`、`height_px > 0`、`sample_scale > 0`、`coverage_max == sample_scale * sample_scale`、`cell_count == width_px * height_px` を検査する。
+- `cell_index` は drain/step の completion/budget/coordinate math/scan/push より前に `0 <= cell_index <= shape.cell_count` を検査する。
+- edge read helper は negative index、out of range、edge Vec len/cap mismatch、`vec::get None` を typed error にする。
+- line crossing は strict y activation と i64 cross product で判定し、division / float へ進まない。
+- quadratic crossing は `quadratic_segment_count` で明示的に flattening し、各 segment を line crossing helper へ渡す。0 coverage fallback や line fallback はしない。
+- 1 step は 1 cell の subpixel coverage を計算し、F5bd `push_cell` boundary へ渡す。push failure では lower error kind を保持し、recovered writer を scan owner に戻す。
+- bounded drain は `CoverageScanCompleted` と `StepBudgetExhausted` を success terminal として分け、completion は F5bd exact completion だけを成功にする。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5be source policy を追加した。docs/types/private owner/shape revalidation/cell bounds/edge read/line crossing/quadratic policy/cell sampling/push/drain/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md` を追加し、F5be source policy coverage label を固定した。
+- `todo.md` は F5be 完了後の次作業として、completed coverage mask owner から packed / render2d mask boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。F5bd coverage shape の再検証不足と、`cell_index > shape.cell_count` が typed error ではなく coordinate derivation へ進みうる点を指摘された。
+- 指摘を受け、F5be start に shape invariant validation を追加し、drain/step に completion/budget/scan より前の cell-index bounds を追加した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。内容 blocker はなく、新規 focused doctest の stage とこの note の review 状態更新だけが commit-readiness 注意点として指摘された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_scan_converter_f5be.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_mask_writer_f5be_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5be.json -j 1` 1101/1101 passed
+
+## remaining
+
+- F5be は scalar coverage cell owner までであり、packed / anti-aliased mask conversion、render2d command emission、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では completed coverage mask owner を authority として、packed / render2d mask boundary へ進む。
+
 # 2026-06-16 Agent2 GUI font raster coverage mask writer checkpoint
 
 ## scope

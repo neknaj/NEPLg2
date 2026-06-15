@@ -6301,6 +6301,144 @@ else:
 
 There is no zero-fill fallback and no best-effort partial mask completion.
 
+## SFNT simple glyph raster coverage scan converter boundary
+
+F5be consumes the F5bd coverage mask writer owner and converts typed raster edges into coverage cells. It is the first boundary that computes coverage values, but it still stops before packed mask storage, render2d command emission, platform presentation, host font APIs, and font fallback.
+
+The scan owner is module-private and resumable:
+
+```text
+GuiSfntSimpleGlyphRasterCoverageScanConfig:
+    quadratic_segment_count i32
+
+GuiSfntSimpleGlyphRasterCoverageScanOwner:
+    writer GuiSfntSimpleGlyphRasterCoverageMaskWriterOwner
+    config GuiSfntSimpleGlyphRasterCoverageScanConfig
+    cell_index i32
+```
+
+`GuiSfntSimpleGlyphRasterCoverageScanConfig` is value-only and may implement `Clone` / `Copy`. `GuiSfntSimpleGlyphRasterCoverageScanOwner` must not implement `Clone` / `Copy` because it owns the F5bd writer and therefore transitively owns the coverage cell Vec and F5bc edge owner.
+
+Start validation is fail-closed:
+
+```text
+quadratic_segment_count > 0
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == shape.sample_scale * shape.sample_scale
+shape.cell_count == shape.width_px * shape.height_px
+writer.written_cell_count == 0
+writer.cells.len == 0
+writer.cells.cap == shape.cell_count
+edge_count == capacity.raster_edge_capacity
+line_edge_count == plan.line_to_count
+quadratic_edge_count == plan.quadratic_to_count
+typed edge Vec len == edge_count
+typed edge Vec cap == capacity.raster_edge_capacity
+```
+
+This deliberately repeats the F5bd writer start checks and the F5bd shape derivation invariants. F5be is a new mutation boundary and must not trust stale private state when it is about to compute all remaining coverage cells. Shape validation must happen before any cell coordinate math, sample loop, edge scan, or `push_cell` call.
+
+Start error kinds must distinguish at least:
+
+```text
+InvalidQuadraticSegmentCount
+ShapeInvalidWidth
+ShapeInvalidHeight
+ShapeInvalidSampleScale
+ShapeCoverageMaxMismatch
+ShapeCellCountMismatch
+WriterAlreadyStarted
+CellStorageLenMismatch
+CellStorageCapacityMismatch
+EdgeCountMismatch
+LineEdgeCountMismatch
+QuadraticEdgeCountMismatch
+EdgeCountSumMismatch
+EdgeStorageLenMismatch
+EdgeStorageCapacityMismatch
+```
+
+Overflow while rechecking `coverage_max` or `cell_count` is represented by the corresponding mismatch error because the stored shape is already outside the validated F5bd contract. The implementation may use checked helpers internally, but it must not continue with wrapped values.
+
+Coverage sampling uses integer coordinates. The coverage shape is expressed in doubled font coordinates (`x2` / `y2`) and each pixel cell spans two doubled-coordinate units before scaling by `sample_scale`. For cell `cell_index`:
+
+```text
+cell_x = cell_index % shape.width_px
+cell_y = cell_index / shape.width_px
+sample_x = (shape.origin_x2 + cell_x * 2) * shape.sample_scale + (sample_x_index * 2 + 1)
+sample_y = (shape.origin_y2 + cell_y * 2) * shape.sample_scale + (sample_y_index * 2 + 1)
+edge_x = edge_x2 * shape.sample_scale
+edge_y = edge_y2 * shape.sample_scale
+```
+
+`sample_x` / `sample_y` and edge coordinates are compared as i64. Line crossing uses the even-odd rule without division:
+
+```text
+active = (y0 > sample_y) != (y1 > sample_y)
+left = (sample_x - x0) * (y1 - y0)
+right = (x1 - x0) * (sample_y - y0)
+
+if active and y1 > y0 and left < right:
+    crossing
+if active and y1 < y0 and left > right:
+    crossing
+```
+
+Horizontal edges are not active because `y0 > sample_y` and `y1 > sample_y` are equal. This prevents double counting at shared vertices without special-case fallback.
+
+Quadratic edges use explicit deterministic flattening controlled by `quadratic_segment_count`. For segment ordinal `i`, endpoints are computed at `t=i/n` and `t=(i+1)/n` using the integer quadratic Bezier formula in the same scaled coordinate space:
+
+```text
+B(t) = (1 - t)^2 * p0 + 2 * (1 - t) * t * p1 + t^2 * p2
+```
+
+The formula is evaluated as integer numerator over `n*n` and then divided with signed division. This is a current implementation choice, not a hidden fallback. A later analytical quadratic crossing boundary may replace it while preserving the same scan owner / coverage writer contract.
+
+One scan step computes one cell coverage:
+
+```text
+coverage = 0
+for sample_y_index in 0..sample_scale:
+    for sample_x_index in 0..sample_scale:
+        crossing_count = edge crossing count for sample point
+        if crossing_count % 2 == 1:
+            coverage += 1
+push_cell writer coverage
+cell_index += 1
+```
+
+The step function returns an owner-bearing error. If `push_cell` fails, the lower F5bd push error is kept separately and the scan owner is rebuilt with the recovered writer and the original cell index.
+
+The bounded drain checks completion before the step budget:
+
+```text
+if cell_index < 0:
+    CellIndexNegative
+else if cell_index > shape.cell_count:
+    CellIndexExceedsCellCount
+else if cell_index == shape.cell_count:
+    call F5bd completion
+else if remaining_steps <= 0:
+    StepBudgetExhausted owner
+else:
+    step one cell and recurse
+```
+
+After a successful step, a hard progress guard verifies:
+
+```text
+next.cell_index == old.cell_index + 1
+next.writer.written_cell_count == old.writer.written_cell_count + 1
+```
+
+`StepBudgetExhausted` is a typed terminal, not a fallback. The caller may schedule another slice with the returned owner. It must not be converted into an empty mask or a successful render.
+
+`CellIndexNegative` and `CellIndexExceedsCellCount` are owner-bearing errors. They are checked before completion and budget handling, so forged state cannot reach `%`, `/`, sample coordinate derivation, or `push_cell`.
+
+F5be must not call byte-backed lookup helpers, old traversal helpers, packed mask conversion, render2d, platform APIs, host APIs, or font fallback. It must not zero-fill missing cells.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
