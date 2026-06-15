@@ -6656,6 +6656,80 @@ For direct validation failures, `lower_kind` is `Option::None`. When F5bg start 
 
 F5bh must not call `RenderCommand` constructors, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, stroke rasterizers, shadow rasterizers, or 2D compositor APIs. Unsupported stroke / shadow must not become a hidden fill-only success.
 
+## SFNT simple glyph render fill alpha mask sample cursor boundary
+
+F5bi exposes the completed F5bg fill alpha mask owner as a cell-by-cell sample stream. It is an alloc/gui owner cursor boundary. It does not emit render commands, allocate a pixel buffer, call DrawTarget / RenderTarget, call platform APIs, or introduce a compositor fallback.
+
+The sample value is copyable:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSample:
+    position GuiPoint
+    alpha i32
+    alpha_max i32
+    fill_paint GuiPaint
+    blend GuiBlendMode
+```
+
+The cursor owns the completed fill alpha mask owner and the current cell index:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor:
+    owner GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    cell_index i32
+```
+
+The cursor, start error, step error, and terminal are owner-bearing and must not implement `Clone` / `Copy`.
+
+F5bi adds a completed-owner invariant helper because F5bg only validates a packed owner at the start boundary. The completed owner is rechecked before cursor start, read, and step:
+
+```text
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == sample_scale * sample_scale
+shape.cell_count == width_px * height_px
+owner.alpha_max > 0
+owner.cell_count == shape.cell_count
+owner.alpha_cells.len == shape.cell_count
+owner.alpha_cells.cap == shape.cell_count
+```
+
+The cursor bounds order is part of the contract. `cell_index > cell_count is rejected before the completed state`. `cell_index == cell_count` is the only completed state. This prevents forged or corrupted cursor progress from being treated as a valid completed stream.
+
+Position construction uses checked addition before `gui_point_new`:
+
+```text
+local_y = cell_index / width_px
+local_x = cell_index - local_y * width_px
+x = checked_add_nonnegative_delta origin.x local_x
+y = checked_add_nonnegative_delta origin.y local_y
+```
+
+Negative local deltas are rejected as overflow even though valid invariants should make them unreachable. x overflow returns `PositionXOverflow`; y overflow returns `PositionYOverflow`. F5bi deliberately avoids `gui_point_add` because that helper does not encode checked i32 overflow.
+
+Read validates the alpha storage at the requested cell:
+
+```text
+missing alpha slot -> AlphaSlotMissing
+alpha < 0 -> AlphaNegative
+alpha > alpha_max -> AlphaExceedsMax
+```
+
+On success, read returns a sample containing the absolute position, alpha, alpha_max, fill paint, and blend copied from the completed owner. It does not normalize again and does not inspect stroke / shadow.
+
+Step returns:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal:
+    Sampled sample next_cursor
+    Completed owner
+```
+
+All step failures wrap the cursor in `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError`. Start failures wrap the completed owner in `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError`. Both error types have recovery accessors and free helpers. Terminal free closes the owner through either `Sampled` cursor or `Completed` owner.
+
+F5bi must not call byte-backed lookup helpers, old traversal helpers, zero-fill helpers, `RenderCommand` constructors, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, stroke / shadow rasterizers, or 2D compositor APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
