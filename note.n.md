@@ -65201,3 +65201,55 @@ MERGE_APPROVED
 
 - F5bh は full glyph paint の explicit accept / reject boundary までであり、`RenderCommand` emission、2D compositor、stroke rasterization、shadow rasterization は未実装である。
 - 次 slice では F5bh の accepted fill-only owner を authority として render command / 2D compositor boundary へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。
+
+## 2026-06-16 GUI font rendering F5bi render fill alpha mask sample cursor boundary
+
+### scope
+
+- F5bi は F5bg / F5bh の completed fill alpha mask owner を authority とし、後続の 2D compositor / render command bridge が消費できる sample cursor boundary である。
+- sample は absolute `GuiPoint`、alpha、alpha_max、fill paint、blend を持つ value-only record とする。
+- cursor は completed owner と cell index を所有するため、cursor / start error / step error / terminal は `Clone` / `Copy` を実装しない。
+- F5bi は `RenderCommand` emission、DrawTarget / RenderTarget、2D compositor、stroke / shadow rasterizer、platform / host API、font fallback へ進まない。
+
+### plan_review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- F5bg に completed owner invariant helper がないため、F5bi 側で shape、alpha max、cell count、alpha Vec len/cap を再検査する helper が必要と指摘された。
+- `cell_index >= cell_count` を completed と扱うと `cell_index > cell_count` の壊れた progress を隠すため、`cell_index > cell_count` を completion より先に `CellIndexOutOfRange` として拒否する必要があると指摘された。
+- `origin + local position` は i32 overflow を起こしうるため、`PositionXOverflow` / `PositionYOverflow` と checked addition を `gui_point_new` より前に置く必要があると指摘された。
+- `sample_cursor_step` の failure は cursor を保持する owner-bearing error とし、read / invariant / alpha / position failure を recovery / free helper で扱えるようにする必要があると指摘された。
+- revised plan では completed owner invariant、`cell_index > cell_count` before completion、checked addition、step error owner recovery を追加した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskSample` を追加した。`position`、`alpha`、`alpha_max`、`fill_paint`、`blend` を保持し、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor` を追加した。completed fill alpha mask owner と `cell_index` を所有し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind` を追加し、shape / alpha invariant、cell index bounds、alpha slot/range、position overflow、progress invariant を typed error として表す。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError` と `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError` を追加し、start failure では owner、step failure では cursor を回収できるようにした。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal` を追加し、`Sampled sample next_cursor` と `Completed owner` を明示した。
+- completed owner invariant helper、cursor invariant、checked add、position helper、start / read / step / recovery / free / terminal free helper を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bi の contract、bounds order、checked position addition、依存禁止を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md` を追加し、start、completed owner invariant、bounds fail-closed、position overflow、alpha read、step terminal、recovery/free、no platform / no command policy の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bi source policy を追加した。
+- `todo.md` は F5bi 後の 2D compositor / render command bridge と、stroke / shadow 専用境界の残件へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor_f5bi.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_glyph_paint_binding_f5bi_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bi.json -j 1` は 1122/1122 pass。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。F5bi implementation content blocker はない。completed-owner invariant、`cell_index > cell_count` before completion、checked x/y addition before `gui_point_new`、owner-bearing step error、no RenderCommand / platform / fallback / stroke / shadow path は approved plan と一致していると確認された。
+- commit-readiness blocker として、新規 focused doctest file が未追跡で stage されていないこと、review 欄が pending のままだったことが指摘された。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回の commit-readiness blockers は解消され、staged set は意図した 8 files のみで、新規 F5bi focused doctest も含まれ、`git diff --cached --check` も pass と確認された。
+
+### residual
+
+- F5bi は completed fill alpha mask owner の sample cursor 境界までであり、`RenderCommand` emission、2D compositor、stroke rasterization、shadow rasterization は未実装である。
+- 次 slice では F5bi sample stream を authority として 2D compositor / render command bridge へ進むか、stroke / shadow 専用 raster boundary を別 slice として設計する。

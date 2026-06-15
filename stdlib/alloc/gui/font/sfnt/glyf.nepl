@@ -17393,6 +17393,328 @@ fn gui_sfnt_simple_glyph_render_glyph_paint_start_error_free %impure fn GuiSfntS
     let packed_owner %GuiSfntSimpleGlyphRasterPackedMaskOwner field::get error "packed_owner"
     gui_sfnt_simple_glyph_raster_packed_mask_owner_free packed_owner
 
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSample: fill alpha mask の 1 pixel sample
+//:
+//: [目的/もくてき]:
+//: - F5bg / F5bh で完成した fill alpha mask owner から、2D renderer が後続で[消費/しょうひ]する 1 cell 分の値を[切/き]り[出/だ]します。
+//: - sample は value-only であり、alpha storage や edge owner の[所有権/しょゆうけん]は cursor 側が[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSample:
+    position %GuiPoint
+    alpha %i32
+    alpha_max %i32
+    fill_paint %GuiPaint
+    blend %GuiBlendMode
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSample:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSample GuiSfntSimpleGlyphRenderFillAlphaMaskSample \sample:
+        *sample
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSample:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSample GuiSfntSimpleGlyphRenderFillAlphaMaskSample \sample:
+        sample
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample %fn GuiPoint fn i32 fn i32 fn GuiPaint fn GuiBlendMode GuiSfntSimpleGlyphRenderFillAlphaMaskSample \position\alpha\alpha_max\fill_paint\blend:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSample position alpha alpha_max fill_paint blend
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_position %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSample GuiPoint \sample:
+    *field::get_ref sample "position"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_alpha %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSample i32 \sample:
+    *field::get_ref sample "alpha"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_alpha_max %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSample i32 \sample:
+    *field::get_ref sample "alpha_max"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_fill_paint %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSample GuiPaint \sample:
+    *field::get_ref sample "fill_paint"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_blend %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSample GuiBlendMode \sample:
+    *field::get_ref sample "blend"
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor: fill alpha mask sample stream の owner cursor
+//:
+//: [目的/もくてき]:
+//: - 完成済み fill alpha mask owner を[保持/ほじ]し、cell index によって sample stream の[現在/げんざい][位置/いち]を[表/あらわ]します。
+//: - cursor は alpha storage を所有するため Clone / Copy を実装しません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor:
+    owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    cell_index %i32
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor %fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor \owner\cell_index:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor owner cell_index
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor i32 \cursor:
+    *field::get_ref cursor "cell_index"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_owner_cell_count %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor i32 \cursor:
+    let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref cursor "owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind: sample cursor 境界の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind:
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    InvalidAlphaMax
+    AlphaCellCountMismatch
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    CellIndexNegative
+    CellIndexOutOfRange
+    AlphaSlotMissing
+    AlphaNegative
+    AlphaExceedsMax
+    PositionXOverflow
+    PositionYOverflow
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError: sample cursor start の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind
+    owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_start_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError \kind\owner:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError kind owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_start_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_start_error_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError GuiSfntSimpleGlyphRenderFillAlphaMaskOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError: sample cursor step の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind
+    cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError \kind\cursor:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError kind cursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error_cursor %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor \error:
+    field::get error "cursor"
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal: sample cursor step の結果
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal:
+    Sampled %GuiSfntSimpleGlyphRenderFillAlphaMaskSample %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor
+    Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_validate_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_completed_owner_invariants %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \owner:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape owner
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_validate_shape &shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::InvalidAlphaMax
+                else:
+                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+                    if ne owner_cell_count shape_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::AlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_len owner
+                            if ne alpha_cells_len shape_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::AlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_cap owner
+                                    if ne alpha_cells_cap shape_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::AlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_invariants %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \cursor:
+    let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref cursor "owner"
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_completed_owner_invariants owner:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index cursor
+            if lt cell_index 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::CellIndexNegative
+                else:
+                    let cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+                    if gt cell_index cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::CellIndexOutOfRange
+                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_position %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor Result GuiPoint GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \cursor:
+    let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref cursor "owner"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape owner
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px &shape
+    let cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index cursor
+    let local_y %i32 div_s cell_index width_px
+    let local_x %i32 sub cell_index mul local_y width_px
+    let origin %GuiPoint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin owner
+    let origin_x %i32 gui_point_x &origin
+    let origin_y %i32 gui_point_y &origin
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_checked_add_nonnegative_delta origin_x local_x GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::PositionXOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok x:
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_checked_add_nonnegative_delta origin_y local_y GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::PositionYOverflow:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok y:
+                    Result::Ok gui_point_new x y
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_start %fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError \owner:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_completed_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_start_error error_kind owner
+        Result::Ok _:
+            let cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor owner 0
+            Result::Ok cursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_read %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor Result GuiSfntSimpleGlyphRenderFillAlphaMaskSample GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind \cursor:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_invariants cursor:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref cursor "owner"
+            let cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index cursor
+            let cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+            if ge cell_index cell_count:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::CellIndexOutOfRange
+                else:
+                    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+                    match vec::get alpha_cells cell_index:
+                        Option::None:
+                            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::AlphaSlotMissing
+                        Option::Some alpha:
+                            if lt alpha 0:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::AlphaNegative
+                                else:
+                                    let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max owner
+                                    if gt alpha alpha_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::AlphaExceedsMax
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_position cursor:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok position:
+                                                    let fill_paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_fill_paint owner
+                                                    let blend %GuiBlendMode gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_blend owner
+                                                    let sample %GuiSfntSimpleGlyphRenderFillAlphaMaskSample gui_sfnt_simple_glyph_render_fill_alpha_mask_sample position alpha alpha_max fill_paint blend
+                                                    Result::Ok sample
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_step %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor Result GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError \cursor:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_invariants &cursor:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error error_kind cursor
+        Result::Ok _:
+            let cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index &cursor
+            let cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_owner_cell_count &cursor
+            if gt cell_index cell_count:
+                then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::CellIndexOutOfRange cursor
+                else:
+                    if eq cell_index cell_count:
+                        then:
+                            let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get cursor "owner"
+                            Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Completed owner
+                        else:
+                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_read &cursor:
+                                Result::Err error_kind:
+                                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error error_kind cursor
+                                Result::Ok sample:
+                                    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get cursor "owner"
+                                    let expected_next_cell_index %i32 add cell_index 1
+                                    let next_cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor owner expected_next_cell_index
+                                    let next_cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_cell_index &next_cursor
+                                    if ne next_cell_index expected_next_cell_index:
+                                        then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind::ProgressInvariantInvalid next_cursor
+                                        else Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled sample next_cursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor unit \cursor:
+    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get cursor "owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_start_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError unit \error:
+    let cursor %GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor field::get error "cursor"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_terminal_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Sampled _sample cursor:
+            gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor_free cursor
+        GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal::Completed owner:
+            gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

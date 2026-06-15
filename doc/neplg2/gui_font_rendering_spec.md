@@ -5918,6 +5918,66 @@ shadow rasterizer
 2D compositor
 ```
 
+### SFNT simple glyph render fill alpha mask sample cursor boundary
+
+F5bi は F5bg / F5bh で得られた completed fill alpha mask owner を authority とし、後続の 2D renderer boundary が消費できる sample stream を作る境界である。この phase はまだ `RenderCommand` を発行せず、pixel buffer へ書かず、DrawTarget / RenderTarget / platform / host API に接続しない。
+
+sample は次を持つ。
+
+```text
+RenderFillAlphaMaskSample:
+    position
+    alpha
+    alpha_max
+    fill_paint
+    blend
+```
+
+cursor は completed owner と cell index を所有する。cursor、start error、step error、terminal は owner-bearing であり、`Clone` / `Copy` を実装しない。sample 本体は value-only であり、`Clone` / `Copy` を実装できる。
+
+F5bi は cursor start 前と cursor step / read 前に completed owner invariant を再検査する。
+
+```text
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == sample_scale * sample_scale
+shape.cell_count == width_px * height_px
+owner.alpha_max > 0
+owner.cell_count == shape.cell_count
+owner.alpha_cells.len == shape.cell_count
+owner.alpha_cells.cap == shape.cell_count
+```
+
+cursor bounds は fail-closed に扱う。
+
+```text
+cell_index < 0          -> CellIndexNegative
+cell_index > cell_count -> CellIndexOutOfRange
+cell_index == cell_count -> Completed owner
+cell_index < cell_count -> read sample
+```
+
+特に `cell_index > cell_count` を completed として扱ってはいけない。これは壊れた cursor progress を隠すため、`CellIndexOutOfRange` として報告する。
+
+sample position は `origin + local_cell_position` から作る。ただし `gui_point_new` の前に x / y それぞれで i32 overflow を検査し、`PositionXOverflow` / `PositionYOverflow` を返す。unchecked `gui_point_add` は使わない。
+
+sample read は alpha slot を `vec::get` で読み、slot missing、negative alpha、`alpha > alpha_max` を typed error として返す。成功時は owner に保持された `fill_paint` と `blend` をそのまま sample へコピーする。
+
+F5bi は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+zero-fill fallback
+RenderCommand emission
+DrawTarget / RenderTarget
+platform / host APIs
+font fallback
+stroke / shadow rasterizer
+2D compositor
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -188,6 +188,56 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bi: sfnt simple glyph render fill alpha mask sample cursor boundary
+
+目的:
+
+- F5bh / F5bg の completed fill alpha mask owner を authority とし、後続の 2D compositor / command bridge が消費できる sample cursor boundary を追加する。
+- この phase では `RenderCommand`、DrawTarget / RenderTarget、platform API、2D compositor、stroke / shadow rasterization へ進まない。
+- cursor read は absolute pixel position、alpha、alpha_max、fill paint、blend を返す。
+- start / step error は owner-bearing とし、失敗時に completed owner または cursor を回収できる。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- F5bg に completed `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` の invariant helper がないため、F5bi 側で shape、alpha_max、cell_count、alpha Vec len/cap を再検査する helper が必要と指摘された。
+- `cell_index >= cell_count` を completed と扱う計画では、`cell_index > cell_count` の壊れた progress を隠すため、`cell_index > cell_count` を `CellIndexOutOfRange` として completion より前に拒否する必要があると指摘された。
+- `origin + local position` は i32 overflow を起こしうるため、`PositionXOverflow` / `PositionYOverflow` と checked addition を `gui_point_new` より前に置く必要があると指摘された。
+- `sample_cursor_step` の失敗は cursor を保持する owner-bearing error とし、read / invariant / alpha / position failure から recovery / free helper まで明示する必要があると指摘された。
+- revised plan では completed owner invariant、`cell_index > cell_count` before completion、checked addition、step error owner recovery を追加する。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSample` を追加する。`position`、`alpha`、`alpha_max`、`fill_paint`、`blend` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursor` を追加する。completed fill alpha mask owner と `cell_index` を所有し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorErrorKind` を追加する。shape / alpha invariant、cell index bounds、alpha slot/range、position overflow、progress invariant の typed error を持つ。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorStartError` と `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorError` を追加する。start error は owner、step error は cursor を回収できる。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCursorTerminal` を追加する。`Sampled sample next_cursor` と `Completed owner` を持つ。
+- completed owner invariant helper を追加し、shape、alpha max、owner cell count、alpha Vec len/cap を再検査する。
+- cursor invariant は `CellIndexNegative`、`CellIndexOutOfRange`、`Ok unit` の順に fail-closed とする。
+- `checked_add_nonnegative_delta` を追加し、`gui_point_new` の前に x / y overflow を検査する。
+- cursor start / read / step / recovery accessor / free helpers / terminal free helper を追加する。
+
+完了条件:
+
+- source policy が docs、plan review blocker と revised approval、sample `Clone` / `Copy`、owner-bearing cursor/start error/step error/terminal no `Clone` / `Copy`、private boundary、error kind、completed owner invariant、cursor bounds order、checked addition before `gui_point_new`、read alpha validation、step terminal/recovery/free、no RenderCommand / DrawTarget / RenderTarget / platform / fallback / stroke / shadow / compositor、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md` に start、completed owner invariant、bounds fail-closed、position overflow、alpha read、step terminal、recovery/free、no platform / no command policy の coverage label を追加する。
+- implementation review で F5bi が command/compositor へ進んでいないこと、cursor overflow / bounds order が source policy と一致すること、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bi 後の 2D compositor / render command bridge と stroke / shadow 専用境界を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor_f5bi.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_glyph_paint_binding_f5bi_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bi.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

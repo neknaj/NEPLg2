@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5bh の render glyph paint binding boundary を authority とし、次は render command / 2D compositor boundary へ進める。stroke / shadow は F5bh で unsupported として明示 reject しているため、後続では stroke rasterization / shadow rasterization を fill-only success とは別の専用境界として設計する。zero-fill fallback 禁止、partial completion 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、shape / alpha storage invariant revalidation、stroke / shadow validation precedence を維持する
+- F5bi の render fill alpha mask sample cursor boundary を authority とし、次は sample stream から 2D compositor / render command bridge へ進める。stroke / shadow は F5bh で unsupported として明示 reject しているため、後続では stroke rasterization / shadow rasterization を fill-only success とは別の専用境界として設計する。zero-fill fallback 禁止、partial completion 禁止、byte-backed lookup / old traversal / render-platform API / fallback 禁止、owner recovery、completed owner invariant revalidation、cursor bounds fail-closed、checked position addition を維持する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
