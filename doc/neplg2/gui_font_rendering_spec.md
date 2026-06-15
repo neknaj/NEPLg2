@@ -5176,6 +5176,132 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path command stream sink owner
+
+F5az は F5ay の completed path command stream sink plan を authority として、後続 explicit command sink writer と raster mask writer が使う scalar storage owner を確保する境界である。これは writer 本体、raster mask writer、rasterization、render2d command emission、platform present ではない。
+
+F5az の入力は `PathCommandStreamSinkPlan` である。ただし `SinkPlan` は public value なので、F5az はそれを trusted value としてそのまま使わない。全 count、capacity、derived invariant を再検査してから allocation へ進む。
+
+```text
+path command stream sink owner input:
+    PathCommandStreamSinkPlan
+
+success:
+    SinkOwner plan capacity path_sink_scalars raster_mask_scalars
+
+failure:
+    SinkOwnerAllocError kind plan capacity storage_error
+```
+
+F5az の capacity は次を保持する。
+
+```text
+PathCommandStreamSinkOwnerCapacity:
+    path_sink_scalar_capacity i32
+    raster_mask_scalar_capacity i32
+    path_segment_capacity i32
+    raster_edge_capacity i32
+```
+
+scalar capacity derivation:
+
+```text
+path_sink_scalar_capacity =
+    move_to_count * 3
+    + line_to_count * 3
+    + quadratic_to_count * 5
+
+raster_mask_scalar_capacity =
+    line_to_count * 5
+    + quadratic_to_count * 7
+```
+
+`SkipNoSegment` は source command として `total_count` / `prepared_count` に入るが、path sink scalar capacity と raster mask scalar capacity には入らない。`SkipNoSegment` だけで構成された completed plan は、`path_sink_scalar_capacity = 0` かつ `raster_mask_scalar_capacity = 0` の valid owner allocation として扱う。これを silent no-op や `NoCommandsPrepared` に変換してはいけない。
+
+検査順は次である。
+
+```text
+1. total_count / emitted_count / draw_count / move_to_count / line_to_count / quadratic_to_count / skip_no_segment_count / path_segment_capacity / raster_edge_capacity が非負であることを確認する
+2. total_count > 0 であることを確認する
+3. last_path_command_index >= 0 であることを確認する
+4. move + line + quadratic を checked add で計算し、path_segment_capacity と一致することを確認する
+5. path_segment_capacity + skip_no_segment_count を checked add で計算し、total_count と一致することを確認する
+6. emitted_count == total_count を確認する
+7. line + quadratic を checked add で計算し、raster_edge_capacity と一致することを確認する
+8. draw_count == raster_edge_capacity を確認する
+9. path sink scalar capacity と raster mask scalar capacity を checked multiply / checked add で計算する
+10. path sink scalar Vec を確保する
+11. raster mask scalar Vec を確保する
+```
+
+overflow guard は addition と multiplication の両方に必要である。
+
+```text
+checked add:
+    remaining = 2147483647 - left
+    if right > remaining:
+        CountOverflow
+
+checked multiply:
+    max_factor_count = 2147483647 / factor
+    if count > max_factor_count:
+        CountOverflow
+```
+
+F5az error は enum と typed context で表す。coarse `InvalidPlan` は使わない。
+
+```text
+PathCommandStreamSinkOwnerAllocErrorKind:
+    NegativeTotalCount
+    NegativeEmittedCount
+    NegativeMoveToCount
+    NegativeLineToCount
+    NegativeQuadraticToCount
+    NegativeSkipNoSegmentCount
+    NegativePathSegmentCapacity
+    NegativeRasterEdgeCapacity
+    NegativeDrawCount
+    LastPathCommandIndexInvalid
+    NoCommandsPrepared
+    PathSegmentCapacityMismatch
+    RasterEdgeCapacityMismatch
+    PreparedCountMismatch
+    EmittedCountMismatch
+    DrawCountMismatch
+    CountOverflow
+    PathSinkScalarStorageAllocFailed
+    RasterMaskScalarStorageAllocFailed
+```
+
+```text
+PathCommandStreamSinkOwnerAllocError:
+    kind PathCommandStreamSinkOwnerAllocErrorKind
+    plan PathCommandStreamSinkPlan
+    capacity Option PathCommandStreamSinkOwnerCapacity
+    storage_error Option StdErrorKind
+```
+
+validation / overflow failure では `capacity = None`、`storage_error = None` とする。Vec allocation failure では `capacity = Some derived_capacity`、`storage_error = Some lower_std_error` とする。
+
+raster mask scalar Vec の allocation に失敗した場合、すでに得た path sink scalar Vec owner を必ず 1 回だけ `vec::free` してから error を返す。path sink scalar Vec の allocation に失敗した場合は、まだ解放すべき owner が存在しないため `vec::free` を呼ばない。
+
+F5az は次を直接呼ばない。
+
+```text
+F5ax prepare drain / step
+F5aw path command stream step
+F5av path command value lookup
+F4 byte-backed lookup helper
+metadata parser
+table helper
+old path sink action consumer / traversal helper
+Vec push
+path object materialization
+rasterization
+render / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

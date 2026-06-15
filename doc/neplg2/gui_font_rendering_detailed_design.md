@@ -5737,6 +5737,155 @@ private F5ay error-from-terminal helper
 
 F5ay must not call F5ax drain, F5ax step, F5aw step, F5av lookup, byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, storage mutation, `Vec`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path command stream sink owner boundary
+
+F5az turns the value-only F5ay sink plan into the first allocation-backed owner for the future command sink writer and raster mask writer. This is deliberately still not a writer. The owner only reserves two scalar vectors and preserves the plan/capacity authority that later phases must consume.
+
+The public input is a `PathCommandStreamSinkPlan`. Because the plan is a public value, F5az must treat it as forged until revalidated:
+
+```text
+sink_owner_capacity_from_plan plan:
+    validate plan fields
+    rederive path segment capacity
+    rederive prepared count
+    rederive raster edge capacity
+    rederive scalar capacities
+    return capacity
+```
+
+The capacity value is copyable:
+
+```text
+PathCommandStreamSinkOwnerCapacity:
+    path_sink_scalar_capacity i32
+    raster_mask_scalar_capacity i32
+    path_segment_capacity i32
+    raster_edge_capacity i32
+```
+
+The owner is not copyable:
+
+```text
+PathCommandStreamSinkOwner:
+    plan PathCommandStreamSinkPlan
+    capacity PathCommandStreamSinkOwnerCapacity
+    path_sink_scalars Vec i32
+    raster_mask_scalars Vec i32
+```
+
+F5az uses scalar formats that are intentionally fixed before the writer exists:
+
+```text
+MoveTo path sink command:
+    tag
+    x
+    y
+
+LineTo path sink command:
+    tag
+    x
+    y
+
+QuadraticTo path sink command:
+    tag
+    control_x
+    control_y
+    target_x
+    target_y
+
+LineTo raster mask edge:
+    kind
+    x0
+    y0
+    x1
+    y1
+
+QuadraticTo raster mask edge:
+    kind
+    cx
+    cy
+    x0
+    y0
+    x1
+    y1
+```
+
+Therefore the scalar capacities are:
+
+```text
+path_sink_scalar_capacity =
+    move_to_count * 3
+    + line_to_count * 3
+    + quadratic_to_count * 5
+
+raster_mask_scalar_capacity =
+    line_to_count * 5
+    + quadratic_to_count * 7
+```
+
+`SkipNoSegment` contributes to `total_count` and `prepared_count`, but not to either scalar vector. A completed skip-only outline plan is valid and allocates two empty vector owners through `vec::with_capacity 0`. This matters because F5az is an owner boundary, not a rendering branch: it must not collapse a valid completed empty output into a no-op.
+
+Validation failures are not collapsed into `InvalidPlan`. The error kind names the failing invariant:
+
+```text
+NegativeTotalCount
+NegativeEmittedCount
+NegativeMoveToCount
+NegativeLineToCount
+NegativeQuadraticToCount
+NegativeSkipNoSegmentCount
+NegativePathSegmentCapacity
+NegativeRasterEdgeCapacity
+NegativeDrawCount
+LastPathCommandIndexInvalid
+NoCommandsPrepared
+PathSegmentCapacityMismatch
+RasterEdgeCapacityMismatch
+PreparedCountMismatch
+EmittedCountMismatch
+DrawCountMismatch
+CountOverflow
+PathSinkScalarStorageAllocFailed
+RasterMaskScalarStorageAllocFailed
+```
+
+The allocation error payload always has a precise shape:
+
+```text
+PathCommandStreamSinkOwnerAllocError:
+    kind PathCommandStreamSinkOwnerAllocErrorKind
+    plan PathCommandStreamSinkPlan
+    capacity Option PathCommandStreamSinkOwnerCapacity
+    storage_error Option StdErrorKind
+```
+
+`capacity` is `None` until derivation succeeds. It is `Some capacity` for storage allocation failures. `storage_error` is `Some lower_std_error` only for allocation failures.
+
+The allocation order is fixed:
+
+```text
+derive capacity
+allocate path_sink_scalars
+allocate raster_mask_scalars
+return owner
+```
+
+If the first allocation fails, no owner has been created and `vec::free` is not called. If the second allocation fails, the lower raster allocation error is preserved, then the path sink vector is freed exactly once, then `RasterMaskScalarStorageAllocFailed` is returned.
+
+F5az may call:
+
+```text
+F5ay sink plan accessors
+private checked add helper
+private checked multiply helper
+vec::with_capacity
+vec::len
+vec::cap
+vec::free
+```
+
+F5az must not call F5ax drain/step, F5aw step, F5av lookup, byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, `vec::push`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

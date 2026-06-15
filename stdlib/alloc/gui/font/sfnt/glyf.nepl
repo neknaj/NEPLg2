@@ -13233,11 +13233,41 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
     *field::get_ref plan "total_count"
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_emitted_count: emitted count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_emitted_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "emitted_count"
+
 //: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count: drawable command count を[読/よ]む
 //:
 //: neplg2:test[skip]
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
     *field::get_ref plan "draw_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count: MoveTo count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "move_to_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count: LineTo count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "line_to_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count: QuadraticTo count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "quadratic_to_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count: SkipNoSegment count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "skip_no_segment_count"
 
 //: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_path_segment_capacity: path segment capacity を[読/よ]む
 //:
@@ -13250,6 +13280,12 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
 //: neplg2:test[skip]
 pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_raster_edge_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
     *field::get_ref plan "raster_edge_capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index: last path command index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "last_path_command_index"
 
 //: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind: sink plan [失敗/しっぱい] reason
 //:
@@ -13417,6 +13453,424 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
                                                                         else:
                                                                             let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan total_count emitted_count draw_count move_to_count line_to_count quadratic_to_count skip_no_segment_count path_segment_capacity raster_edge_capacity last_path_command_index
                                                                             Result::Ok plan
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity: sink owner が[確保/かくほ]する scalar storage capacity
+//:
+//: [目的/もくてき]:
+//: - F5ay plan を authority として、後続 command sink writer と raster mask writer が[使/つか]う scalar Vec の容量を value-only に[固定/こてい]します。
+//: - `SkipNoSegment` は source command として count しますが、path sink scalar と raster mask scalar には 0 件として[扱/あつか]います。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity:
+    path_sink_scalar_capacity %i32
+    raster_mask_scalar_capacity %i32
+    path_segment_capacity %i32
+    raster_edge_capacity %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \capacity:
+        *capacity
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \capacity:
+        capacity
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity: sink owner capacity value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \path_sink_scalar_capacity\raster_mask_scalar_capacity\path_segment_capacity\raster_edge_capacity:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity path_sink_scalar_capacity raster_mask_scalar_capacity path_segment_capacity raster_edge_capacity
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity: path sink scalar capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity i32 \capacity:
+    *field::get_ref capacity "path_sink_scalar_capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity: raster mask scalar capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity i32 \capacity:
+    *field::get_ref capacity "raster_mask_scalar_capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_segment_capacity: path segment capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_segment_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity i32 \capacity:
+    *field::get_ref capacity "path_segment_capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity: raster edge capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity i32 \capacity:
+    *field::get_ref capacity "raster_edge_capacity"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind: sink owner allocation / validation [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind:
+    NegativeTotalCount
+    NegativeEmittedCount
+    NegativeMoveToCount
+    NegativeLineToCount
+    NegativeQuadraticToCount
+    NegativeSkipNoSegmentCount
+    NegativePathSegmentCapacity
+    NegativeRasterEdgeCapacity
+    NegativeDrawCount
+    LastPathCommandIndexInvalid
+    NoCommandsPrepared
+    PathSegmentCapacityMismatch
+    RasterEdgeCapacityMismatch
+    PreparedCountMismatch
+    EmittedCountMismatch
+    DrawCountMismatch
+    CountOverflow
+    PathSinkScalarStorageAllocFailed
+    RasterMaskScalarStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError: sink owner allocation failure context
+//:
+//: [目的/もくてき]:
+//: - forged plan validation、capacity overflow、Vec allocation failure を typed context として[分離/ぶんり]します。
+//: - allocation failure では lower `StdErrorKind` を `storage_error` に[保持/ほじ]し、validation failure では `None` とします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind
+    plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan
+    capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+    storage_error %Option StdErrorKind
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error: allocation error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \kind\plan\capacity\storage_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError kind plan capacity storage_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_kind: error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_capacity: derived capacity context を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_storage_error: lower storage allocation error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_storage_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError Option StdErrorKind \error:
+    *field::get_ref error "storage_error"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \kind\plan:
+    let capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error kind *plan capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_with_capacity %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \kind\plan\capacity_value:
+    let capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some capacity_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error kind *plan capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_storage_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \kind\plan\capacity_value\storage_error_value:
+    let capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some capacity_value
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error kind *plan capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan_shape_guard %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result unit GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count plan
+    let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_emitted_count plan
+    let draw_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count plan
+    let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count plan
+    let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count plan
+    let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count plan
+    let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count plan
+    let path_segment_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_path_segment_capacity plan
+    let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_raster_edge_capacity plan
+    let last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index plan
+    if lt total_count 0:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeTotalCount plan
+        else:
+            if lt emitted_count 0:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeEmittedCount plan
+                else:
+                    if lt move_to_count 0:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeMoveToCount plan
+                        else:
+                            if lt line_to_count 0:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeLineToCount plan
+                                else:
+                                    if lt quadratic_to_count 0:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeQuadraticToCount plan
+                                        else:
+                                            if lt skip_no_segment_count 0:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeSkipNoSegmentCount plan
+                                                else:
+                                                    if lt path_segment_capacity 0:
+                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativePathSegmentCapacity plan
+                                                        else:
+                                                            if lt raster_edge_capacity 0:
+                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeRasterEdgeCapacity plan
+                                                                else:
+                                                                    if lt draw_count 0:
+                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NegativeDrawCount plan
+                                                                        else:
+                                                                            if le total_count 0:
+                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::NoCommandsPrepared plan
+                                                                                else:
+                                                                                    if lt last_path_command_index 0:
+                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::LastPathCommandIndexInvalid plan
+                                                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add %fn i32 fn i32 fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \left\right\plan:
+    let max_i32 %i32 2147483647
+    let remaining %i32 sub max_i32 left
+    if gt right remaining:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::CountOverflow plan
+        else Result::Ok add left right
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul %fn i32 fn i32 fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \count\factor\plan:
+    let max_i32 %i32 2147483647
+    let max_factor_count %i32 div max_i32 factor
+    if gt count max_factor_count:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::CountOverflow plan
+        else Result::Ok mul count factor
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_segment_capacity_from_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count plan
+    let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count plan
+    let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count plan
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add move_to_count line_to_count plan:
+        Result::Err error:
+            Result::Err error
+        Result::Ok move_line_count:
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add move_line_count quadratic_to_count plan
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_prepared_count_from_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan fn i32 Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan\path_segment_capacity:
+    let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count plan
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add path_segment_capacity skip_no_segment_count plan
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_edge_capacity_from_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count plan
+    let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count plan
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add line_to_count quadratic_to_count plan
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalar_capacity_from_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    let move_to_path_sink_scalar_width %i32 3
+    let line_to_path_sink_scalar_width %i32 3
+    let quadratic_to_path_sink_scalar_width %i32 5
+    let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count plan
+    let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count plan
+    let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count plan
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul move_to_count move_to_path_sink_scalar_width plan:
+        Result::Err error:
+            Result::Err error
+        Result::Ok move_to_scalars:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul line_to_count line_to_path_sink_scalar_width plan:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok line_to_scalars:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul quadratic_to_count quadratic_to_path_sink_scalar_width plan:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok quadratic_to_scalars:
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add move_to_scalars line_to_scalars plan:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok move_line_scalars:
+                                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add move_line_scalars quadratic_to_scalars plan
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalar_capacity_from_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    let line_to_raster_mask_scalar_width %i32 5
+    let quadratic_to_raster_mask_scalar_width %i32 7
+    let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count plan
+    let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count plan
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul line_to_count line_to_raster_mask_scalar_width plan:
+        Result::Err error:
+            Result::Err error
+        Result::Ok line_to_scalars:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_mul quadratic_to_count quadratic_to_raster_mask_scalar_width plan:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok quadratic_to_scalars:
+                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_count_checked_add line_to_scalars quadratic_to_scalars plan
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan: completed sink plan から owner capacity を[導/みちび]く
+//:
+//: [契約/けいやく]:
+//: - public `SinkPlan` は forged value の可能性があるため、全 count と derived invariant を[再検査/さいけんさ]します。
+//: - `SkipNoSegment` だけで構成された completed plan は、0 容量の Vec owner を[作/つく]れる valid plan として[扱/あつか]います。
+//: - この関数は allocation、sink traversal、rasterization、render / platform API を[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan_shape_guard plan:
+        Result::Err error:
+            Result::Err error
+        Result::Ok _:
+            let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count plan
+            let emitted_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_emitted_count plan
+            let draw_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count plan
+            let plan_path_segment_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_path_segment_capacity plan
+            let plan_raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_raster_edge_capacity plan
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_segment_capacity_from_plan plan:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok derived_path_segment_capacity:
+                    if not eq derived_path_segment_capacity plan_path_segment_capacity:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::PathSegmentCapacityMismatch plan
+                        else:
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_prepared_count_from_plan plan derived_path_segment_capacity:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok prepared_count:
+                                    if not eq prepared_count total_count:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::PreparedCountMismatch plan
+                                        else:
+                                            if not eq emitted_count total_count:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::EmittedCountMismatch plan
+                                                else:
+                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_edge_capacity_from_plan plan:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok derived_raster_edge_capacity:
+                                                            if not eq derived_raster_edge_capacity plan_raster_edge_capacity:
+                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::RasterEdgeCapacityMismatch plan
+                                                                else:
+                                                                    if not eq draw_count plan_raster_edge_capacity:
+                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_without_capacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::DrawCountMismatch plan
+                                                                        else:
+                                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalar_capacity_from_plan plan:
+                                                                                Result::Err error:
+                                                                                    Result::Err error
+                                                                                Result::Ok path_sink_scalar_capacity:
+                                                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalar_capacity_from_plan plan:
+                                                                                        Result::Err error:
+                                                                                            Result::Err error
+                                                                                        Result::Ok raster_mask_scalar_capacity:
+                                                                                            let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity path_sink_scalar_capacity raster_mask_scalar_capacity plan_path_segment_capacity plan_raster_edge_capacity
+                                                                                            Result::Ok capacity
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner: command sink / raster mask scalar storage owner
+//:
+//: [目的/もくてき]:
+//: - F5az は scalar Vec を[確保/かくほ]する owner boundary だけを[提供/ていきょう]します。
+//: - writer や raster mask への書き込み、render2d command emission は後続 phase に[分離/ぶんり]します。
+//: - owner なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner:
+    plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan
+    capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+    path_sink_scalars %Vec i32
+    raster_mask_scalars %Vec i32
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner: sink owner value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn Vec i32 fn Vec i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner \plan\capacity\path_sink_scalars\raster_mask_scalars:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner plan capacity path_sink_scalars raster_mask_scalars
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan: owner authority plan を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan \owner:
+    *field::get_ref owner "plan"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity: owner capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity \owner:
+    *field::get_ref owner "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len: path sink scalar Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner i32 \owner:
+    let scalars %&Vec i32 field::get_ref owner "path_sink_scalars"
+    vec::len scalars
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap: path sink scalar Vec cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner i32 \owner:
+    let scalars %&Vec i32 field::get_ref owner "path_sink_scalars"
+    vec::cap scalars
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len: raster mask scalar Vec len を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner i32 \owner:
+    let scalars %&Vec i32 field::get_ref owner "raster_mask_scalars"
+    vec::len scalars
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap: raster mask scalar Vec cap を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner i32 \owner:
+    let scalars %&Vec i32 field::get_ref owner "raster_mask_scalars"
+    vec::cap scalars
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc: sink plan から scalar storage owner を[確保/かくほ]する
+//:
+//: [契約/けいやく]:
+//: - capacity derivation を先に[行/おこな]い、forged plan を typed error として[拒否/きょひ]します。
+//: - path sink Vec allocation failure では free する owner がまだ[存在/そんざい]しないため、`vec::free` を[呼/よ]びません。
+//: - raster mask Vec allocation failure では lower error を[保持/ほじ]してから path sink Vec を 1 回だけ free し、error を[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError \plan:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan plan:
+        Result::Err error:
+            Result::Err error
+        Result::Ok capacity:
+            let path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &capacity
+            let path_sink_result %Result Vec i32 StdErrorKind vec::with_capacity path_sink_scalar_capacity
+            match path_sink_result:
+                Result::Err path_sink_error:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_storage_failed GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::PathSinkScalarStorageAllocFailed plan capacity path_sink_error
+                    Result::Err error
+                Result::Ok path_sink_scalars:
+                    let raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &capacity
+                    let raster_mask_result %Result Vec i32 StdErrorKind vec::with_capacity raster_mask_scalar_capacity
+                    match raster_mask_result:
+                        Result::Err raster_mask_error:
+                            let storage_error %StdErrorKind raster_mask_error
+                            vec::free path_sink_scalars
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_alloc_error_storage_failed GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocErrorKind::RasterMaskScalarStorageAllocFailed plan capacity storage_error
+                            Result::Err error
+                        Result::Ok raster_mask_scalars:
+                            let owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner *plan capacity path_sink_scalars raster_mask_scalars
+                            Result::Ok owner
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_free: sink owner の Vec storage を[閉/と]じる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_free %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner unit \owner:
+    let path_sink_scalars %Vec i32 field::get owner "path_sink_scalars"
+    let raster_mask_scalars %Vec i32 field::get owner "raster_mask_scalars"
+    vec::free path_sink_scalars
+    vec::free raster_mask_scalars
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
