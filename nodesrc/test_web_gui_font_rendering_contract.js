@@ -155,6 +155,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskBoundaryTest
 const guiFontSfntOutlinePointStreamItemCollectionRenderGlyphPaintBindingTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_glyph_paint_binding.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_cursor.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -15839,6 +15840,179 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_cursor_terminal_free_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleCommandBridgeTests.includes("render_fill_alpha_mask_sample_command_no_platform_no_target_no_fallback"),
     "F5bj render fill alpha mask sample command bridge focused doctest must cover paint accessor, SourceOver-only, checked alpha, transparent zero alpha, FillRect emission, conversion-before-advance, recovery/free, and no platform/target/fallback policy",
+);
+assert(spec.includes("### SFNT simple glyph alpha mask resource reservation boundary"), "GUI font spec must document F5bl alpha mask resource reservation boundary");
+assert(detailedDesign.includes("## SFNT simple glyph alpha mask resource reservation boundary"), "GUI font detailed design must document F5bl alpha mask resource reservation boundary");
+assert(implementationPlan.includes("## Phase F5bl: sfnt simple glyph alpha mask resource reservation boundary"), "GUI font implementation plan must include F5bl phase");
+assert(
+    implementationPlan.includes("Planck revised plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("command を一切発行せず") &&
+        detailedDesign.includes("must not claim that the id is registered") &&
+        detailedDesign.includes("before constructing `RenderCommand::AlphaMaskRect`"),
+    "GUI font docs must pin F5bl approved no-command reservation plan and avoid registration claims",
+);
+const renderFillAlphaMaskResourceReservationRegion = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:"),
+);
+const renderFillAlphaMaskResourceReservationConfigType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:"),
+);
+const renderFillAlphaMaskResourceReservationOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner "),
+);
+const renderFillAlphaMaskResourceReservationStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind:"),
+);
+const renderFillAlphaMaskResourceReservationStartErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError:"),
+    allocFontSfntGlyfImpl.indexOf("fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error "),
+);
+assert(renderFillAlphaMaskResourceReservationRegion.length > 0, "alloc/gui/font/sfnt/glyf F5bl must define resource reservation region");
+assert(renderFillAlphaMaskResourceReservationConfigType.includes("mask_id %AlphaMaskId"), "alloc/gui/font/sfnt/glyf F5bl config must carry AlphaMaskId");
+assertMatch(
+    allocFontSfntGlyfImpl,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig\b[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig\b/,
+    "alloc/gui/font/sfnt/glyf F5bl config is value-only and must implement Clone/Copy",
+);
+for (const fragment of [
+    "owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+    "mask_id %AlphaMaskId",
+    "rect %GuiRect",
+    "paint %GuiPaint",
+]) {
+    assert(renderFillAlphaMaskResourceReservationOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bl owner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner",
+    "GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bl ${typeName} owns resources and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    renderFillAlphaMaskResourceReservationRegion,
+    /pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:|pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner:|pub struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError:|pub fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5bl reservation types and owner constructor must remain private",
+);
+for (const fragment of [
+    "InvalidMaskId",
+    "ShapeInvalidWidth",
+    "ShapeInvalidHeight",
+    "ShapeInvalidSampleScale",
+    "ShapeCoverageMaxMismatch",
+    "ShapeCellCountMismatch",
+    "InvalidAlphaMax",
+    "AlphaCellCountMismatch",
+    "AlphaStorageLenMismatch",
+    "AlphaStorageCapacityMismatch",
+    "UnsupportedBlendMode",
+]) {
+    assert(renderFillAlphaMaskResourceReservationStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bl start error kind must include ${fragment}`);
+}
+for (const fragment of [
+    "kind %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind",
+    "owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner",
+    "config %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig",
+]) {
+    assert(renderFillAlphaMaskResourceReservationStartErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bl start error must include ${fragment}`);
+}
+const renderFillAlphaMaskResourceReservationValidateConfig = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_config");
+assertOrderedFragments(
+    renderFillAlphaMaskResourceReservationValidateConfig,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_config_mask_id config",
+        "alpha_mask_id_raw &mask_id",
+        "le raw 0",
+        "InvalidMaskId",
+        "Result::Ok unit",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bl config validation must reject non-positive AlphaMaskId",
+);
+const renderFillAlphaMaskResourceReservationInvariant = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_invariants");
+assertOrderedFragments(
+    renderFillAlphaMaskResourceReservationInvariant,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_shape &shape",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max owner",
+        "InvalidAlphaMax",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner",
+        "AlphaCellCountMismatch",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_len owner",
+        "AlphaStorageLenMismatch",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_cap owner",
+        "AlphaStorageCapacityMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bl owner invariant must check shape, alpha max, cell count, alpha len, and alpha cap",
+);
+const renderFillAlphaMaskResourceReservationValidateBlend = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_blend");
+assertOrderedFragments(
+    renderFillAlphaMaskResourceReservationValidateBlend,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_blend owner",
+        "GuiBlendMode::SourceOver",
+        "Result::Ok unit",
+        "UnsupportedBlendMode",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bl blend validation must accept SourceOver only",
+);
+const renderFillAlphaMaskResourceReservationStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_start");
+assertOrderedFragments(
+    renderFillAlphaMaskResourceReservationStart,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_config &config",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_invariants &owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_blend &owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin &owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_size &owner",
+        "gui_rect_new",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_fill_paint &owner",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner owner mask_id rect paint",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bl start must validate before reservation and derive rect/paint metadata from owner",
+);
+const renderFillAlphaMaskResourceReservationOwnerRecovery = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_fill_owner");
+const renderFillAlphaMaskResourceReservationStartErrorOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error_owner");
+const renderFillAlphaMaskResourceReservationFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_free");
+const renderFillAlphaMaskResourceReservationStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error_free");
+assert(renderFillAlphaMaskResourceReservationOwnerRecovery.includes("field::get reservation \"owner\""), "alloc/gui/font/sfnt/glyf F5bl reservation owner recovery must consume owner");
+assert(renderFillAlphaMaskResourceReservationStartErrorOwner.includes("field::get error \"owner\""), "alloc/gui/font/sfnt/glyf F5bl start error must expose owner recovery");
+assert(renderFillAlphaMaskResourceReservationFree.includes("gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner"), "alloc/gui/font/sfnt/glyf F5bl reservation free must close underlying owner");
+assert(renderFillAlphaMaskResourceReservationStartErrorFree.includes("gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner"), "alloc/gui/font/sfnt/glyf F5bl start error free must close recovered owner");
+for (const [slice, name] of [
+    [renderFillAlphaMaskResourceReservationValidateConfig, "resource reservation config validation"],
+    [renderFillAlphaMaskResourceReservationInvariant, "resource reservation owner invariant"],
+    [renderFillAlphaMaskResourceReservationValidateBlend, "resource reservation blend validation"],
+    [renderFillAlphaMaskResourceReservationStart, "resource reservation start"],
+    [renderFillAlphaMaskResourceReservationOwnerRecovery, "resource reservation owner recovery"],
+    [renderFillAlphaMaskResourceReservationStartErrorOwner, "resource reservation error recovery"],
+    [renderFillAlphaMaskResourceReservationFree, "resource reservation free"],
+    [renderFillAlphaMaskResourceReservationStartErrorFree, "resource reservation error free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|GuiSfntSimpleGlyphPathSinkAction::|zero_fill|render_command_alpha_mask_rect|render_command_fill_rect|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|stroke|shadow|partial|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5bl ${name} must not use byte-backed lookup, old traversal, zero-fill, command emission, target/platform APIs, sample cursor, font fallback, alpha Vec copy, stroke/shadow, or partial completion`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bl ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_config_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_internal_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_mask_id_checked_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_owner_invariant_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_source_over_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_rect_paint_metadata_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_free_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests.includes("render_fill_alpha_mask_resource_reservation_no_command_no_platform_no_fallback"),
+    "F5bl render fill alpha mask resource reservation focused doctest must cover config, internal owner, mask id, invariants, SourceOver-only, metadata, recovery/free, and no command/platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

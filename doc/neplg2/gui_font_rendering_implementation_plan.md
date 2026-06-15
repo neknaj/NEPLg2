@@ -333,6 +333,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/core/gu
 git diff --check
 ```
 
+## Phase F5bl: sfnt simple glyph alpha mask resource reservation boundary
+
+目的:
+
+- F5bg / F5bh の completed fill alpha mask owner を、F5bk の `AlphaMaskId` と同じ owner-bearing reservation value に束ねる。
+- F5bl は resource table 登録ではなく、`RenderCommand::AlphaMaskRect` emission でもない。未登録の `AlphaMaskId` command が owner と切り離されることを防ぐ内部 alloc/font 境界にする。
+- 後続の table registration slice は F5bl reservation owner を消費して alpha storage を登録し、その後で初めて `render_command_alpha_mask_rect` を呼ぶ。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。
+- 当初案は borrowed helper で `render_command_alpha_mask_rect` を返す設計だったため、reservation owner を free した後にも Copy command が残り、dangling `AlphaMaskId` command を作れてしまうと指摘された。
+- private reservation owner を std/render2d handoff と表現すると、後続 module が直接消費できるかが曖昧だと指摘された。
+- revised plan では F5bl が command を一切発行せず、内部 alloc/font reservation owner だけを作る。docs では table 登録、renderability、std/render2d handoff を主張しない。
+- success recovery helper は underlying `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` を消費回収できる形にし、`mask_id` / `rect` / `paint` は value accessor で読む。
+- Planck revised plan review は `PLAN_APPROVED`。`render_command_alpha_mask_rect` / `render_command_fill_rect` を source policy で禁止し、SourceOver-only / owner invariant / no alpha copy / no target-platform-fallback を固定する。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig` を追加する。`mask_id %AlphaMaskId` だけを持つ value-only config とし、`Clone` / `Copy` を実装する。
+- private `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner` を追加する。completed fill alpha mask owner、mask id、rect、paint を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind` を追加する。`InvalidMaskId`、shape invariant、alpha invariant、`UnsupportedBlendMode` を enum variant として持つ。
+- start error は original completed fill alpha mask owner と config を保持し、owner recovery helper と free helper を持つ。
+- start は `AlphaMaskId.raw > 0`、completed owner shape invariant、`alpha_max > 0`、cell_count / alpha Vec len / cap、`GuiBlendMode::SourceOver` を fail-closed に検査してから reservation owner を作る。
+- success path は owner の origin/size から rect を作り、fill paint をそのまま保持する。alpha Vec は copy しない。
+- `render_command_alpha_mask_rect`、`render_command_fill_rect`、sample cursor、DrawTarget / RenderTarget、platform / host / backend API、font fallback、zero-fill fallback、2D compositor は呼ばない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md` を追加し、source policy coverage label を固定する。
+
+完了条件:
+
+- source policy が docs、Planck revised approval、config/owner/error types、owner-bearing no `Clone` / `Copy`、config `Clone` / `Copy`、mask id validation、completed owner invariant validation、SourceOver-only validation、rect/paint derivation、owner recovery/free、no command emission、no platform/target/fallback、no per-sample FillRect fallback、no alpha Vec copy、括弧なし prefix style、focused doctest coverage label を検査する。
+- focused doctest と F5bk / F5bj 回帰、`stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest が通る。
+- implementation review で dangling `AlphaMaskId` command を作っていないこと、F5bl docs が resource table 登録を主張していないこと、note/todo 更新が staged set に含まれていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bl 後の resource table registration、tile / bitmap formal transport、2D compositor drain、stroke / shadow 専用 raster boundary を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bl.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bl_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_sample_command_bridge_f5bl_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bl.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

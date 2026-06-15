@@ -6060,6 +6060,58 @@ zero-fill fallback
 2D compositor drain
 ```
 
+### SFNT simple glyph alpha mask resource reservation boundary
+
+F5bl は F5bg / F5bh の completed fill alpha mask owner を、F5bk の `AlphaMaskId` と安全に結びつける内部 reservation 境界である。この phase は resource table 登録ではない。`RenderCommand::AlphaMaskRect` を発行せず、renderer / host / platform へは渡さず、mask storage が backend で解決可能であることも証明しない。
+
+F5bl が作る成功 value は owner-bearing であり、次の内部境界が table 登録を行うまで alpha storage owner を保持し続ける。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:
+    mask_id AlphaMaskId
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner:
+    owner GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+```
+
+config は value-only で `Clone` / `Copy` を持つ。reservation owner と start error は alpha storage owner を保持するため `Clone` / `Copy` を持たない。
+
+validation は fail closed である。
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+shape.width_px <= 0 -> ShapeInvalidWidth
+shape.height_px <= 0 -> ShapeInvalidHeight
+shape.sample_scale <= 0 -> ShapeInvalidSampleScale
+shape.coverage_max != sample_scale * sample_scale -> ShapeCoverageMaxMismatch
+shape.cell_count != width_px * height_px -> ShapeCellCountMismatch
+owner.alpha_max <= 0 -> InvalidAlphaMax
+owner.cell_count != shape.cell_count -> AlphaCellCountMismatch
+owner.alpha_cells.len != shape.cell_count -> AlphaStorageLenMismatch
+owner.alpha_cells.cap != shape.cell_count -> AlphaStorageCapacityMismatch
+owner.blend != SourceOver -> UnsupportedBlendMode
+```
+
+成功時の `rect` は owner の origin と size から作る。`paint` は owner の fill paint をそのまま保持する。F5bl は alpha Vec を copy しない。success owner の consuming recovery helper は元の `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` を返せるようにし、次の table 登録境界は reservation owner を消費してから resource を登録し、その後で初めて `RenderCommand::AlphaMaskRect` を構築する。
+
+F5bl は次を呼ばない。
+
+```text
+render_command_alpha_mask_rect
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+per-sample FillRect bridge
+alpha Vec copy
+2D compositor drain
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

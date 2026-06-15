@@ -17944,6 +17944,211 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor_terminal_f
         GuiSfntSimpleGlyphRenderFillAlphaMaskSampleCommandCursorTerminal::Completed owner:
             gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
 
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig: alpha mask resource reservation の設定
+//:
+//: [目的/もくてき]:
+//: - 完成済み fill alpha mask owner を、未登録の `AlphaMaskId` と安全に結びつけるための value-only 設定です。
+//: - この段階では resource table 登録も command 発行も行いません。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:
+    mask_id %AlphaMaskId
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig \config:
+        config
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_config %fn AlphaMaskId GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig \mask_id:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig mask_id
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_config_mask_id %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig AlphaMaskId \config:
+    *field::get_ref config "mask_id"
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner: mask storage owner と alpha mask id の内部予約
+//:
+//: [目的/もくてき]:
+//: - fill alpha mask の実 storage owner と、後続 table 登録で使う予定の id/rect/paint を同じ所有者付き value に束ねます。
+//: - `AlphaMaskId` が登録済みであることは証明しません。登録と command emission は後続境界の責務です。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner:
+    owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    mask_id %AlphaMaskId
+    rect %GuiRect
+    paint %GuiPaint
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn AlphaMaskId fn GuiRect fn GuiPaint GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner \owner\mask_id\rect\paint:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner owner mask_id rect paint
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_mask_id %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner AlphaMaskId \reservation:
+    *field::get_ref reservation "mask_id"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_rect %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner GuiRect \reservation:
+    *field::get_ref reservation "rect"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_paint %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner GuiPaint \reservation:
+    *field::get_ref reservation "paint"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_fill_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner GuiSfntSimpleGlyphRenderFillAlphaMaskOwner \reservation:
+    field::get reservation "owner"
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind: resource reservation の失敗理由
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind:
+    InvalidMaskId
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    InvalidAlphaMax
+    AlphaCellCountMismatch
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError: resource reservation の recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind
+    owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner
+    config %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError \kind\owner\config:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError kind owner config
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error_config %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig \error:
+    *field::get_ref error "config"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError GuiSfntSimpleGlyphRenderFillAlphaMaskOwner \error:
+    field::get error "owner"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_config %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \config:
+    let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_config_mask_id config
+    let raw %i32 alpha_mask_id_raw &mask_id
+    if le raw 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::InvalidMaskId
+        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_shape %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_count_checked_mul width_px height_px GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_invariants %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \owner:
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_shape owner
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_shape &shape:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max owner
+            if le alpha_max 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::InvalidAlphaMax
+                else:
+                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    let owner_cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_cell_count owner
+                    if ne owner_cell_count shape_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::AlphaCellCountMismatch
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_len owner
+                            if ne alpha_cells_len shape_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::AlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_cells_cap owner
+                                    if ne alpha_cells_cap shape_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::AlphaStorageCapacityMismatch
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_blend %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind \owner:
+    let blend %GuiBlendMode gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_blend owner
+    match blend:
+        GuiBlendMode::SourceOver:
+            Result::Ok unit
+        _:
+            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartErrorKind::UnsupportedBlendMode
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_start %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskOwner impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig Result GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError \owner\config:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_config &config:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error error_kind owner config
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_invariants &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error error_kind owner config
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_validate_blend &owner:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error error_kind owner config
+                        Result::Ok _:
+                            let mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_config_mask_id &config
+                            let origin %GuiPoint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_origin &owner
+                            let size %GuiSize gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_size &owner
+                            let rect %GuiRect gui_rect_new:
+                                gui_point_x &origin
+                                gui_point_y &origin
+                                gui_size_width &size
+                                gui_size_height &size
+                            let paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_fill_paint &owner
+                            let reservation %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner owner mask_id rect paint
+                            Result::Ok reservation
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner unit \reservation:
+    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get reservation "owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_reservation_start_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationStartError unit \error:
+    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get error "owner"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_free owner
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

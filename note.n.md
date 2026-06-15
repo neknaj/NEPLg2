@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font alpha mask resource reservation checkpoint
+
+## scope
+
+- branch: `gui-font-alpha-mask-resource-binding-f5bl-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bl の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、dangling command 禁止、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph alpha mask resource reservation boundary の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bl の internal reservation、未登録 handle の非 renderability、validation order、owner recovery、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bl の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に value-only `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationConfig` を追加し、`Clone` / `Copy` を実装した。
+- private `GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner` を追加した。owner-bearing type は `Clone` / `Copy` を実装せず、completed fill alpha mask owner と mask id / rect / paint metadata を保持する。
+- start error は original completed fill alpha mask owner と config を保持し、kind / config / owner recovery helper と free helper を持つ。
+- start は `AlphaMaskId.raw > 0`、completed owner shape invariant、`alpha_max > 0`、cell_count / alpha Vec len / cap、`GuiBlendMode::SourceOver` を fail-closed に検査してから reservation owner を作る。
+- success path は owner origin / size から rect を作り、fill paint をそのまま metadata として保持する。alpha Vec は copy しない。
+- F5bl は `RenderCommand` emission、resource table registration、RenderTarget / DrawTarget、platform / host / backend API、sample cursor、per-sample FillRect fallback へ進まない。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bl source policy を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md` を追加し、F5bl source policy coverage label を固定した。
+- `todo.md` は F5bl 完了後の次作業として、resource table registration と registered resource からの command emission へ進む内容へ更新した。
+
+## subagent review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。borrowed helper で `render_command_alpha_mask_rect` を返すと、reservation owner free 後にも Copy command が残り dangling `AlphaMaskId` command を作れると指摘された。
+- Planck は、private reservation owner を std/render2d handoff と表現すると後続 module が直接消費できるか曖昧だとも指摘した。
+- 指摘を受け、F5bl は command を一切発行しない内部 alloc/font reservation owner に修正した。resource table 登録、renderability、std/render2d handoff は docs で主張しない。
+- Planck revised plan review は `PLAN_APPROVED`。
+- Planck implementation review は `REVIEW_APPROVED`。dangling `AlphaMaskId` command を作れないこと、docs が resource table 登録や renderability を主張していないこと、owner-bearing type の no `Clone` / `Copy`、source policy、recovery/free を確認済みである。
+- commit 前の注意点として、新規 focused doctest file を stage することと、この note の review 状態を更新することが指摘された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_reservation_f5bl.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bl_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_sample_command_bridge.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_sample_command_bridge_f5bl_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bl.json -j 1` 1131/1131 passed
+
+## remaining
+
+- F5bl は internal reservation までであり、resource table registration、registered resource からの `RenderCommand::AlphaMaskRect` emission、tile / bitmap formal transport、2D compositor drain、FHD 60fps batching、stroke / shadow rasterization は未実装である。
+
 # 2026-06-16 Agent2 GUI font render fill alpha mask boundary checkpoint
 
 ## scope
