@@ -139,6 +139,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTests = 
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_tag_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandValueTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_value.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_path_command_stream_cursor.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -192,6 +193,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandValueTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -12861,6 +12863,218 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorTests.includes("path_command_stream_drain_budget_no_step_no_lookup_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursorTests.includes("path_command_stream_no_fallback_no_byte_backed_no_traversal_no_vec_no_raster"),
     "F5aw path command stream cursor focused doctest must cover types, authority, validation, step terminal, F5av call location, drain terminal, budget stop, and no fallback/no-byte-backed/no-traversal/no-Vec/no-raster policy",
+);
+assert(spec.includes("### SFNT simple glyph outline point stream item collection path command stream prepare"), "GUI font spec must document F5ax path command stream prepare boundary");
+assert(detailedDesign.includes("## SFNT simple glyph outline point stream item collection path command stream prepare boundary"), "GUI font detailed design must document F5ax path command stream prepare boundary");
+assert(implementationPlan.includes("## Phase F5ax: sfnt simple glyph outline point stream item collection path command stream prepare"), "GUI font implementation plan must include F5ax phase");
+const pathCommandValuePathCommandIndex = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index");
+assert(pathCommandValuePathCommandIndex.includes("*field::get_ref value \"path_command_index\""), "alloc/gui/font/sfnt/glyf F5ax must add PathCommandValue path_command_index accessor");
+const pathCommandStreamPrepareSummaryType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary"),
+);
+for (const fragment of [
+    "total_count %i32",
+    "move_to_count %i32",
+    "line_to_count %i32",
+    "quadratic_to_count %i32",
+    "skip_no_segment_count %i32",
+    "last_path_command_index %i32",
+]) {
+    assert(pathCommandStreamPrepareSummaryType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax PrepareSummary must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamPrepareSummaryType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary:/,
+    "alloc/gui/font/sfnt/glyf F5ax PrepareSummary is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamPrepareInitial = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_initial");
+assert(pathCommandStreamPrepareInitial.includes("gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary 0 0 0 0 0 -1"), "alloc/gui/font/sfnt/glyf F5ax initial summary must use zero counts and last index -1");
+const pathCommandStreamPrepareActionType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareUpdate:"),
+);
+for (const fragment of [
+    "CountedMoveTo",
+    "CountedLineTo",
+    "CountedQuadraticTo",
+    "CountedSkipNoSegment",
+]) {
+    assert(pathCommandStreamPrepareActionType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax PrepareAction must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamPrepareActionType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction:/,
+    "alloc/gui/font/sfnt/glyf F5ax PrepareAction is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamPrepareUpdateType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareUpdate:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_update"),
+);
+for (const fragment of [
+    "action %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction",
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary",
+]) {
+    assert(pathCommandStreamPrepareUpdateType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax PrepareUpdate must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamPrepareUpdateType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareUpdate:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareUpdate:/,
+    "alloc/gui/font/sfnt/glyf F5ax PrepareUpdate is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamPrepareIncrementCounts = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_counts");
+assertOrderedFragments(
+    pathCommandStreamPrepareIncrementCounts,
+    [
+        "add gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count summary 1",
+        "add gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count summary move_to_delta",
+        "add gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count summary line_to_delta",
+        "add gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count summary quadratic_to_delta",
+        "add gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count summary skip_no_segment_delta",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary total_count move_to_count line_to_count quadratic_to_count skip_no_segment_count path_command_index",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ax increment_counts must update total, one selected counter, and last path command index",
+);
+const pathCommandStreamPrepareIncrementFromValue = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_from_value");
+assertOrderedFragments(
+    pathCommandStreamPrepareIncrementFromValue,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index value",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command value",
+        "match command:",
+        "GuiSfntSimpleGlyphPathCommand::MoveTo",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_counts summary 1 0 0 0 path_command_index",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction::CountedMoveTo",
+        "GuiSfntSimpleGlyphPathCommand::LineTo",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_counts summary 0 1 0 0 path_command_index",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction::CountedLineTo",
+        "GuiSfntSimpleGlyphPathCommand::QuadraticTo",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_counts summary 0 0 1 0 path_command_index",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction::CountedQuadraticTo",
+        "GuiSfntSimpleGlyphPathCommand::SkipNoSegment",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_counts summary 0 0 0 1 path_command_index",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction::CountedSkipNoSegment",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ax increment_from_value must read index/command, match variants, and increment exactly one domain counter",
+);
+assert(
+    (pathCommandStreamPrepareIncrementFromValue.match(/gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_command value/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ax increment_from_value must read command payload exactly once",
+);
+assert(
+    (pathCommandStreamPrepareIncrementFromValue.match(/gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_value_path_command_index value/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ax increment_from_value must read path command index exactly once",
+);
+const pathCommandStreamPrepareStepType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:"),
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepErrorKind:"),
+);
+for (const fragment of [
+    "Prepared %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareAction %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+]) {
+    assert(pathCommandStreamPrepareStepType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax PrepareStep must include ${fragment}`);
+}
+assertNoMatch(pathCommandStreamPrepareStepType, /Completed[^\n]*PathCommandValue|Completed[^\n]*PrepareAction/, "alloc/gui/font/sfnt/glyf F5ax completed prepare step must not carry dummy value or dummy action");
+assertMatch(
+    pathCommandStreamPrepareStepType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep:/,
+    "alloc/gui/font/sfnt/glyf F5ax PrepareStep is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamPrepareStepErrorType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepError:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step_error"),
+);
+for (const fragment of [
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary",
+    "cursor %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor",
+    "step_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStepError",
+]) {
+    assert(pathCommandStreamPrepareStepErrorType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax PrepareStepError must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamPrepareStepErrorType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepError:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStepError:/,
+    "alloc/gui/font/sfnt/glyf F5ax PrepareStepError is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamPrepareStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step");
+assertOrderedFragments(
+    pathCommandStreamPrepareStep,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection owner cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Completed complete_cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Completed summary complete_cursor",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamStep::Emitted value next_cursor",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_increment_from_value &summary &value",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareStep::Prepared action next_summary next_cursor",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ax prepare_step must call F5aw step once, preserve completed summary, and increment only emitted values",
+);
+assert(
+    (pathCommandStreamPrepareStep.match(/gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step collection owner cursor/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ax prepare_step must call F5aw step exactly once",
+);
+assertNoMatch(
+    pathCommandStreamPrepareStep,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value\b/,
+    "alloc/gui/font/sfnt/glyf F5ax prepare_step must not call F5av lookup directly",
+);
+const pathCommandStreamPrepareDrainType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_budget"),
+);
+for (const fragment of [
+    "Completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareSummary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandStreamCursor %i32",
+]) {
+    assert(pathCommandStreamPrepareDrainType.includes(fragment), `alloc/gui/font/sfnt/glyf F5ax prepare drain terminal must include ${fragment}`);
+}
+assertMatch(
+    pathCommandStreamPrepareDrainType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:[\s\S]*impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal:/,
+    "alloc/gui/font/sfnt/glyf F5ax PrepareDrainTerminal is value-only and must implement Clone/Copy",
+);
+const pathCommandStreamPrepareDrain = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_drain_budget");
+assertOrderedFragments(
+    pathCommandStreamPrepareDrain,
+    [
+        "if le remaining_steps 0:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted summary cursor 0",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_step collection owner summary cursor",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ax prepare drain must stop on budget before calling prepare step",
+);
+assertNoMatch(
+    pathCommandStreamPrepareDrain,
+    /\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_stream_step\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_complete_owner_path_command_value\b/,
+    "alloc/gui/font/sfnt/glyf F5ax prepare drain must call prepare step only and must not call F5aw step or F5av lookup directly",
+);
+for (const [slice, name] of [
+    [pathCommandValuePathCommandIndex, "PathCommandValue path_command_index accessor"],
+    [pathCommandStreamPrepareInitial, "initial summary"],
+    [pathCommandStreamPrepareIncrementCounts, "increment counts"],
+    [pathCommandStreamPrepareIncrementFromValue, "increment from value"],
+    [pathCommandStreamPrepareStep, "prepare step"],
+    [pathCommandStreamPrepareDrain, "prepare drain"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|Vec|vec::|gui_sfnt_simple_glyph_outline_storage_push_region_scalar|gui_sfnt_simple_glyph_outline_storage_push_scalar_slot|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|GuiSfntSimpleGlyphPathSinkAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback)\b/,
+        `alloc/gui/font/sfnt/glyf F5ax ${name} must not allocate, mutate storage, use old traversal, byte-backed lookup, render/raster/platform, or fallback APIs`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5ax ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_initial_summary_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_path_command_value_accessor_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_single_command_classification_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_step_completed_no_dummy_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_step_uses_f5aw_once_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_drain_terminal_variants_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_drain_budget_no_step_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamPrepareTests.includes("path_command_stream_prepare_no_fallback_no_byte_backed_no_traversal_no_vec_no_raster"),
+    "F5ax path command stream prepare focused doctest must cover types, initial summary, accessor, classification, step terminal, F5aw call location, drain terminal, budget stop, and no fallback/no-byte-backed/no-traversal/no-Vec/no-raster policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
