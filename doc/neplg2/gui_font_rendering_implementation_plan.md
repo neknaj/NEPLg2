@@ -40,6 +40,56 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5bc: sfnt simple glyph outline point stream item collection raster edge owner
+
+目的:
+
+- F5bb の completed `RasterMaskWriterOwner` を authority とし、raster mask scalar Vec を typed raster edge Vec へ変換する。
+- `RasterMaskWriterOwner` は private transition owner なので、F5bc も private boundary に留め、public constructor や forged start point を作らない。
+- scalar stream は tag 2 line record と tag 3 quadratic record だけを受け付け、tag 1 / tag 4 や未知 tag は typed error として返す。
+- F5bc は typed edge owner で止め、scan conversion、pixel coverage、2D render command、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- typed edge Vec の storage representation、allocation cleanup、drain owner / completed owner の分離、scalar read contract、F5bb owner が private であることへの配慮が不足していると指摘された。
+- Tesla revised plan review 2 は `PLAN_BLOCKED`。
+- start error の F5bb writer recovery、budgeted drain の hard progress guard、`vec::get None` の `ScalarSlotMissing` 化、F5bb complete check の固定が不足していると指摘された。
+- Tesla revised plan 3 review は `PLAN_APPROVED`。
+
+変更:
+
+- `GuiSfntSimpleGlyphRasterLineEdge`、`GuiSfntSimpleGlyphRasterQuadraticEdge`、`GuiSfntSimpleGlyphRasterEdge` を追加する。これらは scalar だけを持つ value-only edge record / enum とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner` を private owner として追加する。F5bb writer owner、typed edge Vec、scalar_index、edge_count、line_edge_count、quadratic_edge_count を保持する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner` を private completed owner として追加する。scalar stream と edge count が完全一致した場合だけ生成する。
+- `RasterEdgeStartErrorKind` / `RasterEdgeStartError` を追加する。start error は original F5bb writer を必ず保持し、`raster_edge_start_error_writer` で回収できる。
+- start は F5az capacity derivation、stored capacity、path sink cap、raster mask cap、path sink len、raster mask len、F5ba inner completed progress、F5bb outer completed progress、expected edge capacity、typed edge Vec allocation の順に検査する。
+- `RasterEdgeScalarReadErrorKind` を追加する。private scalar read helper は F5bb writer を消費せず、negative index、out of range、storage length/capacity mismatch、`vec::get None` を `ScalarSlotMissing` として返す。
+- `RasterEdgeDrainErrorKind` / `RasterEdgeDrainError` を追加する。drain error は exactly one drain owner を保持し、`raster_edge_drain_error_owner` で回収できる。
+- budgeted drain は complete terminal を先に検査し、非 terminal かつ budget 0 以下では `StepBudgetExhausted` として owner を返す。step 成功後は line なら scalar_index +5 / edge_count +1 / line_edge_count +1、quadratic なら scalar_index +7 / edge_count +1 / quadratic_edge_count +1 を hard progress guard で検査する。
+- scalar record format は line: `tag, start_x2, start_y2, end_x2, end_y2`、quadratic: `tag, start_x2, start_y2, control_x2, control_y2, end_x2, end_y2` とする。
+- `vec::push` failure では `vec_push_error_kind &e` を先に読み、`vec_push_error_vec e` で Vec を回収し、unchanged drain owner と lower storage error を返す。
+- `raster_edge_drain_owner_free` と `raster_edge_owner_free` を追加し、typed edge Vec と F5bb writer owner を exactly once free する。
+
+完了条件:
+
+- source policy が docs、value-only edge type `Clone` / `Copy`、private drain/completed owner、owner no `Clone` / `Copy`、start error writer recovery、drain error owner recovery、start validation order、non-consuming scalar read、`ScalarSlotMissing`、tag 2 / tag 3 record parsing、tag 1 / tag 4 typed rejection、truncated record error、budgeted terminal、hard progress guard、push failure recovery order、free functions、forbidden byte-backed / old traversal / scan conversion / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md` に edge owner types、start validation order、error recovery、scalar read contract、record parsing、budget/progress guard、push failure recovery、free contract、no fallback/no byte-backed/no traversal/no render policy の coverage label を追加する。
+- implementation review で plan review 指摘がすべて反映されていること、F5bb writer が error から必ず回収可能であること、drain owner と completed owner が混同されていないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の raster edge scan conversion / mask coverage boundary phase へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_edge_owner_f5bc.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_mask_writer_f5bc_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bc.json -j 1
+git diff --check
+```
+
 ## Phase F5bb: sfnt simple glyph outline point stream item collection raster mask writer
 
 目的:

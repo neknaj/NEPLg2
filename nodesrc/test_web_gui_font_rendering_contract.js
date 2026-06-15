@@ -144,6 +144,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkPlanTests 
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_owner.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -202,6 +203,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandStreamSinkWriterTests,
     guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests,
+    guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -14052,6 +14054,247 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_partial_failure_fail_closed_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRasterMaskWriterTests.includes("raster_mask_writer_no_fallback_no_byte_backed_no_traversal_no_render"),
     "F5bb raster mask writer focused doctest must cover types, private owner, start/push validation, inner complete checks, progress bounds, scalar order, current point, push recovery, partial failure, and no fallback policy",
+);
+assert(spec.includes("### SFNT simple glyph outline point stream item collection raster edge owner"), "GUI font spec must document F5bc raster edge owner boundary");
+assert(detailedDesign.includes("## SFNT simple glyph outline point stream item collection raster edge owner boundary"), "GUI font detailed design must document F5bc raster edge owner boundary");
+assert(implementationPlan.includes("## Phase F5bc: sfnt simple glyph outline point stream item collection raster edge owner"), "GUI font implementation plan must include F5bc phase");
+assert(
+    implementationPlan.includes("Tesla revised plan 3 review は `PLAN_APPROVED`") &&
+        spec.includes("ScalarSlotMissing") &&
+        detailedDesign.includes("module-private completed owner"),
+    "GUI font docs must pin F5bc approved plan, scalar read missing-slot contract, and private completed owner",
+);
+const rasterLineEdgeType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterLineEdge:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterQuadraticEdge:"),
+);
+const rasterQuadraticEdgeType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRasterQuadraticEdge:"),
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRasterEdge:"),
+);
+const rasterEdgeType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphRasterEdge:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner:"),
+);
+assert(rasterLineEdgeType.length > 0, "alloc/gui/font/sfnt/glyf F5bc must define GuiSfntSimpleGlyphRasterLineEdge");
+assert(rasterQuadraticEdgeType.length > 0, "alloc/gui/font/sfnt/glyf F5bc must define GuiSfntSimpleGlyphRasterQuadraticEdge");
+assert(rasterEdgeType.length > 0, "alloc/gui/font/sfnt/glyf F5bc must define GuiSfntSimpleGlyphRasterEdge enum");
+for (const fragment of ["start_x2 %i32", "start_y2 %i32", "end_x2 %i32", "end_y2 %i32"]) {
+    assert(rasterLineEdgeType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bc line edge must include ${fragment}`);
+}
+for (const fragment of ["start_x2 %i32", "start_y2 %i32", "control_x2 %i32", "control_y2 %i32", "end_x2 %i32", "end_y2 %i32"]) {
+    assert(rasterQuadraticEdgeType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bc quadratic edge must include ${fragment}`);
+}
+for (const typeName of ["GuiSfntSimpleGlyphRasterLineEdge", "GuiSfntSimpleGlyphRasterQuadraticEdge", "GuiSfntSimpleGlyphRasterEdge"]) {
+    assertMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b[\\s\\S]*impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bc ${typeName} is value-only and must implement Clone/Copy`,
+    );
+}
+const rasterEdgeDrainOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner:"),
+);
+const rasterEdgeOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner:"),
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind:"),
+);
+assert(rasterEdgeDrainOwnerType.length > 0, "alloc/gui/font/sfnt/glyf F5bc must define private RasterEdgeDrainOwner");
+assert(rasterEdgeOwnerType.length > 0, "alloc/gui/font/sfnt/glyf F5bc must define private RasterEdgeOwner");
+for (const fragment of [
+    "writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner",
+    "edges %Vec GuiSfntSimpleGlyphRasterEdge",
+    "scalar_index %i32",
+    "edge_count %i32",
+    "line_edge_count %i32",
+    "quadratic_edge_count %i32",
+]) {
+    assert(rasterEdgeDrainOwnerType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bc RasterEdgeDrainOwner must include ${fragment}`);
+}
+for (const typeName of [
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainTerminal",
+]) {
+    assertNoMatch(
+        allocFontSfntGlyfImpl,
+        new RegExp(`impl\\s+Clone\\s+for\\s+${typeName}\\b|impl\\s+Copy\\s+for\\s+${typeName}\\b`),
+        `alloc/gui/font/sfnt/glyf F5bc ${typeName} owns transition state and must not implement Clone/Copy`,
+    );
+}
+assertNoMatch(
+    allocFontSfntGlyfImpl,
+    /pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner:|pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner:|pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner\b|pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5bc drain/completed owner and constructors must remain private while F5bb owner is private",
+);
+const rasterEdgeStartErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError:"),
+);
+for (const fragment of [
+    "OwnerPlanRejected",
+    "StoredCapacityMismatch",
+    "PathSinkScalarCapacityMismatch",
+    "RasterMaskScalarCapacityMismatch",
+    "PathSinkScalarLenMismatch",
+    "RasterMaskScalarLenMismatch",
+    "InnerWrittenCountMismatch",
+    "InnerPathSinkScalarCountMismatch",
+    "InnerMoveToCountMismatch",
+    "InnerLineToCountMismatch",
+    "InnerQuadraticToCountMismatch",
+    "InnerSkipNoSegmentCountMismatch",
+    "InnerLastPathCommandIndexMismatch",
+    "WriterWrittenCountMismatch",
+    "WriterRasterMaskScalarCountMismatch",
+    "WriterMoveToCountMismatch",
+    "WriterLineToCountMismatch",
+    "WriterQuadraticToCountMismatch",
+    "WriterSkipNoSegmentCountMismatch",
+    "WriterLastPathCommandIndexMismatch",
+    "ExpectedEdgeCapacityMismatch",
+    "EdgeStorageAllocFailed",
+]) {
+    assert(rasterEdgeStartErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bc start error kind must include ${fragment}`);
+}
+const rasterEdgeScalarReadErrorKindType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind:"),
+    allocFontSfntGlyfImpl.indexOf("enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind:"),
+);
+for (const fragment of ["ScalarIndexNegative", "ScalarIndexOutOfRange", "ScalarStorageLengthMismatch", "ScalarStorageCapacityMismatch", "ScalarSlotMissing"]) {
+    assert(rasterEdgeScalarReadErrorKindType.includes(fragment), `alloc/gui/font/sfnt/glyf F5bc scalar read error kind must include ${fragment}`);
+}
+const rasterEdgeStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_start");
+assertOrderedFragments(
+    rasterEdgeStart,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan",
+        "StoredCapacityMismatch",
+        "path_sink_scalar_capacity",
+        "PathSinkScalarCapacityMismatch",
+        "raster_mask_scalar_capacity",
+        "RasterMaskScalarCapacityMismatch",
+        "PathSinkScalarLenMismatch",
+        "RasterMaskScalarLenMismatch",
+        "InnerWrittenCountMismatch",
+        "InnerPathSinkScalarCountMismatch",
+        "InnerMoveToCountMismatch",
+        "InnerLineToCountMismatch",
+        "InnerQuadraticToCountMismatch",
+        "InnerSkipNoSegmentCountMismatch",
+        "InnerLastPathCommandIndexMismatch",
+        "WriterWrittenCountMismatch",
+        "WriterRasterMaskScalarCountMismatch",
+        "WriterMoveToCountMismatch",
+        "WriterLineToCountMismatch",
+        "WriterQuadraticToCountMismatch",
+        "WriterSkipNoSegmentCountMismatch",
+        "WriterLastPathCommandIndexMismatch",
+        "ExpectedEdgeCapacityMismatch",
+        "vec::with_capacity",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bc start must validate capacity, inner writer, outer writer, expected edge count, then allocate typed edge Vec",
+);
+const rasterEdgeStartErrorWriter = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_writer");
+assert(rasterEdgeStartErrorWriter.includes("field::get error \"writer\""), "alloc/gui/font/sfnt/glyf F5bc start error must expose consuming writer recovery");
+const rasterEdgeReadScalar = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar");
+assertOrderedFragments(
+    rasterEdgeReadScalar,
+    [
+        "ScalarIndexNegative",
+        "ScalarIndexOutOfRange",
+        "ScalarStorageLengthMismatch",
+        "ScalarStorageCapacityMismatch",
+        "vec::get scalars index",
+        "Option::None",
+        "ScalarSlotMissing",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bc scalar read must be checked, non-consuming, and map Vec None to ScalarSlotMissing",
+);
+assertNoMatch(rasterEdgeReadScalar, /\bfield::get\b/, "alloc/gui/font/sfnt/glyf F5bc scalar read must borrow nested storage instead of consuming owner fields");
+const rasterEdgePushAdvance = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_push_edge_advance");
+assertOrderedFragments(
+    rasterEdgePushAdvance,
+    [
+        "vec::push edges edge",
+        "Result::Err e:",
+        "let storage_error_value %StdErrorKind vec::vec_push_error_kind &e",
+        "let returned_edges %Vec GuiSfntSimpleGlyphRasterEdge vec::vec_push_error_vec e",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner writer returned_edges scalar_index edge_count line_edge_count quadratic_edge_count",
+        "EdgePushFailed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bc edge push failure must read lower error before Vec recovery and reconstruct unchanged drain owner",
+);
+const rasterEdgeStep = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_step");
+assertOrderedFragments(
+    rasterEdgeStep,
+    [
+        "eq tag 2",
+        "LineRecordTruncated",
+        "add scalar_index 5",
+        "add edge_count 1",
+        "GuiSfntSimpleGlyphRasterEdge::Line",
+        "eq tag 3",
+        "QuadraticRecordTruncated",
+        "add scalar_index 7",
+        "add edge_count 1",
+        "GuiSfntSimpleGlyphRasterEdge::Quadratic",
+        "or eq tag 1 eq tag 4",
+        "UnexpectedNonRasterTag",
+        "MalformedRasterMaskTag",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bc step must parse tag 2/3 records, reject tag 1/4, and reject malformed tags",
+);
+const rasterEdgeDrainBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_to_complete_budget");
+assertOrderedFragments(
+    rasterEdgeDrainBudget,
+    [
+        "RasterEdgesCompleted",
+        "le remaining_steps 0",
+        "StepBudgetExhausted",
+        "PushedLineEdge",
+        "add scalar_index 5",
+        "add edge_count 1",
+        "add line_edge_count 1",
+        "ProgressInvariantInvalid",
+        "PushedQuadraticEdge",
+        "add scalar_index 7",
+        "add edge_count 1",
+        "add quadratic_edge_count 1",
+        "ProgressInvariantInvalid",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bc budgeted drain must return completed/partial terminals and enforce exact step progress",
+);
+for (const [slice, name] of [
+    [rasterEdgeStart, "raster edge start"],
+    [rasterEdgeReadScalar, "raster edge scalar read"],
+    [rasterEdgePushAdvance, "raster edge push"],
+    [rasterEdgeStep, "raster edge step"],
+    [rasterEdgeDrainBudget, "raster edge drain"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_free"), "raster edge drain free"],
+    [functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free"), "raster edge completed free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_sfnt_lookup_|gui_sfnt_parse_metadata|_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_|GuiSfntSimpleGlyphPathSinkAction::|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|scan_convert|coverage_mask)\b/,
+        `alloc/gui/font/sfnt/glyf F5bc ${name} must not use byte-backed lookup, old traversal, scan conversion, render/platform APIs, or fallback`,
+    );
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bc ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_start_validation_order_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_error_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_scalar_read_contract_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_record_parsing_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_budget_progress_guard_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_push_failure_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_free_contract_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRasterEdgeOwnerTests.includes("raster_edge_owner_no_fallback_no_byte_backed_no_traversal_no_render"),
+    "F5bc raster edge owner focused doctest must cover types, start validation, recovery, scalar read, record parsing, budget progress, push recovery, free, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5bb の raster mask scalar writer を authority とし、path sink scalar stream と raster mask scalar stream を消費する次の path object / raster edge boundary を設計する。current point の private transition contract、partial append failure owner、byte-backed lookup / old traversal / render-platform API / fallback 禁止を維持する
+- F5bc の typed raster edge owner を authority とし、line / quadratic edge を scan conversion 前の mask coverage boundary へ接続する。private owner recovery、budgeted progress guard、byte-backed lookup / old traversal / render-platform API / fallback 禁止を維持する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

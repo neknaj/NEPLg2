@@ -1,3 +1,52 @@
+# 2026-06-16 Agent2 GUI font raster edge owner checkpoint
+
+## scope
+
+- branch: `gui-font-raster-edge-object-f5bc-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bc の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、private transition-only owner、owner recovery、budgeted progress guard を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection raster edge owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bc の private drain/completed owner、non-consuming scalar read、typed error、budgeted drain、hard progress guard、push failure recovery、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bc の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に scalar-only `GuiSfntSimpleGlyphRasterLineEdge` / `GuiSfntSimpleGlyphRasterQuadraticEdge` / `GuiSfntSimpleGlyphRasterEdge` を追加した。value-only のため `Clone` / `Copy` を実装した。
+- F5bb writer owner、typed edge Vec、scalar_index、edge_count、line_edge_count、quadratic_edge_count を持つ private `RasterEdgeDrainOwner` と、完全消費後だけ生成する private `RasterEdgeOwner` を追加した。
+- start は F5az capacity、stored capacity、path/raster cap、path/raster len、F5ba inner completed progress、F5bb outer completed progress、expected edge count、typed edge Vec allocation の順に検査する。
+- start error は original F5bb writer owner を保持し、`raster_edge_start_error_writer` で回収できる。
+- scalar read helper は F5bb writer を消費せず、negative / out-of-range / storage len-cap mismatch / `vec::get None` を typed error にする。`vec::get None` は `ScalarSlotMissing` として扱う。
+- drain は tag 2 を line edge 5 scalar、tag 3 を quadratic edge 7 scalar として読み、tag 1 / 4 は `UnexpectedNonRasterTag`、その他は `MalformedRasterMaskTag` で拒否する。
+- budgeted drain は complete terminal を先に返し、非 terminal かつ budget 0 以下では `StepBudgetExhausted` を返す。step 後は line +5/+1、quadratic +7/+1 の exact progress guard を通す。
+- edge Vec push failure では `vec_push_error_kind &e` を先に読み、`vec_push_error_vec e` で Vec owner を回収して unchanged drain owner を返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bc source policy を追加した。docs/types/private owner/start validation/scalar read/record parsing/budget guard/push recovery/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md` を追加し、F5bc source policy coverage label を固定した。
+- `todo.md` は F5bc 完了後の次作業として、mask coverage boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。storage representation、allocation cleanup、drain owner / completed owner の分離、scalar read contract、F5bb private owner への配慮が不足していると指摘された。
+- Tesla revised plan review 2 は `PLAN_BLOCKED`。start error writer recovery、budgeted drain hard progress guard、`vec::get None` の typed `ScalarSlotMissing` 化、F5bb complete checks の固定が不足していると指摘された。
+- Tesla revised plan 3 review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面 blocker はなく、focused doctest file が untracked のままになっていることと、この note の review 状態更新漏れだけが commit-readiness blocker として指摘された。
+- 指摘を受け、focused doctest を commit 対象に含め、この note に review result を記録する。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。focused doctest は staged、note は review result 記録済み、staged set は意図した 8 files、`git diff --cached --check` は通過済みで追加 blocker はないと確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_edge_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_edge_owner_f5bc.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_mask_writer_f5bc_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bc.json -j 1` 1086/1086 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5bc は typed raster edge owner までであり、scan conversion、coverage mask、anti-aliased pixel mask、render2d command emission は未実装である。
+- typed raster edge owner はまだ private boundary である。public API 化は、F5bb private owner と raster mask ownership の再検査 story が固まってから行う。
+
 # 2026-06-16 Agent2 GUI font raster mask writer checkpoint
 
 ## scope

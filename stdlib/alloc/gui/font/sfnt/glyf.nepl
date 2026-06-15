@@ -15032,6 +15032,596 @@ fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer
     let inner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get writer "writer"
     gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_free inner
 
+//: GuiSfntSimpleGlyphRasterLineEdge: raster mask scalar stream から[読/よ]んだ line edge
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterLineEdge:
+    start_x2 %i32
+    start_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+
+impl Clone for GuiSfntSimpleGlyphRasterLineEdge:
+    fn clone %fn &GuiSfntSimpleGlyphRasterLineEdge GuiSfntSimpleGlyphRasterLineEdge \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphRasterLineEdge:
+    fn copy_mark %fn GuiSfntSimpleGlyphRasterLineEdge GuiSfntSimpleGlyphRasterLineEdge \edge:
+        edge
+
+fn gui_sfnt_simple_glyph_raster_line_edge %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterLineEdge \start_x2\start_y2\end_x2\end_y2:
+    GuiSfntSimpleGlyphRasterLineEdge start_x2 start_y2 end_x2 end_y2
+
+//: GuiSfntSimpleGlyphRasterQuadraticEdge: raster mask scalar stream から[読/よ]んだ quadratic edge
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterQuadraticEdge:
+    start_x2 %i32
+    start_y2 %i32
+    control_x2 %i32
+    control_y2 %i32
+    end_x2 %i32
+    end_y2 %i32
+
+impl Clone for GuiSfntSimpleGlyphRasterQuadraticEdge:
+    fn clone %fn &GuiSfntSimpleGlyphRasterQuadraticEdge GuiSfntSimpleGlyphRasterQuadraticEdge \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphRasterQuadraticEdge:
+    fn copy_mark %fn GuiSfntSimpleGlyphRasterQuadraticEdge GuiSfntSimpleGlyphRasterQuadraticEdge \edge:
+        edge
+
+fn gui_sfnt_simple_glyph_raster_quadratic_edge %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterQuadraticEdge \start_x2\start_y2\control_x2\control_y2\end_x2\end_y2:
+    GuiSfntSimpleGlyphRasterQuadraticEdge start_x2 start_y2 control_x2 control_y2 end_x2 end_y2
+
+//: GuiSfntSimpleGlyphRasterEdge: rasterizer へ[渡/わた]す typed edge
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRasterEdge:
+    Line %GuiSfntSimpleGlyphRasterLineEdge
+    Quadratic %GuiSfntSimpleGlyphRasterQuadraticEdge
+
+impl Clone for GuiSfntSimpleGlyphRasterEdge:
+    fn clone %fn &GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRasterEdge \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphRasterEdge:
+    fn copy_mark %fn GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRasterEdge \edge:
+        edge
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner: raster edge drain の内部所有者
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner:
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner
+    edges %Vec GuiSfntSimpleGlyphRasterEdge
+    scalar_index %i32
+    edge_count %i32
+    line_edge_count %i32
+    quadratic_edge_count %i32
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner fn Vec GuiSfntSimpleGlyphRasterEdge fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner \writer\edges\scalar_index\edge_count\line_edge_count\quadratic_edge_count:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner writer edges scalar_index edge_count line_edge_count quadratic_edge_count
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "scalar_index"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "edge_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_line_edge_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "line_edge_count"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_quadratic_edge_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner i32 \owner:
+    *field::get_ref owner "quadratic_edge_count"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner: completed raster edge owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner:
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner
+    edges %Vec GuiSfntSimpleGlyphRasterEdge
+    scalar_count %i32
+    edge_count %i32
+    line_edge_count %i32
+    quadratic_edge_count %i32
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner fn Vec GuiSfntSimpleGlyphRasterEdge fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner \writer\edges\scalar_count\edge_count\line_edge_count\quadratic_edge_count:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner writer edges scalar_count edge_count line_edge_count quadratic_edge_count
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind: raster edge start [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind:
+    OwnerPlanRejected
+    StoredCapacityMismatch
+    PathSinkScalarCapacityMismatch
+    RasterMaskScalarCapacityMismatch
+    PathSinkScalarLenMismatch
+    RasterMaskScalarLenMismatch
+    InnerWrittenCountMismatch
+    InnerPathSinkScalarCountMismatch
+    InnerMoveToCountMismatch
+    InnerLineToCountMismatch
+    InnerQuadraticToCountMismatch
+    InnerSkipNoSegmentCountMismatch
+    InnerLastPathCommandIndexMismatch
+    WriterWrittenCountMismatch
+    WriterRasterMaskScalarCountMismatch
+    WriterMoveToCountMismatch
+    WriterLineToCountMismatch
+    WriterQuadraticToCountMismatch
+    WriterSkipNoSegmentCountMismatch
+    WriterLastPathCommandIndexMismatch
+    ExpectedEdgeCapacityMismatch
+    EdgeStorageAllocFailed
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError: start failure context
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind
+    writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner
+    capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError
+    derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError \kind\writer\capacity_error\derived_capacity\storage_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError kind writer capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError \kind\writer\derived_capacity_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error kind writer capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_capacity_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError \writer\capacity_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError some capacity_error_value
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::OwnerPlanRejected writer capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_storage_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity fn StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError \writer\derived_capacity_value\storage_error_value:
+    let capacity_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerAllocError none
+    let derived_capacity %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity some derived_capacity_value
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::EdgeStorageAllocFailed writer capacity_error derived_capacity storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_writer %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner \error:
+    field::get error "writer"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_start %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartError \writer:
+    let inner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref &writer "writer"
+    let owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref inner "owner"
+    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan owner
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_from_plan &plan:
+        Result::Err capacity_error:
+            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_capacity_failed writer capacity_error
+        Result::Ok derived_capacity:
+            let stored_capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity owner
+            if not gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_matches &stored_capacity &derived_capacity:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::StoredCapacityMismatch writer derived_capacity
+                else:
+                    let path_sink_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_path_sink_scalar_capacity &derived_capacity
+                    let path_sink_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_cap owner
+                    if ne path_sink_scalars_cap path_sink_scalar_capacity:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::PathSinkScalarCapacityMismatch writer derived_capacity
+                        else:
+                            let raster_mask_scalar_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_mask_scalar_capacity &derived_capacity
+                            let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap owner
+                            if ne raster_mask_scalars_cap raster_mask_scalar_capacity:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::RasterMaskScalarCapacityMismatch writer derived_capacity
+                                else:
+                                    let path_sink_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_path_sink_scalars_len owner
+                                    if ne path_sink_scalars_len path_sink_scalar_capacity:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::PathSinkScalarLenMismatch writer derived_capacity
+                                        else:
+                                            let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len owner
+                                            if ne raster_mask_scalars_len raster_mask_scalar_capacity:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::RasterMaskScalarLenMismatch writer derived_capacity
+                                                else:
+                                                    let inner_written_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_written_count inner
+                                                    let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count &plan
+                                                    if ne inner_written_count total_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerWrittenCountMismatch writer derived_capacity
+                                                        else:
+                                                            let inner_path_sink_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_path_sink_scalar_count inner
+                                                            if ne inner_path_sink_scalar_count path_sink_scalar_capacity:
+                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerPathSinkScalarCountMismatch writer derived_capacity
+                                                                else:
+                                                                    let inner_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_move_to_count inner
+                                                                    let plan_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_move_to_count &plan
+                                                                    if ne inner_move_to_count plan_move_to_count:
+                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerMoveToCountMismatch writer derived_capacity
+                                                                        else:
+                                                                            let inner_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_line_to_count inner
+                                                                            let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                                                                            if ne inner_line_to_count plan_line_to_count:
+                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerLineToCountMismatch writer derived_capacity
+                                                                                else:
+                                                                                    let inner_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_quadratic_to_count inner
+                                                                                    let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                                                                                    if ne inner_quadratic_to_count plan_quadratic_to_count:
+                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerQuadraticToCountMismatch writer derived_capacity
+                                                                                        else:
+                                                                                            let inner_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_skip_no_segment_count inner
+                                                                                            let plan_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_skip_no_segment_count &plan
+                                                                                            if ne inner_skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerSkipNoSegmentCountMismatch writer derived_capacity
+                                                                                                else:
+                                                                                                    let inner_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_writer_owner_last_path_command_index inner
+                                                                                                    let plan_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_last_path_command_index &plan
+                                                                                                    if ne inner_last_path_command_index plan_last_path_command_index:
+                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::InnerLastPathCommandIndexMismatch writer derived_capacity
+                                                                                                        else:
+                                                                                                            let writer_written_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_written_count &writer
+                                                                                                            if ne writer_written_count total_count:
+                                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterWrittenCountMismatch writer derived_capacity
+                                                                                                                else:
+                                                                                                                    let writer_raster_mask_scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_raster_mask_scalar_count &writer
+                                                                                                                    if ne writer_raster_mask_scalar_count raster_mask_scalar_capacity:
+                                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterRasterMaskScalarCountMismatch writer derived_capacity
+                                                                                                                        else:
+                                                                                                                            let writer_move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_move_to_count &writer
+                                                                                                                            if ne writer_move_to_count plan_move_to_count:
+                                                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterMoveToCountMismatch writer derived_capacity
+                                                                                                                                else:
+                                                                                                                                    let writer_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_line_to_count &writer
+                                                                                                                                    if ne writer_line_to_count plan_line_to_count:
+                                                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterLineToCountMismatch writer derived_capacity
+                                                                                                                                        else:
+                                                                                                                                            let writer_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_quadratic_to_count &writer
+                                                                                                                                            if ne writer_quadratic_to_count plan_quadratic_to_count:
+                                                                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterQuadraticToCountMismatch writer derived_capacity
+                                                                                                                                                else:
+                                                                                                                                                    let writer_skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_skip_no_segment_count &writer
+                                                                                                                                                    if ne writer_skip_no_segment_count plan_skip_no_segment_count:
+                                                                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterSkipNoSegmentCountMismatch writer derived_capacity
+                                                                                                                                                        else:
+                                                                                                                                                            let writer_last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_last_path_command_index &writer
+                                                                                                                                                            if ne writer_last_path_command_index plan_last_path_command_index:
+                                                                                                                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::WriterLastPathCommandIndexMismatch writer derived_capacity
+                                                                                                                                                                else:
+                                                                                                                                                                    let remaining_edge_room %i32 sub 2147483647 plan_line_to_count
+                                                                                                                                                                    let expected_edge_count %i32 add plan_line_to_count plan_quadratic_to_count
+                                                                                                                                                                    let raster_edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &derived_capacity
+                                                                                                                                                                    if or or lt plan_line_to_count 0 lt plan_quadratic_to_count 0 or gt plan_quadratic_to_count remaining_edge_room ne expected_edge_count raster_edge_capacity:
+                                                                                                                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeStartErrorKind::ExpectedEdgeCapacityMismatch writer derived_capacity
+                                                                                                                                                                        else:
+                                                                                                                                                                            match vec::with_capacity raster_edge_capacity:
+                                                                                                                                                                                Result::Err storage_error:
+                                                                                                                                                                                    Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_start_error_storage_failed writer derived_capacity storage_error
+                                                                                                                                                                                Result::Ok edges:
+                                                                                                                                                                                    let drain_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner writer edges 0 0 0 0
+                                                                                                                                                                                    Result::Ok drain_owner
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind: scalar read failure
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind:
+    ScalarIndexNegative
+    ScalarIndexOutOfRange
+    ScalarStorageLengthMismatch
+    ScalarStorageCapacityMismatch
+    ScalarSlotMissing
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind: drain failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind:
+    ScalarReadFailed
+    UnexpectedNonRasterTag
+    MalformedRasterMaskTag
+    LineRecordTruncated
+    QuadraticRecordTruncated
+    EdgeCountExceeded
+    LineEdgeCountExceeded
+    QuadraticEdgeCountExceeded
+    EdgePushFailed
+    ProgressInvariantInvalid
+    CompletionScalarIndexMismatch
+    CompletionEdgeCountMismatch
+    CompletionLineCountMismatch
+    CompletionQuadraticCountMismatch
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError: drain failure context
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner
+    scalar_index %i32
+    tag %Option i32
+    read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner fn i32 fn Option i32 fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \kind\owner\scalar_index\tag\read_error\storage_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError kind owner scalar_index tag read_error storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \kind\owner:
+    let scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &owner
+    let tag %Option i32 none
+    let read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error kind owner scalar_index tag read_error storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_with_tag %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \kind\owner\tag_value:
+    let scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &owner
+    let tag %Option i32 some tag_value
+    let read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error kind owner scalar_index tag read_error storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner fn i32 fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \owner\scalar_index\read_error_value:
+    let tag %Option i32 none
+    let read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind some read_error_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::ScalarReadFailed owner scalar_index tag read_error storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_push_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner fn StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \owner\storage_error_value:
+    let scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &owner
+    let tag %Option i32 none
+    let read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::EdgePushFailed owner scalar_index tag read_error storage_error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner \error:
+    field::get error "owner"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner fn i32 Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind \owner\index:
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get_ref owner "writer"
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_raster_mask_scalar_count writer
+    if lt index 0:
+        then Result::Err GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind::ScalarIndexNegative
+        else:
+            if ge index scalar_count:
+                then Result::Err GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind::ScalarIndexOutOfRange
+                else:
+                    let inner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref writer "writer"
+                    let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref inner "owner"
+                    let raster_mask_scalars_len %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_len sink_owner
+                    if ne raster_mask_scalars_len scalar_count:
+                        then Result::Err GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind::ScalarStorageLengthMismatch
+                        else:
+                            let raster_mask_scalars_cap %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_raster_mask_scalars_cap sink_owner
+                            if ne raster_mask_scalars_cap scalar_count:
+                                then Result::Err GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind::ScalarStorageCapacityMismatch
+                                else:
+                                    let scalars %&Vec i32 field::get_ref sink_owner "raster_mask_scalars"
+                                    match vec::get scalars index:
+                                        Option::Some scalar:
+                                            Result::Ok scalar
+                                        Option::None:
+                                            Result::Err GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind::ScalarSlotMissing
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_push_edge_advance %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner impure fn GuiSfntSimpleGlyphRasterEdge impure fn i32 impure fn i32 impure fn i32 impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \owner\edge\next_scalar_index\next_edge_count\next_line_edge_count\next_quadratic_edge_count:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get owner "writer"
+    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+    let scalar_index %i32 field::get owner "scalar_index"
+    let edge_count %i32 field::get owner "edge_count"
+    let line_edge_count %i32 field::get owner "line_edge_count"
+    let quadratic_edge_count %i32 field::get owner "quadratic_edge_count"
+    match vec::push edges edge:
+        Result::Ok next_edges:
+            let next_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner writer next_edges next_scalar_index next_edge_count next_line_edge_count next_quadratic_edge_count
+            Result::Ok next_owner
+        Result::Err e:
+            let storage_error_value %StdErrorKind vec::vec_push_error_kind &e
+            let returned_edges %Vec GuiSfntSimpleGlyphRasterEdge vec::vec_push_error_vec e
+            let returned_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner writer returned_edges scalar_index edge_count line_edge_count quadratic_edge_count
+            let tag %Option i32 none
+            let read_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeScalarReadErrorKind none
+            let storage_error %Option StdErrorKind some storage_error_value
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::EdgePushFailed returned_owner scalar_index tag read_error storage_error
+            Result::Err error
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep: 1 record drain result
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep:
+    PushedLineEdge %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner
+    PushedQuadraticEdge %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_step %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \owner:
+    let scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &owner
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get_ref &owner "writer"
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_raster_mask_scalar_count writer
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner scalar_index:
+        Result::Err read_error:
+            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner scalar_index read_error
+        Result::Ok tag:
+            if eq tag 2:
+                then:
+                    let remaining %i32 sub scalar_count scalar_index
+                    if lt remaining 5:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_with_tag GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::LineRecordTruncated owner tag
+                        else:
+                            let start_x_index %i32 add scalar_index 1
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner start_x_index:
+                                Result::Err read_error:
+                                    Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner start_x_index read_error
+                                Result::Ok start_x2:
+                                    let start_y_index %i32 add scalar_index 2
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner start_y_index:
+                                        Result::Err read_error:
+                                            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner start_y_index read_error
+                                        Result::Ok start_y2:
+                                            let end_x_index %i32 add scalar_index 3
+                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner end_x_index:
+                                                Result::Err read_error:
+                                                    Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner end_x_index read_error
+                                                Result::Ok end_x2:
+                                                    let end_y_index %i32 add scalar_index 4
+                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner end_y_index:
+                                                        Result::Err read_error:
+                                                            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner end_y_index read_error
+                                                        Result::Ok end_y2:
+                                                            let next_scalar_index %i32 add scalar_index 5
+                                                            let edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count &owner
+                                                            let next_edge_count %i32 add edge_count 1
+                                                            let line_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_line_edge_count &owner
+                                                            let next_line_edge_count %i32 add line_edge_count 1
+                                                            let quadratic_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_quadratic_edge_count &owner
+                                                            let line_edge %GuiSfntSimpleGlyphRasterLineEdge gui_sfnt_simple_glyph_raster_line_edge start_x2 start_y2 end_x2 end_y2
+                                                            let edge %GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRasterEdge::Line line_edge
+                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_push_edge_advance owner edge next_scalar_index next_edge_count next_line_edge_count quadratic_edge_count:
+                                                                Result::Err error:
+                                                                    Result::Err error
+                                                                Result::Ok next_owner:
+                                                                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep::PushedLineEdge next_owner
+                else:
+                    if eq tag 3:
+                        then:
+                            let remaining %i32 sub scalar_count scalar_index
+                            if lt remaining 7:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_with_tag GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::QuadraticRecordTruncated owner tag
+                                else:
+                                    let start_x_index %i32 add scalar_index 1
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner start_x_index:
+                                        Result::Err read_error:
+                                            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner start_x_index read_error
+                                        Result::Ok start_x2:
+                                            let start_y_index %i32 add scalar_index 2
+                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner start_y_index:
+                                                Result::Err read_error:
+                                                    Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner start_y_index read_error
+                                                Result::Ok start_y2:
+                                                    let control_x_index %i32 add scalar_index 3
+                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner control_x_index:
+                                                        Result::Err read_error:
+                                                            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner control_x_index read_error
+                                                        Result::Ok control_x2:
+                                                            let control_y_index %i32 add scalar_index 4
+                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner control_y_index:
+                                                                Result::Err read_error:
+                                                                    Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner control_y_index read_error
+                                                                Result::Ok control_y2:
+                                                                    let end_x_index %i32 add scalar_index 5
+                                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner end_x_index:
+                                                                        Result::Err read_error:
+                                                                            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner end_x_index read_error
+                                                                        Result::Ok end_x2:
+                                                                            let end_y_index %i32 add scalar_index 6
+                                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_read_scalar &owner end_y_index:
+                                                                                Result::Err read_error:
+                                                                                    Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_read_failed owner end_y_index read_error
+                                                                                Result::Ok end_y2:
+                                                                                    let next_scalar_index %i32 add scalar_index 7
+                                                                                    let edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count &owner
+                                                                                    let next_edge_count %i32 add edge_count 1
+                                                                                    let line_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_line_edge_count &owner
+                                                                                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_quadratic_edge_count &owner
+                                                                                    let next_quadratic_edge_count %i32 add quadratic_edge_count 1
+                                                                                    let quadratic_edge %GuiSfntSimpleGlyphRasterQuadraticEdge gui_sfnt_simple_glyph_raster_quadratic_edge start_x2 start_y2 control_x2 control_y2 end_x2 end_y2
+                                                                                    let edge %GuiSfntSimpleGlyphRasterEdge GuiSfntSimpleGlyphRasterEdge::Quadratic quadratic_edge
+                                                                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_push_edge_advance owner edge next_scalar_index next_edge_count line_edge_count next_quadratic_edge_count:
+                                                                                        Result::Err error:
+                                                                                            Result::Err error
+                                                                                        Result::Ok next_owner:
+                                                                                            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep::PushedQuadraticEdge next_owner
+                        else:
+                            if or eq tag 1 eq tag 4:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_with_tag GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::UnexpectedNonRasterTag owner tag
+                                else Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_with_tag GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::MalformedRasterMaskTag owner tag
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainTerminal: drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainTerminal:
+    RasterEdgesCompleted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_complete %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \owner:
+    let writer_ref %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get_ref &owner "writer"
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_raster_mask_scalar_count writer_ref
+    let scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &owner
+    if ne scalar_index scalar_count:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::CompletionScalarIndexMismatch owner
+        else:
+            let inner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkWriterOwner field::get_ref writer_ref "writer"
+            let sink_owner %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwner field::get_ref inner "owner"
+            let capacity %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkOwnerCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity sink_owner
+            let edge_capacity %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_capacity_raster_edge_capacity &capacity
+            let edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count &owner
+            if ne edge_count edge_capacity:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::CompletionEdgeCountMismatch owner
+                else:
+                    let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_owner_plan sink_owner
+                    let line_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_line_edge_count &owner
+                    let plan_line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_line_to_count &plan
+                    if ne line_edge_count plan_line_to_count:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::CompletionLineCountMismatch owner
+                        else:
+                            let quadratic_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_quadratic_edge_count &owner
+                            let plan_quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_quadratic_to_count &plan
+                            if ne quadratic_edge_count plan_quadratic_to_count:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::CompletionQuadraticCountMismatch owner
+                                else:
+                                    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get owner "writer"
+                                    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+                                    let completed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner writer edges scalar_count edge_count line_edge_count quadratic_edge_count
+                                    Result::Ok completed
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainError \owner\remaining_steps:
+    let scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &owner
+    let writer %&GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get_ref &owner "writer"
+    let scalar_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_raster_mask_scalar_count writer
+    if eq scalar_index scalar_count:
+        then:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_complete owner:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok completed_owner:
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainTerminal::RasterEdgesCompleted completed_owner
+        else:
+            if le remaining_steps 0:
+                then Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainTerminal::StepBudgetExhausted owner
+                else:
+                    let edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count &owner
+                    let line_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_line_edge_count &owner
+                    let quadratic_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_quadratic_edge_count &owner
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_step owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok step:
+                            match step:
+                                GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep::PushedLineEdge next_owner:
+                                    let next_scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &next_owner
+                                    let required_scalar_index %i32 add scalar_index 5
+                                    let next_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count &next_owner
+                                    let required_edge_count %i32 add edge_count 1
+                                    let next_line_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_line_edge_count &next_owner
+                                    let required_line_edge_count %i32 add line_edge_count 1
+                                    if or or ne next_scalar_index required_scalar_index ne next_edge_count required_edge_count ne next_line_edge_count required_line_edge_count:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::ProgressInvariantInvalid next_owner
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_to_complete_budget next_owner next_remaining_steps
+                                GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainStep::PushedQuadraticEdge next_owner:
+                                    let next_scalar_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_scalar_index &next_owner
+                                    let required_scalar_index %i32 add scalar_index 7
+                                    let next_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_edge_count &next_owner
+                                    let required_edge_count %i32 add edge_count 1
+                                    let next_quadratic_edge_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_quadratic_edge_count &next_owner
+                                    let required_quadratic_edge_count %i32 add quadratic_edge_count 1
+                                    if or or ne next_scalar_index required_scalar_index ne next_edge_count required_edge_count ne next_quadratic_edge_count required_quadratic_edge_count:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_error_simple GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainErrorKind::ProgressInvariantInvalid next_owner
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_to_complete_budget next_owner next_remaining_steps
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_drain_owner_free %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeDrainOwner unit \owner:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get owner "writer"
+    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+    vec::free edges
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_free writer
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner unit \owner:
+    let writer %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner field::get owner "writer"
+    let edges %Vec GuiSfntSimpleGlyphRasterEdge field::get owner "edges"
+    vec::free edges
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_mask_writer_owner_free writer
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

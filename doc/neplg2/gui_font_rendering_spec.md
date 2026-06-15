@@ -5525,6 +5525,86 @@ render / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection raster edge owner
+
+F5bc は F5bb の completed raster mask writer owner を authority として、raster mask scalar Vec を typed raster edge Vec へ変換する内部 owner 境界である。これは scan conversion、coverage mask construction、2D render command emission、platform present ではない。
+
+F5bc は `GuiSfntSimpleGlyphRasterLineEdge`、`GuiSfntSimpleGlyphRasterQuadraticEdge`、`GuiSfntSimpleGlyphRasterEdge` を value-only edge representation とする。これらは scalar だけを持つので `Clone` / `Copy` を許す。ただし `RasterEdgeDrainOwner` と completed `RasterEdgeOwner` は Vec owner と F5bb writer owner を保持するため、module-private struct とし、public constructor、`Clone`、`Copy` を持たせない。
+
+F5bc の start は次の順序で検査する。
+
+```text
+F5az capacity derivation
+stored capacity equality
+path sink scalar capacity equality
+raster mask scalar capacity equality
+path sink scalar len equality
+raster mask scalar len equality
+inner F5ba written_count equals plan.total_count
+inner F5ba path_sink_scalar_count equals capacity.path_sink_scalar_capacity
+inner F5ba kind counts equal plan kind counts
+inner F5ba last index equals plan.last_path_command_index
+outer F5bb written_count equals plan.total_count
+outer F5bb raster_mask_scalar_count equals capacity.raster_mask_scalar_capacity
+outer F5bb kind counts equal plan kind counts
+outer F5bb last index equals plan.last_path_command_index
+expected edge capacity equals line_to_count + quadratic_to_count
+typed edge Vec allocation with capacity.raster_edge_capacity
+```
+
+start error は original F5bb writer を必ず保持し、caller は `raster_edge_start_error_writer` で writer を回収して F5bb free へ渡せる。allocation failure は lower storage error を `Option StdErrorKind` として保持する。silent no-op や default empty owner は使わない。
+
+scalar read は F5bb writer を消費しない private helper とする。negative index、out of range、storage length mismatch、storage capacity mismatch、`vec::get` の `None` はすべて typed error で返す。`vec::get None` は `ScalarSlotMissing` であり、0 や前回値への fallback は禁止する。
+
+raster edge scalar record は次で固定する。
+
+```text
+Line edge:
+    tag = 2
+    start_x2
+    start_y2
+    end_x2
+    end_y2
+
+Quadratic edge:
+    tag = 3
+    start_x2
+    start_y2
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+```
+
+tag 1 と tag 4 は raster edge record ではないため `UnexpectedNonRasterTag` とする。未知 tag は `MalformedRasterMaskTag` とする。line record が 5 scalar 未満、quadratic record が 7 scalar 未満なら、範囲外 read の前に `LineRecordTruncated` / `QuadraticRecordTruncated` を返す。
+
+budgeted drain は complete terminal を先に検査する。scalar stream が未完了で `remaining_steps <= 0` の場合は `StepBudgetExhausted` として drain owner を返す。1 step 成功後は hard progress guard を必ず通す。
+
+```text
+Line edge success:
+    scalar_index += 5
+    edge_count += 1
+    line_edge_count += 1
+
+Quadratic edge success:
+    scalar_index += 7
+    edge_count += 1
+    quadratic_edge_count += 1
+```
+
+`vec::push` failure では lower `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec owner を回収する。error は unchanged drain owner を保持し、caller は `raster_edge_drain_error_owner` で回収できる。
+
+F5bc は次を呼ばない。
+
+```text
+byte-backed lookup helper
+old path sink action traversal
+scan conversion
+coverage mask rasterization
+render / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
