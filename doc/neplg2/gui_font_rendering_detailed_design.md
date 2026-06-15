@@ -3904,6 +3904,34 @@ The required order is:
 
 F5ac may call F5ab and the pure `gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at` projection. It must not call byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5aa/F5z/F5y/F5x/F5w lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer/action APIs, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink event at boundary
+
+F5ad is the collection-backed equivalent of the F4r typed-slot event projection, but it keeps the collection-backed authority chain intact. It does not re-decode SFNT bytes, does not call the byte-backed path lookup, and does not introduce sink traversal or event consumer state. It composes exactly one F5aa path sink event pair lookup with the existing pure typed-slot event projection.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    -> Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5ad deliberately reuses the F5aa error domain. The boundary adds no new operation that can fail: `GuiSfntSimpleGlyphPathSinkEventSlot` is a closed enum with only `First` and `Second`, and path sink event slot projection is a total value projection over `GuiSfntSimpleGlyphPathSinkEventPair`. If F5aa returns an error, F5ad returns that exact error. If F5aa returns a pair containing `SkipNoSegment`, F5ad preserves the selected event payload; it does not return `Option::None`, does not silently skip the edge, and does not fall back to a byte-backed path.
+
+The required order is:
+
+```text
+1. Call F5aa collection path sink event pair lookup exactly once.
+2. On F5aa error, return Result::Err error without wrapping or changing the error kind.
+3. On F5aa success, call gui_sfnt_simple_glyph_path_sink_event_pair_event_at exactly once with the typed slot.
+4. Return Result::Ok event.
+```
+
+F5ad may call F5aa and the pure `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` projection. It must not call F5ab/F5ac kind helpers, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5z/F5y/F5x/F5w/F5v lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer/action APIs, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

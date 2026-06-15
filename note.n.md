@@ -63816,3 +63816,40 @@ MERGE_APPROVED
 
 - F5ac は typed slot から kind を読む lookup までであり、payload event selection、contour cursor、full traversal は未実装である。
 - 次 slice では F5ac を authority として、path sink event at または collection-backed contour traversal へ進む。
+
+## 2026-06-15 GUI font collection path sink event at checkpoint
+
+### scope
+
+- branch: `gui-font-collection-path-contour-step-f5ad-20260615`
+- plan_md: 確認のみ。`plan.md` は人が編集する文書なので変更していない。
+- zenn_policy: fallback や silent no-op ではなく、F5aa error をそのまま返す `Result` と `GuiSfntSimpleGlyphPathSinkEventSlot` enum による typed slot selection で、invalid index を型から排除する。
+- scope_note: branch 名は contour step を含むが、subagent review により実装 slice は `path_sink_event_at` へ狭めた。contour step は span failure と event/kind failure を統合する F5 専用 typed error が必要なため次 slice へ送った。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を追加した。
+- F5ad は F5aa `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を authority とし、成功時だけ pure `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` へ typed slot を渡す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ad の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md` を追加し、first / second slot、NoSegment skip、error propagation、no fallback/no Vec/no sink traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ad source policy を追加し、F5aa exact one-call、pure typed-slot event projection exact one-call、F5ab/F5ac kind helper 禁止、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed contour step boundary へ更新した。次 slice では contour span failure と event/kind lookup failure を混ぜない F5 専用 typed error を設計する。
+
+### subagent_review
+
+- Tesla plan review 1: `PLAN_BLOCKED`。contour step 案では `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` が返す `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError` を `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` として「そのまま返す」ことができず、F5aa と F5ac を同時に呼ぶと同じ edge を二重に導出することを指摘された。
+- Tesla revised plan review: `PLAN_APPROVED`。F5ad を F5aa と既存 pure typed-slot event projection の thin composition に狭める方針が承認された。
+- Tesla implementation review: `REVIEW_APPROVED`。F5ad staged commit set は coherent で、F5aa exact one-call、error propagation、pure typed-slot event projection、duplicate edge derivation なし、fallback / byte-backed regression / lower collection helper leakage / render-raster-platform drift なしと確認された。
+
+### verification_current
+
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_at_f5ad.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_at_f5ad_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ad.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### residual
+
+- F5ad は typed slot から event を読む lookup までであり、kind lookup は F5ac、contour cursor / next state / full traversal は未実装である。
+- 次 slice では F5ad event at と F5ac kind at を使い、span lookup failure と event/kind lookup failure を明示的に分ける F5 contour step error を追加して collection-backed contour step へ進む。

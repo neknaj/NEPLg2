@@ -117,6 +117,7 @@ const guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests = read("tests/
 const guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkEventPairTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_pair.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindPairTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_pair.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindAtTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
@@ -150,6 +151,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests,
     guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkEventPairTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindPairTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindAtTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
@@ -8387,6 +8389,107 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindAtTests.includes("path_sink_event_kind_at_error_propagates_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkEventKindAtTests.includes("no_vec_no_fallback_no_sink_traversal"),
     "F5ac point stream item collection path sink event kind at focused doctest must cover typed slot states and lower error propagation",
+);
+const specF5ad = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink event at"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5ad は F5aa",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at:",
+    "slot GuiSfntSimpleGlyphPathSinkEventSlot",
+    "-> Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError",
+    "新しい error enum を持たない",
+    "F5aa collection path sink event pair lookup を exactly once 呼ぶ",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_event_at へ exactly once 渡す",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at",
+    "sink traversal / event consumer APIs",
+]) {
+    assert(specF5ad.includes(fragment), `font spec F5ad collection path sink event at must mention ${fragment}`);
+}
+const detailedF5ad = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink event at boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5ad is the collection-backed equivalent",
+    "composes exactly one F5aa path sink event pair lookup with the existing pure typed-slot event projection",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at:",
+    "F5ad deliberately reuses the F5aa error domain",
+    "`GuiSfntSimpleGlyphPathSinkEventSlot` is a closed enum",
+    "Call F5aa collection path sink event pair lookup exactly once",
+    "return Result::Err error without wrapping or changing the error kind",
+    "call gui_sfnt_simple_glyph_path_sink_event_pair_event_at exactly once",
+    "F5ad may call F5aa and the pure `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` projection",
+]) {
+    assert(detailedF5ad.includes(fragment), `font detailed design F5ad collection path sink event at must mention ${fragment}`);
+}
+const implementationPlanF5ad = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5ad: sfnt simple glyph outline point stream item collection path sink event at"),
+);
+for (const fragment of [
+    "PLAN_BLOCKED",
+    "revised Tesla plan review は `PLAN_APPROVED`",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at",
+    "F5aa `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を source 上 exactly once 呼ぶ",
+    "F5aa error は wrap せず",
+    "gui_sfnt_simple_glyph_path_sink_event_pair_event_at",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md",
+]) {
+    assert(implementationPlanF5ad.includes(fragment), `font implementation plan F5ad must mention ${fragment}`);
+}
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError"),
+    "alloc/gui/font/sfnt/glyf F5ad must expose collection-backed path sink event at helper",
+);
+const pointStreamItemCollectionPathSinkEventAt = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair collection contour_index edge_index",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok event_pair:",
+    "let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot",
+    "Result::Ok event",
+]) {
+    assert(pointStreamItemCollectionPathSinkEventAt.includes(fragment), `alloc/gui/font/sfnt/glyf F5ad path sink event at body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkEventAt,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair collection contour_index edge_index",
+        "Result::Err error:",
+        "Result::Err error",
+        "Result::Ok event_pair:",
+        "gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot",
+        "Result::Ok event",
+    ],
+    "alloc/gui/font/sfnt/glyf F5ad must propagate F5aa errors before pure typed-slot event projection",
+);
+assert(
+    (pointStreamItemCollectionPathSinkEventAt.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ad must call F5aa path sink event pair exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathSinkEventAt.match(/\bgui_sfnt_simple_glyph_path_sink_event_pair_event_at\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5ad must call pure typed-slot path sink event projection exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkEventAt,
+    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphPathSinkEvent|push|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_path_sink_event_pair_kind_at|gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at|gui_sfnt_simple_glyph_path_sink_event_kind\b|gui_sfnt_lookup_simple_glyph_path_command_pair|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|gui_sfnt_lookup_simple_glyph_path_sink|gui_sfnt_simple_glyph_path_contour_step|gui_sfnt_simple_glyph_path_sink_action|gui_sfnt_simple_glyph_path_sink_step|Consumer|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5ad must not allocate, call kind helpers, byte-backed/lower collection helpers directly, traverse sinks, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkEventAt,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5ad body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests.includes("path_sink_event_at_first_line_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests.includes("path_sink_event_at_second_line_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests.includes("path_sink_event_at_no_segment_skip_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests.includes("path_sink_event_at_error_propagates_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkEventAtTests.includes("no_vec_no_fallback_no_sink_traversal"),
+    "F5ad point stream item collection path sink event at focused doctest must cover typed slot event states and lower error propagation",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

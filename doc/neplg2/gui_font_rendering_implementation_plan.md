@@ -3511,3 +3511,41 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ac.json -j 1
 git diff --check
 ```
+
+## Phase F5ad: sfnt simple glyph outline point stream item collection path sink event at
+
+目的:
+
+- F5aa の collection-backed path sink event pair lookup を authority とし、typed `GuiSfntSimpleGlyphPathSinkEventSlot` で 1 event だけを取り出す。
+- F4 byte-backed path lookup、metadata parser、`*_with_tables` helper、F5z/F5y/F5x/F5w/F5v 直接呼び出し、drain、sink traversal、event consumer/action、raster/render/platform/host API へ戻らない。
+- 後続の collection-backed path contour step が event と kind を二重導出しないように、single-edge typed event lookup boundary を固定する。
+
+変更:
+
+- 当初は collection-backed contour step まで進める計画だったが、Tesla plan review 1 は `PLAN_BLOCKED`。`contour_span` error と curve-segment error を混ぜられないこと、F5aa と F5ac を同時に呼ぶと同じ edge を二重に導出することを指摘された。
+- revised Tesla plan review は `PLAN_APPROVED`。F5ad は F5aa と既存 pure typed-slot event projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を追加する。
+- F5ad は F5aa `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair` を source 上 exactly once 呼ぶ。
+- F5aa error は wrap せず、同じ `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` として `Result::Err` で返す。
+- F5aa success event pair は `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` に source 上 exactly once 渡し、typed slot に対応する `Result::Ok event` を返す。
+- slot は enum なので invalid index を表現できない。`Option::None`、silent no-op、fallback、新しい invalid index error enum は導入しない。
+- source policy は F5ad docs、public API、F5aa exact one-call、pure typed-slot event projection exact one-call、F5aa error propagation、F5ab/F5ac kind helper 禁止、forbidden API、括弧なし prefix style を検査する。
+- F5aa/F5z/F5y 実呼び出しは現行 wasm doctest compiler で compile timeout するため、F5ad focused doctest は source policy label と `skip` executable に留める。compiler 側の compile time が改善された時点で unskip する。
+
+完了条件:
+
+- F5ad public helper が F5aa を exactly once 呼ぶ。
+- F5ad public helper が `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` を exactly once 呼ぶ。
+- F5ad public helper は F5ab/F5ac kind helper、`gui_sfnt_lookup_simple_glyph_path_command_pair`、`gui_sfnt_lookup_simple_glyph_curve_segment`、metadata parser、`*_with_tables` helper、F5z/F5y/F5x/F5w/F5v、F5 drain/point-step、`Vec` / `push`、sink traversal、event consumer/action、render/raster/platform/host API を呼ばない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md` に first slot line event、second slot line event、no-segment skip event、F5aa error propagation、no fallback/no Vec/no sink traversal coverage label を追加する。
+- `note.n.md` に blocked plan review、revised plan review、実装、検証、残件を記録する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_at_f5ad.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_event_kind_at.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_event_kind_at_f5ad_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ad.json -j 1
+git diff --check
+```

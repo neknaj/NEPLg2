@@ -8801,6 +8801,25 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_even
             let event_pair %GuiSfntSimpleGlyphPathSinkEventPair gui_sfnt_simple_glyph_path_command_pair_sink_event_pair &pair
             Result::Ok event_pair
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at: collection から slot に[対応/たいおう]する sink event を[読/よ]む
+//:
+//: [目的/もくてき]:
+//: - F5aa の collection-backed sink event pair を authority とし、typed slot で 1 event だけを[取/と]り[出/だ]します。
+//: - F5aa error は wrap せず、そのまま caller に[返/かえ]します。
+//:
+//: [制約/せいやく]:
+//: - slot は enum なので不正 index を[表現/ひょうげん]できず、新しい error enum は[作/つく]りません。
+//: - kind projection、sink traversal、raster / render / platform API は[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot Result GuiSfntSimpleGlyphPathSinkEvent GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \collection\contour_index\edge_index\slot:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair collection contour_index edge_index:
+        Result::Err error:
+            Result::Err error
+        Result::Ok event_pair:
+            let event %GuiSfntSimpleGlyphPathSinkEvent gui_sfnt_simple_glyph_path_sink_event_pair_event_at &event_pair slot
+            Result::Ok event
+
 //: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair: collection から sink event kind pair を[読/よ]む
 //:
 //: [目的/もくてき]:
