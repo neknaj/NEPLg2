@@ -4504,6 +4504,77 @@ F5an intentionally allocates only empty F5b storage. It does not populate scalar
 
 F5an must not call F5al start/drain/advance, F5ak, F5aj, F4 byte-backed lookup helpers, lower collection path helpers, table helpers, `Vec`, `push`, path command fill, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback. Source policy must pin that `Rejected` and `StepBudgetExhausted` branches do not call storage allocation.
 
+## SFNT simple glyph outline point stream item collection path sink action contour endpoint start boundary
+
+F5ao consumes the F5an storage terminal and starts the contour endpoint scalar region only when F5an produced an allocated storage owner. This is still a planning boundary for scalar slot population. It starts a cursor and carries owner-recovery state; it does not push any endpoint slot.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint:
+    terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError
+```
+
+The terminal and error shape is:
+
+```text
+ContourEndpointStartTerminal:
+    Started ContourEndpointStartOwner
+    Rejected DrainRejected
+    StepBudgetExhausted DrainSummary
+
+ContourEndpointStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary DrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint Option i32
+
+ContourEndpointStartError:
+    owner StorageOwner
+    kind ContourEndpointStartErrorKind
+    cursor_error Option StdErrorKind
+
+ContourEndpointStartErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorStartFailed
+```
+
+F5ao must treat the F5an `StorageOwner` as forgeable because it has a public constructor. The root guard is a non-consuming storage capacity accessor:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity:
+    owner &StorageOwner
+    -> GuiSfntSimpleGlyphOutlineStorageCapacity
+```
+
+This accessor borrows `owner.storage` with `field::get_ref owner "storage"` and calls `gui_sfnt_simple_glyph_outline_storage_capacity storage`. It must not call the consuming `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage owner` accessor.
+
+The `Allocated owner` order is:
+
+```text
+borrow owner and compare summary capacity with storage capacity
+if capacities mismatch:
+    return Err ContourEndpointStartError owner StorageSummaryCapacityMismatch none
+read summary from owner
+read capacity from summary
+call gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity ContourEndpoint
+if cursor start Err cursor_error:
+    return Err ContourEndpointStartError owner CursorStartFailed some cursor_error
+if cursor start Ok cursor:
+    consume owner.storage exactly once
+    construct ContourEndpointStartOwner storage summary cursor none
+    return Ok Started ContourEndpointStartOwner
+```
+
+The capacity comparison covers glyph, contour count, point count, edge count, path command pair count, and path command count. Glyph comparison uses the existing raw `GuiGlyphId` comparison helper so that two wrapper values only match when their raw glyph ids match.
+
+`Rejected` and `StepBudgetExhausted` are pass-through domain terminals. Those branches do not call capacity match, non-consuming storage capacity read, cursor start, or consuming storage accessors. They remain `Result::Ok` values because no new fallible operation is attempted.
+
+`ContourEndpointStartOwner`, `ContourEndpointStartError`, and `ContourEndpointStartTerminal` contain owner values and must not implement `Clone` or `Copy`. `ContourEndpointStartErrorKind` is a small value enum and may implement `Clone` / `Copy`.
+
+F5ao must not call F5al start/drain/advance, F5ak, F5aj, F4 byte-backed lookup helpers, lower collection path helpers, table helpers, `Vec`, `push`, endpoint push, point or curve population, path command fill, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

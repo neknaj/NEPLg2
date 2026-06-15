@@ -3984,3 +3984,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5an.json -j 1
 git diff --check
 ```
+
+## Phase F5ao: sfnt simple glyph outline point stream item collection path sink action contour endpoint start
+
+目的:
+
+- F5an の storage terminal を authority とし、`Allocated StorageOwner` だけを F5d contour endpoint region cursor start へ進める。
+- public constructor で forged された storage owner を fail-closed にするため、summary capacity と owner 内 storage capacity を非消費で照合する。
+- capacity mismatch と cursor start failure では original storage owner を `Result::Err` payload として caller へ戻す。
+- cursor start 成功時だけ storage owner を消費し、`previous_endpoint = none` の開始済み owner を返す。
+- endpoint push、byte-backed traversal、path sink traversal、render/raster/platform/host API へ進まない。
+
+plan review:
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`StorageOwner` の consuming accessor しかない状態で capacity mismatch や cursor start failure を扱うと、error path が original owner を返せなくなることが blocker とされた。
+- revised plan では、`storage_owner_storage_capacity &owner` を非消費 accessor として追加し、`field::get_ref owner "storage"` から既存 storage capacity reader を呼ぶことにした。
+- revised plan では、private capacity-match helper が summary capacity と borrowed storage capacity の glyph、contour count、point count、edge count、path command pair count、path command count を照合する。
+- Tesla revised plan review は `PLAN_APPROVED`。consuming storage accessor は capacity match と cursor start success の後にだけ現れること、`Rejected` / `StepBudgetExhausted` branch では capacity match / cursor start / storage consume を行わないことが実装条件である。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage_capacity` を追加する。
+- non-consuming storage capacity accessor は `field::get_ref owner "storage"` と `gui_sfnt_simple_glyph_outline_storage_capacity storage` を使い、consuming `storage_owner_storage owner` を呼ばない。
+- private `gui_sfnt_simple_glyph_outline_storage_capacity_matches` と `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_capacity_matches_summary` を追加する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner` を追加し、storage、summary、cursor、previous_endpoint を保持する。owner 型なので `Clone` / `Copy` を実装しない。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartErrorKind` を追加し、`StorageSummaryCapacityMismatch` と `CursorStartFailed` を持つ。owner を含まないため `Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartError` を追加し、original storage owner、kind、cursor_error を保持する。owner を含むため `Clone` / `Copy` を実装しない。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal` を追加し、`Started ContourEndpointStartOwner`、`Rejected DrainRejected`、`StepBudgetExhausted DrainSummary` を持つ。owner を含むため `Clone` / `Copy` を実装しない。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_terminal_start_contour_endpoint` を追加する。
+- `Allocated` branch では capacity match を先に行い、mismatch は `Err StorageSummaryCapacityMismatch` で original owner を返す。
+- capacity match 後に `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::ContourEndpoint` を exactly once 呼ぶ。
+- cursor start failure は `Err CursorStartFailed` として original owner と cursor error を返す。
+- cursor start success 後だけ consuming `storage_owner_storage owner` を exactly once 呼び、`previous_endpoint = none` の `Started` terminal を返す。
+- `Rejected` / `StepBudgetExhausted` branch は typed terminal を `Ok` で返し、capacity match、storage capacity read、cursor start、storage consume を行わない。
+
+完了条件:
+
+- source policy が docs、types、storage capacity accessor の `field::get_ref`、capacity match helper、owner no Clone/Copy、error no Clone/Copy、terminal no Clone/Copy、ErrorKind Clone/Copy、cursor start exact one-call、storage consume order、Rejected / StepBudgetExhausted pass-through、forbidden API、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md` に types、borrowed storage capacity、capacity mismatch owner recovery、allocated cursor start、Rejected / StepBudget pass-through、no fallback / no byte-backed / no push coverage label を追加する。
+- implementation review で original owner recovery、storage consume order、`Rejected` / `StepBudgetExhausted` no cursor/no storage consume、owner-bearing types no Clone/Copy を確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_f5ao.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_storage_owner_f5ao_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ao.json -j 1
+git diff --check
+```

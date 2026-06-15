@@ -1,3 +1,45 @@
+# 2026-06-15 Agent2 GUI font contour endpoint start boundary checkpoint
+
+## scope
+
+- branch: `gui-font-storage-owner-contour-endpoints-f5ao-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ao の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action contour endpoint start の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ao の F5an storage terminal authority、forged owner capacity check、cursor start、owner recovery、pass-through terminal の順序を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ao の plan review 経緯、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に non-consuming storage owner capacity accessor、capacity match helper、contour endpoint start owner、start error kind、owner-bearing start error、start terminal、storage terminal to contour endpoint start boundary を追加した。
+- F5ao public helper は F5an storage terminal だけを受け取り、`Allocated` branch だけで capacity match と F5d contour endpoint cursor start を行う。capacity mismatch と cursor start failure は original owner を保持した `Result::Err` として返す。
+- cursor start success 後だけ consuming storage accessor を呼び、`previous_endpoint = none` の `Started` terminal を返す。`Rejected` / `StepBudgetExhausted` は capacity match、cursor start、storage consume を行わず typed `Ok` terminal として返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ao source policy を追加した。docs/API/non-consuming capacity accessor/capacity match helper/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/ErrorKind Clone/Copy/cursor exact one-call/storage consume order/pass-through branch/no fallback/no byte-backed/no push/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md` を追加し、types、borrowed storage capacity、capacity mismatch owner recovery、allocated cursor start、Rejected no cursor、StepBudget no cursor、no fallback / no byte-backed / no push の source policy coverage label を固定した。
+- `todo.md` は F5ao 完了後の次作業として、F5ao start owner から typed contour endpoint slot population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。F5ao が storage owner を消費してから capacity mismatch や cursor start failure を検出すると original owner を返せないため、非消費の storage capacity accessor または borrowed capacity match helper が必要と指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。`storage_owner_storage_capacity &owner` を追加し、capacity match と cursor start success の後にだけ consuming storage accessor を呼ぶ修正版が承認された。
+- Tesla implementation review は `REVIEW_APPROVED`。非消費 capacity accessor、capacity mismatch before cursor start、cursor failure owner recovery、cursor `Ok` 後だけの consuming storage accessor、`Rejected` / `StepBudgetExhausted` pass-through、owner-bearing start owner / error / terminal no Clone/Copy、source policy の ordering / forbidden API 固定が確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 208 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_f5ao.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_storage_owner_f5ao_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ao.json -j 1` 809/809 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ao は contour endpoint cursor start boundary までであり、endpoint slot の実 push、point x / point y / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5ao focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink action storage owner checkpoint
 
 ## scope
