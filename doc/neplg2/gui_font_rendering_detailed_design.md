@@ -5886,6 +5886,130 @@ vec::free
 
 F5az must not call F5ax drain/step, F5aw step, F5av lookup, byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, `vec::push`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path command stream sink writer boundary
+
+F5ba consumes the F5az sink owner and writes the first real path sink scalar stream. It still does not build path objects, raster masks, glyph masks, render2d commands, screenshots, or platform surfaces.
+
+The writer has two phases:
+
+```text
+SinkOwner -> WriterOwner
+WriterOwner + PathCommandValue -> WriterStep
+```
+
+The input `PathCommandValue` is not trusted. It is public and can be forged, so the writer must revalidate:
+
+```text
+stored_tag == source_tag
+command-derived tag == stored_tag
+command-derived tag == source_tag
+```
+
+The command-derived tag is obtained only from the `GuiSfntSimpleGlyphPathCommand` enum payload. It must not be obtained by calling F5av lookup, F5aw stream step, byte-backed lookup, or old path sink traversal again.
+
+The writer start boundary checks F5az owner shape in this exact order:
+
+```text
+read owner plan
+derive capacity from plan
+compare stored capacity and derived capacity
+compare path sink Vec cap and path_sink_scalar_capacity
+compare raster mask Vec cap and raster_mask_scalar_capacity
+require path sink Vec len == 0
+require raster mask Vec len == 0
+initialize writer progress
+```
+
+`PathSinkScalarLenNotZero` and `RasterMaskScalarLenNotZero` are explicit start errors. They prevent an already-mutated owner from silently becoming a fresh writer.
+
+The writer progress is authoritative for normal continuation:
+
+```text
+written_count
+path_sink_scalar_count
+move_to_count
+line_to_count
+quadratic_to_count
+skip_no_segment_count
+last_path_command_index
+```
+
+Before every push, F5ba revalidates the owner and progress:
+
+```text
+capacity_from_plan succeeds
+stored capacity == derived capacity
+path sink Vec cap == path_sink_scalar_capacity
+raster mask Vec cap == raster_mask_scalar_capacity
+path sink Vec len == path_sink_scalar_count
+raster mask Vec len == 0
+written_count is in 0..total_count
+each command kind progress is non-negative and within the corresponding plan count
+move + line + quadratic + skip == written_count
+path_command_index == written_count
+path_command_index < total_count
+tag invariants hold
+variant count has remaining room
+path sink scalar capacity has remaining room
+```
+
+F5ba checks each command kind progress before computing the aggregate progress total. `MoveToProgressInvalid`, `LineToProgressInvalid`, `QuadraticToProgressInvalid`, and `SkipNoSegmentProgressInvalid` prevent forged writer owners from hiding negative or over-limit counts behind a matching aggregate total.
+
+The `path_sink_scalars_len == path_sink_scalar_count` check is the fail-closed guard for partial append failure. F5ba does not roll back a partially appended Vec when a later scalar in a multi-scalar command fails. Instead, the error returns a writer owner whose Vec may be longer than progress. Such an owner is cleanup / diagnostic only; feeding it back into push is rejected by the len/count check.
+
+The scalar format is fixed and shares F5au stable tag values:
+
+```text
+MoveTo:
+    1
+    x2
+    y2
+
+LineTo:
+    2
+    x2
+    y2
+
+QuadraticTo:
+    3
+    control_x2
+    control_y2
+    end_x2
+    end_y2
+
+SkipNoSegment:
+    no scalar
+```
+
+`SkipNoSegment` is not a hidden no-op. It returns `SkippedNoSegment WriterOwner` and advances `written_count`, `skip_no_segment_count`, and `last_path_command_index`. It never calls `vec::push`.
+
+For `vec::push` failure, the recovery order is fixed:
+
+```text
+read vec_push_error_kind by borrow
+recover Vec owner
+reconstruct F5az SinkOwner
+reconstruct WriterOwner with unchanged progress
+return WriterPushError
+```
+
+The lower `StdErrorKind`, rejected scalar, rejected `PathCommandValue`, and recovered writer owner are all preserved. Coarse `InvalidValue`, hidden fallback, or silent discard are forbidden.
+
+F5ba may call:
+
+```text
+F5az owner accessors
+F5az capacity_from_plan
+F5az capacity accessors
+F5au tag scalar helper
+PathCommandValue accessors
+PathCommand payload accessors
+vec::push
+vec push error accessors
+```
+
+F5ba must not call F5av path command value lookup, F5aw stream step or drain, byte-backed lookup helpers, old path sink traversal, raster mask writer, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
