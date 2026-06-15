@@ -4466,6 +4466,146 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action Edge drain
+
+F5at は F5as の `EdgeStartOwner` を authority として、owner storage の endpoint marker と collection-backed contour span / contour edge source から Edge region の scalar slot を bounded drain し、全 Edge slot 完了後だけ PathCommandTag region cursor start へ進む owner-recovery boundary である。F5at は curve segment classification、path command tag population、byte-backed lookup、path sink traversal、renderer、platform API を直接呼ばない。
+
+Edge region の slot contract は次である。
+
+```text
+slot index:
+    global_edge_index == absolute start point index
+
+stored scalar value:
+    contour_index
+
+derived local edge index:
+    global_edge_index - span.start_point_index
+```
+
+local edge index は scalar として保存しない。PathCommandTag phase は edge slot の `global_edge_index` と保存済み `contour_index` から collection-backed source を再び検査し、local edge index を導出する。これにより Edge region は contour ownership だけを保持し、curve segment / path command の分類 authority を次 phase に残す。
+
+`EdgeStartOwner` は public constructor を持つため、F5at は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == Edge
+    cursor matches summary capacity Edge region
+    collection capacity == summary capacity
+```
+
+この順序より前に endpoint marker read、collection contour span / contour edge source、Edge push、PathCommandTag cursor start、storage consume を行ってはいけない。`cursor matches summary capacity Edge region` は cursor の region / start / end が capacity と一致することを意味し、`next_index` を Edge region start に固定しない。`StepBudgetExhausted EdgeStartOwner` からの partial drain 再開を拒否してはいけない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot:
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    next_contour_point_index i32
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointMarkerReadFailed
+    EndpointMarkerGlyphMismatch
+    EndpointMarkerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    ContourEdgeSourceFailed
+    EdgeSourceContourMismatch
+    EdgeSourceIndexMismatch
+    EdgeSourceNextIndexMismatch
+    EdgePushFailed
+    PathCommandTagCursorStartFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind
+    edge_index i32
+    endpoint_error Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    span Option GuiSfntSimpleGlyphContourSpan
+    edge_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    edge Option GuiSfntSimpleGlyphContourEdge
+    edge_slot Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot
+    scalar_value Option i32
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal:
+    PathCommandTagStarted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ `gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PathCommandTag` で PathCommandTag cursor を開始する。成功した場合は storage を消費して `PathCommandTagStarted PathCommandTagStartOwner` を返す。失敗した場合は `PathCommandTagCursorStartFailed` と lower `StdErrorKind` を持つ owner-preserving error を返す。
+
+`next_index < end` かつ `remaining_steps <= 0` の場合は、endpoint marker read、collection source、mutation を行わず `StepBudgetExhausted EdgeStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、global edge index は `next_index - start` である。F5at は private helper で `field::get_ref owner "storage"` から storage を borrow し、`gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker storage edge_index` を呼ぶ。この helper は owner を消費しない。endpoint marker failure は lower `GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError` と current owner を保持した `EndpointMarkerReadFailed` とする。
+
+endpoint marker success 後は marker payload が forged でないことを再検査する。marker glyph raw id は summary capacity glyph raw id と一致しなければならない。marker index は `edge_index` と一致しなければならない。失敗した場合は `EndpointMarkerGlyphMismatch`、`EndpointMarkerIndexMismatch` として typed error を返し、collection source へ進まない。
+
+collection source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index` と `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index contour_edge_index` だけである。curve segment source は F5at では呼ばない。
+
+span success 後は次を検査する。
+
+```text
+span glyph == capacity glyph
+span index == contour_index
+0 <= span.start_point_index
+span.start_point_index <= span.end_point_index
+span.end_point_index < capacity.point_count
+span.point_count == span.end_point_index - span.start_point_index + 1
+span.start_point_index <= global_edge_index <= span.end_point_index
+```
+
+これらが成り立つ場合だけ `contour_edge_index = global_edge_index - span.start_point_index` を導出する。contour edge success 後は edge source の contour、local edge index、absolute start point index、wrap 後 next local index を再検査し、成功した場合だけ `EdgeSlot` を作る。
+
+Edge push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value` を 1 回だけ呼ぶ。Edge push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_outline_region_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `EdgeStartOwner` を復元し、`EdgePushFailed` を返す。push success は F5d returned storage、returned cursor だけから次の EdgeStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PathCommandTagStartOwner`、`EdgeDrainError`、`EdgeDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`EdgeSlot` と `EdgeDrainErrorKind` は value-only なので `Clone` / `Copy` を実装してよい。
+
+F5at は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX read / read-push helper
+byte-backed PointY read / read-push helper
+F5al / F5ak / F5aj traversal helper
+lower collection path event / contour step helpers
+path sink traversal / real sink mutation
+curve segment source
+path command tag population
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -4277,3 +4277,64 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5as.json -j 1
 git diff --check
 ```
+
+## Phase F5at: sfnt simple glyph outline point stream item collection path sink action Edge drain
+
+目的:
+
+- F5as の `EdgeStartOwner` を authority とし、owner storage endpoint marker と collection-backed contour span / contour edge source から Edge scalar slots を bounded drain する。
+- Edge region が完了した場合だけ PathCommandTag region cursor を開始し、path command tag population と curve segment classification は次 phase に残す。
+- EdgeStartOwner は public constructor を持つため、summary capacity、owner storage capacity、cursor、collection capacity を検査してから cursor interpretation / endpoint marker read / collection source / storage consume へ進む。
+- endpoint marker failure、contour span failure、contour edge failure、forged source failure、F5d scalar push failure、PathCommandTag cursor start failure を別 enum reason にし、それぞれ current EdgeStartOwner を保持または復元して返す。
+- byte-backed lookup、F4/F5al/F5ak/F5aj traversal、path sink traversal、curve segment source、path command tag population、raster/render/platform/host API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review は `PLAN_BLOCKED` から修正済み。
+- public authority check は `cursor.next_index == Edge region start` を要求しない。partial drain restart を許すため、cursor well formed、cursor region is `Edge`、cursor start/end match summary capacity Edge region のみにする。
+- owner storage endpoint marker read は private helper で `field::get_ref owner "storage"` を使い、owner を消費しない。
+- Edge region scalar contract は `slot global_edge_index == absolute start point index`、`stored scalar == owning contour_index`、`local edge index == global_edge_index - span.start_point_index` と文書化して検査する。
+- F5at は collection curve segment source を呼ばない。curve segment/path command classification は次の PathCommandTag phase に残す。
+- Edge push failure branch は `gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error`、`gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error`、`gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error` を読んでから `gui_sfnt_simple_glyph_outline_region_push_error_storage push_error` で storage を回収する。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot` を追加する。
+- EdgeSlot は `edge_index`、`contour_index`、`contour_edge_index`、`next_contour_point_index` を保持し、scalar value accessor は `contour_index` を返す。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner` を追加する。
+- PathCommandTagStartOwner は storage、summary、PathCommandTag cursor を保持し、`Clone` / `Copy` を実装しない。
+- EdgeStartOwner の non-consuming storage capacity accessor `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_storage_capacity` を追加する。
+- private endpoint marker helper `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_read_endpoint_marker` を追加する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind` を追加する。
+- error kind は `StorageSummaryCapacityMismatch`、`CursorInvalid`、`CursorRegionMismatch`、`CursorCapacityMismatch`、`CollectionSummaryCapacityMismatch`、`EndpointMarkerReadFailed`、`EndpointMarkerGlyphMismatch`、`EndpointMarkerIndexMismatch`、`ContourSpanSourceFailed`、`ContourSpanInvariantMismatch`、`ContourEdgeSourceFailed`、`EdgeSourceContourMismatch`、`EdgeSourceIndexMismatch`、`EdgeSourceNextIndexMismatch`、`EdgePushFailed`、`PathCommandTagCursorStartFailed` を持つ。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError` を追加する。
+- drain error は current EdgeStartOwner、kind、edge_index、optional endpoint marker error、optional contour span error、optional span、optional contour edge error、optional edge、optional EdgeSlot、optional scalar value、optional F5d/F5c metadata、optional PathCommandTag cursor error を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal` を追加する。
+- terminal は `PathCommandTagStarted PathCommandTagStartOwner` と `StepBudgetExhausted EdgeStartOwner` のみを持ち、`Clone` / `Copy` を実装しない。
+- internal push helper `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_push_edge` を追加し、F5d `gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value` を exactly once 呼ぶ。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget` を追加する。
+- public boundary は authority check を終えた後だけ trusted drain helper へ委譲する。
+- trusted drain helper は `next_index == end` なら PathCommandTag cursor start、`remaining_steps <= 0` なら owner-preserving StepBudget、budget がある場合だけ endpoint marker read と collection contour source へ進む。
+- endpoint marker success では marker glyph と marker point index を検査する。
+- contour span success では glyph/index/range/count と `span.start_point_index <= global_edge_index <= span.end_point_index` を検査する。
+- contour edge success では edge contour、local edge index、absolute start point index、wrap next local index を検査し、成功後だけ EdgeSlot を作る。
+- push success は returned state から次 EdgeStartOwner を作り `remaining_steps - 1` で継続する。
+
+完了条件:
+
+- source policy が docs、types、PathCommandTagStartOwner / EdgeDrainError / EdgeDrainTerminal no Clone/Copy、EdgeSlot Clone/Copy、EdgeStartOwner non-consuming storage capacity accessor、non-consuming endpoint marker helper、authority check order、cursor start 固定禁止、source before authority 禁止、completion-only PathCommandTag cursor start、StepBudget no endpoint/source/push、endpoint marker forged checks、span invariant checks、contour edge invariant checks、Edge push failure owner recovery、lower metadata before storage recovery、forbidden byte-backed / traversal / curve segment / render / platform / font fallback、path command tag population 禁止、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md` に types、authority checks、endpoint marker source、span/edge source validation、push failure recovery、completion PathCommandTag start only、StepBudget no source/no push、no fallback/no byte-backed/no traversal/no curve segment coverage label を追加する。
+- implementation review で cursor partial restart、owner-preserving error、F5d lower metadata before storage recovery、PathCommandTag cursor start only、forbidden API 固定を確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の PathCommandTag population boundary に進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_edge_drain_f5at.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_y_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_y_drain_f5at_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5at.json -j 1
+git diff --check
+```

@@ -10862,6 +10862,554 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
                                         else:
                                             gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_y_start_owner_drain_to_edge_start_budget_trusted collection owner remaining_steps
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot: edge region へ[追加/ついか]する contour owner scalar
+//:
+//: [目的/もくてき]:
+//: - edge region の slot は glyph 全体の `global_edge_index` と同じ absolute start point index に[対応/たいおう]します。
+//: - storage へ[書/か]く scalar value は edge が[属/ぞく]する contour index です。contour-local edge index は `global_edge_index - span.start_point_index` から[復元/ふくげん]します。
+//: - 後続の PathCommandTag phase が contour index と local edge index から curve segment source へ[進/すす]めるよう、diagnostic 用に local edge index と next local index も[保持/ほじ]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot:
+    edge_index %i32
+    contour_index %i32
+    contour_edge_index %i32
+    next_contour_point_index %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot \edge:
+        *edge
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot \edge:
+        edge
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot: edge slot value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot %fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot \edge_index\contour_index\contour_edge_index\next_contour_point_index:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot edge_index contour_index contour_edge_index next_contour_point_index
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_edge_index: global edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot i32 \edge:
+    *field::get_ref edge "edge_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_index: owner contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot i32 \edge:
+    *field::get_ref edge "contour_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_edge_index: contour-local edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot i32 \edge:
+    *field::get_ref edge "contour_edge_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_next_contour_point_index: edge end の local index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_next_contour_point_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot i32 \edge:
+    *field::get_ref edge "next_contour_point_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_scalar_value: edge region へ[書/か]く scalar を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - scalar value は contour index です。local edge index を scalar として[保存/ほぞん]しません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_scalar_value %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot i32 \edge:
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_contour_index edge
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner: PathCommandTag region cursor [開始/かいし]済み owner
+//:
+//: [目的/もくてき]:
+//: - Edge region が[完了/かんりょう]した storage と summary authority を[保持/ほじ]し、後続の path command tag population boundary へ[渡/わた]します。
+//: - storage owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner: PathCommandTag [開始/かいし]済み owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineScalarRegionCursor GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner \storage\summary\cursor:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner storage summary cursor
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_summary: PathCommandTag owner の summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \owner:
+    *field::get_ref owner "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_cursor: PathCommandTag owner の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    *field::get_ref owner "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage: PathCommandTag owner から storage を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - この関数は owner を[消費/しょうひ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner GuiSfntSimpleGlyphOutlineStorage \owner:
+    field::get owner "storage"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_storage_capacity: EdgeStartOwner 内 storage の capacity を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - owner を[消費/しょうひ]せず、forged EdgeStartOwner の storage / summary mismatch を[検査/けんさ]できるようにします。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_storage_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner GuiSfntSimpleGlyphOutlineStorageCapacity \owner:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_capacity storage
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_read_endpoint_marker %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn i32 Result GuiSfntSimpleGlyphOutlinePointEndpointMarker GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \owner\edge_index:
+    let storage %&GuiSfntSimpleGlyphOutlineStorage field::get_ref owner "storage"
+    gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker storage edge_index
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind: collection-backed Edge drain [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    EndpointMarkerReadFailed
+    EndpointMarkerGlyphMismatch
+    EndpointMarkerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    ContourEdgeSourceFailed
+    EdgeSourceContourMismatch
+    EdgeSourceIndexMismatch
+    EdgeSourceNextIndexMismatch
+    EdgePushFailed
+    PathCommandTagCursorStartFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError: EdgeStartOwner recovery 付き drain error
+//:
+//: [目的/もくてき]:
+//: - authority failure、endpoint marker read failure、collection contour source failure、forged source failure、Edge push failure、PathCommandTag cursor start failure を string ではなく enum と typed payload で[返/かえ]します。
+//: - owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError:
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind
+    edge_index %i32
+    endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError
+    span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    span %Option GuiSfntSimpleGlyphContourSpan
+    edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError
+    edge %Option GuiSfntSimpleGlyphContourEdge
+    edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot
+    scalar_value %Option i32
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+    cursor_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error: Edge drain error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind fn i32 fn Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError fn Option GuiSfntSimpleGlyphContourSpan fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError fn Option GuiSfntSimpleGlyphContourEdge fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot fn Option i32 fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\kind\edge_index\endpoint_error\span_error\span\edge_error\edge\edge_slot\scalar_value\region_error_kind\storage_push_error_kind\cursor_error_kind:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError owner kind edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\kind\edge_index:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan none
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner kind edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_endpoint_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn i32 fn GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\edge_index\endpoint_error_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError some endpoint_error_value
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan none
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EndpointMarkerReadFailed edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn i32 fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\edge_index\span_error_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError some span_error_value
+    let span %Option GuiSfntSimpleGlyphContourSpan none
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::ContourSpanSourceFailed edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span_value_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind fn i32 fn GuiSfntSimpleGlyphContourSpan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\kind\edge_index\span_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan some span_value
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner kind edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn i32 fn GuiSfntSimpleGlyphContourSpan fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\edge_index\span_value\edge_error_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan some span_value
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError some edge_error_value
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::ContourEdgeSourceFailed edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_value_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind fn i32 fn GuiSfntSimpleGlyphContourSpan fn GuiSfntSimpleGlyphContourEdge GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\kind\edge_index\span_value\edge_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan some span_value
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge some edge_value
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner kind edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_push_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn i32 fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot fn i32 fn GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\edge_index\edge_slot_value\scalar_value_value\region_error_kind_value\storage_push_error_kind_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan none
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot some edge_slot_value
+    let scalar_value %Option i32 some scalar_value_value
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind some region_error_kind_value
+    let cursor_error_kind %Option StdErrorKind none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EdgePushFailed edge_index endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind_value cursor_error_kind
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_path_command_tag_cursor_failed %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner fn StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\cursor_error_value:
+    let endpoint_error %Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError none
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let span %Option GuiSfntSimpleGlyphContourSpan none
+    let edge_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError none
+    let edge %Option GuiSfntSimpleGlyphContourEdge none
+    let edge_slot %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot none
+    let scalar_value %Option i32 none
+    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind none
+    let storage_push_error_kind %Option StdErrorKind none
+    let cursor_error_kind %Option StdErrorKind some cursor_error_value
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::PathCommandTagCursorStartFailed -1 endpoint_error span_error span edge_error edge edge_slot scalar_value region_error_kind storage_push_error_kind cursor_error_kind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_kind: Edge drain error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_index: error の global edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError i32 \error:
+    *field::get_ref error "edge_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_endpoint_error: lower endpoint marker error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_endpoint_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphOutlinePointEndpointMarkerReadError \error:
+    *field::get_ref error "endpoint_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span_error: lower contour span error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError \error:
+    *field::get_ref error "span_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span: accepted span を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphContourSpan \error:
+    *field::get_ref error "span"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_error: lower contour edge error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourEdgeError \error:
+    *field::get_ref error "edge_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge: accepted contour edge を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphContourEdge \error:
+    *field::get_ref error "edge"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_slot: rejected edge slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_slot %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot \error:
+    *field::get_ref error "edge_slot"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_scalar_value: rejected scalar value を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_scalar_value %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option i32 \error:
+    *field::get_ref error "scalar_value"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_region_error_kind: lower region error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_region_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_storage_push_error_kind: lower storage push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_storage_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_cursor_error_kind: PathCommandTag cursor start error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_cursor_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError Option StdErrorKind \error:
+    *field::get_ref error "cursor_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_owner: drain error から EdgeStartOwner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal: Edge drain terminal
+//:
+//: [目的/もくてき]:
+//: - `PathCommandTagStarted` は Edge region が[完了/かんりょう]し、PathCommandTag cursor を[開始/かいし]した状態です。
+//: - `StepBudgetExhausted` は EdgeStartOwner を[保持/ほじ]したまま次 slice へ[継続/けいぞく]できる状態です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal:
+    PathCommandTagStarted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_push_edge %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \owner\edge:
+    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_summary &owner
+    let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_cursor &owner
+    let edge_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_edge_index &edge
+    let scalar_value %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot_scalar_value &edge
+    let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_storage owner
+    match gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value:
+        Result::Ok pushed:
+            let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_region_push_cursor &pushed
+            let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_storage pushed
+            let next_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner next_storage summary next_cursor
+            Result::Ok next_owner
+        Result::Err push_error:
+            let region_error_kind %GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error
+            let scalar_value_value %i32 gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error
+            let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error
+            let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_region_push_error_storage push_error
+            let recovered_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner returned_storage summary cursor
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_push_failed recovered_owner edge_index edge scalar_value_value region_error_kind storage_push_error_kind
+            Result::Err error
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget_trusted %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \collection\owner\remaining_steps:
+    let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_cursor &owner
+    let next_index %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_next_index &cursor
+    let end %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_end &cursor
+    if eq next_index end:
+        then:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_summary &owner
+            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+            match gui_sfnt_simple_glyph_outline_scalar_region_cursor_try_from_capacity &capacity GuiSfntSimpleGlyphOutlineScalarRegion::PathCommandTag:
+                Result::Err cursor_error_value:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_path_command_tag_cursor_failed owner cursor_error_value
+                    Result::Err error
+                Result::Ok path_command_tag_cursor:
+                    let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_storage owner
+                    let path_command_tag_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner storage summary path_command_tag_cursor
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal::PathCommandTagStarted path_command_tag_owner
+        else:
+            if le remaining_steps 0:
+                then:
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal::StepBudgetExhausted owner
+                else:
+                    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_summary &owner
+                    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+                    let start %i32 gui_sfnt_simple_glyph_outline_scalar_region_cursor_start &cursor
+                    let edge_index %i32 sub next_index start
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_read_endpoint_marker &owner edge_index:
+                        Result::Err endpoint_error:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_endpoint_failed owner edge_index endpoint_error
+                            Result::Err error
+                        Result::Ok marker:
+                            let marker_index %i32 gui_sfnt_simple_glyph_outline_point_endpoint_marker_index &marker
+                            if ne marker_index edge_index:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EndpointMarkerIndexMismatch edge_index
+                                    Result::Err error
+                                else:
+                                    let marker_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_point_endpoint_marker_glyph &marker
+                                    let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+                                    let marker_glyph_raw %i32 gui_glyph_id_raw &marker_glyph
+                                    let capacity_glyph_raw %i32 gui_glyph_id_raw &capacity_glyph
+                                    if ne marker_glyph_raw capacity_glyph_raw:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EndpointMarkerGlyphMismatch edge_index
+                                            Result::Err error
+                                        else:
+                                            let contour_index %i32 gui_sfnt_simple_glyph_outline_point_endpoint_marker_contour_index &marker
+                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index:
+                                                Result::Err span_error:
+                                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span_failed owner edge_index span_error
+                                                    Result::Err error
+                                                Result::Ok span:
+                                                    let span_glyph %GuiGlyphId gui_sfnt_simple_glyph_contour_span_glyph &span
+                                                    let span_glyph_raw %i32 gui_glyph_id_raw &span_glyph
+                                                    let span_index %i32 gui_sfnt_simple_glyph_contour_span_index &span
+                                                    let span_start_point_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &span
+                                                    let span_end_point_index %i32 gui_sfnt_simple_glyph_contour_span_end_point_index &span
+                                                    let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+                                                    let capacity_point_count %i32 gui_sfnt_simple_glyph_outline_storage_capacity_point_count &capacity
+                                                    let expected_span_point_count %i32 add sub span_end_point_index span_start_point_index 1
+                                                    let span_glyph_ok %bool eq span_glyph_raw capacity_glyph_raw
+                                                    let span_index_ok %bool eq span_index contour_index
+                                                    let span_start_ok %bool not lt span_start_point_index 0
+                                                    let span_end_order_ok %bool not lt span_end_point_index span_start_point_index
+                                                    let span_end_capacity_ok %bool lt span_end_point_index capacity_point_count
+                                                    let span_count_ok %bool eq span_point_count expected_span_point_count
+                                                    let span_contains_edge %bool and le span_start_point_index edge_index le edge_index span_end_point_index
+                                                    let span_identity_ok %bool and span_glyph_ok span_index_ok
+                                                    let span_range_ok %bool and span_start_ok and span_end_order_ok and span_end_capacity_ok span_count_ok
+                                                    let span_shape_ok %bool and span_identity_ok and span_range_ok span_contains_edge
+                                                    if not span_shape_ok:
+                                                        then:
+                                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_span_value_failed owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::ContourSpanInvariantMismatch edge_index span
+                                                            Result::Err error
+                                                        else:
+                                                            let contour_edge_index %i32 sub edge_index span_start_point_index
+                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge collection contour_index contour_edge_index:
+                                                                Result::Err edge_error:
+                                                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_failed owner edge_index span edge_error
+                                                                    Result::Err error
+                                                                Result::Ok edge:
+                                                                    let source_edge_index %i32 gui_sfnt_simple_glyph_contour_edge_index &edge
+                                                                    let source_next_contour_point_index %i32 gui_sfnt_simple_glyph_contour_edge_next_local_index &edge
+                                                                    let expected_next_contour_point_index %i32 if:
+                                                                        eq add contour_edge_index 1 span_point_count
+                                                                        then:
+                                                                            0
+                                                                        else:
+                                                                            add contour_edge_index 1
+                                                                    let start_point %GuiSfntSimpleGlyphContourPoint gui_sfnt_simple_glyph_contour_edge_start &edge
+                                                                    let start_span %GuiSfntSimpleGlyphContourSpan gui_sfnt_simple_glyph_contour_point_span &start_point
+                                                                    let start_span_index %i32 gui_sfnt_simple_glyph_contour_span_index &start_span
+                                                                    let start_span_start_point_index %i32 gui_sfnt_simple_glyph_contour_span_start_point_index &start_span
+                                                                    let start_absolute_point %GuiSfntSimpleGlyphPoint gui_sfnt_simple_glyph_contour_point_point &start_point
+                                                                    let start_absolute_point_index %i32 gui_sfnt_simple_glyph_point_index &start_absolute_point
+                                                                    if ne start_span_index contour_index:
+                                                                        then:
+                                                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_value_failed owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EdgeSourceContourMismatch edge_index span edge
+                                                                            Result::Err error
+                                                                        else:
+                                                                            if or ne source_edge_index contour_edge_index or ne start_span_start_point_index span_start_point_index ne start_absolute_point_index edge_index:
+                                                                                then:
+                                                                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_value_failed owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EdgeSourceIndexMismatch edge_index span edge
+                                                                                    Result::Err error
+                                                                                else:
+                                                                                    if ne source_next_contour_point_index expected_next_contour_point_index:
+                                                                                        then:
+                                                                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_edge_value_failed owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::EdgeSourceNextIndexMismatch edge_index span edge
+                                                                                            Result::Err error
+                                                                                        else:
+                                                                                            let edge_slot %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_slot edge_index contour_index contour_edge_index source_next_contour_point_index
+                                                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_push_edge owner edge_slot:
+                                                                                                Result::Err error:
+                                                                                                    Result::Err error
+                                                                                                Result::Ok next_owner:
+                                                                                                    let next_remaining_steps %i32 sub remaining_steps 1
+                                                                                                    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget_trusted collection next_owner next_remaining_steps
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget: collection source から Edge region を[埋/う]め、完了時だけ PathCommandTag cursor を[開始/かいし]する
+//:
+//: [契約/けいやく]:
+//: - EdgeStartOwner は public constructor を[持/も]つため、summary capacity、owner storage capacity、cursor、collection capacity をこの順で[検査/けんさ]してから処理します。
+//: - cursor は partial drain 再開を[許/ゆる]すため、Edge region の start/end が summary capacity と[一致/いっち]し、next_index が範囲内であればよい。region start へ固定してはいけません。
+//: - Edge source は collection-backed contour span / contour edge と owner storage endpoint marker のみで、curve segment、byte-backed lookup、path sink traversal、renderer、platform API、font の代替解決へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget %impure fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeStartOwner impure fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError \collection\owner\remaining_steps:
+    let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_summary &owner
+    let summary_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &summary
+    let storage_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_storage_capacity &owner
+    if not gui_sfnt_simple_glyph_outline_storage_capacity_matches &summary_capacity &storage_capacity:
+        then:
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::StorageSummaryCapacityMismatch -1
+            Result::Err error
+        else:
+            let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_cursor &owner
+            if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_is_well_formed &cursor:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::CursorInvalid -1
+                    Result::Err error
+                else:
+                    let region %GuiSfntSimpleGlyphOutlineScalarRegion gui_sfnt_simple_glyph_outline_scalar_region_cursor_region &cursor
+                    let is_edge_region %bool match region:
+                        GuiSfntSimpleGlyphOutlineScalarRegion::Edge:
+                            true
+                        _:
+                            false
+                    if not is_edge_region:
+                        then:
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::CursorRegionMismatch -1
+                            Result::Err error
+                        else:
+                            if not gui_sfnt_simple_glyph_outline_scalar_region_cursor_matches_valid_capacity &cursor &summary_capacity:
+                                then:
+                                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::CursorCapacityMismatch -1
+                                    Result::Err error
+                                else:
+                                    let collection_capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+                                    if not gui_sfnt_simple_glyph_outline_storage_capacity_matches &collection_capacity &summary_capacity:
+                                        then:
+                                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_drain_error_empty owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeDrainErrorKind::CollectionSummaryCapacityMismatch -1
+                                            Result::Err error
+                                        else:
+                                            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_edge_start_owner_drain_to_path_command_tag_start_budget_trusted collection owner remaining_steps
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
