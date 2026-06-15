@@ -3589,3 +3589,38 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ae.json -j 1
 git diff --check
 ```
+
+## Phase F5af: sfnt simple glyph outline point stream item collection path sink step
+
+目的:
+
+- F5ae collection-backed contour step lookup を authority として、`GuiSfntSimpleGlyphPathSinkPolicy` を適用した `GuiSfntSimpleGlyphPathSinkStep` を返す。
+- policy reject は `Result::Err` にせず、既存 pure helper と同じく success payload の primary action に保持する。
+- F4 byte-backed helper、F5aa/F5ac/F5ad 直接呼び出し、sink traversal、action step、render/raster/platform/host API へ戻らない。
+
+変更:
+
+- Tesla plan review は `PLAN_APPROVED`。F5af は F5ae と pure `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` の thin composition として妥当であり、新しい error type は不要と判断された。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` を追加する。
+- helper は source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を exactly once 呼ぶ。
+- F5ae error は wrap せず `Result::Err error` として返す。
+- F5ae success では source 上 `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` を exactly once 呼び、`Result::Ok sink_step` を返す。
+- helper は F5ad/F5ac/F5aa 直接呼び出し、byte-backed F4 lookup、metadata parser、`*_with_tables`、lower collection helpers、`Vec` / `push`、sink traversal、action step、render/raster/platform/host API を呼ばない。
+
+完了条件:
+
+- F5af public helper が F5ae lookup -> error propagation -> pure sink-step projection -> `Result::Ok sink_step` の順序を守る。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md` に primary line、tail close、error propagation、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、helper body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_step_f5af.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_contour_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_contour_step_f5af_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5af.json -j 1
+git diff --check
+```

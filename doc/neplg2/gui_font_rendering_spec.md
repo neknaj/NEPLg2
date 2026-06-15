@@ -3562,6 +3562,49 @@ sink traversal / event consumer APIs
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path sink step
+
+F5af は F5ae の collection-backed path contour step を authority として、`GuiSfntSimpleGlyphPathSinkPolicy` による policy decision を合成し、`GuiSfntSimpleGlyphPathSinkStep` を返す境界である。これは contour-wide traversal、action step traversal、sink consumer、path command list allocation、renderer、rasterizer ではない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5af は F5ae `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step` を exactly once 呼ぶ。F5ae が `Result::Err` を返した場合、F5af は error を wrap せず同じ error value として返す。F5af 自身は新しい fallible authority を持たないため、専用 error enum を追加しない。
+
+F5ae が `Result::Ok contour_step` を返した場合、F5af は pure helper `gui_sfnt_simple_glyph_path_sink_step_from_contour_step` を exactly once 呼び、policy decision と tail close handling を既存の sink step contract に委譲する。policy reject は `Result::Err` ではなく、`GuiSfntSimpleGlyphPathSinkStep.primary_action = Reject` として成功 payload に残る。
+
+成功 path は次の順序を守る。
+
+```text
+1. F5ae collection-backed contour step lookup を exactly once 呼ぶ
+2. error は wrap せず Result::Err error として返す
+3. success contour_step を pure sink-step projection に渡す
+4. Result::Ok sink_step を返す
+```
+
+F5af は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_lookup_simple_glyph_path_contour_step
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_simple_glyph_path_sink_action
+gui_sfnt_simple_glyph_path_sink_action_step
+vec::
+push
+sink traversal / action APIs
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
