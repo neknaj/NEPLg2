@@ -4094,6 +4094,58 @@ The item helper must not inspect action payloads. `Reject`, `NoAction`, `CloseCo
 
 F5ah may call only `gui_sfnt_simple_glyph_path_sink_action_step_next`, F5ag, the collection-backed F5ah advance helper from the item helper, the pure item constructor, and `*step` value copy. It must not call F5af/F5ae/F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, action consumer helpers, sink traversal, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink action item next and consumer item boundary
+
+F5ai is the collection-backed action item next and consumer item boundary. It mirrors byte-backed F4ab/F4ac, but it uses F5ah action step items as the only next-step authority and never returns to font bytes, table metadata, or byte-backed F4 lookup helpers.
+
+The public boundaries are:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionStepItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ai intentionally does not introduce a new error type. The only fallible action is delegated F5ah item lookup, so F5ah errors must be propagated unchanged. `EndContour` is a successful terminal state and must not be represented as `Option::None`, `Result::Err`, or a hidden fallback.
+
+The action item next helper order is:
+
+```text
+read checked advance exactly once
+if advance is Continue next_step:
+    call F5ah collection action step item lookup exactly once
+    if F5ah Err:
+        return the same error
+    if F5ah Ok:
+        return Continue next_item
+if advance is EndContour:
+    return Ok EndContour
+```
+
+The consumer item helper order is:
+
+```text
+read stored step exactly once
+read action from stored step exactly once
+call collection action item next exactly once
+if next Err:
+    return the same error
+if next Ok:
+    construct GuiSfntSimpleGlyphPathSinkActionConsumerItem
+```
+
+F5ai does not interpret action payloads. `EmitEvent`, `Reject`, `NoAction`, and `CloseContour` remain data in the copied action value. Consumer apply, consume-once, traversal, real sink mutation, outline construction, render2d command emission, rasterization, and platform presentation belong to later explicit phases.
+
+F5ai may call only `gui_sfnt_simple_glyph_path_sink_action_step_item_advance`, F5ah collection action step item lookup, `gui_sfnt_simple_glyph_path_sink_action_step_item_step`, `gui_sfnt_simple_glyph_path_sink_action_step_action`, the F5ai action item next helper from the consumer item helper, and the pure consumer item constructor. It must not call F5ag/F5af/F5ae/F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, consumer apply/consume helpers, sink traversal, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

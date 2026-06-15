@@ -9074,6 +9074,44 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             let item %GuiSfntSimpleGlyphPathSinkActionStepItem gui_sfnt_simple_glyph_path_sink_action_step_item stored_step advance
             Result::Ok item
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next: collection 由来の action item を 1 つ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - item の checked advance だけを[読/よ]みます。
+//: - `Continue` の[場合/ばあい]だけ collection-backed action step item helper に[委譲/いじょう]します。
+//: - `EndContour` は error ではなく successful terminal value として[返/かえ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionStepItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\item\policy:
+    let advance %GuiSfntSimpleGlyphPathSinkActionStepAdvance gui_sfnt_simple_glyph_path_sink_action_step_item_advance item
+    match advance:
+        GuiSfntSimpleGlyphPathSinkActionStepAdvance::Continue next_step:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &next_step policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok next_item:
+                    Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::Continue next_item
+        GuiSfntSimpleGlyphPathSinkActionStepAdvance::EndContour:
+            Result::Ok GuiSfntSimpleGlyphPathSinkActionItemNext::EndContour
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item: action と checked next を collection 由来の packet に[束/たば]ねる
+//:
+//: [契約/けいやく]:
+//: - item の現在 step から action を value として[写/うつ]します。
+//: - next state は collection-backed action item next helper にだけ[委譲/いじょう]します。
+//: - action payload は[解釈/かいしゃく]せず、future sink consumer へ value として[渡/わた]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionStepItem fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\item\policy:
+    let stored_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_item_step item
+    let action %GuiSfntSimpleGlyphPathSinkAction gui_sfnt_simple_glyph_path_sink_action_step_action &stored_step
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next collection item policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok next:
+            let consumer_item %GuiSfntSimpleGlyphPathSinkActionConsumerItem gui_sfnt_simple_glyph_path_sink_action_consumer_item action next
+            Result::Ok consumer_item
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

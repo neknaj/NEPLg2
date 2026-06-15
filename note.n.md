@@ -64019,3 +64019,46 @@ MERGE_APPROVED
 
 - F5ah は action step item までであり、action item next、consumer item、consume/apply loop、contour-wide sink traversal は未実装である。
 - 次 slice では F5ah を authority として collection-backed action item next / consumer item boundary へ進む。
+
+## 2026-06-15 GUI font rendering F5ai collection action item next and consumer item
+
+### scope
+
+- F5ai は F5ah collection-backed action step item を authority とし、checked advance を action item next へ進める境界である。
+- consumer item helper は current action payload の value copy と checked next state を束ねるだけで、action payload の解釈、apply / consume、sink mutation、contour-wide traversal は行わない。
+- `EndContour` は `Result::Err` や `Option::None` にせず、successful terminal enum として保持する。
+
+### plan_review
+
+- Tesla plan review: `PLAN_APPROVED`。F5ai は F5ah の checked advance/item を authority として、F4ab/F4ac と同じ分割を collection-backed に写す next boundary として妥当と判断された。
+- 指摘事項として、`consumer_item` は action value のコピーと next helper だけに限定し、source policy では pure constructor を許可しつつ consumer traversal / apply / consume 系 API を禁止する粒度にする必要がある。
+
+### implementation
+
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_item_next` を追加した。
+- action item next helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_advance item` を 1 回だけ読み、`Continue next_step` の場合だけ F5ah `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item` へ 1 回だけ委譲する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item` を追加した。
+- consumer item helper は `gui_sfnt_simple_glyph_path_sink_action_step_item_step` と `gui_sfnt_simple_glyph_path_sink_action_step_action` を 1 回ずつ呼び、collection-backed action item next helper の success path で `gui_sfnt_simple_glyph_path_sink_action_consumer_item action next` を返す。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5ai の contract、依存禁止、検証方針を追加した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md` を追加し、continue item next、end item next、consumer item copy、error propagation、no fallback/no byte-backed traversal の coverage label を固定した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ai source policy を追加し、body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `todo.md` は次の collection-backed consumer item next / consume-once boundary へ更新した。
+
+### verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`。source policy 本体は 900 秒制限で実行し pass を確認した。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_item_f5ai.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step_item.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_item_f5ai_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=180000 node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ai.json -j 1` は 764/764 pass。
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+### subagent_review
+
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。code / source policy / doctest の blocker はないが、F5ai checkpoint の subagent review 欄が pending のままだったため、mergeable staged set として記録更新が必要と指摘された。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回の note blocker は解消され、staged doctest が含まれ、code / source policy / doctest blocker はないと確認された。
+
+### residual
+
+- F5ai は action item next / consumer item までであり、consumer item next、consume/apply loop、contour-wide sink traversal は未実装である。
+- 次 slice では F5ai を authority として collection-backed consumer item next / consume-once boundary へ進む。

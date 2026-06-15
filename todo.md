@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5ah の collection-backed action step item を authority とし、collection-backed action item next / consumer item boundary を追加する。checked next、current action payload copy、consumer item を typed value として分離し、F4 byte-backed helper、F5ag/F5af/F5ae/F5ad/F5ac/F5aa 直接呼び出し、sink traversal、raster/render/platform API へ戻らない contract を固定する
+- F5ai の collection-backed action consumer item を authority とし、collection-backed consumer item next / consume-once boundary を追加する。checked consumer next、apply result、consume step を typed value として分離し、F4 byte-backed helper、F5ah/F5ag/F5af/F5ae/F5ad/F5ac/F5aa 直接呼び出し、sink traversal、raster/render/platform API へ戻らない contract を固定する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える
