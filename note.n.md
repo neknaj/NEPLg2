@@ -1,3 +1,44 @@
+# 2026-06-15 Agent2 GUI font outline point stream item collection path sink action start consumer checkpoint
+
+## scope
+
+- branch: `gui-font-collection-start-consumer-f5ak-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ak の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner-preserving collection boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action start consumer の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ak の collection-backed start item / start consumer item / start consume-once / start consume summary boundary、collection capacity glyph authority、error domain reuse、byte-backed fallback 禁止を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ak の plan review 経緯、実装順序、source policy、focused doctest、検証 command を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ak source policy を追加し、docs/API/capacity glyph exact one-call/start cursor exact one-call/F5ag/F5ah/F5ai/F5aj exact one-call/forbidden API/括弧なし prefix style/test coverage label を検査する。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once`、`gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary` を追加した。
+- F5ak start item は caller supplied glyph を受け取らず、collection capacity の glyph から start cursor を作る。
+- F5ak higher helper は直下の F5ak helper と F5ai/F5aj authority だけを使い、F5ag/F5ah 直接呼び出しや byte-backed F4 helper へ戻らない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md` を追加し、capacity glyph authority、start item、start consumer、start consume-once、summary projection、error propagation、no Vec / no fallback / no byte-backed traversal の source policy coverage label を固定した。
+
+## subagent review
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`start_item` が caller supplied glyph を受け取ると forged cursor を作れるため、collection capacity glyph を authority にする必要があると指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。collection capacity glyph authority、F5ak helper 分割、summary advance/drain を次 slice に分ける責務境界が妥当と判断された。
+- Tesla implementation review 1 回目は `IMPLEMENTATION_BLOCKED`。内容面の blocker はなく、`note.n.md` に implementation review 結果を記録する必要があるという運用指摘だった。
+- Tesla follow-up implementation review は `IMPLEMENTATION_APPROVED`。前回 blocker の note 記録は staged diff に反映され、staged set は意図した 8 ファイルのみで、未追跡 tmp / `NUL` は commit 対象外であることが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_start_consumer_f5ak.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_next_f5ak_regression.json -j 1`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ak.json -j 1` 771/771 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ak は collection-backed start consume summary までであり、consume summary advance-once、budgeted drain、outline traversal、raster mask、render2d command emission は未実装である。
+- F5ak focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+
 # 2026-06-15 Agent2 GUI font outline point stream item collection path sink action consumer next checkpoint
 
 ## scope

@@ -3791,3 +3791,50 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aj.json -j 1
 git diff --check
 ```
+
+## Phase F5ak: sfnt simple glyph outline point stream item collection path sink action start consumer
+
+目的:
+
+- collection-backed action stream の contour start boundary を追加し、first action item、first consumer item、first consume step、first consume summary を作る。
+- caller supplied glyph を受け取らず、collection capacity の glyph を start cursor authority とする。
+- collection-backed start boundary で forged cursor を作れないよう、`collection_capacity -> capacity.glyph -> start_cursor -> F5ag action step -> F5ah step item` の順序を固定する。
+- F5ai / F5aj を高位 helper の authority とし、byte-backed F4 lookup、lower F5 直接呼び出し、sink traversal、real sink mutation、render/raster/platform/host API へ戻らない。
+
+変更:
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。`start_item` が caller supplied glyph を受け取ると forged cursor を作れるため、collection capacity glyph を authority にする必要があると指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。collection capacity glyph authority、F5ak helper 分割、summary advance/drain を次 slice に分ける責務境界が妥当と判断された。
+- revised plan では `start_item` の public signature から `GuiGlyphId` を削除し、collection capacity から glyph を読み出す。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item` を追加する。
+- start item helper は source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection` を exactly once 呼ぶ。
+- start item helper は source 上 `gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity` を exactly once 呼ぶ。
+- start item helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index` を exactly once 呼ぶ。
+- start item helper は source 上 F5ag `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection start_cursor policy` を exactly once 呼ぶ。
+- start item helper は source 上 F5ah `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &start_step policy` を exactly once 呼ぶ。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item` を追加する。
+- start consumer item helper は source 上 start item helper を exactly once 呼び、成功時だけ F5ai consumer item helper を exactly once 呼ぶ。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once` を追加する。
+- start consume-once helper は source 上 start consumer item helper を exactly once 呼び、成功時だけ F5aj consume-once helper を exactly once 呼ぶ。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary` を追加する。
+- start consume summary helper は source 上 start consume-once helper を exactly once 呼び、成功時だけ pure summary projection を exactly once 呼ぶ。
+- helper は byte-backed F4 lookup、caller supplied glyph、consumer next、summary advance/drain、sink traversal、`Vec` / `push`、render/raster/platform/host API を呼ばない。
+
+完了条件:
+
+- F5ak start item helper が collection capacity -> capacity glyph -> start cursor -> F5ag action step -> F5ah step item の順序を守る。
+- higher F5ak helper が直接 F5ag/F5ah や lower collection traversal に戻らず、直下の F5ak helper と F5ai/F5aj authority だけを使う。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md` に start item authority、start consumer item、start consume-once、start consume summary、error propagation、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、helper body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_start_consumer_f5ak.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consumer_next.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consumer_next_f5ak_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ak.json -j 1
+git diff --check
+```

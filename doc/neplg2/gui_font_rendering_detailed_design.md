@@ -4224,6 +4224,100 @@ if advance Ok:
 
 F5aj may call only `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next`, F5ai collection consumer item lookup, `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step`, `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next`, `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply`, the F5aj collection apply advance helper from consume-once, and the pure consume step constructor. It must not call byte-backed F4 lookup helpers, lower F5 collection helpers, `gui_sfnt_simple_glyph_path_sink_action_step_action`, action payload variants, `vec::`, `push`, consume summary helpers, sink traversal, real sink mutation, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink action start consumer boundary
+
+F5ak is the collection-backed contour start consumer boundary. It adds the first item and first consumer item entry point above F5aj, but it must not accept an external glyph. The collection already owns `GuiSfntSimpleGlyphOutlineStorageCapacity`, and that capacity is the authority for the glyph. The required sequence is `collection_capacity -> capacity.glyph -> start_cursor -> F5ag action step -> F5ah step item`.
+
+The public boundaries are:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ak intentionally reuses `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError`. The fallible operations are still collection-backed step lookup, step item lookup, F5ai consumer item lookup, and F5aj consume-once. Each delegated error is propagated unchanged. `Rejected` and `EndContour` remain typed terminal success values when they are produced by the consumer layer.
+
+The start item helper order is:
+
+```text
+read collection capacity exactly once
+read glyph from capacity exactly once
+construct start cursor from capacity glyph and contour_index exactly once
+call F5ag collection action step lookup exactly once
+if F5ag Err:
+    return the same error
+if F5ag Ok:
+    call F5ah collection action step item lookup exactly once
+    if F5ah Err:
+        return the same error
+    if F5ah Ok:
+        return item
+```
+
+The start consumer item helper order is:
+
+```text
+call F5ak start item exactly once
+if start item Err:
+    return the same error
+if start item Ok:
+    call F5ai collection consumer item lookup exactly once
+    if F5ai Err:
+        return the same error
+    if F5ai Ok:
+        return consumer_item
+```
+
+The start consume-once helper order is:
+
+```text
+call F5ak start consumer item exactly once
+if start consumer item Err:
+    return the same error
+if start consumer item Ok:
+    call F5aj collection consumer item consume-once exactly once
+    if F5aj Err:
+        return the same error
+    if F5aj Ok:
+        return consume_step
+```
+
+The start consume summary helper order is:
+
+```text
+call F5ak start consume-once exactly once
+if start consume-once Err:
+    return the same error
+if start consume-once Ok:
+    call pure consume summary projection exactly once
+    return summary
+```
+
+Only the start item helper may call F5ag and F5ah directly. Higher F5ak helpers must use the immediately lower F5ak helper and the already established F5ai/F5aj authority. F5ak must not call byte-backed F4 helpers, accept caller supplied glyphs, inspect action payload variants, call consumer next, advance/drain summaries, allocate `Vec`, push items, traverse a real sink, mutate a sink, rasterize, emit render commands, call platform APIs, or call host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
