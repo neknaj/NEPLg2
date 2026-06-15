@@ -8858,6 +8858,152 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_even
             let kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind_pair_kind_at &kind_pair slot
             Result::Ok kind
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind: collection-backed contour step lookup の typed reason
+//:
+//: [目的/もくてき]:
+//: - F5ae は contour span lookup、cursor glyph identity check、event lookup の失敗 domain を分けます。
+//: - `Option::None` や generic parse error に畳まず、caller が `match` で失敗箇所を分岐できる形にします。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind:
+    ContourSpanFailed
+    CursorGlyphMismatch
+    PathSinkEventFailed
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError: contour step lookup failure context
+//:
+//: [目的/もくてき]:
+//: - collection capacity と cursor を保存し、cursor glyph と collection glyph の不一致を string 解析なしに診断できます。
+//: - span error と event error は `Option` で分け、どちらの下位 boundary が失敗したかを明示します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    cursor %GuiSfntSimpleGlyphPathContourCursor
+    contour_index %i32
+    edge_index %i32
+    slot %GuiSfntSimpleGlyphPathSinkEventSlot
+    span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    event_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error: contour step error value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphPathContourCursor fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError fn Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \kind\capacity\cursor\contour_index\edge_index\slot\span_error\event_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError kind capacity cursor contour_index edge_index slot span_error event_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_kind: error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind \error:
+    *field::get_ref error "kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_capacity: collection capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphOutlineStorageCapacity \error:
+    *field::get_ref error "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_cursor: cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphPathContourCursor \error:
+    *field::get_ref error "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_contour_index: requested contour index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_contour_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError i32 \error:
+    *field::get_ref error "contour_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_edge_index: requested edge index を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_edge_index %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError i32 \error:
+    *field::get_ref error "edge_index"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_slot: requested event slot を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_slot %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError GuiSfntSimpleGlyphPathSinkEventSlot \error:
+    *field::get_ref error "slot"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_span_error: contour span sub-error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_span_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError \error:
+    *field::get_ref error "span_error"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_event_error: sink event sub-error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_event_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError \error:
+    *field::get_ref error "event_error"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_empty %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphPathContourCursor fn i32 fn i32 fn GuiSfntSimpleGlyphPathSinkEventSlot GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \kind\capacity\cursor\contour_index\edge_index\slot:
+    let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+    let event_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError none
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error kind capacity cursor contour_index edge_index slot span_error event_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step: collection から cursor 位置の contour step を[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - contour span lookup を exactly once [呼/よ]び、cursor glyph と collection capacity glyph の一致を検査してから event lookup へ進みます。
+//: - F5ad event lookup を exactly once [呼/よ]び、kind は返った event から導くため、同じ edge を二重に導出しません。
+//: - byte-backed lookup、metadata parser、F5ac kind lookup、sink traversal、raster / render / platform API は[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathContourCursor Result GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\cursor:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let contour_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_contour_index &cursor
+    let edge_index %i32 gui_sfnt_simple_glyph_path_contour_cursor_edge_index &cursor
+    let slot %GuiSfntSimpleGlyphPathSinkEventSlot gui_sfnt_simple_glyph_path_contour_cursor_slot &cursor
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index:
+        Result::Err span_error_value:
+            let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError some span_error_value
+            let event_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError none
+            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::ContourSpanFailed capacity cursor contour_index edge_index slot span_error event_error
+            Result::Err error
+        Result::Ok span:
+            let capacity_glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+            let cursor_glyph %GuiGlyphId gui_sfnt_simple_glyph_path_contour_cursor_glyph &cursor
+            let capacity_glyph_raw %i32 gui_glyph_id_raw &capacity_glyph
+            let cursor_glyph_raw %i32 gui_glyph_id_raw &cursor_glyph
+            if ne capacity_glyph_raw cursor_glyph_raw:
+                then:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error_empty GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::CursorGlyphMismatch capacity cursor contour_index edge_index slot
+                    Result::Err error
+                else:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at collection contour_index edge_index slot:
+                        Result::Err event_error_value:
+                            let span_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError none
+                            let event_error %Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError some event_error_value
+                            let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step_error GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind::PathSinkEventFailed capacity cursor contour_index edge_index slot span_error event_error
+                            Result::Err error
+                        Result::Ok event:
+                            let kind %GuiSfntSimpleGlyphPathSinkEventKind gui_sfnt_simple_glyph_path_sink_event_kind &event
+                            let span_point_count %i32 gui_sfnt_simple_glyph_contour_span_point_count &span
+                            let next %GuiSfntSimpleGlyphPathContourNext gui_sfnt_simple_glyph_path_contour_next_from_cursor &cursor span_point_count
+                            let step %GuiSfntSimpleGlyphPathContourStep gui_sfnt_simple_glyph_path_contour_step cursor event kind next
+                            Result::Ok step
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

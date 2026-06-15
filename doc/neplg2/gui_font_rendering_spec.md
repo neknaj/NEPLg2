@@ -3491,6 +3491,77 @@ sink traversal / event consumer APIs
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path contour step
+
+F5ae は F5ad の collection-backed path sink event at boundary を使い、`GuiSfntSimpleGlyphPathContourCursor` の現在位置を `GuiSfntSimpleGlyphPathContourStep` に写す境界である。これは contour-wide traversal、sink mutation、event consumer、path command list allocation、renderer、rasterizer ではない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind:
+    ContourSpanFailed
+    CursorGlyphMismatch
+    PathSinkEventFailed
+```
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError:
+    kind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind
+    capacity GuiSfntSimpleGlyphOutlineStorageCapacity
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    contour_index i32
+    edge_index i32
+    slot GuiSfntSimpleGlyphPathSinkEventSlot
+    span_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionContourSpanError
+    event_error Option GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    -> Result GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ae はまず collection contour span lookup を exactly once 呼ぶ。失敗した場合は `ContourSpanFailed` として返し、`span_error = Some error` / `event_error = None` にする。span が成功した場合、F5ae は cursor glyph と collection capacity glyph を比較する。cursor glyph と collection capacity glyph が一致しない場合は `CursorGlyphMismatch` として返し、下位 event lookup へ進まない。
+
+cursor glyph が一致した場合だけ、F5ae は F5ad `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at` を exactly once 呼ぶ。F5ad が失敗した場合は `PathSinkEventFailed` として返し、`span_error = None` / `event_error = Some error` にする。F5ad が成功した場合、F5ae は返された event から `gui_sfnt_simple_glyph_path_sink_event_kind` で kind を導く。F5ac は呼ばない。F5ac は kind だけを欲しい caller 用の sibling boundary であり、F5ae の authority ではない。
+
+成功 path は次の順序を守る。
+
+```text
+1. collection contour span lookup を exactly once 呼ぶ
+2. cursor glyph と collection capacity glyph を比較する
+3. F5ad collection path sink event at lookup を exactly once 呼ぶ
+4. returned event から kind を exactly once 導く
+5. private cursor next helper で next state を作る
+6. GuiSfntSimpleGlyphPathContourStep を作る
+```
+
+F5ae は次を直接呼ばない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_lookup_simple_glyph_path_contour_step
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

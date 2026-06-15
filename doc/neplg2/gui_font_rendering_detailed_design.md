@@ -3932,6 +3932,53 @@ The required order is:
 
 F5ad may call F5aa and the pure `gui_sfnt_simple_glyph_path_sink_event_pair_event_at` projection. It must not call F5ab/F5ac kind helpers, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5z/F5y/F5x/F5w/F5v lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer/action APIs, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path contour step boundary
+
+F5ae is the collection-backed contour step boundary. It mirrors the byte-backed F4s step shape, but its authority is the already built point-stream item collection rather than font bytes or table metadata. It does not traverse a whole contour, does not allocate a command list, and does not call a sink consumer.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    cursor GuiSfntSimpleGlyphPathContourCursor
+    -> Result GuiSfntSimpleGlyphPathContourStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5ae introduces a dedicated error domain because the contour step has three different failure authorities:
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepErrorKind:
+    ContourSpanFailed
+    CursorGlyphMismatch
+    PathSinkEventFailed
+```
+
+`ContourSpanFailed` stores the F5v contour span error and does not invent an event error. `CursorGlyphMismatch` stores the collection capacity and cursor that failed the identity check and does not call event lookup. `PathSinkEventFailed` stores the F5ad event lookup error and does not hide it behind a generic parse error.
+
+The required order is:
+
+```text
+read capacity and cursor fields
+call collection contour span lookup exactly once
+if span Err:
+    return ContourSpanFailed
+if span Ok:
+    check cursor glyph against collection capacity glyph before event lookup
+    if mismatch:
+        return CursorGlyphMismatch
+    call F5ad collection path sink event lookup exactly once
+    if event Err:
+        return PathSinkEventFailed
+    derive kind from the returned event
+    compute next with private cursor-next helper
+    construct GuiSfntSimpleGlyphPathContourStep
+```
+
+F5ac remains a kind-only sibling boundary. F5ae must not call F5ac because doing so would derive the same edge twice through a second lookup chain. The returned event is the single source of truth for `GuiSfntSimpleGlyphPathSinkEventKind`.
+
+F5ae may call F5v contour span lookup, F5ad event lookup, the pure event-kind projection, the private cursor-next helper, and the pure contour-step constructor. It must not call F5ac/F5ab/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5z/F5y/F5x/F5w lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer/action APIs, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
