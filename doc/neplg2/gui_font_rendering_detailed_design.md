@@ -3795,6 +3795,33 @@ Single-point contours and off-curve start edges remain successful `NoSegment` cl
 
 F5y may call F5x, F5w, point / span / edge / capacity accessors, and `gui_sfnt_classify_simple_glyph_curve_segment`. It must not call F4 byte-backed contour or curve helpers, F5 drains, F5 point steps, direct `vec::`, byte readers, path helpers, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path command pair boundary
+
+F5z is the collection-backed equivalent of the old F4o byte-backed path command pair lookup. It does not re-decode SFNT bytes, does not call the byte-backed path lookup, and does not introduce a command list. It composes exactly one F5y curve segment lookup with the existing pure path command pair projection.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5z deliberately reuses the F5y error domain. The boundary adds no new operation that can fail: path command pair projection is a total value projection over `GuiSfntSimpleGlyphCurveSegment`. If F5y returns an error, F5z returns that exact error. If F5y returns `NoSegment`, F5z returns an explicit pair of `SkipNoSegment` commands through the existing F4o projection; it does not return `Option::None` and does not silently skip the edge.
+
+The required order is:
+
+```text
+1. Call F5y collection curve segment lookup exactly once.
+2. On F5y error, return Result::Err error without wrapping or changing the error kind.
+3. On F5y success, call gui_sfnt_simple_glyph_curve_segment_path_command_pair exactly once.
+4. Return Result::Ok pair.
+```
+
+F5z may call F5y and the pure `gui_sfnt_simple_glyph_curve_segment_path_command_pair` projection. It must not call byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5x/F5w lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer APIs, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

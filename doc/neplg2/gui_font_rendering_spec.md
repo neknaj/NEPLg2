@@ -3227,6 +3227,56 @@ path helpers
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path command pair
+
+F5z は F5y の collection-backed curve segment を、既存の pure path command pair projection へ渡す境界である。これは contour stream、path command list、sink trait、rasterizer、renderer ではない。1 edge について `MoveTo` 相当の command と draw command を O(1) pair value として返すだけである。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5z は新しい error enum を持たない。F5y が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5y が成功した場合、`gui_sfnt_simple_glyph_curve_segment_path_command_pair` で `GuiSfntSimpleGlyphPathCommandPair` へ写す。`NoSegment` は parse error ではなく、既存 F4o と同じく move / draw の両方で explicit `SkipNoSegment` command として保持される。
+
+F5z は次の順序を守る。
+
+```text
+1. F5y collection curve segment lookup を exactly once 呼ぶ
+2. F5y error は変更せず Result::Err として返す
+3. F5y success segment は gui_sfnt_simple_glyph_curve_segment_path_command_pair へ exactly once 渡す
+4. pair projection result を Result::Ok として返す
+```
+
+F5z は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

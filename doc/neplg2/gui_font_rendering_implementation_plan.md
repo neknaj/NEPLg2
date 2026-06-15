@@ -3359,3 +3359,41 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5y.json -j 1
 git diff --check
 ```
+
+## Phase F5z: sfnt simple glyph outline point stream item collection path command pair
+
+目的:
+
+- F5y の collection-backed curve segment lookup を authority とし、1 edge を `GuiSfntSimpleGlyphPathCommandPair` へ写す。
+- F4 byte-backed path command pair lookup、metadata parser、`*_with_tables` helper、F5x/F5w 直接呼び出し、drain、raster/render/platform/host API へ戻らない。
+- 後続の collection-backed path sink event / outline traversal が使う single-edge command pair boundary を、owner-preserving collection API と typed `Result` に固定する。
+
+変更:
+
+- 先に source policy と実装計画を subagent にレビューさせた。
+- Tesla plan review は `PLAN_APPROVED`。F5z は F5y と既存 pure path command pair projection の thin composition として scope が適切であり、新しい failure domain は不要と判断された。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair` を追加する。
+- F5z は F5y `gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment` を source 上 exactly once 呼ぶ。
+- F5y error は wrap せず、同じ `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` として `Result::Err` で返す。
+- F5y success segment は `gui_sfnt_simple_glyph_curve_segment_path_command_pair` に source 上 exactly once 渡し、`Result::Ok pair` を返す。
+- NoSegment は F4o と同じく explicit `SkipNoSegment` pair として保持し、`Option::None`、silent no-op、fallback に変換しない。
+- source policy は F5z docs、public API、F5y exact one-call、pure pair projection exact one-call、F5y error propagation、forbidden API、括弧なし prefix style を検査する。
+- F5y 実呼び出しは現行 wasm doctest compiler で compile timeout するため、F5z focused doctest は source policy label と `skip` executable に留める。compiler 側の compile time が改善された時点で unskip する。
+
+完了条件:
+
+- F5z public helper が F5y を exactly once 呼ぶ。
+- F5z public helper が `gui_sfnt_simple_glyph_curve_segment_path_command_pair` を exactly once 呼ぶ。
+- F5z public helper は `gui_sfnt_lookup_simple_glyph_path_command_pair`、`gui_sfnt_lookup_simple_glyph_curve_segment`、metadata parser、`*_with_tables` helper、F5x/F5w、F5 drain/point-step、`Vec` / `push`、sink traversal、render/raster/platform/host API を呼ばない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md` に line pair、quadratic pair、no-segment skip pair、F5y error propagation、no fallback/no Vec/no sink traversal coverage label を追加する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+検証:
+
+```powershell
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_pair_f5z.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_curve_segment_f5z_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5z.json -j 1
+git diff --check
+```

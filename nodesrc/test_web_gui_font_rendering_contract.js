@@ -115,6 +115,7 @@ const guiFontSfntOutlinePointStreamItemCollectionContourSpanTests = read("tests/
 const guiFontSfntOutlinePointStreamItemCollectionContourPointTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_point.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_contour_edge.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_curve_segment.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -144,6 +145,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionContourPointTests,
     guiFontSfntOutlinePointStreamItemCollectionContourEdgeTests,
     guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -7979,6 +7981,106 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("SinglePointContour") &&
         guiFontSfntOutlinePointStreamItemCollectionCurveSegmentTests.includes("OffCurveStart"),
     "F5y point stream item collection curve segment focused doctest must cover line, quadratics, no-segment states, edge failure wrapping, and lookahead wrapping",
+);
+const specF5z = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path command pair"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5z は F5y",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair:",
+    "collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection",
+    "-> Result GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError",
+    "新しい error enum を持たない",
+    "F5y collection curve segment lookup を exactly once 呼ぶ",
+    "gui_sfnt_simple_glyph_curve_segment_path_command_pair へ exactly once 渡す",
+    "gui_sfnt_lookup_simple_glyph_path_command_pair",
+    "sink traversal / event consumer APIs",
+]) {
+    assert(specF5z.includes(fragment), `font spec F5z collection path command pair must mention ${fragment}`);
+}
+const detailedF5z = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path command pair boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5z is the collection-backed equivalent",
+    "composes exactly one F5y curve segment lookup with the existing pure path command pair projection",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair:",
+    "F5z deliberately reuses the F5y error domain",
+    "path command pair projection is a total value projection",
+    "Call F5y collection curve segment lookup exactly once",
+    "return Result::Err error without wrapping or changing the error kind",
+    "call gui_sfnt_simple_glyph_curve_segment_path_command_pair exactly once",
+    "F5z may call F5y and the pure `gui_sfnt_simple_glyph_curve_segment_path_command_pair` projection",
+]) {
+    assert(detailedF5z.includes(fragment), `font detailed design F5z collection path command pair must mention ${fragment}`);
+}
+const implementationPlanF5z = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5z: sfnt simple glyph outline point stream item collection path command pair"),
+);
+for (const fragment of [
+    "Tesla plan review は `PLAN_APPROVED`",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair",
+    "F5y `gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment` を source 上 exactly once 呼ぶ",
+    "F5y error は wrap せず",
+    "gui_sfnt_simple_glyph_curve_segment_path_command_pair",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_pair.n.md",
+]) {
+    assert(implementationPlanF5z.includes(fragment), `font implementation plan F5z must mention ${fragment}`);
+}
+assert(
+    allocFontSfntGlyfImpl.includes("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn i32 Result GuiSfntSimpleGlyphPathCommandPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError"),
+    "alloc/gui/font/sfnt/glyf F5z must expose collection-backed path command pair helper",
+);
+const pointStreamItemCollectionPathCommandPair = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair");
+for (const fragment of [
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index edge_index",
+    "Result::Err error:",
+    "Result::Err error",
+    "Result::Ok segment:",
+    "let pair %GuiSfntSimpleGlyphPathCommandPair gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment",
+    "Result::Ok pair",
+]) {
+    assert(pointStreamItemCollectionPathCommandPair.includes(fragment), `alloc/gui/font/sfnt/glyf F5z path command pair body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathCommandPair,
+    [
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment collection contour_index edge_index",
+        "Result::Err error:",
+        "Result::Err error",
+        "Result::Ok segment:",
+        "gui_sfnt_simple_glyph_curve_segment_path_command_pair &segment",
+        "Result::Ok pair",
+    ],
+    "alloc/gui/font/sfnt/glyf F5z must propagate F5y errors before pure pair projection",
+);
+assert(
+    (pointStreamItemCollectionPathCommandPair.match(/\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5z must call F5y curve segment exactly once",
+);
+assert(
+    (pointStreamItemCollectionPathCommandPair.match(/\bgui_sfnt_simple_glyph_curve_segment_path_command_pair\b/g) || []).length === 1,
+    "alloc/gui/font/sfnt/glyf F5z must call pure path command pair projection exactly once",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathCommandPair,
+    /\b(?:vec::|Vec\s+GuiSfntSimpleGlyphPathCommandPair|push|gui_sfnt_lookup_simple_glyph_path_command_pair|gui_sfnt_lookup_simple_glyph_curve_segment|gui_sfnt_lookup_simple_glyph_contour_edge|gui_sfnt_lookup_simple_glyph_contour_point|gui_sfnt_lookup_simple_glyph_contour_span|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point|gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span|gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget|gui_sfnt_simple_glyph_outline_storage_read_point_step|gui_sfnt_simple_glyph_outline_storage_read_point\b|gui_sfnt_glyf_read_point_flag_from_stream|gui_sfnt_glyf_decode_|GuiSfntSimpleGlyphPathSink|PathSink|Consumer|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5z must not allocate, call byte-backed/lower collection helpers directly, sink, render, rasterize, or use host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathCommandPair,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5z body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests.includes("path_command_pair_line_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests.includes("path_command_pair_quadratic_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests.includes("path_command_pair_no_segment_skip_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests.includes("path_command_pair_curve_error_propagates_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathCommandPairTests.includes("no_vec_no_fallback_no_sink_traversal"),
+    "F5z point stream item collection path command pair focused doctest must cover pair projection states and lower error propagation",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
