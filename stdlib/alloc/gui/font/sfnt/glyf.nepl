@@ -9723,6 +9723,153 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary:
             Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner: contour endpoint を 1 件[追加/ついか]した storage owner
+//:
+//: [目的/もくてき]:
+//: - F5e の typed endpoint push 成功結果を、F5ao 由来の summary と[結/むす]び[直/なお]します。
+//: - storage を[含/ふく]む owner なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint %Option i32
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner: endpoint push 済み owner を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineScalarRegionCursor fn Option i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner \storage\summary\cursor\previous_endpoint:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner storage summary cursor previous_endpoint
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_summary: push 済み owner の authority summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \owner:
+    *field::get_ref owner "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_cursor: push 済み owner の cursor を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_cursor %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner GuiSfntSimpleGlyphOutlineScalarRegionCursor \owner:
+    *field::get_ref owner "cursor"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_previous_endpoint: push 済み owner の previous endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_previous_endpoint %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner Option i32 \owner:
+    *field::get_ref owner "previous_endpoint"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage: push 済み owner から storage を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - この関数は owner を[消費/しょうひ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner GuiSfntSimpleGlyphOutlineStorage \owner:
+    field::get owner "storage"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError: owner recovery 付き typed endpoint push error
+//:
+//: [目的/もくてき]:
+//: - F5e push failure でも F5ao start owner を[復元/ふくげん]して caller へ[返/かえ]します。
+//: - lower F5e の error kind と F5d/F5c 由来の optional metadata を[保持/ほじ]します。
+//: - owner を[含/ふく]むため `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:
+    owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner
+    endpoint %GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind %Option StdErrorKind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error: owner recovery 付き endpoint push error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner fn GuiSfntSimpleGlyphContourEndpointSlot fn GuiSfntSimpleGlyphContourEndpointPushErrorKind fn Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind fn Option StdErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError \owner\endpoint\push_error_kind\region_error_kind\storage_push_error_kind:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError owner endpoint push_error_kind region_error_kind storage_push_error_kind
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_endpoint: rejected endpoint を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_endpoint %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError GuiSfntSimpleGlyphContourEndpointSlot \error:
+    *field::get_ref error "endpoint"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_push_error_kind: lower F5e error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError GuiSfntSimpleGlyphContourEndpointPushErrorKind \error:
+    *field::get_ref error "push_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_region_error_kind: lower F5d error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_region_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind \error:
+    *field::get_ref error "region_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_storage_push_error_kind: lower F5c push error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_storage_push_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError Option StdErrorKind \error:
+    *field::get_ref error "storage_push_error_kind"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_owner: endpoint push error から start owner を[取/と]り[戻/もど]す
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner \error:
+    field::get error "owner"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal: typed endpoint push boundary の terminal
+//:
+//: [目的/もくてき]:
+//: - `Pushed` だけが endpoint push 済み owner を[持/も]ちます。
+//: - `Rejected` と `StepBudgetExhausted` は F5ao terminal を owner なしで[通過/つうか]させます。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:
+    Pushed %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint: typed endpoint slot を contour endpoint region へ 1 件[追加/ついか]する
+//:
+//: [契約/けいやく]:
+//: - `Started` の場合だけ F5e typed endpoint push へ[進/すす]みます。
+//: - F5e push [失敗/しっぱい]では lower error metadata を[読/よ]んでから returned storage を[回収/かいしゅう]し、start owner を[復元/ふくげん]します。
+//: - F5e push 成功時は returned cursor と returned storage を[使/つか]い、previous endpoint を `some` に[包/つつ]んだ push owner を[返/かえ]します。
+//: - `Rejected` / `StepBudgetExhausted` では endpoint を[読/よ]まず、F5e push も storage consume も[行/おこな]いません。
+//: - byte-backed endpoint read、path sink traversal、render/platform API へは[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal impure fn GuiSfntSimpleGlyphContourEndpointSlot Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError \terminal\endpoint:
+    match terminal:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Started owner:
+            let summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_summary &owner
+            let cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_cursor &owner
+            let previous_endpoint %Option i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_previous_endpoint &owner
+            let storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage owner
+            match gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint:
+                Result::Ok pushed:
+                    let next_cursor %GuiSfntSimpleGlyphOutlineScalarRegionCursor gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed
+                    let next_previous_endpoint_value %i32 gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed
+                    let next_previous_endpoint %Option i32 some next_previous_endpoint_value
+                    let next_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed
+                    let push_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_owner next_storage summary next_cursor next_previous_endpoint
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::Pushed push_owner
+                Result::Err push_error:
+                    let push_error_kind %GuiSfntSimpleGlyphContourEndpointPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error
+                    let region_error_kind %Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error
+                    let storage_push_error_kind %Option StdErrorKind gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error
+                    let returned_storage %GuiSfntSimpleGlyphOutlineStorage gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error
+                    let recovered_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner returned_storage summary cursor previous_endpoint
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_push_error recovered_owner endpoint push_error_kind region_error_kind storage_push_error_kind
+                    Result::Err error
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::Rejected drain_rejected:
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::Rejected drain_rejected
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal::StepBudgetExhausted drain_summary:
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal::StepBudgetExhausted drain_summary
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

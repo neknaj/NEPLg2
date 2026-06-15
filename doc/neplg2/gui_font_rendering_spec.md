@@ -4129,6 +4129,69 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action contour endpoint push
+
+F5ap は F5ao の contour endpoint start terminal を authority として、`Started StartOwner` の場合だけ F5e typed contour endpoint push へ進む owner-recovery boundary である。F5ap は endpoint slot を 1 件だけ受け取り、iteration、byte-backed endpoint read、path sink traversal、renderer、platform API を直接呼ばない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint Option i32
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError:
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartOwner
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal:
+    Pushed GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushOwner
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint:
+    terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError
+```
+
+`Started owner` branch では、owner を消費する前に summary、cursor、previous endpoint を borrow-copy する。その後で `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_owner_storage owner` を 1 回だけ呼び、F5e `gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint storage cursor endpoint previous_endpoint` を 1 回だけ呼ぶ。
+
+F5e push が成功した場合は、F5e の returned storage、returned cursor、returned previous endpoint を使う。previous endpoint は `some next_previous_endpoint_value` に包み、`Pushed ContourEndpointPushOwner` を返す。
+
+F5e push が失敗した場合は、lower metadata を storage 回収より前に読む。
+
+```text
+gui_sfnt_simple_glyph_contour_endpoint_push_error_kind &push_error
+gui_sfnt_simple_glyph_contour_endpoint_push_error_region_error_kind &push_error
+gui_sfnt_simple_glyph_contour_endpoint_push_error_push_error_kind &push_error
+gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error
+```
+
+returned storage と保存済みの summary、cursor、previous endpoint から `ContourEndpointStartOwner` を復元し、endpoint と lower metadata を持つ `ContourEndpointPushError` を `Result::Err` で返す。
+
+`Rejected drain_rejected` と `StepBudgetExhausted drain_summary` は typed terminal であり、endpoint push failure ではない。そのため `Result::Ok ContourEndpointPushTerminal::Rejected drain_rejected` または `Result::Ok ContourEndpointPushTerminal::StepBudgetExhausted drain_summary` として caller へ返す。これらの branch では endpoint を読まず、F5e push、storage consume、owner/error construction を行わない。
+
+`ContourEndpointPushOwner`、`ContourEndpointPushError`、`ContourEndpointPushTerminal` は owner を含むため `Clone` / `Copy` を実装しない。
+
+F5ap は次を直接呼ばない。
+
+```text
+F5al start / advance / drain helper
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+byte-backed endpoint read / read-push helper
+lower collection path event / contour / step helpers
+path sink traversal / real sink mutation
+point / curve / path command population
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

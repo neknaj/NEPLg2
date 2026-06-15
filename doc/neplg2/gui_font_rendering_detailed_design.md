@@ -4575,6 +4575,76 @@ The capacity comparison covers glyph, contour count, point count, edge count, pa
 
 F5ao must not call F5al start/drain/advance, F5ak, F5aj, F4 byte-backed lookup helpers, lower collection path helpers, table helpers, `Vec`, `push`, endpoint push, point or curve population, path command fill, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path sink action contour endpoint push boundary
+
+F5ap consumes the F5ao contour endpoint start terminal and pushes exactly one typed `GuiSfntSimpleGlyphContourEndpointSlot` when the terminal is `Started`. This boundary connects the action-level owner chain to the existing F5e storage endpoint push contract. It does not read `glyf` bytes, does not iterate all contour endpoints, and does not proceed to point x/y, edge, path command, raster, or render work.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_contour_endpoint_start_terminal_push_endpoint:
+    terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointStartTerminal
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionContourEndpointPushError
+```
+
+The terminal and error shape is:
+
+```text
+ContourEndpointPushTerminal:
+    Pushed ContourEndpointPushOwner
+    Rejected DrainRejected
+    StepBudgetExhausted DrainSummary
+
+ContourEndpointPushOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary DrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+    previous_endpoint Option i32
+
+ContourEndpointPushError:
+    owner ContourEndpointStartOwner
+    endpoint GuiSfntSimpleGlyphContourEndpointSlot
+    push_error_kind GuiSfntSimpleGlyphContourEndpointPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+```
+
+The `Started owner` order is:
+
+```text
+borrow summary from start owner
+borrow cursor from start owner
+borrow previous endpoint from start owner
+consume start owner storage exactly once
+call F5e gui_sfnt_simple_glyph_outline_storage_push_contour_endpoint exactly once
+if F5e returns Ok pushed:
+    read next_cursor from pushed
+    read next_previous_endpoint_value from pushed
+    wrap next_previous_endpoint_value as some
+    consume pushed storage
+    construct ContourEndpointPushOwner next_storage summary next_cursor some_previous_endpoint
+    return Ok Pushed push_owner
+if F5e returns Err push_error:
+    read push_error_kind from push_error
+    read region_error_kind from push_error
+    read storage_push_error_kind from push_error
+    consume returned storage from push_error
+    reconstruct ContourEndpointStartOwner returned_storage summary cursor previous_endpoint
+    construct ContourEndpointPushError recovered_owner endpoint push_error_kind region_error_kind storage_push_error_kind
+    return Err ContourEndpointPushError
+```
+
+The error branch must read lower metadata before consuming `push_error` with `gui_sfnt_simple_glyph_contour_endpoint_push_error_storage push_error`. After that call the lower error owner is gone, so all diagnostics needed by the action-level error must already be copied.
+
+The success branch must use F5e returned state, not recompute state from the input endpoint. `ContourEndpointPushOwner.cursor` comes from `gui_sfnt_simple_glyph_contour_endpoint_push_cursor &pushed`, storage comes from `gui_sfnt_simple_glyph_contour_endpoint_push_storage pushed`, and previous endpoint is `some` of `gui_sfnt_simple_glyph_contour_endpoint_push_previous_endpoint &pushed`.
+
+`Rejected` and `StepBudgetExhausted` are pass-through domain terminals. Those branches do not inspect the endpoint argument, call F5e, consume storage, or construct owner/error payloads. They remain `Result::Ok` values because no new fallible endpoint push is attempted.
+
+`ContourEndpointPushOwner`, `ContourEndpointPushError`, and `ContourEndpointPushTerminal` contain owner values and must not implement `Clone` or `Copy`.
+
+F5ap may call only the typed F5e endpoint push helper. It must not call `gui_sfnt_glyf_read_push_contour_endpoint`, `gui_sfnt_glyf_read_contour_endpoint`, F4 byte-backed lookup helpers, F5al/F5ak/F5aj traversal helpers, lower collection path helpers, table helpers, `Vec`, path command fill, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
