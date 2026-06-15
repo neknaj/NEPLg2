@@ -6112,6 +6112,67 @@ alpha Vec copy
 2D compositor drain
 ```
 
+### SFNT simple glyph alpha mask resource table boundary
+
+F5bm は F5bl の reservation owner を消費し、alpha mask id を metadata-only table に登録する内部 alloc/font 境界である。この phase は host-visible resource 登録ではない。`RenderCommand::AlphaMaskRect` を発行せず、renderer / host / platform へ storage を渡さず、mask が presentation layer で解決可能であることも証明しない。
+
+table は `AlphaMaskId`、rect、paint、width、height、cell count、alpha max だけを持つ index である。alpha storage owner は table の `Vec` へ入れず、成功 owner が table owner と registered resource owner を同時に保持する。これにより、metadata だけが残り storage owner を失う partial registration を禁止する。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord:
+    mask_id AlphaMaskId
+    rect GuiRect
+    paint GuiPaint
+    width_px i32
+    height_px i32
+    cell_count i32
+    alpha_max i32
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner:
+    records Vec ResourceRecord
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner:
+    reservation GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner
+    record ResourceRecord
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegistrationOwner:
+    table GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableOwner
+    resource GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner
+```
+
+registration は push 前に次を検査する。
+
+```text
+AlphaMaskId.raw <= 0 -> InvalidMaskId
+reservation owner invariant mismatch -> corresponding invariant error
+reservation rect != owner origin/size -> RectMetadataMismatch
+reservation paint != owner fill paint -> PaintMetadataMismatch
+blend != SourceOver -> UnsupportedBlendMode
+table already contains mask_id -> DuplicateMaskId
+Vec push failure -> TablePushFailed
+```
+
+`lookup` は metadata record だけを返す。これは id が table 内で一意に登録されていることを示すだけで、storage の借用、host upload、texture availability、renderability を示さない。missing resource、unsupported backend、transport failure は後続 renderer / host layer が `Result` で返す。
+
+成功 owner は callback 型の continuation により updated table owner と registered resource owner を同時に次境界へ渡す。error recovery も table owner と reservation owner を同時に保持する rejected owner を経由し、table だけ、または reservation だけを消費回収する accessor は持たない。
+
+F5bm は次を呼ばない。
+
+```text
+render_command_alpha_mask_rect
+render_command_fill_rect
+DrawTarget / RenderTarget
+platform / host / backend API
+Canvas / DOM / minifb
+font fallback
+zero-fill fallback
+per-sample FillRect bridge
+sample cursor
+owner-bearing Vec payload
+alpha Vec copy
+2D compositor drain
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
