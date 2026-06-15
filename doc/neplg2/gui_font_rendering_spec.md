@@ -3760,6 +3760,91 @@ consumer apply / consume / traversal APIs
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action consumer next and consume once
+
+F5aj は F5ai の collection-backed action consumer item を authority として、consumer stream を 1 step 進める境界である。byte-backed F4ad/F4ah/F4ai と同じ責務分割を保つが、font bytes、table metadata、byte-backed lookup helper、lower collection helper、sink traversal、renderer、rasterizer、platform API へ戻らない。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+consumer item next helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next item` を exactly once 読み、その saved next だけを `match` する。
+
+```text
+next = Continue next_item
+    -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::Continue next_consumer_item
+
+next = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerItemNext::EndContour
+```
+
+consumer apply advance helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step step` を exactly once 読む。`Continue continue_step` の場合だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step` を exactly once 読み、その saved next を authority とする。
+
+```text
+terminal = Continue continue_step
+    saved_next = gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next &continue_step
+    saved_next = Continue next_item
+        -> gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &next_item policy
+        -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Continue next_consumer_item
+    saved_next = EndContour
+        -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+
+terminal = Rejected reason
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::Rejected reason
+
+terminal = EndContour
+    -> Result::Ok GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance::EndContour
+```
+
+この branch は original consumer item を要求せず、action payload を再読込・再解釈しない。policy reject は typed `Rejected reason` terminal として保持し、silent no-op や fallback へ変換しない。`EndContour` は successful terminal state であり、`Option::None` や `Result::Err` にしない。
+
+consume-once helper は `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply state item` を exactly once 呼び、collection apply advance helper を exactly once 呼ぶ。`Result::Ok advance` の場合だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance` へ exactly once 渡し、apply step と advance を捨てず typed consume step に束ねる。
+
+F5aj は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_apply_advance
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_step
+gui_sfnt_lookup_simple_glyph_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+vec::
+push
+payload direct match / original item reinterpretation
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

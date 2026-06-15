@@ -4146,6 +4146,84 @@ F5ai does not interpret action payloads. `EmitEvent`, `Reject`, `NoAction`, and 
 
 F5ai may call only `gui_sfnt_simple_glyph_path_sink_action_step_item_advance`, F5ah collection action step item lookup, `gui_sfnt_simple_glyph_path_sink_action_step_item_step`, `gui_sfnt_simple_glyph_path_sink_action_step_action`, the F5ai action item next helper from the consumer item helper, and the pure consumer item constructor. It must not call F5ag/F5af/F5ae/F5ad/F5ac/F5aa directly, byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, lower collection edge/curve/path helpers, `vec::`, `push`, consumer apply/consume helpers, sink traversal, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink action consumer next and consume once boundary
+
+F5aj is the collection-backed consumer next and consume-once boundary. It mirrors byte-backed F4ad/F4ah/F4ai, but the only way to obtain a next consumer item is the F5ai collection-backed consumer item helper. This keeps byte buffers, table metadata, byte-backed lookup helpers, lower F5 collection traversal, real sink mutation, rasterization, render commands, and platform APIs outside this phase.
+
+The public boundaries are:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItemNext GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    step &GuiSfntSimpleGlyphPathSinkActionConsumerApplyStep
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerApplyAdvance GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    item &GuiSfntSimpleGlyphPathSinkActionConsumerItem
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+F5aj intentionally does not introduce a new error type. The only fallible operation is the delegated F5ai consumer item lookup, so F5ai errors must be propagated unchanged. `Rejected` and `EndContour` are typed terminal success values and must not be collapsed into `Option::None`, `Result::Err`, silent no-op, or fallback.
+
+The consumer item next helper order is:
+
+```text
+read consumer item next exactly once
+if next is Continue next_item:
+    call F5ai collection consumer item lookup exactly once
+    if F5ai Err:
+        return the same error
+    if F5ai Ok:
+        return Continue next_consumer_item
+if next is EndContour:
+    return Ok EndContour
+```
+
+The consumer apply advance helper order is:
+
+```text
+read apply terminal from apply step exactly once
+if terminal is Continue continue_step:
+    read saved next from continue_step exactly once
+    if saved next is Continue next_item:
+        call F5ai collection consumer item lookup exactly once
+        if F5ai Err:
+            return the same error
+        if F5ai Ok:
+            return Continue next_consumer_item
+    if saved next is EndContour:
+        return Ok EndContour
+if terminal is Rejected reason:
+    return Ok Rejected reason
+if terminal is EndContour:
+    return Ok EndContour
+```
+
+The Continue branch must not require or reconstruct the original consumer item. It must not re-read or interpret action payloads. The saved next stored in the apply step is the authority because the pure apply helper has already combined current action and previous next state.
+
+The consume-once helper order is:
+
+```text
+call pure consumer item apply exactly once
+call collection consumer apply advance exactly once
+if advance Err:
+    return the same error
+if advance Ok:
+    construct GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep exactly once
+```
+
+F5aj may call only `gui_sfnt_simple_glyph_path_sink_action_consumer_item_next`, F5ai collection consumer item lookup, `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_terminal_from_step`, `gui_sfnt_simple_glyph_path_sink_action_consumer_apply_step_next`, `gui_sfnt_simple_glyph_path_sink_action_consumer_item_apply`, the F5aj collection apply advance helper from consume-once, and the pure consume step constructor. It must not call byte-backed F4 lookup helpers, lower F5 collection helpers, `gui_sfnt_simple_glyph_path_sink_action_step_action`, action payload variants, `vec::`, `push`, consume summary helpers, sink traversal, real sink mutation, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
