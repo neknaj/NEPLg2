@@ -4606,6 +4606,155 @@ render / raster / platform / host APIs
 font fallback
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action PathCommandTag drain
+
+F5au は F5at の `PathCommandTagStartOwner` を authority として、owner storage の Edge owner scalar と collection-backed path sink event kind source から PathCommandTag region の scalar slot を bounded drain し、全 PathCommandTag slot 完了後だけ complete owner へ進む owner-recovery boundary である。F5au は byte-backed lookup、古い path sink traversal、renderer、platform API、font fallback へ戻らない。
+
+PathCommandTag region の slot contract は次である。
+
+```text
+logical path command index:
+    cursor.next_index - cursor.start
+
+edge index:
+    logical path command index / 2
+
+event slot:
+    logical path command index % 2
+    0 => First
+    1 => Second
+
+stored scalar value:
+    MoveTo        1
+    LineTo        2
+    QuadraticTo   3
+    SkipNoSegment 4
+```
+
+`SkipNoSegment` の reason は scalar へ保存しない。後続の path command value / stream boundary は同じ collection-backed event kind source から reason を再導出する。これにより scalar region は描画 command の payload storage ではなく、command value construction の前段階で使う stable tag storage に留まる。
+
+`PathCommandTagStartOwner` は public constructor を持つため、F5au は owner を消費する前に authority を固定順で検査する。
+
+```text
+authority check order:
+    summary capacity == owner storage capacity
+    cursor well formed
+    cursor region == PathCommandTag
+    cursor matches summary capacity PathCommandTag region
+    collection capacity == summary capacity
+```
+
+この順序より前に Edge owner scalar read、collection contour span / event kind source、PathCommandTag push、complete owner transition、storage consume を行ってはいけない。`cursor matches summary capacity PathCommandTag region` は cursor の region / start / end が capacity と一致することを意味し、`next_index` を PathCommandTag region start に固定しない。`StepBudgetExhausted PathCommandTagStartOwner` からの partial drain 再開を拒否してはいけない。
+
+```text
+GuiSfntSimpleGlyphPathCommandTag:
+    MoveTo
+    LineTo
+    QuadraticTo
+    SkipNoSegment
+
+GuiSfntSimpleGlyphOutlineEdgeOwnerMarker:
+    glyph GuiGlyphId
+    edge_index i32
+    contour_index i32
+
+GuiSfntSimpleGlyphOutlineEdgeOwnerReadErrorKind:
+    StorageCapacityInvalid
+    ScalarSlotCountMismatch
+    ScalarStorageCapacityMismatch
+    EdgeIndexOutOfRange
+    EdgeOwnerNotReady
+    EdgeOwnerSlotMissing
+    EdgeOwnerContourOutOfRange
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagSlot:
+    path_command_index i32
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    event_slot GuiSfntSimpleGlyphPathSinkEventSlot
+    tag GuiSfntSimpleGlyphPathCommandTag
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PathCommandIndexInvalid
+    EventSlotOrdinalInvalid
+    EdgeOwnerReadFailed
+    EdgeOwnerGlyphMismatch
+    EdgeOwnerIndexMismatch
+    ContourSpanSourceFailed
+    ContourSpanInvariantMismatch
+    EventKindSourceFailed
+    TagPushFailed
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal:
+    PathCommandTagCompleted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagCompleteOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagStartOwner
+    remaining_steps i32
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPathCommandTagDrainError
+```
+
+authority check 後だけ cursor の `next_index`、`start`、`end` を読む。`next_index == end` の場合だけ storage を消費して `PathCommandTagCompleted PathCommandTagCompleteOwner` を返す。`next_index < end` かつ `remaining_steps <= 0` の場合は、Edge owner scalar read、collection source、mutation を行わず `StepBudgetExhausted PathCommandTagStartOwner` を返す。
+
+`next_index < end` かつ `remaining_steps > 0` の場合、logical path command index は `next_index - start` である。F5au は absolute cursor `next_index` を command index として使わない。logical index から `edge_index = div_s path_command_index 2` と `event_slot_ordinal = rem_s path_command_index 2` を導出し、ordinal は `0 => First`、`1 => Second` だけを許す。
+
+F5au は private helper で `field::get_ref owner "storage"` から storage を borrow し、`gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index` を呼ぶ。この helper は owner を消費しない。read helper は storage capacity、scalar slot count、scalar storage capacity、edge index range、Edge slot presence、stored contour index range を検査する。edge owner success 後も marker glyph raw id と edge index が summary capacity / requested edge と一致することを再検査する。
+
+collection source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span collection contour_index` と `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at collection contour_index contour_edge_index event_slot` だけである。old sink traversal や byte-backed lookup は呼ばない。
+
+span success 後は次を検査する。
+
+```text
+span glyph == capacity glyph
+span index == contour_index
+0 <= span.start_point_index
+span.start_point_index <= span.end_point_index
+span.end_point_index < capacity.point_count
+span.point_count == span.end_point_index - span.start_point_index + 1
+span.start_point_index <= global edge_index <= span.end_point_index
+```
+
+これらが成り立つ場合だけ `contour_edge_index = edge_index - span.start_point_index` を導出し、event kind source へ進む。event kind success 後は `GuiSfntSimpleGlyphPathCommandTag` へ写し、`gui_sfnt_simple_glyph_path_command_tag_scalar_value` で stable scalar に変換する。
+
+PathCommandTag push は internal push helper だけが呼ぶ。helper は summary と cursor を borrow-copy してから storage を消費し、`gui_sfnt_simple_glyph_outline_storage_push_region_scalar storage cursor scalar_value` を 1 回だけ呼ぶ。Tag push failure では lower metadata を storage 回収より前に読む。
+
+```text
+read gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error
+read gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error
+consume gui_sfnt_simple_glyph_outline_region_push_error_storage push_error
+```
+
+returned storage と保存済み summary / cursor から `PathCommandTagStartOwner` を復元し、`TagPushFailed` を返す。push success は F5d returned storage、returned cursor だけから次の PathCommandTagStartOwner を作り、`remaining_steps - 1` で drain を継続する。
+
+`PathCommandTagCompleteOwner`、`PathCommandTagDrainError`、`PathCommandTagDrainTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`PathCommandTagSlot`、`PathCommandTagDrainErrorKind`、`GuiSfntSimpleGlyphPathCommandTag`、`GuiSfntSimpleGlyphOutlineEdgeOwnerMarker`、`GuiSfntSimpleGlyphOutlineEdgeOwnerReadError` は value-only なので `Clone` / `Copy` を実装してよい。
+
+F5au は次を直接呼ばない。
+
+```text
+F4 byte-backed lookup helper
+byte-backed PointX / PointY read helper
+F5al / F5ak / F5aj traversal helper
+old path sink action consumer / traversal helper
+path command pair construction
+path command stream construction
+path sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

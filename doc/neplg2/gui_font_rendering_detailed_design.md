@@ -5124,6 +5124,163 @@ F5at may call `gui_sfnt_simple_glyph_outline_storage_read_point_endpoint_marker`
 
 `PathCommandTagStartOwner`, `EdgeDrainError`, and `EdgeDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `EdgeSlot` and `EdgeDrainErrorKind` are small value types and may implement `Clone` and `Copy`.
 
+## SFNT simple glyph outline point stream item collection path sink action PathCommandTag drain boundary
+
+F5au consumes an F5at `PathCommandTagStartOwner`, fills PathCommandTag scalar slots from owner storage Edge owner scalars and collection-backed path sink event kind source, and returns a complete owner only after the PathCommandTag region is complete. It is not a path command stream builder and does not rasterize or render.
+
+The PathCommandTag scalar has a stable value-only meaning:
+
+```text
+logical_path_command_index = cursor.next_index - cursor.start
+edge_index = div_s logical_path_command_index 2
+event_slot_ordinal = rem_s logical_path_command_index 2
+event_slot_ordinal 0 -> First
+event_slot_ordinal 1 -> Second
+
+stored scalar values:
+    MoveTo        1
+    LineTo        2
+    QuadraticTo   3
+    SkipNoSegment 4
+```
+
+F5au must never use absolute cursor `next_index` as a command index. `SkipNoSegment` reason is not stored in the scalar slot. The later value/stream boundary must re-read the same collection-backed source to recover the reason.
+
+Because `PathCommandTagStartOwner` is publicly constructible, F5au treats it as forgeable. The public drain boundary must prove all authorities match before interpreting the cursor, reading owner storage Edge scalar, reading collection source, or consuming storage:
+
+```text
+authority check order:
+    read summary capacity from PathCommandTagStartOwner
+    read owner storage capacity without consuming PathCommandTagStartOwner
+    require summary capacity == owner storage capacity
+    read cursor from PathCommandTagStartOwner
+    require cursor well formed
+    require cursor region is PathCommandTag
+    require cursor matches summary capacity PathCommandTag region
+    read collection capacity
+    require collection capacity == summary capacity
+```
+
+Cursor validation covers start / next / end bounds and the PathCommandTag region boundaries derived from summary capacity. F5au must not require `cursor.next_index == cursor.start`; a resumed `StepBudgetExhausted PathCommandTagStartOwner` may point inside the PathCommandTag region.
+
+The public API shape is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_path_command_tag_start_owner_drain_to_complete_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner PathCommandTagStartOwner
+    remaining_steps i32
+    -> Result PathCommandTagDrainTerminal PathCommandTagDrainError
+```
+
+The owned and value types are:
+
+```text
+PathCommandTagSlot:
+    path_command_index i32
+    edge_index i32
+    contour_index i32
+    contour_edge_index i32
+    event_slot PathSinkEventSlot
+    tag PathCommandTag
+
+PathCommandTagCompleteOwner:
+    storage
+    summary
+
+PathCommandTagDrainTerminal:
+    PathCommandTagCompleted PathCommandTagCompleteOwner
+    StepBudgetExhausted PathCommandTagStartOwner
+
+PathCommandTagDrainError:
+    owner PathCommandTagStartOwner
+    kind PathCommandTagDrainErrorKind
+    path_command_index i32
+    edge_index i32
+    edge_owner_error Option EdgeOwnerReadError
+    edge_owner Option EdgeOwnerMarker
+    span_error Option CollectionContourSpanError
+    span Option ContourSpan
+    event_error Option CollectionCurveSegmentError
+    event_kind Option PathSinkEventKind
+    tag_slot Option PathCommandTagSlot
+    scalar_value Option i32
+    region_error_kind Option RegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+```
+
+`PathCommandTagDrainErrorKind` separates authority failure, logical index failure, non-consuming Edge owner scalar failure, collection source failure, and push failure:
+
+```text
+StorageSummaryCapacityMismatch
+CursorInvalid
+CursorRegionMismatch
+CursorCapacityMismatch
+CollectionSummaryCapacityMismatch
+PathCommandIndexInvalid
+EventSlotOrdinalInvalid
+EdgeOwnerReadFailed
+EdgeOwnerGlyphMismatch
+EdgeOwnerIndexMismatch
+ContourSpanSourceFailed
+ContourSpanInvariantMismatch
+EventKindSourceFailed
+TagPushFailed
+```
+
+Each authority failure returns `PathCommandTagDrainError` with the original PathCommandTagStartOwner. No authority failure may consume storage, read Edge owner scalar, read collection source, or push PathCommandTag scalar.
+
+The trusted drain body runs only after the public authority checks:
+
+```text
+cursor = owner.cursor
+next_index = cursor.next_index
+end = cursor.end
+
+if next_index == end:
+    consume storage from PathCommandTagStartOwner
+    return PathCommandTagCompleted PathCommandTagCompleteOwner
+
+if remaining_steps <= 0:
+    return StepBudgetExhausted PathCommandTagStartOwner
+
+path_command_index = next_index - cursor.start
+validate 0 <= path_command_index < capacity.path_command_count
+edge_index = div_s path_command_index 2
+event_slot_ordinal = rem_s path_command_index 2
+validate ordinal is 0 or 1
+call private non-consuming Edge owner helper once
+validate marker glyph == capacity glyph
+validate marker edge_index == edge_index
+call collection contour span once
+validate span glyph/index/range/count and span contains edge_index
+contour_edge_index = edge_index - span.start_point_index
+call path sink event kind source once
+map event kind to PathCommandTag
+build PathCommandTagSlot
+call internal PathCommandTagStartOwner tag push helper once
+recurse with remaining_steps - 1
+```
+
+Completion is checked before the step budget. This lets a caller finish a boundary and advance to `PathCommandTagCompleteOwner` even with zero remaining mutation steps when the PathCommandTag region is already complete. StepBudgetExhausted is checked before Edge owner scalar read, collection source, and PathCommandTag push, so a budget-limited caller can retry deterministically without duplicate reads or mutations.
+
+The private Edge owner helper is:
+
+```text
+path_command_tag_start_owner_read_edge_owner:
+    owner &PathCommandTagStartOwner
+    edge_index i32
+    -> Result EdgeOwnerMarker EdgeOwnerReadError
+```
+
+It reads storage with `field::get_ref owner "storage"` and calls `gui_sfnt_simple_glyph_outline_storage_read_edge_owner storage edge_index`. It never consumes the owner. The storage-level helper validates storage capacity shape, scalar slot count, scalar storage capacity, edge range, Edge slot readiness, Edge slot presence, and stored contour index range.
+
+The internal PathCommandTag push helper is the only F5au helper allowed to call `gui_sfnt_simple_glyph_outline_storage_push_region_scalar`. It must borrow summary and cursor before consuming storage. If F5d fails, it must read `gui_sfnt_simple_glyph_outline_region_push_error_kind &push_error`. It must read `gui_sfnt_simple_glyph_outline_region_push_error_scalar_value &push_error`. It must read `gui_sfnt_simple_glyph_outline_region_push_error_push_error_kind &push_error`. These reads must happen before calling `gui_sfnt_simple_glyph_outline_region_push_error_storage push_error`. The recovered storage plus saved summary/cursor reconstruct the current `PathCommandTagStartOwner`.
+
+F5au may call `gui_sfnt_simple_glyph_outline_storage_read_edge_owner` only through the private non-consuming PathCommandTagStartOwner helper, and only after the public authority checks pass and `remaining_steps > 0`. It may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span` only in that same branch. It may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at` only in the same branch after the span invariant checks pass. It must not call byte-backed lookup helpers, table helpers, F5al/F5ak/F5aj traversal helpers, old path sink action consumer helpers, path command pair construction, path command stream construction, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
+`PathCommandTagCompleteOwner`, `PathCommandTagDrainError`, and `PathCommandTagDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `PathCommandTagSlot`, `PathCommandTagDrainErrorKind`, `PathCommandTag`, `EdgeOwnerMarker`, and `EdgeOwnerReadError` are small value types and may implement `Clone` and `Copy`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
