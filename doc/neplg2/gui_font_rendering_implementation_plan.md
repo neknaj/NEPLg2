@@ -3888,3 +3888,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5al.json -j 1
 git diff --check
 ```
+
+## Phase F5am: sfnt simple glyph outline point stream item collection path sink action drain outcome
+
+目的:
+
+- F5al start drain result を、同じ collection の capacity と一緒に後続 outline / path owner boundary へ渡す value-only outcome にする。
+- `EndContour` / `Rejected` / `StepBudgetExhausted` の typed terminal を保ち、string fallback、silent no-op、owner allocation、path command push、sink mutation、render/raster/platform/host API へ進まない。
+- arbitrary collection と arbitrary drain を外部 caller が組み合わせる public forged pairing API を作らない。
+
+plan review:
+
+- Tesla plan review 1 回目は `PLAN_BLOCKED`。任意の collection と任意の drain result を受け取る public projection helper は、capacity と drain result の forged pairing を許すため危険と指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。public API を start drain outcome helper だけにし、同じ public call 内で F5al start drain を exactly once 呼び、その success result だけを private projection に exactly once 渡す設計が妥当と判断された。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary` を追加する。
+- drain summary packet は `GuiSfntSimpleGlyphOutlineStorageCapacity` と `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary` を保持する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected` を追加する。
+- drain rejected packet は `GuiSfntSimpleGlyphOutlineStorageCapacity` と `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected` を保持する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome` を追加する。
+- outcome enum は `EndContour DrainSummary`、`Rejected DrainRejected`、`StepBudgetExhausted DrainSummary` だけを持つ。
+- private `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome` を追加する。
+- private projection は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection` を exactly once 読み、`*drain` を `match` して packet constructor だけを呼ぶ。
+- private projection は F5al start/drain/advance、F5ak lower start、F5aj consume-once、F4 byte-backed helper、lower collection path helper、Vec / push、render/raster/platform/host API、font fallback を呼ばない。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget` を追加する。
+- public start outcome helper は F5al `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget` を exactly once 呼ぶ。
+- public start outcome helper は success path だけ private projection を exactly once 呼ぶ。
+- public start outcome helper は F5al advance/drain、F5ak lower start、F5aj consume-once、F4 byte-backed helper、lower collection path helper、Vec / push、render/raster/platform/host API、font fallback を呼ばない。
+
+完了条件:
+
+- public projection API が存在せず、caller が任意の collection / drain result を組み合わせられない。
+- capacity は public start outcome helper と同じ collection から private projection 内で exactly once 読まれる。
+- `Rejected` は既存 `GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected` を capacity と一緒に保持し、文字列化や fallback にしない。
+- source policy が docs、types、public API、private projection、call count、forbidden API、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md` に outcome types、private projection、public forged pairing prevention、F5al start drain composition、terminal mapping、no owner/no fallback/no byte-backed traversal coverage label を追加する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_drain_outcome_f5am.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_f5am_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5am.json -j 1
+git diff --check
+```

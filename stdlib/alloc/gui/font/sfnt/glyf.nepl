@@ -9319,6 +9319,129 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
         Result::Ok summary:
             gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget collection &summary policy remaining_steps
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary: drain terminal summary と collection capacity の packet
+//:
+//: [目的/もくてき]:
+//: - F5al drain result を後続 outline / path owner 境界へ[渡/わた]す[前/まえ]に、同じ collection の capacity と停止 summary を 1 value に[束/たば]ねます。
+//: - この型は owner を[確保/かくほ]せず、renderer/platform API にも[接続/せつぞく]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \summary:
+        *summary
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \summary:
+        summary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary: capacity 付き drain summary を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary %fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \capacity\summary:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary capacity summary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity: outcome summary の capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary GuiSfntSimpleGlyphOutlineStorageCapacity \summary:
+    *field::get_ref summary "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_summary: outcome summary の stopped summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary \summary:
+    *field::get_ref summary "summary"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected: rejected drain terminal と collection capacity の packet
+//:
+//: [目的/もくてき]:
+//: - reject reason / stopped summary を[持/も]つ既存 rejected payload に、同じ collection の capacity を[添/そ]えます。
+//: - string 解析や暗黙の代替経路を使わず、後続 owner 境界が `match` で拒否理由を[扱/あつか]えるようにします。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:
+    capacity %GuiSfntSimpleGlyphOutlineStorageCapacity
+    rejected %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected \rejected:
+        *rejected
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected \rejected:
+        rejected
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected: capacity 付き rejected outcome を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected %fn GuiSfntSimpleGlyphOutlineStorageCapacity fn GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected \capacity\rejected:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected capacity rejected
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected_capacity: rejected outcome の capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected GuiSfntSimpleGlyphOutlineStorageCapacity \rejected:
+    *field::get_ref rejected "capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected_payload: rejected outcome の drain payload を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected_payload %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryRejected \rejected:
+    *field::get_ref rejected "rejected"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome: capacity 付き drain terminal
+//:
+//: [目的/もくてき]:
+//: - `EndContour`、`Rejected`、`StepBudgetExhausted` を後続 owner 境界の入力として明示します。
+//: - `StepBudgetExhausted` は成功ではなく、追加 work slice が必要な typed terminal です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:
+    EndContour %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome \outcome:
+        *outcome
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome \outcome:
+        outcome
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn &GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome \collection\drain:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    match *drain:
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::EndContour summary:
+            let drain_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary capacity summary
+            GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::Rejected rejected:
+            let drain_rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_rejected capacity rejected
+            GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected
+        GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummaryDrain::StepBudgetExhausted summary:
+            let drain_summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary capacity summary
+            GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget: start drain result を capacity 付き outcome に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - 同じ public call 内で F5al start drain helper を 1 回だけ[呼/よ]び、その success result だけを private outcome projection に[渡/わた]します。
+//: - caller が任意の collection と任意の drain result を組み合わせる public API は[提供/ていきょう]しません。
+//: - outline owner allocation、path command push、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy fn i32 Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\state\contour_index\policy\remaining_steps:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget collection state contour_index policy remaining_steps:
+        Result::Err error:
+            Result::Err error
+        Result::Ok drain:
+            let outcome %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome collection &drain
+            Result::Ok outcome
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
