@@ -3277,6 +3277,57 @@ sink traversal / event consumer APIs
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path sink event pair
+
+F5aa は F5z の collection-backed path command pair を、既存の pure path sink event pair projection へ渡す境界である。これは sink trait、event consumer、contour traversal、path command list、rasterizer、renderer ではない。1 edge について first event と second event を O(1) pair value として返すだけである。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5aa は新しい error enum を持たない。F5z が失敗した場合は `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError` をそのまま返す。F5z が成功した場合、`gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` で `GuiSfntSimpleGlyphPathSinkEventPair` へ写す。この projection は total なので、`Option::None` や silent no-op へ変換してはならない。
+
+F5aa は次の順序を守る。
+
+```text
+1. F5z collection path command pair lookup を exactly once 呼ぶ
+2. F5z error は変更せず Result::Err として返す
+3. F5z success pair は gui_sfnt_simple_glyph_path_command_pair_sink_event_pair へ exactly once 渡す
+4. event pair projection result を Result::Ok として返す
+```
+
+F5aa は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_command_pair
+gui_sfnt_lookup_simple_glyph_curve_segment
+gui_sfnt_lookup_simple_glyph_contour_edge
+gui_sfnt_lookup_simple_glyph_contour_point
+gui_sfnt_lookup_simple_glyph_contour_span
+gui_sfnt_glyf_simple_curve_segment_with_tables
+gui_sfnt_glyf_simple_contour_edge_with_tables
+gui_sfnt_glyf_simple_contour_point_with_tables
+gui_sfnt_glyf_simple_contour_span_with_tables
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_edge
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_point
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_contour_span
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_stream_item_drain_budget
+gui_sfnt_simple_glyph_outline_storage_read_point_step
+gui_sfnt_simple_glyph_outline_storage_read_point
+gui_sfnt_glyf_read_point_flag_from_stream
+gui_sfnt_glyf_decode_
+vec::
+push
+sink traversal / event consumer APIs
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

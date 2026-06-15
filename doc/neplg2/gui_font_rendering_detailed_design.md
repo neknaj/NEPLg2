@@ -3822,6 +3822,33 @@ The required order is:
 
 F5z may call F5y and the pure `gui_sfnt_simple_glyph_curve_segment_path_command_pair` projection. It must not call byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5x/F5w lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer APIs, rasterizers, render commands, platform APIs, or host text APIs.
 
+## SFNT simple glyph outline point stream item collection path sink event pair boundary
+
+F5aa is the collection-backed equivalent of the old F4p pure event-pair projection, but it keeps the collection-backed authority chain intact. It does not re-decode SFNT bytes, does not call the byte-backed path lookup, and does not introduce sink traversal or event consumer state. It composes exactly one F5z path command pair lookup with the existing pure path sink event pair projection.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    edge_index i32
+    -> Result GuiSfntSimpleGlyphPathSinkEventPair GuiSfntSimpleGlyphOutlinePointStreamItemCollectionCurveSegmentError
+```
+
+F5aa deliberately reuses the F5z error domain. The boundary adds no new operation that can fail: path sink event pair projection is a total value projection over `GuiSfntSimpleGlyphPathCommandPair`. If F5z returns an error, F5aa returns that exact error. If F5z returns a pair containing `SkipNoSegment`, F5aa wraps the skip commands as sink events; it does not return `Option::None` and does not silently skip the edge.
+
+The required order is:
+
+```text
+1. Call F5z collection path command pair lookup exactly once.
+2. On F5z error, return Result::Err error without wrapping or changing the error kind.
+3. On F5z success, call gui_sfnt_simple_glyph_path_command_pair_sink_event_pair exactly once.
+4. Return Result::Ok event_pair.
+```
+
+F5aa may call F5z and the pure `gui_sfnt_simple_glyph_path_command_pair_sink_event_pair` projection. It must not call byte-backed F4 lookup helpers, metadata parsers, `_with_tables` helpers, F5y/F5x/F5w lower collection lookups directly, F5 drain/point-step APIs, direct `vec::`, `push`, sink traversal, event consumer APIs, rasterizers, render commands, platform APIs, or host text APIs.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
