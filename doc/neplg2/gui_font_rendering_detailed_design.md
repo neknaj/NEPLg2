@@ -6538,6 +6538,66 @@ This completion-time raw cell release is part of the F5bf contract, not an imple
 
 F5bf must not call byte-backed lookup helpers, old traversal helpers, zero-fill helpers, render2d, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, or any function that emits pixels or commands.
 
+## SFNT simple glyph render fill alpha mask boundary
+
+F5bg consumes the completed F5bf packed mask owner and produces a fill-alpha-mask owner for the later 2D renderer boundary. It is still an alloc/gui owner handoff. It does not emit `RenderCommand`, create a pixel buffer, call `DrawTarget` / `RenderTarget`, call platform or host APIs, or bind stroke / shadow paint.
+
+F5bg deliberately does not accept `GuiGlyphPaint`. The F5bf alpha cells represent fill coverage. If this boundary accepted a full glyph paint, stroke-only, stroke-plus-fill, or shadow-bearing input could be silently reduced to fill coverage. That would hide a semantic loss. Stroke, shadow, and full glyph paint binding must be handled by a later explicit boundary.
+
+The config is value-only:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskConfig:
+    origin GuiPoint
+    fill_paint GuiPaint
+    blend GuiBlendMode
+```
+
+`GuiSfntSimpleGlyphRenderFillAlphaMaskConfig` may implement `Clone` / `Copy`. The completed owner and owner-bearing start error must not implement `Clone` / `Copy`.
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskOwner:
+    edge_owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner
+    shape GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells Vec i32
+    cell_count i32
+    alpha_max i32
+    origin GuiPoint
+    fill_paint GuiPaint
+    blend GuiBlendMode
+```
+
+The start boundary revalidates the completed packed owner before destructuring it:
+
+```text
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == shape.sample_scale * shape.sample_scale
+shape.cell_count == shape.width_px * shape.height_px
+packed_owner.alpha_max > 0
+packed_owner.cell_count == shape.cell_count
+packed_owner.alpha_cells.len == shape.cell_count
+packed_owner.alpha_cells.cap == shape.cell_count
+```
+
+Failure is owner-bearing:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskStartError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind
+    packed_owner GuiSfntSimpleGlyphRasterPackedMaskOwner
+    config GuiSfntSimpleGlyphRenderFillAlphaMaskConfig
+```
+
+The consuming recovery accessor returns the original packed owner. The config is Copy and can be read by reference before recovering the owner. A start-error free helper closes the packed owner when the caller does not continue.
+
+On success, F5bg moves the existing edge owner and alpha Vec into the render fill alpha mask owner. It also copies `origin`, `fill_paint`, and `blend` from the config into the completed owner without reducing or reconstructing them. The operation is a zero-copy owner handoff for the alpha storage.
+
+The completed owner free helper releases `alpha_cells` before closing `edge_owner`, exactly once. It does not touch platform presentation or command output.
+
+F5bg must not call byte-backed lookup helpers, old traversal helpers, zero-fill helpers, `RenderCommand` constructors, `DrawTarget` / `RenderTarget`, platform APIs, host APIs, font fallback, or any stroke / shadow binding helper.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

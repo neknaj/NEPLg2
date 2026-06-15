@@ -94,6 +94,54 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bg: sfnt simple glyph render fill alpha mask boundary
+
+目的:
+
+- F5bf の completed packed alpha mask owner を authority とし、後続 2D renderer が消費できる fill alpha mask owner へ所有権を移す。
+- packed owner の shape / alpha storage invariant を再検査し、検査通過後に edge owner と alpha cell Vec を zero-copy で移す。
+- full `GuiGlyphPaint` は受けない。F5bf の alpha cells は fill coverage なので、stroke / shadow / full paint は後続の専用境界で明示的に扱う。
+- `RenderCommand` emission、DrawTarget / RenderTarget、platform API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- 当初案の `GuiGlyphPaint` config は stroke-only や shadow-bearing paint を fill coverage として扱ってしまう危険があり、hidden stroke / shadow fallback になると指摘された。
+- revised plan では `GuiGlyphPaint` を config から削除し、`GuiPaint` と `GuiBlendMode` を持つ fill alpha mask 専用 config に変更する。
+- stroke / shadow / full glyph paint binding は F5bg では扱わず、後続境界で明示的に accept / reject する。
+- Tesla revised plan review は `PLAN_APPROVED`。fill paint と blend の exact preservation、zero-copy owner handoff、shape / alpha storage revalidation before destructuring が実装条件である。
+
+変更:
+
+- `core/gui/geometry`、`core/gui/render_command`、`core/gui/render_style` の value contract を `glyf.nepl` から参照する。`std/gui`、`platforms`、DOM / Canvas / host API は参照しない。
+- F5bf completed packed mask owner の shape / cell_count / alpha_max / alpha Vec len / cap を読む内部 helper を追加する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskConfig` を追加する。`origin`、`fill_paint`、`blend` を持つ value-only record とし、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskOwner` を module-private completed owner として追加する。edge owner、shape、alpha cell Vec、cell_count、alpha_max、origin、fill_paint、blend を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskStartErrorKind` と `GuiSfntSimpleGlyphRenderFillAlphaMaskStartError` を追加する。start error は original packed owner と config を保持する。
+- start は shape invariant、`alpha_max > 0`、packed owner cell_count、alpha Vec len / cap を検査してから packed owner を destructure する。
+- success path は edge owner、shape、alpha cell Vec、cell_count、alpha_max、origin、fill_paint、blend を completed render fill alpha mask owner へ移す。
+- start error の kind / config / packed owner recovery helper と、start error free helperを追加する。
+- completed owner の origin / fill_paint / blend / shape / size / cell_count / alpha_max / alpha cells len / cap accessor と free helper を追加する。
+
+完了条件:
+
+- source policy が docs、plan review blocker と revised approval、config `Clone` / `Copy`、owner / start error no `Clone` / `Copy`、private owner、shape / alpha storage invariant、start error recovery、fill paint / blend exact preservation、no `GuiGlyphPaint`、no stroke / shadow binding、no byte-backed / old traversal / zero-fill / RenderCommand emission / DrawTarget / RenderTarget / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md` に config、shape / alpha revalidation、fill paint / blend preservation、owner handoff、recovery、free、no platform / no command policy の coverage label を追加する。
+- implementation review で owner handoff と free order、full glyph paint を受けない設計、stroke / shadow の未対応を hidden success にしていないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bg 後の render command / 2D compositor boundary、stroke / shadow / full glyph paint binding を明示した残件へ更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_boundary.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_render_fill_alpha_mask_boundary_f5bg.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_packed_mask_owner_f5bg_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bg.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
