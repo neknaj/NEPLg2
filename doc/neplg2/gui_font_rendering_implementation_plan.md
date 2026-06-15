@@ -40,6 +40,53 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5ay: sfnt simple glyph outline point stream item collection path command stream sink plan
+
+目的:
+
+- F5ax の `PrepareDrainTerminal::Completed` だけを authority として、後続 explicit command sink / raster mask writer の capacity plan を value-only に固定する。
+- `PrepareSummary` 単体や `StepBudgetExhausted` partial terminal を final plan として扱わない。
+- command list、real sink、raster mask、render2d command emission、platform API へ進まない。
+- count の非負性、completed terminal、emitted count 一致、prepared count 一致、checked addition overflow guard を固定する。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。
+- `PrepareSummary` 単体を入力にすると `StepBudgetExhausted` partial summary を completed capacity と誤認できるため、F5ax `PrepareDrainTerminal` か completed-only value が必要と指摘された。
+- summary count はすべて非負検査し、`move + line + quadratic + skip`、`line + quadratic`、`move + line + quadratic` は raw addition ではなく checked / guarded arithmetic にする必要があると指摘された。
+- source policy は partial terminal を plan 化しないこと、F5ax drain / step や F5aw / F5av を直接呼ばないことを固定する必要がある。
+- 修正版では public input を `PrepareDrainTerminal` とし、`Completed` だけを成功 path、`StepBudgetExhausted` を `PrepareNotCompleted` error とする。
+- Tesla revised plan review は `PLAN_APPROVED`。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan` を追加する。`total_count`、`emitted_count`、`draw_count`、`move_to_count`、`line_to_count`、`quadratic_to_count`、`skip_no_segment_count`、`path_segment_capacity`、`raster_edge_capacity`、`last_path_command_index` を持ち、`Clone` / `Copy` を実装する。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind` と `SinkPlanError` を追加する。error は terminal と extracted count context を保持する value-only record とする。
+- public `sink_plan_from_prepare_drain_terminal` は `PrepareDrainTerminal::StepBudgetExhausted` を `PrepareNotCompleted` で拒否し、`Completed` branch だけで summary accessors から count を読む。
+- count guard は `total_count`、`move_to_count`、`line_to_count`、`quadratic_to_count`、`skip_no_segment_count`、`emitted_count` の非負性、`total_count > 0`、`last_path_command_index >= 0` を検査する。
+- private checked add helper は `2147483647 - left` を計算し、`right` が残余を超える場合に `CountOverflow` を返す。overflow guard を通した後だけ `add left right` を使う。
+- `move + line`、`move + line + quadratic`、`move + line + quadratic + skip`、`line + quadratic` を checked add で求める。
+- `prepared_count == total_count`、`emitted_count == total_count`、`draw_count == raster_edge_capacity` を検査してから plan を返す。
+
+完了条件:
+
+- source policy が docs、types、SinkPlan / ErrorKind / Error value-only Clone/Copy、public input が `PrepareDrainTerminal` であること、`StepBudgetExhausted` が `PrepareNotCompleted` になること、各 count の非負検査、checked add helper の `2147483647 - left` guard、prepared / emitted / draw count invariant、forbidden F5ax drain / F5ax step / F5aw step / F5av lookup / byte-backed / old traversal / Vec / path object / raster / render / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md` に types、completed terminal authority、budget exhausted rejection、non-negative count guard、checked add guard、capacity derivation、count invariants、no fallback/no byte-backed/no traversal/no Vec/no raster の coverage label を追加する。
+- implementation review で docs / source policy / doctest / note / todo が揃っていること、partial terminal が成功 path へ進まないこと、F5ax/F5aw/F5av や実描画 API へ進んでいないことを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の real command sink writer / raster mask writer boundary へ進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_plan_f5ay.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_prepare_f5ay_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ay.json -j 1
+git diff --check
+```
+
 ## Phase F5ax: sfnt simple glyph outline point stream item collection path command stream prepare
 
 目的:

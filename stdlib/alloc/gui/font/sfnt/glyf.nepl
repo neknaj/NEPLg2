@@ -13194,6 +13194,230 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_s
                                         GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted final_summary final_cursor emitted_count:
                                             Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted final_summary final_cursor add emitted_count 1
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan: completed path command stream から[導/みちび]く sink / raster [容量/ようりょう] plan
+//:
+//: [目的/もくてき]:
+//: - F5ax の completed drain terminal だけを authority として、後続 sink writer / raster mask writer が[必要/ひつよう]とする count を value-only に[固定/こてい]します。
+//: - partial summary を final plan として[扱/あつか]わないため、この型は `StepBudgetExhausted` からは[作/つく]れません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan:
+    total_count %i32
+    emitted_count %i32
+    draw_count %i32
+    move_to_count %i32
+    line_to_count %i32
+    quadratic_to_count %i32
+    skip_no_segment_count %i32
+    path_segment_capacity %i32
+    raster_edge_capacity %i32
+    last_path_command_index %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan \plan:
+        *plan
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan \plan:
+        plan
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan: sink plan value を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan \total_count\emitted_count\draw_count\move_to_count\line_to_count\quadratic_to_count\skip_no_segment_count\path_segment_capacity\raster_edge_capacity\last_path_command_index:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan total_count emitted_count draw_count move_to_count line_to_count quadratic_to_count skip_no_segment_count path_segment_capacity raster_edge_capacity last_path_command_index
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count: plan total count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_total_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "total_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count: drawable command count を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_draw_count %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "draw_count"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_path_segment_capacity: path segment capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_path_segment_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "path_segment_capacity"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_raster_edge_capacity: raster edge capacity を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_raster_edge_capacity %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan i32 \plan:
+    *field::get_ref plan "raster_edge_capacity"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind: sink plan [失敗/しっぱい] reason
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind:
+    PrepareNotCompleted
+    NegativeTotalCount
+    NegativeMoveToCount
+    NegativeLineToCount
+    NegativeQuadraticToCount
+    NegativeSkipNoSegmentCount
+    NegativeEmittedCount
+    NoCommandsPrepared
+    LastPathCommandIndexInvalid
+    CountOverflow
+    PreparedCountMismatch
+    EmittedCountMismatch
+    DrawCountMismatch
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError: sink plan failure context
+//:
+//: [目的/もくてき]:
+//: - completed / budget exhausted terminal と count context を[残/のこ]し、partial summary や forged count を silent no-op にしません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError:
+    kind %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind
+    terminal %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal
+    total_count %i32
+    emitted_count %i32
+    move_to_count %i32
+    line_to_count %i32
+    quadratic_to_count %i32
+    skip_no_segment_count %i32
+    last_path_command_index %i32
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error: sink plan error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \kind\terminal\total_count\emitted_count\move_to_count\line_to_count\quadratic_to_count\skip_no_segment_count\last_path_command_index:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError kind terminal total_count emitted_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_kind: error kind を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_kind %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \kind\terminal:
+    match terminal:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed summary _cursor emitted_count:
+            let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
+            let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
+            let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
+            let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary
+            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
+            let last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error kind terminal total_count emitted_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted summary _cursor emitted_count:
+            let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
+            let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
+            let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
+            let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary
+            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
+            let last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+            gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error kind terminal total_count emitted_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_guard %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result unit GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \terminal\total_count\emitted_count\move_to_count\line_to_count\quadratic_to_count\skip_no_segment_count\last_path_command_index:
+    if lt total_count 0:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NegativeTotalCount terminal
+        else:
+            if lt move_to_count 0:
+                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NegativeMoveToCount terminal
+                else:
+                    if lt line_to_count 0:
+                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NegativeLineToCount terminal
+                        else:
+                            if lt quadratic_to_count 0:
+                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NegativeQuadraticToCount terminal
+                                else:
+                                    if lt skip_no_segment_count 0:
+                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NegativeSkipNoSegmentCount terminal
+                                        else:
+                                            if lt emitted_count 0:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NegativeEmittedCount terminal
+                                                else:
+                                                    if le total_count 0:
+                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::NoCommandsPrepared terminal
+                                                        else:
+                                                            if lt last_path_command_index 0:
+                                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::LastPathCommandIndexInvalid terminal
+                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_checked_add %fn i32 fn i32 fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal Result i32 GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \left\right\terminal:
+    let max_i32 %i32 2147483647
+    let remaining %i32 sub max_i32 left
+    if gt right remaining:
+        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::CountOverflow terminal
+        else Result::Ok add left right
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_from_prepare_drain_terminal: completed prepare terminal から sink plan を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - `Completed` terminal だけを final authority とし、`StepBudgetExhausted` は `PrepareNotCompleted` として[拒否/きょひ]します。
+//: - count はすべて非負検査と overflow guard を[通/とお]してから capacity に[変換/へんかん]します。
+//: - この関数は F5ax drain / step、F5aw step、F5av lookup、sink traversal、storage mutation、render / raster / platform API を[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_from_prepare_drain_terminal %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanError \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::StepBudgetExhausted _summary _cursor _emitted_count:
+            Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::PrepareNotCompleted terminal
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamPrepareDrainTerminal::Completed summary _cursor emitted_count:
+            let total_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_total_count &summary
+            let move_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_move_to_count &summary
+            let line_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_line_to_count &summary
+            let quadratic_to_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_quadratic_to_count &summary
+            let skip_no_segment_count %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_skip_no_segment_count &summary
+            let last_path_command_index %i32 gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_prepare_summary_last_path_command_index &summary
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_guard terminal total_count emitted_count move_to_count line_to_count quadratic_to_count skip_no_segment_count last_path_command_index:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_checked_add move_to_count line_to_count terminal:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok move_line_count:
+                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_checked_add move_line_count quadratic_to_count terminal:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok path_segment_capacity:
+                                    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_checked_add path_segment_capacity skip_no_segment_count terminal:
+                                        Result::Err error:
+                                            Result::Err error
+                                        Result::Ok prepared_count:
+                                            if not eq prepared_count total_count:
+                                                then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::PreparedCountMismatch terminal
+                                                else:
+                                                    if not eq emitted_count total_count:
+                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::EmittedCountMismatch terminal
+                                                        else:
+                                                            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_count_checked_add line_to_count quadratic_to_count terminal:
+                                                                Result::Err error:
+                                                                    Result::Err error
+                                                                Result::Ok draw_count:
+                                                                    let raster_edge_capacity %i32 draw_count
+                                                                    if not eq draw_count raster_edge_capacity:
+                                                                        then Result::Err gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_error_from_terminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind::DrawCountMismatch terminal
+                                                                        else:
+                                                                            let plan %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan total_count emitted_count draw_count move_to_count line_to_count quadratic_to_count skip_no_segment_count path_segment_capacity raster_edge_capacity last_path_command_index
+                                                                            Result::Ok plan
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

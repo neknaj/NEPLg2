@@ -5633,6 +5633,110 @@ PathCommandValue command accessor
 
 F5ax must not call byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, F5av lookup, F5aw step from prepare drain, storage mutation, `Vec`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
 
+## SFNT simple glyph outline point stream item collection path command stream sink plan boundary
+
+F5ay converts the completed F5ax prepare drain terminal into the first sink/raster capacity plan. It is deliberately still not a sink writer, not a mask writer, and not a renderer command emitter. Its only job is to prove that the completed command stream summary is internally consistent and to derive exact capacities for the following phase.
+
+The input is the drain terminal, not the summary alone:
+
+```text
+sink_plan_from_prepare_drain_terminal terminal:
+    match terminal:
+        Completed summary cursor emitted_count:
+            validate and derive plan
+        StepBudgetExhausted summary cursor emitted_count:
+            Err PrepareNotCompleted
+```
+
+This distinction is required because a budget-exhausted partial summary can have non-negative counts and a valid last index while still not representing the full stream. Treating that summary as final would turn scheduler state into a completed sink plan.
+
+The plan is value-only:
+
+```text
+PathCommandStreamSinkPlan:
+    total_count i32
+    emitted_count i32
+    draw_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    path_segment_capacity i32
+    raster_edge_capacity i32
+    last_path_command_index i32
+```
+
+The source summary remains the authority for command kind counts. The drain terminal `emitted_count` is an independent authority for how many steps were actually emitted by F5ax drain, so F5ay checks `emitted_count == total_count` before returning a plan.
+
+The checked count guard rejects forged or partial count contexts before any derived capacity calculation:
+
+```text
+total_count >= 0
+move_to_count >= 0
+line_to_count >= 0
+quadratic_to_count >= 0
+skip_no_segment_count >= 0
+emitted_count >= 0
+total_count > 0
+last_path_command_index >= 0
+```
+
+Every addition used to derive capacities must be guarded by remaining capacity:
+
+```text
+remaining = 2147483647 - left
+if right > remaining:
+    Err CountOverflow
+else:
+    Ok left + right
+```
+
+F5ay performs guarded addition in this order:
+
+```text
+move_line_count = move_to_count + line_to_count
+path_segment_capacity = move_line_count + quadratic_to_count
+prepared_count = path_segment_capacity + skip_no_segment_count
+draw_count = line_to_count + quadratic_to_count
+raster_edge_capacity = draw_count
+```
+
+Then it checks:
+
+```text
+prepared_count == total_count
+emitted_count == total_count
+draw_count == raster_edge_capacity
+```
+
+The `draw_count == raster_edge_capacity` check is redundant in the current implementation because both values are derived together, but it is an intentional source-policy anchor. Future changes must not let draw scheduling and raster edge capacity drift apart silently.
+
+The error is also value-only and carries the original terminal plus extracted count context:
+
+```text
+PathCommandStreamSinkPlanError:
+    kind PathCommandStreamSinkPlanErrorKind
+    terminal PathCommandStreamPrepareDrainTerminal
+    total_count i32
+    emitted_count i32
+    move_to_count i32
+    line_to_count i32
+    quadratic_to_count i32
+    skip_no_segment_count i32
+    last_path_command_index i32
+```
+
+F5ay may call:
+
+```text
+F5ax prepare summary accessors
+private F5ay count guard
+private F5ay checked add helper
+private F5ay error-from-terminal helper
+```
+
+F5ay must not call F5ax drain, F5ax step, F5aw step, F5av lookup, byte-backed lookup helpers, metadata parser, table helpers, old action traversal consumers, storage mutation, `Vec`, path object materialization, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

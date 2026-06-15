@@ -1,3 +1,47 @@
+# 2026-06-16 Agent2 GUI font path command stream sink plan checkpoint
+
+## scope
+
+- branch: `gui-font-path-command-sink-plan-f5ay-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ay の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、partial terminal を final plan として扱わないことを守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path command stream sink plan の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ay の completed prepare drain terminal authority、partial terminal rejection、checked count guard、checked addition、capacity derivation、error context、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ay の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlan` を追加した。plan は total / emitted / draw / command kind count / path segment capacity / raster edge capacity / last path command index だけを持つ value-only record である。
+- `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathCommandStreamSinkPlanErrorKind` と `SinkPlanError` を追加した。error は terminal と extracted count context を保持し、partial summary や forged count を silent no-op にしない。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_stream_sink_plan_from_prepare_drain_terminal` は `StepBudgetExhausted` を `PrepareNotCompleted` で拒否し、`Completed` branch だけで summary accessor から count を読む。
+- count guard は total / move / line / quadratic / skip / emitted の非負性、`total_count > 0`、`last_path_command_index >= 0` を検査する。
+- checked add helper は `2147483647 - left` を計算し、`right` が残余を超える場合は `CountOverflow` を返す。guard 後だけ `add left right` を使う。
+- public sink plan derivation は `move + line`、`move + line + quadratic`、`move + line + quadratic + skip`、`line + quadratic` を checked add で求め、`prepared_count == total_count`、`emitted_count == total_count`、`draw_count == raster_edge_capacity` を検査してから plan を返す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ay source policy を追加した。docs/types/value-only Clone/Copy/completed terminal authority/budget exhausted rejection/non-negative guard/checked add guard/capacity derivation/count invariants/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md` を追加し、types、completed terminal authority、budget exhausted rejection、non-negative count guard、checked add guard、capacity derivation、count invariants、no fallback / no byte-backed / no traversal / no Vec / no raster の source policy coverage label を固定した。
+- `todo.md` は F5ay 完了後の次作業として、real command sink writer / raster mask writer owner boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。`PrepareSummary` 単体では `StepBudgetExhausted` partial summary を completed capacity と誤認できるため、F5ax `PrepareDrainTerminal` か completed-only value が必要と指摘された。また全 count の非負検査と checked addition が必要と指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。staged 8 files、completed terminal authority、`StepBudgetExhausted` rejection、non-negative count checks、guarded addition、forbidden API、focused doctest、todo が確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_plan.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_plan_f5ay.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_prepare.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_prepare_f5ay_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ay.json -j 1` 1019/1019 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ay は completed path command stream sink plan までであり、real command sink writer、raster mask writer、render2d command emission は未実装である。
+
 # 2026-06-16 Agent2 GUI font path command stream prepare checkpoint
 
 ## scope
