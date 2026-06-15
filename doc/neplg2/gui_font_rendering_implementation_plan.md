@@ -4151,3 +4151,65 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5aq.json -j 1
 git diff --check
 ```
+
+## Phase F5ar: sfnt simple glyph outline point stream item collection path sink action PointX drain
+
+目的:
+
+- F5aq の `PointXStartOwner` を authority とし、collection-backed point stream item source から PointX scalar slots を bounded drain する。
+- PointX region が完了した場合だけ PointY region cursor を開始し、PointY value push は次 phase に残す。
+- PointXStartOwner は public constructor を持つため、summary capacity、owner storage capacity、cursor、collection capacity を検査してから cursor interpretation / collection item read / storage consume へ進む。
+- collection read failure、forged item failure、F5g PointX push failure、PointY cursor start failure を別 enum reason にし、それぞれ current PointXStartOwner を保持または復元して返す。
+- byte-backed coordinate reader / read-push、F4 lookup、F5al/F5ak/F5aj traversal、path sink traversal、PointY value push、raster/render/platform/host API、font fallback へ進まない。
+
+plan review:
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。internal PointX push helper で F5g lower error metadata を storage 回収前に読むことを docs/source policy に明示する必要があると指摘された。
+- Tesla plan review 2 は `PLAN_APPROVED`。
+- authority check は次の順に固定する。
+  - summary capacity == owner storage capacity
+  - cursor well formed
+  - cursor region is `PointX`
+  - cursor matches summary capacity `PointX` region
+  - collection capacity == summary capacity
+- `collection_read_item` は collection length / capacity / requested index の検査で十分であり、public-constructor item の glyph / point index / kind forge は F5ar caller 側で再検査する。
+- PointX push failure branch は `gui_sfnt_simple_glyph_point_x_push_error_kind &push_error`、`gui_sfnt_simple_glyph_point_x_push_error_point &push_error`、`gui_sfnt_simple_glyph_point_x_push_error_region_error_kind &push_error`、`gui_sfnt_simple_glyph_point_x_push_error_push_error_kind &push_error` を読んでから `gui_sfnt_simple_glyph_point_x_push_error_storage push_error` で storage を回収する。
+- completion branch は PointY cursor start のみ行い、PointY value push はしない。
+- completion は budget check より前に行い、budget exhaustion は collection read / PointX push より前に行う。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointYStartOwner` を追加する。
+- PointYStartOwner は storage、summary、PointY cursor を保持し、`Clone` / `Copy` を実装しない。
+- PointXStartOwner の non-consuming storage capacity accessor `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_storage_capacity` を追加する。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainErrorKind` を追加する。
+- error kind は `StorageSummaryCapacityMismatch`、`CursorInvalid`、`CursorRegionMismatch`、`CursorCapacityMismatch`、`CollectionSummaryCapacityMismatch`、`PointSourceReadFailed`、`PointSourceGlyphMismatch`、`PointSourceIndexMismatch`、`PointSourceKindMismatch`、`PointXPushFailed`、`PointYCursorStartFailed` を持つ。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainError` を追加する。
+- drain error は current PointXStartOwner、kind、point_index、optional collection read error、optional item、optional PointX slot、optional F5g/F5d/F5c metadata、optional PointY cursor error を保持し、`Clone` / `Copy` を実装しない。
+- `alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionPointXDrainTerminal` を追加する。
+- terminal は `PointYStarted PointYStartOwner` と `StepBudgetExhausted PointXStartOwner` のみを持ち、`Clone` / `Copy` を実装しない。
+- internal push helper `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_push_point_x` を追加し、F5g `gui_sfnt_simple_glyph_outline_storage_push_point_x storage cursor point` を exactly once 呼ぶ。
+- public `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_drain_to_point_y_start_budget` を追加する。
+- public boundary は authority check を終えた後だけ trusted drain helper へ委譲する。
+- trusted drain helper は `next_index == end` なら PointY cursor start、`remaining_steps <= 0` なら owner-preserving StepBudget、budget がある場合だけ collection read item を exactly once 呼ぶ。
+- read success では item point glyph、item point index、item kind を再検査し、成功後だけ `GuiSfntSimpleGlyphPointXSlot` を作って internal PointX push helper へ渡す。
+- push success は returned state から次 PointXStartOwner を作り `remaining_steps - 1` で継続する。
+
+完了条件:
+
+- source policy が docs、types、PointYStartOwner / PointXDrainError / PointXDrainTerminal no Clone/Copy、PointXStartOwner non-consuming storage capacity accessor、authority check order、collection read before authority 禁止、forged item glyph/index/kind validation、PointX push failure owner recovery、lower metadata before storage recovery、PointY cursor failure owner preservation、completion-only PointY cursor start、StepBudget no read/no push、forbidden byte-backed / traversal / render / platform / font fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md` に types、authority checks、source read once、forged item checks、push failure recovery、completion PointY start only、StepBudget no read/no push、no fallback/no byte-backed/no traversal coverage label を追加する。
+- implementation review で authority check order、owner-preserving error、F5g lower metadata before storage recovery、PointY value push absence、forged item validation、forbidden API 固定を確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は次の PointY population boundary に進める。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_x_drain_f5ar.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_f5ar_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ar.json -j 1
+git diff --check
+```

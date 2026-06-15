@@ -1,3 +1,49 @@
+# 2026-06-15 Agent2 GUI font PointX drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-point-x-population-boundary-f5ar-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5ar の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action PointX drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5ar の PointXStartOwner authority、storage / summary / cursor / collection の照合順序、collection read item source、forged item glyph / index / kind validation、bounded PointX drain、PointY cursor start terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5ar の plan review 経緯、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `PointYStartOwner`、PointXStartOwner の non-consuming storage capacity accessor、PointX drain error kind、owner-bearing drain error、drain terminal、internal PointXStartOwner push helper、public drain-to-PointY-start boundary を追加した。
+- public drain boundary は PointXStartOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。
+- trusted drain は completion を budget より先に扱い、PointX region 完了時だけ PointY cursor start へ進める。PointY value push は行わない。
+- budget exhausted は collection read item や PointX push を行わず `StepBudgetExhausted PointXStartOwner` として返す。
+- collection-backed source は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item collection point_index` のみを使い、read success 後に item の glyph raw id、logical point index、item kind consistency を再検査する。
+- PointX push failure では lower F5g error metadata を storage 回収前に読み、returned storage と保存済み summary / cursor から PointXStartOwner を復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ar source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/authority check order/read-before-authority 禁止/forged item validation/push failure owner recovery/lower metadata-before-storage/PointY cursor failure owner preservation/completion-only PointY cursor start/StepBudget no read/no push/forbidden byte-backed/traversal/render/platform/括弧なし prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md` を追加し、types、authority checks、source read once、forged item checks、push failure recovery、metadata ordering、completion PointY start only、StepBudget no read/no push、no fallback / no byte-backed / no traversal の source policy coverage label を固定した。
+- `todo.md` は F5ar 完了後の次作業として、PointYStartOwner を authority にした PointY region population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。internal PointX push helper の F5g lower error metadata-before-storage recovery を plan / docs / source policy に明示する必要があると指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。summary / storage / cursor / collection の authority check、caller-side forged item validation、completion-before-budget、budget-before-read/push、PointY cursor start only、lower metadata-before-storage recovery が条件として確認された。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、F5ar 本体は authority check before read / push / storage consume、completion-before-budget、budget-before-read / push、forged item glyph / index / kind validation、F5g lower metadata-before-storage recovery、PointY cursor start only、byte-backed / traversal / render / platform fallback 禁止の計画に沿っていると確認された。blocker は新規 focused doctest が未追跡であること、note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。focused doctest は staged、`note.n.md` は `REVIEW_BLOCKED` の内容と理由を記録済み、`git diff --cached --check` も問題なし、`NUL` は untracked のまま commit 対象外であると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 259 秒で完了
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_x_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_x_drain_f5ar.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_contour_endpoint_drain_f5ar_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ar.json -j 1` 865/865 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5ar は PointX region drain と PointY cursor start boundary までであり、PointY / edge / path command tag population、raster mask、render2d command emission は未実装である。
+- F5ar focused doctest の実呼び出しは現行 wasm doctest compiler の compile time が解消されるまで skip のままである。contract は source policy と `glyf.nepl` 全体 doctest で固定する。
+- `node nodesrc/test_web_gui_font_rendering_contract.js` は成功しても長時間を要する。今回の semantic boundary とは独立した source policy 実行時間の残件として扱う。
+
 # 2026-06-15 Agent2 GUI font contour endpoint drain boundary checkpoint
 
 ## scope

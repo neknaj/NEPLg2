@@ -4749,6 +4749,119 @@ F5aq may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_contou
 
 `PointXStartOwner`, `ContourEndpointDrainError`, and `ContourEndpointDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `ContourEndpointDrainErrorKind` is a small value enum and may implement `Clone` / `Copy`.
 
+## SFNT simple glyph outline point stream item collection path sink action PointX drain boundary
+
+F5ar consumes an F5aq `PointXStartOwner`, fills PointX scalar slots from the already materialized point stream item collection, and starts the PointY scalar region cursor only after the PointX region is complete. It is not a full outline builder and does not push PointY values.
+
+Because `PointXStartOwner` is publicly constructible, F5ar treats it as forgeable. The public drain boundary must prove all three authorities match before interpreting the cursor or consuming storage:
+
+```text
+authority check order:
+    read summary capacity from PointXStartOwner
+    read owner storage capacity without consuming PointXStartOwner
+    require summary capacity == owner storage capacity
+    read PointXStartOwner cursor
+    require cursor well formed
+    require cursor region is PointX
+    require cursor start/end match summary capacity PointX region
+    read collection capacity
+    require collection capacity == summary capacity
+```
+
+The capacity comparison covers glyph raw id, contour count, point count, edge count, path command pair count, and path command count. These checks must precede any call to `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item`, any PointX push, any PointY cursor start, and any consuming owner storage accessor.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_point_x_start_owner_drain_to_point_y_start_budget:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    owner PointXStartOwner
+    remaining_steps i32
+    -> Result PointXDrainTerminal PointXDrainError
+```
+
+The terminal and owner shape is:
+
+```text
+PointYStartOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary DrainSummary
+    cursor GuiSfntSimpleGlyphOutlineScalarRegionCursor
+
+PointXDrainTerminal:
+    PointYStarted PointYStartOwner
+    StepBudgetExhausted PointXStartOwner
+```
+
+`PointYStarted` means only that the PointY cursor has been started. It does not mean any y coordinate value was pushed. That work belongs to the next PointY population boundary.
+
+The error shape is:
+
+```text
+PointXDrainErrorKind:
+    StorageSummaryCapacityMismatch
+    CursorInvalid
+    CursorRegionMismatch
+    CursorCapacityMismatch
+    CollectionSummaryCapacityMismatch
+    PointSourceReadFailed
+    PointSourceGlyphMismatch
+    PointSourceIndexMismatch
+    PointSourceKindMismatch
+    PointXPushFailed
+    PointYCursorStartFailed
+
+PointXDrainError:
+    owner PointXStartOwner
+    kind PointXDrainErrorKind
+    point_index i32
+    read_error Option PointStreamItemCollectionReadError
+    item Option PointStreamItem
+    point Option PointXSlot
+    push_error_kind Option PointXPushErrorKind
+    region_error_kind Option GuiSfntSimpleGlyphOutlineRegionPushErrorKind
+    storage_push_error_kind Option StdErrorKind
+    cursor_error_kind Option StdErrorKind
+```
+
+Each authority failure returns `PointXDrainError` with the original PointXStartOwner and no lower optional payload. `PointSourceReadFailed` stores the lower collection read error. `PointSourceGlyphMismatch`, `PointSourceIndexMismatch`, and `PointSourceKindMismatch` store the rejected item. `PointXPushFailed` stores the rejected PointX slot and lower F5g/F5d/F5c metadata. `PointYCursorStartFailed` stores the lower cursor start `StdErrorKind`.
+
+After authority success, cursor interpretation is valid:
+
+```text
+if next_index == end:
+    start PointY cursor from summary capacity
+    if cursor start fails:
+        return Err PointYCursorStartFailed owner lower_cursor_error
+    consume PointXStartOwner storage
+    return Ok PointYStarted PointYStartOwner storage summary point_y_cursor
+
+if next_index < end and remaining_steps <= 0:
+    return Ok StepBudgetExhausted owner
+
+if next_index < end and remaining_steps > 0:
+    point_index = next_index - start
+    call collection read item once
+    on read failure:
+        return Err PointSourceReadFailed owner lower_read_error
+    validate item glyph == capacity glyph
+    validate item point_index == point_index
+    validate item kind matches point payload
+    point_x = PointXSlot point_index item_point.x
+    call internal PointXStartOwner point-x push helper once
+    on push failure:
+        return Err PointXPushFailed recovered_point_x_owner lower_metadata
+    recurse with returned PointXStartOwner and remaining_steps - 1
+```
+
+The collection read helper validates collection length, capacity, and requested index. It does not prove that a public-constructor item payload still matches the item index, glyph, or kind. Therefore F5ar must perform glyph, point index, and kind checks after read and before PointX push. This caller-side validation is the boundary that makes forged collection items fail closed without changing the lower read helper.
+
+The internal PointX push helper is the only F5ar helper allowed to call F5g `gui_sfnt_simple_glyph_outline_storage_push_point_x`. It must borrow summary and cursor before consuming storage. If F5g fails, it must read `gui_sfnt_simple_glyph_point_x_push_error_kind &push_error`. It must read `gui_sfnt_simple_glyph_point_x_push_error_point &push_error`. It must read `gui_sfnt_simple_glyph_point_x_push_error_region_error_kind &push_error`. It must read `gui_sfnt_simple_glyph_point_x_push_error_push_error_kind &push_error`. These reads must happen before calling `gui_sfnt_simple_glyph_point_x_push_error_storage push_error`. The recovered storage plus saved summary/cursor reconstruct the current `PointXStartOwner`.
+
+F5ar may call `gui_sfnt_simple_glyph_outline_point_stream_item_collection_read_item` only after the public authority checks pass and only when `remaining_steps > 0`. It must not call `gui_sfnt_glyf_read_push_point_x`, `gui_sfnt_glyf_read_point_x_from_stream`, `gui_sfnt_glyf_read_push_point_y`, `gui_sfnt_glyf_read_point_y_from_stream`, F4 byte-backed lookup helpers, F5al/F5ak/F5aj traversal helpers, lower collection path helpers, table helpers, `Vec`, path command fill, sink mutation, PointY push, rasterization, rendering, platform APIs, host text measurement, or font fallback.
+
+`PointYStartOwner`, `PointXDrainError`, and `PointXDrainTerminal` contain owner values and must not implement `Clone` or `Copy`. `PointXDrainErrorKind` is a small value enum and may implement `Clone` / `Copy`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
