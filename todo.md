@@ -8,7 +8,7 @@
 
 2026-06-01 GUI/TUI standard library
 
-- F5as の EdgeStartOwner を authority とし、collection-backed contour edge / curve segment source から edge region の scalar slot を owner recovery 付きで埋める population boundary を追加する。Edge value 完了後だけ path command tag region cursor start へ進め、byte-backed lookup、sink traversal、raster/render/platform API へ戻らない contract を固定する
+- F5at の PathCommandTagStartOwner を authority とし、Edge region の contour owner scalar と collection-backed contour edge / curve segment source から path command tag region の scalar slot を owner recovery 付きで埋める population boundary を追加する。PathCommandTag value 完了後だけ path command stream / raster preparation boundary へ進め、byte-backed lookup、sink traversal、raster/render/platform API へ戻らない contract を固定する
 - `alloc/gui` の allocator-backed layout を flex / grid / scroll policy、text buffer node 対応へ拡張し、text line break / text hash based cache invalidation、pointer capture / gesture、stateful pointer routing と、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence、途中入力 buffering を追加する
 - GUI/TUI executable NEPLg2 code の括弧なし規約を source policy regression へ組み込み、stdlib implementation / doctest / `tests/stdlib/gui_*.n.md` / examples の回帰を自動検出する
 - `GuiEffectBatch` の bounded checkpoint 実装を、`alloc` collection の所有権 contract が安定した段階で `Vec GuiEffect` へ置き換える

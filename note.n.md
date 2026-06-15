@@ -1,3 +1,51 @@
+# 2026-06-15 Agent2 GUI font Edge drain boundary checkpoint
+
+## scope
+
+- branch: `gui-font-edge-population-boundary-f5at-20260615`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5at の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、owner recovery boundary を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection path sink action Edge drain の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5at の EdgeStartOwner authority、partial drain 再開可能な cursor contract、owner storage endpoint marker、collection contour span / contour edge source、EdgeSlot scalar contract、bounded Edge drain、PathCommandTag cursor start terminal、owner-preserving typed error を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5at の plan review blocker と修正条件、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionEdgeSlot`、`PathCommandTagStartOwner`、EdgeStartOwner の non-consuming storage capacity accessor、non-consuming endpoint marker helper、Edge drain error kind、owner-bearing drain error、drain terminal、internal EdgeStartOwner push helper、public drain-to-PathCommandTag-start boundary を追加した。
+- Edge region の scalar value は `contour_index` として固定した。slot の `global_edge_index` は absolute start point index と同じで、local edge index は `global_edge_index - span.start_point_index` から導出する。
+- public drain boundary は EdgeStartOwner を消費する前に summary capacity と owner storage capacity、cursor well-formed、cursor region、cursor capacity match、collection capacity match をこの順に検査する。cursor は partial drain 再開のため Edge region start へ固定しない。
+- trusted drain は completion を budget より先に扱い、Edge region 完了時だけ PathCommandTag cursor start へ進める。curve segment classification や path command tag population は行わない。
+- budget exhausted は endpoint marker read、collection contour span / contour edge source、Edge push を行わず `StepBudgetExhausted EdgeStartOwner` として返す。
+- endpoint marker は `field::get_ref owner "storage"` の private helper から読む。owner storage を消費するのは Edge push helper と PathCommandTag cursor start 成功 branch だけである。
+- Edge push failure では lower F5d error metadata を `kind -> scalar_value -> push_error_kind -> storage` の順で読み、returned storage と保存済み summary / cursor から EdgeStartOwner を復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5at source policy を追加した。docs/API/owner no Clone/Copy/error no Clone/Copy/terminal no Clone/Copy/EdgeSlot Clone/Copy/authority check order/source-before-authority 禁止/cursor start 固定禁止/endpoint marker helper non-consuming/span invariant/edge invariant/push failure owner recovery/lower metadata-before-storage/completion-only PathCommandTag cursor start/StepBudget no source/no push/forbidden byte-backed/traversal/curve segment/render/platform/path command population 禁止/括弧なし prefix style/focused doctest coverage label を検査する。
+- 既存 `nodesrc/test_web_gui_font_rendering_contract.js` の full run timeout 原因だった巨大 regex 2 件を、section slice + `includes` 検査へ置き換えた。F5at 追加ブロック単体は約 10ms で通り、timeout 原因ではなかった。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md` を追加し、types、authority checks、endpoint marker non-consuming、span/edge source checks、push failure recovery、metadata ordering、completion PathCommandTag start only、StepBudget no source/no push、no fallback / no byte-backed / no traversal / no curve segment の source policy coverage label を固定した。
+- `todo.md` は F5at 完了後の次作業として、PathCommandTagStartOwner を authority にした path command tag region population boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review は `PLAN_BLOCKED`。public authority check が Edge cursor start 固定になっており partial drain 再開を拒否すること、owner storage endpoint marker read を non-consuming helper にすること、Edge scalar contract を `contour_index` として文書化し span containment を検査すること、curve segment source は F5at で呼ばないこと、F5d push error metadata-before-storage を source policy に固定することが指摘された。
+- plan review 指摘は実装前に反映した。
+- Tesla implementation review 1 回目は `REVIEW_BLOCKED`。内容面の blocker はなく、partial restart 許可、endpoint marker の non-consuming read、Edge scalar の `contour_index` 固定、curve / path classification 禁止、push error metadata-before-storage order は満たしていると確認された。blocker は新規 focused doctest が未追跡のまま残っていることと、この note の implementation review status が pending のまま残っていることだけである。
+- Tesla follow-up implementation review は `REVIEW_APPROVED`。staged set は意図した 8 ファイルのみ、新規 focused doctest は staged 済み、`git diff --cached --check` は通過済み、一時 JSON / profile / trace / `NUL` は untracked のまま commit 対象外であると確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 75 秒で完了
+- pass: F5at source-policy block isolated eval 9.937ms
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_edge_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_edge_drain_f5at.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_point_y_drain.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_point_y_drain_f5at_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5at.json -j 1` 917/917 passed
+- pass: `git diff --check`
+
+## remaining
+
+- F5at は Edge region drain と PathCommandTag cursor start boundary までであり、path command tag population、curve segment classification integration、raster mask、render2d command emission は未実装である。
+- F5at focused doctest の実呼び出しは source policy smoke だけで、詳細な owner recovery scenario は現行 wasm doctest compiler の compile time が解消されるまで `glyf.nepl` 全体 doctest と source policy で固定する。
+
 # 2026-06-15 Agent2 GUI font PointY drain boundary checkpoint
 
 ## scope
