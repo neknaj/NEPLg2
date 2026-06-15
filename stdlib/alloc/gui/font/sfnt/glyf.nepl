@@ -9175,6 +9175,79 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             let consume_step %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep gui_sfnt_simple_glyph_path_sink_action_consumer_consume_step apply_step advance
             Result::Ok consume_step
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item: collection glyph 由来の contour first action item を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - caller から glyph を[受/う]け[取/と]らず、collection capacity の glyph を唯一の authority とします。
+//: - capacity -> glyph -> start cursor -> collection action step -> collection step item の順に 1 回ずつ[委譲/いじょう]します。
+//: - byte-backed lookup、外部 glyph、consumer、consume、sink traversal、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\contour_index\policy:
+    let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+    let glyph %GuiGlyphId gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+    let start_cursor %GuiSfntSimpleGlyphPathSinkActionCursor gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection start_cursor policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok start_step:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &start_step policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok item:
+                    Result::Ok item
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item: collection glyph 由来の first consumer item を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - start item helper を 1 回だけ[呼/よ]び、F5ai consumer item helper へ 1 回だけ[渡/わた]します。
+//: - caller supplied glyph、lower action step helper、consumer next、consume、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\contour_index\policy:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item collection contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok item:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consumer_item:
+                    Result::Ok consumer_item
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once: collection glyph 由来の first consumer item を 1 つ[消費/しょうひ]する
+//:
+//: [契約/けいやく]:
+//: - start consumer item helper を 1 回だけ[呼/よ]び、F5aj consume-once helper へ 1 回だけ[渡/わた]します。
+//: - apply step と advance は F5aj の consume step として[保持/ほじ]し、summary drain や loop は行いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\state\contour_index\policy:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item collection contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok consumer_item:
+            match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &consumer_item policy:
+                Result::Err error:
+                    Result::Err error
+                Result::Ok consume_step:
+                    Result::Ok consume_step
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary: collection glyph 由来の first consume summary を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - start consume-once helper を 1 回だけ[呼/よ]び、成功時だけ pure summary projection に 1 回だけ[渡/わた]します。
+//: - summary advance、budget drain、real sink、renderer/platform API は[使/つか]いません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionApplyState fn i32 fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\state\contour_index\policy:
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once collection state contour_index policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok consume_step:
+            let summary %GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step
+            Result::Ok summary
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

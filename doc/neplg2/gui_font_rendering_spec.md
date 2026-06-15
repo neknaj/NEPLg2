@@ -3845,6 +3845,75 @@ sink traversal / real sink mutation
 render / raster / platform / host APIs
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action start consumer
+
+F5ak は collection-backed action stream の contour start boundary である。F5aj が既存 consumer item から 1 step 進める境界であるのに対し、F5ak は collection が保持する glyph authority から first item、first consumer item、first consume step、first consume summary を作る。caller supplied glyph は受け取らない。collection-backed API で外部 glyph を受け取ると forged cursor を作れるため、glyph は必ず `collection_capacity -> capacity.glyph` から読む。authority sequence は `collection_capacity -> capacity.glyph -> start_cursor -> F5ag action step -> F5ah step item` である。
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionStepItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerItem GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary:
+    collection &GuiSfntSimpleGlyphOutlinePointStreamItemCollection
+    state GuiSfntSimpleGlyphPathSinkActionApplyState
+    contour_index i32
+    policy &GuiSfntSimpleGlyphPathSinkPolicy
+    -> Result GuiSfntSimpleGlyphPathSinkActionConsumerConsumeSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError
+```
+
+start item helper は次の順序を守る。
+
+```text
+capacity = gui_sfnt_simple_glyph_outline_point_stream_item_collection_capacity collection
+glyph = gui_sfnt_simple_glyph_outline_storage_capacity_glyph &capacity
+start_cursor = gui_sfnt_simple_glyph_path_sink_action_start_cursor glyph contour_index
+start_step = gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step collection start_cursor policy
+item = gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item collection &start_step policy
+```
+
+この helper だけが F5ag action step と F5ah action step item を直接呼ぶ。F5ag は cursor glyph と collection capacity glyph の一致を F5ae で検査するため、F5ak の start cursor は collection capacity glyph から作る必要がある。
+
+start consumer item helper は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item collection contour_index policy` を exactly once 呼び、成功時だけ `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item collection &item policy` を exactly once 呼ぶ。
+
+start consume-once helper は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item collection contour_index policy` を exactly once 呼び、成功時だけ `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once collection state &consumer_item policy` を exactly once 呼ぶ。
+
+start consume summary helper は `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once collection state contour_index policy` を exactly once 呼び、成功時だけ `gui_sfnt_simple_glyph_path_sink_action_consumer_consume_summary_from_step &consume_step` を exactly once 呼ぶ。summary projection は失敗しないため、新しい error domain は追加しない。
+
+F5ak は次を直接呼ばない。
+
+```text
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consumer_item
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_once
+gui_sfnt_lookup_simple_glyph_path_sink_action_start_consume_summary
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_consume_once
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_item_next
+gui_sfnt_lookup_simple_glyph_path_sink_action_consumer_consume_summary_advance_once
+caller supplied glyph
+lower F5 helper from higher F5ak helper
+summary advance / summary drain
+vec::
+push
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。
