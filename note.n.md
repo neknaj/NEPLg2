@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font raster mask writer checkpoint
+
+## scope
+
+- branch: `gui-font-raster-mask-writer-f5bb-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bb の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、型による境界固定、source policy による静的検査、private transition-only owner、owner recovery、partial append failure の fail-closed 化を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph outline point stream item collection raster mask writer の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bb の transition-only owner、start / push validation、stable raster scalar format、push failure recovery、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bb の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に module-private `GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterMaskWriterOwner` を追加した。current point は raster edge start point の authority なので、public constructor、`Clone`、`Copy` を持たせていない。
+- F5bb start は F5az plan/capacity、path sink Vec cap/len、raster mask Vec cap/len、inner F5ba completed progress / kind counts / last index を再検査してから zero progress owner を作る。
+- F5bb push は F5az plan/capacity、path sink complete state、raster mask len/count、inner F5ba complete state、F5bb kind progress、aggregate progress、path command index、stored/source/command tag consistency を再検査する。
+- MoveTo は raster scalar を書かず current point を更新し、SkipNoSegment は raster scalar を書かず current point を維持する。MoveTo と SkipNoSegment は別 progress count として検査する。
+- LineTo は F5au stable tag scalar 2、start_x2、start_y2、end_x2、end_y2 の 5 scalar を raster mask Vec へ書く。
+- QuadraticTo は F5au stable tag scalar 3、start_x2、start_y2、control_x2、control_y2、end_x2、end_y2 の 7 scalar を raster mask Vec へ書く。
+- LineTo / QuadraticTo は current point がない場合 `CurrentPointMissing` で失敗し、原点 fallback や silent skip はしない。
+- `raster_mask_writer_owner_push_scalar` は `vec::push` failure 時に `vec_push_error_kind &e` を先に読み、その後 `vec_push_error_vec e` で Vec を回収し、F5az owner、F5ba writer owner、F5bb writer owner を unchanged progress/current point で復元する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bb source policy を追加した。docs/private owner/no Clone-Copy/start validation/push validation/inner complete checks/kind progress bounds/stable scalar order/current point behavior/push recovery/partial failure fail-closed/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md` を追加し、F5bb source policy coverage label を固定した。
+- `todo.md` は F5bb 完了後の次作業として、path object / raster edge boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。`MoveTo` と `SkipNoSegment` を `skip_without_mask_count` にまとめると forged progress を隠せること、current point を public owner state として信頼すると forged mid-state から任意 start point を作れること、stable tag scalar を F5au helper 経由で固定する必要があることを指摘された。
+- 指摘を受け、MoveTo / LineTo / QuadraticTo / SkipNoSegment を separate progress count とし、F5bb owner を module-private transition-only owner に変更し、F5au stable tag scalar helper を source policy に固定する計画へ修正した。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review 1 は `REVIEW_BLOCKED`。内容面 blocker はなく、focused doctest file が untracked のままになっていることと、この note の review 状態更新漏れだけが commit-readiness blocker として指摘された。
+- 指摘を受け、focused doctest を commit 対象に含め、この note に review result を記録する。
+- Tesla implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消済みで、staged set は意図した 8 files のみ、検証出力や `NUL` は staged されていないことが確認された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_mask_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_mask_writer_f5bb.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_command_stream_sink_writer.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_command_stream_sink_writer_f5bb_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bb.json -j 1` 1074/1074 passed
+
+## remaining
+
+- F5bb は raster mask scalar writer までであり、path object materialization、actual raster mask build、glyph mask coverage、render2d command emission は未実装である。
+- F5bb owner は current point を持つため、今後 public API に昇格する場合は opaque ownership / module boundary / revalidation story を改めて設計する。
+
 # 2026-06-16 Agent2 GUI font path command stream sink writer checkpoint
 
 ## scope
