@@ -4019,6 +4019,53 @@ font fallback
 public forged collection/drain pairing API
 ```
 
+### SFNT simple glyph outline point stream item collection path sink action storage owner
+
+F5an は F5am の capacity 付き drain outcome を authority として、`EndContour` の場合だけ F5b outline storage allocation へ進む owner-taking boundary である。F5an は collection、drain result、byte-backed table、path sink、renderer、platform API を直接受け取らない。caller が別 collection と別 drain result を組み合わせて owner allocation へ進める public API は提供しない。
+
+```text
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:
+    storage GuiSfntSimpleGlyphOutlineStorage
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:
+    summary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    alloc_error GuiSfntSimpleGlyphOutlineStorageAllocError
+
+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:
+    Allocated GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    Rejected GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner:
+    outcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome
+    limit &GuiSfntSimpleGlyphOutlineStorageLimit
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError
+```
+
+`EndContour drain_summary` では `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &drain_summary` を 1 回だけ呼び、得た capacity で `gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit` を 1 回だけ呼ぶ。allocation 成功時は `Allocated StorageOwner` を返し、allocation 失敗時だけ `StorageAllocError` を `Result::Err` で返す。
+
+`Rejected drain_rejected` と `StepBudgetExhausted drain_summary` は typed terminal であり、storage allocation failure ではない。そのため `Result::Ok StorageTerminal::Rejected drain_rejected` または `Result::Ok StorageTerminal::StepBudgetExhausted drain_summary` として caller へ返す。これらの branch では storage owner を作らず、F5b allocation も呼ばない。
+
+`StorageOwner` と `StorageTerminal` は owner を含むため `Clone` / `Copy` を実装しない。`StorageAllocError` は owner を含まず、F5am drain summary と F5b allocation error を caller が診断や回復に使える typed payload として保持する。
+
+F5an は次を直接呼ばない。
+
+```text
+F5al start / advance / drain helper
+F5ak lower start helpers
+F5aj consume-once
+F4 byte-backed lookup helper
+lower collection path event / contour / step helpers
+byte-backed table helper
+Vec / push
+slot population
+path command owner fill
+sink traversal / real sink mutation
+render / raster / platform / host APIs
+font fallback
+```
+
 ### Supported font containers
 
 標準設計は次を対象にする。

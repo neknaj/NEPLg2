@@ -129,6 +129,7 @@ const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumerNextTests
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_start_consumer.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_consume_summary_drain.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_drain_outcome.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -172,6 +173,7 @@ const guiFontSfntTests = [
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStartConsumerTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionConsumeSummaryDrainTests,
     guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests,
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests,
     read("tests/stdlib/gui_font_sfnt_glyf_curve.n.md"),
     guiFontSfntPathTests,
     guiFontSfntCurveLookupTests,
@@ -9873,7 +9875,7 @@ assert(
 );
 const specF5am = spec.slice(
     spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action drain outcome"),
-    spec.indexOf("### Supported font containers"),
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action storage owner"),
 );
 for (const fragment of [
     "F5am は F5al の collection-backed start drain result",
@@ -9893,7 +9895,7 @@ for (const fragment of [
 }
 const detailedF5am = detailedDesign.slice(
     detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action drain outcome boundary"),
-    detailedDesign.indexOf("## Metrics fixed-point"),
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action storage owner boundary"),
 );
 for (const fragment of [
     "F5am is the collection-backed drain outcome packet boundary",
@@ -9913,6 +9915,7 @@ for (const fragment of [
 }
 const implementationPlanF5am = implementationPlan.slice(
     implementationPlan.indexOf("## Phase F5am: sfnt simple glyph outline point stream item collection path sink action drain outcome"),
+    implementationPlan.indexOf("## Phase F5an: sfnt simple glyph outline point stream item collection path sink action storage owner"),
 );
 for (const fragment of [
     "PLAN_BLOCKED",
@@ -10037,6 +10040,192 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_terminal_mapping_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionPathSinkActionDrainOutcomeTests.includes("path_sink_action_drain_outcome_no_owner_no_fallback_no_byte_backed_traversal"),
     "F5am point stream item collection path sink action drain outcome focused doctest must cover outcome types, private projection, no public forged pairing, F5al composition, terminal mapping, and no fallback policy",
+);
+const specF5an = spec.slice(
+    spec.indexOf("### SFNT simple glyph outline point stream item collection path sink action storage owner"),
+    spec.indexOf("### Supported font containers"),
+);
+for (const fragment of [
+    "F5an は F5am の capacity 付き drain outcome を authority",
+    "`EndContour` の場合だけ F5b outline storage allocation",
+    "別 collection と別 drain result を組み合わせて owner allocation へ進める public API は提供しない",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner:",
+    "allocation 成功時は `Allocated StorageOwner`",
+    "allocation 失敗時だけ `StorageAllocError` を `Result::Err`",
+    "`Rejected drain_rejected` と `StepBudgetExhausted drain_summary` は typed terminal",
+    "`StorageOwner` と `StorageTerminal` は owner を含むため `Clone` / `Copy` を実装しない",
+    "F5al start / advance / drain helper",
+    "slot population",
+    "font fallback",
+]) {
+    assert(specF5an.includes(fragment), `font spec F5an storage owner must mention ${fragment}`);
+}
+const detailedF5an = detailedDesign.slice(
+    detailedDesign.indexOf("## SFNT simple glyph outline point stream item collection path sink action storage owner boundary"),
+    detailedDesign.indexOf("## Metrics fixed-point"),
+);
+for (const fragment of [
+    "F5an consumes the F5am drain outcome",
+    "The F5am outcome is the only authority",
+    "does not accept a separate collection",
+    "Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError",
+    "`Rejected` and `StepBudgetExhausted` are not storage allocation failures",
+    "Only F5b storage allocation failure is returned as `Result::Err StorageAllocError`",
+    "match outcome exactly once",
+    "read capacity from drain_summary exactly once",
+    "call F5b storage allocation exactly once",
+    "return Ok Allocated StorageOwner",
+    "return Err StorageAllocError",
+    "return Ok Rejected drain_rejected",
+    "return Ok StepBudgetExhausted drain_summary",
+    "`StorageOwner` keeps the allocated `GuiSfntSimpleGlyphOutlineStorage`",
+    "must not implement `Clone` or `Copy`",
+    "does not populate scalar slots",
+    "`Rejected` and `StepBudgetExhausted` branches do not call storage allocation",
+]) {
+    assert(detailedF5an.includes(fragment), `font detailed design F5an storage owner must mention ${fragment}`);
+}
+const implementationPlanF5an = implementationPlan.slice(
+    implementationPlan.indexOf("## Phase F5an: sfnt simple glyph outline point stream item collection path sink action storage owner"),
+);
+for (const fragment of [
+    "PLAN_APPROVED",
+    "Result StorageTerminal StorageAllocError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal",
+    "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner",
+    "`EndContour` branch では drain summary から capacity を exactly once 読み",
+    "F5b `gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit` を exactly once 呼ぶ",
+    "`Rejected` / `StepBudgetExhausted` branch は storage allocation を呼ばず",
+    "tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_storage_owner.n.md",
+]) {
+    assert(implementationPlanF5an.includes(fragment), `font implementation plan F5an must mention ${fragment}`);
+}
+for (const fragment of [
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:",
+    "storage %GuiSfntSimpleGlyphOutlineStorage",
+    "summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlineStorage",
+    "pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:",
+    "alloc_error %GuiSfntSimpleGlyphOutlineStorageAllocError",
+    "impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:",
+    "impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:",
+    "pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:",
+    "Allocated %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner",
+    "Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected",
+    "StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary",
+    "pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome impure fn &GuiSfntSimpleGlyphOutlineStorageLimit Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError",
+]) {
+    assert(allocFontSfntGlyfImpl.includes(fragment), `alloc/gui/font/sfnt/glyf F5an storage owner API must include ${fragment}`);
+}
+const pointStreamItemCollectionPathSinkActionStorageOwnerType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:"),
+    allocFontSfntGlyfImpl.indexOf("pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageOwnerType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:/,
+    "alloc/gui/font/sfnt/glyf F5an StorageOwner must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionStorageTerminalType = allocFontSfntGlyfImpl.slice(
+    allocFontSfntGlyfImpl.indexOf("pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:"),
+    allocFontSfntGlyfImpl.indexOf("pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner"),
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionStorageTerminalType,
+    /impl\s+Clone\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:|impl\s+Copy\s+for\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:/,
+    "alloc/gui/font/sfnt/glyf F5an StorageTerminal must not implement Clone or Copy",
+);
+const pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner");
+for (const fragment of [
+    "match outcome:",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary:",
+    "let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &drain_summary",
+    "match gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit:",
+    "Result::Ok storage:",
+    "let owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner storage drain_summary",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner",
+    "Result::Err alloc_error:",
+    "let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error drain_summary alloc_error",
+    "Result::Err error",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected:",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected",
+    "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary:",
+    "Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary",
+]) {
+    assert(pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.includes(fragment), `alloc/gui/font/sfnt/glyf F5an storage owner body must include ${fragment}`);
+}
+assertOrderedFragments(
+    pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner,
+    [
+        "match outcome:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &drain_summary",
+        "gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit",
+        "Result::Ok storage:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner storage drain_summary",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner",
+        "Result::Err alloc_error:",
+        "gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error drain_summary alloc_error",
+        "Result::Err error",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary:",
+        "GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary",
+    ],
+    "alloc/gui/font/sfnt/glyf F5an storage owner must allocate only after EndContour and return typed terminals in order",
+);
+for (const [name, expected, message] of [
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity", 1, "read drain summary capacity exactly once"],
+    ["gui_sfnt_simple_glyph_outline_storage_alloc", 1, "call F5b storage allocation exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner", 1, "construct storage owner exactly once"],
+    ["gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error", 1, "construct storage allocation error exactly once"],
+]) {
+    assert(
+        (pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.match(new RegExp(`\\b${name}\\b`, "g")) || []).length === expected,
+        `alloc/gui/font/sfnt/glyf F5an storage owner must ${message}`,
+    );
+}
+const storageOwnerEndContourStart = pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary:");
+const storageOwnerRejectedStart = pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected:");
+const storageOwnerStepBudgetStart = pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.indexOf("GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary:");
+assert(storageOwnerEndContourStart >= 0 && storageOwnerRejectedStart > storageOwnerEndContourStart && storageOwnerStepBudgetStart > storageOwnerRejectedStart, "alloc/gui/font/sfnt/glyf F5an storage owner must expose EndContour, Rejected, and StepBudgetExhausted branches in order");
+const storageOwnerRejectedBranch = pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.slice(storageOwnerRejectedStart, storageOwnerStepBudgetStart);
+const storageOwnerStepBudgetBranch = pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner.slice(storageOwnerStepBudgetStart);
+assertNoMatch(
+    storageOwnerRejectedBranch,
+    /\bgui_sfnt_simple_glyph_outline_storage_alloc\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5an Rejected branch must not allocate storage or construct owner",
+);
+assertNoMatch(
+    storageOwnerStepBudgetBranch,
+    /\bgui_sfnt_simple_glyph_outline_storage_alloc\b|\bgui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner\b/,
+    "alloc/gui/font/sfnt/glyf F5an StepBudgetExhausted branch must not allocate storage or construct owner",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner,
+    /\b(?:Option::None|Option::Some|vec::|Vec\s+GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal|push|GuiSfntParseError|gui_sfnt_lookup_simple_glyph_path_sink_action|gui_sfnt_glyf_simple_curve_segment_with_tables|gui_sfnt_glyf_simple_contour_edge_with_tables|gui_sfnt_glyf_simple_contour_point_with_tables|gui_sfnt_glyf_simple_contour_span_with_tables|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_outcome_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_drain_budget|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_consume_summary_advance_once|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consumer_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_start_consume_summary\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_consume_once\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_apply_advance\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consumer_item_next\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step_item\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step\b|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_contour_step|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_at|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_kind_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_event_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_command_pair|gui_sfnt_simple_glyph_outline_point_stream_item_collection_curve_segment|GuiSfntSimpleGlyphPathSinkAction::|GuiSfntSimpleGlyphPathSinkPrimaryAction::|GuiSfntSimpleGlyphPathSinkTailAction::|gui_sfnt_simple_glyph_path_sink_action_step_action|RenderCommand|render_command_|RenderTarget|DrawTarget|render2d|backend|raster|Raster|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|gui_sfnt_parse_metadata|_with_tables)\b/,
+    "alloc/gui/font/sfnt/glyf F5an storage owner must not call traversal, byte-backed, slot population, render, raster, or host/platform APIs",
+);
+assertNoMatch(
+    pointStreamItemCollectionPathSinkActionDrainOutcomeAllocStorageOwner,
+    /[()]/,
+    "alloc/gui/font/sfnt/glyf F5an storage owner body must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_types_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_allocates_only_end_contour_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_rejected_no_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_step_budget_no_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_alloc_error_preserves_summary_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionPathSinkActionStorageOwnerTests.includes("path_sink_action_storage_owner_no_fallback_no_byte_backed_traversal"),
+    "F5an point stream item collection path sink action storage owner focused doctest must cover types, EndContour allocation, Rejected and StepBudget terminals, allocation error context, and no fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

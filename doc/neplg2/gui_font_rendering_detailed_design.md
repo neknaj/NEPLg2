@@ -4451,6 +4451,59 @@ if drain is StepBudgetExhausted summary:
 
 F5am must not allocate an owner, push path commands, consume another item, call lower F5 helpers, call F4 byte-backed lookup helpers, call table helpers, traverse a sink, mutate a sink, rasterize, render, call platform APIs, call host text measurement, or perform font fallback. The public helper must call F5al start drain once and the private projection once; the private projection must not call F5al start drain, F5al advance/drain, F5ak, F5aj, lower path helpers, or byte-backed lookup.
 
+## SFNT simple glyph outline point stream item collection path sink action storage owner boundary
+
+F5an consumes the F5am drain outcome and decides whether outline storage owner allocation is allowed. The F5am outcome is the only authority. F5an does not accept a separate collection, a separate drain value, byte-backed tables, path sink state, or rendering context.
+
+The public boundary is:
+
+```text
+gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner:
+    outcome GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome
+    limit &GuiSfntSimpleGlyphOutlineStorageLimit
+    -> Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError
+```
+
+The terminal and error shape separates domain terminals from allocation failure:
+
+```text
+StorageTerminal:
+    Allocated StorageOwner
+    Rejected DrainRejected
+    StepBudgetExhausted DrainSummary
+
+StorageAllocError:
+    summary DrainSummary
+    alloc_error GuiSfntSimpleGlyphOutlineStorageAllocError
+```
+
+`Rejected` and `StepBudgetExhausted` are not storage allocation failures. They are typed terminals produced by the preceding drain boundary, so they remain `Result::Ok` values. Only F5b storage allocation failure is returned as `Result::Err StorageAllocError`.
+
+The owner allocation order is:
+
+```text
+match outcome exactly once
+if outcome is EndContour drain_summary:
+    read capacity from drain_summary exactly once
+    call F5b storage allocation exactly once
+    if allocation Ok storage:
+        construct StorageOwner storage drain_summary
+        return Ok Allocated StorageOwner
+    if allocation Err alloc_error:
+        construct StorageAllocError drain_summary alloc_error
+        return Err StorageAllocError
+if outcome is Rejected drain_rejected:
+    return Ok Rejected drain_rejected
+if outcome is StepBudgetExhausted drain_summary:
+    return Ok StepBudgetExhausted drain_summary
+```
+
+`StorageOwner` keeps the allocated `GuiSfntSimpleGlyphOutlineStorage` and the F5am drain summary. It is an owner type and must not implement `Clone` or `Copy`. `StorageTerminal` includes that owner, so it also must not implement `Clone` or `Copy`. `StorageAllocError` keeps only copyable context and may implement `Clone` / `Copy`.
+
+F5an intentionally allocates only empty F5b storage. It does not populate scalar slots, does not fill path command owners, does not traverse the sink, and does not render. Those steps need separate owner-recovery boundaries because each can fail or consume ownership independently.
+
+F5an must not call F5al start/drain/advance, F5ak, F5aj, F4 byte-backed lookup helpers, lower collection path helpers, table helpers, `Vec`, `push`, path command fill, sink mutation, rasterization, rendering, platform APIs, host text measurement, or font fallback. Source policy must pin that `Rejected` and `StepBudgetExhausted` branches do not call storage allocation.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

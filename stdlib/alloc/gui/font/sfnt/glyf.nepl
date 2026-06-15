@@ -9442,6 +9442,112 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_acti
             let outcome %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_consume_summary_drain_outcome collection &drain
             Result::Ok outcome
 
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner: drain summary authority から[確保/かくほ]した outline storage owner
+//:
+//: [目的/もくてき]:
+//: - F5am outcome の `EndContour` branch だけが、capacity に[基/もと]づく storage owner を[得/え]たことを[表/あらわ]します。
+//: - owner なので `Clone` / `Copy` は[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner:
+    storage %GuiSfntSimpleGlyphOutlineStorage
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner: storage owner と authority summary を[束/たば]ねる
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner %fn GuiSfntSimpleGlyphOutlineStorage fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner \storage\summary:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner storage summary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary: owner が[由来/ゆらい]する drain summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \owner:
+    *field::get_ref owner "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage: owner から outline storage を[取/と]り[出/だ]す
+//:
+//: [契約/けいやく]:
+//: - この関数は owner を[消費/しょうひ]します。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner_storage %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner GuiSfntSimpleGlyphOutlineStorage \owner:
+    field::get owner "storage"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError: drain summary authority 付き storage allocation error
+//:
+//: [目的/もくてき]:
+//: - allocation に[失敗/しっぱい]しても、F5am summary と F5b allocation error を typed payload として caller へ[返/かえ]します。
+//: - owner は[含/ふく]まないため `Clone` / `Copy` を[実装/じっそう]します。
+//:
+//: neplg2:test[skip]
+pub struct GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:
+    summary %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+    alloc_error %GuiSfntSimpleGlyphOutlineStorageAllocError
+
+impl Clone for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:
+    fn clone %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError \error:
+        *error
+
+impl Copy for GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError:
+    fn copy_mark %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError \error:
+        error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error: summary 付き allocation error を[作/つく]る
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary fn GuiSfntSimpleGlyphOutlineStorageAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError \summary\alloc_error:
+    GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError summary alloc_error
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error_summary: allocation error の authority summary を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error_summary %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary \error:
+    *field::get_ref error "summary"
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error_alloc_error: F5b allocation error を[読/よ]む
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error_alloc_error %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError GuiSfntSimpleGlyphOutlineStorageAllocError \error:
+    *field::get_ref error "alloc_error"
+
+//: GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal: storage owner allocation boundary の terminal
+//:
+//: [目的/もくてき]:
+//: - `Allocated` だけが storage owner を[持/も]ちます。
+//: - `Rejected` と `StepBudgetExhausted` は owner を[作/つく]らず caller へ[返/かえ]す typed terminal です。
+//:
+//: neplg2:test[skip]
+pub enum GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal:
+    Allocated %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner
+    Rejected %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainRejected
+    StepBudgetExhausted %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainSummary
+
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner: F5am outcome から owner boundary へ[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - F5am outcome を唯一の authority として扱い、別 collection や別 drain value は[受/う]け[取/と]りません。
+//: - `EndContour` の場合だけ capacity を[読/よ]み、F5b storage allocation を 1 回だけ[呼/よ]びます。
+//: - `Rejected` と `StepBudgetExhausted` では storage allocation を[行/おこな]いません。
+//: - slot population、path command push、byte-backed traversal、render/platform API には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_outcome_alloc_storage_owner %impure fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome impure fn &GuiSfntSimpleGlyphOutlineStorageLimit Result GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError \outcome\limit:
+    match outcome:
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::EndContour drain_summary:
+            let capacity %GuiSfntSimpleGlyphOutlineStorageCapacity gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_drain_summary_capacity &drain_summary
+            match gui_sfnt_simple_glyph_outline_storage_alloc &capacity limit:
+                Result::Ok storage:
+                    let owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageOwner gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_owner storage drain_summary
+                    Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Allocated owner
+                Result::Err alloc_error:
+                    let error %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageAllocError gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_storage_alloc_error drain_summary alloc_error
+                    Result::Err error
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::Rejected drain_rejected:
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::Rejected drain_rejected
+        GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionDrainOutcome::StepBudgetExhausted drain_summary:
+            Result::Ok GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathSinkActionStorageTerminal::StepBudgetExhausted drain_summary
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]
