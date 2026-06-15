@@ -9020,6 +9020,24 @@ pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step
             let sink_step %GuiSfntSimpleGlyphPathSinkStep gui_sfnt_simple_glyph_path_sink_step_from_contour_step policy &contour_step
             Result::Ok sink_step
 
+//: gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step: collection 由来の sink step から action step を[作/つく]る
+//:
+//: [契約/けいやく]:
+//: - action cursor は contour cursor と action slot に分け、contour cursor だけを F5af sink step lookup に[渡/わた]します。
+//: - F5af sink step lookup の `Result::Err` は wrap せず、そのまま[返/かえ]します。
+//: - action / next の決定は pure `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` に委譲し、sink consumer や byte-backed lookup は[呼/よ]びません。
+//:
+//: neplg2:test[skip]
+pub fn gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step %fn &GuiSfntSimpleGlyphOutlinePointStreamItemCollection fn GuiSfntSimpleGlyphPathSinkActionCursor fn &GuiSfntSimpleGlyphPathSinkPolicy Result GuiSfntSimpleGlyphPathSinkActionStep GuiSfntSimpleGlyphOutlinePointStreamItemCollectionPathContourStepError \collection\cursor\policy:
+    let contour_cursor %GuiSfntSimpleGlyphPathContourCursor gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor &cursor
+    let action_slot %GuiSfntSimpleGlyphPathSinkActionSlot gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot &cursor
+    match gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step collection contour_cursor policy:
+        Result::Err error:
+            Result::Err error
+        Result::Ok sink_step:
+            let action_step %GuiSfntSimpleGlyphPathSinkActionStep gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step &sink_step action_slot
+            Result::Ok action_step
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

@@ -3624,3 +3624,41 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5af.json -j 1
 git diff --check
 ```
+
+## Phase F5ag: sfnt simple glyph outline point stream item collection path sink action step
+
+目的:
+
+- F5af collection-backed sink step lookup を authority として、`GuiSfntSimpleGlyphPathSinkActionCursor` から `GuiSfntSimpleGlyphPathSinkActionStep` を返す。
+- action cursor を contour cursor と action slot に分け、collection lookup と action selection の責務を混ぜない。
+- F5af error は wrap せず伝播し、policy reject は `Result::Err` ではなく action payload として残す。
+- F4 byte-backed helper、F5ae/F5ad/F5ac/F5aa 直接呼び出し、sink traversal、action advance/item/consumer、render/raster/platform/host API へ戻らない。
+
+変更:
+
+- Tesla plan review は `PLAN_APPROVED`。F5ag は F5af と pure `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` の thin composition として妥当であり、新しい error type は不要と判断された。
+- `alloc/gui/font/sfnt/glyf.nepl` に `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_action_step` を追加する。
+- helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_cursor_contour_cursor` を exactly once 呼ぶ。
+- helper は source 上 `gui_sfnt_simple_glyph_path_sink_action_cursor_action_slot` を exactly once 呼ぶ。
+- helper は source 上 `gui_sfnt_simple_glyph_outline_point_stream_item_collection_path_sink_step` を exactly once 呼ぶ。
+- F5af error は wrap せず `Result::Err error` として返す。
+- F5af success では source 上 `gui_sfnt_simple_glyph_path_sink_action_step_from_sink_step` を exactly once 呼び、`Result::Ok action_step` を返す。
+- helper は F5ae/F5ad/F5ac/F5aa 直接呼び出し、byte-backed F4 lookup、metadata parser、`*_with_tables`、lower collection helpers、`Vec` / `push`、sink traversal、action advance/item/consumer、render/raster/platform/host API を呼ばない。
+
+完了条件:
+
+- F5ag public helper が action cursor split -> F5af lookup -> error propagation -> pure action-step projection -> `Result::Ok action_step` の順序を守る。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md` に primary action、tail action、error propagation、no fallback/no byte-backed traversal coverage label を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` で docs、helper body order、call count、forbidden API、括弧なし prefix style を検査する。
+- `note.n.md` に plan review、実装、検証、残件を記録する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_action_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_action_step_f5ag.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_path_sink_step.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_path_sink_step_f5ag_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5ag.json -j 1
+git diff --check
+```
