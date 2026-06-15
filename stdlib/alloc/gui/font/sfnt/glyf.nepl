@@ -16572,6 +16572,487 @@ fn gui_sfnt_simple_glyph_raster_coverage_scan_terminal_free %impure fn GuiSfntSi
         GuiSfntSimpleGlyphRasterCoverageScanTerminal::StepBudgetExhausted owner:
             gui_sfnt_simple_glyph_raster_coverage_scan_owner_free owner
 
+//: GuiSfntSimpleGlyphRasterPackedMaskConfig: coverage cell を alpha cell へ正規化する設定
+//:
+//: [目的/もくてき]:
+//: - F5be で完成した coverage mask を、後続 render2d 境界が読みやすい alpha cell mask に[変換/へんかん]するための policy です。
+//: - owner を[保持/ほじ]しない value-only record なので `Clone` / `Copy` を[許可/きょか]します。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterPackedMaskConfig:
+    alpha_max %i32
+
+impl Clone for GuiSfntSimpleGlyphRasterPackedMaskConfig:
+    fn clone %fn &GuiSfntSimpleGlyphRasterPackedMaskConfig GuiSfntSimpleGlyphRasterPackedMaskConfig \config:
+        *config
+
+impl Copy for GuiSfntSimpleGlyphRasterPackedMaskConfig:
+    fn copy_mark %fn GuiSfntSimpleGlyphRasterPackedMaskConfig GuiSfntSimpleGlyphRasterPackedMaskConfig \config:
+        config
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_config %fn i32 GuiSfntSimpleGlyphRasterPackedMaskConfig \alpha_max:
+    GuiSfntSimpleGlyphRasterPackedMaskConfig alpha_max
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_config_alpha_max %fn &GuiSfntSimpleGlyphRasterPackedMaskConfig i32 \config:
+    *field::get_ref config "alpha_max"
+
+fn gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape %fn &GuiSfntSimpleGlyphRasterCoverageMaskOwner GuiSfntSimpleGlyphRasterCoverageShape \owner:
+    *field::get_ref owner "shape"
+
+fn gui_sfnt_simple_glyph_raster_coverage_mask_owner_cell_count %fn &GuiSfntSimpleGlyphRasterCoverageMaskOwner i32 \owner:
+    *field::get_ref owner "cell_count"
+
+fn gui_sfnt_simple_glyph_raster_coverage_mask_owner_cells_len %fn &GuiSfntSimpleGlyphRasterCoverageMaskOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::len cells
+
+fn gui_sfnt_simple_glyph_raster_coverage_mask_owner_cells_cap %fn &GuiSfntSimpleGlyphRasterCoverageMaskOwner i32 \owner:
+    let cells %&Vec i32 field::get_ref owner "cells"
+    vec::cap cells
+
+//: GuiSfntSimpleGlyphRasterPackedMaskPackOwner: resumable packed mask conversion owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterPackedMaskPackOwner:
+    coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner
+    alpha_cells %Vec i32
+    config %GuiSfntSimpleGlyphRasterPackedMaskConfig
+    cell_index %i32
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner %fn GuiSfntSimpleGlyphRasterCoverageMaskOwner fn Vec i32 fn GuiSfntSimpleGlyphRasterPackedMaskConfig fn i32 GuiSfntSimpleGlyphRasterPackedMaskPackOwner \coverage_owner\alpha_cells\config\cell_index:
+    GuiSfntSimpleGlyphRasterPackedMaskPackOwner coverage_owner alpha_cells config cell_index
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index %fn &GuiSfntSimpleGlyphRasterPackedMaskPackOwner i32 \owner:
+    *field::get_ref owner "cell_index"
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_alpha_cells_len %fn &GuiSfntSimpleGlyphRasterPackedMaskPackOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::len alpha_cells
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_alpha_cells_cap %fn &GuiSfntSimpleGlyphRasterPackedMaskPackOwner i32 \owner:
+    let alpha_cells %&Vec i32 field::get_ref owner "alpha_cells"
+    vec::cap alpha_cells
+
+//: GuiSfntSimpleGlyphRasterPackedMaskOwner: completed packed alpha mask owner
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterPackedMaskOwner:
+    edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner
+    shape %GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells %Vec i32
+    cell_count %i32
+    alpha_max %i32
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner %fn GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner fn GuiSfntSimpleGlyphRasterCoverageShape fn Vec i32 fn i32 fn i32 GuiSfntSimpleGlyphRasterPackedMaskOwner \edge_owner\shape\alpha_cells\cell_count\alpha_max:
+    GuiSfntSimpleGlyphRasterPackedMaskOwner edge_owner shape alpha_cells cell_count alpha_max
+
+//: GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind: packed mask start failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind:
+    InvalidAlphaMax
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    AlphaScaleOverflow
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    AlphaStorageAllocFailed
+
+impl Clone for GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRasterPackedMaskStartError: packed mask start recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterPackedMaskStartError:
+    kind %GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind
+    coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner
+    config %GuiSfntSimpleGlyphRasterPackedMaskConfig
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_start_error %fn GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind fn GuiSfntSimpleGlyphRasterCoverageMaskOwner fn GuiSfntSimpleGlyphRasterPackedMaskConfig fn Option StdErrorKind GuiSfntSimpleGlyphRasterPackedMaskStartError \kind\coverage_owner\config\storage_error:
+    GuiSfntSimpleGlyphRasterPackedMaskStartError kind coverage_owner config storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple %fn GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind fn GuiSfntSimpleGlyphRasterCoverageMaskOwner fn GuiSfntSimpleGlyphRasterPackedMaskConfig GuiSfntSimpleGlyphRasterPackedMaskStartError \kind\coverage_owner\config:
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_raster_packed_mask_start_error kind coverage_owner config storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_start_error_storage_failed %fn GuiSfntSimpleGlyphRasterCoverageMaskOwner fn GuiSfntSimpleGlyphRasterPackedMaskConfig fn StdErrorKind GuiSfntSimpleGlyphRasterPackedMaskStartError \coverage_owner\config\storage_error_value:
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_raster_packed_mask_start_error GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::AlphaStorageAllocFailed coverage_owner config storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_start_error_coverage_owner %fn GuiSfntSimpleGlyphRasterPackedMaskStartError GuiSfntSimpleGlyphRasterCoverageMaskOwner \error:
+    field::get error "coverage_owner"
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_start_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind Result i32 GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_validate_shape_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_raster_packed_mask_start_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_raster_packed_mask_start_count_checked_mul width_px height_px GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_alpha_scale_is_valid_for_start %fn &GuiSfntSimpleGlyphRasterCoverageShape fn &GuiSfntSimpleGlyphRasterPackedMaskConfig Result unit GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind \shape\config:
+    let alpha_max %i32 gui_sfnt_simple_glyph_raster_packed_mask_config_alpha_max config
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+    match gui_sfnt_simple_glyph_raster_packed_mask_start_count_checked_mul coverage_max alpha_max GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::AlphaScaleOverflow:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_start %impure fn GuiSfntSimpleGlyphRasterCoverageMaskOwner impure fn GuiSfntSimpleGlyphRasterPackedMaskConfig Result GuiSfntSimpleGlyphRasterPackedMaskPackOwner GuiSfntSimpleGlyphRasterPackedMaskStartError \coverage_owner\config:
+    let alpha_max %i32 gui_sfnt_simple_glyph_raster_packed_mask_config_alpha_max &config
+    if le alpha_max 0:
+        then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::InvalidAlphaMax coverage_owner config
+        else:
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape &coverage_owner
+            match gui_sfnt_simple_glyph_raster_packed_mask_validate_shape_for_start &shape:
+                Result::Err shape_error:
+                    Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple shape_error coverage_owner config
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_raster_packed_mask_alpha_scale_is_valid_for_start &shape &config:
+                        Result::Err scale_error:
+                            Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple scale_error coverage_owner config
+                        Result::Ok _:
+                            let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                            let owner_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_mask_owner_cell_count &coverage_owner
+                            if ne owner_cell_count shape_cell_count:
+                                then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::RawCellCountMismatch coverage_owner config
+                                else:
+                                    let raw_cells_len %i32 gui_sfnt_simple_glyph_raster_coverage_mask_owner_cells_len &coverage_owner
+                                    if ne raw_cells_len shape_cell_count:
+                                        then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::RawCellStorageLenMismatch coverage_owner config
+                                        else:
+                                            let raw_cells_cap %i32 gui_sfnt_simple_glyph_raster_coverage_mask_owner_cells_cap &coverage_owner
+                                            if ne raw_cells_cap shape_cell_count:
+                                                then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_simple GuiSfntSimpleGlyphRasterPackedMaskStartErrorKind::RawCellStorageCapacityMismatch coverage_owner config
+                                                else:
+                                                    match vec::with_capacity shape_cell_count:
+                                                        Result::Err storage_error:
+                                                            Result::Err gui_sfnt_simple_glyph_raster_packed_mask_start_error_storage_failed coverage_owner config storage_error
+                                                        Result::Ok alpha_cells:
+                                                            let owner %GuiSfntSimpleGlyphRasterPackedMaskPackOwner gui_sfnt_simple_glyph_raster_packed_mask_pack_owner coverage_owner alpha_cells config 0
+                                                            Result::Ok owner
+
+//: GuiSfntSimpleGlyphRasterPackedMaskErrorKind: packed mask conversion failure reason
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRasterPackedMaskErrorKind:
+    CellIndexNegative
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    CellIndexExceedsCellCount
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    RawCellCountMismatch
+    RawCellStorageLenMismatch
+    RawCellStorageCapacityMismatch
+    RawCellSlotMissing
+    RawCoverageNegative
+    RawCoverageExceedsMax
+    AlphaScaleOverflow
+    AlphaStoragePushFailed
+    CompletionIncomplete
+    ProgressInvariantInvalid
+
+impl Clone for GuiSfntSimpleGlyphRasterPackedMaskErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRasterPackedMaskErrorKind GuiSfntSimpleGlyphRasterPackedMaskErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRasterPackedMaskErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRasterPackedMaskErrorKind GuiSfntSimpleGlyphRasterPackedMaskErrorKind \kind:
+        kind
+
+//: GuiSfntSimpleGlyphRasterPackedMaskError: packed mask conversion recovery payload
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRasterPackedMaskError:
+    owner %GuiSfntSimpleGlyphRasterPackedMaskPackOwner
+    kind %GuiSfntSimpleGlyphRasterPackedMaskErrorKind
+    cell_index %Option i32
+    storage_error %Option StdErrorKind
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_error %fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner fn GuiSfntSimpleGlyphRasterPackedMaskErrorKind fn Option i32 fn Option StdErrorKind GuiSfntSimpleGlyphRasterPackedMaskError \owner\kind\cell_index\storage_error:
+    GuiSfntSimpleGlyphRasterPackedMaskError owner kind cell_index storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_error_simple %fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner fn GuiSfntSimpleGlyphRasterPackedMaskErrorKind GuiSfntSimpleGlyphRasterPackedMaskError \owner\kind:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_raster_packed_mask_error owner kind cell_index storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_error_with_cell_index %fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner fn GuiSfntSimpleGlyphRasterPackedMaskErrorKind fn i32 GuiSfntSimpleGlyphRasterPackedMaskError \owner\kind\cell_index_value:
+    let cell_index %Option i32 some cell_index_value
+    let storage_error %Option StdErrorKind none
+    gui_sfnt_simple_glyph_raster_packed_mask_error owner kind cell_index storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_error_storage_failed %fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner fn StdErrorKind GuiSfntSimpleGlyphRasterPackedMaskError \owner\storage_error_value:
+    let cell_index %Option i32 none
+    let storage_error %Option StdErrorKind some storage_error_value
+    gui_sfnt_simple_glyph_raster_packed_mask_error owner GuiSfntSimpleGlyphRasterPackedMaskErrorKind::AlphaStoragePushFailed cell_index storage_error
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_error_owner %fn GuiSfntSimpleGlyphRasterPackedMaskError GuiSfntSimpleGlyphRasterPackedMaskPackOwner \error:
+    field::get error "owner"
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_error_count_checked_mul %fn i32 fn i32 fn GuiSfntSimpleGlyphRasterPackedMaskErrorKind Result i32 GuiSfntSimpleGlyphRasterPackedMaskErrorKind \left\right\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_left %i32 div_s max_i32 right
+    if gt left max_left:
+        then Result::Err overflow_kind
+        else Result::Ok mul left right
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_validate_shape_for_pack %fn &GuiSfntSimpleGlyphRasterCoverageShape Result unit GuiSfntSimpleGlyphRasterPackedMaskErrorKind \shape:
+    let width_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_width_px shape
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_raster_coverage_shape_height_px shape
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeInvalidHeight
+                else:
+                    let sample_scale %i32 gui_sfnt_simple_glyph_raster_coverage_shape_sample_scale shape
+                    if le sample_scale 0:
+                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeInvalidSampleScale
+                        else:
+                            match gui_sfnt_simple_glyph_raster_packed_mask_error_count_checked_mul sample_scale sample_scale GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeCoverageMaxMismatch:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok expected_coverage_max:
+                                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max shape
+                                    if ne coverage_max expected_coverage_max:
+                                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeCoverageMaxMismatch
+                                        else:
+                                            match gui_sfnt_simple_glyph_raster_packed_mask_error_count_checked_mul width_px height_px GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeCellCountMismatch:
+                                                Result::Err error_kind:
+                                                    Result::Err error_kind
+                                                Result::Ok expected_cell_count:
+                                                    let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count shape
+                                                    if ne cell_count expected_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ShapeCellCountMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants %fn &GuiSfntSimpleGlyphRasterPackedMaskPackOwner Result unit GuiSfntSimpleGlyphRasterPackedMaskErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index owner
+    if lt cell_index 0:
+        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::CellIndexNegative
+        else:
+            let coverage_owner %&GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get_ref owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape coverage_owner
+            match gui_sfnt_simple_glyph_raster_packed_mask_validate_shape_for_pack &shape:
+                Result::Err shape_error:
+                    Result::Err shape_error
+                Result::Ok _:
+                    let shape_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+                    if gt cell_index shape_cell_count:
+                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::CellIndexExceedsCellCount
+                        else:
+                            let alpha_cells_len %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_alpha_cells_len owner
+                            if ne alpha_cells_len cell_index:
+                                then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::AlphaStorageLenMismatch
+                                else:
+                                    let alpha_cells_cap %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_alpha_cells_cap owner
+                                    if ne alpha_cells_cap shape_cell_count:
+                                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::AlphaStorageCapacityMismatch
+                                        else:
+                                            let owner_cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_mask_owner_cell_count coverage_owner
+                                            if ne owner_cell_count shape_cell_count:
+                                                then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::RawCellCountMismatch
+                                                else:
+                                                    let raw_cells_len %i32 gui_sfnt_simple_glyph_raster_coverage_mask_owner_cells_len coverage_owner
+                                                    if ne raw_cells_len shape_cell_count:
+                                                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::RawCellStorageLenMismatch
+                                                        else:
+                                                            let raw_cells_cap %i32 gui_sfnt_simple_glyph_raster_coverage_mask_owner_cells_cap coverage_owner
+                                                            if ne raw_cells_cap shape_cell_count:
+                                                                then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::RawCellStorageCapacityMismatch
+                                                                else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_read_coverage_cell %fn &GuiSfntSimpleGlyphRasterPackedMaskPackOwner Result i32 GuiSfntSimpleGlyphRasterPackedMaskErrorKind \owner:
+    let cell_index %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index owner
+    let coverage_owner %&GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get_ref owner "coverage_owner"
+    let cells %&Vec i32 field::get_ref coverage_owner "cells"
+    match vec::get cells cell_index:
+        Option::None:
+            Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::RawCellSlotMissing
+        Option::Some coverage_value:
+            if lt coverage_value 0:
+                then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::RawCoverageNegative
+                else:
+                    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape coverage_owner
+                    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+                    if gt coverage_value coverage_max:
+                        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::RawCoverageExceedsMax
+                        else Result::Ok coverage_value
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_normalize_alpha %fn &GuiSfntSimpleGlyphRasterPackedMaskPackOwner fn i32 Result i32 GuiSfntSimpleGlyphRasterPackedMaskErrorKind \owner\coverage_value:
+    let coverage_owner %&GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get_ref owner "coverage_owner"
+    let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape coverage_owner
+    let coverage_max %i32 gui_sfnt_simple_glyph_raster_coverage_shape_coverage_max &shape
+    let config %&GuiSfntSimpleGlyphRasterPackedMaskConfig field::get_ref owner "config"
+    let alpha_max %i32 gui_sfnt_simple_glyph_raster_packed_mask_config_alpha_max config
+    let max_i32 %i32 2147483647
+    let max_coverage %i32 div_s max_i32 alpha_max
+    if gt coverage_value max_coverage:
+        then Result::Err GuiSfntSimpleGlyphRasterPackedMaskErrorKind::AlphaScaleOverflow
+        else:
+            let scaled %i32 mul coverage_value alpha_max
+            Result::Ok div_s scaled coverage_max
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_step %impure fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner Result GuiSfntSimpleGlyphRasterPackedMaskPackOwner GuiSfntSimpleGlyphRasterPackedMaskError \owner:
+    match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_read_coverage_cell &owner:
+                Result::Err error_kind:
+                    Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple owner error_kind
+                Result::Ok coverage_value:
+                    match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_normalize_alpha &owner coverage_value:
+                        Result::Err error_kind:
+                            Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple owner error_kind
+                        Result::Ok alpha_value:
+                            let cell_index %i32 field::get owner "cell_index"
+                            let coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get owner "coverage_owner"
+                            let config %GuiSfntSimpleGlyphRasterPackedMaskConfig field::get owner "config"
+                            let alpha_cells %Vec i32 field::get owner "alpha_cells"
+                            match vec::push alpha_cells alpha_value:
+                                Result::Ok next_alpha_cells:
+                                    let next_cell_index %i32 add cell_index 1
+                                    let next_owner %GuiSfntSimpleGlyphRasterPackedMaskPackOwner gui_sfnt_simple_glyph_raster_packed_mask_pack_owner coverage_owner next_alpha_cells config next_cell_index
+                                    Result::Ok next_owner
+                                Result::Err e:
+                                    let storage_error_value %StdErrorKind vec::vec_push_error_kind &e
+                                    let returned_alpha_cells %Vec i32 vec::vec_push_error_vec e
+                                    let returned_owner %GuiSfntSimpleGlyphRasterPackedMaskPackOwner gui_sfnt_simple_glyph_raster_packed_mask_pack_owner coverage_owner returned_alpha_cells config cell_index
+                                    Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_storage_failed returned_owner storage_error_value
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_complete %impure fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner Result GuiSfntSimpleGlyphRasterPackedMaskOwner GuiSfntSimpleGlyphRasterPackedMaskError \owner:
+    match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            let cell_index %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index &owner
+            let coverage_ref %&GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get_ref &owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape coverage_ref
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            if ne cell_index cell_count:
+                then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple owner GuiSfntSimpleGlyphRasterPackedMaskErrorKind::CompletionIncomplete
+                else:
+                    let config %GuiSfntSimpleGlyphRasterPackedMaskConfig field::get owner "config"
+                    let alpha_max %i32 gui_sfnt_simple_glyph_raster_packed_mask_config_alpha_max &config
+                    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+                    let coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get owner "coverage_owner"
+                    let edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner field::get coverage_owner "edge_owner"
+                    let shape_value %GuiSfntSimpleGlyphRasterCoverageShape field::get coverage_owner "shape"
+                    let raw_cells %Vec i32 field::get coverage_owner "cells"
+                    let raw_cell_count %i32 field::get coverage_owner "cell_count"
+                    vec::free raw_cells
+                    let completed %GuiSfntSimpleGlyphRasterPackedMaskOwner gui_sfnt_simple_glyph_raster_packed_mask_owner edge_owner shape_value alpha_cells raw_cell_count alpha_max
+                    Result::Ok completed
+
+//: GuiSfntSimpleGlyphRasterPackedMaskPackTerminal: bounded packed mask drain terminal
+//:
+//: neplg2:test[skip]
+enum GuiSfntSimpleGlyphRasterPackedMaskPackTerminal:
+    PackedMaskCompleted %GuiSfntSimpleGlyphRasterPackedMaskOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphRasterPackedMaskPackOwner
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner impure fn i32 Result GuiSfntSimpleGlyphRasterPackedMaskPackTerminal GuiSfntSimpleGlyphRasterPackedMaskError \owner\remaining_steps:
+    match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_invariants &owner:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple owner error_kind
+        Result::Ok _:
+            let coverage_owner %&GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get_ref &owner "coverage_owner"
+            let shape %GuiSfntSimpleGlyphRasterCoverageShape gui_sfnt_simple_glyph_raster_coverage_mask_owner_shape coverage_owner
+            let cell_count %i32 gui_sfnt_simple_glyph_raster_coverage_shape_cell_count &shape
+            let cell_index %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index &owner
+            if eq cell_index cell_count:
+                then:
+                    match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_complete owner:
+                        Result::Err error:
+                            Result::Err error
+                        Result::Ok completed:
+                            Result::Ok GuiSfntSimpleGlyphRasterPackedMaskPackTerminal::PackedMaskCompleted completed
+                else:
+                    if le remaining_steps 0:
+                        then Result::Ok GuiSfntSimpleGlyphRasterPackedMaskPackTerminal::StepBudgetExhausted owner
+                        else:
+                            let old_cell_index %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index &owner
+                            let old_alpha_cells_len %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_alpha_cells_len &owner
+                            match gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_step owner:
+                                Result::Err error:
+                                    Result::Err error
+                                Result::Ok next_owner:
+                                    let next_cell_index %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_cell_index &next_owner
+                                    let required_cell_index %i32 add old_cell_index 1
+                                    let next_alpha_cells_len %i32 gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_alpha_cells_len &next_owner
+                                    let required_alpha_cells_len %i32 add old_alpha_cells_len 1
+                                    if or ne next_cell_index required_cell_index ne next_alpha_cells_len required_alpha_cells_len:
+                                        then Result::Err gui_sfnt_simple_glyph_raster_packed_mask_error_simple next_owner GuiSfntSimpleGlyphRasterPackedMaskErrorKind::ProgressInvariantInvalid
+                                        else:
+                                            let next_remaining_steps %i32 sub remaining_steps 1
+                                            gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_drain_to_complete_budget next_owner next_remaining_steps
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_free %impure fn GuiSfntSimpleGlyphRasterPackedMaskPackOwner unit \owner:
+    let coverage_owner %GuiSfntSimpleGlyphRasterCoverageMaskOwner field::get owner "coverage_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_raster_coverage_mask_owner_free coverage_owner
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_owner_free %impure fn GuiSfntSimpleGlyphRasterPackedMaskOwner unit \owner:
+    let edge_owner %GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner field::get owner "edge_owner"
+    let alpha_cells %Vec i32 field::get owner "alpha_cells"
+    vec::free alpha_cells
+    gui_sfnt_simple_glyph_outline_point_stream_item_collection_raster_edge_owner_free edge_owner
+
+fn gui_sfnt_simple_glyph_raster_packed_mask_pack_terminal_free %impure fn GuiSfntSimpleGlyphRasterPackedMaskPackTerminal unit \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRasterPackedMaskPackTerminal::PackedMaskCompleted completed:
+            gui_sfnt_simple_glyph_raster_packed_mask_owner_free completed
+        GuiSfntSimpleGlyphRasterPackedMaskPackTerminal::StepBudgetExhausted owner:
+            gui_sfnt_simple_glyph_raster_packed_mask_pack_owner_free owner
+
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:
 //: neplg2:test[skip]

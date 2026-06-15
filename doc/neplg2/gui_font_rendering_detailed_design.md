@@ -6439,6 +6439,105 @@ next.writer.written_cell_count == old.writer.written_cell_count + 1
 
 F5be must not call byte-backed lookup helpers, old traversal helpers, packed mask conversion, render2d, platform APIs, host APIs, or font fallback. It must not zero-fill missing cells.
 
+## SFNT simple glyph raster packed mask owner boundary
+
+F5bf consumes the completed F5be coverage mask owner and produces a normalized alpha-cell packed mask owner. It is deliberately still an alloc/gui internal owner boundary. It does not emit render2d commands, create a pixel buffer, call a DrawTarget / RenderTarget, talk to Web/native/platform APIs, use host text measurement, or request font fallback.
+
+The config is value-only:
+
+```text
+GuiSfntSimpleGlyphRasterPackedMaskConfig:
+    alpha_max i32
+```
+
+`GuiSfntSimpleGlyphRasterPackedMaskConfig` may implement `Clone` / `Copy`. Transition and completed owners must not implement `Clone` / `Copy`.
+
+```text
+GuiSfntSimpleGlyphRasterPackedMaskPackOwner:
+    coverage_owner GuiSfntSimpleGlyphRasterCoverageMaskOwner
+    alpha_cells Vec i32
+    config GuiSfntSimpleGlyphRasterPackedMaskConfig
+    cell_index i32
+
+GuiSfntSimpleGlyphRasterPackedMaskOwner:
+    edge_owner GuiSfntSimpleGlyphOutlinePointStreamItemCollectionRasterEdgeOwner
+    shape GuiSfntSimpleGlyphRasterCoverageShape
+    alpha_cells Vec i32
+    cell_count i32
+    alpha_max i32
+```
+
+Start validation is fail-closed:
+
+```text
+alpha_max > 0
+shape.width_px > 0
+shape.height_px > 0
+shape.sample_scale > 0
+shape.coverage_max == shape.sample_scale * shape.sample_scale
+shape.cell_count == shape.width_px * shape.height_px
+shape.coverage_max * alpha_max does not overflow i32
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+allocate alpha_cells with capacity shape.cell_count
+```
+
+Start error owns the original completed coverage owner and config. Allocation failure keeps the lower `StdErrorKind` separately from validation errors.
+
+F5bf has an owner invariant that is checked before budget handling, raw cell read, alpha normalization, Vec push, and completion:
+
+```text
+cell_index >= 0
+shape invariant is valid
+cell_index <= shape.cell_count
+alpha_cells.len == cell_index
+alpha_cells.cap == shape.cell_count
+coverage_owner.cell_count == shape.cell_count
+coverage_owner.cells.len == shape.cell_count
+coverage_owner.cells.cap == shape.cell_count
+```
+
+This invariant is intentionally repeated on every drain / step / completion entry. If `vec::push` returns a recovered alpha Vec whose length has already changed, the rebuilt owner is only a cleanup / diagnostic carrier until a later invariant check proves that `alpha_cells.len == cell_index`. It must not silently continue or complete from inconsistent state.
+
+Raw cell read uses the coverage owner as the only authority:
+
+```text
+vec::get coverage_owner.cells cell_index
+None -> RawCellSlotMissing
+coverage < 0 -> RawCoverageNegative
+coverage > shape.coverage_max -> RawCoverageExceedsMax
+```
+
+Alpha normalization is integer-only:
+
+```text
+if coverage > max_i32 / alpha_max:
+    AlphaScaleOverflow
+else:
+    alpha = coverage * alpha_max / shape.coverage_max
+```
+
+Because `shape.coverage_max` is revalidated before use, division by zero is not a valid state. The formula is the current implementation contract for scalar alpha cells; later gamma-aware or byte-packed encodings must be a separate boundary and must preserve this owner recovery contract.
+
+One step reads one raw coverage cell, normalizes it, pushes one alpha cell, and advances `cell_index` by exactly 1. Push failure reads the lower storage error kind before recovering the alpha Vec and rebuilding the pack owner with the unchanged `cell_index`.
+
+Completion is exact:
+
+```text
+cell_index == shape.cell_count
+alpha_cells.len == shape.cell_count
+alpha_cells.cap == shape.cell_count
+```
+
+On completion, the raw coverage owner is destructured. F5bf frees the raw coverage cell Vec, moves the edge owner and shape into `GuiSfntSimpleGlyphRasterPackedMaskOwner`, and keeps only the alpha cell Vec in the completed owner. This prevents the final mask from retaining both raw coverage and normalized alpha buffers while still closing the edge owner exactly once.
+
+This completion-time raw cell release is part of the F5bf contract, not an implementation detail that a backend may skip.
+
+`StepBudgetExhausted` is a typed terminal with the pack owner. It is not a partial completed mask, not a fallback, and not a zero-fill path.
+
+F5bf must not call byte-backed lookup helpers, old traversal helpers, zero-fill helpers, render2d, DrawTarget / RenderTarget, platform APIs, host APIs, font fallback, or any function that emits pixels or commands.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

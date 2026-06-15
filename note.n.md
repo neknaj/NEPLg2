@@ -1,3 +1,52 @@
+# 2026-06-16 Agent2 GUI font raster packed mask owner checkpoint
+
+## scope
+
+- branch: `gui-font-packed-mask-f5bf-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、GUI font F5bf の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、pack owner invariant、completion-time raw cell release、source policy による静的検査を守る。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md` に SFNT simple glyph raster packed mask owner の標準契約を追加した。
+- `doc/neplg2/gui_font_rendering_detailed_design.md` に F5bf の config、transition owner、completed owner、start validation、pack owner invariant、raw cell read、alpha normalization、completion-time raw cell release、free contract、forbidden API を追加した。
+- `doc/neplg2/gui_font_rendering_implementation_plan.md` に Phase F5bf の plan review blocker、修正版 plan、実装条件、source policy、focused doctest、検証 command を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に value-only `GuiSfntSimpleGlyphRasterPackedMaskConfig` を追加し、`Clone` / `Copy` を実装した。
+- private `GuiSfntSimpleGlyphRasterPackedMaskPackOwner` と private completed `GuiSfntSimpleGlyphRasterPackedMaskOwner` を追加した。owner-bearing type は `Clone` / `Copy` を実装しない。
+- start は `alpha_max > 0`、shape invariant、`coverage_max * alpha_max` overflow、raw coverage owner cell_count / len / cap、alpha cell Vec allocation を fail-closed に検査する。
+- pack owner invariant は `cell_index >= 0`、shape invariant、`cell_index <= shape.cell_count`、`alpha_cells.len == cell_index`、`alpha_cells.cap == shape.cell_count`、raw coverage owner cell_count / len / cap を検査する。
+- drain / step / complete は budget、raw cell read、alpha push、completion より前に pack owner invariant を通す。
+- raw coverage read は `vec::get None`、negative coverage、coverage exceeds max を typed error にする。
+- alpha normalization は `coverage * alpha_max / coverage_max` を integer-only で行い、multiply overflow を typed error にする。
+- step は 1 raw coverage cell を 1 alpha cell へ変換し、Vec push failure では lower storage error kind を読んでから recovered alpha Vec を unchanged cell_index の pack owner に戻す。
+- completion は exact invariant だけで成功し、raw coverage cell Vec を free して edge owner / shape / alpha cell Vec を completed packed mask owner へ移す。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bf source policy を追加した。docs/types/private owner/start validation/owner invariant/raw read/alpha normalize/push recovery/drain/free/forbidden API/prefix style/focused doctest coverage label を検査する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md` を追加し、F5bf source policy coverage label を固定した。
+- `todo.md` は F5bf 完了後の次作業として、render2d glyph alpha mask boundary へ進む内容へ更新した。
+
+## subagent review
+
+- Tesla plan review 1 は `PLAN_BLOCKED`。`alpha_cells.len == cell_index` と `alpha_cells.cap == shape.cell_count` の pack-owner invariant が budget/read/push/completion より前に必要と指摘された。
+- 指摘を受け、`AlphaStorageLenMismatch` / `AlphaStorageCapacityMismatch` と `pack_owner_invariants` を追加し、drain / step / complete の入口で必ず検査する計画へ修正した。
+- push failure から回収した owner は cleanup / diagnostic 用であり、次に処理へ戻す場合も invariant を通過したときだけ続行できる contract にした。
+- Tesla revised plan review は `PLAN_APPROVED`。
+- Tesla implementation review は `REVIEW_APPROVED`。内容 blocker はなく、新規 focused doctest の stage とこの note の review 状態更新だけが commit-readiness 注意点として指摘された。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `git diff --check`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_packed_mask_owner.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_packed_mask_owner_f5bf.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_raster_coverage_scan_converter.n.md --no-tree -o tmp_gui_font_outline_point_stream_item_collection_raster_coverage_scan_converter_f5bf_regression.json -j 1` 1/1 passed
+- pass: `$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5bf.json -j 1` 1109/1109 passed
+
+## remaining
+
+- F5bf は normalized alpha cell owner までであり、render2d command emission、glyph bitmap composition、font shaping、ruby、vertical layout、math bridge は未実装である。
+- 次 slice では completed packed alpha mask owner を authority として、render2d glyph alpha mask boundary へ進む。
+
 # 2026-06-16 Agent2 GUI font raster coverage scan converter checkpoint
 
 ## scope
