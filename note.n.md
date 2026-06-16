@@ -1,3 +1,56 @@
+# 2026-06-16 Agent2 GUI font F5bq SourceOver alpha-mask software drain-step boundary
+
+## scope
+
+- branch: `gui-render2d-alpha-mask-drain-step-f5bq-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bq の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。既存 `gui_rgba8888_software_surface_write_pixel` が channel を順次 store するため、途中 store failure で partial pixel update になり得ること、completed terminal / owner と SourceOver 算術が未固定であることを指摘された。
+- Tesla plan review 1 も `PLAN_BLOCKED`。SourceOver の exact formula、budget terminal、write failure recovery、test coverage、fallback / raw command ban の明文化が必要と指摘された。
+- 改訂 plan では `write_pixel` 自体を all-channel projection before first store に置き換え、`alloc/gui/render2d/composite.nepl` に SourceOver helper を置き、completed owner pair、`InvalidBudget`、`StepBudgetExhausted`、write failure unchanged `cell_index`、no old FillRect bridge / no raw command accessor を source policy に固定した。
+- Planck revised plan review は `PLAN_APPROVED`。条件は allocator-created `RegionToken` invariant の明文化、SourceOver formula / rounding / overflow bound の docs/tests 固定、no split completed owner accessor、write failure で `cell_index` を進めないことである。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/composite.nepl` を追加し、RGBA8888 SourceOver alpha-mask helper と typed error enum を実装した。
+- Planck review blocker を受け、SourceOver RGB を `out_alpha_num = src_a * 255 + dest.a * (255 - src_a)` を分母として保持する式へ修正した。low alpha 同士の合成で 255 超え channel を `u8` へ cast しないよう、channel / alpha の range check helper を追加した。
+- `stdlib/alloc/gui/render2d.nepl` facade から composite module を re-export した。
+- `stdlib/alloc/gui/render2d/software_surface.nepl` の pixel write を、4 channel の pointer projection をすべて成功させてから store する順序へ変更した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に completed owner pair、budget terminal、step error、alpha cell borrow read、checked position、one-step SourceOver drain、bounded drain、terminal/free helper を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bq の contract、詳細設計、実装順序、Planck blocker / revised approval を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bq source policy を追加し、composite math、projection-before-store、step order、write recovery、budget terminal、no old bridge / no target-platform-fallback を検査するようにした。
+- `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` を追加し、SourceOver formula、floor rounding、zero/full/partial alpha、typed error を runnable doctest として固定した。
+- `tests/stdlib/gui_render2d_software_surface.n.md` と `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` に F5bq source policy coverage label を追加した。
+- `todo.md` は F5bq 後の dirty region、formal tile / bitmap transport、FHD 60fps batching、stroke / shadow rasterization 残件へ更新した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 2 回実行し、いずれも passed
+- initial fail then fixed: `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` は初回 `cast` overload ambiguity で失敗し、channel を `%u8` 中間値に分けて修正した後 1 / 1 passed
+- pass after Planck blocker fix: `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` は low alpha unpremultiply case 追加後も 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_core_alpha_mask_command.n.md` 1 / 1 passed
+- pass after Planck blocker fix: `stdlib/alloc/gui/font/sfnt/glyf.nepl` doctest 1138 / 1138 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Tesla implementation review 1 は `REVIEW_APPROVED`。commit 前に新規 file の stage と note の review status 更新を確認するよう指摘された。
+- Planck implementation review 1 は `REVIEW_BLOCKED`。SourceOver RGB の旧式が低 alpha 同士の合成で 255 を超え得て、未検証 `u8` cast に依存すると指摘された。
+- 指摘を受け、`out_alpha_num` を保持する formula、channel / alpha range check、low alpha runnable regression、docs/source policy 更新を追加した。
+- Planck implementation re-review は `REVIEW_APPROVED`。前回 blocker は解消され、`out_alpha_num` formula、range check、low alpha regression、projection-before-store、completed owner pair、write-success-before-advance、InvalidBudget / StepBudgetExhausted の区別を確認済みである。
+
+## remaining
+
+- F5bq は software surface 内の SourceOver drain step までであり、dirty region、formal tile / bitmap transport、host present、FHD 60fps batching、stroke rasterization、shadow rasterization、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bp SourceOver alpha-mask software drain-start owner boundary
 
 ## scope

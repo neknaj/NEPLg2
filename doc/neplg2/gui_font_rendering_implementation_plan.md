@@ -571,6 +571,57 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5bq: SourceOver alpha-mask software drain-step boundary
+
+目的:
+
+- F5bp の drain owner を bounded work slice として進め、RGBA8888 software surface へ alpha mask を SourceOver 合成する。
+- SourceOver 算術は `alloc/gui/render2d/composite.nepl` に置き、font/glyf 固有の owner 境界から分離する。
+- software surface write は 4 channel projection を store 前に完了し、projection failure で partial pixel update を起こさない。
+- completed / budget exhausted / error を enum と owner-bearing payload で分ける。
+- dirty region、tile / bitmap transport、host present、FHD 60fps batching、stroke、shadow は次 phase に残す。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。既存 `write_pixel` が channel を順次 store するため、途中 store failure で partial pixel update を返し得ること、completion owner と SourceOver 整数式が未固定であることを指摘された。
+- revised plan は `gui_rgba8888_software_surface_write_pixel` 自体を prevalidated projection path に置き換え、render2d SourceOver helper、completed owner、InvalidBudget、StepBudgetExhausted、write failure recovery を明文化した。
+- Planck revised plan review は `PLAN_APPROVED`。条件は all channel projections before first store、SourceOver 式と overflow bound の doc/test 固定、no split completed owner accessor、write failure で cell_index を進めないこと、source policy で旧 FillRect bridge と raw command accessor を禁止することである。
+
+変更:
+
+- `alloc/gui/render2d/composite.nepl` を追加し、`GuiRgba8888SourceOverAlphaMaskErrorKind` と `gui_rgba8888_source_over_alpha_mask` を定義する。
+- SourceOver RGB は `out_alpha_num = src_a * 255 + dest.a * (255 - src_a)` を分母として保持し、低 alpha 同士の合成で 255 を超える narrow cast に依存しない。
+- `alloc/gui/render2d.nepl` facade から composite helper を再公開する。
+- `alloc/gui/render2d/software_surface.nepl` の `gui_rgba8888_software_surface_write_pixel` 内部を all-channel projection before store に変更する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner`、`GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal`、`GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError` を追加する。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_step_once` は 1 cell だけを read / composite / write し、成功後だけ `cell_index` を進める。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget` は completed、InvalidBudget、StepBudgetExhausted、recursive progress を明示的に分ける。
+- completed owner finish helper は completed owner を消費し、prepared/resource side を free して surface owner だけを返す。
+- `tests/stdlib/gui_render2d_source_over_alpha_mask.n.md` に runnable composite doctest を追加する。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` に F5bq source policy labels を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bq source policy を追加する。
+
+完了条件:
+
+- render2d source policy が prevalidated all-channel projection、SourceOver numerator formula、rounding、`out_alpha_num == 0`、low alpha unpremultiply、u8 cast 前 range check、overflow bound、no platform / no fallback を検査する。
+- glyf source policy が completed owner、StepBudgetExhausted、InvalidBudget、unchanged owner on read/composite failure、surface recovery on write failure、advance after successful write、old FillRect bridge禁止、raw command accessor禁止、alpha Vec clone/copy禁止、unchecked rect extent helper禁止を検査する。
+- focused doctest、F5bp / F5bn / F5bo / core alpha mask 回帰、source policy、`git diff --check` が通る。
+- implementation review で partial pixel update、split accessor、fallback、old command bridge がないことを確認する。
+- `note.n.md` と `todo.md` を更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_source_over_alpha_mask.n.md --no-tree -o tmp_gui_render2d_source_over_alpha_mask_f5bq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bq_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_software_drain_f5bq.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bq_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bq_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

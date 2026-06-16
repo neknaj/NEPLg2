@@ -18698,6 +18698,18 @@ enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind:
     RectBottomOverflow
     SurfaceInvalidGeometry
     SurfaceBoundsMismatch
+    InvalidBudget
+    CellIndexNegative
+    CellIndexOutOfRange
+    AlphaSlotMissing
+    AlphaNegative
+    AlphaExceedsMax
+    PositionXOverflow
+    PositionYOverflow
+    SurfaceReadFailed %GuiRgba8888SoftwareSurfaceErrorKind
+    SurfaceWriteFailed %GuiRgba8888SoftwareSurfaceErrorKind
+    SourceOverFailed %GuiRgba8888SourceOverAlphaMaskErrorKind
+    ProgressInvariantInvalid
     SurfaceFreeFailed
 
 impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind:
@@ -18717,8 +18729,32 @@ struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
     prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
     surface %GuiRgba8888SoftwareSurfaceOwner
 
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
+    prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:
+    Completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
+    StepBudgetExhausted %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner \prepared\surface\cell_index:
     GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner prepared surface cell_index
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner \prepared\surface:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner prepared surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \kind\owner:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError kind owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner \error:
+    field::get error "owner"
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError \kind\prepared\surface:
     GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError kind prepared surface
@@ -18735,6 +18771,9 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with <.R
     let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get rejected "prepared"
     let surface %GuiRgba8888SoftwareSurfaceOwner field::get rejected "surface"
     callback prepared surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_cell_index %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner i32 \owner:
+    *field::get_ref owner "cell_index"
 
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_error_kind_from_table_register %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \kind:
     match kind:
@@ -18891,6 +18930,170 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start %impure fn 
         Result::Ok _:
             Result::Ok gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0
 
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_position %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \origin\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_origin %i32 sub max_i32 delta
+            if gt origin max_origin:
+                then Result::Err overflow_kind
+                else Result::Ok add origin delta
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_read_alpha %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner fn i32 Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \owner\cell_index:
+    let prepared %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get_ref owner "prepared"
+    let resource %&GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner field::get_ref prepared "resource"
+    let reservation %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get_ref resource "reservation"
+    let fill_owner %&GuiSfntSimpleGlyphRenderFillAlphaMaskOwner field::get_ref reservation "owner"
+    let alpha_cells %&Vec i32 field::get_ref fill_owner "alpha_cells"
+    match vec::get alpha_cells cell_index:
+        Option::None:
+            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::AlphaSlotMissing
+        Option::Some alpha:
+            if lt alpha 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::AlphaNegative
+                else:
+                    let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_owner_alpha_max fill_owner
+                    if gt alpha alpha_max:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::AlphaExceedsMax
+                        else Result::Ok alpha
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_position %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord fn i32 Result GuiPoint GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \record\cell_index:
+    let rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect record
+    let origin_x %i32 gui_rect_x &rect
+    let origin_y %i32 gui_rect_y &rect
+    let width_px %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px record
+    let local_y %i32 div_s cell_index width_px
+    let local_x %i32 sub cell_index mul local_y width_px
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_position origin_x local_x GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::PositionXOverflow:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok x:
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_position origin_y local_y GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::PositionYOverflow:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok y:
+                    Result::Ok gui_point_new x y
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_step_once %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \owner:
+    let prepared_ref %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get_ref &owner "prepared"
+    let surface_ref %&GuiRgba8888SoftwareSurfaceOwner field::get_ref &owner "surface"
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start prepared_ref surface_ref:
+        Result::Err kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rederive_record prepared_ref:
+                Result::Err kind:
+                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+                Result::Ok record:
+                    let cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_cell_index &owner
+                    if lt cell_index 0:
+                        then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CellIndexNegative owner
+                        else:
+                            let cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_cell_count &record
+                            if ge cell_index cell_count:
+                                then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CellIndexOutOfRange owner
+                                else:
+                                    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_read_alpha &owner cell_index:
+                                        Result::Err kind:
+                                            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+                                        Result::Ok alpha:
+                                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_position &record cell_index:
+                                                Result::Err kind:
+                                                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+                                                Result::Ok position:
+                                                    let x %i32 gui_point_x &position
+                                                    let y %i32 gui_point_y &position
+                                                    match gui_rgba8888_software_surface_read_pixel surface_ref x y:
+                                                        Result::Err surface_kind:
+                                                            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error:
+                                                                GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceReadFailed surface_kind
+                                                                owner
+                                                        Result::Ok dest_color:
+                                                            let paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_paint &record
+                                                            let source_color %Rgba8888 gui_paint_color &paint
+                                                            let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_alpha_max &record
+                                                            match gui_rgba8888_source_over_alpha_mask &source_color alpha alpha_max &dest_color:
+                                                                Result::Err composite_kind:
+                                                                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error:
+                                                                        GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SourceOverFailed composite_kind
+                                                                        owner
+                                                                Result::Ok out_color:
+                                                                    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get owner "prepared"
+                                                                    let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+                                                                    match gui_rgba8888_software_surface_write_pixel surface x y out_color:
+                                                                        Result::Err write_error:
+                                                                            let surface_kind %GuiRgba8888SoftwareSurfaceErrorKind gui_rgba8888_software_surface_write_error_kind &write_error
+                                                                            let recovered_surface %GuiRgba8888SoftwareSurfaceOwner gui_rgba8888_software_surface_write_error_surface write_error
+                                                                            let recovered_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared recovered_surface cell_index
+                                                                            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error:
+                                                                                GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceWriteFailed surface_kind
+                                                                                recovered_owner
+                                                                        Result::Ok next_surface:
+                                                                            let next_cell_index %i32 add cell_index 1
+                                                                            let next_owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared next_surface next_cell_index
+                                                                            Result::Ok next_owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner GuiRgba8888SoftwareSurfaceOwner \completed:
+    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get completed "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get completed "surface"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_free prepared
+    surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \completed:
+    let surface %GuiRgba8888SoftwareSurfaceOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface completed
+    match gui_rgba8888_software_surface_free surface:
+        Result::Err _surface_kind:
+            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceFreeFailed
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner impure fn i32 Result GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError \owner\remaining_steps:
+    let prepared_ref %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get_ref &owner "prepared"
+    let surface_ref %&GuiRgba8888SoftwareSurfaceOwner field::get_ref &owner "surface"
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start prepared_ref surface_ref:
+        Result::Err kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+        Result::Ok _:
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rederive_record prepared_ref:
+                Result::Err kind:
+                    Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner
+                Result::Ok record:
+                    let cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_cell_index &owner
+                    if lt cell_index 0:
+                        then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CellIndexNegative owner
+                        else:
+                            let cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_cell_count &record
+                            if gt cell_index cell_count:
+                                then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CellIndexOutOfRange owner
+                                else:
+                                    if eq cell_index cell_count:
+                                        then:
+                                            let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get owner "prepared"
+                                            let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+                                            let completed %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner prepared surface
+                                            Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::Completed completed
+                                        else:
+                                            if le remaining_steps 0:
+                                                then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::InvalidBudget owner
+                                                else:
+                                                    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_step_once owner:
+                                                        Result::Err error:
+                                                            Result::Err error
+                                                        Result::Ok next_owner:
+                                                            let next_cell_index %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_cell_index &next_owner
+                                                            let expected_next_cell_index %i32 add cell_index 1
+                                                            if ne next_cell_index expected_next_cell_index:
+                                                                then Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ProgressInvariantInvalid next_owner
+                                                                else:
+                                                                    let next_remaining_steps %i32 sub remaining_steps 1
+                                                                    if eq next_cell_index cell_count:
+                                                                        then gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget next_owner next_remaining_steps
+                                                                        else:
+                                                                            if eq next_remaining_steps 0:
+                                                                                then Result::Ok GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::StepBudgetExhausted next_owner
+                                                                                else gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget next_owner next_remaining_steps
+
 fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \owner:
     let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get owner "prepared"
     let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
@@ -18906,6 +19109,17 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_free 
     gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with rejected \prepared\surface:
         let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0
         gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
+    let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_owner error
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_terminal_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \terminal:
+    match terminal:
+        GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::Completed completed:
+            gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_free completed
+        GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::StepBudgetExhausted owner:
+            gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:

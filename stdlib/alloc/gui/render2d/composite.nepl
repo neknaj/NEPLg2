@@ -1,0 +1,137 @@
+//: # alloc/gui/render2d/composite
+//: RGBA8888 software compositing helpers
+//:
+//: ### [目的/もくてき]
+//: - software surface、font rasterizer、offscreen renderer が共有する pixel 合成の純粋関数を定義します。
+//: - platform backend、DrawTarget、RenderTarget、font glyf の owner 構造には依存しません。
+//:
+//: ### [契約/けいやく]
+//: - `gui_rgba8888_source_over_alpha_mask` は straight alpha の RGBA8888 destination へ、mask 付き source color を SourceOver で合成します。
+//: - effective source alpha は `mask_alpha * source_alpha / mask_alpha_max` で、非負整数の signed division による floor とします。
+//: - RGB は `out_alpha_num = src_a * 255 + dst_a * (255 - src_a)` を分母として保持し、`src_c * src_a * 255 + dst_c * dst_a * (255 - src_a)` を割って求めます。
+//: - `out_a == 0` の channel は 0 とし、透明 pixel の RGB を未定義値にしません。
+//:
+//: ### [注意/ちゅうい]
+//: - fallback、silent no-op、platform API 呼び出しは行いません。
+//: - 中間値は最大でも `255 * 255 * 255` 程度であり、i32 の範囲に収まります。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/composite" as *
+//: ```
+
+#indent 4
+
+#import "core/cast" as *
+#import "core/gui/color" as *
+#import "core/math" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888SourceOverAlphaMaskErrorKind:
+    InvalidMaskAlphaMax
+    MaskAlphaNegative
+    MaskAlphaExceedsMax
+    SourceAlphaMultiplyOverflow
+    ScaledSourceAlphaOutOfRange
+    OutputAlphaOutOfRange
+    OutputChannelOutOfRange
+
+impl Clone for GuiRgba8888SourceOverAlphaMaskErrorKind:
+    fn clone %fn &GuiRgba8888SourceOverAlphaMaskErrorKind GuiRgba8888SourceOverAlphaMaskErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888SourceOverAlphaMaskErrorKind:
+    fn copy_mark %fn GuiRgba8888SourceOverAlphaMaskErrorKind GuiRgba8888SourceOverAlphaMaskErrorKind \kind:
+        kind
+
+fn gui_rgba8888_source_over_alpha_mask_scale_alpha %fn i32 fn i32 fn i32 Result i32 GuiRgba8888SourceOverAlphaMaskErrorKind \mask_alpha\mask_alpha_max\source_alpha:
+    if le mask_alpha_max 0:
+        then Result::Err GuiRgba8888SourceOverAlphaMaskErrorKind::InvalidMaskAlphaMax
+        else:
+            if lt mask_alpha 0:
+                then Result::Err GuiRgba8888SourceOverAlphaMaskErrorKind::MaskAlphaNegative
+                else:
+                    if gt mask_alpha mask_alpha_max:
+                        then Result::Err GuiRgba8888SourceOverAlphaMaskErrorKind::MaskAlphaExceedsMax
+                        else:
+                            if or eq mask_alpha 0 eq source_alpha 0:
+                                then Result::Ok 0
+                                else:
+                                    let max_i32 %i32 2147483647
+                                    let max_mask_alpha %i32 div_s max_i32 source_alpha
+                                    if gt mask_alpha max_mask_alpha:
+                                        then Result::Err GuiRgba8888SourceOverAlphaMaskErrorKind::SourceAlphaMultiplyOverflow
+                                        else:
+                                            let scaled_alpha %i32 div_s mul mask_alpha source_alpha mask_alpha_max
+                                            if or lt scaled_alpha 0 gt scaled_alpha 255:
+                                                then Result::Err GuiRgba8888SourceOverAlphaMaskErrorKind::ScaledSourceAlphaOutOfRange
+                                                else Result::Ok scaled_alpha
+
+fn gui_rgba8888_source_over_alpha_mask_channel %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 Result i32 GuiRgba8888SourceOverAlphaMaskErrorKind \source_channel\source_alpha\dest_channel\dest_alpha\inverse_source_alpha\out_alpha_num:
+    if eq out_alpha_num 0:
+        then Result::Ok 0
+        else:
+            let source_premul_num %i32 mul mul source_channel source_alpha 255
+            let dest_premul_num %i32 mul mul dest_channel dest_alpha inverse_source_alpha
+            let out_premul_num %i32 add source_premul_num dest_premul_num
+            let out_channel %i32 div_s out_premul_num out_alpha_num
+            if or lt out_channel 0 gt out_channel 255:
+                then Result::Err GuiRgba8888SourceOverAlphaMaskErrorKind::OutputChannelOutOfRange
+                else Result::Ok out_channel
+
+fn gui_rgba8888_source_over_alpha_mask_checked_u8 %fn i32 fn GuiRgba8888SourceOverAlphaMaskErrorKind Result u8 GuiRgba8888SourceOverAlphaMaskErrorKind \value\range_error:
+    if or lt value 0 gt value 255:
+        then Result::Err range_error
+        else:
+            let out %u8 cast value
+            Result::Ok out
+
+fn gui_rgba8888_source_over_alpha_mask_build_color %fn i32 fn i32 fn i32 fn i32 Result Rgba8888 GuiRgba8888SourceOverAlphaMaskErrorKind \r\g\b\a:
+    match gui_rgba8888_source_over_alpha_mask_checked_u8 r GuiRgba8888SourceOverAlphaMaskErrorKind::OutputChannelOutOfRange:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok rr:
+            match gui_rgba8888_source_over_alpha_mask_checked_u8 g GuiRgba8888SourceOverAlphaMaskErrorKind::OutputChannelOutOfRange:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok gg:
+                    match gui_rgba8888_source_over_alpha_mask_checked_u8 b GuiRgba8888SourceOverAlphaMaskErrorKind::OutputChannelOutOfRange:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok bb:
+                            match gui_rgba8888_source_over_alpha_mask_checked_u8 a GuiRgba8888SourceOverAlphaMaskErrorKind::OutputAlphaOutOfRange:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok aa:
+                                    Result::Ok rgba8888_new rr gg bb aa
+
+pub fn gui_rgba8888_source_over_alpha_mask %fn &Rgba8888 fn i32 fn i32 fn &Rgba8888 Result Rgba8888 GuiRgba8888SourceOverAlphaMaskErrorKind \source\mask_alpha\mask_alpha_max\dest:
+    let source_alpha_raw %i32 cast rgba8888_a source
+    match gui_rgba8888_source_over_alpha_mask_scale_alpha mask_alpha mask_alpha_max source_alpha_raw:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok source_alpha:
+            let inverse_source_alpha %i32 sub 255 source_alpha
+            let dest_alpha %i32 cast rgba8888_a dest
+            let out_alpha_num %i32 add mul source_alpha 255 mul dest_alpha inverse_source_alpha
+            let out_alpha %i32 div_s out_alpha_num 255
+            let source_r %i32 cast rgba8888_r source
+            let source_g %i32 cast rgba8888_g source
+            let source_b %i32 cast rgba8888_b source
+            let dest_r %i32 cast rgba8888_r dest
+            let dest_g %i32 cast rgba8888_g dest
+            let dest_b %i32 cast rgba8888_b dest
+            match gui_rgba8888_source_over_alpha_mask_channel source_r source_alpha dest_r dest_alpha inverse_source_alpha out_alpha_num:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok out_r:
+                    match gui_rgba8888_source_over_alpha_mask_channel source_g source_alpha dest_g dest_alpha inverse_source_alpha out_alpha_num:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok out_g:
+                            match gui_rgba8888_source_over_alpha_mask_channel source_b source_alpha dest_b dest_alpha inverse_source_alpha out_alpha_num:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok out_b:
+                                    gui_rgba8888_source_over_alpha_mask_build_color out_r out_g out_b out_alpha
