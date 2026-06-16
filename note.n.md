@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font F5bv render2d row batch plan owner boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-plan-f5bv-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bv の render2d row batch plan owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。public `GuiRgba8888BitmapFrameOwner` の再検証、typed error、dirty bounds validation、bottom overflow、quotient/remainder batch count、source policy が不足していると指摘された。
+- Tesla plan review 1 は `PLAN_BLOCKED`。row planner が F5bu の validated owner を信頼しすぎると、forged public frame metadata から invalid stride / dirty が scheduler authority になるため、F5bv 内で再検証する必要があると指摘された。
+- revised plan は Planck / Tesla ともに `PLAN_APPROVED`。typed error、positive max rows、positive frame id、shape / stride / byte_len 再検証、dirty set state match、dirty rect origin / size / right-bottom overflow / surface bounds validation、contiguous row span、quotient / remainder batch count、owner-bearing prepare error、no byte payload / no host / no fallback が実装開始条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_plan.nepl` を追加した。
+- `GuiRgba8888RowBatchPlanPrepareErrorKind` を追加し、max rows、frame id、frame shape、stride / byte length mismatch、dirty rect origin / size / overflow / out-of-bounds、row span invalid を typed error kind として表した。
+- `GuiRgba8888RowBatchPlanOwner` を追加し、元の `GuiRgba8888BitmapFrameOwner`、frame metadata、dirty set、row_start / row_count / batch_count / max_rows_per_batch を formal byte payload 前の validated owner として束ねた。
+- `GuiRgba8888RowBatchPlanPrepareError` を owner-bearing error として追加し、失敗時に元の bitmap frame owner を回収できるようにした。
+- `gui_rgba8888_row_batch_plan_prepare` は `max_rows_per_batch > 0`、`frame_id > 0`、surface shape metadata、dirty set / dirty rect bounds をすべて検査してから row span と quotient/remainder batch count を計算する。
+- `Empty` dirty は row_count 0、`Full` dirty は full-height span、`One` / `Two` dirty は checked rect から contiguous row span に畳む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch plan owner を再公開した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bv の row batch plan owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bv source policy を追加した。
+- `tests/stdlib/gui_render2d_row_batch_plan.n.md` に F5bv focused doctest label と runnable case を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_plan.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_bitmap_frame.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_dirty_surface.n.md` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_software_surface.n.md` 2 / 2 passed
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 2 runs
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。metadata planning boundary、frame / dirty 再検証、owner recovery、no `finish_surface` / no raw storage / no byte payload / no tile / no host / no platform / no fallback、quotient/remainder batch count、compile-fail forged-frame coverage を確認済みである。
+- Tesla implementation review は `REVIEW_BLOCKED`。code / content blocker はなく、指摘は新規 `row_batch_plan.nepl` / focused doctest が未追跡であることと、review request 時点の `note.n.md` が pending 表記だったことに限定された。note は実結果へ更新済みであり、staging は今回の intended files に限定して行う。
+
+## remaining
+
+- F5bv は formal byte payload / host present 前の row batch plan owner boundary までであり、row / tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bu render2d bitmap frame owner boundary
 
 ## scope

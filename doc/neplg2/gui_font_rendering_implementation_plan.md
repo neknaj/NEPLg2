@@ -797,6 +797,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bv: Render2d row batch plan owner boundary
+
+目的:
+
+- F5bu の `GuiRgba8888BitmapFrameOwner` を formal byte payload / host present の前段で row batch scheduler が読める row batch plan owner へ変換する。
+- dirty state を contiguous row span と batch count に畳むが、row byte payload、tile list、video memory host call、host present、Canvas / DOM / minifb、fallback には進まない。
+- 通常 application code の owner aggregate 直 constructor は compiler が拒否するが、compiler memory boundary や trusted producer から forged bitmap frame owner が来てもよい前提で、row planning 前に frame id、surface shape metadata、dirty bounds を再検証する。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。当初案では public `GuiRgba8888BitmapFrameOwner` の再検証、typed error、dirty bounds validation、bottom overflow、quotient/remainder batch count、source policy が不足していると指摘された。
+- Tesla plan review 1 は `PLAN_BLOCKED`。row planner が F5bu の validated owner を信頼しすぎると、forged public frame metadata から invalid stride / dirty が scheduler authority になるため、F5bv 内で再検証する必要があると指摘された。
+- revised plan では `GuiRgba8888RowBatchPlanPrepareErrorKind`、positive `max_rows_per_batch`、positive `frame_id`、shape / stride / byte_len 再検証、DirtyRegionSet state match、dirty rect origin / size / right-bottom overflow / surface bounds validation、contiguous row span、quotient / remainder batch count、owner-bearing prepare error を追加する。
+- Planck revised plan review は `PLAN_APPROVED`。typed error、checked bottom arithmetic、dirty set validation、`finish_frame` recovery、no `finish_surface` / no byte payload / no host / no fallback が実装開始条件である。
+- Tesla revised plan review は `PLAN_APPROVED`。`Empty` dirty を zero-row clean plan として明示し、`Two` dirty を contiguous row span へ畳み、row/tile transport を後続 phase に残す設計で進めてよい。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_batch_plan.nepl` を追加する。
+- `GuiRgba8888RowBatchPlanPrepareErrorKind`、`GuiRgba8888RowBatchPlanConfig`、`GuiRgba8888RowBatchPlanOwner`、`GuiRgba8888RowBatchPlanPrepareError` を追加する。prepare error kind は `MaxRowsPerBatchInvalid`、`FrameStrideMismatch`、`DirtyRectBottomOverflow`、`DirtyRectOutOfBounds` を含み、shape mismatch と dirty containment failure を string ではなく typed state として保持する。
+- config checked constructor、plan metadata accessors、prepare error kind / category / owner recovery / free、plan `finish_frame` / free を追加する。
+- `prepare` は `max_rows_per_batch > 0`、`frame_id > 0`、surface shape / stride / byte_len、dirty set state、dirty rect bounds を全て検査してから row span と batch count を計算する。
+- `Empty` は row_start 0 / row_count 0 / batch_count 0 とし、`Full` は height 全体、`One` は single rect の y..bottom、`Two` は 2 rect を覆う contiguous row span にする。
+- batch count は `row_count + max_rows_per_batch - 1` を使わず、signed quotient / remainder の ceil division で計算する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch plan owner を再公開する。
+- `tests/stdlib/gui_render2d_row_batch_plan.n.md` を追加し、positive config、Empty / Full / Two span、forged stride recovery、dirty bounds recovery、dirty bottom overflow recovery、finish frame teardown、no platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bv source policy を追加し、docs、subagent approval、facade export、owner no `Clone` / no `Copy`、metadata revalidation、dirty validation、quotient/remainder batch count、no raw pixel / no byte copy / no host / no fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- source policy が `GuiRgba8888RowBatchPlanOwner`、typed prepare error kind、owner-bearing recovery、positive max rows、positive frame id、frame metadata revalidation、dirty bounds validation、contiguous row span、quotient / remainder batch count、facade export、focused doctest label を検査する。
+- focused doctest、module doctest、source policy、bitmap frame regression、dirty surface regression、`git diff --check` が通る。
+- implementation review で pre-transport row batch plan 境界、frame revalidation、dirty row span、deferred host / platform / fallback scope が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5bv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_batch_plan.nepl --no-tree -o tmp_gui_render2d_row_batch_plan_module_f5bv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_bitmap_frame.n.md --no-tree -o tmp_gui_render2d_bitmap_frame_f5bv_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_dirty_surface.n.md --no-tree -o tmp_gui_render2d_dirty_surface_f5bv_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
