@@ -1205,6 +1205,51 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5ce: Render2d row tile RLE count boundary
+
+目的:
+
+- F5cd の slice-local `emitted_run_count` を、formal encoded RLE transport の exact capacity 前段として累積する `GuiRgba8888RowTileRleCountOwner` を作る。
+- `GuiRgba8888RowTileRleCountOwner` は `GuiRgba8888RowTileRleCursorOwner` と `accumulated_run_count` だけを保持する。
+- `count_step_budget` は F5cd の `gui_rgba8888_row_tile_rle_drain_budget` に委譲し、RLE run を再走査しない。
+- この phase は encoded RLE buffer、`Vec`、raw storage、host present、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- subagent review で、encoded transport へ直接進む前に exact count owner boundary を置く方針を確認する。
+- `count_start` は Ready cursor だけを許可し、Complete cursor は過去の run count evidence を持たないため `InitialCursorComplete` として拒否する。
+- `AccumulatedRunCountOverflow` では cursor が既に進んでいる可能性があるため、fake continuation count owner を返さず、advanced cursor と prior `accumulated_run_count` を owner-bearing error に保持する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` を追加する。
+- `GuiRgba8888RowTileRleCountErrorKind` に `InitialCursorInvalid %GuiRgba8888RowTileRleStepErrorKind`、`InitialCursorComplete`、`DrainFailed %GuiRgba8888RowTileRleDrainErrorKind`、`AccumulatedRunCountOverflow` を定義する。
+- `GuiRgba8888RowTileRleCountStepStatus` は `Pending` / `Completed` の Copy enum とする。
+- `GuiRgba8888RowTileRleCountOwner`、`GuiRgba8888RowTileRleCountStep`、`GuiRgba8888RowTileRleCountError` は owner-bearing value とし、Clone / Copy を実装しない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE count を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` を追加し、facade、zero budget pending、partial accumulation、completion total、negative budget lower error wrapping、initial complete rejection、overflow fatal no fake owner policy、no encoded buffer / platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ce source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE count module doctest、row tile RLE drain / cursor / payload / plan regression、source policy、`git diff --check` が通る。
+- implementation review で count boundary が drain delegation のみであること、initial complete rejection、overflow fatal recovery、owner-bearing non-Copy values、encoded buffer / `Vec` / raw storage / host present / platform / fallback に進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5ce.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_count.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_count_module_f5ce.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5ce_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5ce_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5ce_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5ce_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

@@ -7550,6 +7550,43 @@ Failure is `ProgressInvariantInvalid`, not panic and not silent no-op. Lower `ne
 
 F5cd remains progress-only. It does not allocate a `Vec`, build an encoded byte buffer, mutate raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. Formal encoded RLE transport, tile bitmap transport, and host presentation remain later owner boundaries.
 
+## Render2d row tile RLE count boundary
+
+F5ce adds `GuiRgba8888RowTileRleCountOwner` above the F5cd drain. The owner contains the continuation `GuiRgba8888RowTileRleCursorOwner` and an `accumulated_run_count`. This is the missing exact-count boundary between a scheduler time slice and a future encoded RLE transport allocation. It is intentionally not a run table, not a `Vec`, and not a host presentation API.
+
+The start contract is strict:
+
+```text
+count_start cursor:
+    inspect cursor_status
+    Ready    -> CountOwner cursor 0
+    Complete -> InitialCursorComplete error
+    Invalid  -> InitialCursorInvalid lower_kind error
+```
+
+Rejecting a complete initial cursor is required. A complete cursor only says that the cursor is at the end of the pixel stream; it does not carry the number of runs already emitted. Accepting it as a fresh count owner would silently produce a false `accumulated_run_count == 0`, which would corrupt later exact allocation.
+
+The step contract delegates all run traversal to F5cd:
+
+```text
+count_step_budget owner remaining_steps:
+    accumulated = owner.accumulated_run_count
+    cursor = finish owner.cursor
+    drain_budget cursor remaining_steps
+        Err drain_error:
+            return DrainFailed lower_kind with recovered cursor and accumulated
+        Ok terminal:
+            next = checked_add accumulated terminal.emitted_run_count
+            Completed            -> CountStep Completed CountOwner terminal.cursor next
+            StepBudgetExhausted  -> CountStep Pending   CountOwner terminal.cursor next
+```
+
+`GuiRgba8888RowTileRleCountStepStatus` is Copy metadata. `GuiRgba8888RowTileRleCountStep`, `GuiRgba8888RowTileRleCountOwner`, and `GuiRgba8888RowTileRleCountError` are owner-bearing values and must not implement Clone / Copy.
+
+`AccumulatedRunCountOverflow` is fatal for count continuation. The drain may already have advanced the cursor when the overflow is detected, so returning a `GuiRgba8888RowTileRleCountOwner` with the old count would create an inconsistent continuation state. The error therefore carries the advanced cursor plus the prior `accumulated_run_count` for teardown or restart, not for continuing the count pass.
+
+F5ce remains count-only. It does not rescan runs with `next_run`, read payload bytes, allocate a `Vec`, build an encoded RLE buffer, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The future encoded RLE transport must consume a successfully completed total run count as capacity evidence in a separate owner boundary.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
