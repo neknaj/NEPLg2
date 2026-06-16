@@ -6,7 +6,7 @@
 //: - font rasterizer、widget renderer、offscreen screenshot が同じ surface owner contract を使えるようにします。
 //:
 //: ### [実装/じっそう]
-//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、row batch plan / cursor / drain / range / byte storage / row tile plan / row tile payload view / row tile RLE cursor / drain / count / completed count owner / encode seed owner / encode cursor owner / writer plan owner / encoded storage owner、SourceOver alpha-mask 合成 helper を公開します。
+//: - 現 checkpoint では RGBA8888 software surface owner、dirty surface owner、bitmap frame owner、row batch plan / cursor / drain / range / byte storage / row tile plan / row tile payload view / row tile RLE cursor / drain / count / completed count owner / encode seed owner / encode cursor owner / writer plan owner / encoded storage owner / sealed encoded owner、SourceOver alpha-mask 合成 helper を公開します。
 //: - platform surface、window、DrawTarget、RenderTarget への接続は含めません。
 //:
 //: ### [注意/ちゅうい]
@@ -38,4 +38,5 @@ pub #import "./render2d/row_tile_rle_encode_seed" as *
 pub #import "./render2d/row_tile_rle_encode_cursor" as *
 pub #import "./render2d/row_tile_rle_writer_plan" as *
 pub #import "./render2d/row_tile_rle_storage" as *
+pub #import "./render2d/row_tile_rle_encoded" as *
 pub #import "./render2d/composite" as *

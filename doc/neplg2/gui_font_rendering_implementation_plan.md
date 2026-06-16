@@ -1534,6 +1534,48 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5cl: render2d row tile RLE sealed encoded owner
+
+目的:
+
+- F5ck の `GuiRgba8888RowTileRleWriteCursorOwner` を、formal tile / bitmap transport 前の sealed encoded owner へ昇格する。
+- partial writer cursor や lower cursor `Ready` を host-visible payload として扱わない。
+- encoded byte reader、raw storage accessor、host present、video memory import、platform API、fallback には進まない。
+
+plan review:
+
+- Descartes plan review は `PLAN_APPROVED`。F5cl は F5ck の後、tile transport / host present ABI の前に置く正しい boundary と確認された。
+- required: written count は `written_run_count >= 0`、`written_run_count <= total_run_count`、`written_byte_count >= 0`、`written_byte_count <= encoded_byte_count`、checked `written_run_count * 12 == written_byte_count` の順に検査する。
+- required: otherwise valid な count が total / encoded completion に届かない場合は `WriterNotComplete`、lower cursor `Ready` は `CursorNotComplete` とする。
+- required: lower cursor status は count invariant が通った後でだけ検査する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl` を追加する。
+- `GuiRgba8888RowTileRleEncodedOwner`、`GuiRgba8888RowTileRleEncodedSealErrorKind`、`GuiRgba8888RowTileRleEncodedSealError`、finish error を追加する。
+- `gui_rgba8888_row_tile_rle_encoded_seal` は count invariants と cursor completion を検査し、成功時だけ cursor / storage を sealed owner へ move する。
+- failure path は original `GuiRgba8888RowTileRleWriteCursorOwner` を owner-bearing error に保持する。
+- metadata accessor は total run count、encoded byte count、cursor next pixel index、cursor pixel count に限定する。
+- `finish_cursor` / `owner_free` は storage dealloc と lower cursor free だけを行い、byte reader を追加しない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE sealed encoded owner を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md` は import smoke と source policy labels に絞る。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cl source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- import smoke、source policy、`git diff --check` が通る。
+- implementation review で count invariant、owner-bearing error、no byte reader、no host present、no fallback を確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_f5cl.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
