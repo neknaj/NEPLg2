@@ -6526,6 +6526,22 @@ GuiRgba8888RowBatchPlanOwner
 
 `gui_rgba8888_row_batch_cursor_next_batch` は `Ready` cursor だけを 1 batch 進める。返す `GuiRgba8888RowBatchDescriptor` は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_len の metadata だけを持つ。caller は descriptor を読んだあと、`gui_rgba8888_row_batch_cursor_batch_finish_cursor` で continuation cursor owner を取り出して次 batch へ進む。次 index は checked arithmetic で計算し、descriptor 範囲も plan row span と frame height の内側にあることを検査する。drain / budget は F5bw には含めず、後続 phase で `status` と `next_batch` を使って設計する。
 
+### Render2d row batch scheduler drain boundary
+
+F5bx は F5bw の `GuiRgba8888RowBatchCursorOwner` を、scheduler の time slice 内で bounded に進める progress-only boundary である。これは row byte payload 作成、row copy、tile / RLE 作成、host present、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888RowBatchCursorOwner
+    + remaining_steps
+    -> Result GuiRgba8888RowBatchDrainTerminal GuiRgba8888RowBatchDrainError
+```
+
+`GuiRgba8888RowBatchDrainTerminal` は owner-bearing struct であり、`GuiRgba8888RowBatchDrainStatus`、continuation cursor owner、emitted count を保持する。`GuiRgba8888RowBatchDrainStatus` は Copy enum の `Completed` / `StepBudgetExhausted` である。terminal 自体は cursor owner を保持するため Clone / Copy を実装しない。
+
+drain は status を budget より先に読む。すでに complete な cursor は、`remaining_steps` が 0 や負数でも `Completed` であり、budget exhaustion に隠れない。`Ready` cursor で `remaining_steps == 0` の場合は step を実行せず `StepBudgetExhausted` を返す。`Ready` cursor で `remaining_steps < 0` の場合は caller bug として `GuiRgba8888RowBatchDrainErrorKind::InvalidBudget` を返し、cursor owner を error に保持する。
+
+positive budget では `gui_rgba8888_row_batch_cursor_next_batch` を 1 回ずつ呼ぶ。成功後は Copy descriptor の batch index が step 前 cursor index と一致すること、continuation cursor index が checked arithmetic で `previous + 1` になることを検査し、破れた場合は `ProgressInvariantInvalid` を返す。`emitted_count` の加算も checked であり、overflow は `EmittedCountOverflow` で owner-bearing error になる。`emitted_count` はこの call で進めた batch descriptor 数であり、transport payload 数や row bytes 数ではない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

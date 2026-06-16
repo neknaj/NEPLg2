@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5bx render2d row batch scheduler drain boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-drain-f5bx-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bx の render2d row batch scheduler drain、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan and implementation review
+
+- Tesla plan review は `PLAN_APPROVED`。F5bx を row payload ではなく scheduler progress boundary とし、`emitted_count` を transport authority にしないこと、no row payload / host / platform / fallback を docs/source policy に固定する条件で承認された。
+- Planck plan review は `PLAN_BLOCKED`。complete 判定を budget より先に置くこと、zero budget と negative budget を分けること、negative budget を owner-bearing `InvalidBudget` にすること、descriptor index と continuation cursor index の progress invariant を検査すること、checked emitted count を固定することが指摘された。
+- revised plan は Tesla / Planck とも `PLAN_APPROVED`。実装中に owner-bearing enum variant へ cursor と count を直接入れる形は parser / Resource checker 負荷が高かったため、`GuiRgba8888RowBatchDrainTerminal` owner-bearing struct と `GuiRgba8888RowBatchDrainStatus` Copy enum に分けた。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_drain.nepl` を追加した。
+- `GuiRgba8888RowBatchDrainErrorKind` は `CursorStepFailed %GuiRgba8888RowBatchCursorErrorKind`、`InvalidBudget`、`ProgressInvariantInvalid`、`EmittedCountOverflow` を持つ。
+- `GuiRgba8888RowBatchDrainStatus` は `Completed` / `StepBudgetExhausted` の Copy enum とし、terminal 自体は cursor owner を保持する struct なので `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_drain_budget` は status を budget より先に読み、complete cursor を budget exhaustion に隠さない。
+- Ready cursor では `remaining_steps < 0` を `InvalidBudget`、`remaining_steps == 0` を `StepBudgetExhausted` として分ける。
+- positive budget では `next_batch` 後に descriptor batch index と continuation cursor index の progress invariant を検査し、emitted count 加算も checked arithmetic にした。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch drain を再公開した。
+- `tests/stdlib/gui_render2d_row_batch_drain.n.md` に F5bx focused doctest label と runnable case を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bx の scheduler progress boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bx source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_drain.n.md` 5 / 5 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_drain.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 322s
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck implementation review は `REVIEW_APPROVED`。complete-before-budget、negative / zero budget の分離、owner-bearing error、cursor error kind の保持、progress invariant、checked emitted count、terminal / error owner struct の no Clone / no Copy、no row bytes / tile / RLE / Vec / host present / video memory / Canvas / DOM / minifb / platform / fallback を確認済みである。
+- Tesla implementation review は `REVIEW_BLOCKED` だが、content blocker はない。残指摘は新規 `row_batch_drain.nepl` / focused doctest の staging と、この note への review / `git diff --check` 記録だけであり、この section と verification を更新済みである。
+
+## remaining
+
+- F5bx は formal byte payload / host present 前の scheduler progress boundary までであり、formal row / tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bw render2d row batch cursor owner boundary
 
 ## scope

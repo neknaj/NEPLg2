@@ -86,6 +86,8 @@ const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
 const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
 const allocRender2dRowBatchCursorImpl = withoutComments(allocRender2dRowBatchCursor);
+const allocRender2dRowBatchDrain = read("stdlib/alloc/gui/render2d/row_batch_drain.nepl");
+const allocRender2dRowBatchDrainImpl = withoutComments(allocRender2dRowBatchDrain);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -114,6 +116,7 @@ const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surfa
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
 const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
+const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_drain.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -17869,6 +17872,111 @@ assert(
         guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_owner_constructor_restricted") &&
         guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_no_platform_no_fallback"),
     "F5bw row batch cursor focused doctest must cover facade, start revalidation, empty complete status, first descriptor, owner constructor restriction, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row batch scheduler drain") &&
+            doc.includes("GuiRgba8888RowBatchDrainTerminal") &&
+            doc.includes("GuiRgba8888RowBatchDrainStatus") &&
+            doc.includes("InvalidBudget") &&
+            doc.includes("ProgressInvariantInvalid") &&
+            doc.includes("emitted_count") &&
+            doc.includes("fallback"),
+        `F5bx ${name} must document row batch scheduler drain status, budget, progress invariant, emitted_count, and no fallback policy`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_batch_drain" as *'), "alloc/gui/render2d facade must export F5bx row batch drain");
+assert(
+    allocRender2dRowBatchDrain.includes("pub enum GuiRgba8888RowBatchDrainErrorKind:") &&
+        allocRender2dRowBatchDrain.includes("CursorStepFailed %GuiRgba8888RowBatchCursorErrorKind") &&
+        allocRender2dRowBatchDrain.includes("InvalidBudget") &&
+        allocRender2dRowBatchDrain.includes("ProgressInvariantInvalid") &&
+        allocRender2dRowBatchDrain.includes("EmittedCountOverflow") &&
+        allocRender2dRowBatchDrain.includes("pub enum GuiRgba8888RowBatchDrainStatus:") &&
+        allocRender2dRowBatchDrain.includes("Completed") &&
+        allocRender2dRowBatchDrain.includes("StepBudgetExhausted") &&
+        allocRender2dRowBatchDrain.includes("pub struct GuiRgba8888RowBatchDrainTerminal:") &&
+        allocRender2dRowBatchDrain.includes("status %GuiRgba8888RowBatchDrainStatus") &&
+        allocRender2dRowBatchDrain.includes("cursor %GuiRgba8888RowBatchCursorOwner") &&
+        allocRender2dRowBatchDrain.includes("emitted_count %i32") &&
+        allocRender2dRowBatchDrain.includes("pub struct GuiRgba8888RowBatchDrainError:") &&
+        allocRender2dRowBatchDrain.includes("cursor %GuiRgba8888RowBatchCursorOwner"),
+    "alloc/gui/render2d/row_batch_drain F5bx must define typed drain status, owner-bearing terminal, and owner-bearing error",
+);
+assertNoMatch(
+    allocRender2dRowBatchDrainImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowBatchDrainTerminal|impl (?:Clone|Copy) for GuiRgba8888RowBatchDrainError\b/,
+    "alloc/gui/render2d/row_batch_drain F5bx terminal and error must not implement Clone or Copy",
+);
+const rowBatchDrainBudget = functionSlice(allocRender2dRowBatchDrainImpl, "gui_rgba8888_row_batch_drain_budget");
+assertOrderedFragments(
+    rowBatchDrainBudget,
+    [
+        "match gui_rgba8888_row_batch_cursor_status &current_cursor:",
+        "GuiRgba8888RowBatchCursorStatus::Complete:",
+        "set final_is_complete true",
+        "GuiRgba8888RowBatchCursorStatus::Ready:",
+        "if lt current_remaining_steps 0:",
+        "GuiRgba8888RowBatchDrainErrorKind::InvalidBudget",
+        "if eq current_remaining_steps 0:",
+        "set final_is_complete false",
+        "gui_rgba8888_row_batch_cursor_next_batch current_cursor",
+    ],
+    "alloc/gui/render2d/row_batch_drain F5bx must check status before budget, separate negative/zero budget, then call next_batch only for positive ready work",
+);
+assertOrderedFragments(
+    rowBatchDrainBudget,
+    [
+        "let previous_batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index &current_cursor",
+        "let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor &batch",
+        "let descriptor_batch_index %i32 gui_rgba8888_row_batch_descriptor_batch_index &descriptor",
+        "let next_cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_finish_cursor batch",
+        "if ne descriptor_batch_index previous_batch_index:",
+        "GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid",
+        "gui_rgba8888_row_batch_drain_checked_add_nonnegative_delta previous_batch_index 1 GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid",
+        "if ne actual_next_batch_index expected_next_batch_index:",
+        "GuiRgba8888RowBatchDrainErrorKind::ProgressInvariantInvalid",
+    ],
+    "alloc/gui/render2d/row_batch_drain F5bx must validate descriptor and continuation cursor progress after next_batch",
+);
+assertOrderedFragments(
+    rowBatchDrainBudget,
+    [
+        "gui_rgba8888_row_batch_drain_checked_add_nonnegative_delta emitted_count 1 GuiRgba8888RowBatchDrainErrorKind::EmittedCountOverflow",
+        "set emitted_count next_emitted_count",
+        "set current_remaining_steps sub current_remaining_steps 1",
+        "if final_is_error:",
+        "Result::Err gui_rgba8888_row_batch_drain_error final_error_kind current_cursor",
+        "gui_rgba8888_row_batch_drain_terminal GuiRgba8888RowBatchDrainStatus::Completed current_cursor emitted_count",
+        "gui_rgba8888_row_batch_drain_terminal GuiRgba8888RowBatchDrainStatus::StepBudgetExhausted current_cursor emitted_count",
+    ],
+    "alloc/gui/render2d/row_batch_drain F5bx must use checked emitted count and return owner-bearing terminal/error",
+);
+assertNoMatch(
+    allocRender2dRowBatchDrainImpl,
+    /\b(?:raw|storage|ByteBuf|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|row_payload|row_copy|byte_copy|tile|transport|fallback|silent no-op|finish_surface|RLE|rle)\b/,
+    "alloc/gui/render2d/row_batch_drain F5bx must remain scheduler-progress-only without payload, host/platform, or fallback",
+);
+assertNoMatch(
+    allocRender2dRowBatchDrainImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_batch_drain F5bx implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_facade_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_complete_before_budget_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_negative_budget_error_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_zero_budget_exhausted_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_partial_budget_progress_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_completion_count_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_progress_invariant_checked_ok") &&
+        guiRender2dRowBatchDrainTests.includes("render2d_row_batch_drain_no_platform_no_fallback"),
+    "F5bx row batch drain focused doctest must cover facade, complete-before-budget, negative/zero budget, progress, completion count, progress invariant, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

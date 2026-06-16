@@ -887,6 +887,51 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/g
 git diff --check
 ```
 
+## Phase F5bx: Render2d row batch scheduler drain boundary
+
+目的:
+
+- F5bw の `GuiRgba8888RowBatchCursorOwner` を、scheduler の time slice 内で bounded に進める。
+- terminal は owner-bearing struct と Copy status enum に分け、Resource checker が cursor owner を単純に追跡できる形にする。
+- `emitted_count` はこの call で進めた batch descriptor 数だけを表し、row byte payload / tile / RLE / host present の authority にはしない。
+
+plan review:
+
+- 初期案では `StepBudgetExhausted cursor count` / `Completed cursor count` の enum variant に owner と count を直接持たせる設計だった。
+- Planck plan review は `PLAN_BLOCKED`。complete 判定を budget より先に置くこと、zero budget と negative budget を分けること、negative budget を owner-bearing `InvalidBudget` にすること、descriptor index と continuation cursor index の progress invariant を検査すること、checked emitted count を固定することが指摘された。
+- Tesla revised plan review は `PLAN_APPROVED`。status-before-budget、negative budget error、zero budget exhaustion、progress invariant、checked count、no payload / host / platform / fallback を source policy に固定する条件で承認された。
+- 実装時に owner-bearing enum variant へ cursor を直接入れる形は Resource checker と parser 負荷が高かったため、`GuiRgba8888RowBatchDrainTerminal` struct と `GuiRgba8888RowBatchDrainStatus` Copy enum に分ける形へ修正した。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_batch_drain.nepl` を追加する。
+- `GuiRgba8888RowBatchDrainErrorKind`、`GuiRgba8888RowBatchDrainStatus`、`GuiRgba8888RowBatchDrainTerminal`、`GuiRgba8888RowBatchDrainError` を追加する。
+- `GuiRgba8888RowBatchDrainErrorKind` は `CursorStepFailed %GuiRgba8888RowBatchCursorErrorKind`、`InvalidBudget`、`ProgressInvariantInvalid`、`EmittedCountOverflow` を持つ。
+- `gui_rgba8888_row_batch_drain_budget` は status を budget より先に読み、complete cursor を budget exhaustion に隠さない。
+- Ready cursor で `remaining_steps < 0` は `InvalidBudget`、`remaining_steps == 0` は `StepBudgetExhausted`、positive budget は `next_batch` 1 回と progress invariant 検査を繰り返す。
+- descriptor batch index と previous cursor index、continuation cursor index と `previous + 1` を検査し、count 加算も checked arithmetic にする。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch drain を再公開する。
+- `tests/stdlib/gui_render2d_row_batch_drain.n.md` を追加し、complete-before-budget、negative budget error、zero budget exhausted、partial budget progress、completion count、no platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bx source policy を追加し、docs、facade export、status struct terminal、owner no Clone / Copy、status-before-budget、negative / zero budget、progress invariant、checked count、forbidden payload / host / platform / fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row batch cursor / plan regression、source policy、module doctest、`git diff --check` が通る。
+- implementation review で F5bx が scheduler-progress-only であり、row payload / host present / fallback に進んでいないこと、negative budget と zero budget が明確に分かれていること、owner-bearing terminal/error が Clone / Copy されないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5bx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_batch_drain.nepl --no-tree -o tmp_gui_render2d_row_batch_drain_module_f5bx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_cursor.n.md --no-tree -o tmp_gui_render2d_row_batch_cursor_f5bx_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5bx_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
