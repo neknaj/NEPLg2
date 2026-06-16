@@ -7087,6 +7087,60 @@ F5bp may import `alloc/gui/render2d` because the surface owner is a shared rende
 
 F5bp must not call `gui_rgba8888_software_surface_write_pixel`, read or write raw memory, DrawTarget, RenderTarget, backend APIs, platform APIs, Canvas, DOM, minifb, fallback paths, per-sample FillRect bridge, or command-stream emission. It may call surface width / height accessors and surface free.
 
+## SourceOver alpha-mask software drain-step boundary
+
+F5bq turns the F5bp cursor owner into the first real software compositing slice. The slice still stays in `alloc`: it mutates an owned RGBA8888 software surface, but it does not present to Web, native, mobile, bare display hardware, or a headless screenshot transport. Presentation, dirty region aggregation, tile transport, command batching, stroke, and shadow are separate boundaries.
+
+The reusable alpha compositing rule is located in `alloc/gui/render2d/composite.nepl`, not in `alloc/gui/font/sfnt/glyf.nepl`. The glyph module owns the sealed prepared command and alpha-mask resource. Render2d owns the reusable pixel math.
+
+The render2d formula is:
+
+```text
+src_a = mask_alpha * source.a / mask_alpha_max
+inv = 255 - src_a
+out_alpha_num = src_a * 255 + dest.a * inv
+out_a = out_alpha_num / 255
+out_premul_num_c = source.c * src_a * 255 + dest.c * dest.a * inv
+out_c = if out_alpha_num == 0 then 0 else out_premul_num_c / out_alpha_num
+```
+
+All divisions operate on nonnegative signed integers and therefore truncate as floor division. `mask_alpha_max <= 0`, negative mask alpha, mask alpha above max, source alpha multiplication overflow, scaled source alpha outside `0..255`, output alpha outside `0..255`, and output channel outside `0..255` are typed errors. The RGB calculation keeps `out_alpha_num` as the denominator instead of dividing the destination premultiplied term early. This prevents low-alpha unpremultiply overflow; for example, source RGBA `255 255 255 1` over destination RGBA `255 255 255 1` produces channel 255, not a value above 255. The worst intermediate `255 * 255 * 255` is below i32 max, so the numerator arithmetic is safe after input validation.
+
+The software surface write path is strengthened before the drain uses it. `gui_rgba8888_software_surface_write_pixel` computes the pixel byte offset and then projects all four channel pointers before the first store. If any projection fails, no channel is modified. Under the invariant that `GuiRgba8888SoftwareSurfaceOwner` owns allocator-created `RegionToken` storage and exposes no raw constructor or raw storage accessor, a successful projection yields a positive `MemPtr`, and `store_u8` cannot fail after that point.
+
+The drain terminal is owner-bearing:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:
+    Completed GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+```
+
+`CompletedOwner` keeps the prepared owner and surface owner paired. It is not a split accessor. The only way to take the surface is to consume the completed owner, free the prepared/resource side, and return the surface as the explicit result of that finish helper.
+
+The step contract is:
+
+```text
+validate existing prepared/surface pair
+read cell_index
+if cell_index == cell_count:
+    return Completed
+if remaining_steps <= 0:
+    return InvalidBudget error
+read alpha cell by borrowed Vec access
+compute checked x/y
+read dest pixel
+source-over composite
+write pixel
+advance cell_index after successful write
+```
+
+Failures before write return the unchanged owner. Write failure recovers the surface owner from `GuiRgba8888SoftwareSurfaceWriteError`, reconstructs the drain owner with the same `cell_index`, and returns typed `SurfaceWriteFailed`. A successful write must advance by exactly one cell. Any other progress is `ProgressInvariantInvalid`.
+
+Positive budget exhaustion is `StepBudgetExhausted`, not completion and not failure. `remaining_steps <= 0` on a non-completed owner is invalid caller scheduling and returns `InvalidBudget`.
+
+F5bq may call `gui_rgba8888_software_surface_read_pixel`, the checked `gui_rgba8888_software_surface_write_pixel`, and `gui_rgba8888_source_over_alpha_mask`. It must not call F5bj sample command bridge, `render_command_fill_rect`, raw `RenderCommand` accessors, DrawTarget, RenderTarget, backend APIs, platform APIs, Canvas, DOM, minifb, byte-backed lookup helpers, old traversal helpers, font fallback, zero-fill fallback, alpha Vec clone/copy, or unchecked rect extent helpers.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

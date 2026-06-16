@@ -10,6 +10,7 @@ source policy coverage labels:
 - render2d_software_surface_allocation_failure_mapping_ok
 - render2d_software_surface_read_write_roundtrip_ok
 - render2d_software_surface_write_failure_owner_recovery_ok
+- render2d_software_surface_prevalidated_channel_projection_ok
 - render2d_software_surface_free_ok
 - render2d_software_surface_no_platform_no_font_no_fallback
 
@@ -121,6 +122,7 @@ exit_code: 0
 // render2d_software_surface_allocation_failure_mapping_ok
 // render2d_software_surface_read_write_roundtrip_ok
 // render2d_software_surface_write_failure_owner_recovery_ok
+// render2d_software_surface_prevalidated_channel_projection_ok
 // render2d_software_surface_free_ok
 // render2d_software_surface_no_platform_no_font_no_fallback
 

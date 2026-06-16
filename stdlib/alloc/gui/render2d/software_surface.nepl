@@ -9,11 +9,13 @@
 //: - pixel は row-major の RGBA8888 とし、`stride_bytes = width * 4`、`byte_len = height * stride_bytes` とします。
 //: - 作成時に geometry と byte length の overflow を先に検査し、その後 `alloc_region_bytes<u8>` で storage を確保します。
 //: - 読み取りは借用だけで行い、書き込みは owner を消費して成功時は更新済み owner、失敗時は owner-bearing error を返します。
+//: - pixel 書き込みは 4 channel すべての pointer projection を store 前に検査し、projection failure では 1 channel も変更しません。
 //:
 //: ### [注意/ちゅうい]
 //: - この module は `core/mem` の safe facade だけを使います。
 //: - raw address accessor、Canvas、DOM、minifb、DrawTarget、RenderTarget、font glyf 実装には依存しません。
-//: - SourceOver 合成や alpha-mask drain は次の段階で、この surface owner を消費する上位 API として追加します。
+//: - `RegionToken` 由来の pointer projection が成功した後の `store_u8` は、この owner が正規 allocator から得た storage を保持する限り失敗しない契約です。
+//: - SourceOver 合成や alpha-mask drain は、この surface owner を消費する上位 API として追加します。
 //:
 //: neplg2:test[skip]
 //: ```neplg2
@@ -171,6 +173,20 @@ fn gui_rgba8888_software_surface_store_channel %fn &RegionToken u8 fn i32 fn i32
                 Result::Ok _:
                     Result::Ok unit
 
+fn gui_rgba8888_software_surface_project_channel %fn &RegionToken u8 fn i32 Result MemPtr u8 GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset:
+    match region_ptr_at<u8,u8> storage byte_offset:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::PointerProjectionFailed
+        Result::Ok ptr:
+            Result::Ok ptr
+
+fn gui_rgba8888_software_surface_store_projected_channel %fn MemPtr u8 fn i32 Result unit GuiRgba8888SoftwareSurfaceErrorKind \ptr\value:
+    match store_u8 ptr value:
+        Result::Err _e:
+            Result::Err GuiRgba8888SoftwareSurfaceErrorKind::StoreFailed
+        Result::Ok _:
+            Result::Ok unit
+
 fn gui_rgba8888_software_surface_load_channel %fn &RegionToken u8 fn i32 Result i32 GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset:
     match region_ptr_at<u8,u8> storage byte_offset:
         Result::Err _e:
@@ -257,19 +273,35 @@ fn gui_rgba8888_software_surface_write_color %fn &RegionToken u8 fn i32 fn Rgba8
     let g %i32 cast rgba8888_g &color
     let b %i32 cast rgba8888_b &color
     let a %i32 cast rgba8888_a &color
-    match gui_rgba8888_software_surface_store_channel storage byte_offset r:
+    match gui_rgba8888_software_surface_project_channel storage byte_offset:
         Result::Err kind:
             Result::Err kind
-        Result::Ok _:
-            match gui_rgba8888_software_surface_store_channel storage add byte_offset 1 g:
+        Result::Ok r_ptr:
+            match gui_rgba8888_software_surface_project_channel storage add byte_offset 1:
                 Result::Err kind:
                     Result::Err kind
-                Result::Ok _:
-                    match gui_rgba8888_software_surface_store_channel storage add byte_offset 2 b:
+                Result::Ok g_ptr:
+                    match gui_rgba8888_software_surface_project_channel storage add byte_offset 2:
                         Result::Err kind:
                             Result::Err kind
-                        Result::Ok _:
-                            gui_rgba8888_software_surface_store_channel storage add byte_offset 3 a
+                        Result::Ok b_ptr:
+                            match gui_rgba8888_software_surface_project_channel storage add byte_offset 3:
+                                Result::Err kind:
+                                    Result::Err kind
+                                Result::Ok a_ptr:
+                                    match gui_rgba8888_software_surface_store_projected_channel r_ptr r:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok _r_written:
+                                            match gui_rgba8888_software_surface_store_projected_channel g_ptr g:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok _g_written:
+                                                    match gui_rgba8888_software_surface_store_projected_channel b_ptr b:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok _b_written:
+                                                            gui_rgba8888_software_surface_store_projected_channel a_ptr a
 
 fn gui_rgba8888_software_surface_read_color %fn &RegionToken u8 fn i32 Result Rgba8888 GuiRgba8888SoftwareSurfaceErrorKind \storage\byte_offset:
     match gui_rgba8888_software_surface_load_channel storage byte_offset:

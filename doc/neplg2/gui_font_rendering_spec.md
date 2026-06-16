@@ -6314,6 +6314,78 @@ GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
 
 F5bp は raw `RenderCommand` accessor、`&RenderCommand` accessor、command callback、prepared owner と surface owner の split accessor、`gui_rgba8888_software_surface_write_pixel`、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、fallback、zero-fill fallback を使わない。
 
+### SourceOver alpha-mask software drain-step boundary
+
+F5bq は F5bp の drain owner を消費し、bounded work slice として RGBA8888 software surface へ alpha-mask pixel を SourceOver 合成する境界である。この phase は Web / Native / bare / headless の backend へ present しない。dirty region、tile / bitmap transport、FHD 60fps batching、stroke、shadow は後続 phase の責務である。
+
+SourceOver 算術は font/glyf 固有ではなく `alloc/gui/render2d/composite` の純粋 helper とする。
+
+```text
+gui_rgba8888_source_over_alpha_mask:
+    source Rgba8888
+    mask_alpha i32
+    mask_alpha_max i32
+    dest Rgba8888
+    -> Result Rgba8888 GuiRgba8888SourceOverAlphaMaskErrorKind
+```
+
+合成式は straight alpha とする。
+
+```text
+src_a = mask_alpha * source.a / mask_alpha_max
+inv = 255 - src_a
+out_alpha_num = src_a * 255 + dest.a * inv
+out_a = out_alpha_num / 255
+out_premul_num_c = source.c * src_a * 255 + dest.c * dest.a * inv
+out_c = if out_alpha_num == 0 then 0 else out_premul_num_c / out_alpha_num
+```
+
+割り算は非負整数の signed division による floor とする。`mask_alpha_max <= 0`、`mask_alpha < 0`、`mask_alpha > mask_alpha_max`、`mask_alpha * source.a` overflow、`src_a` が `0..255` の外に出る場合は typed error で返す。`out_a` と各 `out_c` は `u8` cast 前に `0..255` を満たすことを検査する。low alpha 同士の合成でも `out_alpha_num` を分母として保持するため、`source = rgba 255 255 255 1`、`dest = rgba 255 255 255 1` は RGB 255 を超えない。
+
+software surface の pixel write は 4 channel すべての `region_ptr_at` projection を store 前に検査する。projection failure の場合、1 channel も store してはいけない。正規 allocator 由来の `RegionToken` を保持する `GuiRgba8888SoftwareSurfaceOwner` の invariant の下では、projection 成功後の `store_u8` は失敗しない。
+
+drain terminal は completed と budget exhaustion を分ける。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal:
+    Completed GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner
+    StepBudgetExhausted GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+```
+
+`CompletedOwner` は prepared owner と surface owner を pair のまま保持する。surface だけを返す split accessor は作らない。surface が必要な場合は completed owner を消費し、prepared owner を free してから surface を返す explicit finish helper を使う。
+
+step failure は owner-bearing error とする。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStepError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    owner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner
+```
+
+drain は次の順で進む。
+
+```text
+1. prepared / surface / command / record / rect / bounds を再検証する
+2. cell_index < 0 または cell_index > cell_count を reject する
+3. cell_index == cell_count なら Completed を返す
+4. remaining_steps <= 0 なら InvalidBudget error を返す
+5. alpha cell を borrow-only vec::get で読む
+6. alpha が 0..alpha_max にあることを検査する
+7. rect origin と local cell offset から checked position を計算する
+8. surface から destination pixel を borrow read する
+9. render2d SourceOver helper で output pixel を作る
+10. software surface write が成功した後だけ cell_index を 1 つ進める
+11. positive budget を使い切って未完了なら StepBudgetExhausted を返す
+```
+
+read / composite failure は元の owner を unchanged で返す。write failure は lower error kind を読み、surface owner を回収し、同じ `cell_index` で drain owner を復元して返す。成功した write の前に `cell_index` を進めてはいけない。
+
+F5bq は F5bj の per-sample `FillRect` bridge、`render_command_fill_rect`、raw `RenderCommand` accessor、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / backend API、font fallback、zero-fill fallback、silent no-op、alpha Vec clone / copy、byte-backed lookup、old traversal、unchecked rect extent helper を使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
