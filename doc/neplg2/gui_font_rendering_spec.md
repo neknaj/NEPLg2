@@ -6628,6 +6628,24 @@ GuiRgba8888RowTileRleCursorOwner
 
 `next_run` は complete cursor に対して silent no-op を返さず、`CursorComplete` を `GuiRgba8888RowTileRleStepError` に入れて cursor owner を保持する。pixel read は `pixel_index * 4`、`base + 1`、`base + 2`、`base + 3` をすべて checked arithmetic で検査し、payload read failure は `PayloadReadFailed %GuiRgba8888RowTilePayloadReadErrorKind` として包む。
 
+### Render2d row tile RLE drain boundary
+
+F5cd は `GuiRgba8888RowTileRleCursorOwner` を scheduler の bounded step として進める row tile RLE drain である。この phase は encoded RLE transport ではなく、cursor progress と emitted run count だけを返す。
+
+```text
+GuiRgba8888RowTileRleCursorOwner
+    -> gui_rgba8888_row_tile_rle_drain_budget remaining_steps
+    -> Result GuiRgba8888RowTileRleDrainTerminal GuiRgba8888RowTileRleDrainError
+```
+
+`GuiRgba8888RowTileRleDrainTerminal` は `status`、continuation `cursor`、`emitted_run_count` を持つ owner-bearing terminal であり、Clone / Copy を実装しない。`status` は Copy enum の `Completed` または `StepBudgetExhausted` である。`GuiRgba8888RowTileRleDrainError` も owner-bearing error であり、`InvalidBudget`、`CursorStepFailed %GuiRgba8888RowTileRleStepErrorKind`、`ProgressInvariantInvalid`、`EmittedCountOverflow` を typed kind として保持する。
+
+drain は complete status を budget より先に判定する。complete cursor は `remaining_steps < 0` でも `Completed` として返り、Ready cursor だけが負 budget で `InvalidBudget` になる。`remaining_steps == 0` は step を実行せず `StepBudgetExhausted` を返す。
+
+positive budget では `gui_rgba8888_row_tile_rle_cursor_next_run` を 1 run ずつ呼び、discard する `GuiRgba8888RowTileRleRun` の `pixel_offset == previous_next_pixel_index`、`pixel_count > 0`、`previous_next_pixel_index + pixel_count == continuation.next_pixel_index`、`continuation.next_pixel_index <= pixel_count` を検査する。`emitted_run_count` はこの call で消費した run metadata の数であり、encoded byte count ではない。
+
+この layer は `Vec`、encoded RLE buffer、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。formal encoded RLE payload と host presentation は後続 phase で別 owner boundary として設計する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

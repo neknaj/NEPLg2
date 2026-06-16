@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5cd render2d row tile RLE drain boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-drain-f5cd-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cd の row tile RLE drain、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review は `PLAN_APPROVED`。encoded transport へ直接進まず、scheduler semantics、run traversal、owner recovery、allocation / host concerns を分離するため、F5cc cursor の bounded drain を先に作る方針が承認された。
+- 追加条件として、continuation cursor index だけでなく discard する Copy run metadata の `pixel_offset == previous_next_pixel_index` と `pixel_count > 0` も検査する。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` を追加した。
+- `GuiRgba8888RowTileRleDrainErrorKind`、`GuiRgba8888RowTileRleDrainStatus`、`GuiRgba8888RowTileRleDrainTerminal`、`GuiRgba8888RowTileRleDrainError` を typed value として分けた。
+- `gui_rgba8888_row_tile_rle_drain_budget` は status-before-budget で cursor を進める。
+- complete cursor は負 budget でも `Completed` とし、Ready cursor の負 budget は owner-bearing `InvalidBudget`、zero budget は `StepBudgetExhausted` とする。
+- positive budget では `next_run` で得た Copy run metadata と continuation cursor の進捗不変条件を検査し、`emitted_run_count` を checked arithmetic で増やす。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE drain を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cd の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cd source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Cicero implementation review は `REVIEW_APPROVED`。`gui_rgba8888_row_tile_rle_drain_budget` が status-before-budget、complete cursor + negative budget の `Completed`、Ready cursor + negative budget の owner-bearing `InvalidBudget`、Ready cursor + zero budget の `StepBudgetExhausted`、run metadata と continuation cursor progress の検査、checked `emitted_run_count` 増加を満たすことを確認した。
+- Cicero は source / docs / source policy が `Result` / enum / match、owner recovery、no fallback、no host / platform、contract と current implementation の分離に沿っていることを確認した。
+- Cicero は `node --check nodesrc/test_web_gui_font_rendering_contract.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、`tests/stdlib/gui_render2d_row_tile_rle_drain.n.md`、`stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` を再実行し、すべて pass、Node WASI experimental warning のみと確認した。
+
+## remaining
+
+- F5cd は row tile RLE cursor の scheduler/progress-only drain までであり、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5cc render2d row tile RLE cursor boundary
 
 ## scope

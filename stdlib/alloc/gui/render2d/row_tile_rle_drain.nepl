@@ -1,0 +1,229 @@
+//: # alloc/gui/render2d/row_tile_rle_drain
+//: RGBA8888 row tile RLE scheduler progress boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowTileRleCursorOwner` を、scheduler の time slice 内で bounded に[進/すす]めます。
+//: - この phase の[成果物/せいかぶつ]は cursor progress と emitted run count だけです。encoded RLE buffer、transport payload、host present は[作/つく]りません。
+//:
+//: ### [契約/けいやく]
+//: - 完了判定は budget 判定より[前/まえ]に[行/おこな]います。complete cursor は負 budget でも `Completed` です。
+//: - `remaining_steps == 0` は有効な scheduler slice exhaustion として `StepBudgetExhausted` を[返/かえ]します。
+//: - `remaining_steps < 0` は caller bug として owner-bearing `InvalidBudget` error を[返/かえ]します。
+//: - `next_run` 成功後、discard する run metadata と continuation cursor が同じ 1 run の[進捗/しんちょく]を[示/しめ]すことを[検査/けんさ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - run は Copy metadata であり、この module では encoded transport authority として[扱/あつか]いません。
+//: - `Vec`、encoded buffer、raw storage、video memory host call、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_drain" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleDrainErrorKind:
+    CursorStepFailed %GuiRgba8888RowTileRleStepErrorKind
+    InvalidBudget
+    ProgressInvariantInvalid
+    EmittedCountOverflow
+
+impl Clone for GuiRgba8888RowTileRleDrainErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleDrainErrorKind GuiRgba8888RowTileRleDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleDrainErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleDrainErrorKind GuiRgba8888RowTileRleDrainErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleDrainStatus:
+    Completed
+    StepBudgetExhausted
+
+impl Clone for GuiRgba8888RowTileRleDrainStatus:
+    fn clone %fn &GuiRgba8888RowTileRleDrainStatus GuiRgba8888RowTileRleDrainStatus \status:
+        *status
+
+impl Copy for GuiRgba8888RowTileRleDrainStatus:
+    fn copy_mark %fn GuiRgba8888RowTileRleDrainStatus GuiRgba8888RowTileRleDrainStatus \status:
+        status
+
+pub struct GuiRgba8888RowTileRleDrainTerminal:
+    status %GuiRgba8888RowTileRleDrainStatus
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    emitted_run_count %i32
+
+pub struct GuiRgba8888RowTileRleDrainError:
+    kind %GuiRgba8888RowTileRleDrainErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowTileRleCursorOwner
+
+fn gui_rgba8888_row_tile_rle_drain_terminal %fn GuiRgba8888RowTileRleDrainStatus fn GuiRgba8888RowTileRleCursorOwner fn i32 GuiRgba8888RowTileRleDrainTerminal \status\cursor\emitted_run_count:
+    GuiRgba8888RowTileRleDrainTerminal status cursor emitted_run_count
+
+fn gui_rgba8888_row_tile_rle_drain_error_category %fn GuiRgba8888RowTileRleDrainErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleDrainErrorKind::CursorStepFailed _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleDrainErrorKind::InvalidBudget:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleDrainErrorKind::ProgressInvariantInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleDrainErrorKind::EmittedCountOverflow:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_drain_error %fn GuiRgba8888RowTileRleDrainErrorKind fn GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleDrainError \kind\cursor:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_drain_error_category kind
+    GuiRgba8888RowTileRleDrainError kind category cursor
+
+pub fn gui_rgba8888_row_tile_rle_drain_error_kind %fn &GuiRgba8888RowTileRleDrainError GuiRgba8888RowTileRleDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_drain_error_category_value %fn &GuiRgba8888RowTileRleDrainError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_drain_error_cursor %fn GuiRgba8888RowTileRleDrainError GuiRgba8888RowTileRleCursorOwner \error:
+    field::get error "cursor"
+
+pub fn gui_rgba8888_row_tile_rle_drain_terminal_status %fn &GuiRgba8888RowTileRleDrainTerminal GuiRgba8888RowTileRleDrainStatus \terminal:
+    *field::get_ref terminal "status"
+
+pub fn gui_rgba8888_row_tile_rle_drain_terminal_emitted_run_count %fn &GuiRgba8888RowTileRleDrainTerminal i32 \terminal:
+    *field::get_ref terminal "emitted_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_drain_terminal_finish_cursor %fn GuiRgba8888RowTileRleDrainTerminal GuiRgba8888RowTileRleCursorOwner \terminal:
+    field::get terminal "cursor"
+
+fn gui_rgba8888_row_tile_rle_drain_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowTileRleDrainErrorKind Result i32 GuiRgba8888RowTileRleDrainErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+//: gui_rgba8888_row_tile_rle_drain_budget: row tile RLE cursor を scheduler budget 内で[進/すす]める
+//:
+//: [契約/けいやく]:
+//: - status は budget より[先/さき]に[読/よ]み、complete cursor を budget exhaustion と[混同/こんどう]しません。
+//: - `remaining_steps == 0` は step を[実行/じっこう]せず `StepBudgetExhausted` を[返/かえ]します。
+//: - `remaining_steps < 0` は `InvalidBudget` error を[返/かえ]し、cursor owner を[保持/ほじ]します。
+//: - `emitted_run_count` はこの call で[進/すす]めた RLE run metadata 数であり、encoded byte 数ではありません。
+pub fn gui_rgba8888_row_tile_rle_drain_budget %fn GuiRgba8888RowTileRleCursorOwner fn i32 Result GuiRgba8888RowTileRleDrainTerminal GuiRgba8888RowTileRleDrainError \cursor\remaining_steps:
+    let mut current_cursor %GuiRgba8888RowTileRleCursorOwner cursor
+    let mut current_remaining_steps %i32 remaining_steps
+    let mut emitted_run_count %i32 0
+    let mut done %bool false
+    let mut final_is_error %bool false
+    let mut final_is_complete %bool false
+    let mut final_error_kind %GuiRgba8888RowTileRleDrainErrorKind GuiRgba8888RowTileRleDrainErrorKind::InvalidBudget
+    while not done:
+        do:
+            match gui_rgba8888_row_tile_rle_cursor_status &current_cursor:
+                Result::Err cursor_kind:
+                    set final_is_error true
+                    set final_error_kind GuiRgba8888RowTileRleDrainErrorKind::CursorStepFailed cursor_kind
+                    set done true
+                Result::Ok status:
+                    match status:
+                        GuiRgba8888RowTileRleCursorStatus::Complete:
+                            set final_is_error false
+                            set final_is_complete true
+                            set done true
+                        GuiRgba8888RowTileRleCursorStatus::Ready:
+                            if lt current_remaining_steps 0:
+                                then:
+                                    set final_is_error true
+                                    set final_error_kind GuiRgba8888RowTileRleDrainErrorKind::InvalidBudget
+                                    set done true
+                                else:
+                                    if eq current_remaining_steps 0:
+                                        then:
+                                            set final_is_error false
+                                            set final_is_complete false
+                                            set done true
+                                        else:
+                                            let previous_next_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index &current_cursor
+                                            let previous_pixel_count %i32 gui_rgba8888_row_tile_rle_cursor_pixel_count &current_cursor
+                                            match gui_rgba8888_row_tile_rle_cursor_next_run current_cursor:
+                                                Result::Err step_error:
+                                                    let cursor_kind %GuiRgba8888RowTileRleStepErrorKind gui_rgba8888_row_tile_rle_step_error_kind &step_error
+                                                    let recovered_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_step_error_cursor step_error
+                                                    set current_cursor recovered_cursor
+                                                    set final_is_error true
+                                                    set final_error_kind GuiRgba8888RowTileRleDrainErrorKind::CursorStepFailed cursor_kind
+                                                    set done true
+                                                Result::Ok step:
+                                                    let run %GuiRgba8888RowTileRleRun gui_rgba8888_row_tile_rle_step_run &step
+                                                    let next_cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_step_finish_cursor step
+                                                    let run_pixel_offset %i32 gui_rgba8888_row_tile_rle_run_pixel_offset &run
+                                                    let run_pixel_count %i32 gui_rgba8888_row_tile_rle_run_pixel_count &run
+                                                    if ne run_pixel_offset previous_next_pixel_index:
+                                                        then:
+                                                            set current_cursor next_cursor
+                                                            set final_is_error true
+                                                            set final_error_kind GuiRgba8888RowTileRleDrainErrorKind::ProgressInvariantInvalid
+                                                            set done true
+                                                        else:
+                                                            if le run_pixel_count 0:
+                                                                then:
+                                                                    set current_cursor next_cursor
+                                                                    set final_is_error true
+                                                                    set final_error_kind GuiRgba8888RowTileRleDrainErrorKind::ProgressInvariantInvalid
+                                                                    set done true
+                                                                else:
+                                                                    match gui_rgba8888_row_tile_rle_drain_checked_add_nonnegative_delta previous_next_pixel_index run_pixel_count GuiRgba8888RowTileRleDrainErrorKind::ProgressInvariantInvalid:
+                                                                        Result::Err kind:
+                                                                            set current_cursor next_cursor
+                                                                            set final_is_error true
+                                                                            set final_error_kind kind
+                                                                            set done true
+                                                                        Result::Ok expected_next_pixel_index:
+                                                                            let actual_next_pixel_index %i32 gui_rgba8888_row_tile_rle_cursor_next_pixel_index &next_cursor
+                                                                            if or ne actual_next_pixel_index expected_next_pixel_index gt actual_next_pixel_index previous_pixel_count:
+                                                                                then:
+                                                                                    set current_cursor next_cursor
+                                                                                    set final_is_error true
+                                                                                    set final_error_kind GuiRgba8888RowTileRleDrainErrorKind::ProgressInvariantInvalid
+                                                                                    set done true
+                                                                                else:
+                                                                                    match gui_rgba8888_row_tile_rle_drain_checked_add_nonnegative_delta emitted_run_count 1 GuiRgba8888RowTileRleDrainErrorKind::EmittedCountOverflow:
+                                                                                        Result::Err kind:
+                                                                                            set current_cursor next_cursor
+                                                                                            set final_is_error true
+                                                                                            set final_error_kind kind
+                                                                                            set done true
+                                                                                        Result::Ok next_emitted_run_count:
+                                                                                            set current_cursor next_cursor
+                                                                                            set emitted_run_count next_emitted_run_count
+                                                                                            set current_remaining_steps sub current_remaining_steps 1
+                                                                                            set done false
+    if final_is_error:
+        then Result::Err gui_rgba8888_row_tile_rle_drain_error final_error_kind current_cursor
+        else:
+            if final_is_complete:
+                then:
+                    let terminal %GuiRgba8888RowTileRleDrainTerminal gui_rgba8888_row_tile_rle_drain_terminal GuiRgba8888RowTileRleDrainStatus::Completed current_cursor emitted_run_count
+                    Result::Ok terminal
+                else:
+                    let terminal %GuiRgba8888RowTileRleDrainTerminal gui_rgba8888_row_tile_rle_drain_terminal GuiRgba8888RowTileRleDrainStatus::StepBudgetExhausted current_cursor emitted_run_count
+                    Result::Ok terminal
+
+pub fn gui_rgba8888_row_tile_rle_drain_terminal_free %fn GuiRgba8888RowTileRleDrainTerminal Result unit GuiRgba8888RowByteStorageFinishErrorKind \terminal:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_drain_terminal_finish_cursor terminal
+    gui_rgba8888_row_tile_rle_cursor_free cursor
+
+pub fn gui_rgba8888_row_tile_rle_drain_error_free %fn GuiRgba8888RowTileRleDrainError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_drain_error_cursor error
+    gui_rgba8888_row_tile_rle_cursor_free cursor

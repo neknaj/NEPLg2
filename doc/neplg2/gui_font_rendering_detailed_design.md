@@ -7493,6 +7493,63 @@ All four channel offsets are checked even though valid cursor state should keep 
 
 F5cc remains streaming-only. It does not allocate a `Vec`, build an encoded byte buffer, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. Formal tile / bitmap / row / RLE transport and host presentation remain later phases.
 
+## Render2d row tile RLE drain boundary
+
+F5cd introduces `GuiRgba8888RowTileRleDrainTerminal` above the F5cc cursor. It is a scheduler progress boundary, not an encoded RLE buffer and not a host presentation boundary. The drain consumes a cursor owner and a step budget, then returns either a terminal owner or an owner-bearing error.
+
+```text
+gui_rgba8888_row_tile_rle_drain_budget:
+    input: GuiRgba8888RowTileRleCursorOwner
+    input: remaining_steps i32
+    output: Result GuiRgba8888RowTileRleDrainTerminal GuiRgba8888RowTileRleDrainError
+```
+
+The terminal is:
+
+```text
+GuiRgba8888RowTileRleDrainTerminal:
+    status GuiRgba8888RowTileRleDrainStatus
+    cursor GuiRgba8888RowTileRleCursorOwner
+    emitted_run_count i32
+```
+
+`GuiRgba8888RowTileRleDrainStatus` is Copy metadata with `Completed` and `StepBudgetExhausted`. `GuiRgba8888RowTileRleDrainTerminal` and `GuiRgba8888RowTileRleDrainError` are owner-bearing and do not implement Clone / Copy.
+
+The drain loop order is:
+
+```text
+status = gui_rgba8888_row_tile_rle_cursor_status &current_cursor
+if status is Complete:
+    return Completed terminal
+if status error:
+    return CursorStepFailed with current_cursor
+if remaining_steps < 0:
+    return InvalidBudget with current_cursor
+if remaining_steps == 0:
+    return StepBudgetExhausted terminal
+step = gui_rgba8888_row_tile_rle_cursor_next_run current_cursor
+validate discarded run metadata
+advance continuation cursor
+increment emitted_run_count
+decrement remaining_steps
+repeat
+```
+
+The key rule is status-before-budget. This keeps a complete cursor from being misreported as budget exhaustion or invalid budget. It also makes `StepBudgetExhausted` mean exactly “Ready cursor, no step budget left”.
+
+After each successful `next_run`, the drain validates both the discarded Copy run and the continuation cursor:
+
+```text
+run.pixel_offset == previous_next_pixel_index
+run.pixel_count > 0
+previous_next_pixel_index + run.pixel_count == continuation.next_pixel_index
+continuation.next_pixel_index <= previous_pixel_count
+```
+
+Failure is `ProgressInvariantInvalid`, not panic and not silent no-op. Lower `next_run` errors are wrapped as `CursorStepFailed lower_kind` while preserving the recovered cursor owner.
+
+F5cd remains progress-only. It does not allocate a `Vec`, build an encoded byte buffer, mutate raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. Formal encoded RLE transport, tile bitmap transport, and host presentation remain later owner boundaries.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

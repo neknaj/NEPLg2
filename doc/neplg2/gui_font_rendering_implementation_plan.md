@@ -1163,6 +1163,48 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5cd: Render2d row tile RLE drain boundary
+
+目的:
+
+- F5cc の `GuiRgba8888RowTileRleCursorOwner` を scheduler budget 内で bounded に進める。
+- `GuiRgba8888RowTileRleDrainTerminal` は `status`、continuation cursor、`emitted_run_count` を持つ owner-bearing terminal とする。
+- complete cursor は budget 判定より先に `Completed` へ分類し、Ready cursor の `remaining_steps < 0` だけを `InvalidBudget` にする。
+- この phase は encoded RLE buffer、`Vec`、raw storage、host present、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Cicero plan review は `PLAN_APPROVED`。encoded transport へ直接進まず、scheduler semantics、run traversal、owner recovery、allocation / host concerns を分離するため、F5cc cursor の bounded drain を先に作る方針が承認された。
+- 追加条件として、continuation cursor index だけでなく discard する Copy run metadata の `pixel_offset == previous_next_pixel_index` と `pixel_count > 0` も検査する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl` を追加する。
+- `GuiRgba8888RowTileRleDrainErrorKind`、`GuiRgba8888RowTileRleDrainStatus`、`GuiRgba8888RowTileRleDrainTerminal`、`GuiRgba8888RowTileRleDrainError` を定義する。
+- `gui_rgba8888_row_tile_rle_drain_budget` は status-before-budget で cursor を進め、`StepBudgetExhausted`、`Completed`、owner-bearing error を返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE drain を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` を追加し、facade、complete-before-budget、negative budget error、zero budget exhaustion、partial progress、completion count、run progress invariant、no encoded buffer / platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cd source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE drain module doctest、row tile RLE / payload / plan regression、source policy、`git diff --check` が通る。
+- implementation review で status-before-budget、owner-bearing terminal / error、run metadata progress validation、encoded buffer / `Vec` / raw storage / host present / platform / fallback に進んでいないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5cd.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_drain.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_drain_module_f5cd.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5cd_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5cd_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5cd_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
