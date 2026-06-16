@@ -75,6 +75,44 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5cx: std row tile RLE present host execution report boundary
+
+目的:
+
+- F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と executor outcome を、action context and executor outcome を失わない std layer row tile RLE present host execution report boundary に束ねる。
+- `GuiRgba8888RowTileRlePresentHostExecutionReport` は action と `GuiRgba8888RowTileRlePresentHostExecutionReportKind` を持つ。
+- report kind は `Succeeded` または `Failed GuiError` であり、failure は string / bool / silent no-op へ落とさない。
+- F5cx は not actual execution and not pending completion である。actual Web / native / bare executor、F5cv pending completion、scheduler、queue、timer、platform API、Canvas / DOM / minifb、video memory、fallback、silent no-op には進まない。
+- caller は `report_outcome` で元の `Result unit GuiError` を取り出し、F5cv `complete_request` へ渡す。
+
+plan review:
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5cw が executor action、F5cx が action-retaining outcome envelope を担う分割は、platform executor の前に置く root-cause slice として妥当と確認された。
+- `Result unit GuiError` は executor が既に返した outcome なので、report construction は direct value return とし、新しい `Result` failure mode を作らない。
+- F5cx は F5cv から独立させ、`report_outcome` だけを公開して caller が one-shot pending completion に渡す。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_execution_report.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostExecutionReportKind`、`GuiRgba8888RowTileRlePresentHostExecutionReport`、constructor helper、accessor、`report_for_request`、`report_outcome` を追加する。
+- `report_for_request` は F5cw action decoding を 1 回だけ呼び、supplied outcome を report に束ねる。capability validation、request construction、dispatch loop completion は行わない。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_execution_report.n.md` を追加し、Succeeded / Failed、request-to-action report、`report_outcome` roundtrip を検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cx source policy を追加し、F5cw/F5cr import、F5cv/F5cu/F5ct/F5cs/F5cp/F5co 禁止、raw / platform / host / queue / timer / scheduler / fallback 禁止、NEPL parentheses 禁止を固定する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution_report.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_report_module_f5cx.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5cx_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cx_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

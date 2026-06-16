@@ -138,6 +138,8 @@ const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_impor
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
 const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_execution.nepl");
 const stdGuiTilePresentHostExecutionImpl = withoutComments(stdGuiTilePresentHostExecution);
+const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
+const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -196,6 +198,7 @@ const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_pres
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
+const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -20752,6 +20755,77 @@ assert(
         guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_flat_target_record_mapping_ok") &&
         guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_no_f5cv_no_lower_no_platform_no_fallback"),
     "F5cw std tile present host-execution focused doctest must cover action mapping and source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host execution report boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostExecutionReport") &&
+            doc.includes("action context and executor outcome") &&
+            doc.includes("not actual execution and not pending completion") &&
+            doc.includes("report_outcome"),
+        `F5cx ${name} must document host execution report boundary, action context, and no execution policy`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_execution_report" as *'), "std/gui facade must export F5cx tile present host execution report boundary");
+assert(
+    stdGuiTilePresentHostExecutionReport.includes("pub enum GuiRgba8888RowTileRlePresentHostExecutionReportKind:") &&
+        stdGuiTilePresentHostExecutionReport.includes("Succeeded") &&
+        stdGuiTilePresentHostExecutionReport.includes("Failed %GuiError") &&
+        stdGuiTilePresentHostExecutionReport.includes("pub struct GuiRgba8888RowTileRlePresentHostExecutionReport:") &&
+        stdGuiTilePresentHostExecutionReport.includes("action %GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+        stdGuiTilePresentHostExecutionReport.includes("kind %GuiRgba8888RowTileRlePresentHostExecutionReportKind"),
+    "std/gui/tile_present_host_execution_report F5cx must define report kind enum and action-retaining report",
+);
+assertMatch(
+    stdGuiTilePresentHostExecutionReportImpl,
+    /#import "std\/gui\/tile_present_host_execution" as \*/,
+    "std/gui/tile_present_host_execution_report F5cx must consume F5cw host execution actions",
+);
+assertMatch(
+    stdGuiTilePresentHostExecutionReportImpl,
+    /#import "std\/gui\/tile_present_host_import" as \*/,
+    "std/gui/tile_present_host_execution_report F5cx must consume F5cr host import requests for request report bridge",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionReportImpl,
+    /tile_present_dispatch_loop|tile_present_dispatch|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_execution_report F5cx must not call loops/schedulers/lower cursors/request constructors/raw/platform APIs or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutionReportImpl, "gui_rgba8888_row_tile_rle_present_host_execution_report_for_request"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_execution_action request",
+        "gui_rgba8888_row_tile_rle_present_host_execution_report action outcome",
+    ],
+    "std/gui/tile_present_host_execution_report F5cx request bridge must call F5cw action decoding exactly once before report construction",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutionReportImpl, "gui_rgba8888_row_tile_rle_present_host_execution_report_outcome"),
+    [
+        "GuiRgba8888RowTileRlePresentHostExecutionReportKind::Succeeded:",
+        "Result::Ok unit",
+        "GuiRgba8888RowTileRlePresentHostExecutionReportKind::Failed error:",
+        "Result::Err error",
+    ],
+    "std/gui/tile_present_host_execution_report F5cx must roundtrip report kind to Result unit GuiError",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionReportImpl,
+    /[()]/,
+    "std/gui/tile_present_host_execution_report F5cx implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_facade_ok") &&
+        guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_kind_enum_ok") &&
+        guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_f5cw_f5cr_only_ok") &&
+        guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_outcome_roundtrip_ok") &&
+        guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_no_f5cv_no_platform_no_fallback"),
+    "F5cx std tile present host-execution-report focused doctest must cover report mapping and source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
