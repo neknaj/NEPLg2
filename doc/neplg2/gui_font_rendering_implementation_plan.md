@@ -1440,6 +1440,57 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5cj: Render2d row tile RLE encoded storage boundary
+
+目的:
+
+- F5ci の `GuiRgba8888RowTileRleWriterPlanOwner` を、future encoded writer の exact byte storage owner へ変換する。
+- writer plan の stored byte count と total run count を再検査し、`total_run_count * 12` の checked recompute と stored byte count の一致を確認してから exact allocation へ進む。
+- allocation failure を含む全 prepare failure で original writer plan owner を保持し、fallback や fake owner reconstruction を行わない。
+
+plan review:
+
+- Descartes plan review は `PLAN_APPROVED`。F5cj は F5ci writer plan と future run writer の間に置く allocation / reservation only boundary として妥当である。
+- prepare failure path は allocation failure だけでなく metadata mismatch / invalid count / overflow も original `GuiRgba8888RowTileRleWriterPlanOwner` を保持する必要がある。
+- 検査順は encoded byte count 正値、total run count 正値、checked multiply、stored byte count との一致、allocation の順にする。
+- source policy と docs では、F5cj が `cursor_next_run`、drain、payload read、byte write、`Vec`、host present、platform API、fallback に進まないことを固定する。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` を追加する。
+- `GuiRgba8888RowTileRleStoragePrepareErrorKind` に `EncodedByteCountInvalid`、`TotalRunCountInvalid`、`EncodedByteCountOverflow`、`EncodedByteCountMismatch`、`AllocationFailed` を定義する。
+- `GuiRgba8888RowTileRleStorageOwner` は `cursor`、`total_run_count`、`encoded_byte_count`、`RegionToken u8 storage` を持つ。
+- `GuiRgba8888RowTileRleStoragePrepareError` は original writer plan owner を保持する。
+- `gui_rgba8888_row_tile_rle_storage_prepare` は capacity evidence を再検査し、allocation 成功後にだけ `gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor` を呼ぶ。
+- `gui_rgba8888_row_tile_rle_storage_finish_cursor` は storage を dealloc してから continuation cursor を返す。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encoded storage を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` を追加し、facade、writer-plan-to-storage success、exact byte count、owner recovery label、allocation-only / no platform / no fallback を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cj source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE storage module doctest、writer plan / encode cursor / seed / completed count / count / drain / cursor / payload regression、source policy、`git diff --check` が通る。
+- implementation review で allocation / reservation only boundary であり、RLE data write、payload byte read、host present、platform API、fallback に進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5cj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_storage_module_f5cj.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_writer_plan_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_cursor_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encode_seed_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5cj_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5cj_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

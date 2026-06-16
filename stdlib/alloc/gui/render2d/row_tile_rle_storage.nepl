@@ -1,0 +1,208 @@
+//: # alloc/gui/render2d/row_tile_rle_storage
+//: RGBA8888 row tile RLE encoded storage allocation boundary
+//:
+//: ### [目的/もくてき]
+//: - writer plan owner が[持/も]つ exact encoded byte capacity に[従/したが]い、RLE writer が[後続/こうぞく]で[使/つか]う owned byte storage を[確保/かくほ]します。
+//: - `GuiRgba8888RowTileRleCursorOwner`、total run count、encoded byte count、`RegionToken u8` を 1 つの owner boundary に[束/たば]ねます。
+//:
+//: ### [契約/けいやく]
+//: - stored encoded byte count、stored total run count、`total_run_count * 12` の checked recompute を[再検査/さいけんさ]してから allocator に[進/すす]みます。
+//: - allocation [失敗/しっぱい]を[含/ふく]む prepare [失敗/しっぱい]は original writer plan owner を error に[保持/ほじ]し、caller が owner を[回収/かいしゅう]できます。
+//: - 成功時だけ writer plan owner を[閉/と]じ、continuation cursor と exact encoded storage を storage owner に[移/うつ]します。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は allocation / reservation だけを[担当/たんとう]します。RLE run drain、payload byte read、encoded byte write、Vec、host present、Canvas / DOM / minifb、fallback には[進/すす]みません。
+//: - storage の byte 内容は後続 writer が[初期化/しょきか]するまで[読/よ]めません。この phase では byte reader を public API として[提供/ていきょう]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_storage" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_writer_plan" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleStoragePrepareErrorKind:
+    EncodedByteCountInvalid
+    TotalRunCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+    AllocationFailed
+
+impl Clone for GuiRgba8888RowTileRleStoragePrepareErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleStoragePrepareErrorKind GuiRgba8888RowTileRleStoragePrepareErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleStoragePrepareErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleStoragePrepareErrorKind GuiRgba8888RowTileRleStoragePrepareErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleStorageFinishErrorKind:
+    StorageDeallocFailed
+    CursorFreeFailed %GuiRgba8888RowByteStorageFinishErrorKind
+
+impl Clone for GuiRgba8888RowTileRleStorageFinishErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleStorageFinishErrorKind GuiRgba8888RowTileRleStorageFinishErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleStorageFinishErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleStorageFinishErrorKind GuiRgba8888RowTileRleStorageFinishErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRleStorageOwner:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    total_run_count %i32
+    encoded_byte_count %i32
+    storage %RegionToken u8
+
+pub struct GuiRgba8888RowTileRleStoragePrepareError:
+    kind %GuiRgba8888RowTileRleStoragePrepareErrorKind
+    category %Option GuiError
+    plan %GuiRgba8888RowTileRleWriterPlanOwner
+
+pub struct GuiRgba8888RowTileRleStorageFinishError:
+    kind %GuiRgba8888RowTileRleStorageFinishErrorKind
+    cursor %GuiRgba8888RowTileRleCursorOwner
+
+fn gui_rgba8888_row_tile_rle_storage_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 fn i32 fn RegionToken u8 GuiRgba8888RowTileRleStorageOwner \cursor\total_run_count\encoded_byte_count\storage:
+    GuiRgba8888RowTileRleStorageOwner cursor total_run_count encoded_byte_count storage
+
+fn gui_rgba8888_row_tile_rle_storage_prepare_error_category %fn GuiRgba8888RowTileRleStoragePrepareErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleStoragePrepareErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleStoragePrepareErrorKind::AllocationFailed:
+            Option::Some GuiError::ResourceExhausted
+
+fn gui_rgba8888_row_tile_rle_storage_prepare_error %fn GuiRgba8888RowTileRleStoragePrepareErrorKind fn GuiRgba8888RowTileRleWriterPlanOwner GuiRgba8888RowTileRleStoragePrepareError \kind\plan:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_storage_prepare_error_category kind
+    GuiRgba8888RowTileRleStoragePrepareError kind category plan
+
+fn gui_rgba8888_row_tile_rle_storage_finish_error %fn GuiRgba8888RowTileRleStorageFinishErrorKind fn GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStorageFinishError \kind\cursor:
+    GuiRgba8888RowTileRleStorageFinishError kind cursor
+
+fn gui_rgba8888_row_tile_rle_storage_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleStoragePrepareErrorKind Result i32 GuiRgba8888RowTileRleStoragePrepareErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+pub fn gui_rgba8888_row_tile_rle_storage_owner_total_run_count %fn &GuiRgba8888RowTileRleStorageOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_storage_owner_encoded_byte_count %fn &GuiRgba8888RowTileRleStorageOwner i32 \owner:
+    *field::get_ref owner "encoded_byte_count"
+
+pub fn gui_rgba8888_row_tile_rle_storage_owner_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleStorageOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_storage_owner_cursor_pixel_count %fn &GuiRgba8888RowTileRleStorageOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+
+pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_kind %fn &GuiRgba8888RowTileRleStoragePrepareError GuiRgba8888RowTileRleStoragePrepareErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_category_value %fn &GuiRgba8888RowTileRleStoragePrepareError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_plan_total_run_count %fn &GuiRgba8888RowTileRleStoragePrepareError i32 \error:
+    let plan %&GuiRgba8888RowTileRleWriterPlanOwner field::get_ref error "plan"
+    gui_rgba8888_row_tile_rle_writer_plan_owner_total_run_count plan
+
+pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_plan_encoded_byte_count %fn &GuiRgba8888RowTileRleStoragePrepareError i32 \error:
+    let plan %&GuiRgba8888RowTileRleWriterPlanOwner field::get_ref error "plan"
+    gui_rgba8888_row_tile_rle_writer_plan_owner_encoded_byte_count plan
+
+pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_finish_plan %fn GuiRgba8888RowTileRleStoragePrepareError GuiRgba8888RowTileRleWriterPlanOwner \error:
+    field::get error "plan"
+
+//: gui_rgba8888_row_tile_rle_storage_prepare: writer plan から exact encoded byte storage を[確保/かくほ]する
+//:
+//: [契約/けいやく]:
+//: - encoded byte count、total run count、recomputed byte count の[順/じゅん]で capacity evidence を[再検査/さいけんさ]します。
+//: - allocation [失敗/しっぱい]を[含/ふく]む失敗 path は writer plan owner を[消費/しょうひ]せず、owner-bearing error で[返/かえ]します。
+//: - allocation [成功/せいこう]後にだけ writer plan owner を[閉/と]じ、cursor owner と storage を storage owner に[移/うつ]します。
+pub fn gui_rgba8888_row_tile_rle_storage_prepare %fn GuiRgba8888RowTileRleWriterPlanOwner Result GuiRgba8888RowTileRleStorageOwner GuiRgba8888RowTileRleStoragePrepareError \plan:
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_writer_plan_owner_encoded_byte_count &plan
+    if le encoded_byte_count 0:
+        then Result::Err gui_rgba8888_row_tile_rle_storage_prepare_error GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountInvalid plan
+        else:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_writer_plan_owner_total_run_count &plan
+            if le total_run_count 0:
+                then Result::Err gui_rgba8888_row_tile_rle_storage_prepare_error GuiRgba8888RowTileRleStoragePrepareErrorKind::TotalRunCountInvalid plan
+                else:
+                    match gui_rgba8888_row_tile_rle_storage_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err gui_rgba8888_row_tile_rle_storage_prepare_error kind plan
+                        Result::Ok recomputed_byte_count:
+                            if ne recomputed_byte_count encoded_byte_count:
+                                then Result::Err gui_rgba8888_row_tile_rle_storage_prepare_error GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountMismatch plan
+                                else:
+                                    match alloc_region_bytes<u8> encoded_byte_count:
+                                        Result::Err _:
+                                            Result::Err gui_rgba8888_row_tile_rle_storage_prepare_error GuiRgba8888RowTileRleStoragePrepareErrorKind::AllocationFailed plan
+                                        Result::Ok storage:
+                                            let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor plan
+                                            Result::Ok gui_rgba8888_row_tile_rle_storage_owner_new cursor total_run_count encoded_byte_count storage
+
+pub fn gui_rgba8888_row_tile_rle_storage_prepare_error_free %fn GuiRgba8888RowTileRleStoragePrepareError Result unit GuiRgba8888RowByteStorageFinishErrorKind \error:
+    let plan %GuiRgba8888RowTileRleWriterPlanOwner gui_rgba8888_row_tile_rle_storage_prepare_error_finish_plan error
+    gui_rgba8888_row_tile_rle_writer_plan_owner_free plan
+
+pub fn gui_rgba8888_row_tile_rle_storage_finish_error_kind %fn &GuiRgba8888RowTileRleStorageFinishError GuiRgba8888RowTileRleStorageFinishErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_storage_finish_error_cursor %fn GuiRgba8888RowTileRleStorageFinishError GuiRgba8888RowTileRleCursorOwner \error:
+    field::get error "cursor"
+
+//: gui_rgba8888_row_tile_rle_storage_finish_cursor: encoded storage を[破棄/はき]して continuation cursor を[返/かえ]す
+pub fn gui_rgba8888_row_tile_rle_storage_finish_cursor %fn GuiRgba8888RowTileRleStorageOwner Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStorageFinishError \owner:
+    let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+    let storage %RegionToken u8 field::get owner "storage"
+    match dealloc_region<u8> storage:
+        Result::Err _:
+            Result::Err gui_rgba8888_row_tile_rle_storage_finish_error GuiRgba8888RowTileRleStorageFinishErrorKind::StorageDeallocFailed cursor
+        Result::Ok _:
+            Result::Ok cursor
+
+pub fn gui_rgba8888_row_tile_rle_storage_owner_free %fn GuiRgba8888RowTileRleStorageOwner Result unit GuiRgba8888RowTileRleStorageFinishErrorKind \owner:
+    match gui_rgba8888_row_tile_rle_storage_finish_cursor owner:
+        Result::Err error:
+            let kind %GuiRgba8888RowTileRleStorageFinishErrorKind gui_rgba8888_row_tile_rle_storage_finish_error_kind &error
+            let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_storage_finish_error_cursor error
+            match gui_rgba8888_row_tile_rle_cursor_free cursor:
+                Result::Err _:
+                    Result::Err kind
+                Result::Ok _:
+                    Result::Err kind
+        Result::Ok cursor:
+            match gui_rgba8888_row_tile_rle_cursor_free cursor:
+                Result::Err kind:
+                    Result::Err GuiRgba8888RowTileRleStorageFinishErrorKind::CursorFreeFailed kind
+                Result::Ok _:
+                    Result::Ok unit

@@ -118,6 +118,8 @@ const allocRender2dRowTileRleEncodeCursor = read("stdlib/alloc/gui/render2d/row_
 const allocRender2dRowTileRleEncodeCursorImpl = withoutComments(allocRender2dRowTileRleEncodeCursor);
 const allocRender2dRowTileRleWriterPlan = read("stdlib/alloc/gui/render2d/row_tile_rle_writer_plan.nepl");
 const allocRender2dRowTileRleWriterPlanImpl = withoutComments(allocRender2dRowTileRleWriterPlan);
+const allocRender2dRowTileRleStorage = read("stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl");
+const allocRender2dRowTileRleStorageImpl = withoutComments(allocRender2dRowTileRleStorage);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -158,6 +160,7 @@ const guiRender2dRowTileRleCountCompletedTests = read("tests/stdlib/gui_render2d
 const guiRender2dRowTileRleEncodeSeedTests = read("tests/stdlib/gui_render2d_row_tile_rle_encode_seed.n.md");
 const guiRender2dRowTileRleEncodeCursorTests = read("tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md");
 const guiRender2dRowTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md");
+const guiRender2dRowTileRleStorageTests = read("tests/stdlib/gui_render2d_row_tile_rle_storage.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -19160,6 +19163,103 @@ assert(
         guiRender2dRowTileRleWriterPlanTests.includes("render2d_row_tile_rle_writer_plan_owner_recovery_ok") &&
         guiRender2dRowTileRleWriterPlanTests.includes("render2d_row_tile_rle_writer_plan_no_status_no_drain_no_payload_read_no_encoded_buffer_no_platform_no_fallback"),
     "F5ci row tile RLE writer plan focused doctest must cover facade, ready-to-capacity success, checked byte count, owner recovery, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("row tile RLE encoded storage") &&
+            doc.includes("GuiRgba8888RowTileRleStorageOwner") &&
+            doc.includes("GuiRgba8888RowTileRleStoragePrepareErrorKind") &&
+            doc.includes("EncodedByteCountMismatch") &&
+            doc.includes("allocation / reservation only"),
+        `F5cj ${name} must document encoded storage owner, prepare errors, mismatch rejection, and allocation-only boundary`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_storage" as *'), "alloc/gui/render2d facade must export F5cj row tile RLE encoded storage");
+assert(
+    allocRender2dRowTileRleStorage.includes("pub enum GuiRgba8888RowTileRleStoragePrepareErrorKind:") &&
+        allocRender2dRowTileRleStorage.includes("EncodedByteCountInvalid") &&
+        allocRender2dRowTileRleStorage.includes("TotalRunCountInvalid") &&
+        allocRender2dRowTileRleStorage.includes("EncodedByteCountOverflow") &&
+        allocRender2dRowTileRleStorage.includes("EncodedByteCountMismatch") &&
+        allocRender2dRowTileRleStorage.includes("AllocationFailed") &&
+        allocRender2dRowTileRleStorage.includes("pub struct GuiRgba8888RowTileRleStorageOwner:") &&
+        allocRender2dRowTileRleStorage.includes("cursor %GuiRgba8888RowTileRleCursorOwner") &&
+        allocRender2dRowTileRleStorage.includes("total_run_count %i32") &&
+        allocRender2dRowTileRleStorage.includes("encoded_byte_count %i32") &&
+        allocRender2dRowTileRleStorage.includes("storage %RegionToken u8") &&
+        allocRender2dRowTileRleStorage.includes("plan %GuiRgba8888RowTileRleWriterPlanOwner"),
+    "alloc/gui/render2d/row_tile_rle_storage F5cj must define typed encoded storage owner and owner-bearing prepare error",
+);
+assertNoMatch(
+    allocRender2dRowTileRleStorageImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleStorageOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStoragePrepareError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleStorageFinishError\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5cj owner and errors must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRleStorageImpl,
+    /\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bgui_rgba8888_row_tile_rle_drain_budget\b|\bgui_rgba8888_row_tile_rle_read_pixel\b|\bgui_rgba8888_row_tile_payload_byte_at\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5cj must not drain, rescan, read payload bytes, or read/write encoded storage bytes",
+);
+assertNoMatch(
+    allocRender2dRowTileRleStorageImpl,
+    /\bVec\b|\bEncodedRleBuffer\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_storage F5cj must remain allocation-only without Vec, host/platform, or fallback",
+);
+const rowTileRleStoragePrepare = functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_storage_prepare");
+assertOrderedFragments(
+    rowTileRleStoragePrepare,
+    [
+        "let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_writer_plan_owner_encoded_byte_count &plan",
+        "if le encoded_byte_count 0:",
+        "GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountInvalid plan",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_writer_plan_owner_total_run_count &plan",
+        "if le total_run_count 0:",
+        "GuiRgba8888RowTileRleStoragePrepareErrorKind::TotalRunCountInvalid plan",
+        "gui_rgba8888_row_tile_rle_storage_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountOverflow",
+        "Result::Err kind:",
+        "gui_rgba8888_row_tile_rle_storage_prepare_error kind plan",
+        "Result::Ok recomputed_byte_count:",
+        "if ne recomputed_byte_count encoded_byte_count:",
+        "GuiRgba8888RowTileRleStoragePrepareErrorKind::EncodedByteCountMismatch plan",
+        "match alloc_region_bytes<u8> encoded_byte_count:",
+        "Result::Err _:",
+        "GuiRgba8888RowTileRleStoragePrepareErrorKind::AllocationFailed plan",
+        "Result::Ok storage:",
+        "let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_writer_plan_owner_finish_cursor plan",
+        "Result::Ok gui_rgba8888_row_tile_rle_storage_owner_new cursor total_run_count encoded_byte_count storage",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5cj prepare must revalidate plan capacity, recover owner on all errors, allocate exact bytes, and finish cursor only after allocation",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleStorageImpl, "gui_rgba8888_row_tile_rle_storage_finish_cursor"),
+    [
+        "let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner \"cursor\"",
+        "let storage %RegionToken u8 field::get owner \"storage\"",
+        "match dealloc_region<u8> storage:",
+        "Result::Err _:",
+        "GuiRgba8888RowTileRleStorageFinishErrorKind::StorageDeallocFailed cursor",
+        "Result::Ok _:",
+        "Result::Ok cursor",
+    ],
+    "alloc/gui/render2d/row_tile_rle_storage F5cj finish_cursor must deallocate storage before returning the continuation cursor",
+);
+assertNoMatch(
+    allocRender2dRowTileRleStorageImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_storage F5cj implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_facade_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_writer_plan_to_storage_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_exact_byte_count_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_prepare_error_owner_recovery_ok") &&
+        guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_storage_allocation_only_no_write_no_platform_no_fallback"),
+    "F5cj row tile RLE storage focused doctest must cover facade, writer-plan-to-storage success, exact byte count, owner recovery, and allocation-only policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
