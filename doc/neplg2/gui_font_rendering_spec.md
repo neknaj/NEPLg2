@@ -6507,6 +6507,25 @@ dirty state は `Empty` / `Full` / `One` / `Two` を明示 `match` で扱う。`
 
 batch count は `row_count + max_rows_per_batch - 1` のような overflow しやすい式を使わず、signed quotient / remainder による ceil division で計算する。`finish_frame` は row plan metadata を捨てて bitmap frame owner を返す recovery / teardown API であり、`finish_surface` とは異なる境界である。この phase は host present、row byte copy、tile list、video memory、Canvas / DOM / minifb、fallback を実装しない。
 
+### Render2d row batch cursor owner boundary
+
+F5bw は F5bv の `GuiRgba8888RowBatchPlanOwner` を、scheduler が 1 batch ずつ進められる row batch cursor owner に変換する phase である。これは byte payload 作成、row copy、tile list、host present、video memory host call、Canvas / DOM / minifb、fallback ではない。
+
+```text
+GuiRgba8888RowBatchPlanOwner
+    -> gui_rgba8888_row_batch_cursor_start
+    -> GuiRgba8888RowBatchCursorOwner
+    -> gui_rgba8888_row_batch_cursor_status
+    -> gui_rgba8888_row_batch_cursor_next_batch
+    -> GuiRgba8888RowBatchCursorBatchOwner
+```
+
+`gui_rgba8888_row_batch_cursor_start` は、public owner aggregate や trusted producer から malformed plan owner が渡されてもよい前提で、`gui_rgba8888_row_batch_plan_validate_invariants` により full plan invariant を再検査する。失敗は `GuiRgba8888RowBatchCursorErrorKind::PlanInvariant` に lower `GuiRgba8888RowBatchPlanInvariantErrorKind` を payload として保持し、string や fallback へ潰さない。
+
+`GuiRgba8888RowBatchCursorStatus` は `Ready` / `Complete` の Copy enum である。`batch_index < 0` と `batch_index > batch_count` は typed error、`batch_index == batch_count` だけが `Complete` である。`Complete` の plan owner 回収は `gui_rgba8888_row_batch_cursor_finish_plan` が行い、owner-bearing complete terminal wrapper は作らない。
+
+`gui_rgba8888_row_batch_cursor_next_batch` は `Ready` cursor だけを 1 batch 進める。返す `GuiRgba8888RowBatchDescriptor` は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_len の metadata だけを持つ。caller は descriptor を読んだあと、`gui_rgba8888_row_batch_cursor_batch_finish_cursor` で continuation cursor owner を取り出して次 batch へ進む。次 index は checked arithmetic で計算し、descriptor 範囲も plan row span と frame height の内側にあることを検査する。drain / budget は F5bw には含めず、後続 phase で `status` と `next_batch` を使って設計する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -7283,6 +7283,26 @@ The prepare error carries a typed `GuiRgba8888RowBatchPlanPrepareErrorKind`, an 
 
 F5bv deliberately does not expose raw storage, allocate row bytes, create tile lists, publish video memory, call host present, touch Canvas / DOM / minifb, or implement fallback behavior. Those choices remain in the formal byte payload, transport, and scheduler phases.
 
+## Render2d row batch cursor owner boundary
+
+F5bw turns the row batch plan owner into a row batch cursor owner. The concrete owner type is `GuiRgba8888RowBatchCursorOwner`. The cursor is the first scheduler-facing boundary: it can report whether work remains and can emit one descriptor for the next contiguous row batch. It still does not expose raw bytes, allocate byte payloads, write rows, create tiles, publish video memory, call host present, touch Canvas / DOM / minifb, or implement fallback behavior.
+
+```text
+Row batch plan owner
+    -> start validates full plan invariants
+    -> Cursor owner at batch_index 0
+    -> status reads Ready or Complete
+    -> next_batch emits descriptor plus continuation cursor
+```
+
+`GuiRgba8888RowBatchCursorErrorKind` keeps plan validation precision by carrying `GuiRgba8888RowBatchPlanInvariantErrorKind` as the `PlanInvariant` payload. The cursor layer adds only cursor-local errors: negative index, past-end index, descriptor offset overflow, descriptor bounds invalid, and checked next-index overflow. This avoids duplicating the plan invariant enum while preserving typed `match`-visible failure state.
+
+`GuiRgba8888RowBatchCursorStatus` is a Copy value enum. `Ready` means `0 <= batch_index < batch_count`; `Complete` means `batch_index == batch_count`; any value outside that range is an error. A complete cursor does not create an owner-bearing terminal wrapper. The caller recovers the plan with `gui_rgba8888_row_batch_cursor_finish_plan` or frees it through `gui_rgba8888_row_batch_cursor_free`.
+
+`gui_rgba8888_row_batch_cursor_next_batch` consumes a cursor only when a descriptor is requested. It first calls `status`; `Complete` maps to `CursorIndexPastEnd`, not to silent success. For `Ready`, descriptor construction uses the stored row span and max rows per batch. The next cursor index is computed with checked arithmetic before the continuation cursor is constructed. The normal scheduler path is to read the descriptor, then call `gui_rgba8888_row_batch_cursor_batch_finish_cursor` to recover the continuation cursor owner for the next slice.
+
+F5bw intentionally excludes drain / budget logic. Bounded draining is a scheduler policy built on top of `status` and `next_batch`; including it in the cursor slice would add another owner-bearing terminal and obscure the root boundary. This keeps the first cursor contract small enough for doctests and source policy to validate directly.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

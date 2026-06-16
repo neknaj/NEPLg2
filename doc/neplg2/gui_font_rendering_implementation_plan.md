@@ -844,6 +844,49 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5bw: Render2d row batch cursor owner boundary
+
+目的:
+
+- F5bv の `GuiRgba8888RowBatchPlanOwner` を、scheduler が 1 batch ずつ進められる `GuiRgba8888RowBatchCursorOwner` へ変換する。
+- cursor は `status` と `next_batch` に分け、`Complete` の owner-bearing terminal wrapper は作らない。
+- emitted batch は `GuiRgba8888RowBatchDescriptor` metadata と continuation cursor owner だけを持ち、row byte payload、row copy、tile list、video memory host call、host present、Canvas / DOM / minifb、fallback には進まない。
+
+plan review:
+
+- Tesla plan review は `PLAN_BLOCKED`。start は forged plan owner を前提に full `GuiRgba8888RowBatchPlanOwner` invariant を再検証し、frame_id、shape / stride / byte_len、dirty rect、dirty span、batch count mismatch を typed error として返す必要があると指摘された。また、drain / budget と cursor step を同じ slice に入れると owner-bearing terminal が増えすぎるため分離すべきと指摘された。
+- Planck plan review は `PLAN_BLOCKED`。当初案の `StepTerminal` / `CompleteOwner` / duplicated plan invariant mapping は型検査負荷と owner 解析負荷を増やすため、`status + next_batch` に縮小し、`PlanInvariant GuiRgba8888RowBatchPlanInvariantErrorKind` payload で lower invariant precision を保持する必要があると指摘された。
+- revised plan では full plan invariant revalidation を `start` に限定し、`status` と `next_batch` は start 済み cursor の local index boundary を検査する。drain / budget は F5bw から外し、後続 phase で `status` と `next_batch` を使って設計する。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` を追加する。
+- `GuiRgba8888RowBatchCursorErrorKind`、`GuiRgba8888RowBatchCursorStatus`、`GuiRgba8888RowBatchDescriptor`、`GuiRgba8888RowBatchCursorOwner`、`GuiRgba8888RowBatchCursorStartError`、`GuiRgba8888RowBatchCursorStepError`、`GuiRgba8888RowBatchCursorBatchOwner` を追加する。
+- cursor error kind は `PlanInvariant %GuiRgba8888RowBatchPlanInvariantErrorKind` を持ち、plan invariant enum を cursor layer に重複コピーしない。
+- `gui_rgba8888_row_batch_cursor_start` は `gui_rgba8888_row_batch_plan_validate_invariants` を通してから batch_index 0 の cursor owner を返す。失敗時は plan owner を保持する start error を返す。
+- `gui_rgba8888_row_batch_cursor_status` は `Ready` / `Complete` を返す。`batch_index < 0` と `batch_index > batch_count` は error、`batch_index == batch_count` だけが `Complete` である。
+- `gui_rgba8888_row_batch_cursor_next_batch` は `Ready` cursor だけを 1 batch 進める。descriptor は frame_id、batch_index、row_start、row_count、width、height、stride_bytes、byte_len の Copy metadata だけを持ち、next cursor index は checked arithmetic で計算する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch cursor owner を再公開する。
+- `tests/stdlib/gui_render2d_row_batch_cursor.n.md` を追加し、facade、start revalidation、empty dirty complete status、full dirty first descriptor、owner constructor restriction、no platform / fallback label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bw source policy を追加し、docs、blocked review feedback、facade export、owner no `Clone` / no `Copy`、no `CompleteOwner` / no `StepTerminal` / no drain budget、payload plan invariant、status / next_batch order、checked next index、no raw pixel / no byte copy / no host / no fallback を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row batch plan regression、source policy、module doctest、`git diff --check` が通る。
+- implementation review で owner-bearing complete terminal が戻っていないこと、drain / budget が F5bw から分離されていること、plan invariant precision が payload enum で保持されていること、host / platform / fallback へ進んでいないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_cursor.n.md --no-tree -o tmp_gui_render2d_row_batch_cursor_f5bw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5bw_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_batch_cursor.nepl --no-tree -o tmp_gui_render2d_row_batch_cursor_module_f5bw.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:
