@@ -1250,6 +1250,52 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5cf: Render2d row tile RLE completed count boundary
+
+目的:
+
+- F5ce の `GuiRgba8888RowTileRleCountOwner` を、formal encoded RLE transport の exact capacity evidence として使える completed count owner へ昇格する。
+- cursor status が `Complete` で、`accumulated_run_count` が正の場合だけ `GuiRgba8888RowTileRleCountCompletedOwner` を作る。
+- pending count owner を encoded transport へ渡せないように、`CountNotCompleted` の owner-bearing error で明示的に拒否する。
+- この phase は encoded RLE buffer、`Vec`、raw storage、host present、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- subagent review で、encoded transport へ直接進む前に completed count evidence boundary を置く方針を確認する。
+- completed module は count owner の private field を直接読まず、`row_tile_rle_count.nepl` が提供する borrowed helper を通す。
+- `prepare` は status first とし、`CursorInvalid lower_kind`、`CountNotCompleted`、`TotalRunCountInvalid` を `Result` で返す。
+
+実装:
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` に `gui_rgba8888_row_tile_rle_count_owner_cursor_status` を追加する。
+- `stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl` を追加する。
+- `GuiRgba8888RowTileRleCountCompletedErrorKind` に `CursorInvalid %GuiRgba8888RowTileRleStepErrorKind`、`CountNotCompleted`、`TotalRunCountInvalid` を定義する。
+- `GuiRgba8888RowTileRleCountCompletedOwner` と `GuiRgba8888RowTileRleCountCompletedError` は owner-bearing value とし、Clone / Copy を実装しない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE completed count を再公開する。
+- `tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md` を追加し、facade、completed success total、pending rejection、error owner recovery、no encoded buffer / platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cf source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row tile RLE completed count module doctest、row tile RLE count / drain / cursor / payload / plan regression、source policy、`git diff --check` が通る。
+- implementation review で completed evidence が status first validation であり、pending owner を拒否し、owner-bearing recovery を持ち、encoded buffer / `Vec` / raw storage / host present / platform / fallback に進んでいないことを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_f5cf.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_count_completed_module_f5cf.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_count.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_count_f5cf_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_drain.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_drain_f5cf_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_f5cf_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_payload.n.md --no-tree -o tmp_gui_render2d_row_tile_payload_f5cf_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_plan.n.md --no-tree -o tmp_gui_render2d_row_tile_plan_f5cf_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

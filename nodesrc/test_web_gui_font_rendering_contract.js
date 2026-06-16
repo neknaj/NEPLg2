@@ -110,6 +110,8 @@ const allocRender2dRowTileRleDrain = read("stdlib/alloc/gui/render2d/row_tile_rl
 const allocRender2dRowTileRleDrainImpl = withoutComments(allocRender2dRowTileRleDrain);
 const allocRender2dRowTileRleCount = read("stdlib/alloc/gui/render2d/row_tile_rle_count.nepl");
 const allocRender2dRowTileRleCountImpl = withoutComments(allocRender2dRowTileRleCount);
+const allocRender2dRowTileRleCountCompleted = read("stdlib/alloc/gui/render2d/row_tile_rle_count_completed.nepl");
+const allocRender2dRowTileRleCountCompletedImpl = withoutComments(allocRender2dRowTileRleCountCompleted);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -146,6 +148,7 @@ const guiRender2dRowTilePayloadTests = read("tests/stdlib/gui_render2d_row_tile_
 const guiRender2dRowTileRleTests = read("tests/stdlib/gui_render2d_row_tile_rle.n.md");
 const guiRender2dRowTileRleDrainTests = read("tests/stdlib/gui_render2d_row_tile_rle_drain.n.md");
 const guiRender2dRowTileRleCountTests = read("tests/stdlib/gui_render2d_row_tile_rle_count.n.md");
+const guiRender2dRowTileRleCountCompletedTests = read("tests/stdlib/gui_render2d_row_tile_rle_count_completed.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -18841,6 +18844,88 @@ assert(
         guiRender2dRowTileRleCountTests.includes("render2d_row_tile_rle_count_overflow_is_fatal_no_fake_owner_ok") &&
         guiRender2dRowTileRleCountTests.includes("render2d_row_tile_rle_count_no_encoded_buffer_no_platform_no_fallback"),
     "F5ce row tile RLE count focused doctest must cover facade, zero budget pending, partial accumulation, completion total, lower budget error, initial complete rejection, overflow policy, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["font rendering detailed design", detailedDesign],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("row tile RLE completed count") &&
+            doc.includes("GuiRgba8888RowTileRleCountCompletedOwner") &&
+            doc.includes("CountNotCompleted") &&
+            doc.includes("TotalRunCountInvalid"),
+        `F5cf ${name} must document completed count evidence, pending rejection, and positive total contract`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_count_completed" as *'), "alloc/gui/render2d facade must export F5cf row tile RLE completed count");
+assert(
+    allocRender2dRowTileRleCount.includes("pub fn gui_rgba8888_row_tile_rle_count_owner_cursor_status") &&
+        allocRender2dRowTileRleCount.includes('field::get_ref owner "cursor"') &&
+        allocRender2dRowTileRleCount.includes("gui_rgba8888_row_tile_rle_cursor_status cursor"),
+    "alloc/gui/render2d/row_tile_rle_count F5cf must expose a borrowed count-owner cursor status helper",
+);
+assert(
+    allocRender2dRowTileRleCountCompleted.includes("pub enum GuiRgba8888RowTileRleCountCompletedErrorKind:") &&
+        allocRender2dRowTileRleCountCompleted.includes("CursorInvalid %GuiRgba8888RowTileRleStepErrorKind") &&
+        allocRender2dRowTileRleCountCompleted.includes("CountNotCompleted") &&
+        allocRender2dRowTileRleCountCompleted.includes("TotalRunCountInvalid") &&
+        allocRender2dRowTileRleCountCompleted.includes("pub struct GuiRgba8888RowTileRleCountCompletedOwner:") &&
+        allocRender2dRowTileRleCountCompleted.includes("count %GuiRgba8888RowTileRleCountOwner") &&
+        allocRender2dRowTileRleCountCompleted.includes("total_run_count %i32") &&
+        allocRender2dRowTileRleCountCompleted.includes("pub struct GuiRgba8888RowTileRleCountCompletedError:"),
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf must define typed completed evidence owner and owner-bearing error",
+);
+assertNoMatch(
+    allocRender2dRowTileRleCountCompletedImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleCountCompletedOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleCountCompletedError\b/,
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf owner and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRleCountCompletedImpl,
+    /\bgui_rgba8888_row_tile_rle_drain_budget\b|\bgui_rgba8888_row_tile_rle_cursor_next_run\b|\bgui_rgba8888_row_tile_rle_read_pixel\b|\bgui_rgba8888_row_tile_payload_byte_at\b/,
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf must not rescan or drain RLE runs",
+);
+assertNoMatch(
+    allocRender2dRowTileRleCountCompletedImpl,
+    /field::get_ref\s+count\s+"cursor"|field::get_ref\s+count\s+"accumulated_run_count"/,
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf must use borrowed count-owner helpers instead of direct count internals",
+);
+assertNoMatch(
+    allocRender2dRowTileRleCountCompletedImpl,
+    /\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\balloc_region\b|\bVec\b|\bencoded\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf must remain evidence-only without allocation, encoded storage, host/platform, or fallback",
+);
+const rowTileRleCountCompletedPrepare = functionSlice(allocRender2dRowTileRleCountCompletedImpl, "gui_rgba8888_row_tile_rle_count_completed_prepare");
+assertOrderedFragments(
+    rowTileRleCountCompletedPrepare,
+    [
+        "match gui_rgba8888_row_tile_rle_count_owner_cursor_status &count:",
+        "Result::Err kind:",
+        "GuiRgba8888RowTileRleCountCompletedErrorKind::CursorInvalid kind count",
+        "GuiRgba8888RowTileRleCursorStatus::Ready:",
+        "GuiRgba8888RowTileRleCountCompletedErrorKind::CountNotCompleted count",
+        "GuiRgba8888RowTileRleCursorStatus::Complete:",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_count_owner_accumulated_run_count &count",
+        "if le total_run_count 0:",
+        "GuiRgba8888RowTileRleCountCompletedErrorKind::TotalRunCountInvalid count",
+        "Result::Ok gui_rgba8888_row_tile_rle_count_completed_owner_new count total_run_count",
+    ],
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf prepare must validate status before positive total and produce completed evidence only on success",
+);
+assertNoMatch(
+    allocRender2dRowTileRleCountCompletedImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_count_completed F5cf implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_facade_ok") &&
+        guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_success_total_ok") &&
+        guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_pending_rejected_ok") &&
+        guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_error_recovers_owner_ok") &&
+        guiRender2dRowTileRleCountCompletedTests.includes("render2d_row_tile_rle_count_completed_no_encoded_buffer_no_platform_no_fallback"),
+    "F5cf row tile RLE completed count focused doctest must cover facade, success, pending rejection, owner recovery, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
