@@ -6591,6 +6591,23 @@ GuiRgba8888RowByteStorageOwner
 
 `GuiRgba8888RowTileDescriptor` の `row_start` は frame-absolute row であり、`byte_offset` は copied row byte storage 先頭からの storage-relative byte offset である。式は `local_row_start = tile_index * tile_rows`、`row_start = plan.row_start + local_row_start`、`byte_offset = local_row_start * stride_bytes`、`byte_count = descriptor.row_count * stride_bytes` とし、`byte_offset + byte_count <= plan.byte_count` を checked に検査する。この descriptor は payload ではなく、後続 phase が payload / RLE / host present へ進むための authority metadata である。
 
+### Render2d row tile payload view boundary
+
+F5cb は `GuiRgba8888RowTilePlanOwner` と tile index から `GuiRgba8888RowTilePayloadOwner` を作る phase である。これは owned payload buffer ではなく、existing copied row storage 上に `GuiRgba8888RowTileDescriptor` を重ねた tile-scoped byte payload view である。追加 allocation、追加 copy、RLE encode、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。
+
+```text
+GuiRgba8888RowTilePlanOwner
+    -> gui_rgba8888_row_tile_plan_descriptor_at
+    -> gui_rgba8888_row_tile_payload_prepare
+    -> Result GuiRgba8888RowTilePayloadOwner GuiRgba8888RowTilePayloadPrepareError
+```
+
+`prepare` は descriptor lookup の borrowed validation を必ず通す。descriptor invalid は `DescriptorInvalid %GuiRgba8888RowTilePlanDescriptorErrorKind` とし、失敗時は tile plan owner を owner-bearing error で返す。これにより forged plan metadata や out-of-range tile index を panic や silent no-op へ落とさない。
+
+byte read は `gui_rgba8888_row_tile_payload_byte_at owner index` として公開する。`index` は tile-relative byte index であり、まず `0 <= index < descriptor.byte_count` を検査する。その後 `descriptor.byte_offset + index` を checked add し、storage-relative index として `gui_rgba8888_row_byte_storage_byte_at` に渡す。lower storage read failure は `StorageReadFailed %GuiRgba8888RowByteStorageReadErrorKind` に包む。
+
+`gui_rgba8888_row_tile_plan_storage_ref` は raw `RegionToken` / `MemPtr` を返さず、`&GuiRgba8888RowByteStorageOwner` という typed borrowed authority だけを返す。payload view はこの authority を使うが、source surface storage や copied storage の raw pointer を public API に出してはならない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

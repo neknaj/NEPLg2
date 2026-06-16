@@ -7402,6 +7402,39 @@ gui_rgba8888_row_tile_plan_descriptor_at:
 
 Borrowing matters because an application or scheduler may inspect several tile descriptors before deciding whether to pass the owner to a later payload phase. Consuming the owner during descriptor lookup would also make `finish_byte_storage` recovery impossible. Before descriptor computation, `gui_rgba8888_row_tile_plan_validate_invariants` revalidates the byte storage authority, compares plan metadata against the copied range, checks `stride_bytes == width * 4`, checks `row_start + row_count <= height`, checks `byte_count == row_count * stride_bytes`, and recomputes `tile_count == ceil(row_count / tile_rows)`.
 
+## Render2d row tile payload view boundary
+
+F5cb introduces `GuiRgba8888RowTilePayloadOwner` above `GuiRgba8888RowTilePlanOwner`. This owner is a tile-scoped byte payload view and a formal payload owner over existing copied row storage, not an owned payload buffer. It keeps the tile plan owner and a Copy `GuiRgba8888RowTileDescriptor`; therefore recovery can always move back to the tile plan owner and then to the byte storage owner.
+
+The prepare path is:
+
+```text
+gui_rgba8888_row_tile_payload_prepare:
+    input: GuiRgba8888RowTilePlanOwner, tile_index
+    call gui_rgba8888_row_tile_plan_descriptor_at &plan tile_index
+    on error:
+        return GuiRgba8888RowTilePayloadPrepareError
+            kind = DescriptorInvalid lower_kind
+            plan = original owner
+    on success:
+        return GuiRgba8888RowTilePayloadOwner plan descriptor
+```
+
+The read path is:
+
+```text
+gui_rgba8888_row_tile_payload_byte_at:
+    descriptor = owner.descriptor
+    require 0 <= index < descriptor.byte_count
+    storage_index = checked_add descriptor.byte_offset index
+    storage = gui_rgba8888_row_tile_plan_storage_ref owner.plan
+    call gui_rgba8888_row_byte_storage_byte_at storage storage_index
+```
+
+`gui_rgba8888_row_tile_plan_storage_ref` returns only `&GuiRgba8888RowByteStorageOwner`. It does not expose `RegionToken`, `MemPtr`, source storage, copied storage pointer, or any host handle. This keeps the abstraction at the typed owner boundary while allowing the payload view to reuse the exact copied row storage produced by F5bz.
+
+F5cb is no RLE / host present. It does not allocate, copy, RLE-encode, publish video memory, call host present, touch Canvas / DOM / minifb, or implement fallback behavior. It exists to make the next transport phase consume a tile-scoped byte view with typed errors instead of reinterpreting descriptors ad hoc.
+
 Descriptor offsets are explicitly storage-relative:
 
 ```text

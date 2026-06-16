@@ -102,6 +102,8 @@ const allocRender2dRowByteStorage = read("stdlib/alloc/gui/render2d/row_byte_sto
 const allocRender2dRowByteStorageImpl = withoutComments(allocRender2dRowByteStorage);
 const allocRender2dRowTilePlan = read("stdlib/alloc/gui/render2d/row_tile_plan.nepl");
 const allocRender2dRowTilePlanImpl = withoutComments(allocRender2dRowTilePlan);
+const allocRender2dRowTilePayload = read("stdlib/alloc/gui/render2d/row_tile_payload.nepl");
+const allocRender2dRowTilePayloadImpl = withoutComments(allocRender2dRowTilePayload);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -134,6 +136,7 @@ const guiRender2dRowBatchDrainTests = read("tests/stdlib/gui_render2d_row_batch_
 const guiRender2dRowBatchRangeTests = read("tests/stdlib/gui_render2d_row_batch_range.n.md");
 const guiRender2dRowByteStorageTests = read("tests/stdlib/gui_render2d_row_byte_storage.n.md");
 const guiRender2dRowTilePlanTests = read("tests/stdlib/gui_render2d_row_tile_plan.n.md");
+const guiRender2dRowTilePayloadTests = read("tests/stdlib/gui_render2d_row_tile_payload.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -18433,6 +18436,102 @@ assert(
         guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_no_raw_storage_escape") &&
         guiRender2dRowTilePlanTests.includes("render2d_row_tile_plan_no_platform_no_fallback"),
     "F5ca row tile plan focused doctest must cover facade, config, authority, ceil count, partial tile, descriptor offsets, owner recovery, invariants, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["implementation plan", implementationPlan],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row tile payload") &&
+            doc.includes("GuiRgba8888RowTilePayloadOwner") &&
+            doc.includes("tile-scoped byte payload view") &&
+            doc.includes("existing copied row storage") &&
+            doc.includes("no RLE / host present"),
+        `F5cb ${name} must document row tile payload view, existing copied storage, and no RLE/host fallback`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_payload" as *'), "alloc/gui/render2d facade must export F5cb row tile payload");
+assert(
+    allocRender2dRowTilePayload.includes("pub enum GuiRgba8888RowTilePayloadPrepareErrorKind:") &&
+        allocRender2dRowTilePayload.includes("DescriptorInvalid %GuiRgba8888RowTilePlanDescriptorErrorKind") &&
+        allocRender2dRowTilePayload.includes("pub enum GuiRgba8888RowTilePayloadReadErrorKind:") &&
+        allocRender2dRowTilePayload.includes("PayloadIndexOutOfBounds") &&
+        allocRender2dRowTilePayload.includes("StorageIndexOverflow") &&
+        allocRender2dRowTilePayload.includes("StorageReadFailed %GuiRgba8888RowByteStorageReadErrorKind") &&
+        allocRender2dRowTilePayload.includes("pub struct GuiRgba8888RowTilePayloadOwner:") &&
+        allocRender2dRowTilePayload.includes("plan %GuiRgba8888RowTilePlanOwner") &&
+        allocRender2dRowTilePayload.includes("descriptor %GuiRgba8888RowTileDescriptor") &&
+        allocRender2dRowTilePayload.includes("pub struct GuiRgba8888RowTilePayloadPrepareError:") &&
+        allocRender2dRowTilePayload.includes("plan %GuiRgba8888RowTilePlanOwner"),
+    "alloc/gui/render2d/row_tile_payload F5cb must define typed prepare/read errors and owner-bearing tile payload view",
+);
+assertNoMatch(
+    allocRender2dRowTilePayloadImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTilePayloadOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTilePayloadPrepareError\b/,
+    "alloc/gui/render2d/row_tile_payload F5cb owner and owner-bearing error must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTilePayloadImpl,
+    /\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\balloc_region\b|\bVec\b|\bRLE\b|\brle\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_payload F5cb must remain a tile-scoped view over existing storage without raw storage, allocation, RLE, host/platform, or fallback",
+);
+const rowTilePlanStorageRef = functionSlice(allocRender2dRowTilePlanImpl, "gui_rgba8888_row_tile_plan_storage_ref");
+assertOrderedFragments(
+    rowTilePlanStorageRef,
+    [
+        "fn gui_rgba8888_row_tile_plan_storage_ref %fn &GuiRgba8888RowTilePlanOwner &GuiRgba8888RowByteStorageOwner",
+        'field::get_ref owner "storage"',
+    ],
+    "alloc/gui/render2d/row_tile_plan F5cb storage_ref must return only borrowed byte storage owner authority",
+);
+assertNoMatch(
+    rowTilePlanStorageRef,
+    /\bRegionToken\b|\bMemPtr\b|\bgui_rgba8888_row_byte_storage_byte_at\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b/,
+    "alloc/gui/render2d/row_tile_plan F5cb storage_ref must not expose raw storage or perform byte reads",
+);
+const rowTilePayloadPrepare = functionSlice(allocRender2dRowTilePayloadImpl, "gui_rgba8888_row_tile_payload_prepare");
+assertOrderedFragments(
+    rowTilePayloadPrepare,
+    [
+        "match gui_rgba8888_row_tile_plan_descriptor_at &plan tile_index:",
+        "DescriptorInvalid descriptor_kind plan",
+        "Result::Ok gui_rgba8888_row_tile_payload_owner_new plan descriptor",
+    ],
+    "alloc/gui/render2d/row_tile_payload F5cb prepare must revalidate descriptor authority and preserve owner on error",
+);
+const rowTilePayloadByteAt = functionSlice(allocRender2dRowTilePayloadImpl, "gui_rgba8888_row_tile_payload_byte_at");
+assertOrderedFragments(
+    rowTilePayloadByteAt,
+    [
+        "let descriptor %GuiRgba8888RowTileDescriptor gui_rgba8888_row_tile_payload_descriptor owner",
+        "let byte_count %i32 gui_rgba8888_row_tile_descriptor_byte_count &descriptor",
+        "PayloadIndexOutOfBounds",
+        "let byte_offset %i32 gui_rgba8888_row_tile_descriptor_byte_offset &descriptor",
+        "match gui_rgba8888_row_tile_payload_checked_add byte_offset index:",
+        'let plan %&GuiRgba8888RowTilePlanOwner field::get_ref owner "plan"',
+        "let storage %&GuiRgba8888RowByteStorageOwner gui_rgba8888_row_tile_plan_storage_ref plan",
+        "match gui_rgba8888_row_byte_storage_byte_at storage storage_index:",
+        "StorageReadFailed storage_kind",
+    ],
+    "alloc/gui/render2d/row_tile_payload F5cb byte_at must bounds-check tile-relative index, checked-add storage offset, and wrap lower storage read errors",
+);
+assertNoMatch(
+    allocRender2dRowTilePayloadImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_payload F5cb implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_facade_ok") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_prepare_descriptor_revalidated_ok") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_view_over_existing_storage_ok") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_tile_relative_read_ok") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_bounds_error_typed_ok") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_owner_recovery_ok") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_no_raw_storage_escape") &&
+        guiRender2dRowTilePayloadTests.includes("render2d_row_tile_payload_no_platform_no_fallback"),
+    "F5cb row tile payload focused doctest must cover facade, descriptor authority, existing-storage view, tile-relative reads, typed bounds error, owner recovery, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
