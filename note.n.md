@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5ce render2d row tile RLE count boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-count-f5ce-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5ce の row tile RLE count、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review は `APPROVED`。formal encoded RLE transport へ直接進まず、scheduler slice の `emitted_run_count` を exact allocation 前段の count owner に累積する方針が承認された。
+- 実装条件として、`count_start` は Ready cursor だけを許可し Complete cursor を `InitialCursorComplete` として拒否すること、`count_step_budget` は F5cd drain に委譲して run を再走査しないこと、overflow で fake continuation owner を返さないこと、encoded buffer / `Vec` / raw storage / host present / platform / fallback に進まないことが確認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` を追加した。
+- `GuiRgba8888RowTileRleCountErrorKind`、`GuiRgba8888RowTileRleCountStepStatus`、`GuiRgba8888RowTileRleCountOwner`、`GuiRgba8888RowTileRleCountStep`、`GuiRgba8888RowTileRleCountError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_count_start` は cursor status を読み、Ready だけを initial count owner とし、Complete cursor を `InitialCursorComplete` として拒否する。
+- `gui_rgba8888_row_tile_rle_count_step_budget` は F5cd drain terminal の `emitted_run_count` を `accumulated_run_count` に checked add し、`StepBudgetExhausted` を `Pending`、`Completed` を `Completed` に写す。
+- lower drain error は `DrainFailed lower_kind` として recoverable cursor と prior count を保持する。`AccumulatedRunCountOverflow` では continuation owner を偽造せず、advanced cursor と prior count だけを error に保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE count を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5ce の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5ce source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_count.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_count.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_drain.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Ramanujan implementation review は `REVIEW_APPROVED`。`row_tile_rle_count.nepl` が count-only boundary であり、Ready cursor だけを start し、Complete cursor を `InitialCursorComplete` として拒否し、step は `gui_rgba8888_row_tile_rle_drain_budget` に委譲し、drain status を `Pending` / `Completed` に写し、`emitted_run_count` を checked add することを確認した。
+- Ramanujan は `AccumulatedRunCountOverflow` が advanced / recovered cursor と prior count を返し、fake continuation count owner を作らないこと、owner-bearing value が Clone / Copy されないこと、facade / docs / tests / source policy が aligned であること、raw storage、encoded buffer、`Vec`、host / platform、fallback、silent no-op 漏れがないことを確認した。
+
+## remaining
+
+- F5ce は row tile RLE drain result の count accumulation までであり、formal encoded RLE transport、tile bitmap transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5cd render2d row tile RLE drain boundary
 
 ## scope

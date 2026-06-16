@@ -6646,6 +6646,29 @@ positive budget では `gui_rgba8888_row_tile_rle_cursor_next_run` を 1 run ず
 
 この layer は `Vec`、encoded RLE buffer、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback には進まない。formal encoded RLE payload と host presentation は後続 phase で別 owner boundary として設計する。
 
+### Render2d row tile RLE count boundary
+
+F5ce は F5cd の `GuiRgba8888RowTileRleDrainTerminal` が返す slice-local `emitted_run_count` を、future encoded RLE transport の exact capacity 前段として累積する row tile RLE count boundary である。これは encoded RLE buffer ではなく、`GuiRgba8888RowTileRleCursorOwner` と `accumulated_run_count` を同じ `GuiRgba8888RowTileRleCountOwner` に束ねる scheduler-facing owner である。
+
+```text
+GuiRgba8888RowTileRleCursorOwner
+    -> gui_rgba8888_row_tile_rle_count_start
+    -> GuiRgba8888RowTileRleCountOwner
+
+GuiRgba8888RowTileRleCountOwner
+    + remaining_steps
+    -> gui_rgba8888_row_tile_rle_count_step_budget
+    -> GuiRgba8888RowTileRleCountStep
+```
+
+`GuiRgba8888RowTileRleCountStepStatus` は `Pending` / `Completed` の Copy enum であり、step 自体は count owner を保持する owner-bearing value なので Clone / Copy を実装しない。`Pending` は lower drain の `StepBudgetExhausted`、`Completed` は lower drain の `Completed` からだけ作る。count step は RLE run を再走査せず、常に `gui_rgba8888_row_tile_rle_drain_budget` に委譲する。
+
+`count_start` は Ready cursor だけを受け入れる。Complete cursor には過去に消費した run 数の evidence が無いため、`InitialCursorComplete` を `GuiRgba8888RowTileRleCountErrorKind` として返す。cursor status 自体が invalid な場合は `InitialCursorInvalid %GuiRgba8888RowTileRleStepErrorKind` で lower kind を保持する。
+
+`count_step_budget` は lower drain terminal から `emitted_run_count` を読み、`accumulated_run_count + emitted_run_count` を checked add する。overflow は `AccumulatedRunCountOverflow` であり、cursor は drain 済み位置まで進んでいる可能性があるため、continuation count owner を偽造してはならない。error は recoverable cursor と prior `accumulated_run_count` を保持し、caller は free または restart を選ぶ。
+
+この layer は `Vec`、encoded RLE buffer、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。formal encoded RLE transport は、この count owner が produced した total run count を capacity evidence として別 phase で消費する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
