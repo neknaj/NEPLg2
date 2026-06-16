@@ -7697,6 +7697,47 @@ F5ci intentionally revalidates `total_run_count > 0`. F5cg already validates nor
 
 F5ci must not call `cursor_status`, drain the cursor, call `cursor_next_run`, read payload bytes, allocate `Vec`, allocate raw storage, build `EncodedRleBuffer`, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The actual encoded byte writer and storage owner are separate later owner boundaries.
 
+## Render2d row tile RLE encoded storage boundary
+
+F5cj converts the F5ci writer plan into the first owned byte storage for a future encoded RLE writer. This phase is allocation / reservation only. It does not inspect runs, does not write the RLE payload, and does not create a transport frame.
+
+```text
+GuiRgba8888RowTileRleStorageOwner:
+    cursor GuiRgba8888RowTileRleCursorOwner
+    total_run_count i32
+    encoded_byte_count i32
+    storage RegionToken u8
+
+GuiRgba8888RowTileRleStoragePrepareError:
+    kind GuiRgba8888RowTileRleStoragePrepareErrorKind
+    category Option GuiError
+    plan GuiRgba8888RowTileRleWriterPlanOwner
+```
+
+`GuiRgba8888RowTileRleStoragePrepareErrorKind` contains `EncodedByteCountInvalid`, `TotalRunCountInvalid`, `EncodedByteCountOverflow`, `EncodedByteCountMismatch`, and `AllocationFailed`. Every prepare error keeps the original `GuiRgba8888RowTileRleWriterPlanOwner`. This is important because allocation is the first phase that can fail due to resource pressure; losing the plan owner would leak the underlying cursor and payload chain.
+
+The prepare order is fixed:
+
+```text
+encoded_byte_count = plan.encoded_byte_count
+reject encoded_byte_count <= 0
+total_run_count = plan.total_run_count
+reject total_run_count <= 0
+recomputed = checked_mul total_run_count 12
+reject overflow
+reject recomputed != encoded_byte_count
+storage = alloc_region_bytes encoded_byte_count
+reject allocation failure
+cursor = finish_cursor plan
+StorageOwner cursor total_run_count encoded_byte_count storage
+```
+
+The allocation happens before `finish_cursor plan`. That order preserves owner recovery on allocation failure and on metadata mismatch. The plan owner is consumed only after a storage token exists and all capacity evidence has been revalidated.
+
+`gui_rgba8888_row_tile_rle_storage_finish_cursor` deallocates `storage` before returning the continuation cursor. If storage deallocation fails, the error stores the cursor so the caller can still decide how to free the payload chain. `gui_rgba8888_row_tile_rle_storage_owner_free` then frees the cursor after successful deallocation, and maps cursor-free failures to `CursorFreeFailed`.
+
+F5cj must not call `cursor_next_run`, drain the cursor, read payload bytes, call `load_u8` / `store_u8`, expose a raw storage accessor, allocate `Vec`, build `EncodedRleBuffer`, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The later run writer must be a separate owner boundary that writes success before advancing the cursor.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

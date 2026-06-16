@@ -6737,6 +6737,32 @@ rgba8888      4 bytes
 
 この layer は cursor status 再検査、RLE run drain、`cursor_next_run`、payload byte read、encoded RLE buffer allocation、`Vec`、raw storage accessor、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual writer、encoded storage owner、tile transport ABI は後続 phase の owner boundary として定義する。
 
+### Render2d row tile RLE encoded storage boundary
+
+F5cj は `GuiRgba8888RowTileRleWriterPlanOwner` を、formal encoded RLE writer が後続 phase で使う encoded byte storage owner へ変換する phase である。`GuiRgba8888RowTileRleStorageOwner` は `GuiRgba8888RowTileRleCursorOwner`、exact `total_run_count`、exact `encoded_byte_count`、`RegionToken u8` storage を保持する。これは allocation / reservation only boundary であり、RLE run writer ではない。
+
+```text
+GuiRgba8888RowTileRleWriterPlanOwner
+    -> gui_rgba8888_row_tile_rle_storage_prepare
+    -> Result GuiRgba8888RowTileRleStorageOwner GuiRgba8888RowTileRleStoragePrepareError
+```
+
+`GuiRgba8888RowTileRleStoragePrepareErrorKind` は少なくとも次を持つ。
+
+```text
+EncodedByteCountInvalid
+TotalRunCountInvalid
+EncodedByteCountOverflow
+EncodedByteCountMismatch
+AllocationFailed
+```
+
+prepare は stored `encoded_byte_count > 0`、stored `total_run_count > 0`、checked `total_run_count * 12`、stored byte count との一致をこの順に検査する。`EncodedByteCountMismatch` は forged / stale plan metadata を拒否するための fail-closed error であり、正常系では発生しない。allocation は exact `encoded_byte_count` bytes だけを確保する。failure path は allocation failure を含めて original writer plan owner を error に保持し、caller が finish / free して明示的に回収できる。
+
+成功時だけ writer plan owner を閉じて underlying cursor owner を storage owner へ移す。`GuiRgba8888RowTileRleStorageOwner` は encoded storage を所有するが、この phase では storage byte の public reader / writer を提供しない。storage の byte 内容は後続 writer が初期化するまでは読めない。
+
+この layer は RLE run drain、`cursor_next_run`、payload byte read、encoded byte write、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual run writer、write cursor、tile transport ABI は後続 phase の owner boundary として定義する。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

@@ -1,3 +1,52 @@
+# 2026-06-17 Agent2 GUI font F5cj render2d row tile RLE encoded storage boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-storage-owner-f5cj-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cj の encoded storage allocation boundary、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review は `PLAN_APPROVED`。F5cj は F5ci writer plan と future run writer の間に置く allocation / reservation only boundary として承認された。
+- prepare failure path は allocation failure だけでなく invalid count / overflow / byte count mismatch も original `GuiRgba8888RowTileRleWriterPlanOwner` を保持する必要があると確認された。
+- 検査順は encoded byte count 正値、total run count 正値、checked multiply、stored byte count との一致、allocation の順とする。
+- `cursor_next_run`、drain、payload read、byte write、`Vec`、host present、platform API、fallback に進まないことを docs/source policy/tests で固定する方針が承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` を追加した。
+- `GuiRgba8888RowTileRleStoragePrepareErrorKind`、`GuiRgba8888RowTileRleStorageFinishErrorKind`、`GuiRgba8888RowTileRleStorageOwner`、`GuiRgba8888RowTileRleStoragePrepareError`、`GuiRgba8888RowTileRleStorageFinishError` を typed value として追加した。
+- `gui_rgba8888_row_tile_rle_storage_prepare` は writer plan の encoded byte count と total run count を再検査し、`total_run_count * 12` の checked recompute と stored byte count の一致を確認してから exact `RegionToken u8` storage を確保する。
+- allocation 成功後にだけ writer plan owner を finish して cursor owner を storage owner へ移す。failure path は original writer plan owner を保持する owner-bearing error を返す。
+- `gui_rgba8888_row_tile_rle_storage_finish_cursor` は storage を dealloc してから continuation cursor を返す。storage dealloc failure では cursor を finish error に保持する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE encoded storage を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cj の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cj source policy を追加した。
+
+## verification
+
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_storage.n.md` 1 / 1 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl` 1 / 1 passed
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+- note: RLE pipeline doctest は重いため、並列実行では 180000ms compile timeout に到達した。単独実行かつ `NEPL_TEST_CASE_TIMEOUT_MS=360000` では storage / writer plan / encode cursor が通る。
+
+## subagent review
+
+- Descartes implementation review は `REVIEW_APPROVED`。F5cj が approved plan と一致し、stored byte count / run count の再検査、checked `total_run_count * 12`、mismatch rejection、exact `RegionToken u8` allocation、allocation 成功後だけの `writer_plan_owner_finish_cursor` を確認した。
+- Descartes は、この boundary が allocation-only であり、run drain、`cursor_next_run`、payload byte read、byte read/write helper、`Vec`、platform / present / fallback path に進んでいないことを確認した。
+- owner-bearing error と finish/free behavior が既存 `row_byte_storage` style と整合し、docs、facade export、focused doctest labels、source policy coverage が揃っていることを確認した。
+
+## remaining
+
+- 次 phase は storage owner から write cursor / run writer を作る boundary。byte write success before cursor advance、owner recovery、zero-fill fallback 禁止を維持する。
+
 # 2026-06-16 Agent2 GUI font F5ci render2d row tile RLE writer plan boundary
 
 ## scope
