@@ -8033,6 +8033,16 @@ F5cx introduces the std layer row tile RLE present host execution report boundar
 
 F5cx is not actual execution and not pending completion. It does not call F5cv, F5cu, F5ct, F5cs, F5cp, or F5co, does not construct F5cr requests, and does not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, or schedulers. The only bridge back to the dispatch loop is `report_outcome`, which reconstitutes the original `Result unit GuiError` so a caller can pass it to F5cv `complete_request`.
 
+## Std layer row tile RLE present host executor boundary
+
+F5cy introduces the std layer row tile RLE present host executor boundary. It sits between F5cw/F5cx and the actual Web, native, bare, or offscreen executor implementation. This boundary still does not execute host imports; it verifies that an executor supports the target it is about to handle and that a returned report belongs to the full action identity that was sent to that executor.
+
+`GuiRgba8888RowTileRlePresentHostExecutorSupport` is a non-empty target support enum. It can express Window, Offscreen, Device, WindowOffscreen, WindowDevice, OffscreenDevice, and All, but it cannot represent a supports-nothing executor. Unsupported actions return `GuiRgba8888RowTileRlePresentHostExecutorError` with `UnsupportedAction`, category `GuiError::Unsupported`, the expected action, and `reported = None`.
+
+Report validation uses `validate_report_for_action`. The function first requires the expected action to be supported. It then reads the action stored in `GuiRgba8888RowTileRlePresentHostExecutionReport` and compares full action identity, not only the enum variant. Full action identity includes target variant, window id where present, surface id, frame id, all packet metadata used by the present descriptor, run pixel offset, run pixel count, and RGBA channel values. A same-variant but different-payload report is `ReportActionMismatch` with category `GuiError::InvalidCommand` and `reported = Some reported_action`.
+
+F5cy deliberately accepts a matching failed report. Association validation and executor outcome interpretation are separate contracts: failed reports are valid if they refer to the same action, and callers continue to use F5cx `report_outcome` before F5cv completion. F5cy does not call F5cv, F5cu, F5ct, F5cs, F5cp, F5co, does not construct F5cr requests, and does not touch raw packet storage, host APIs, platform APIs, DOM, Canvas, minifb, video memory, queues, timers, schedulers, fallback paths, or silent no-op behavior.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

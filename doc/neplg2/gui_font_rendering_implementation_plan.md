@@ -113,6 +113,48 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 git diff --check
 ```
 
+## Phase F5cy: std row tile RLE present host executor validation boundary
+
+目的:
+
+- F5cw の `GuiRgba8888RowTileRlePresentHostExecutionAction` と F5cx の report を、actual Web / native / bare executor の手前で検査する std layer row tile RLE present host executor boundary を追加する。
+- `GuiRgba8888RowTileRlePresentHostExecutorSupport` は Window / Offscreen / Device とその非空の組み合わせだけを表す enum とし、supports-nothing state を型で表現しない。
+- `GuiRgba8888RowTileRlePresentHostExecutorError` は `UnsupportedAction` / `ReportActionMismatch`、category、expected action、reported action option を持つ typed error とする。
+- `validate_report_for_action` は support validation の後、report action と expected action の full action identity を比較する。
+- full action identity は variant だけでなく、window、surface、frame、packet metadata、run offset、run count、RGBA channel を含む。
+- matching action の failed report は association としては valid であり、execution outcome の解釈は F5cx `report_outcome` と F5cv completion に残す。
+- F5cy は actual host import execution、F5cv completion、F5cu / F5ct / F5cs / F5cp / F5co、F5cr request construction、raw storage、host API、platform API、queue、timer、scheduler、Canvas / DOM / minifb、video memory、fallback、silent no-op には進まない。
+
+plan review:
+
+- 最初の計画は support が loose bool 群で空 support を表現でき、report/action の検査も弱くなりうるため `PLAN_BLOCKED` となった。
+- 修正版では non-empty support enum、typed executor error、full action equality、`validate_report_for_action` の順序を明確化し、Dirac plan review で `PLAN_APPROVED` となった。
+- `UnsupportedAction` では `reported = None`、`ReportActionMismatch` では `reported = Some reported_action` とする。
+- F5cv は caller-owned completion として残し、この phase では pending request を消費しない。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_executor.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentHostExecutorSupport`、`GuiRgba8888RowTileRlePresentHostExecutorActionKind`、`GuiRgba8888RowTileRlePresentHostExecutorErrorKind`、`GuiRgba8888RowTileRlePresentHostExecutorError` を追加する。
+- `gui_rgba8888_row_tile_rle_present_host_executor_require_supported` は `Result unit GuiRgba8888RowTileRlePresentHostExecutorError` を返し、bool-only public API にはしない。
+- `gui_rgba8888_row_tile_rle_present_host_executor_action_same` は public accessor だけを使い、descriptor/run/action payload の完全一致を検査する。
+- `gui_rgba8888_row_tile_rle_present_host_executor_validate_report_for_action` は supported action 検査、report action 取得、full action equality の順序で実行する。
+- `stdlib/std/gui.nepl` facade から export する。
+- `tests/stdlib/gui_std_tile_present_host_executor.n.md` を追加し、supported action、unsupported target、matching report、same-variant mismatch、failed report preservation を検査する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cy source policy を追加し、F5cw/F5cx import、F5cv/F5cu/F5ct/F5cs/F5cp/F5co 禁止、F5cr request construction 禁止、raw / platform / host / queue / timer / scheduler / fallback 禁止、NEPL parentheses 禁止を固定する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_executor.n.md --no-tree -o tmp_gui_std_tile_present_host_executor_f5cy.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_executor.nepl --no-tree -o tmp_gui_std_tile_present_host_executor_module_f5cy.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution_report.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_report_f5cy_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cy_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

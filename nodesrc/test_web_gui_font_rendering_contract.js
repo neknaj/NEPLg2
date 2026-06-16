@@ -140,6 +140,8 @@ const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_ex
 const stdGuiTilePresentHostExecutionImpl = withoutComments(stdGuiTilePresentHostExecution);
 const stdGuiTilePresentHostExecutionReport = read("stdlib/std/gui/tile_present_host_execution_report.nepl");
 const stdGuiTilePresentHostExecutionReportImpl = withoutComments(stdGuiTilePresentHostExecutionReport);
+const stdGuiTilePresentHostExecutor = read("stdlib/std/gui/tile_present_host_executor.nepl");
+const stdGuiTilePresentHostExecutorImpl = withoutComments(stdGuiTilePresentHostExecutor);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -199,6 +201,7 @@ const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_presen
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
 const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentHostExecutionReportTests = read("tests/stdlib/gui_std_tile_present_host_execution_report.n.md");
+const guiStdTilePresentHostExecutorTests = read("tests/stdlib/gui_std_tile_present_host_executor.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -20826,6 +20829,111 @@ assert(
         guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_outcome_roundtrip_ok") &&
         guiStdTilePresentHostExecutionReportTests.includes("std_row_tile_rle_present_host_execution_report_no_f5cv_no_platform_no_fallback"),
     "F5cx std tile present host-execution-report focused doctest must cover report mapping and source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host executor boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostExecutorSupport") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostExecutorError") &&
+            doc.includes("validate_report_for_action") &&
+            doc.includes("full action identity"),
+        `F5cy ${name} must document host executor validation boundary, non-empty support, typed errors, and full action identity`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_executor" as *'), "std/gui facade must export F5cy tile present host executor validation boundary");
+assert(
+    stdGuiTilePresentHostExecutor.includes("pub enum GuiRgba8888RowTileRlePresentHostExecutorSupport:") &&
+        stdGuiTilePresentHostExecutor.includes("WindowOffscreen") &&
+        stdGuiTilePresentHostExecutor.includes("WindowDevice") &&
+        stdGuiTilePresentHostExecutor.includes("OffscreenDevice") &&
+        stdGuiTilePresentHostExecutor.includes("All") &&
+        stdGuiTilePresentHostExecutor.includes("pub enum GuiRgba8888RowTileRlePresentHostExecutorErrorKind:") &&
+        stdGuiTilePresentHostExecutor.includes("UnsupportedAction") &&
+        stdGuiTilePresentHostExecutor.includes("ReportActionMismatch") &&
+        stdGuiTilePresentHostExecutor.includes("pub struct GuiRgba8888RowTileRlePresentHostExecutorError:") &&
+        stdGuiTilePresentHostExecutor.includes("category %Option GuiError") &&
+        stdGuiTilePresentHostExecutor.includes("expected %GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+        stdGuiTilePresentHostExecutor.includes("reported %Option GuiRgba8888RowTileRlePresentHostExecutionAction"),
+    "std/gui/tile_present_host_executor F5cy must define non-empty support enum and typed executor error with action context",
+);
+assertMatch(
+    stdGuiTilePresentHostExecutorImpl,
+    /#import "std\/gui\/tile_present_host_execution" as \*/,
+    "std/gui/tile_present_host_executor F5cy must consume F5cw host execution actions",
+);
+assertMatch(
+    stdGuiTilePresentHostExecutorImpl,
+    /#import "std\/gui\/tile_present_host_execution_report" as \*/,
+    "std/gui/tile_present_host_executor F5cy must consume F5cx host execution reports",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutorImpl,
+    /tile_present_dispatch_loop|tile_present_dispatch|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bgui_rgba8888_row_tile_rle_present_host_import_request_from\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_executor F5cy must not call loops/schedulers/lower cursors/request constructors/raw/platform APIs or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutorImpl, "gui_rgba8888_row_tile_rle_present_host_executor_action_kind"),
+    [
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin _payload:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::WindowBegin",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun _payload:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::WindowRun",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd _payload:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::WindowEnd",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin _descriptor:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::OffscreenBegin",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun _record:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::OffscreenRun",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd _descriptor:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::OffscreenEnd",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin _descriptor:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::DeviceBegin",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun _record:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::DeviceRun",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd _descriptor:",
+        "GuiRgba8888RowTileRlePresentHostExecutorActionKind::DeviceEnd",
+    ],
+    "std/gui/tile_present_host_executor F5cy action kind must cover every F5cw execution action",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutorImpl, "gui_rgba8888_row_tile_rle_present_host_executor_validate_report_for_action"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_executor_require_supported support expected",
+        "gui_rgba8888_row_tile_rle_present_host_execution_report_action &report",
+        "gui_rgba8888_row_tile_rle_present_host_executor_action_same &expected &reported",
+        "Result::Ok report",
+        "gui_rgba8888_row_tile_rle_present_host_executor_mismatch_error expected reported",
+    ],
+    "std/gui/tile_present_host_executor F5cy validate_report_for_action must require supported action and full report action identity",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutorImpl, "gui_rgba8888_row_tile_rle_present_host_executor_run_record_same"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor left",
+        "gui_rgba8888_row_tile_rle_present_host_command_run_record_run left",
+        "gui_rgba8888_row_tile_rle_present_host_executor_descriptor_same &left_descriptor &right_descriptor",
+        "gui_rgba8888_row_tile_rle_present_host_executor_run_same &left_run &right_run",
+    ],
+    "std/gui/tile_present_host_executor F5cy run-record equality must include descriptor and run payload",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutorImpl,
+    /[()]/,
+    "std/gui/tile_present_host_executor F5cy implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_facade_ok") &&
+        guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_support_enum_ok") &&
+        guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_typed_error_ok") &&
+        guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_action_equality_ok") &&
+        guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_failed_report_preserved_ok") &&
+        guiStdTilePresentHostExecutorTests.includes("std_row_tile_rle_present_host_executor_no_f5cv_no_platform_no_fallback"),
+    "F5cy std tile present host-executor focused doctest must cover support, typed error, action equality, and source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
