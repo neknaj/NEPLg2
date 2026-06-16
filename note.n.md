@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5cs std row tile RLE present virtual drain
+
+## scope
+
+- F5cq の host-command record stream を、headless / test が deterministic に検査する std layer virtual drain を追加する。
+- actual presenter、host import、scheduler、video memory submit には進まず、record stream の順序、descriptor 一致、run offset continuity、expected count completion を固定する。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- run count と pixel sum だけでは forged stream の gap / overlap / reorder を検出できないため、`run_pixel_offset == seen_pixel_count` を必須にする必要があると指摘された。
+- expected count は packet storage / record reader ではなく std-layer descriptor accessor で読むべきと指摘された。
+- error enum の具体性も求められた。
+- 修正版計画は `PLAN_APPROVED`。F5cs は F5cq record を消費し、F5cr request を消費しない方針が headless/test observation boundary として妥当と確認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present.nepl` に present descriptor expected run / pixel count accessor を追加した。
+- `stdlib/std/gui/tile_present_virtual_drain.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentVirtualDrainPhase`、`GuiRgba8888RowTileRlePresentVirtualDrain`、`GuiRgba8888RowTileRlePresentVirtualDrainErrorKind`、error value を定義した。
+- BeginFrame は `WaitingBegin` のみ許可し、descriptor から expected run / pixel count を読んで `InFrame` へ進む。
+- RunRecord は `InFrame` のみ許可し、descriptor 一致、positive run pixel count、`run_pixel_offset == seen_pixel_count`、checked run end、expected bounds を検査する。
+- EndFrame は expected run / pixel count を満たした場合だけ `Ended` へ進む。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5cs_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_virtual_drain.nepl --no-tree -o tmp_gui_std_tile_present_virtual_drain_module_f5cs_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present.nepl --no-tree -o tmp_gui_std_tile_present_module_f5cs_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cs_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cs_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- F5cs が F5cq record を消費し F5cr request を消費しないこと、expected count が `tile_present` の std-layer accessor behind に置かれていること、run offset continuity と checked end / expected bound が実装されていることが確認された。
+- source policy が F5cr / F5cp / F5co / raw / platform / fallback path を禁止していることも確認された。
+
+## residual
+
+- F5cs は virtual drain までであり、actual Web / native / bare presenter、host import dispatcher、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cr std row tile RLE present host import request
 
 ## scope

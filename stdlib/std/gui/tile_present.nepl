@@ -356,6 +356,14 @@ pub fn gui_rgba8888_row_tile_rle_present_descriptor_frame %fn &GuiRgba8888RowTil
 pub fn gui_rgba8888_row_tile_rle_present_descriptor_packet %fn &GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePacketDescriptor \descriptor:
     *field::get_ref descriptor "packet"
 
+pub fn gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count %fn &GuiRgba8888RowTileRlePresentDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count &packet
+
+pub fn gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count %fn &GuiRgba8888RowTileRlePresentDescriptor i32 \descriptor:
+    let packet %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_present_descriptor_packet descriptor
+    gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count &packet
+
 pub fn gui_rgba8888_row_tile_rle_present_frame_prepare_error_kind %fn &GuiRgba8888RowTileRlePresentFramePrepareError GuiRgba8888RowTileRlePresentFramePrepareErrorKind \error:
     *field::get_ref error "kind"
 

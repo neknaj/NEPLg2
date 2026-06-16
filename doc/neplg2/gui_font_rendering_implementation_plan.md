@@ -6669,3 +6669,39 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gu
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cr_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5cs: std row tile RLE present virtual drain
+
+目的:
+
+- headless / test 用に、F5cq host-command record を検査する std layer row tile RLE present virtual drain を追加する。
+- `GuiRgba8888RowTileRlePresentVirtualDrain` は presentation target ではなく、does not consume F5cr。
+- Begin / Run / End の順序、descriptor の一致、expected run / pixel count、`run_pixel_offset == seen_pixel_count` を検査し、gap / overlap / reorder を拒否する。
+
+変更:
+
+- `std/gui/tile_present.nepl` に descriptor expected run / pixel count accessor を追加する。
+- `std/gui/tile_present_virtual_drain.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentVirtualDrainPhase` を `WaitingBegin`、`InFrame`、`Ended` として定義する。
+- `GuiRgba8888RowTileRlePresentVirtualDrain` は phase、`Option SurfaceId`、`Option FrameId`、expected / seen run count、expected / seen pixel count を保持する。
+- `GuiRgba8888RowTileRlePresentVirtualDrainErrorKind` と error value を定義し、失敗時に直前 drain state を保持する。
+- source policy と focused doctest を追加する。
+
+完了条件:
+
+- F5cs は F5cq host-command record だけを消費し、F5cr request、F5cp / F5co cursor、packet storage / record reader / owner、old `GuiSurfacePresentCommand`、platform API、video memory、Canvas / DOM / minifb、fallback、silent no-op に触れない。
+- RunRecord では `run_pixel_offset == seen_pixel_count`、checked run end、expected pixel bound、expected run bound を検査する。
+- EndFrame は expected run count と expected pixel count を満たした場合だけ success になる。
+- focused doctest、source policy、F5cr / F5cq regression、`git diff --check` が通る。
+- subagent implementation review で F5cq-only input、F5cr 非依存、run offset continuity、descriptor accessor boundary が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5cs.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_virtual_drain.nepl --no-tree -o tmp_gui_std_tile_present_virtual_drain_module_f5cs.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cs_regression.json -j 1
+git diff --check
+```

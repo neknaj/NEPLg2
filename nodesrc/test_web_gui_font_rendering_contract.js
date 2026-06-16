@@ -136,6 +136,8 @@ const stdGuiTilePresentHostCommand = read("stdlib/std/gui/tile_present_host_comm
 const stdGuiTilePresentHostCommandImpl = withoutComments(stdGuiTilePresentHostCommand);
 const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_import.nepl");
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
+const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
+const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -185,6 +187,7 @@ const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
+const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -20254,6 +20257,108 @@ assert(
         guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_consumes_f5cq_only_ok") &&
         guiStdTilePresentHostImportTests.includes("std_row_tile_rle_present_host_import_no_raw_no_host_call_no_platform_no_fallback"),
     "F5cr std tile present host-import focused doctest must cover host-import source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present virtual drain") &&
+            doc.includes("GuiRgba8888RowTileRlePresentVirtualDrain") &&
+            doc.includes("run_pixel_offset == seen_pixel_count") &&
+            doc.includes("F5cq host-command record") &&
+            doc.includes("does not consume F5cr"),
+        `F5cs ${name} must document virtual drain, F5cq-only input, and run offset continuity`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_virtual_drain" as *'), "std/gui facade must export F5cs tile present virtual drain boundary");
+assert(
+    stdGuiTilePresent.includes("gui_rgba8888_row_tile_rle_present_descriptor_expected_run_count") &&
+        stdGuiTilePresent.includes("gui_rgba8888_row_tile_rle_present_descriptor_expected_pixel_count"),
+    "std/gui/tile_present must expose F5cs descriptor expected count accessors",
+);
+assert(
+    stdGuiTilePresentVirtualDrain.includes("pub enum GuiRgba8888RowTileRlePresentVirtualDrainPhase:") &&
+        stdGuiTilePresentVirtualDrain.includes("WaitingBegin") &&
+        stdGuiTilePresentVirtualDrain.includes("InFrame") &&
+        stdGuiTilePresentVirtualDrain.includes("Ended") &&
+        stdGuiTilePresentVirtualDrain.includes("pub struct GuiRgba8888RowTileRlePresentVirtualDrain:") &&
+        stdGuiTilePresentVirtualDrain.includes("surface %Option SurfaceId") &&
+        stdGuiTilePresentVirtualDrain.includes("frame %Option FrameId") &&
+        stdGuiTilePresentVirtualDrain.includes("expected_run_count %i32") &&
+        stdGuiTilePresentVirtualDrain.includes("seen_pixel_count %i32"),
+    "std/gui/tile_present_virtual_drain F5cs must define explicit phase and optional id state",
+);
+assert(
+    stdGuiTilePresentVirtualDrain.includes("pub enum GuiRgba8888RowTileRlePresentVirtualDrainErrorKind:") &&
+        stdGuiTilePresentVirtualDrain.includes("RunPixelOffsetMismatch") &&
+        stdGuiTilePresentVirtualDrain.includes("RunEndOverflow") &&
+        stdGuiTilePresentVirtualDrain.includes("RunEndOutOfBounds") &&
+        stdGuiTilePresentVirtualDrain.includes("IncompleteRunCount") &&
+        stdGuiTilePresentVirtualDrain.includes("IncompletePixelCount") &&
+        stdGuiTilePresentVirtualDrain.includes("pub struct GuiRgba8888RowTileRlePresentVirtualDrainError:") &&
+        stdGuiTilePresentVirtualDrain.includes("drain %GuiRgba8888RowTileRlePresentVirtualDrain"),
+    "std/gui/tile_present_virtual_drain F5cs must define concrete error enum and preserve previous drain state",
+);
+assertMatch(
+    stdGuiTilePresentVirtualDrainImpl,
+    /#import "std\/gui\/tile_present_host_command" as \*/,
+    "std/gui/tile_present_virtual_drain F5cs must consume F5cq host-command records",
+);
+assertMatch(
+    stdGuiTilePresentVirtualDrainImpl,
+    /#import "std\/gui\/tile_present" as \*/,
+    "std/gui/tile_present_virtual_drain F5cs must use std descriptor accessors",
+);
+assertNoMatch(
+    stdGuiTilePresentVirtualDrainImpl,
+    /tile_present_host_import|#import "std\/gui\/tile_present_command_cursor"|\btile_present_command_cursor\b|#import "std\/gui\/tile_present_run_cursor"|\btile_present_run_cursor\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bGuiRuntimeCommand\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_virtual_drain F5cs must not consume F5cr, bypass F5cq, use old present/raw/platform APIs, allocate Vec, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentVirtualDrainImpl, "gui_rgba8888_row_tile_rle_present_virtual_drain_run_in_frame"),
+    [
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_matches &drain &descriptor",
+        "gui_rgba8888_row_tile_rle_run_pixel_count &run",
+        "if le run_pixel_count 0:",
+        "gui_rgba8888_row_tile_rle_run_pixel_offset &run",
+        "if ne run_pixel_offset seen_pixel_count:",
+        "GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunPixelOffsetMismatch",
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_checked_run_end run_pixel_offset run_pixel_count",
+        "if gt run_end expected_pixel_count:",
+        "GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::RunEndOutOfBounds",
+        "if gt next_seen_run_count expected_run_count:",
+        "GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::SeenRunCountExceeded",
+    ],
+    "std/gui/tile_present_virtual_drain F5cs must enforce run offset continuity, checked end, and expected count bounds",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentVirtualDrainImpl, "gui_rgba8888_row_tile_rle_present_virtual_drain_end_in_frame"),
+    [
+        "gui_rgba8888_row_tile_rle_present_virtual_drain_descriptor_matches &drain descriptor",
+        "if ne seen_run_count expected_run_count:",
+        "GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::IncompleteRunCount",
+        "if ne seen_pixel_count expected_pixel_count:",
+        "GuiRgba8888RowTileRlePresentVirtualDrainErrorKind::IncompletePixelCount",
+        "GuiRgba8888RowTileRlePresentVirtualDrainPhase::Ended",
+    ],
+    "std/gui/tile_present_virtual_drain F5cs must only end after expected run and pixel counts are observed",
+);
+assertNoMatch(
+    stdGuiTilePresentVirtualDrainImpl,
+    /[()]/,
+    "std/gui/tile_present_virtual_drain F5cs implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_facade_ok") &&
+        guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_phase_enum_ok") &&
+        guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_error_enum_ok") &&
+        guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_f5cq_record_only_ok") &&
+        guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_run_offset_continuity_ok") &&
+        guiStdTilePresentVirtualDrainTests.includes("std_row_tile_rle_present_virtual_drain_no_f5cr_no_raw_no_platform_no_fallback"),
+    "F5cs std tile present virtual-drain focused doctest must cover virtual-drain source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
