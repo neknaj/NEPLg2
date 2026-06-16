@@ -1,0 +1,118 @@
+//: # std/gui/tile_present_host_import
+//: RGBA8888 row tile RLE present host import request の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5cq の host-command record を、Web / native / bare presenter が[受/う]け[取/と]る formal host import request に[包/つつ]みます。
+//: - actual host import は[呼/よ]ばず、host capability と command record の[対応/たいおう]を `Result` で[検査/けんさ]します。
+//:
+//: ### [契約/けいやく]
+//: - target は Window / Offscreen / Device の enum です。headless と text grid は presentation target ではありません。
+//: - RGBA8888 row tile RLE 専用 request なので、host color format が `FormatRgba8888` でない場合は `GuiError::Unsupported` を[返/かえ]します。
+//: - Window target は `WindowPixel`、windowing capability、`default_window` の `Some` をすべて[要求/ようきゅう]します。
+//: - unsupported target から別 target への fallback や silent no-op は[行/おこな]いません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は F5cq record だけを[消費/しょうひ]します。F5cp / F5co cursor、packet storage、old pixel-frame present command、platform API には[戻/もど]りません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_import" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/gui" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/host" as *
+#import "std/gui/tile_present_host_command" as *
+#import "std/gui/window" as *
+
+pub enum GuiRgba8888RowTileRlePresentHostImportTarget:
+    Window %WindowId
+    Offscreen
+    Device
+
+impl Clone for GuiRgba8888RowTileRlePresentHostImportTarget:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostImportTarget GuiRgba8888RowTileRlePresentHostImportTarget \target:
+        *target
+
+impl Copy for GuiRgba8888RowTileRlePresentHostImportTarget:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostImportTarget GuiRgba8888RowTileRlePresentHostImportTarget \target:
+        target
+
+pub struct GuiRgba8888RowTileRlePresentHostImportRequest:
+    target %GuiRgba8888RowTileRlePresentHostImportTarget
+    record %GuiRgba8888RowTileRlePresentHostCommandRecord
+
+impl Clone for GuiRgba8888RowTileRlePresentHostImportRequest:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostImportRequest GuiRgba8888RowTileRlePresentHostImportRequest \request:
+        *request
+
+impl Copy for GuiRgba8888RowTileRlePresentHostImportRequest:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostImportRequest GuiRgba8888RowTileRlePresentHostImportRequest \request:
+        request
+
+fn gui_rgba8888_row_tile_rle_present_host_import_color_format_ok %fn &GuiCapabilities bool \capabilities:
+    match gui_capabilities_color_format capabilities:
+        ColorFormat::FormatRgba8888:
+            true
+        _:
+            false
+
+fn gui_rgba8888_row_tile_rle_present_host_import_request_new %fn GuiRgba8888RowTileRlePresentHostImportTarget fn GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentHostImportRequest \target\record:
+    GuiRgba8888RowTileRlePresentHostImportRequest target record
+
+fn gui_rgba8888_row_tile_rle_present_host_import_window_target %fn &GuiHost fn &GuiCapabilities Result GuiRgba8888RowTileRlePresentHostImportTarget GuiError \host\capabilities:
+    if gui_capabilities_has_windowing capabilities:
+        then:
+            match gui_host_default_window host:
+                Option::Some window:
+                    Result::Ok GuiRgba8888RowTileRlePresentHostImportTarget::Window window
+                Option::None:
+                    Result::Err GuiError::Unsupported
+        else Result::Err GuiError::Unsupported
+
+fn gui_rgba8888_row_tile_rle_present_host_import_target_from_host %fn &GuiHost fn &GuiCapabilities Result GuiRgba8888RowTileRlePresentHostImportTarget GuiError \host\capabilities:
+    let surface_kind %SurfaceKind gui_capabilities_surface_kind capabilities
+    match surface_kind:
+        SurfaceKind::WindowPixel:
+            gui_rgba8888_row_tile_rle_present_host_import_window_target host capabilities
+        SurfaceKind::OffscreenPixel:
+            Result::Ok GuiRgba8888RowTileRlePresentHostImportTarget::Offscreen
+        SurfaceKind::DevicePixel:
+            Result::Ok GuiRgba8888RowTileRlePresentHostImportTarget::Device
+        _:
+            Result::Err GuiError::Unsupported
+
+//: gui_rgba8888_row_tile_rle_present_host_import_request: F5cq record を host import request に[包/つつ]む
+//:
+//: [契約/けいやく]:
+//: - host capability が RGBA8888 pixel presentation に[合/あ]わない場合は `GuiError::Unsupported` です。
+//: - headless / text grid は presentation target ではないため、検査用 record drain として[扱/あつか]い、ここでは request を[作/つく]りません。
+//: - fallback target は[選/えら]ばず、caller が unsupported を明示的に[処理/しょり]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_import_request %fn &GuiHost fn GuiRgba8888RowTileRlePresentHostCommandRecord Result GuiRgba8888RowTileRlePresentHostImportRequest GuiError \host\record:
+    let capabilities %GuiCapabilities gui_host_capabilities host
+    if gui_rgba8888_row_tile_rle_present_host_import_color_format_ok &capabilities:
+        then:
+            match gui_rgba8888_row_tile_rle_present_host_import_target_from_host host &capabilities:
+                Result::Ok target:
+                    Result::Ok gui_rgba8888_row_tile_rle_present_host_import_request_new target record
+                Result::Err error:
+                    Result::Err error
+        else Result::Err GuiError::Unsupported
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_request_target %fn &GuiRgba8888RowTileRlePresentHostImportRequest GuiRgba8888RowTileRlePresentHostImportTarget \request:
+    *field::get_ref request "target"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_request_record %fn &GuiRgba8888RowTileRlePresentHostImportRequest GuiRgba8888RowTileRlePresentHostCommandRecord \request:
+    *field::get_ref request "record"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_import_target_window %fn &GuiRgba8888RowTileRlePresentHostImportTarget Result WindowId GuiError \target:
+    match *target:
+        GuiRgba8888RowTileRlePresentHostImportTarget::Window window:
+            Result::Ok window
+        _:
+            Result::Err GuiError::Unsupported

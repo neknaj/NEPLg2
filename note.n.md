@@ -1,3 +1,45 @@
+# 2026-06-17 Agent2 GUI font F5cr std row tile RLE present host import request
+
+## scope
+
+- F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` を、formal host import request の typed value へ包む std layer boundary を追加する。
+- actual Web / native / bare presenter、host import call、scheduler、video memory submit には進まず、capability validation と target enum を固定する。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- `DevicePixel` capability は任意 `ColorFormat` を持てるため、RGBA8888 row tile RLE request は `ColorFormat::FormatRgba8888` を request boundary で検査する必要があると指摘された。
+- F5cr は F5cq host-command record だけを消費し、F5cp / F5co cursor や packet storage、old pixel-frame present type へ戻らない source policy を強化する必要があると指摘された。
+- 指摘に従い、`FormatRgba8888` 検査を target selection の前に置き、source policy で F5cq-only dependency を固定する方針に修正した。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_import.nepl` を追加し、`GuiRgba8888RowTileRlePresentHostImportTarget` と `GuiRgba8888RowTileRlePresentHostImportRequest` を定義した。
+- target は `Window WindowId`、`Offscreen`、`Device` に限定した。Headless / TextGrid は presentation target ではなく、`GuiError::Unsupported` とする。
+- `gui_rgba8888_row_tile_rle_present_host_import_request` は `GuiHost` の capability を読み、`ColorFormat::FormatRgba8888` を先に検査してから target を選ぶ。
+- Window target は `SurfaceKind::WindowPixel`、windowing capability、`default_window = Some` を要求する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cr.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_import.nepl --no-tree -o tmp_gui_std_tile_present_host_import_module_f5cr.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cr_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_command.nepl --no-tree -o tmp_gui_std_tile_present_host_command_module_f5cr_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `GuiRgba8888RowTileRlePresentHostImportTarget` が Window / Offscreen / Device だけを持ち、Headless target を持たないこと、request が F5cq record を直接保持すること、RGBA8888 validation が target selection より前にあることが確認された。
+- F5cp / F5co / raw / old present / platform / fallback path の禁止が source policy で固定されていることも確認された。
+
+## residual
+
+- F5cr は host import request record までであり、actual Web / native / bare presenter、host import dispatcher、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cq std row tile RLE present host-command record
 
 ## scope

@@ -610,6 +610,8 @@ platforms/gui:
 
 std layer row tile RLE present host-command record は F5cq の checkpoint である。`std/gui/tile_present_host_command` は F5cp の public step descriptor accessor と step result accessor だけを使い、`GuiRgba8888RowTileRlePresentHostCommandRecord` と `GuiRgba8888RowTileRlePresentHostCommandStepResult` を作る。record shape は `BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` であり、run record は descriptor と run を保持し、does not flatten to kind plus optional run。これは enum / match による静的検査で不正状態を表現不能にするためである。この layer does not bypass F5cp。F5co run cursor、packet record reader、raw storage、host import、platform API、fallback には直接触れない。
 
+std layer row tile RLE present host import request は F5cr の checkpoint である。`std/gui/tile_present_host_import` は F5cq の `GuiRgba8888RowTileRlePresentHostCommandRecord` だけを消費し、`GuiRgba8888RowTileRlePresentHostImportRequest` に包む。request target は `GuiRgba8888RowTileRlePresentHostImportTarget` の `Window WindowId`、`Offscreen`、`Device` に限定する。Headless is not a presentation target。headless / text grid は `GuiError::Unsupported` とし、fallback target を選ばない。RGBA8888 row tile RLE 専用の境界なので `ColorFormat::FormatRgba8888` 以外の capability も `GuiError::Unsupported` として、この mismatch を platform backend に持ち越さない。
+
 ## TUI Migration Contract
 
 既存 TUI は `features/tui` と `platforms/wasix/tui` に直接 helper が露出している。これを段階的に次へ移す。
