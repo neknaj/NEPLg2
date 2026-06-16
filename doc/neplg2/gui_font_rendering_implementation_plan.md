@@ -6785,3 +6785,44 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5cu_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5cv: std row tile RLE present dispatch loop outcome boundary
+
+目的:
+
+- F5cu の `RequestReady request plus post phase` を、future platform executor の host outcome と接続する std layer loop boundary に包む。
+- F5cv は std layer row tile RLE present dispatch loop outcome boundary の checkpoint である。
+- host import execution はまだ行わず、request submission 前後の state transition を one-shot pending value として固定する。
+- `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` が previous state、next state、request、post phase を保持し、host outcome が Err なら previous state、Ok なら next state へ進む contract にする。
+- `complete_request consumes pending` ことにより、同じ host outcome の二重完了や next state の replay を避ける。
+
+変更:
+
+- `std/gui/tile_present_dispatch_loop.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentDispatchLoopState` は `GuiRgba8888RowTileRlePresentDispatchState` だけを保持する。
+- `GuiRgba8888RowTileRlePresentDispatchLoopPendingRequest` は previous state、next state、`GuiRgba8888RowTileRlePresentHostImportRequest`、post phase を保持する。Clone / Copy は実装しない。
+- `GuiRgba8888RowTileRlePresentDispatchLoopCompletion` を `Continue state` / `Yield state` / `Completed state` として定義する。
+- error kind は `DispatchFailed lower_kind` と `HostImportExecutionFailed host_error` を enum で分け、category と rollback state を保持する。
+- `dispatch_loop_step_record` は F5cu だけを呼び、success path で pending request を返す。
+- `complete_request` は pending value と `Result unit GuiError` を受け、Err なら previous state を持つ error、Ok なら post phase に対応した completion を返す。
+- `std/gui.nepl` facade、focused doctest、source policy、note / todo を更新する。
+
+完了条件:
+
+- F5cv は F5cu だけを実装上の authority とし、F5ct / F5cr / F5cs direct call を持たない。
+- PendingRequest と Step は Clone / Copy を持たず、completion boundary は pending value を消費する。
+- host outcome Err は previous state を返し、Ok は next state を Continue / Yield / Completed に包む。
+- F5cv は lower cursors、raw packet storage、queue、timer、scheduler、host import execution、platform API、Canvas / DOM / minifb、video memory、fallback、silent no-op に触れない。
+- focused doctest、source policy、F5cu / F5ct / F5cr regression、`git diff --check` が通る。
+- subagent implementation review で one-shot pending、previous / next state、outcome mapping、禁止依存が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch_loop.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_loop_module_f5cv.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cv_regression.json -j 1
+git diff --check
+```
