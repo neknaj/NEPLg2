@@ -7837,6 +7837,8 @@ GuiRgba8888RowTileRlePacketDescriptor:
     frame_id i32
     batch_index i32
     tile_index i32
+    plan_row_start i32
+    plan_row_count i32
     row_start i32
     row_count i32
     width i32
@@ -7849,7 +7851,7 @@ GuiRgba8888RowTileRlePacketDescriptor:
     encoded_byte_count i32
 ```
 
-The packet descriptor is a transport contract seed. Later Web, native, bare, and headless backends can map it to a formal tile / bitmap transport without reinterpreting private cursor or payload layout. The descriptor does not contain a pointer, byte slice, JavaScript object handle, native handle, or video-memory id.
+The packet descriptor is a transport contract seed. Later Web, native, bare, and headless backends can map it to a formal tile / bitmap transport without reinterpreting private cursor or payload layout. The descriptor does not contain a pointer, byte slice, JavaScript object handle, native handle, or video-memory id. `plan_row_start` and `plan_row_count` are deliberately carried because std-layer presentation must be able to rederive `tile_count` from `plan_row_count` and `tile_rows` without borrowing private plan owners.
 
 The important new authority boundary is payload descriptor validation. F5cm adds metadata-only helpers so that packet construction does not poke at private layout ad hoc:
 
@@ -7868,6 +7870,25 @@ gui_rgba8888_row_tile_rle_encoded_tile_plan_metadata_checked
 Packet prepare validates in a fixed order: encoded count, total run count, checked `total_run_count * 12`, cursor completion, descriptor authority, `cursor_pixel_count * 4 == descriptor_byte_count`, `width * 4 == stride_bytes`, `row_count * stride_bytes == descriptor_byte_count`, checked row extent inside surface height, derived tile count, and tile index range. `PayloadDescriptorInvalid` wraps the lower authority error. All failure paths return the original sealed owner in `GuiRgba8888RowTileRlePacketPrepareError`; the owner moves into `GuiRgba8888RowTileRlePacketOwner` only after every check succeeds.
 
 F5cm must not expose encoded bytes, call raw memory projection, allocate `Vec`, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. The later formal transport phase must consume the packet owner rather than rebuild packet metadata from private lower owners.
+
+## std layer row tile RLE present-frame owner
+
+F5cn introduces the first std-layer owner for row tile RLE presentation. It consumes `GuiRgba8888RowTileRlePacketOwner` together with checked `SurfaceId` and `FrameId`, but it still does not call a host import. This keeps the standard boundary explicit: alloc/render2d proves the packet, std/gui proves the packet belongs to a surface/frame, and platform backends later consume the std owner.
+
+```text
+GuiRgba8888RowTileRlePresentDescriptor:
+    surface SurfaceId
+    frame FrameId
+    packet GuiRgba8888RowTileRlePacketDescriptor
+
+GuiRgba8888RowTileRlePresentFrameOwner:
+    packet GuiRgba8888RowTileRlePacketOwner
+    descriptor GuiRgba8888RowTileRlePresentDescriptor
+```
+
+The prepare function validates `surface_id_raw > 0`, `frame_id_raw > 0`, packet descriptor frame id equality, positive width / height / row counts / tile counts, plan row extent, tile row extent, stride `width * 4`, rederived tile count from `plan_row_count` and `tile_rows`, tile index range, tile pixel count `row_count * width`, and encoded byte count `total_run_count * 12`. All multiplication and addition use checked arithmetic. Failure is owner-bearing and returns the original packet owner through `GuiRgba8888RowTileRlePresentFramePrepareError`.
+
+F5cn explicitly does not extend `GuiSurfacePresentCommand`, does not build `PresentPixelFrame`, and does not create `GuiPixelBufferDescriptor`. Those values are the older pixel-frame command boundary, not the tile RLE host import boundary. The future Web/native/headless presenter must consume `GuiRgba8888RowTileRlePresentFrameOwner` and define the real host import shape there.
 
 ## Metrics fixed-point
 

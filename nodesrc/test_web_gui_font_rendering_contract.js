@@ -124,6 +124,8 @@ const allocRender2dRowTileRleEncoded = read("stdlib/alloc/gui/render2d/row_tile_
 const allocRender2dRowTileRleEncodedImpl = withoutComments(allocRender2dRowTileRleEncoded);
 const allocRender2dRowTileRlePacket = read("stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl");
 const allocRender2dRowTileRlePacketImpl = withoutComments(allocRender2dRowTileRlePacket);
+const stdGuiTilePresent = read("stdlib/std/gui/tile_present.nepl");
+const stdGuiTilePresentImpl = withoutComments(stdGuiTilePresent);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -167,6 +169,7 @@ const guiRender2dRowTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_row
 const guiRender2dRowTileRleStorageTests = read("tests/stdlib/gui_render2d_row_tile_rle_storage.n.md");
 const guiRender2dRowTileRleEncodedTests = read("tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md");
 const guiRender2dRowTileRlePacketTests = read("tests/stdlib/gui_render2d_row_tile_rle_packet.n.md");
+const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -19636,6 +19639,157 @@ assert(
         guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_owner_recovery_ok") &&
         guiRender2dRowTileRlePacketTests.includes("render2d_row_tile_rle_packet_no_reader_no_platform_no_fallback"),
     "F5cm row tile RLE packet focused doctest must cover packet owner source-policy labels",
+);
+assert(
+    allocRender2dRowTileRlePacket.includes("plan_row_start %i32") &&
+        allocRender2dRowTileRlePacket.includes("plan_row_count %i32") &&
+        allocRender2dRowTileRlePacket.includes("pub fn gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_start") &&
+        allocRender2dRowTileRlePacket.includes("pub fn gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count"),
+    "alloc/gui/render2d/row_tile_rle_packet F5cn support must carry plan row range so std present can rederive tile count",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present-frame owner") &&
+            doc.includes("GuiRgba8888RowTileRlePresentFrameOwner") &&
+            doc.includes("GuiRgba8888RowTileRlePresentDescriptor") &&
+            doc.includes("plan_row_count") &&
+            doc.includes("GuiSurfacePresentCommand") &&
+            doc.includes("host import"),
+        `F5cn ${name} must document std tile present owner, packet authority, and deferred host import`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present" as *'), "std/gui facade must export F5cn tile present boundary");
+assert(
+    stdGuiTilePresent.includes("pub enum GuiRgba8888RowTileRlePresentFramePrepareErrorKind:") &&
+        stdGuiTilePresent.includes("FrameIdMismatch") &&
+        stdGuiTilePresent.includes("pub struct GuiRgba8888RowTileRlePresentDescriptor:") &&
+        stdGuiTilePresent.includes("surface %SurfaceId") &&
+        stdGuiTilePresent.includes("frame %FrameId") &&
+        stdGuiTilePresent.includes("packet %GuiRgba8888RowTileRlePacketDescriptor") &&
+        stdGuiTilePresent.includes("pub struct GuiRgba8888RowTileRlePresentFrameOwner:") &&
+        stdGuiTilePresent.includes("packet %GuiRgba8888RowTileRlePacketOwner") &&
+        stdGuiTilePresent.includes("pub struct GuiRgba8888RowTileRlePresentFramePrepareError:") &&
+        stdGuiTilePresent.includes("category %Option GuiError") &&
+        stdGuiTilePresent.includes("packet %GuiRgba8888RowTileRlePacketOwner"),
+    "std/gui/tile_present F5cn must define present descriptor, owner, and owner-bearing prepare error",
+);
+assertNoMatch(
+    stdGuiTilePresentImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentFrameOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRlePresentFramePrepareError\b/,
+    "std/gui/tile_present F5cn owner-bearing success and error must not implement Clone or Copy",
+);
+assertNoMatch(
+    stdGuiTilePresentImpl,
+    /\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bVec\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present F5cn must not create surface commands, expose bytes/storage, call host/platform APIs, or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentImpl, "gui_rgba8888_row_tile_rle_present_validate_packet_descriptor"),
+    [
+        "gui_rgba8888_row_tile_rle_present_validate_surface_frame surface frame descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_positive_shape descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_positive_counts descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_row_extent descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_stride descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_tile_count descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_pixel_count descriptor",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_present_validate_encoded_byte_count descriptor",
+    ],
+    "std/gui/tile_present F5cn must validate ids, positive shape, row extent, stride, tile count, pixel count, and encoded byte count before owner move",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentImpl, "gui_rgba8888_row_tile_rle_present_validate_surface_frame"),
+    [
+        "let surface_raw %i32 surface_id_raw &surface",
+        "if le surface_raw 0:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::SurfaceIdInvalid",
+        "let frame_raw %i32 frame_id_raw &frame",
+        "if le frame_raw 0:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdInvalid",
+        "let packet_frame_id %i32 gui_rgba8888_row_tile_rle_packet_descriptor_frame_id packet_descriptor",
+        "if ne packet_frame_id frame_raw:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::FrameIdMismatch",
+    ],
+    "std/gui/tile_present F5cn must revalidate surface/frame ids and packet frame match",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentImpl, "gui_rgba8888_row_tile_rle_present_validate_tile_count"),
+    [
+        "let plan_row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_plan_row_count descriptor",
+        "let tile_rows %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_rows descriptor",
+        "gui_rgba8888_row_tile_rle_present_tile_count_checked plan_row_count tile_rows",
+        "Result::Ok expected_tile_count:",
+        "let tile_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_count descriptor",
+        "if ne expected_tile_count tile_count:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileCountMismatch",
+        "let tile_index %i32 gui_rgba8888_row_tile_rle_packet_descriptor_tile_index descriptor",
+        "if ge tile_index tile_count:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::TileIndexOutOfBounds",
+    ],
+    "std/gui/tile_present F5cn must rederive tile count from packet plan row range and tile rows",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentImpl, "gui_rgba8888_row_tile_rle_present_validate_pixel_count"),
+    [
+        "let row_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_row_count descriptor",
+        "let width %i32 gui_rgba8888_row_tile_rle_packet_descriptor_width descriptor",
+        "gui_rgba8888_row_tile_rle_present_checked_mul row_count width GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountOverflow",
+        "Result::Ok expected_pixel_count:",
+        "let pixel_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_pixel_count descriptor",
+        "if ne expected_pixel_count pixel_count:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::PixelCountMismatch",
+    ],
+    "std/gui/tile_present F5cn must check tile pixel count with checked arithmetic",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentImpl, "gui_rgba8888_row_tile_rle_present_validate_encoded_byte_count"),
+    [
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_total_run_count descriptor",
+        "gui_rgba8888_row_tile_rle_present_checked_mul total_run_count 12 GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountOverflow",
+        "Result::Ok expected_encoded_byte_count:",
+        "let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_packet_descriptor_encoded_byte_count descriptor",
+        "if ne expected_encoded_byte_count encoded_byte_count:",
+        "GuiRgba8888RowTileRlePresentFramePrepareErrorKind::EncodedByteCountMismatch",
+    ],
+    "std/gui/tile_present F5cn must check encoded byte count with checked arithmetic",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentImpl, "gui_rgba8888_row_tile_rle_present_frame_prepare"),
+    [
+        "let packet_descriptor %GuiRgba8888RowTileRlePacketDescriptor gui_rgba8888_row_tile_rle_packet_descriptor &packet",
+        "gui_rgba8888_row_tile_rle_present_validate_packet_descriptor surface frame &packet_descriptor",
+        "Result::Err kind:",
+        "Result::Err gui_rgba8888_row_tile_rle_present_frame_prepare_error kind packet",
+        "Result::Ok _:",
+        "let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_descriptor_new surface frame packet_descriptor",
+        "Result::Ok gui_rgba8888_row_tile_rle_present_frame_owner_new packet descriptor",
+    ],
+    "std/gui/tile_present F5cn prepare must preserve packet owner on error and move only after validation",
+);
+assertNoMatch(
+    stdGuiTilePresentImpl,
+    /[()]/,
+    "std/gui/tile_present F5cn implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentTests.includes("std_row_tile_rle_present_facade_ok") &&
+        guiStdTilePresentTests.includes("std_row_tile_rle_present_owner_boundary_ok") &&
+        guiStdTilePresentTests.includes("std_row_tile_rle_present_owner_recovery_ok") &&
+        guiStdTilePresentTests.includes("std_row_tile_rle_present_checked_geometry_ok") &&
+        guiStdTilePresentTests.includes("std_row_tile_rle_present_no_surface_command_no_platform_no_fallback"),
+    "F5cn std tile present focused doctest must cover present owner source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

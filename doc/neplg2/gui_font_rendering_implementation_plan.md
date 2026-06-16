@@ -1581,7 +1581,7 @@ git diff --check
 目的:
 
 - F5cl の `GuiRgba8888RowTileRleEncodedOwner` を、formal tile / bitmap transport の直前で使う packet owner へ昇格する。
-- packet descriptor に frame / tile geometry と encoded RLE metadata を閉じ込め、host ABI 側が private cursor layout を再解釈しないようにする。
+- packet descriptor に frame / plan row / tile geometry と encoded RLE metadata を閉じ込め、host ABI 側が private cursor layout を再解釈しないようにする。
 - byte reader、raw storage accessor、host present、video memory import、platform API、fallback には進まない。
 
 plan review:
@@ -1594,6 +1594,7 @@ plan review:
 - `stdlib/alloc/gui/render2d/row_tile_payload.nepl` に metadata-only descriptor authority helper を追加する。
 - `stdlib/alloc/gui/render2d/row_tile_rle.nepl` と `row_tile_rle_encoded.nepl` に checked descriptor / plan metadata helper を追加する。
 - `stdlib/alloc/gui/render2d/row_tile_rle_packet.nepl` を追加し、`GuiRgba8888RowTileRlePacketDescriptor`、`GuiRgba8888RowTileRlePacketOwner`、`GuiRgba8888RowTileRlePacketPrepareErrorKind`、owner-bearing prepare error を定義する。
+- F5cn の std present validation で tile count を再導出するため、packet descriptor は tile 自身の row range に加えて `plan_row_start` / `plan_row_count` を持つ。
 - descriptor authority failure は `PayloadDescriptorInvalid` として lower authority error を包む。
 - `gui_rgba8888_row_tile_rle_packet_prepare` は encoded count、cursor completion、payload descriptor authority、descriptor byte count、plan shape、tile metadata を検査し、成功時だけ sealed owner を packet owner に move する。
 - `stdlib/alloc/gui/render2d.nepl` facade から packet owner を再公開する。
@@ -1612,6 +1613,45 @@ plan review:
 node --check nodesrc/test_web_gui_font_rendering_contract.js
 node nodesrc/test_web_gui_font_rendering_contract.js
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cm.json -j 1
+git diff --check
+```
+
+## Phase F5cn: std row tile RLE present-frame owner
+
+目的:
+
+- F5cm の `GuiRgba8888RowTileRlePacketOwner` を、host import の直前で使う std layer row tile RLE present-frame owner へ昇格する。
+- `SurfaceId` / `FrameId` と packet descriptor の対応を std layer で検査し、Web、native、headless、bare presenter が同じ owner を消費できるようにする。
+- `GuiSurfacePresentCommand`、`PresentPixelFrame`、`GuiPixelBufferDescriptor` には接続せず、host import、platform API、byte reader、video memory、fallback には進まない。
+
+plan review:
+
+- Descartes plan review は `PLAN_APPROVED`。条件は、既存 `GuiSurfacePresentCommand` を拡張しないこと、platform/host module を import しないこと、source policy で `GuiSurfacePresentCommand` / `PresentPixelFrame` / `GuiPixelBufferDescriptor` / host import / video memory / raw bytes / fallback を禁止すること。
+- validation は `surface_id_raw` / `frame_id_raw`、packet frame id mismatch、positive geometry、`row_count * width == pixel_count`、`total_run_count * 12 == encoded_byte_count`、`width * 4 == stride_bytes`、positive row/tile/run/byte counts、derived tile count before owner move を固定する。
+- packet descriptor は F5cm 時点で plan row range を持っていなかったため、F5cn では `plan_row_start` / `plan_row_count` を descriptor へ追加し、std layer で `tile_count` を再導出できるようにする。
+
+実装:
+
+- `stdlib/std/gui/tile_present.nepl` を追加し、`GuiRgba8888RowTileRlePresentDescriptor`、`GuiRgba8888RowTileRlePresentFrameOwner`、`GuiRgba8888RowTileRlePresentFramePrepareErrorKind`、owner-bearing prepare error を定義する。
+- `gui_rgba8888_row_tile_rle_present_frame_prepare` は packet descriptor を借用で読み、すべての validation が成功した後だけ packet owner を present-frame owner に move する。
+- failure は `GuiRgba8888RowTileRlePresentFramePrepareError` に original packet owner を保持し、free / recovery helper で閉じられるようにする。
+- `stdlib/std/gui.nepl` facade から tile present boundary を再公開する。
+- `tests/stdlib/gui_std_tile_present.n.md` は import smoke と source policy labels に絞る。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cn source policy を追加する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- import smoke、source policy、`git diff --check` が通る。
+- implementation review で existing surface command へ接続していないこと、host import / byte reader / platform API / fallback に進んでいないこと、owner recovery と checked arithmetic が保たれていることを確認する。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present.n.md --no-tree -o tmp_gui_std_tile_present_f5cn.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_packet.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_packet_f5cn_regression.json -j 1
 git diff --check
 ```
 

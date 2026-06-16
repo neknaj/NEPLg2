@@ -6813,7 +6813,7 @@ sealed owner は encoded byte reader、storage pointer accessor、raw byte acces
 
 F5cm は F5cl の `GuiRgba8888RowTileRleEncodedOwner` を、formal tile / bitmap transport の直前で使う row tile RLE packet owner に昇格する phase である。`GuiRgba8888RowTileRlePacketOwner` は sealed encoded owner と `GuiRgba8888RowTileRlePacketDescriptor` を保持するが、encoded byte reader、storage pointer、host present command は持たない。
 
-packet descriptor は frame id、batch index、tile index、frame-absolute row range、surface width / height、stride bytes、tile rows、tile count、cursor pixel count、total run count、encoded byte count を持つ Copy metadata である。これは host ABI へ渡す data shape を固定するための metadata authority であり、Web / native / headless / bare のどれかに依存した transport object ではない。
+packet descriptor は frame id、batch index、tile index、plan row range、tile frame-absolute row range、surface width / height、stride bytes、tile rows、tile count、cursor pixel count、total run count、encoded byte count を持つ Copy metadata である。これは host ABI へ渡す data shape を固定するための metadata authority であり、Web / native / headless / bare のどれかに依存した transport object ではない。`plan_row_count` は std layer row tile RLE present-frame owner が tile count を再導出する authority であり、tile 自身の `row_count` と混ぜない。
 
 `gui_rgba8888_row_tile_rle_packet_prepare` は次の順で検査する。
 
@@ -6837,6 +6837,30 @@ derived tile count == stored plan tile count
 payload descriptor authority failure is `PayloadDescriptorInvalid %GuiRgba8888RowTilePayloadAuthorityErrorKind` で表す。prepare failure は original sealed encoded owner を owner-bearing `GuiRgba8888RowTileRlePacketPrepareError` に保持し、fake packet owner を作らない。success path だけが sealed owner を packet owner へ move する。
 
 この layer は formal tile / bitmap transport の descriptor sealing までで止まる。byte reader、raw storage、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。actual host ABI、queueing、scheduler、Web/native/headless presenter は後続 phase の責務である。
+
+### std row tile RLE present-frame owner boundary
+
+F5cn は F5cm の packet owner と `SurfaceId` / `FrameId` を束ね、host import 直前の std layer row tile RLE present-frame owner に昇格する phase である。`GuiRgba8888RowTileRlePresentFrameOwner` は packet owner を保持し、`GuiRgba8888RowTileRlePresentDescriptor` は surface id、frame id、packet descriptor copy を保持する。descriptor は Copy metadata だが、actual packet owner は linear resource なので success owner と error は Clone / Copy を実装しない。
+
+prepare は次を順に検査する。
+
+```text
+surface_id_raw > 0
+frame_id_raw > 0
+packet.frame_id == frame_id_raw
+width / height / plan_row_count / row_count / stride / tile rows / tile count / pixel count / run count / encoded bytes are positive
+plan row extent is inside height
+tile row extent is inside height and plan row extent
+width * 4 == stride_bytes
+derived tile count from plan_row_count and tile_rows == tile_count
+tile_index < tile_count
+row_count * width == pixel_count
+total_run_count * 12 == encoded_byte_count
+```
+
+すべての加算と乗算は checked arithmetic を使う。failure は `GuiRgba8888RowTileRlePresentFramePrepareError` に original packet owner を保持し、success path だけが packet owner を `GuiRgba8888RowTileRlePresentFrameOwner` へ move する。
+
+F5cn は `GuiSurfacePresentCommand` を拡張しない。`PresentPixelFrame` や `GuiPixelBufferDescriptor` は既存 pixel-frame boundary であり、row tile RLE host import ではない。actual Web/native/headless presenter は F5cn owner を後続 phase で消費する。host import、byte reader、raw storage、video memory host call、platform API、fallback、silent no-op は F5cn には入れない。
 
 ### Supported font containers
 
