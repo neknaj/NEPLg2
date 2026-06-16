@@ -7447,6 +7447,52 @@ descriptor.byte_offset + descriptor.byte_count <= plan.byte_count
 
 The frame-absolute row start and storage-relative byte offset are both needed. Rendering diagnostics and dirty-region accounting care about frame rows, while later payload phases need offsets into the copied row storage. This boundary carries both without exposing raw storage or reading byte values.
 
+## Render2d row tile RLE cursor boundary
+
+F5cc introduces `GuiRgba8888RowTileRleCursorOwner` above `GuiRgba8888RowTilePayloadOwner`. It is a streaming cursor over RGBA8888 pixel runs, not an encoded RLE buffer. The cursor owns the payload view and advances by returning a `GuiRgba8888RowTileRleStep` that contains the continuation cursor owner plus a Copy `GuiRgba8888RowTileRleRun`.
+
+The start path is:
+
+```text
+gui_rgba8888_row_tile_rle_cursor_start:
+    input: GuiRgba8888RowTilePayloadOwner
+    byte_count = gui_rgba8888_row_tile_payload_byte_count &payload
+    require byte_count > 0
+    require byte_count % 4 == 0
+    return cursor payload pixel_count next_pixel_index=0
+```
+
+Start errors are owner-bearing. `PayloadByteCountInvalid` and `PayloadByteCountNotRgbaAligned` both keep the original payload owner so the caller can free or recover the underlying tile plan and copied byte storage.
+
+The step path is:
+
+```text
+gui_rgba8888_row_tile_rle_cursor_next_run:
+    status = gui_rgba8888_row_tile_rle_cursor_status &cursor
+    if status is Complete:
+        return CursorComplete with cursor owner
+    start = cursor.next_pixel_index
+    color = read_pixel payload start
+    scan until color changes or pixel_count is reached
+    return continuation cursor and run metadata
+```
+
+The pixel read path is deliberately byte-view based:
+
+```text
+pixel_byte_offset = checked_mul pixel_index 4
+g_offset = checked_add pixel_byte_offset 1
+b_offset = checked_add pixel_byte_offset 2
+a_offset = checked_add pixel_byte_offset 3
+r/g/b/a = gui_rgba8888_row_tile_payload_byte_at payload offset
+```
+
+All four channel offsets are checked even though valid cursor state should keep them inside payload bounds. This keeps the public contract robust against forged owners and future alternate payload sources. Lower payload read failure is wrapped as `PayloadReadFailed lower_kind`, not flattened into a string or panic.
+
+`GuiRgba8888RowTileRleRun` is Copy metadata: `pixel_offset`, `pixel_count`, `Rgba8888 color`. The cursor, step, and step error are owner-bearing values and do not implement Clone / Copy. `CursorComplete` is a typed error, not an unchanged cursor success, because repeated calls to `next_run` on complete cursor must have an explicit recovery path.
+
+F5cc remains streaming-only. It does not allocate a `Vec`, build an encoded byte buffer, expose raw storage, call host present, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. Formal tile / bitmap / row / RLE transport and host presentation remain later phases.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

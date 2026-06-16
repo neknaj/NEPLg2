@@ -1,3 +1,50 @@
+# 2026-06-16 Agent2 GUI font F5cc render2d row tile RLE cursor boundary
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-f5cc-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cc の row tile RLE cursor、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Cicero plan review 1 は `PLAN_BLOCKED`。`next_run` に complete cursor が渡された時に status / finish だけで扱える設計では public contract が弱く、owner-bearing typed error が必要だと指摘された。
+- revised plan は `PLAN_APPROVED`。`CursorComplete` を `GuiRgba8888RowTileRleStepErrorKind` の明示 variant とし、`GuiRgba8888RowTileRleStepError` が cursor owner を保持すること、`pixel_index * 4` と channel offset `+1` / `+2` / `+3` をすべて checked にすること、payload read failure を `PayloadReadFailed lower_kind` に包むことが実装条件である。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle.nepl` を追加した。
+- `GuiRgba8888RowTileRleStartErrorKind`、`GuiRgba8888RowTileRleStepErrorKind`、`GuiRgba8888RowTileRleCursorStatus` を typed enum として分けた。
+- `GuiRgba8888RowTileRleRun` は `pixel_offset`、`pixel_count`、`Rgba8888 color` の Copy metadata とした。
+- `GuiRgba8888RowTileRleCursorOwner` は payload owner、pixel_count、next_pixel_index を保持し、owner-bearing cursor / step / error は `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_tile_rle_cursor_start` は payload byte count が正で 4 byte RGBA8888 pixel に整列していることを検査し、失敗時は payload owner を start error に保持する。
+- `gui_rgba8888_row_tile_rle_cursor_next_run` は Ready cursor から同色 pixel run を走査し、Complete cursor には `CursorComplete` owner-bearing error を返す。
+- pixel read は `pixel_index * 4`、channel offset `+1` / `+2` / `+3` を checked arithmetic で検査し、payload read failure を `PayloadReadFailed lower_kind` に包む。
+- `stdlib/alloc/gui/render2d.nepl` facade から row tile RLE cursor を再公開した。
+- `tests/stdlib/gui_render2d_row_tile_rle.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cc の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5cc source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_tile_rle.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_tile_rle.nepl` 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_payload.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_tile_plan.n.md` 2 / 2 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Cicero implementation review は `REVIEW_APPROVED`。`CursorComplete` が owner-bearing typed `Result` error であること、cursor / step / error が `Clone` / `Copy` を実装していないこと、run metadata が Copy であること、`pixel_index * 4` と channel offset `+1` / `+2` / `+3` が checked であること、payload read failure が `PayloadReadFailed lower_kind` に包まれていることを確認した。
+- Cicero は `node --check nodesrc/test_web_gui_font_rendering_contract.js`、`node nodesrc/test_web_gui_font_rendering_contract.js`、`tests/stdlib/gui_render2d_row_tile_rle.n.md`、`stdlib/alloc/gui/render2d/row_tile_rle.nepl` を再実行し、すべて pass、Node WASI experimental warning のみと確認した。
+
+## remaining
+
+- F5cc は existing copied row tile payload view 上の streaming RLE cursor までであり、formal encoded RLE transport、host present、video memory import ABI への接続、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5cb render2d row tile payload view boundary
 
 ## scope

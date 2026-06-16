@@ -6608,6 +6608,26 @@ byte read は `gui_rgba8888_row_tile_payload_byte_at owner index` として公�
 
 `gui_rgba8888_row_tile_plan_storage_ref` は raw `RegionToken` / `MemPtr` を返さず、`&GuiRgba8888RowByteStorageOwner` という typed borrowed authority だけを返す。payload view はこの authority を使うが、source surface storage や copied storage の raw pointer を public API に出してはならない。
 
+### Render2d row tile RLE cursor boundary
+
+F5cc は `GuiRgba8888RowTilePayloadOwner` を `GuiRgba8888RowTileRleCursorOwner` へ変換し、tile 内の RGBA8888 pixel run を streaming で 1 件ずつ返す phase である。これは encoded RLE buffer、transport payload、video memory host call、Canvas / DOM / minifb、platform surface、fallback ではない。
+
+```text
+GuiRgba8888RowTilePayloadOwner
+    -> gui_rgba8888_row_tile_rle_cursor_start
+    -> Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleStartError
+
+GuiRgba8888RowTileRleCursorOwner
+    -> gui_rgba8888_row_tile_rle_cursor_next_run
+    -> Result GuiRgba8888RowTileRleStep GuiRgba8888RowTileRleStepError
+```
+
+`GuiRgba8888RowTileRleRun` は `pixel_offset`、`pixel_count`、`Rgba8888 color` を持つ Copy metadata である。`GuiRgba8888RowTileRleCursorOwner` は payload owner、pixel_count、next_pixel_index を持つ owner-bearing cursor なので Clone / Copy を実装しない。`GuiRgba8888RowTileRleStep` は continuation cursor owner と Copy run を束ねる owner-bearing value である。
+
+`start` は payload byte count が正で、4 byte RGBA8888 pixel に整列していることを検査する。失敗は `PayloadByteCountInvalid` または `PayloadByteCountNotRgbaAligned` であり、payload owner を start error に保持する。`status` は `Ready` / `Complete` の Copy enum を返し、`next_pixel_index < 0` と `next_pixel_index > pixel_count` は typed error として止める。
+
+`next_run` は complete cursor に対して silent no-op を返さず、`CursorComplete` を `GuiRgba8888RowTileRleStepError` に入れて cursor owner を保持する。pixel read は `pixel_index * 4`、`base + 1`、`base + 2`、`base + 3` をすべて checked arithmetic で検査し、payload read failure は `PayloadReadFailed %GuiRgba8888RowTilePayloadReadErrorKind` として包む。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
