@@ -6274,6 +6274,46 @@ read_pixel &owner x y
 
 SourceOver alpha-mask drain は次 phase の責務であり、F5bo では実装しない。F5bo はあくまで surface owner の lifetime、bounds、byte layout を固定する。
 
+### SourceOver alpha-mask software drain-start owner boundary
+
+F5bp は F5bn の prepared command owner と F5bo の RGBA8888 software surface owner を同時に消費し、後続の bounded drain step が使う cursor owner を作る境界である。この phase は completed drain ではない。pixel write、SourceOver 合成、dirty region 更新、tile / bitmap transport、host present は実行しない。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    cell_index i32
+```
+
+start は次の検査をすべて fail closed に行う。
+
+```text
+1. prepared owner 内部の registered resource を internal reservation から再検証する
+2. stored record と rederived record の mask id / rect / paint / dimensions / alpha metadata を比較する
+3. private command field は start validation helper 内だけで読む
+4. command が AlphaMaskRect であることを確認する
+5. command payload の mask id / rect / paint が rederived record と一致することを確認する
+6. rect origin が 0 以上で、rect size が正であることを確認する
+7. checked add で right / bottom を計算する
+8. surface width / height が rect を含むことを確認する
+9. 成功時だけ cell_index = 0 の drain owner を返す
+```
+
+error は prepared owner と surface owner を同時に保持する。片方だけを取り出す consuming accessor は作らない。回収は rejected owner と paired callback だけで行う。
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+```
+
+F5bp は raw `RenderCommand` accessor、`&RenderCommand` accessor、command callback、prepared owner と surface owner の split accessor、`gui_rgba8888_software_surface_write_pixel`、DrawTarget、RenderTarget、Canvas、DOM、minifb、platform / host API、fallback、zero-fill fallback を使わない。
+
 ### Supported font containers
 
 標準設計は次を対象にする。

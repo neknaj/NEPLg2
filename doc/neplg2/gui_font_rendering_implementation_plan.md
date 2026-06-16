@@ -524,6 +524,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5bp: SourceOver alpha-mask software drain-start owner boundary
+
+目的:
+
+- F5bn prepared command owner と F5bo software RGBA8888 surface owner を同時に消費する。
+- completed drain ではなく、後続の bounded drain step が使う cursor owner を作る。
+- この phase では pixel write、SourceOver 合成、dirty region、tile / bitmap transport、host present は実行しない。
+- raw `RenderCommand` escape を再導入せず、private command field は start validation helper 内だけで読む。
+- error recovery は prepared owner と surface owner を pair のまま扱い、片方だけを取り出す consuming accessor を作らない。
+
+plan review:
+
+- Planck plan review 1 は `PLAN_BLOCKED`。drain 完了ではなく drain-start / drain-cursor owner boundary と明記すること、paired recovery を守ること、private command field の narrow carveout、registered resource の再検証、checked geometry、pixel write 禁止が条件として示された。
+- revised implementation は blocker を反映し、F5bp を start validation と cursor owner 作成に限定する。SourceOver pixel write は次 phase に残す。
+
+変更:
+
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner` を追加する。prepared owner、surface owner、`cell_index` を保持し、`Clone` / `Copy` は実装しない。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind` と owner-bearing start error を追加する。
+- start error から rejected owner を作り、`rejected_with` callback で prepared owner と surface owner を同時に回収する。split consuming accessor は作らない。
+- start validation は prepared owner の registered resource を internal reservation から再検証し、stored record と rederived record を比較する。
+- command payload validation は private `command` field を内部で読み、`RenderCommand::AlphaMaskRect` だけを受理し、mask id、rect、paint を rederived record と比較する。
+- rect / surface validation は origin、size、checked right、checked bottom、surface containment を順に検査する。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start` は validation 成功時だけ `cell_index = 0` の owner を返す。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` を追加し、focused doctest coverage label を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bp source policy を追加する。
+
+完了条件:
+
+- source policy が docs、Planck blocker、drain-start cursor boundary、owner no `Clone` / `Copy`、owner-bearing error no `Clone` / `Copy`、paired recovery、split accessor 禁止、private command field の start validation helper 限定、registered resource revalidation、command payload equality、checked geometry、surface containment、no pixel write、no target / platform / fallback、括弧なし prefix style、focused doctest coverage label を検査する。
+- focused doctest と F5bn / F5bo / GUI core alpha mask 回帰、source policy が通る。
+- implementation review で pixel write へ進んでいないこと、raw command escape がないこと、paired owner recovery が維持されていることを確認する。
+- `note.n.md` に plan review、実装、検証、subagent 実装レビュー、残件を記録する。
+- `todo.md` は F5bp 後の bounded SourceOver drain step、write failure recovery、dirty region、tile / bitmap transport、FHD 60fps batching を残件として更新する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_software_drain_f5bp.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_resource_prepared_command_f5bp_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5bp_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_core_alpha_mask_command.n.md --no-tree -o tmp_gui_core_alpha_mask_command_f5bp_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

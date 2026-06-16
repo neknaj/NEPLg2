@@ -7034,6 +7034,59 @@ Read may not consume or duplicate the `RegionToken u8` owner.
 
 F5bo deliberately does not consume the F5bn prepared command owner. It does not implement SourceOver, alpha-mask drain, DrawTarget fallback, RenderTarget backend, Canvas, DOM, minifb, or platform present. The next slice should define a compositor owner that consumes both the prepared alpha-mask command owner and a software surface owner and then returns exactly one updated surface owner plus released font/resource owners.
 
+## SourceOver alpha-mask software drain-start owner boundary
+
+F5bp is the first bridge from the sealed F5bn prepared command owner to the shared F5bo software surface owner. The bridge is intentionally a drain-start / drain-cursor boundary. It is not a completed drain, and it must not write pixels yet. No SourceOver arithmetic is executed in this slice. The point of the boundary is to prove that a prepared `AlphaMaskRect` command, its still-owned alpha mask resource, and an RGBA8888 software surface are held together before the later bounded drain step mutates the surface.
+
+The owner layout is:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+    cell_index i32
+```
+
+`cell_index` starts at zero. A later step function will consume this owner, process a bounded number of cells, and return either the next owner or a completed owner. F5bp does not define that step yet, because the next slice needs SourceOver arithmetic, alpha-cell reads, write failure recovery, dirty rect handling, and partial-progress semantics reviewed together.
+
+Start validation must rederive the authoritative resource record from the internal reservation even though F5bn already did it. The prepared owner is a sealed lifetime boundary, not a permanent proof that future consumers can stop checking. The validation order is:
+
+```text
+1. borrow prepared.resource
+2. read the stored record from the registered resource
+3. borrow the registered resource reservation
+4. rederive expected record from the reservation
+5. compare stored and expected records
+6. read prepared.command only inside the start validation helper
+7. require RenderCommand::AlphaMaskRect
+8. compare command mask id, rect, and paint with the rederived record
+9. validate record width, height, cell count, and alpha max
+10. validate rect origin and size
+11. compute right and bottom through checked addition
+12. compare right and bottom with surface width and height
+```
+
+The geometry validation may not call `gui_rect_right` or `gui_rect_bottom`, because those helpers perform unchecked addition. F5bp instead checks origin and size first, computes `max_i32 - extent`, then rejects overflow before adding.
+
+Error recovery is paired:
+
+```text
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:
+    kind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+
+GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
+    prepared GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface GuiRgba8888SoftwareSurfaceOwner
+```
+
+There must be no split consuming accessor returning only the prepared owner or only the surface owner. Recovery goes through a rejected owner and a callback that receives both owners at once. This mirrors the earlier table-registration pair recovery and prevents the command lifetime and surface lifetime from drifting apart.
+
+F5bp may import `alloc/gui/render2d` because the surface owner is a shared render2d foundation. `alloc/gui/render2d` must not import `alloc/gui/font/sfnt/glyf`, and the surface owner remains outside the font module. The bridge belongs in `glyf.nepl` only because the prepared command owner is sealed there and its private command field must not be exposed.
+
+F5bp must not call `gui_rgba8888_software_surface_write_pixel`, read or write raw memory, DrawTarget, RenderTarget, backend APIs, platform APIs, Canvas, DOM, minifb, fallback paths, per-sample FillRect bridge, or command-stream emission. It may call surface width / height accessors and surface free.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -162,6 +162,7 @@ const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSampleComman
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceReservationTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_reservation.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourceTableTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_table.n.md");
 const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskResourcePreparedCommandTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_resource_prepared_command.n.md");
+const guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md");
 const guiFontSfntCurveLookupTests = read("tests/stdlib/gui_font_sfnt_glyf_curve_lookup.n.md");
 const guiFontSfntTests = [
     read("tests/stdlib/gui_font_sfnt.n.md"),
@@ -16315,9 +16316,9 @@ assert(
     "docs must record F5bn prepared command boundary, raw command escape blocker, and revised plan approval",
 );
 const renderFillAlphaMaskResourcePreparedCommandStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:");
-const renderFillAlphaMaskResourcePreparedCommandEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:", renderFillAlphaMaskResourcePreparedCommandStartIndex);
+const renderFillAlphaMaskResourcePreparedCommandEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:", renderFillAlphaMaskResourcePreparedCommandStartIndex);
 const renderFillAlphaMaskResourcePreparedCommandRegion = allocFontSfntGlyfImpl.slice(renderFillAlphaMaskResourcePreparedCommandStartIndex, renderFillAlphaMaskResourcePreparedCommandEndIndex);
-assert(renderFillAlphaMaskResourcePreparedCommandStartIndex >= 0 && renderFillAlphaMaskResourcePreparedCommandEndIndex > renderFillAlphaMaskResourcePreparedCommandStartIndex, "alloc/gui/font/sfnt/glyf F5bn prepared command region must exist before coordinate delta code");
+assert(renderFillAlphaMaskResourcePreparedCommandStartIndex >= 0 && renderFillAlphaMaskResourcePreparedCommandEndIndex > renderFillAlphaMaskResourcePreparedCommandStartIndex, "alloc/gui/font/sfnt/glyf F5bn prepared command region must exist before F5bp software drain code");
 for (const fragment of [
     "struct GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner:",
     "resource %GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner",
@@ -16654,6 +16655,242 @@ assert(
         guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_free_ok") &&
         guiRender2dSoftwareSurfaceTests.includes("render2d_software_surface_no_platform_no_font_no_fallback"),
     "F5bo render2d software surface focused doctest must cover facade, owner token, validation, allocation mapping, roundtrip, recovery, free, and no platform/font/fallback policy",
+);
+assert(
+    spec.includes("SourceOver alpha-mask software drain-start owner boundary") &&
+        spec.includes("completed drain ではない") &&
+        detailedDesign.includes("drain-start / drain-cursor boundary") &&
+        detailedDesign.includes("must not write pixels yet") &&
+        implementationPlan.includes("Phase F5bp") &&
+        implementationPlan.includes("Planck plan review 1 は `PLAN_BLOCKED`") &&
+        implementationPlan.includes("pixel write、SourceOver 合成"),
+    "docs must record F5bp drain-start cursor boundary, Planck blocker corrections, and no pixel-write scope",
+);
+const renderFillAlphaMaskSoftwareDrainStartIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:");
+const renderFillAlphaMaskSoftwareDrainEndIndex = allocFontSfntGlyfImpl.indexOf("struct GuiSfntSimpleGlyphCoordinateDelta:", renderFillAlphaMaskSoftwareDrainStartIndex);
+const renderFillAlphaMaskSoftwareDrainRegion = allocFontSfntGlyfImpl.slice(renderFillAlphaMaskSoftwareDrainStartIndex, renderFillAlphaMaskSoftwareDrainEndIndex);
+assert(renderFillAlphaMaskSoftwareDrainStartIndex >= 0 && renderFillAlphaMaskSoftwareDrainEndIndex > renderFillAlphaMaskSoftwareDrainStartIndex, "alloc/gui/font/sfnt/glyf F5bp software drain region must exist before coordinate delta code");
+for (const fragment of [
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:",
+    "prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner",
+    "surface %GuiRgba8888SoftwareSurfaceOwner",
+    "cell_index %i32",
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:",
+    "kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind",
+    "prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner",
+    "surface %GuiRgba8888SoftwareSurfaceOwner",
+    "struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:",
+]) {
+    assert(renderFillAlphaMaskSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bp software drain region must include ${fragment}`);
+}
+for (const fragment of [
+    "UnexpectedCommand",
+    "InvalidMaskId",
+    "ResourceRecordMismatch",
+    "CommandMaskIdMismatch",
+    "CommandRectMismatch",
+    "CommandPaintMismatch",
+    "RectInvalidOrigin",
+    "RectInvalidSize",
+    "RectRightOverflow",
+    "RectBottomOverflow",
+    "SurfaceInvalidGeometry",
+    "SurfaceBoundsMismatch",
+    "SurfaceFreeFailed",
+]) {
+    assert(renderFillAlphaMaskSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bp software drain error kind must include ${fragment}`);
+}
+assertNoMatch(
+    renderFillAlphaMaskSoftwareDrainRegion,
+    /impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:|impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:|impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:/,
+    "alloc/gui/font/sfnt/glyf F5bp owner-bearing drain values must not implement Clone or Copy",
+);
+for (const fragment of [
+    "impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind",
+    "impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind",
+]) {
+    assert(renderFillAlphaMaskSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bp value-only error kind must implement ${fragment}`);
+}
+assertNoMatch(
+    renderFillAlphaMaskSoftwareDrainRegion,
+    /\bgui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_(?:owner|start_error|rejected)_(?:prepared|surface)\b/,
+    "alloc/gui/font/sfnt/glyf F5bp must not expose split consuming accessors for prepared owner or surface owner",
+);
+const renderFillAlphaMaskSoftwareDrainErrorRejected = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_rejected");
+const renderFillAlphaMaskSoftwareDrainRejectedWith = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with");
+const renderFillAlphaMaskSoftwareDrainRehydrateRecord = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rederive_record");
+const renderFillAlphaMaskSoftwareDrainValidateRecordShape = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_record_shape");
+const renderFillAlphaMaskSoftwareDrainValidateCommandPayload = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_command_payload");
+const renderFillAlphaMaskSoftwareDrainValidateRectSurface = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_rect_surface");
+const renderFillAlphaMaskSoftwareDrainValidateStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start");
+const renderFillAlphaMaskSoftwareDrainStart = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start");
+const renderFillAlphaMaskSoftwareDrainOwnerFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free");
+const renderFillAlphaMaskSoftwareDrainStartErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_free");
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainErrorRejected,
+    [
+        "field::get error \"prepared\"",
+        "field::get error \"surface\"",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected prepared surface",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp start error rejected must keep prepared owner and surface owner paired",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainRejectedWith,
+    [
+        "field::get rejected \"prepared\"",
+        "field::get rejected \"surface\"",
+        "callback prepared surface",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp rejected recovery continuation must pass prepared owner and surface owner together",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainRehydrateRecord,
+    [
+        "field::get_ref prepared \"resource\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_record resource",
+        "field::get_ref resource \"reservation\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation reservation",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_error_kind_from_table_register lower_kind",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_record_equal &stored_record &expected_record",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ResourceRecordMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp must rederive registered resource record from internal reservation",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainValidateRecordShape,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px record",
+        "le width_px 0",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_height_px record",
+        "le height_px 0",
+        "gt width_px div_s max_i32 height_px",
+        "let expected_cell_count %i32 mul width_px height_px",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_cell_count record",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_alpha_max record",
+        "le alpha_max 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp must validate record dimensions and alpha metadata before cursor creation",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainValidateCommandPayload,
+    [
+        "field::get_ref prepared \"command\"",
+        "match *command",
+        "RenderCommand::AlphaMaskRect payload",
+        "alpha_mask_rect_command_mask_id &payload",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id record",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CommandMaskIdMismatch",
+        "alpha_mask_rect_command_rect &payload",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect record",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CommandRectMismatch",
+        "alpha_mask_rect_command_paint &payload",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_paint record",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CommandPaintMismatch",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::UnexpectedCommand",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp command validation may inspect private command only inside start validation helper",
+);
+const renderFillAlphaMaskSoftwareDrainWithoutCommandValidation = renderFillAlphaMaskSoftwareDrainRegion.replace(renderFillAlphaMaskSoftwareDrainValidateCommandPayload, "");
+assertNoMatch(
+    renderFillAlphaMaskSoftwareDrainWithoutCommandValidation,
+    /\bfield::get(?:_ref)?\s+(?:prepared|owner)\s+"command"\b|%fn\s+&GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner\s+RenderCommand|%fn\s+GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner\s+RenderCommand|\bcallback\s+prepared\s+surface\s+command\b/,
+    "alloc/gui/font/sfnt/glyf F5bp must not expose or inspect raw command outside command validation helper",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainValidateRectSurface,
+    [
+        "gui_rect_x &rect",
+        "gui_rect_y &rect",
+        "or lt x 0 lt y 0",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectInvalidOrigin",
+        "gui_rect_width &rect",
+        "gui_rect_height &rect",
+        "or le width 0 le height 0",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectInvalidSize",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px record",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_height_px record",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_extent x width GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectRightOverflow",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_extent y height GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectBottomOverflow",
+        "gui_rgba8888_software_surface_width surface",
+        "gui_rgba8888_software_surface_height surface",
+        "or gt right surface_width gt bottom surface_height",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceBoundsMismatch",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp must validate rect and surface containment with checked extents",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainValidateStart,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rederive_record prepared",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_record_shape &record",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_command_payload prepared &record",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_rect_surface &record surface",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp validate start must compose revalidation, command payload, and surface checks",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainStart,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start &prepared &surface",
+        "Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error error_kind prepared surface",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp start must return cell_index zero only after validation succeeds",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainOwnerFree,
+    [
+        "field::get owner \"prepared\"",
+        "field::get owner \"surface\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_free prepared",
+        "gui_rgba8888_software_surface_free surface",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceFreeFailed",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp owner free must close prepared owner and surface owner together",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainStartErrorFree,
+    [
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_rejected error",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with rejected",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner",
+    ],
+    "alloc/gui/font/sfnt/glyf F5bp start error free must reuse paired rejected recovery",
+);
+for (const [slice, name] of [
+    [renderFillAlphaMaskSoftwareDrainErrorRejected, "start error rejected"],
+    [renderFillAlphaMaskSoftwareDrainRejectedWith, "rejected continuation"],
+    [renderFillAlphaMaskSoftwareDrainRehydrateRecord, "record rederive"],
+    [renderFillAlphaMaskSoftwareDrainValidateRecordShape, "record shape validation"],
+    [renderFillAlphaMaskSoftwareDrainValidateCommandPayload, "command payload validation"],
+    [renderFillAlphaMaskSoftwareDrainValidateRectSurface, "rect surface validation"],
+    [renderFillAlphaMaskSoftwareDrainValidateStart, "start validation"],
+    [renderFillAlphaMaskSoftwareDrainStart, "start"],
+    [renderFillAlphaMaskSoftwareDrainOwnerFree, "owner free"],
+    [renderFillAlphaMaskSoftwareDrainStartErrorFree, "start error free"],
+]) {
+    assertNoMatch(
+        slice,
+        /\b(?:gui_rgba8888_software_surface_write_pixel|gui_rgba8888_software_surface_read_pixel|store_u8|load_u8|region_ptr_at|alloc_region_bytes|dealloc_region|render_command_|RenderTarget|DrawTarget|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_cursor|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command|gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_lookup|tile|bitmap|transport|stroke|shadow|partial|vec::clone|vec::copy)\b/,
+        `alloc/gui/font/sfnt/glyf F5bp ${name} must not write pixels, use targets/platforms/fallback, sample cursor, table lookup, or owner-bearing vec copy`,
+    );
+    assertNoMatch(slice, /\bgui_rect_right\b|\bgui_rect_bottom\b/, `alloc/gui/font/sfnt/glyf F5bp ${name} must not use unchecked rect extent helpers`);
+    assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bp ${name} must preserve NEPL prefix style without parentheses`);
+}
+assert(
+    guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_start_cursor_owner_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_pixel_write_yet_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_paired_owner_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_split_accessor_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_private_command_validation_only_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_registered_resource_revalidation_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_command_payload_match_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_checked_geometry_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_surface_containment_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_target_platform_fallback"),
+    "F5bp render fill alpha mask software drain focused doctest must cover start cursor owner, no pixel write, pair recovery, no split accessor, command validation, revalidation, geometry, surface containment, and no target/platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
