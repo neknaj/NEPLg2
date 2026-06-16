@@ -1,3 +1,51 @@
+# 2026-06-16 Agent2 GUI font F5bw render2d row batch cursor owner boundary
+
+## scope
+
+- branch: `gui-render2d-row-batch-cursor-f5bw-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bw の render2d row batch cursor owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan and implementation review
+
+- Tesla plan review は `PLAN_BLOCKED`。start は forged plan owner を前提に full plan invariant を再検証し、dirty span / batch count mismatch を typed error として返す必要があると指摘された。drain / budget は cursor slice から分離する必要も指摘された。
+- Planck plan review は `PLAN_BLOCKED`。owner-bearing `StepTerminal` / `CompleteOwner` と plan invariant enum 複製は型検査負荷と owner 解析負荷を増やすため、`status + next_batch` に縮小する必要があると指摘された。
+- 実装中 review でも同じ問題が確認されたため、当初の `StepTerminal` 実装を破棄し、`GuiRgba8888RowBatchCursorStatus` と `gui_rgba8888_row_batch_cursor_next_batch` に分けた。drain / budget は F5bw から外した。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_plan.nepl` の invariant validation を追加し、`GuiRgba8888RowBatchPlanInvariantErrorKind` と `gui_rgba8888_row_batch_plan_validate_invariants` で stored frame metadata、dirty metadata、row span、batch count を再検証できるようにした。
+- `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` を追加した。
+- `GuiRgba8888RowBatchCursorErrorKind` は `PlanInvariant %GuiRgba8888RowBatchPlanInvariantErrorKind` を持ち、plan invariant を cursor layer に重複コピーしない。
+- `GuiRgba8888RowBatchCursorStatus` は `Ready` / `Complete` の Copy enum とした。
+- `GuiRgba8888RowBatchCursorOwner` と `GuiRgba8888RowBatchCursorBatchOwner` は owner-bearing 型なので `Clone` / `Copy` を実装しない。
+- `gui_rgba8888_row_batch_cursor_start` は full plan invariant を再検証し、失敗時は plan owner を保持する start error を返す。
+- `gui_rgba8888_row_batch_cursor_status` は start 済み cursor の local index boundary を検査し、`batch_index == batch_count` だけを complete とする。
+- `gui_rgba8888_row_batch_cursor_next_batch` は `Ready` cursor から descriptor と continuation cursor owner を返す。next index は checked arithmetic を使い、row byte payload / host present / fallback へは進まない。
+- `stdlib/alloc/gui/render2d.nepl` facade から row batch cursor owner を再公開した。
+- `tests/stdlib/gui_render2d_row_batch_cursor.n.md` に F5bw focused doctest label と runnable case を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bw の row batch cursor owner boundary を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bw source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `stdlib/alloc/gui/render2d/row_batch_cursor.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js` 373s
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Planck follow-up review は `REVIEW_APPROVED`。3 batch continuation sequence、final `Complete`、start-only full invariant validation、local-only step validation、`batch_finish_cursor` path、checked next index、owner no Clone/Copy、no raw byte / tile / host / platform / fallback を確認済みである。
+- Tesla follow-up review は `REVIEW_BLOCKED` だが、content blocker はない。残指摘は `note.n.md` の pending 更新と新規 `row_batch_cursor.nepl` / focused doctest staging のみであり、note は実結果へ更新済みである。
+
+## remaining
+
+- F5bw は formal byte payload / host present 前の cursor owner boundary までであり、bounded drain / scheduler budget、formal row / tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5bv render2d row batch plan owner boundary
 
 ## scope

@@ -44,12 +44,39 @@ pub enum GuiRgba8888RowBatchPlanPrepareErrorKind:
     DirtyRectOutOfBounds
     RowSpanInvalid
 
+pub enum GuiRgba8888RowBatchPlanInvariantErrorKind:
+    MaxRowsPerBatchInvalid
+    FrameIdInvalid
+    FrameIdMismatch
+    FrameInvalidGeometry
+    FrameWidthMismatch
+    FrameHeightMismatch
+    FrameStrideMismatch
+    FrameByteLengthMismatch
+    DirtySetMismatch
+    DirtyRectInvalidOrigin
+    DirtyRectInvalidSize
+    DirtyRectRightOverflow
+    DirtyRectBottomOverflow
+    DirtyRectOutOfBounds
+    RowSpanInvalid
+    DirtySpanMismatch
+    BatchCountMismatch
+
 impl Clone for GuiRgba8888RowBatchPlanPrepareErrorKind:
     fn clone %fn &GuiRgba8888RowBatchPlanPrepareErrorKind GuiRgba8888RowBatchPlanPrepareErrorKind \kind:
         *kind
 
 impl Copy for GuiRgba8888RowBatchPlanPrepareErrorKind:
     fn copy_mark %fn GuiRgba8888RowBatchPlanPrepareErrorKind GuiRgba8888RowBatchPlanPrepareErrorKind \kind:
+        kind
+
+impl Clone for GuiRgba8888RowBatchPlanInvariantErrorKind:
+    fn clone %fn &GuiRgba8888RowBatchPlanInvariantErrorKind GuiRgba8888RowBatchPlanInvariantErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowBatchPlanInvariantErrorKind:
+    fn copy_mark %fn GuiRgba8888RowBatchPlanInvariantErrorKind GuiRgba8888RowBatchPlanInvariantErrorKind \kind:
         kind
 
 pub struct GuiRgba8888RowBatchPlanConfig:
@@ -144,6 +171,71 @@ fn gui_rgba8888_row_batch_i32_min %fn i32 fn i32 i32 \a\b:
 
 fn gui_rgba8888_row_batch_i32_max %fn i32 fn i32 i32 \a\b:
     if gt a b a b
+
+fn gui_rgba8888_row_batch_rect_equal %fn GuiRect fn GuiRect bool \left\right:
+    let origin_matches %bool and eq gui_rect_x &left gui_rect_x &right eq gui_rect_y &left gui_rect_y &right
+    let size_matches %bool and eq gui_rect_width &left gui_rect_width &right eq gui_rect_height &left gui_rect_height &right
+    and origin_matches size_matches
+
+fn gui_rgba8888_row_batch_dirty_set_equal %fn DirtyRegionSet fn DirtyRegionSet bool \left\right:
+    let left_state %DirtyRegionSetState dirty_regions_state &left
+    let right_state %DirtyRegionSetState dirty_regions_state &right
+    match left_state:
+        DirtyRegionSetState::Empty:
+            match right_state:
+                DirtyRegionSetState::Empty:
+                    true
+                _:
+                    false
+        DirtyRegionSetState::Full:
+            match right_state:
+                DirtyRegionSetState::Full:
+                    true
+                _:
+                    false
+        DirtyRegionSetState::One:
+            match right_state:
+                DirtyRegionSetState::One:
+                    let left_first %GuiRect dirty_regions_first &left
+                    let right_first %GuiRect dirty_regions_first &right
+                    gui_rgba8888_row_batch_rect_equal left_first right_first
+                _:
+                    false
+        DirtyRegionSetState::Two:
+            match right_state:
+                DirtyRegionSetState::Two:
+                    let left_first %GuiRect dirty_regions_first &left
+                    let right_first %GuiRect dirty_regions_first &right
+                    let left_second %GuiRect dirty_regions_second &left
+                    let right_second %GuiRect dirty_regions_second &right
+                    and gui_rgba8888_row_batch_rect_equal left_first right_first gui_rgba8888_row_batch_rect_equal left_second right_second
+                _:
+                    false
+
+fn gui_rgba8888_row_batch_plan_invariant_error_from_prepare %fn GuiRgba8888RowBatchPlanPrepareErrorKind GuiRgba8888RowBatchPlanInvariantErrorKind \kind:
+    match kind:
+        GuiRgba8888RowBatchPlanPrepareErrorKind::MaxRowsPerBatchInvalid:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::MaxRowsPerBatchInvalid
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameIdInvalid:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::FrameIdInvalid
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameInvalidGeometry:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::FrameInvalidGeometry
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameStrideMismatch:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::FrameStrideMismatch
+        GuiRgba8888RowBatchPlanPrepareErrorKind::FrameByteLengthMismatch:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::FrameByteLengthMismatch
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidOrigin:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::DirtyRectInvalidOrigin
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectInvalidSize:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::DirtyRectInvalidSize
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectRightOverflow:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::DirtyRectRightOverflow
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectBottomOverflow:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::DirtyRectBottomOverflow
+        GuiRgba8888RowBatchPlanPrepareErrorKind::DirtyRectOutOfBounds:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::DirtyRectOutOfBounds
+        GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid:
+            GuiRgba8888RowBatchPlanInvariantErrorKind::RowSpanInvalid
 
 //: gui_rgba8888_row_batch_plan_config_checked: positive row batch size を[持/も]つ config を[作/つく]る
 pub fn gui_rgba8888_row_batch_plan_config_checked %fn i32 Result GuiRgba8888RowBatchPlanConfig GuiRgba8888RowBatchPlanPrepareErrorKind \max_rows_per_batch:
@@ -339,6 +431,123 @@ fn gui_rgba8888_row_batch_plan_batch_count_checked %fn i32 fn i32 Result i32 Gui
                             if lt batch_count 0:
                                 then Result::Err GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid
                                 else Result::Ok batch_count
+
+fn gui_rgba8888_row_batch_plan_validate_stored_row_span %fn &GuiRgba8888RowBatchPlanOwner fn i32 Result unit GuiRgba8888RowBatchPlanInvariantErrorKind \plan\frame_height:
+    let row_start %i32 gui_rgba8888_row_batch_plan_row_start plan
+    let row_count %i32 gui_rgba8888_row_batch_plan_row_count plan
+    if or lt row_start 0 lt row_count 0:
+        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::RowSpanInvalid
+        else:
+            match gui_rgba8888_row_batch_plan_checked_extent row_start row_count GuiRgba8888RowBatchPlanPrepareErrorKind::RowSpanInvalid:
+                Result::Err _kind:
+                    Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::RowSpanInvalid
+                Result::Ok row_bottom:
+                    if gt row_bottom frame_height:
+                        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::RowSpanInvalid
+                        else Result::Ok unit
+
+fn gui_rgba8888_row_batch_plan_validate_identity_shape %fn &GuiRgba8888RowBatchPlanOwner Result GuiRgba8888SoftwareSurfaceShape GuiRgba8888RowBatchPlanInvariantErrorKind \plan:
+    let frame %&GuiRgba8888BitmapFrameOwner field::get_ref plan "frame"
+    let plan_frame_id %i32 gui_rgba8888_row_batch_plan_frame_id plan
+    let frame_frame_id %i32 gui_rgba8888_bitmap_frame_frame_id frame
+    if or le plan_frame_id 0 le frame_frame_id 0:
+        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::FrameIdInvalid
+        else:
+            if ne plan_frame_id frame_frame_id:
+                then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::FrameIdMismatch
+                else:
+                    match gui_rgba8888_row_batch_plan_validate_frame_shape frame:
+                        Result::Err prepare_kind:
+                            Result::Err gui_rgba8888_row_batch_plan_invariant_error_from_prepare prepare_kind
+                        Result::Ok shape:
+                            let expected_width %i32 gui_rgba8888_software_surface_shape_width &shape
+                            let plan_width %i32 gui_rgba8888_row_batch_plan_width plan
+                            if ne plan_width expected_width:
+                                then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::FrameWidthMismatch
+                                else:
+                                    let expected_height %i32 gui_rgba8888_software_surface_shape_height &shape
+                                    let plan_height %i32 gui_rgba8888_row_batch_plan_height plan
+                                    if ne plan_height expected_height:
+                                        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::FrameHeightMismatch
+                                        else:
+                                            let expected_stride %i32 gui_rgba8888_software_surface_shape_stride_bytes &shape
+                                            let plan_stride %i32 gui_rgba8888_row_batch_plan_stride_bytes plan
+                                            if ne plan_stride expected_stride:
+                                                then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::FrameStrideMismatch
+                                                else:
+                                                    let expected_byte_len %i32 gui_rgba8888_software_surface_shape_byte_len &shape
+                                                    let plan_byte_len %i32 gui_rgba8888_row_batch_plan_byte_len plan
+                                                    if ne plan_byte_len expected_byte_len:
+                                                        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::FrameByteLengthMismatch
+                                                        else Result::Ok shape
+
+fn gui_rgba8888_row_batch_plan_validate_dirty_metadata %fn &GuiRgba8888RowBatchPlanOwner fn i32 fn i32 Result unit GuiRgba8888RowBatchPlanInvariantErrorKind \plan\frame_width\frame_height:
+    let frame %&GuiRgba8888BitmapFrameOwner field::get_ref plan "frame"
+    let plan_dirty %DirtyRegionSet gui_rgba8888_row_batch_plan_dirty plan
+    let frame_dirty %DirtyRegionSet gui_rgba8888_bitmap_frame_dirty frame
+    if not gui_rgba8888_row_batch_dirty_set_equal plan_dirty frame_dirty:
+        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::DirtySetMismatch
+        else:
+            match gui_rgba8888_row_batch_plan_validate_dirty_set plan_dirty frame_width frame_height:
+                Result::Err prepare_kind:
+                    Result::Err gui_rgba8888_row_batch_plan_invariant_error_from_prepare prepare_kind
+                Result::Ok _:
+                    Result::Ok unit
+
+fn gui_rgba8888_row_batch_plan_validate_dirty_span_metadata %fn &GuiRgba8888RowBatchPlanOwner fn i32 fn i32 Result unit GuiRgba8888RowBatchPlanInvariantErrorKind \plan\frame_width\frame_height:
+    match gui_rgba8888_row_batch_plan_validate_stored_row_span plan frame_height:
+        Result::Err invariant_kind:
+            Result::Err invariant_kind
+        Result::Ok _:
+            let plan_dirty %DirtyRegionSet gui_rgba8888_row_batch_plan_dirty plan
+            match gui_rgba8888_row_batch_plan_dirty_row_span plan_dirty frame_width frame_height:
+                Result::Err prepare_kind:
+                    Result::Err gui_rgba8888_row_batch_plan_invariant_error_from_prepare prepare_kind
+                Result::Ok expected_span:
+                    let expected_row_start %i32 gui_rgba8888_row_batch_span_row_start &expected_span
+                    let expected_row_count %i32 gui_rgba8888_row_batch_span_row_count &expected_span
+                    let plan_row_start %i32 gui_rgba8888_row_batch_plan_row_start plan
+                    let plan_row_count %i32 gui_rgba8888_row_batch_plan_row_count plan
+                    if or ne plan_row_start expected_row_start ne plan_row_count expected_row_count:
+                        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::DirtySpanMismatch
+                        else Result::Ok unit
+
+fn gui_rgba8888_row_batch_plan_validate_batch_metadata %fn &GuiRgba8888RowBatchPlanOwner fn i32 Result unit GuiRgba8888RowBatchPlanInvariantErrorKind \plan\max_rows_per_batch:
+    let plan_row_count %i32 gui_rgba8888_row_batch_plan_row_count plan
+    match gui_rgba8888_row_batch_plan_batch_count_checked plan_row_count max_rows_per_batch:
+        Result::Err prepare_kind:
+            Result::Err gui_rgba8888_row_batch_plan_invariant_error_from_prepare prepare_kind
+        Result::Ok expected_batch_count:
+            let plan_batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan
+            if ne plan_batch_count expected_batch_count:
+                then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::BatchCountMismatch
+                else Result::Ok unit
+
+//: gui_rgba8888_row_batch_plan_validate_invariants: public plan owner metadata を[再検証/さいけんしょう]する
+//:
+//: [目的/もくてき]:
+//: - row batch cursor や scheduler が owner を[信頼/しんらい]する[前/まえ]に、frame metadata、dirty set、row span、batch count が[互/たが]いに[一致/いっち]していることを[検査/けんさ]します。
+//: - public boundary や trusted producer から forged plan が[来/き]ても、host present や byte payload へ進む[前/まえ]に typed error として[止/と]めます。
+pub fn gui_rgba8888_row_batch_plan_validate_invariants %fn &GuiRgba8888RowBatchPlanOwner Result unit GuiRgba8888RowBatchPlanInvariantErrorKind \plan:
+    let max_rows_per_batch %i32 gui_rgba8888_row_batch_plan_max_rows_per_batch plan
+    if le max_rows_per_batch 0:
+        then Result::Err GuiRgba8888RowBatchPlanInvariantErrorKind::MaxRowsPerBatchInvalid
+        else:
+            match gui_rgba8888_row_batch_plan_validate_identity_shape plan:
+                Result::Err invariant_kind:
+                    Result::Err invariant_kind
+                Result::Ok shape:
+                    let frame_width %i32 gui_rgba8888_software_surface_shape_width &shape
+                    let frame_height %i32 gui_rgba8888_software_surface_shape_height &shape
+                    match gui_rgba8888_row_batch_plan_validate_dirty_metadata plan frame_width frame_height:
+                        Result::Err invariant_kind:
+                            Result::Err invariant_kind
+                        Result::Ok _:
+                            match gui_rgba8888_row_batch_plan_validate_dirty_span_metadata plan frame_width frame_height:
+                                Result::Err invariant_kind:
+                                    Result::Err invariant_kind
+                                Result::Ok _:
+                                    gui_rgba8888_row_batch_plan_validate_batch_metadata plan max_rows_per_batch
 
 //: gui_rgba8888_row_batch_plan_prepare: validated bitmap frame owner から row batch plan owner を[作/つく]る
 //:

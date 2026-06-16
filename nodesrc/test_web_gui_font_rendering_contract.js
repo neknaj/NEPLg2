@@ -84,6 +84,8 @@ const allocRender2dBitmapFrame = read("stdlib/alloc/gui/render2d/bitmap_frame.ne
 const allocRender2dBitmapFrameImpl = withoutComments(allocRender2dBitmapFrame);
 const allocRender2dRowBatchPlan = read("stdlib/alloc/gui/render2d/row_batch_plan.nepl");
 const allocRender2dRowBatchPlanImpl = withoutComments(allocRender2dRowBatchPlan);
+const allocRender2dRowBatchCursor = read("stdlib/alloc/gui/render2d/row_batch_cursor.nepl");
+const allocRender2dRowBatchCursorImpl = withoutComments(allocRender2dRowBatchCursor);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -111,6 +113,7 @@ const guiRender2dSoftwareSurfaceTests = read("tests/stdlib/gui_render2d_software
 const guiRender2dDirtySurfaceTests = read("tests/stdlib/gui_render2d_dirty_surface.n.md");
 const guiRender2dBitmapFrameTests = read("tests/stdlib/gui_render2d_bitmap_frame.n.md");
 const guiRender2dRowBatchPlanTests = read("tests/stdlib/gui_render2d_row_batch_plan.n.md");
+const guiRender2dRowBatchCursorTests = read("tests/stdlib/gui_render2d_row_batch_cursor.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -17731,6 +17734,141 @@ assert(
         guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_finish_frame_teardown_ok") &&
         guiRender2dRowBatchPlanTests.includes("render2d_row_batch_plan_no_platform_no_fallback"),
     "F5bv row batch plan focused doctest must cover facade, config, Empty/Full/Two row spans, forged metadata, dirty bounds, finish teardown, and no platform/fallback policy",
+);
+for (const [name, doc] of [
+    ["spec", spec],
+    ["detailed design", detailedDesign],
+    ["standard library spec", guiStandardLibrarySpec],
+]) {
+    assert(
+        doc.includes("row batch cursor owner") &&
+            doc.includes("GuiRgba8888RowBatchCursorOwner") &&
+            doc.includes("GuiRgba8888RowBatchCursorStatus") &&
+            doc.includes("gui_rgba8888_row_batch_cursor_next_batch") &&
+            doc.includes("byte payload") &&
+            doc.includes("fallback"),
+        `F5bw ${name} must document row batch cursor owner, status/next_batch API, descriptor-only scope, and no fallback policy`,
+    );
+}
+assert(
+    implementationPlan.includes("Phase F5bw") &&
+        implementationPlan.includes("PLAN_BLOCKED") &&
+        implementationPlan.includes("status") &&
+        implementationPlan.includes("next_batch") &&
+        implementationPlan.includes("drain / budget"),
+    "F5bw implementation plan must retain blocked review feedback and the narrowed status/next_batch implementation scope",
+);
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_batch_cursor" as *'), "alloc/gui/render2d facade must export F5bw row batch cursor owner");
+assert(
+    allocRender2dRowBatchCursor.includes("pub enum GuiRgba8888RowBatchCursorErrorKind:") &&
+        allocRender2dRowBatchCursor.includes("PlanInvariant %GuiRgba8888RowBatchPlanInvariantErrorKind") &&
+        allocRender2dRowBatchCursor.includes("pub enum GuiRgba8888RowBatchCursorStatus:") &&
+        allocRender2dRowBatchCursor.includes("pub struct GuiRgba8888RowBatchCursorOwner:") &&
+        allocRender2dRowBatchCursor.includes("pub struct GuiRgba8888RowBatchCursorBatchOwner:") &&
+        allocRender2dRowBatchCursor.includes("pub struct GuiRgba8888RowBatchDescriptor:"),
+    "alloc/gui/render2d/row_batch_cursor F5bw must define payload plan invariant errors, status, cursor owner, batch owner, and descriptor",
+);
+assertNoMatch(
+    allocRender2dRowBatchCursor,
+    /\bGuiRgba8888RowBatchCursor(?:CompleteOwner|StepTerminal)\b|\bInvalidBudget\b|\bStepBudget|drain_budget\b|budget_exhausted|negative_budget/i,
+    "alloc/gui/render2d/row_batch_cursor F5bw must keep drain/budget and owner-bearing complete terminals out of the cursor slice",
+);
+assertNoMatch(
+    allocRender2dRowBatchCursorImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowBatchCursorOwner|impl (?:Clone|Copy) for GuiRgba8888RowBatchCursorBatchOwner|impl (?:Clone|Copy) for GuiRgba8888RowBatchCursorStartError|impl (?:Clone|Copy) for GuiRgba8888RowBatchCursorStepError/,
+    "alloc/gui/render2d/row_batch_cursor F5bw owner and owner-bearing error types must not implement Clone or Copy",
+);
+const rowBatchCursorStart = functionSlice(allocRender2dRowBatchCursorImpl, "gui_rgba8888_row_batch_cursor_start");
+assertOrderedFragments(
+    rowBatchCursorStart,
+    [
+        "match gui_rgba8888_row_batch_cursor_validate_plan &plan:",
+        "Result::Err gui_rgba8888_row_batch_cursor_start_error kind plan",
+        "Result::Ok gui_rgba8888_row_batch_cursor_owner_new plan 0",
+    ],
+    "alloc/gui/render2d/row_batch_cursor F5bw start must revalidate the full plan and return an owner-bearing start error",
+);
+const rowBatchCursorPlanInvariantCallCount = (allocRender2dRowBatchCursorImpl.match(/gui_rgba8888_row_batch_plan_validate_invariants/g) || []).length;
+assert(
+    rowBatchCursorPlanInvariantCallCount === 1,
+    "alloc/gui/render2d/row_batch_cursor F5bw must call full row batch plan invariant validation only through start validation",
+);
+const rowBatchCursorValidatePlan = functionSlice(allocRender2dRowBatchCursorImpl, "gui_rgba8888_row_batch_cursor_validate_plan");
+assert(
+    rowBatchCursorValidatePlan.includes("gui_rgba8888_row_batch_plan_validate_invariants plan") &&
+        rowBatchCursorValidatePlan.includes("GuiRgba8888RowBatchCursorErrorKind::PlanInvariant invariant_kind"),
+    "alloc/gui/render2d/row_batch_cursor F5bw must preserve lower plan invariant precision as an enum payload",
+);
+const rowBatchCursorValidateForStep = functionSlice(allocRender2dRowBatchCursorImpl, "gui_rgba8888_row_batch_cursor_validate_for_step");
+assertOrderedFragments(
+    rowBatchCursorValidateForStep,
+    [
+        "let batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index cursor",
+        "if lt batch_index 0:",
+        "GuiRgba8888RowBatchCursorErrorKind::CursorIndexNegative",
+        "let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan",
+        "if gt batch_index batch_count:",
+        "GuiRgba8888RowBatchCursorErrorKind::CursorIndexPastEnd",
+    ],
+    "alloc/gui/render2d/row_batch_cursor F5bw step validation must check only the local cursor index boundary",
+);
+assertNoMatch(
+    rowBatchCursorValidateForStep,
+    /\bgui_rgba8888_row_batch_cursor_validate_plan\b|\bgui_rgba8888_row_batch_plan_validate_invariants\b/,
+    "alloc/gui/render2d/row_batch_cursor F5bw step validation must not redo full plan invariant validation",
+);
+const rowBatchCursorStatus = functionSlice(allocRender2dRowBatchCursorImpl, "gui_rgba8888_row_batch_cursor_status");
+assertOrderedFragments(
+    rowBatchCursorStatus,
+    [
+        "match gui_rgba8888_row_batch_cursor_validate_for_step cursor:",
+        "let batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index cursor",
+        "let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan",
+        "if eq batch_index batch_count:",
+        "Result::Ok GuiRgba8888RowBatchCursorStatus::Complete",
+        "Result::Ok GuiRgba8888RowBatchCursorStatus::Ready",
+    ],
+    "alloc/gui/render2d/row_batch_cursor F5bw status must distinguish local invalid index, Complete, and Ready without consuming the cursor",
+);
+const rowBatchCursorNextBatch = functionSlice(allocRender2dRowBatchCursorImpl, "gui_rgba8888_row_batch_cursor_next_batch");
+assertOrderedFragments(
+    rowBatchCursorNextBatch,
+    [
+        "match gui_rgba8888_row_batch_cursor_status &cursor:",
+        "GuiRgba8888RowBatchCursorStatus::Complete:",
+        "GuiRgba8888RowBatchCursorErrorKind::CursorIndexPastEnd cursor",
+        "GuiRgba8888RowBatchCursorStatus::Ready:",
+        "match gui_rgba8888_row_batch_cursor_descriptor_from_plan &plan batch_index:",
+        "gui_rgba8888_row_batch_cursor_checked_add_nonnegative_delta batch_index 1 GuiRgba8888RowBatchCursorErrorKind::NextCursorIndexOverflow",
+        "gui_rgba8888_row_batch_cursor_owner_new plan next_batch_index",
+        "gui_rgba8888_row_batch_cursor_batch_owner_new next_cursor descriptor",
+    ],
+    "alloc/gui/render2d/row_batch_cursor F5bw next_batch must use status, descriptor_from_plan, checked next index, and owner-bearing recovery",
+);
+assertNoMatch(
+    rowBatchCursorNextBatch,
+    /\badd batch_index 1\b/,
+    "alloc/gui/render2d/row_batch_cursor F5bw next_batch must not add the next index before checked arithmetic",
+);
+assertNoMatch(
+    allocRender2dRowBatchCursorImpl,
+    /\b(?:raw|storage|ByteBuf|alloc_region|Vec|std\/|platform|Canvas|DOM|minifb|present|publish|video_memory|write_rgba8888_row|row_payload|row_copy|byte_copy|tile|transport|fallback|silent no-op|finish_surface|batch_descriptor_and_free)\b/,
+    "alloc/gui/render2d/row_batch_cursor F5bw must not expose raw pixels, allocate payloads, call host/platform APIs, finish_surface, or fallback",
+);
+assertNoMatch(
+    allocRender2dRowBatchCursorImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_batch_cursor F5bw implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_facade_ok") &&
+        guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_start_revalidates_plan_ok") &&
+        guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_empty_dirty_complete_ok") &&
+        guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_full_dirty_first_descriptor_ok") &&
+        guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_continuation_sequence_ok") &&
+        guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_owner_constructor_restricted") &&
+        guiRender2dRowBatchCursorTests.includes("render2d_row_batch_cursor_no_platform_no_fallback"),
+    "F5bw row batch cursor focused doctest must cover facade, start revalidation, empty complete status, first descriptor, owner constructor restriction, and no platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

@@ -1,0 +1,335 @@
+//: # alloc/gui/render2d/row_batch_cursor
+//: RGBA8888 row batch cursor boundary
+//:
+//: ### [目的/もくてき]
+//: - `GuiRgba8888RowBatchPlanOwner` を、scheduler が 1 batch ずつ[進/すす]められる cursor owner へ[変換/へんかん]します。
+//: - batch metadata は row span descriptor だけであり、pixel byte payload、tile list、host present、fallback には[進/すす]みません。
+//:
+//: ### [契約/けいやく]
+//: - `start` は `gui_rgba8888_row_batch_plan_validate_invariants` を[通/とお]し、forged plan owner の frame metadata、dirty span、batch count mismatch を typed error として[返/かえ]します。
+//: - `start` は full plan invariant を[検査/けんさ]します。`status` と `next_batch` は start 済み cursor の local index boundary だけを[検査/けんさ]します。
+//: - `batch_index < 0` と `batch_index > batch_count` は error です。`batch_index == batch_count` だけが `Complete` です。
+//:
+//: ### [注意/ちゅうい]
+//: - descriptor と status は Copy metadata ですが、cursor / batch は owner を[保持/ほじ]するため Clone / Copy を[実装/じっそう]しません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_batch_cursor" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_batch_plan" as *
+#import "alloc/gui/render2d/software_surface" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowBatchCursorErrorKind:
+    PlanInvariant %GuiRgba8888RowBatchPlanInvariantErrorKind
+    CursorIndexNegative
+    CursorIndexPastEnd
+    BatchOffsetOverflow
+    BatchBoundsInvalid
+    NextCursorIndexOverflow
+
+impl Clone for GuiRgba8888RowBatchCursorErrorKind:
+    fn clone %fn &GuiRgba8888RowBatchCursorErrorKind GuiRgba8888RowBatchCursorErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowBatchCursorErrorKind:
+    fn copy_mark %fn GuiRgba8888RowBatchCursorErrorKind GuiRgba8888RowBatchCursorErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowBatchCursorStatus:
+    Ready
+    Complete
+
+impl Clone for GuiRgba8888RowBatchCursorStatus:
+    fn clone %fn &GuiRgba8888RowBatchCursorStatus GuiRgba8888RowBatchCursorStatus \status:
+        *status
+
+impl Copy for GuiRgba8888RowBatchCursorStatus:
+    fn copy_mark %fn GuiRgba8888RowBatchCursorStatus GuiRgba8888RowBatchCursorStatus \status:
+        status
+
+pub struct GuiRgba8888RowBatchDescriptor:
+    frame_id %i32
+    batch_index %i32
+    row_start %i32
+    row_count %i32
+    width %i32
+    height %i32
+    stride_bytes %i32
+    byte_len %i32
+
+impl Clone for GuiRgba8888RowBatchDescriptor:
+    fn clone %fn &GuiRgba8888RowBatchDescriptor GuiRgba8888RowBatchDescriptor \descriptor:
+        *descriptor
+
+impl Copy for GuiRgba8888RowBatchDescriptor:
+    fn copy_mark %fn GuiRgba8888RowBatchDescriptor GuiRgba8888RowBatchDescriptor \descriptor:
+        descriptor
+
+pub struct GuiRgba8888RowBatchCursorOwner:
+    plan %GuiRgba8888RowBatchPlanOwner
+    batch_index %i32
+
+pub struct GuiRgba8888RowBatchCursorStartError:
+    kind %GuiRgba8888RowBatchCursorErrorKind
+    category %Option GuiError
+    plan %GuiRgba8888RowBatchPlanOwner
+
+pub struct GuiRgba8888RowBatchCursorStepError:
+    kind %GuiRgba8888RowBatchCursorErrorKind
+    category %Option GuiError
+    cursor %GuiRgba8888RowBatchCursorOwner
+
+pub struct GuiRgba8888RowBatchCursorBatchOwner:
+    cursor %GuiRgba8888RowBatchCursorOwner
+    descriptor %GuiRgba8888RowBatchDescriptor
+
+fn gui_rgba8888_row_batch_cursor_owner_new %fn GuiRgba8888RowBatchPlanOwner fn i32 GuiRgba8888RowBatchCursorOwner \plan\batch_index:
+    GuiRgba8888RowBatchCursorOwner plan batch_index
+
+fn gui_rgba8888_row_batch_descriptor_new %fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 fn i32 GuiRgba8888RowBatchDescriptor \frame_id\batch_index\row_start\row_count\width\height\stride_bytes\byte_len:
+    GuiRgba8888RowBatchDescriptor frame_id batch_index row_start row_count width height stride_bytes byte_len
+
+fn gui_rgba8888_row_batch_cursor_batch_owner_new %fn GuiRgba8888RowBatchCursorOwner fn GuiRgba8888RowBatchDescriptor GuiRgba8888RowBatchCursorBatchOwner \cursor\descriptor:
+    GuiRgba8888RowBatchCursorBatchOwner cursor descriptor
+
+fn gui_rgba8888_row_batch_cursor_error_category %fn GuiRgba8888RowBatchCursorErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowBatchCursorErrorKind::PlanInvariant _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchCursorErrorKind::BatchOffsetOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid:
+            Option::Some GuiError::InvalidGeometry
+        _:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_batch_cursor_start_error %fn GuiRgba8888RowBatchCursorErrorKind fn GuiRgba8888RowBatchPlanOwner GuiRgba8888RowBatchCursorStartError \kind\plan:
+    let category %Option GuiError gui_rgba8888_row_batch_cursor_error_category kind
+    GuiRgba8888RowBatchCursorStartError kind category plan
+
+fn gui_rgba8888_row_batch_cursor_step_error %fn GuiRgba8888RowBatchCursorErrorKind fn GuiRgba8888RowBatchCursorOwner GuiRgba8888RowBatchCursorStepError \kind\cursor:
+    let category %Option GuiError gui_rgba8888_row_batch_cursor_error_category kind
+    GuiRgba8888RowBatchCursorStepError kind category cursor
+
+pub fn gui_rgba8888_row_batch_descriptor_frame_id %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "frame_id"
+
+pub fn gui_rgba8888_row_batch_descriptor_batch_index %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "batch_index"
+
+pub fn gui_rgba8888_row_batch_descriptor_row_start %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "row_start"
+
+pub fn gui_rgba8888_row_batch_descriptor_row_count %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "row_count"
+
+pub fn gui_rgba8888_row_batch_descriptor_width %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "width"
+
+pub fn gui_rgba8888_row_batch_descriptor_height %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "height"
+
+pub fn gui_rgba8888_row_batch_descriptor_stride_bytes %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "stride_bytes"
+
+pub fn gui_rgba8888_row_batch_descriptor_byte_len %fn &GuiRgba8888RowBatchDescriptor i32 \descriptor:
+    *field::get_ref descriptor "byte_len"
+
+pub fn gui_rgba8888_row_batch_cursor_batch_index %fn &GuiRgba8888RowBatchCursorOwner i32 \cursor:
+    *field::get_ref cursor "batch_index"
+
+pub fn gui_rgba8888_row_batch_cursor_start_error_kind %fn &GuiRgba8888RowBatchCursorStartError GuiRgba8888RowBatchCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_batch_cursor_start_error_category_value %fn &GuiRgba8888RowBatchCursorStartError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_batch_cursor_start_error_plan %fn GuiRgba8888RowBatchCursorStartError GuiRgba8888RowBatchPlanOwner \error:
+    field::get error "plan"
+
+pub fn gui_rgba8888_row_batch_cursor_step_error_kind %fn &GuiRgba8888RowBatchCursorStepError GuiRgba8888RowBatchCursorErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_batch_cursor_step_error_category_value %fn &GuiRgba8888RowBatchCursorStepError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_batch_cursor_step_error_cursor %fn GuiRgba8888RowBatchCursorStepError GuiRgba8888RowBatchCursorOwner \error:
+    field::get error "cursor"
+
+pub fn gui_rgba8888_row_batch_cursor_batch_descriptor %fn &GuiRgba8888RowBatchCursorBatchOwner GuiRgba8888RowBatchDescriptor \batch:
+    *field::get_ref batch "descriptor"
+
+pub fn gui_rgba8888_row_batch_cursor_batch_finish_cursor %fn GuiRgba8888RowBatchCursorBatchOwner GuiRgba8888RowBatchCursorOwner \batch:
+    field::get batch "cursor"
+
+fn gui_rgba8888_row_batch_cursor_checked_mul_nonnegative %fn i32 fn i32 Result i32 GuiRgba8888RowBatchCursorErrorKind \left\right:
+    if or lt left 0 lt right 0:
+        then Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchOffsetOverflow
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchOffsetOverflow
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_batch_cursor_checked_add_nonnegative_delta %fn i32 fn i32 fn GuiRgba8888RowBatchCursorErrorKind Result i32 GuiRgba8888RowBatchCursorErrorKind \base\delta\overflow_kind:
+    if lt delta 0:
+        then Result::Err overflow_kind
+        else:
+            let max_i32 %i32 2147483647
+            let max_base %i32 sub max_i32 delta
+            if gt base max_base:
+                then Result::Err overflow_kind
+                else Result::Ok add base delta
+
+fn gui_rgba8888_row_batch_cursor_i32_min %fn i32 fn i32 i32 \left\right:
+    if lt left right left right
+
+fn gui_rgba8888_row_batch_cursor_validate_plan %fn &GuiRgba8888RowBatchPlanOwner Result unit GuiRgba8888RowBatchCursorErrorKind \plan:
+    match gui_rgba8888_row_batch_plan_validate_invariants plan:
+        Result::Err invariant_kind:
+            Result::Err GuiRgba8888RowBatchCursorErrorKind::PlanInvariant invariant_kind
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_rgba8888_row_batch_cursor_validate_for_step %fn &GuiRgba8888RowBatchCursorOwner Result unit GuiRgba8888RowBatchCursorErrorKind \cursor:
+    let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref cursor "plan"
+    let batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index cursor
+    if lt batch_index 0:
+        then Result::Err GuiRgba8888RowBatchCursorErrorKind::CursorIndexNegative
+        else:
+            let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan
+            if gt batch_index batch_count:
+                then Result::Err GuiRgba8888RowBatchCursorErrorKind::CursorIndexPastEnd
+                else Result::Ok unit
+
+fn gui_rgba8888_row_batch_cursor_descriptor_from_plan %fn &GuiRgba8888RowBatchPlanOwner fn i32 Result GuiRgba8888RowBatchDescriptor GuiRgba8888RowBatchCursorErrorKind \plan\batch_index:
+    let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan
+    if ge batch_index batch_count:
+        then Result::Err GuiRgba8888RowBatchCursorErrorKind::CursorIndexPastEnd
+        else:
+            let max_rows_per_batch %i32 gui_rgba8888_row_batch_plan_max_rows_per_batch plan
+            match gui_rgba8888_row_batch_cursor_checked_mul_nonnegative batch_index max_rows_per_batch:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok local_offset:
+                    let plan_row_count %i32 gui_rgba8888_row_batch_plan_row_count plan
+                    if ge local_offset plan_row_count:
+                        then Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid
+                        else:
+                            let remaining %i32 sub plan_row_count local_offset
+                            let batch_row_count %i32 gui_rgba8888_row_batch_cursor_i32_min max_rows_per_batch remaining
+                            if le batch_row_count 0:
+                                then Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid
+                                else:
+                                    let plan_row_start %i32 gui_rgba8888_row_batch_plan_row_start plan
+                                    match gui_rgba8888_row_batch_cursor_checked_add_nonnegative_delta plan_row_start local_offset GuiRgba8888RowBatchCursorErrorKind::BatchOffsetOverflow:
+                                        Result::Err kind:
+                                            Result::Err kind
+                                        Result::Ok batch_row_start:
+                                            match gui_rgba8888_row_batch_cursor_checked_add_nonnegative_delta batch_row_start batch_row_count GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid:
+                                                Result::Err kind:
+                                                    Result::Err kind
+                                                Result::Ok batch_row_bottom:
+                                                    let frame_height %i32 gui_rgba8888_row_batch_plan_height plan
+                                                    match gui_rgba8888_row_batch_cursor_checked_add_nonnegative_delta plan_row_start plan_row_count GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok plan_row_bottom:
+                                                            if or gt batch_row_bottom plan_row_bottom gt batch_row_bottom frame_height:
+                                                                then Result::Err GuiRgba8888RowBatchCursorErrorKind::BatchBoundsInvalid
+                                                                else:
+                                                                    let frame_id %i32 gui_rgba8888_row_batch_plan_frame_id plan
+                                                                    let frame_width %i32 gui_rgba8888_row_batch_plan_width plan
+                                                                    let stride_bytes %i32 gui_rgba8888_row_batch_plan_stride_bytes plan
+                                                                    let byte_len %i32 gui_rgba8888_row_batch_plan_byte_len plan
+                                                                    let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_descriptor_new frame_id batch_index batch_row_start batch_row_count frame_width frame_height stride_bytes byte_len
+                                                                    Result::Ok descriptor
+
+//: gui_rgba8888_row_batch_cursor_start: row batch plan owner から batch cursor owner を[開始/かいし]する
+pub fn gui_rgba8888_row_batch_cursor_start %fn GuiRgba8888RowBatchPlanOwner Result GuiRgba8888RowBatchCursorOwner GuiRgba8888RowBatchCursorStartError \plan:
+    match gui_rgba8888_row_batch_cursor_validate_plan &plan:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_batch_cursor_start_error kind plan
+        Result::Ok _:
+            Result::Ok gui_rgba8888_row_batch_cursor_owner_new plan 0
+
+//: gui_rgba8888_row_batch_cursor_status: cursor の現在位置を batch stream status として[読/よ]む
+//:
+//: [契約/けいやく]:
+//: - `batch_index == batch_count` なら `Complete` です。
+//: - `batch_index < 0` または `batch_index > batch_count` は typed error です。
+//: - plan 全体の invariant は `start` の責務であり、ここでは index boundary だけを[検査/けんさ]します。
+pub fn gui_rgba8888_row_batch_cursor_status %fn &GuiRgba8888RowBatchCursorOwner Result GuiRgba8888RowBatchCursorStatus GuiRgba8888RowBatchCursorErrorKind \cursor:
+    match gui_rgba8888_row_batch_cursor_validate_for_step cursor:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            let plan %&GuiRgba8888RowBatchPlanOwner field::get_ref cursor "plan"
+            let batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index cursor
+            let batch_count %i32 gui_rgba8888_row_batch_plan_batch_count plan
+            if eq batch_index batch_count:
+                then Result::Ok GuiRgba8888RowBatchCursorStatus::Complete
+                else Result::Ok GuiRgba8888RowBatchCursorStatus::Ready
+
+//: gui_rgba8888_row_batch_cursor_next_batch: cursor を 1 batch [進/すす]め、descriptor と next cursor を[返/かえ]す
+//:
+//: [契約/けいやく]:
+//: - `Complete` cursor に対しては `CursorIndexPastEnd` を[返/かえ]し、caller は `finish_plan` で plan owner を[回収/かいしゅう]します。
+//: - descriptor は row metadata だけを[持/も]ち、byte payload / host present / fallback には[進/すす]みません。
+pub fn gui_rgba8888_row_batch_cursor_next_batch %fn GuiRgba8888RowBatchCursorOwner Result GuiRgba8888RowBatchCursorBatchOwner GuiRgba8888RowBatchCursorStepError \cursor:
+    match gui_rgba8888_row_batch_cursor_status &cursor:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_batch_cursor_step_error kind cursor
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowBatchCursorStatus::Complete:
+                    Result::Err gui_rgba8888_row_batch_cursor_step_error GuiRgba8888RowBatchCursorErrorKind::CursorIndexPastEnd cursor
+                GuiRgba8888RowBatchCursorStatus::Ready:
+                    let batch_index %i32 gui_rgba8888_row_batch_cursor_batch_index &cursor
+                    let plan %GuiRgba8888RowBatchPlanOwner field::get cursor "plan"
+                    match gui_rgba8888_row_batch_cursor_descriptor_from_plan &plan batch_index:
+                        Result::Err kind:
+                            let recovered_cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_owner_new plan batch_index
+                            Result::Err gui_rgba8888_row_batch_cursor_step_error kind recovered_cursor
+                        Result::Ok descriptor:
+                            match gui_rgba8888_row_batch_cursor_checked_add_nonnegative_delta batch_index 1 GuiRgba8888RowBatchCursorErrorKind::NextCursorIndexOverflow:
+                                Result::Err kind:
+                                    let recovered_cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_owner_new plan batch_index
+                                    Result::Err gui_rgba8888_row_batch_cursor_step_error kind recovered_cursor
+                                Result::Ok next_batch_index:
+                                    let next_cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_owner_new plan next_batch_index
+                                    let batch %GuiRgba8888RowBatchCursorBatchOwner gui_rgba8888_row_batch_cursor_batch_owner_new next_cursor descriptor
+                                    Result::Ok batch
+
+pub fn gui_rgba8888_row_batch_cursor_finish_plan %fn GuiRgba8888RowBatchCursorOwner GuiRgba8888RowBatchPlanOwner \cursor:
+    field::get cursor "plan"
+
+pub fn gui_rgba8888_row_batch_cursor_free %fn GuiRgba8888RowBatchCursorOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \cursor:
+    let plan %GuiRgba8888RowBatchPlanOwner gui_rgba8888_row_batch_cursor_finish_plan cursor
+    gui_rgba8888_row_batch_plan_free plan
+
+pub fn gui_rgba8888_row_batch_cursor_start_error_free %fn GuiRgba8888RowBatchCursorStartError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let plan %GuiRgba8888RowBatchPlanOwner gui_rgba8888_row_batch_cursor_start_error_plan error
+    gui_rgba8888_row_batch_plan_free plan
+
+pub fn gui_rgba8888_row_batch_cursor_step_error_free %fn GuiRgba8888RowBatchCursorStepError Result unit GuiRgba8888SoftwareSurfaceErrorKind \error:
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_step_error_cursor error
+    gui_rgba8888_row_batch_cursor_free cursor
+
+pub fn gui_rgba8888_row_batch_cursor_batch_free %fn GuiRgba8888RowBatchCursorBatchOwner Result unit GuiRgba8888SoftwareSurfaceErrorKind \batch:
+    let cursor %GuiRgba8888RowBatchCursorOwner gui_rgba8888_row_batch_cursor_batch_finish_cursor batch
+    gui_rgba8888_row_batch_cursor_free cursor
