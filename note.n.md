@@ -1,3 +1,54 @@
+# 2026-06-16 Agent2 GUI font F5bz render2d row byte storage boundary
+
+## scope
+
+- branch: `gui-render2d-row-byte-storage-f5bz-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bz の render2d row byte storage boundary、F5by prerequisite revalidation helper、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Dewey plan review 1 は `PLAN_BLOCKED`。source byte access boundary が曖昧で、source `RegionToken` / `MemPtr` が public に漏れないこと、success / error owner path、scratch dealloc failure、`RangeMetadataMismatch` が明示されていないと指摘された。
+- Einstein plan review 1 は条件付きで進行可能。range authority の再検証、success-only cursor finish、scratch cleanup の typed error を source policy と focused doctest へ入れる必要があるとされた。
+- revised plan は Dewey / Einstein とも `PLAN_APPROVED`。`row_byte_storage` だけが source storage を borrow し、public raw accessor を出さず、`gui_rgba8888_row_batch_range_owner_validate_authority` のあとに exact allocation / copy / success-only cursor finish を行う方針で承認された。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_batch_range.nepl` に `RangeMetadataMismatch` と borrowed `gui_rgba8888_row_batch_range_owner_validate_authority` を追加した。
+- borrowed authority helper は range owner を消費せず、batch descriptor authority、descriptor 由来の range metadata、continuation cursor status を再検証する。
+- `stdlib/alloc/gui/render2d/row_byte_storage.nepl` を追加した。
+- `GuiRgba8888RowByteStorageCopyErrorKind`、`GuiRgba8888RowByteStoragePrepareErrorKind`、`GuiRgba8888RowByteStorageReadErrorKind`、`GuiRgba8888RowByteStorageFinishErrorKind` を typed enum として分けた。
+- `GuiRgba8888RowByteStorageOwner` は continuation cursor、Copy range metadata、exact `byte_count` の copied byte storage を所有する。
+- source storage access は private helper 内で byte load まで完結させ、public API から source `RegionToken` / `MemPtr` を返さない。
+- prepare は range owner authority を再検証してから exact `byte_count` の scratch storage を確保し、checked offset / bounds / projection / load / store で byte copy を行い、全 copy 成功後だけ continuation cursor を取り出す。
+- copy 失敗時は scratch storage を dealloc し、dealloc 失敗は `ScratchDeallocFailed` として元の copy error と区別する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row byte storage を再公開した。
+- `tests/stdlib/gui_render2d_row_byte_storage.n.md` に focused doctest と source policy label を追加した。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5bz の contract を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bz source policy を追加した。
+
+## verification
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `tests/stdlib/gui_render2d_row_byte_storage.n.md` 2 / 2 passed
+- pass: `stdlib/alloc/gui/render2d/row_byte_storage.nepl` doctest 1 / 1 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_range.n.md` 2 / 2 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_cursor.n.md` 3 / 3 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_drain.n.md` 5 / 5 passed
+- pass: `tests/stdlib/gui_render2d_row_batch_plan.n.md` 3 / 3 passed
+- pass: `git diff --check` CRLF warning のみ
+
+## subagent review
+
+- Einstein implementation review は `REVIEW_APPROVED`。range owner authority revalidation、private source storage access、success-only cursor finish、typed copy/read/finish errors、`ScratchDeallocFailed`、owner-bearing error、facade / docs / source policy / focused tests を確認し、blocker なしと判断した。
+- Dewey implementation review は `REVIEW_APPROVED`。前回 blocker の public source `RegionToken` / `MemPtr` escape 禁止、copy 成功前 cursor finish 禁止、owner-bearing error path、scratch cleanup typing、no tile / RLE / host / platform / fallback を確認し、blocker なしと判断した。
+
+## remaining
+
+- F5bz は copied row byte storage までであり、formal tile / RLE payload、host present、video memory import ABI、FHD 60fps scheduler policy、stroke rasterization、shadow rasterization、font/glyf direct integration、GUI examples の新仕様への移行は未実装である。
+
 # 2026-06-16 Agent2 GUI font F5by render2d row batch range metadata boundary
 
 ## scope

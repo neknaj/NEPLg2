@@ -981,6 +981,53 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5bz: Render2d row byte storage boundary
+
+目的:
+
+- F5by の `GuiRgba8888RowBatchRangeOwner` を、formal tile / RLE / host present の前段となる `GuiRgba8888RowByteStorageOwner` へ変換する。
+- source surface storage は private sealed helper 内だけで借用し、public API へ source `RegionToken` / `MemPtr` / raw storage accessor を出さない。
+- copied byte storage は exact `byte_count` で確保し、copy が完全に成功するまで range owner を消費しない。
+- この phase は no tile / RLE / host present とし、video memory、platform API、Canvas、DOM、minifb、fallback、silent no-op へ進まない。
+
+plan review:
+
+- Dewey plan review 1 は `PLAN_BLOCKED`。source byte access boundary が曖昧で、source `RegionToken` / `MemPtr` が public に漏れないこと、success / error owner path、scratch dealloc failure、`RangeMetadataMismatch` が明示されていないと指摘された。
+- Einstein plan review 1 は条件付きで進行可能。range authority の再検証、success-only cursor finish、scratch cleanup の typed error を source policy と focused doctest へ入れる必要があるとされた。
+- revised plan は Dewey / Einstein とも `PLAN_APPROVED`。`row_byte_storage` だけが source storage を borrow し、public raw accessor を出さず、`gui_rgba8888_row_batch_range_owner_validate_authority` のあとに exact allocation / copy / success-only cursor finish を行う方針で承認された。
+
+変更:
+
+- `stdlib/alloc/gui/render2d/row_batch_range.nepl` に `RangeMetadataMismatch` と borrowed `gui_rgba8888_row_batch_range_owner_validate_authority` を追加する。
+- `stdlib/alloc/gui/render2d/row_byte_storage.nepl` を追加する。
+- `GuiRgba8888RowByteStorageCopyErrorKind`、`GuiRgba8888RowByteStoragePrepareErrorKind`、`GuiRgba8888RowByteStorageReadErrorKind`、`GuiRgba8888RowByteStorageFinishErrorKind` を enum として分ける。
+- `GuiRgba8888RowByteStorageOwner` と prepare / finish error は owner-bearing なので `Clone` / `Copy` を実装しない。
+- prepare は range owner authority を再検証し、exact `byte_count` の scratch storage を確保し、checked offset / bounds / projection / load / store で byte copy を行い、全 copy 成功後だけ continuation cursor を取り出す。
+- copy 失敗時は scratch storage を dealloc し、dealloc 失敗は `ScratchDeallocFailed` として元の copy error と区別する。
+- `stdlib/alloc/gui/render2d.nepl` facade から row byte storage を再公開する。
+- `tests/stdlib/gui_render2d_row_byte_storage.n.md` を追加し、facade、authority revalidation、exact copy、checked byte reader、scratch cleanup policy、raw source escape 禁止、platform / fallback 禁止を固定する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bz source policy を追加し、docs、facade export、owner no `Clone` / no `Copy`、public raw source API 禁止、validate-before-copy、success-only cursor finish、checked copy、scratch cleanup、括弧なし実装を検査する。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_standard_library_spec.md`、`note.n.md`、`todo.md` を更新する。
+
+完了条件:
+
+- focused doctest、row byte storage module doctest、row batch range / cursor / drain / plan regression、source policy、`git diff --check` が通る。
+- implementation review で private sealed source access、public source `RegionToken` / `MemPtr` escape 禁止、range owner authority revalidation、copy 成功前の cursor finish 禁止、`ScratchDeallocFailed` の typed cleanup が確認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_byte_storage.n.md --no-tree -o tmp_gui_render2d_row_byte_storage_f5bz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_byte_storage.nepl --no-tree -o tmp_gui_render2d_row_byte_storage_module_f5bz.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_range.n.md --no-tree -o tmp_gui_render2d_row_batch_range_f5bz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_cursor.n.md --no-tree -o tmp_gui_render2d_row_batch_cursor_f5bz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_drain.n.md --no-tree -o tmp_gui_render2d_row_batch_drain_f5bz_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_batch_plan.n.md --no-tree -o tmp_gui_render2d_row_batch_plan_f5bz_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

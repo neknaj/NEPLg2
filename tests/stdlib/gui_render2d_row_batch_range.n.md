@@ -10,6 +10,7 @@ source policy coverage labels:
 - render2d_row_batch_range_descriptor_authority_error_ok
 - render2d_row_batch_range_plan_authority_error_ok
 - render2d_row_batch_range_continuation_status_error_ok
+- render2d_row_batch_range_metadata_mismatch_error_ok
 - render2d_row_batch_range_no_platform_no_fallback
 
 ## first batch range metadata
@@ -132,6 +133,7 @@ diag_code: type.owner_aggregate.constructor_restricted
 // render2d_row_batch_range_descriptor_authority_error_ok
 // render2d_row_batch_range_plan_authority_error_ok
 // render2d_row_batch_range_continuation_status_error_ok
+// render2d_row_batch_range_metadata_mismatch_error_ok
 
 fn main %impure fn void i32 \void:
     match gui_rgba8888_software_surface_create 1 1:

@@ -7355,7 +7355,28 @@ Descriptor authority belongs to `row_batch_cursor`, not to `row_batch_range`. Th
 
 Range prepare keeps lower cursor errors visible. Descriptor / plan authority failures are wrapped as `BatchAuthorityInvalid %GuiRgba8888RowBatchCursorErrorKind`; invalid continuation cursor status is wrapped separately as `ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind`. Continuation index mismatch is its own domain error. This split matters because an application or test harness can distinguish forged metadata, stale continuation, and local range arithmetic failure with `match`.
 
+The later byte storage phase uses `gui_rgba8888_row_batch_range_owner_validate_authority` as a borrowed revalidation boundary. It recomputes descriptor authority, recomputes range metadata, compares the stored `GuiRgba8888RowBatchRange`, and returns `RangeMetadataMismatch` if any range field diverges. It does not consume the range owner.
+
 F5by remains range-metadata-only. It does not allocate a `Vec`, expose raw storage, create row bytes, create tiles or RLE, publish video memory, call host present, touch Canvas / DOM / minifb, or implement fallback behavior. Success and error paths both retain the original batch owner until the caller explicitly finishes or frees it.
+
+## Render2d row byte storage boundary
+
+F5bz adds the first copied-byte boundary above the row batch range owner. The concrete success type is `GuiRgba8888RowByteStorageOwner`. It owns the continuation cursor, the Copy `GuiRgba8888RowBatchRange` metadata, and an exact `byte_count` scratch storage that contains a copy of the selected row bytes. It is deliberately no tile / RLE / host present; tile grouping, RLE payloads, video memory host calls, platform surfaces, and scheduling policy remain later phases.
+
+```text
+Row batch range owner
+    -> revalidate range owner authority
+    -> allocate exact byte_count storage
+    -> copy source row bytes into scratch storage
+    -> finish range owner only after full copy success
+    -> Row byte storage owner
+```
+
+The source surface storage is not a public interface. `row_byte_storage` has a private sealed helper that walks the embedded owner graph and borrows the source `RegionToken u8` only inside the module. Public functions never return source `RegionToken`, `MemPtr`, split surface owners, or raw storage views. This preserves the same owner authority as the previous render2d layers while still allowing the byte copy to happen in one well-defined boundary.
+
+Copy failure is typed. `SourceOffsetOverflow`, `DestinationIndexInvalid`, projection failures, load failure, and store failure are distinct enum variants. A failed copy attempts to deallocate the scratch storage before returning the original owner. If scratch deallocation fails, the prepare error becomes `ScratchDeallocFailed %GuiRgba8888RowByteStorageCopyErrorKind`; otherwise it becomes `CopyFailed lower_kind`. The continuation cursor is recovered only on success, so an error path cannot silently advance the scheduler.
+
+The read helper on `GuiRgba8888RowByteStorageOwner` is a destination-copy verifier. It checks byte bounds and reads from copied storage only. It is not a source-surface escape hatch and does not make fallback behavior available.
 
 ## Metrics fixed-point
 

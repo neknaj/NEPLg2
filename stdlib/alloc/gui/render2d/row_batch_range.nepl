@@ -50,6 +50,7 @@ pub enum GuiRgba8888RowBatchRangePrepareErrorKind:
     ContinuationIndexOverflow
     ContinuationIndexMismatch
     ContinuationCursorInvalid %GuiRgba8888RowBatchCursorErrorKind
+    RangeMetadataMismatch
 
 impl Clone for GuiRgba8888RowBatchRangePrepareErrorKind:
     fn clone %fn &GuiRgba8888RowBatchRangePrepareErrorKind GuiRgba8888RowBatchRangePrepareErrorKind \kind:
@@ -107,6 +108,8 @@ fn gui_rgba8888_row_batch_range_error_category %fn GuiRgba8888RowBatchRangePrepa
         GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationIndexMismatch:
             Option::Some GuiError::InvalidCommand
         GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationCursorInvalid _:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowBatchRangePrepareErrorKind::RangeMetadataMismatch:
             Option::Some GuiError::InvalidCommand
         _:
             Option::Some GuiError::InvalidGeometry
@@ -218,6 +221,50 @@ fn gui_rgba8888_row_batch_range_validate_continuation %fn &GuiRgba8888RowBatchCu
                             Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::ContinuationCursorInvalid cursor_kind
                         Result::Ok _status:
                             Result::Ok unit
+
+fn gui_rgba8888_row_batch_range_equal %fn &GuiRgba8888RowBatchRange fn &GuiRgba8888RowBatchRange bool \left\right:
+    and:
+        eq gui_rgba8888_row_batch_range_frame_id left gui_rgba8888_row_batch_range_frame_id right
+        and:
+            eq gui_rgba8888_row_batch_range_batch_index left gui_rgba8888_row_batch_range_batch_index right
+            and:
+                eq gui_rgba8888_row_batch_range_row_start left gui_rgba8888_row_batch_range_row_start right
+                and:
+                    eq gui_rgba8888_row_batch_range_row_count left gui_rgba8888_row_batch_range_row_count right
+                    and:
+                        eq gui_rgba8888_row_batch_range_width left gui_rgba8888_row_batch_range_width right
+                        and:
+                            eq gui_rgba8888_row_batch_range_height left gui_rgba8888_row_batch_range_height right
+                            and:
+                                eq gui_rgba8888_row_batch_range_stride_bytes left gui_rgba8888_row_batch_range_stride_bytes right
+                                and:
+                                    eq gui_rgba8888_row_batch_range_byte_len left gui_rgba8888_row_batch_range_byte_len right
+                                    and:
+                                        eq gui_rgba8888_row_batch_range_start_byte_offset left gui_rgba8888_row_batch_range_start_byte_offset right
+                                        eq gui_rgba8888_row_batch_range_byte_count left gui_rgba8888_row_batch_range_byte_count right
+
+//: gui_rgba8888_row_batch_range_owner_validate_authority: range owner の metadata が embedded plan 由来であることを owner を[消費/しょうひ]せずに[再検証/さいけんしょう]する
+//:
+//: [契約/けいやく]:
+//: - batch descriptor authority、descriptor 由来の range metadata、continuation cursor status をすべて[検査/けんさ]します。
+//: - stored range が再計算した range と 1 field でも[異/こと]なる場合は `RangeMetadataMismatch` を[返/かえ]します。
+//: - この helper は byte copy や cursor recovery の[前/まえ]に使うため、range owner を[消費/しょうひ]しません。
+pub fn gui_rgba8888_row_batch_range_owner_validate_authority %fn &GuiRgba8888RowBatchRangeOwner Result unit GuiRgba8888RowBatchRangePrepareErrorKind \owner:
+    let batch %&GuiRgba8888RowBatchCursorBatchOwner field::get_ref owner "batch"
+    match gui_rgba8888_row_batch_cursor_batch_validate_descriptor_authority batch:
+        Result::Err cursor_kind:
+            Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::BatchAuthorityInvalid cursor_kind
+        Result::Ok _:
+            let descriptor %GuiRgba8888RowBatchDescriptor gui_rgba8888_row_batch_cursor_batch_descriptor batch
+            match gui_rgba8888_row_batch_range_validate_descriptor &descriptor:
+                Result::Err kind:
+                    Result::Err kind
+                Result::Ok expected_range:
+                    let stored_range %GuiRgba8888RowBatchRange gui_rgba8888_row_batch_range_owner_range owner
+                    if not gui_rgba8888_row_batch_range_equal &stored_range &expected_range:
+                        then Result::Err GuiRgba8888RowBatchRangePrepareErrorKind::RangeMetadataMismatch
+                        else:
+                            gui_rgba8888_row_batch_range_validate_continuation batch &descriptor
 
 //: gui_rgba8888_row_batch_range_prepare: validated batch owner から row range metadata owner を[作/つく]る
 //:
