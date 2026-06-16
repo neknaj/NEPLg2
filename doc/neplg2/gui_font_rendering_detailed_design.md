@@ -7303,6 +7303,40 @@ Row batch plan owner
 
 F5bw intentionally excludes drain / budget logic. Bounded draining is a scheduler policy built on top of `status` and `next_batch`; including it in the cursor slice would add another owner-bearing terminal and obscure the root boundary. This keeps the first cursor contract small enough for doctests and source policy to validate directly.
 
+## Render2d row batch scheduler drain boundary
+
+F5bx adds the scheduler progress boundary above F5bw without changing the cursor module. The concrete terminal type is `GuiRgba8888RowBatchDrainTerminal`. It is an owner-bearing struct, not a Copy enum, because it carries the continuation `GuiRgba8888RowBatchCursorOwner`. The terminal status is split into the Copy enum `GuiRgba8888RowBatchDrainStatus`:
+
+```text
+GuiRgba8888RowBatchDrainStatus:
+    Completed
+    StepBudgetExhausted
+
+GuiRgba8888RowBatchDrainTerminal:
+    status GuiRgba8888RowBatchDrainStatus
+    cursor GuiRgba8888RowBatchCursorOwner
+    emitted_count i32
+```
+
+This shape keeps owner recovery simple for the Resource checker. Callers read the status and emitted count by reference, then consume the terminal with `gui_rgba8888_row_batch_drain_terminal_finish_cursor` or free it. The terminal is not Clone or Copy.
+
+The drain order is fixed:
+
+```text
+status cursor
+    Complete -> Completed cursor emitted_count
+    Ready ->
+        remaining_steps < 0 -> InvalidBudget owner-bearing error
+        remaining_steps == 0 -> StepBudgetExhausted cursor emitted_count
+        remaining_steps > 0 -> next_batch once, validate progress, continue
+```
+
+Complete is intentionally checked before budget. A complete cursor remains complete even if a caller passed a stale or negative scheduler budget. Negative budget is still rejected for a non-complete cursor because it means the scheduler called the API with an invalid slice contract. Zero budget is a valid pause point.
+
+F5bx is progress-only. It calls `next_batch` to prove cursor progress, but it does not store descriptors in a `Vec`, create row bytes, create tiles, publish video memory, call host present, or touch Canvas / DOM / minifb. The emitted count means "number of batch descriptors advanced in this call"; it is not transport payload emission and must not be treated as host-present authority.
+
+After `next_batch`, the drain reads the Copy descriptor metadata and recovers the continuation cursor. It rejects any mismatch between the descriptor batch index and the previous cursor index, and also rejects any continuation cursor index other than `previous + 1`. The expected next index and emitted count are computed through checked arithmetic; failures are owner-bearing `ProgressInvariantInvalid` or `EmittedCountOverflow`.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
