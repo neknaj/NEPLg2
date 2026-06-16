@@ -120,6 +120,8 @@ const allocRender2dRowTileRleWriterPlan = read("stdlib/alloc/gui/render2d/row_ti
 const allocRender2dRowTileRleWriterPlanImpl = withoutComments(allocRender2dRowTileRleWriterPlan);
 const allocRender2dRowTileRleStorage = read("stdlib/alloc/gui/render2d/row_tile_rle_storage.nepl");
 const allocRender2dRowTileRleStorageImpl = withoutComments(allocRender2dRowTileRleStorage);
+const allocRender2dRowTileRleEncoded = read("stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl");
+const allocRender2dRowTileRleEncodedImpl = withoutComments(allocRender2dRowTileRleEncoded);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -161,6 +163,7 @@ const guiRender2dRowTileRleEncodeSeedTests = read("tests/stdlib/gui_render2d_row
 const guiRender2dRowTileRleEncodeCursorTests = read("tests/stdlib/gui_render2d_row_tile_rle_encode_cursor.n.md");
 const guiRender2dRowTileRleWriterPlanTests = read("tests/stdlib/gui_render2d_row_tile_rle_writer_plan.n.md");
 const guiRender2dRowTileRleStorageTests = read("tests/stdlib/gui_render2d_row_tile_rle_storage.n.md");
+const guiRender2dRowTileRleEncodedTests = read("tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -19352,6 +19355,132 @@ assert(
         guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_write_cursor_completion_ok") &&
         guiRender2dRowTileRleStorageTests.includes("render2d_row_tile_rle_write_cursor_no_reader_no_platform_no_fallback"),
     "F5cj/F5ck row tile RLE storage focused doctest must cover storage and writer cursor source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("row tile RLE sealed encoded owner") &&
+            doc.includes("GuiRgba8888RowTileRleEncodedOwner") &&
+            doc.includes("WriterNotComplete") &&
+            doc.includes("CursorNotComplete") &&
+            doc.includes("sealed owner"),
+        `F5cl ${name} must document sealed encoded owner, completion validation, and no-reader boundary`,
+    );
+}
+assert(allocRender2dFacade.includes('pub #import "./render2d/row_tile_rle_encoded" as *'), "alloc/gui/render2d facade must export F5cl row tile RLE sealed encoded owner");
+assert(
+    allocRender2dRowTileRleEncoded.includes("pub enum GuiRgba8888RowTileRleEncodedSealErrorKind:") &&
+        allocRender2dRowTileRleEncoded.includes("EncodedByteCountInvalid") &&
+        allocRender2dRowTileRleEncoded.includes("TotalRunCountInvalid") &&
+        allocRender2dRowTileRleEncoded.includes("EncodedByteCountOverflow") &&
+        allocRender2dRowTileRleEncoded.includes("EncodedByteCountMismatch") &&
+        allocRender2dRowTileRleEncoded.includes("WrittenRunCountInvalid") &&
+        allocRender2dRowTileRleEncoded.includes("WrittenByteCountInvalid") &&
+        allocRender2dRowTileRleEncoded.includes("WrittenByteCountMismatch") &&
+        allocRender2dRowTileRleEncoded.includes("WriterNotComplete") &&
+        allocRender2dRowTileRleEncoded.includes("CursorStatusInvalid %GuiRgba8888RowTileRleStepErrorKind") &&
+        allocRender2dRowTileRleEncoded.includes("CursorNotComplete") &&
+        allocRender2dRowTileRleEncoded.includes("pub struct GuiRgba8888RowTileRleEncodedOwner:") &&
+        allocRender2dRowTileRleEncoded.includes("cursor %GuiRgba8888RowTileRleCursorOwner") &&
+        allocRender2dRowTileRleEncoded.includes("total_run_count %i32") &&
+        allocRender2dRowTileRleEncoded.includes("encoded_byte_count %i32") &&
+        allocRender2dRowTileRleEncoded.includes("storage %RegionToken u8") &&
+        allocRender2dRowTileRleEncoded.includes("owner %GuiRgba8888RowTileRleWriteCursorOwner"),
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl must define sealed owner and owner-bearing seal errors",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodedImpl,
+    /impl (?:Clone|Copy) for GuiRgba8888RowTileRleEncodedOwner\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleEncodedSealError\b|impl (?:Clone|Copy) for GuiRgba8888RowTileRleEncodedFinishError\b/,
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl owners and owner-bearing errors must not implement Clone or Copy",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodedImpl,
+    /\bVec\b|\bEncodedRleBuffer\b|\bregion_ptr_at\b|\bload_u8\b|\bstore_u8\b|\bmem_ptr_addr\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bpresent\b|\bvideo_memory\b|\bfallback\b|\bsilent no-op\b/,
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl must not expose byte readers, platform present, video memory, Vec, or fallback",
+);
+const rowTileRleEncodedValidateCounts = functionSlice(allocRender2dRowTileRleEncodedImpl, "gui_rgba8888_row_tile_rle_encoded_validate_counts");
+assertOrderedFragments(
+    rowTileRleEncodedValidateCounts,
+    [
+        "let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_encoded_byte_count owner",
+        "if le encoded_byte_count 0:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountInvalid",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_total_run_count owner",
+        "if le total_run_count 0:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::TotalRunCountInvalid",
+        "gui_rgba8888_row_tile_rle_encoded_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountOverflow",
+        "Result::Ok expected_byte_count:",
+        "if ne expected_byte_count encoded_byte_count:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountMismatch",
+        "let written_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_written_run_count owner",
+        "if or lt written_run_count 0 gt written_run_count total_run_count:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenRunCountInvalid",
+        "let written_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_written_byte_count owner",
+        "if or lt written_byte_count 0 gt written_byte_count encoded_byte_count:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountInvalid",
+        "gui_rgba8888_row_tile_rle_encoded_checked_mul_nonnegative written_run_count 12 GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountMismatch",
+        "if ne expected_written_byte_count written_byte_count:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountMismatch",
+        "if ne written_run_count total_run_count:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::WriterNotComplete",
+        "if ne written_byte_count encoded_byte_count:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::WriterNotComplete",
+    ],
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl validate_counts must check exact count invariants before cursor status",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleEncodedImpl, "gui_rgba8888_row_tile_rle_encoded_validate_seal"),
+    [
+        "gui_rgba8888_row_tile_rle_encoded_validate_counts owner",
+        "Result::Ok _:",
+        "gui_rgba8888_row_tile_rle_encoded_validate_cursor_complete owner",
+    ],
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl must validate counts before lower cursor status",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleEncodedImpl, "gui_rgba8888_row_tile_rle_encoded_validate_cursor_complete"),
+    [
+        "gui_rgba8888_row_tile_rle_cursor_status cursor",
+        "Result::Err kind:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::CursorStatusInvalid kind",
+        "GuiRgba8888RowTileRleCursorStatus::Complete:",
+        "Result::Ok unit",
+        "GuiRgba8888RowTileRleCursorStatus::Ready:",
+        "GuiRgba8888RowTileRleEncodedSealErrorKind::CursorNotComplete",
+    ],
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl must require lower cursor Complete for seal success",
+);
+assertOrderedFragments(
+    functionSlice(allocRender2dRowTileRleEncodedImpl, "gui_rgba8888_row_tile_rle_encoded_seal"),
+    [
+        "gui_rgba8888_row_tile_rle_encoded_validate_seal &owner",
+        "Result::Err kind:",
+        "Result::Err gui_rgba8888_row_tile_rle_encoded_seal_error kind owner",
+        "Result::Ok _:",
+        "let total_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_total_run_count &owner",
+        "let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_encoded_byte_count &owner",
+        "let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner \"cursor\"",
+        "let storage %RegionToken u8 field::get owner \"storage\"",
+        "Result::Ok gui_rgba8888_row_tile_rle_encoded_owner_new cursor total_run_count encoded_byte_count storage",
+    ],
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl seal must preserve original owner on error and move cursor/storage only after validation",
+);
+assertNoMatch(
+    allocRender2dRowTileRleEncodedImpl,
+    /[()]/,
+    "alloc/gui/render2d/row_tile_rle_encoded F5cl implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_facade_ok") &&
+        guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_seal_owner_ok") &&
+        guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_counts_before_cursor_status_ok") &&
+        guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_writer_not_complete_ok") &&
+        guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_owner_recovery_ok") &&
+        guiRender2dRowTileRleEncodedTests.includes("render2d_row_tile_rle_encoded_no_reader_no_platform_no_fallback"),
+    "F5cl row tile RLE encoded focused doctest must cover sealed owner source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

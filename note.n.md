@@ -1,3 +1,41 @@
+# 2026-06-17 Agent2 GUI font F5cl render2d row tile RLE sealed encoded owner
+
+## scope
+
+- branch: `gui-render2d-row-tile-rle-sealed-owner-f5cl-20260617`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5cl の sealed encoded owner、仕様、詳細設計、実装計画、標準仕様、source policy、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、owner-bearing error、platform independent render2d boundary、fallback 禁止、silent no-op 禁止、contract と current implementation の分離、source policy による静的検査を守る。
+
+## plan review
+
+- Descartes plan review は `PLAN_APPROVED`。F5cl は F5ck の後、formal tile transport / host present ABI の前に置く sealed completion boundary として妥当と確認された。
+- required: count invariant は encoded count、total run count、`total_run_count * 12`、written run count range、written byte count range、`written_run_count * 12 == written_byte_count`、completion の順に検査する。
+- required: lower cursor status は count invariant が通った後で検査し、`Ready` は `CursorNotComplete` とする。
+
+## implementation
+
+- `stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl` を追加した。
+- `GuiRgba8888RowTileRleEncodedOwner`、seal error kind、seal error、finish error を追加した。
+- `gui_rgba8888_row_tile_rle_encoded_seal` は count invariants と lower cursor `Complete` を検査してからだけ cursor / storage を sealed owner へ move する。
+- seal failure は original `GuiRgba8888RowTileRleWriteCursorOwner` を owner-bearing error に保持する。
+- public accessor は total run count、encoded byte count、cursor next pixel index、cursor pixel count に限定し、encoded byte reader と storage pointer accessor は提供しない。
+- `tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md` は current compiler timeout を避けるため import smoke と source policy labels にした。
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md`、`doc/neplg2/gui_standard_library_spec.md` に F5cl contract を追加した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_encoded.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_f5cl.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/alloc/gui/render2d/row_tile_rle_encoded.nepl --no-tree -o tmp_gui_render2d_row_tile_rle_encoded_module_f5cl.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_render2d_row_tile_rle_storage.n.md --no-tree -o tmp_gui_render2d_row_tile_rle_storage_f5cl_regression.json -j 1`
+- pass: `git diff --check` CRLF warning のみ。
+
+## residual
+
+- F5cl は sealed encoded owner までであり、formal tile bitmap transport、host present ABI、formal scheduler policy、2D compositor drain、stroke rasterization、shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5ck render2d row tile RLE run writer cursor
 
 ## scope

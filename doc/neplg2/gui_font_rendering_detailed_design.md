@@ -7796,6 +7796,38 @@ Store / projection failure returns an owner-bearing `GuiRgba8888RowTileRleWriteS
 
 F5ck must not call consuming `cursor_next_run`, read payload bytes directly, call `load_u8`, expose an encoded byte reader, allocate `Vec`, build a host frame, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. `region_ptr_at` and `store_u8` are confined to byte projection / byte store helpers inside the writer module.
 
+## Render2d row tile RLE sealed encoded owner boundary
+
+F5cl converts a completed `GuiRgba8888RowTileRleWriteCursorOwner` into `GuiRgba8888RowTileRleEncodedOwner`. This is still not host present and still not a byte reader. It is a sealing gate that proves the writer cursor is complete before later tile transport can consider the storage host-visible.
+
+```text
+GuiRgba8888RowTileRleEncodedOwner:
+    cursor GuiRgba8888RowTileRleCursorOwner
+    total_run_count i32
+    encoded_byte_count i32
+    storage RegionToken u8
+```
+
+The seal function validates structural count invariants before it looks at lower cursor status:
+
+```text
+encoded_byte_count > 0
+total_run_count > 0
+total_run_count * 12 == encoded_byte_count
+0 <= written_run_count <= total_run_count
+0 <= written_byte_count <= encoded_byte_count
+written_run_count * 12 == written_byte_count
+written_run_count == total_run_count
+written_byte_count == encoded_byte_count
+lower cursor status == Complete
+```
+
+`WrittenByteCountMismatch` is used when `written_run_count * 12` does not match `written_byte_count`. `WriterNotComplete` is used when the counts are internally consistent but have not reached total / encoded completion. Lower cursor `Ready` is `CursorNotComplete`. Lower cursor status failure is wrapped as `CursorStatusInvalid`.
+
+Every seal failure returns the original writer owner in `GuiRgba8888RowTileRleEncodedSealError`. The implementation must not reconstruct a fake owner because the storage and lower cursor are still linear resources. Seal success moves cursor and storage into the encoded owner. The encoded owner exposes only metadata accessors and teardown helpers.
+
+F5cl must not expose storage pointer, read encoded bytes, call `region_ptr_at`, call `load_u8`, call `store_u8`, allocate `Vec`, build a host frame, publish video memory, touch Canvas / DOM / minifb, or implement fallback behavior. Formal tile transport and host present remain later boundaries.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -1,0 +1,259 @@
+//: # alloc/gui/render2d/row_tile_rle_encoded
+//: RGBA8888 row tile RLE sealed encoded owner boundary
+//:
+//: ### [目的/もくてき]
+//: - run writer cursor がすべての run を exact 12 byte record として[書/か]き[終/お]えたことを[検査/けんさ]し、host transport 前の sealed encoded owner に[変換/へんかん]します。
+//: - sealed owner は encoded storage と lower cursor を[所有/しょゆう]しますが、byte reader や platform present は[提供/ていきょう]しません。
+//:
+//: ### [契約/けいやく]
+//: - encoded byte count、total run count、`total_run_count * 12` を[再検査/さいけんさ]します。
+//: - written run count と written byte count は範囲内で、`written_run_count * 12 == written_byte_count` を[満/み]たす必要があります。
+//: - otherwise valid な count が total / encoded completion に[届/とど]いていない場合は `WriterNotComplete` です。
+//: - lower cursor は `Complete` でなければならず、`Ready` は `CursorNotComplete` です。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は encoded bytes を[読/よ]みません。storage pointer、byte reader、host present、video memory import、Canvas / DOM / minifb、fallback は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "alloc/gui/render2d/row_tile_rle_encoded" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_byte_storage" as *
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "alloc/gui/render2d/row_tile_rle_storage" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/math" as *
+#import "core/mem" as *
+#import "core/option" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+
+pub enum GuiRgba8888RowTileRleEncodedSealErrorKind:
+    EncodedByteCountInvalid
+    TotalRunCountInvalid
+    EncodedByteCountOverflow
+    EncodedByteCountMismatch
+    WrittenRunCountInvalid
+    WrittenByteCountInvalid
+    WrittenByteCountMismatch
+    WriterNotComplete
+    CursorStatusInvalid %GuiRgba8888RowTileRleStepErrorKind
+    CursorNotComplete
+
+impl Clone for GuiRgba8888RowTileRleEncodedSealErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleEncodedSealErrorKind GuiRgba8888RowTileRleEncodedSealErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleEncodedSealErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleEncodedSealErrorKind GuiRgba8888RowTileRleEncodedSealErrorKind \kind:
+        kind
+
+pub enum GuiRgba8888RowTileRleEncodedFinishErrorKind:
+    StorageDeallocFailed
+    CursorFreeFailed %GuiRgba8888RowByteStorageFinishErrorKind
+
+impl Clone for GuiRgba8888RowTileRleEncodedFinishErrorKind:
+    fn clone %fn &GuiRgba8888RowTileRleEncodedFinishErrorKind GuiRgba8888RowTileRleEncodedFinishErrorKind \kind:
+        *kind
+
+impl Copy for GuiRgba8888RowTileRleEncodedFinishErrorKind:
+    fn copy_mark %fn GuiRgba8888RowTileRleEncodedFinishErrorKind GuiRgba8888RowTileRleEncodedFinishErrorKind \kind:
+        kind
+
+pub struct GuiRgba8888RowTileRleEncodedOwner:
+    cursor %GuiRgba8888RowTileRleCursorOwner
+    total_run_count %i32
+    encoded_byte_count %i32
+    storage %RegionToken u8
+
+pub struct GuiRgba8888RowTileRleEncodedSealError:
+    kind %GuiRgba8888RowTileRleEncodedSealErrorKind
+    category %Option GuiError
+    owner %GuiRgba8888RowTileRleWriteCursorOwner
+
+pub struct GuiRgba8888RowTileRleEncodedFinishError:
+    kind %GuiRgba8888RowTileRleEncodedFinishErrorKind
+    cursor %GuiRgba8888RowTileRleCursorOwner
+
+fn gui_rgba8888_row_tile_rle_encoded_owner_new %fn GuiRgba8888RowTileRleCursorOwner fn i32 fn i32 fn RegionToken u8 GuiRgba8888RowTileRleEncodedOwner \cursor\total_run_count\encoded_byte_count\storage:
+    GuiRgba8888RowTileRleEncodedOwner cursor total_run_count encoded_byte_count storage
+
+fn gui_rgba8888_row_tile_rle_encoded_seal_error_category %fn GuiRgba8888RowTileRleEncodedSealErrorKind Option GuiError \kind:
+    match kind:
+        GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountInvalid:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleEncodedSealErrorKind::TotalRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountOverflow:
+            Option::Some GuiError::InvalidGeometry
+        GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenRunCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountInvalid:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountMismatch:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::WriterNotComplete:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::CursorStatusInvalid _kind:
+            Option::Some GuiError::InvalidCommand
+        GuiRgba8888RowTileRleEncodedSealErrorKind::CursorNotComplete:
+            Option::Some GuiError::InvalidCommand
+
+fn gui_rgba8888_row_tile_rle_encoded_seal_error %fn GuiRgba8888RowTileRleEncodedSealErrorKind fn GuiRgba8888RowTileRleWriteCursorOwner GuiRgba8888RowTileRleEncodedSealError \kind\owner:
+    let category %Option GuiError gui_rgba8888_row_tile_rle_encoded_seal_error_category kind
+    GuiRgba8888RowTileRleEncodedSealError kind category owner
+
+fn gui_rgba8888_row_tile_rle_encoded_finish_error %fn GuiRgba8888RowTileRleEncodedFinishErrorKind fn GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleEncodedFinishError \kind\cursor:
+    GuiRgba8888RowTileRleEncodedFinishError kind cursor
+
+fn gui_rgba8888_row_tile_rle_encoded_checked_mul_nonnegative %fn i32 fn i32 fn GuiRgba8888RowTileRleEncodedSealErrorKind Result i32 GuiRgba8888RowTileRleEncodedSealErrorKind \left\right\overflow_kind:
+    if or lt left 0 lt right 0:
+        then Result::Err overflow_kind
+        else:
+            if or eq left 0 eq right 0:
+                then Result::Ok 0
+                else:
+                    let max_i32 %i32 2147483647
+                    let max_left %i32 div_s max_i32 right
+                    if gt left max_left:
+                        then Result::Err overflow_kind
+                        else Result::Ok mul left right
+
+fn gui_rgba8888_row_tile_rle_encoded_validate_counts %fn &GuiRgba8888RowTileRleWriteCursorOwner Result unit GuiRgba8888RowTileRleEncodedSealErrorKind \owner:
+    let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_encoded_byte_count owner
+    if le encoded_byte_count 0:
+        then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountInvalid
+        else:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_total_run_count owner
+            if le total_run_count 0:
+                then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::TotalRunCountInvalid
+                else:
+                    match gui_rgba8888_row_tile_rle_encoded_checked_mul_nonnegative total_run_count 12 GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountOverflow:
+                        Result::Err kind:
+                            Result::Err kind
+                        Result::Ok expected_byte_count:
+                            if ne expected_byte_count encoded_byte_count:
+                                then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::EncodedByteCountMismatch
+                                else:
+                                    let written_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_written_run_count owner
+                                    if or lt written_run_count 0 gt written_run_count total_run_count:
+                                        then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenRunCountInvalid
+                                        else:
+                                            let written_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_written_byte_count owner
+                                            if or lt written_byte_count 0 gt written_byte_count encoded_byte_count:
+                                                then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountInvalid
+                                                else:
+                                                    match gui_rgba8888_row_tile_rle_encoded_checked_mul_nonnegative written_run_count 12 GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountMismatch:
+                                                        Result::Err kind:
+                                                            Result::Err kind
+                                                        Result::Ok expected_written_byte_count:
+                                                            if ne expected_written_byte_count written_byte_count:
+                                                                then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::WrittenByteCountMismatch
+                                                                else:
+                                                                    if ne written_run_count total_run_count:
+                                                                        then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::WriterNotComplete
+                                                                        else:
+                                                                            if ne written_byte_count encoded_byte_count:
+                                                                                then Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::WriterNotComplete
+                                                                                else Result::Ok unit
+
+fn gui_rgba8888_row_tile_rle_encoded_validate_cursor_complete %fn &GuiRgba8888RowTileRleWriteCursorOwner Result unit GuiRgba8888RowTileRleEncodedSealErrorKind \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    match gui_rgba8888_row_tile_rle_cursor_status cursor:
+        Result::Err kind:
+            Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::CursorStatusInvalid kind
+        Result::Ok status:
+            match status:
+                GuiRgba8888RowTileRleCursorStatus::Complete:
+                    Result::Ok unit
+                GuiRgba8888RowTileRleCursorStatus::Ready:
+                    Result::Err GuiRgba8888RowTileRleEncodedSealErrorKind::CursorNotComplete
+
+fn gui_rgba8888_row_tile_rle_encoded_validate_seal %fn &GuiRgba8888RowTileRleWriteCursorOwner Result unit GuiRgba8888RowTileRleEncodedSealErrorKind \owner:
+    match gui_rgba8888_row_tile_rle_encoded_validate_counts owner:
+        Result::Err kind:
+            Result::Err kind
+        Result::Ok _:
+            gui_rgba8888_row_tile_rle_encoded_validate_cursor_complete owner
+
+pub fn gui_rgba8888_row_tile_rle_encoded_total_run_count %fn &GuiRgba8888RowTileRleEncodedOwner i32 \owner:
+    *field::get_ref owner "total_run_count"
+
+pub fn gui_rgba8888_row_tile_rle_encoded_byte_count %fn &GuiRgba8888RowTileRleEncodedOwner i32 \owner:
+    *field::get_ref owner "encoded_byte_count"
+
+pub fn gui_rgba8888_row_tile_rle_encoded_cursor_next_pixel_index %fn &GuiRgba8888RowTileRleEncodedOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_next_pixel_index cursor
+
+pub fn gui_rgba8888_row_tile_rle_encoded_cursor_pixel_count %fn &GuiRgba8888RowTileRleEncodedOwner i32 \owner:
+    let cursor %&GuiRgba8888RowTileRleCursorOwner field::get_ref owner "cursor"
+    gui_rgba8888_row_tile_rle_cursor_pixel_count cursor
+
+pub fn gui_rgba8888_row_tile_rle_encoded_seal_error_kind %fn &GuiRgba8888RowTileRleEncodedSealError GuiRgba8888RowTileRleEncodedSealErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_encoded_seal_error_category_value %fn &GuiRgba8888RowTileRleEncodedSealError Option GuiError \error:
+    *field::get_ref error "category"
+
+pub fn gui_rgba8888_row_tile_rle_encoded_seal_error_finish_owner %fn GuiRgba8888RowTileRleEncodedSealError GuiRgba8888RowTileRleWriteCursorOwner \error:
+    field::get error "owner"
+
+pub fn gui_rgba8888_row_tile_rle_encoded_finish_error_kind %fn &GuiRgba8888RowTileRleEncodedFinishError GuiRgba8888RowTileRleEncodedFinishErrorKind \error:
+    *field::get_ref error "kind"
+
+pub fn gui_rgba8888_row_tile_rle_encoded_finish_error_cursor %fn GuiRgba8888RowTileRleEncodedFinishError GuiRgba8888RowTileRleCursorOwner \error:
+    field::get error "cursor"
+
+//: gui_rgba8888_row_tile_rle_encoded_seal: 完了済み writer cursor を sealed encoded owner に[変換/へんかん]する
+//:
+//: [契約/けいやく]:
+//: - count invariant と lower cursor completion を[検査/けんさ]してからだけ storage owner を sealed owner に[移/うつ]します。
+//: - [失敗/しっぱい]時は original writer owner を error に[保持/ほじ]し、fake owner は[作/つく]りません。
+pub fn gui_rgba8888_row_tile_rle_encoded_seal %fn GuiRgba8888RowTileRleWriteCursorOwner Result GuiRgba8888RowTileRleEncodedOwner GuiRgba8888RowTileRleEncodedSealError \owner:
+    match gui_rgba8888_row_tile_rle_encoded_validate_seal &owner:
+        Result::Err kind:
+            Result::Err gui_rgba8888_row_tile_rle_encoded_seal_error kind owner
+        Result::Ok _:
+            let total_run_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_total_run_count &owner
+            let encoded_byte_count %i32 gui_rgba8888_row_tile_rle_write_cursor_owner_encoded_byte_count &owner
+            let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+            let storage %RegionToken u8 field::get owner "storage"
+            Result::Ok gui_rgba8888_row_tile_rle_encoded_owner_new cursor total_run_count encoded_byte_count storage
+
+pub fn gui_rgba8888_row_tile_rle_encoded_seal_error_free %fn GuiRgba8888RowTileRleEncodedSealError Result unit GuiRgba8888RowTileRleStorageFinishErrorKind \error:
+    let owner %GuiRgba8888RowTileRleWriteCursorOwner gui_rgba8888_row_tile_rle_encoded_seal_error_finish_owner error
+    gui_rgba8888_row_tile_rle_write_cursor_owner_free owner
+
+//: gui_rgba8888_row_tile_rle_encoded_finish_cursor: encoded storage を[破棄/はき]して continuation cursor を[返/かえ]す
+pub fn gui_rgba8888_row_tile_rle_encoded_finish_cursor %fn GuiRgba8888RowTileRleEncodedOwner Result GuiRgba8888RowTileRleCursorOwner GuiRgba8888RowTileRleEncodedFinishError \owner:
+    let cursor %GuiRgba8888RowTileRleCursorOwner field::get owner "cursor"
+    let storage %RegionToken u8 field::get owner "storage"
+    match dealloc_region<u8> storage:
+        Result::Err _:
+            Result::Err gui_rgba8888_row_tile_rle_encoded_finish_error GuiRgba8888RowTileRleEncodedFinishErrorKind::StorageDeallocFailed cursor
+        Result::Ok _:
+            Result::Ok cursor
+
+pub fn gui_rgba8888_row_tile_rle_encoded_owner_free %fn GuiRgba8888RowTileRleEncodedOwner Result unit GuiRgba8888RowTileRleEncodedFinishErrorKind \owner:
+    match gui_rgba8888_row_tile_rle_encoded_finish_cursor owner:
+        Result::Err error:
+            let kind %GuiRgba8888RowTileRleEncodedFinishErrorKind gui_rgba8888_row_tile_rle_encoded_finish_error_kind &error
+            let cursor %GuiRgba8888RowTileRleCursorOwner gui_rgba8888_row_tile_rle_encoded_finish_error_cursor error
+            match gui_rgba8888_row_tile_rle_cursor_free cursor:
+                Result::Err _:
+                    Result::Err kind
+                Result::Ok _:
+                    Result::Err kind
+        Result::Ok cursor:
+            match gui_rgba8888_row_tile_rle_cursor_free cursor:
+                Result::Err kind:
+                    Result::Err GuiRgba8888RowTileRleEncodedFinishErrorKind::CursorFreeFailed kind
+                Result::Ok _:
+                    Result::Ok unit

@@ -6797,6 +6797,18 @@ store / projection failure では `written_run_count` と `written_byte_count` �
 
 この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。tile transport ABI と host-visible publish は後続 phase の owner boundary として定義する。
 
+### Render2d row tile RLE sealed encoded owner boundary
+
+F5cl は F5ck の `GuiRgba8888RowTileRleWriteCursorOwner` を、formal tile / bitmap transport の前段で使う row tile RLE sealed encoded owner に昇格する phase である。`GuiRgba8888RowTileRleEncodedOwner` は lower `GuiRgba8888RowTileRleCursorOwner`、exact `total_run_count`、exact `encoded_byte_count`、private `RegionToken u8` storage を保持する。
+
+この phase は writer cursor が部分的に書いた storage を host-visible payload として扱わないための gate である。`gui_rgba8888_row_tile_rle_encoded_seal` は、encoded byte count が正、total run count が正、`total_run_count * 12 == encoded_byte_count`、`written_run_count` と `written_byte_count` が範囲内、`written_run_count * 12 == written_byte_count`、`written_run_count == total_run_count`、`written_byte_count == encoded_byte_count` の順に検査する。otherwise valid な count が completion に届いていない場合は `WriterNotComplete` であり、silent completion や fallback completion にしない。
+
+count invariant が通った後でだけ lower cursor status を検査する。lower cursor status error は `CursorStatusInvalid %GuiRgba8888RowTileRleStepErrorKind`、lower cursor が `Ready` なら `CursorNotComplete` である。`Complete` の場合だけ cursor と storage を sealed owner へ move する。すべての seal failure は original `GuiRgba8888RowTileRleWriteCursorOwner` を owner-bearing `GuiRgba8888RowTileRleEncodedSealError` に保持し、fake owner を作らない。
+
+sealed owner は encoded byte reader、storage pointer accessor、raw byte accessor を提供しない。metadata accessor は total run count、encoded byte count、cursor next pixel index、cursor pixel count に限定する。storage teardown は `gui_rgba8888_row_tile_rle_encoded_finish_cursor` と `gui_rgba8888_row_tile_rle_encoded_owner_free` に限り、dealloc storage の後で lower cursor を返すか free する。
+
+この layer は encoded byte reader、payload byte reader、`cursor_next_run`、RLE drain、`Vec`、host present、video memory host call、Canvas / DOM / minifb、platform surface、fallback、silent no-op には進まない。formal tile transport ABI、host present ABI、dirty tile aggregation、FHD 60fps scheduler policy は後続 phase の責務である。
+
 ### Supported font containers
 
 標準設計は次を対象にする。
