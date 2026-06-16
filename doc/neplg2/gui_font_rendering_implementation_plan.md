@@ -622,6 +622,51 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/g
 git diff --check
 ```
 
+## Phase F5br: SourceOver alpha-mask dirty-region completion boundary
+
+目的:
+
+- F5bq の completed owner に `DirtyRegion` metadata を追加し、host present / tile transport へ進む前に「どの範囲が変わったか」を typed value として保持する。
+- render2d 汎用の surface + dirty owner はこの phase では作らない。複数 glyph drain の dirty merge、tile list、bitmap transport は次 phase 以降で設計する。
+- completed owner は `prepared + surface + dirty` を同時に保持し、prepared / surface split accessor は引き続き禁止する。
+- dirty は `dirty_region_rect_checked` で作り、失敗時は `DirtyRegionInvalid` の owner-bearing step error で返す。Full / Empty fallback や silent no-op は禁止する。
+
+plan review:
+
+- Tesla plan review は `PLAN_APPROVED`。条件は `dirty_region_rect_checked` を使うこと、dirty construction failure を owner-bearing `StepError` にすること、dirty accessor だけを追加し prepared/surface split accessor を増やさないこと、finish 前に dirty を読む contract を docs/source policy に固定することである。
+- Planck plan review は `PLAN_APPROVED`。`DirtyRegion` を completed owner の Copy metadata として持たせる境界は妥当であり、render2d surface+dirty owner は tile / bitmap transport / present 境界まで defer してよいとされた。completion branch では owner を分解する前に `dirty_region_rect_checked` を呼ぶこと、fallback しないことが条件である。
+
+変更:
+
+- `alloc/gui/font/sfnt/glyf.nepl` に `core/gui/dirty_region` import を追加する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind` に `DirtyRegionInvalid` を追加する。
+- `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainCompletedOwner` に `dirty DirtyRegion` を追加し、Clone / Copy 禁止を維持する。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region` を追加し、record rect から `dirty_region_rect_checked` で dirty metadata を作る。
+- completion branch は `dirty_region_rect_checked` 成功後だけ `field::get owner "prepared"` / `"surface"` を呼ぶ。
+- `gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty` を追加する。prepared / surface accessor は追加しない。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` に F5br source policy labels を追加する。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5br source policy を追加する。
+- `note.n.md` と `todo.md` を更新する。
+
+完了条件:
+
+- docs が dirty metadata、finish 前 dirty read、owner consume 前 checked dirty construction、no generic transport scope、no fallback を説明する。
+- source policy が completed owner の dirty field、dirty accessor、`dirty_region_rect_checked`、completion branch order、prepared/surface split accessor 禁止、host / platform / tile / bitmap / DrawTarget / RenderTarget / fallback 禁止を検査する。
+- focused doctest、F5bq SourceOver doctest、software surface doctest、glyph full doctest、source policy、`git diff --check` が通る。
+- implementation review で owner loss、split accessor、fallback、platform leakage がないことを確認する。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md --no-tree -o tmp_gui_font_render_fill_alpha_mask_software_drain_f5br.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_source_over_alpha_mask.n.md --no-tree -o tmp_gui_render2d_source_over_alpha_mask_f5br_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i tests/stdlib/gui_render2d_software_surface.n.md --no-tree -o tmp_gui_render2d_software_surface_f5br_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='180000'; node nodesrc/tests.js -i stdlib/alloc/gui/font/sfnt/glyf.nepl --no-tree -o tmp_gui_font_glyf_f5br.json -j 1
+git diff --check
+```
+
 ## Phase F5be: sfnt simple glyph raster coverage scan converter
 
 目的:

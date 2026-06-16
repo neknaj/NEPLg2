@@ -16930,12 +16930,35 @@ for (const [doc, name] of [
         `F5bq ${name} must document bounded SourceOver software drain step, budget terminal, write recovery, progress, and no fallback policy`,
     );
 }
+for (const [doc, name] of [
+    [spec, "spec"],
+    [detailedDesign, "detailed design"],
+    [implementationPlan, "implementation plan"],
+]) {
+    assert(
+        doc.includes("SourceOver alpha-mask dirty-region completion boundary") &&
+            doc.includes("F5br") &&
+            doc.includes("DirtyRegion") &&
+            doc.includes("dirty_region_rect_checked") &&
+            doc.includes("DirtyRegionInvalid") &&
+            doc.includes("fallback"),
+        `F5br ${name} must document dirty-region completed metadata, checked construction, and no fallback policy`,
+    );
+}
 assert(
     implementationPlan.includes("Planck plan review 1 は `PLAN_BLOCKED`") &&
         implementationPlan.includes("Planck revised plan review は `PLAN_APPROVED`") &&
         implementationPlan.includes("all channel projections before first store") &&
         implementationPlan.includes("no split completed owner accessor"),
     "F5bq implementation plan must retain Planck blocker, revised approval, projection-before-store, and completed-owner conditions",
+);
+assert(
+    implementationPlan.includes("Phase F5br") &&
+        implementationPlan.includes("Tesla plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("Planck plan review は `PLAN_APPROVED`") &&
+        implementationPlan.includes("dirty_region_rect_checked") &&
+        implementationPlan.includes("render2d surface+dirty owner は tile / bitmap transport / present 境界まで defer"),
+    "F5br implementation plan must retain subagent approval, checked dirty region construction, and deferred generic surface+dirty owner scope",
 );
 for (const fragment of [
     "pub enum GuiRgba8888SourceOverAlphaMaskErrorKind:",
@@ -17042,7 +17065,9 @@ for (const fragment of [
     "SurfaceReadFailed %GuiRgba8888SoftwareSurfaceErrorKind",
     "SurfaceWriteFailed %GuiRgba8888SoftwareSurfaceErrorKind",
     "SourceOverFailed %GuiRgba8888SourceOverAlphaMaskErrorKind",
+    "DirtyRegionInvalid",
     "ProgressInvariantInvalid",
+    "dirty %DirtyRegion",
 ]) {
     assert(renderFillAlphaMaskSoftwareDrainRegion.includes(fragment), `alloc/gui/font/sfnt/glyf F5bq software drain region must include ${fragment}`);
 }
@@ -17058,8 +17083,10 @@ assertNoMatch(
 );
 const renderFillAlphaMaskSoftwareDrainReadAlpha = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_read_alpha");
 const renderFillAlphaMaskSoftwareDrainPosition = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_position");
+const renderFillAlphaMaskSoftwareDrainDirtyRegion = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region");
 const renderFillAlphaMaskSoftwareDrainStepOnce = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_step_once");
 const renderFillAlphaMaskSoftwareDrainCompletedFinishSurface = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_finish_surface");
+const renderFillAlphaMaskSoftwareDrainCompletedDirty = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner_dirty");
 const renderFillAlphaMaskSoftwareDrainBudget = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_to_complete_budget");
 const renderFillAlphaMaskSoftwareDrainStepErrorFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error_free");
 const renderFillAlphaMaskSoftwareDrainTerminalFree = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_terminal_free");
@@ -17091,6 +17118,18 @@ assertOrderedFragments(
         "Result::Ok gui_point_new x y",
     ],
     "alloc/gui/font/sfnt/glyf F5bq position helper must map linear alpha cell index to checked surface pixel position",
+);
+assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainDirtyRegion,
+    [
+        "let rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect record",
+        "dirty_region_rect_checked rect",
+        "Result::Err _error:",
+        "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::DirtyRegionInvalid",
+        "Result::Ok dirty:",
+        "Result::Ok dirty",
+    ],
+    "alloc/gui/font/sfnt/glyf F5br dirty-region helper must use checked DirtyRegion construction and fail closed",
 );
 assertOrderedFragments(
     renderFillAlphaMaskSoftwareDrainStepOnce,
@@ -17125,6 +17164,13 @@ assertOrderedFragments(
     "alloc/gui/font/sfnt/glyf F5bq completed finish must consume the completed pair and return only the finished surface owner",
 );
 assertOrderedFragments(
+    renderFillAlphaMaskSoftwareDrainCompletedDirty,
+    [
+        "*field::get_ref completed \"dirty\"",
+    ],
+    "alloc/gui/font/sfnt/glyf F5br completed dirty accessor must only return Copy dirty metadata",
+);
+assertOrderedFragments(
     renderFillAlphaMaskSoftwareDrainBudget,
     [
         "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start prepared_ref surface_ref",
@@ -17132,6 +17178,11 @@ assertOrderedFragments(
         "if lt cell_index 0",
         "if gt cell_index cell_count",
         "if eq cell_index cell_count",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_dirty_region &record",
+        "Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_step_error kind owner",
+        "field::get owner \"prepared\"",
+        "field::get owner \"surface\"",
+        "gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_completed_owner prepared surface dirty",
         "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainTerminal::Completed completed",
         "if le remaining_steps 0",
         "GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::InvalidBudget",
@@ -17145,15 +17196,17 @@ assertOrderedFragments(
 for (const [slice, name] of [
     [renderFillAlphaMaskSoftwareDrainReadAlpha, "alpha read"],
     [renderFillAlphaMaskSoftwareDrainPosition, "position"],
+    [renderFillAlphaMaskSoftwareDrainDirtyRegion, "dirty region"],
     [renderFillAlphaMaskSoftwareDrainStepOnce, "step once"],
     [renderFillAlphaMaskSoftwareDrainCompletedFinishSurface, "completed finish"],
+    [renderFillAlphaMaskSoftwareDrainCompletedDirty, "completed dirty"],
     [renderFillAlphaMaskSoftwareDrainBudget, "budget drain"],
     [renderFillAlphaMaskSoftwareDrainStepErrorFree, "step error free"],
     [renderFillAlphaMaskSoftwareDrainTerminalFree, "terminal free"],
 ]) {
     assertNoMatch(
         slice,
-        /\b(?:gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor|render_command_fill_rect|render_command_|RenderTarget|DrawTarget|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|minifb|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|gui_rect_right|gui_rect_bottom|vec::clone|vec::copy)\b/,
+        /\b(?:gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_render_command|gui_sfnt_simple_glyph_render_fill_alpha_mask_sample_command_cursor|render_command_fill_rect|render_command_|RenderTarget|DrawTarget|backend|platform|Canvas|DOM|FontFace|CoreText|DirectWrite|fontconfig|minifb|HostTextMeasurer|MockTextMeasurer|host_text_measurer|fallback|zero_fill|gui_rect_right|gui_rect_bottom|dirty_region_rect_unchecked|dirty_region_full|dirty_regions_full|gui_web_video_memory_|publish|present|tile|bitmap|transport|vec::clone|vec::copy)\b/,
         `alloc/gui/font/sfnt/glyf F5bq ${name} must not use old FillRect bridge, targets/platforms/fallback, unchecked rect extents, or owner-bearing vec copy`,
     );
     assertNoMatch(slice, /[()]/, `alloc/gui/font/sfnt/glyf F5bq ${name} must preserve NEPL prefix style without parentheses`);
@@ -17177,9 +17230,14 @@ assert(
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_source_over_helper_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_surface_write_recovery_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_advance_after_write_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_completed_dirty_region_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_region_checked_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_failure_owner_recovery_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_dirty_read_before_finish_ok") &&
+        guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_dirty_fallback_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_old_fillrect_bridge_ok") &&
         guiFontSfntOutlinePointStreamItemCollectionRenderFillAlphaMaskSoftwareDrainTests.includes("render_fill_alpha_mask_software_drain_no_target_platform_fallback"),
-    "F5bq render fill alpha mask software drain focused doctest must cover completed pair, budget, alpha borrow, SourceOver, write recovery, post-write advance, and no old bridge/platform/fallback policy",
+    "F5bq/F5br render fill alpha mask software drain focused doctest must cover completed pair, dirty metadata, checked dirty construction, budget, alpha borrow, SourceOver, write recovery, post-write advance, and no old bridge/platform/fallback policy",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
