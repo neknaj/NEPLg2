@@ -1,3 +1,50 @@
+# 2026-06-17 Agent2 GUI font F5cu std row tile RLE present scheduled dispatch boundary
+
+## scope
+
+- F5ct schedule state と F5cr host import request construction を接続し、actual host import execution の手前で typed dispatch value を作る。
+- success path は `RequestReady request plus post phase` とし、exact-budget record の request と `Yield`、EndFrame request と `Completed` を同時に保持する。
+- F5cs direct call、F5cp / F5co cursor、raw packet storage、queue、timer、host import execution、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。
+- `RequestReady` / `Yield` / `Completed` の単純 phase では、exact-budget record の request delivery と yield signal、EndFrame request と completed signal を同時に表現できないと指摘された。
+- 修正版計画は `PLAN_APPROVED`。`ReadyRequest` に request と post phase を同時に保持し、F5ct before F5cr、error は previous dispatch state preserved、F5cs direct call 禁止の方針が承認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_dispatch.nepl` を追加した。
+- `GuiRgba8888RowTileRlePresentDispatchState`、post phase enum、ready request、dispatch output、dispatch step、typed error enum/value を追加した。
+- `dispatch_step_record` は F5ct `schedule_step_record` を先に呼び、lower schedule error を category と previous dispatch state 付きで包む。
+- F5ct success 後だけ F5cr `host_import_request` を呼び、F5cr error では previous dispatch state を返す。
+- success path は updated dispatch state と `RequestReady ready` を返し、ready value が host import request と post phase を同時に保持する。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cu_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_module_f5cu_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cu.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cu_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5cu_regression_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cu_regression_rerun.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5cu_regression_rerun.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は `REVIEW_APPROVED`。
+- `DispatchState` が F5ct schedule state だけを wrap すること、`ReadyRequest` が request と post phase を同時に保持して `Option` invalid state を持たないことが確認された。
+- `step_record` が F5ct before F5cr の順序を守り、F5ct error と F5cr error の両方で previous dispatch state を保持することが確認された。
+- source policy が F5cs direct call、lower cursor、raw storage、platform / timer / queue / fallback path を禁止していることも確認された。
+
+## residual
+
+- F5cu は scheduled dispatch value までであり、actual Web / native / bare presenter、formal host import execution boundary、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5ct std row tile RLE present schedule boundary
 
 ## scope

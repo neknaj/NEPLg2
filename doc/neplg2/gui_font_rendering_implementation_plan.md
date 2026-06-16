@@ -6746,3 +6746,42 @@ $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/
 $env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_virtual_drain.n.md --no-tree -o tmp_gui_std_tile_present_virtual_drain_f5ct_regression.json -j 1
 git diff --check
 ```
+
+## Phase F5cu: std row tile RLE present scheduled dispatch boundary
+
+目的:
+
+- F5ct schedule state と F5cr host import request construction を接続し、actual host import execution の手前で typed dispatch value を作る。
+- F5cu は std layer row tile RLE present scheduled dispatch boundary の checkpoint であり、request construction と host import execution を分離する。
+- F5ct before F5cr の順序を守り、stream validation / budget decision が成功した record だけを host import request value に包む。
+- success path は `RequestReady request plus post phase` とし、exact-budget record の request と `Yield`、EndFrame request と `Completed` を同時に保持する。
+
+変更:
+
+- `std/gui/tile_present_dispatch.nepl` を追加する。
+- `GuiRgba8888RowTileRlePresentDispatchState` は `GuiRgba8888RowTileRlePresentScheduleState` だけを保持する。
+- `GuiRgba8888RowTileRlePresentDispatchPostPhase` を `Continue` / `Yield` / `Completed` として定義する。
+- `GuiRgba8888RowTileRlePresentDispatchReadyRequest` に `GuiRgba8888RowTileRlePresentHostImportRequest` と post phase を同時に保持する。
+- `GuiRgba8888RowTileRlePresentDispatchOutput` は `RequestReady ready_request` を持つ。`Option request + phase` にはしない。
+- step error は `ScheduleFailed lower_kind` と `HostImportRequestFailed host_error` を enum で分け、category と previous dispatch state を保持する。
+- `resume_slice` は F5ct `gui_rgba8888_row_tile_rle_present_schedule_state_resume_slice` へ委譲する。
+- `std/gui.nepl` facade、focused doctest、source policy、note / todo を更新する。
+
+完了条件:
+
+- F5cu は F5ct と F5cr だけを実装上の authority とし、F5cs を直接呼ばない。
+- F5cu は F5cp / F5co cursor、raw packet storage、queue、timer、host import execution、platform API、Canvas / DOM / minifb、video memory、fallback、silent no-op に触れない。
+- F5ct error と F5cr error は previous dispatch state を返す。F5cr error で updated schedule state を採用しない。
+- focused doctest、source policy、F5ct / F5cr / F5cs regression、`git diff --check` が通る。
+- subagent implementation review で request/post phase shape、F5ct-before-F5cr order、error state preservation、禁止依存が承認される。
+
+検証:
+
+```powershell
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cu.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_dispatch.nepl --no-tree -o tmp_gui_std_tile_present_dispatch_module_f5cu.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_schedule.n.md --no-tree -o tmp_gui_std_tile_present_schedule_f5cu_regression.json -j 1
+git diff --check
+```

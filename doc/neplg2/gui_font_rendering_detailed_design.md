@@ -7997,6 +7997,16 @@ F5ct introduces the std layer row tile RLE present schedule boundary. It sits ab
 
 The `Completed` decision is returned when F5cs reaches `Ended`. Completion wins over budget comparison for that record because EndFrame represents stream termination, not more pixel work. The implementation still uses checked arithmetic before producing the updated state. `resume_slice` resets only slice-local counters and preserves the F5cs drain state. F5ct must not allocate a queue, call a timer, construct F5cr requests, read raw packet storage, call host imports, expose platform API, or fallback to a silent no-op path.
 
+## Std layer row tile RLE present scheduled dispatch boundary
+
+F5cu introduces the std layer row tile RLE present scheduled dispatch boundary. It joins F5ct schedule state with F5cr host import request construction, but it still does not execute the host import. This is the last typed preparation value before a Web, native, bare, or offscreen presenter can consume one request.
+
+`GuiRgba8888RowTileRlePresentDispatchState` contains only `GuiRgba8888RowTileRlePresentScheduleState`. It does not own a queue, timer, platform handle, raw packet cursor, video memory surface, or host import state. The step function enforces F5ct before F5cr: schedule validation and budget decision happen first, then request construction happens only for a valid scheduled record.
+
+The success shape is intentionally `RequestReady request plus post phase`. `GuiRgba8888RowTileRlePresentDispatchReadyRequest` carries the `GuiRgba8888RowTileRlePresentHostImportRequest` and a `GuiRgba8888RowTileRlePresentDispatchPostPhase`. This avoids an invalid `Option request + phase` state and avoids losing information when a valid record exactly reaches a slice budget or completes the frame. A RunRecord that reaches the budget is still delivered as a request with `Yield`. An EndFrame is still delivered as a request with `Completed`.
+
+All errors preserve previous dispatch state. F5ct errors wrap the lower schedule error kind and category. F5cr errors wrap the host request `GuiError` and do not adopt the schedule state that was computed in the same pure step, because no request was produced. F5cu must not call F5cs directly, bypass F5ct, call F5cp/F5co lower cursors, read raw packet storage, allocate queues, invoke timers, execute host imports, expose platform APIs, or fallback to a silent no-op path.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。
