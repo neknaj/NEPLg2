@@ -40,6 +40,41 @@ node nodesrc/test_stdlib_gui_layering_policy.js
 git diff --check
 ```
 
+## Phase F5cw: std row tile RLE present host execution action boundary
+
+目的:
+
+- F5cr の `GuiRgba8888RowTileRlePresentHostImportRequest` を、actual Web / native / bare executor が直接 match できる std layer row tile RLE present host execution action boundary に写す。
+- `GuiRgba8888RowTileRlePresentHostExecutionAction` は flat target x record action であり、Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の直積を invalid-state-free enum として持つ。
+- F5cw は action decoding だけを行い、does not execute host imports。actual host import execution、dispatch loop、scheduler、queue、timer、platform API、Canvas / DOM / minifb、video memory、fallback、silent no-op には進まない。
+
+変更:
+
+- `stdlib/std/gui/tile_present_host_execution.nepl` を追加する。
+- Window action は `WindowId` と descriptor / run record を同時に保持する payload struct を使う。
+- Offscreen / Device action は target が variant 名に含まれるため descriptor または run record を直接持つ。
+- main mapping は F5cr request accessor で target と record を読み、F5cq record の enum を match して action に写す。
+
+完了条件:
+
+- F5cw は F5cr request accessor と F5cq record / run record accessor だけを使う。
+- F5cv / F5cu / F5ct / F5cs / F5cp / F5co direct call、F5cr request constructor call、raw packet storage、queue、timer、scheduler、host execution API、platform API、video memory、fallback、silent no-op を持たない。
+- focused doctest は import smoke だけでなく、WindowBegin / WindowRun / WindowEnd / OffscreenRun / DeviceEnd の representative mapping を検査する。
+- source policy、F5cr / F5cv regression、`git diff --check` が通る。
+- subagent implementation review で action shape、direct action return、禁止依存、representative mapping coverage が承認される。
+
+検証:
+
+```text
+node --check nodesrc/test_web_gui_font_rendering_contract.js
+node nodesrc/test_web_gui_font_rendering_contract.js
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5cw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_module_f5cw.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cw_regression.json -j 1
+$env:NEPL_TEST_CASE_TIMEOUT_MS='60000'; node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cw_regression.json -j 1
+git diff --check
+```
+
 ## Phase F5bf: sfnt simple glyph raster packed mask owner
 
 目的:

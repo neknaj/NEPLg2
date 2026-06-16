@@ -1,3 +1,49 @@
+# 2026-06-17 Agent2 GUI font F5cw std row tile RLE present host execution action boundary
+
+## scope
+
+- F5cr の `GuiRgba8888RowTileRlePresentHostImportRequest` を actual Web / native / bare executor が match できる flat execution action に写す。
+- `GuiRgba8888RowTileRlePresentHostExecutionAction` は Window / Offscreen / Device と BeginFrame / RunRecord / EndFrame の直積を invalid-state-free enum として表す。
+- actual host import execution、dispatch loop、scheduler、queue、timer、platform API、DOM / Canvas / minifb、video memory、fallback、silent no-op には進まない。
+
+## plan_review
+
+- Dirac plan review は `PLAN_APPROVED`。
+- F5cr request と F5cq record の nested interpretation を platform backend から外す境界として意味があると確認された。
+- F5cr が validation 済みなので direct action return でよく、新しい `Result` failure mode は作らない方針が承認された。
+- 条件として、代表的な target x record mapping の functional doctest、F5cv/F5cu/F5ct/F5cs/F5cp/F5co 禁止、platform/raw/queue/timer/scheduler/fallback 禁止を追加することが求められた。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_host_execution.nepl` を追加した。
+- WindowBegin / WindowRun / WindowEnd payload と、Window / Offscreen / Device x Begin / Run / End の flat action enum を追加した。
+- `gui_rgba8888_row_tile_rle_present_host_execution_action` は F5cr request accessor で target / record を読み、F5cq record を match して action に写す。
+- `stdlib/std/gui.nepl` facade、focused doctest、source policy、GUI/font docs、`todo.md` を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `rg -n "[()]" stdlib/std/gui/tile_present_host_execution.nepl` は match なし。
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_execution.n.md --no-tree -o tmp_gui_std_tile_present_host_execution_f5cw.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_execution.nepl --no-tree -o tmp_gui_std_tile_present_host_execution_module_f5cw.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_import.n.md --no-tree -o tmp_gui_std_tile_present_host_import_f5cw_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_f5cw_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_dispatch_loop.n.md --no-tree -o tmp_gui_std_tile_present_dispatch_loop_f5cw_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui.nepl --no-tree -o tmp_gui_std_gui_facade_f5cw.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac implementation review は初回 `REVIEW_BLOCKED`。
+- blocking finding は `note.n.md` の stale status のみで、F5cw implementation / source-policy issue は無し。
+- 指摘に従い `verification_current` と `subagent_review` を実際の検証済み状態へ更新した。
+- follow-up review は `REVIEW_APPROVED`。remaining code / source-policy / docs blocker は無し。
+
+## residual
+
+- F5cw は host execution action decoding までであり、actual Web / native / bare presenter、real scheduler backend、FHD 60fps 実測、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cv std row tile RLE present dispatch loop outcome boundary
 
 ## scope

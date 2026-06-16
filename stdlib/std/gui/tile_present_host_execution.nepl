@@ -1,0 +1,155 @@
+//: # std/gui/tile_present_host_execution
+//: RGBA8888 row tile RLE present host execution action の std layer boundary
+//:
+//: ### [目的/もくてき]
+//: - F5cr の host import request を、Web / native / bare executor がそのまま match できる flat action enum に[写/うつ]します。
+//: - この module は host import を[実行/じっこう]せず、request target と host-command record の[組/く]み[合/あ]わせを typed action shape として[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - 入力は F5cr の `GuiRgba8888RowTileRlePresentHostImportRequest` だけです。
+//: - 出力は target と record kind の直積を表す invalid-state-free enum です。
+//: - F5cr で capability validation が[済/す]んでいるため、この boundary は新しい failure mode を[作/つく]りません。
+//: - actual host import execution、dispatch loop、scheduler、queue、timer、platform API、DOM、Canvas、minifb、video memory、fallback、silent no-op は[含/ふく]めません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_execution" as *
+//: ```
+
+#indent 4
+
+#import "core/field" as field
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_host_command" as *
+#import "std/gui/tile_present_host_import" as *
+#import "std/gui/window" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostExecutionWindowBegin:
+    window %WindowId
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutionWindowBegin:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowBegin GuiRgba8888RowTileRlePresentHostExecutionWindowBegin \payload:
+        *payload
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutionWindowBegin:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutionWindowBegin GuiRgba8888RowTileRlePresentHostExecutionWindowBegin \payload:
+        payload
+
+pub struct GuiRgba8888RowTileRlePresentHostExecutionWindowRun:
+    window %WindowId
+    run_record %GuiRgba8888RowTileRlePresentHostCommandRunRecord
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutionWindowRun:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowRun GuiRgba8888RowTileRlePresentHostExecutionWindowRun \payload:
+        *payload
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutionWindowRun:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutionWindowRun GuiRgba8888RowTileRlePresentHostExecutionWindowRun \payload:
+        payload
+
+pub struct GuiRgba8888RowTileRlePresentHostExecutionWindowEnd:
+    window %WindowId
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutionWindowEnd:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowEnd GuiRgba8888RowTileRlePresentHostExecutionWindowEnd \payload:
+        *payload
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutionWindowEnd:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutionWindowEnd GuiRgba8888RowTileRlePresentHostExecutionWindowEnd \payload:
+        payload
+
+pub enum GuiRgba8888RowTileRlePresentHostExecutionAction:
+    WindowBegin %GuiRgba8888RowTileRlePresentHostExecutionWindowBegin
+    WindowRun %GuiRgba8888RowTileRlePresentHostExecutionWindowRun
+    WindowEnd %GuiRgba8888RowTileRlePresentHostExecutionWindowEnd
+    OffscreenBegin %GuiRgba8888RowTileRlePresentDescriptor
+    OffscreenRun %GuiRgba8888RowTileRlePresentHostCommandRunRecord
+    OffscreenEnd %GuiRgba8888RowTileRlePresentDescriptor
+    DeviceBegin %GuiRgba8888RowTileRlePresentDescriptor
+    DeviceRun %GuiRgba8888RowTileRlePresentHostCommandRunRecord
+    DeviceEnd %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostExecutionAction:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostExecutionAction \action:
+        *action
+
+impl Copy for GuiRgba8888RowTileRlePresentHostExecutionAction:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostExecutionAction GuiRgba8888RowTileRlePresentHostExecutionAction \action:
+        action
+
+fn gui_rgba8888_row_tile_rle_present_host_execution_window_begin_new %fn WindowId fn GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePresentHostExecutionWindowBegin \window\descriptor:
+    GuiRgba8888RowTileRlePresentHostExecutionWindowBegin window descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_execution_window_run_new %fn WindowId fn GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePresentHostExecutionWindowRun \window\run_record:
+    GuiRgba8888RowTileRlePresentHostExecutionWindowRun window run_record
+
+fn gui_rgba8888_row_tile_rle_present_host_execution_window_end_new %fn WindowId fn GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePresentHostExecutionWindowEnd \window\descriptor:
+    GuiRgba8888RowTileRlePresentHostExecutionWindowEnd window descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_execution_action_for_window %fn WindowId fn GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentHostExecutionAction \window\record:
+    match record:
+        GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            let payload %GuiRgba8888RowTileRlePresentHostExecutionWindowBegin gui_rgba8888_row_tile_rle_present_host_execution_window_begin_new window descriptor
+            GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin payload
+        GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:
+            let payload %GuiRgba8888RowTileRlePresentHostExecutionWindowRun gui_rgba8888_row_tile_rle_present_host_execution_window_run_new window run_record
+            GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun payload
+        GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor:
+            let payload %GuiRgba8888RowTileRlePresentHostExecutionWindowEnd gui_rgba8888_row_tile_rle_present_host_execution_window_end_new window descriptor
+            GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd payload
+
+fn gui_rgba8888_row_tile_rle_present_host_execution_action_for_offscreen %fn GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentHostExecutionAction \record:
+    match record:
+        GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenBegin descriptor
+        GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:
+            GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenRun run_record
+        GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutionAction::OffscreenEnd descriptor
+
+fn gui_rgba8888_row_tile_rle_present_host_execution_action_for_device %fn GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentHostExecutionAction \record:
+    match record:
+        GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceBegin descriptor
+        GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:
+            GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceRun run_record
+        GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor:
+            GuiRgba8888RowTileRlePresentHostExecutionAction::DeviceEnd descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_window_begin_window %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowBegin WindowId \payload:
+    *field::get_ref payload "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_window_begin_descriptor %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowBegin GuiRgba8888RowTileRlePresentDescriptor \payload:
+    *field::get_ref payload "descriptor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_window_run_window %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowRun WindowId \payload:
+    *field::get_ref payload "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_window_run_record %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowRun GuiRgba8888RowTileRlePresentHostCommandRunRecord \payload:
+    *field::get_ref payload "run_record"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_window_end_window %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowEnd WindowId \payload:
+    *field::get_ref payload "window"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_window_end_descriptor %fn &GuiRgba8888RowTileRlePresentHostExecutionWindowEnd GuiRgba8888RowTileRlePresentDescriptor \payload:
+    *field::get_ref payload "descriptor"
+
+//: gui_rgba8888_row_tile_rle_present_host_execution_action: request を executor action に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - F5cr request target と F5cq record を public accessor で[読/よ]み、flat action enum に[変換/へんかん]します。
+//: - capability validation や request construction は F5cr の[責務/せきむ]なので、この関数では[行/おこな]いません。
+//: - host import の[実行/じっこう][結果/けっか]はこの action ではなく、後続 executor が `Result unit GuiError` として F5cv completion に[渡/わた]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_execution_action %fn &GuiRgba8888RowTileRlePresentHostImportRequest GuiRgba8888RowTileRlePresentHostExecutionAction \request:
+    let target %GuiRgba8888RowTileRlePresentHostImportTarget gui_rgba8888_row_tile_rle_present_host_import_request_target request
+    let record %GuiRgba8888RowTileRlePresentHostCommandRecord gui_rgba8888_row_tile_rle_present_host_import_request_record request
+    match target:
+        GuiRgba8888RowTileRlePresentHostImportTarget::Window window:
+            gui_rgba8888_row_tile_rle_present_host_execution_action_for_window window record
+        GuiRgba8888RowTileRlePresentHostImportTarget::Offscreen:
+            gui_rgba8888_row_tile_rle_present_host_execution_action_for_offscreen record
+        GuiRgba8888RowTileRlePresentHostImportTarget::Device:
+            gui_rgba8888_row_tile_rle_present_host_execution_action_for_device record

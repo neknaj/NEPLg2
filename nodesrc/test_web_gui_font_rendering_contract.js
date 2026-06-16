@@ -136,6 +136,8 @@ const stdGuiTilePresentHostCommand = read("stdlib/std/gui/tile_present_host_comm
 const stdGuiTilePresentHostCommandImpl = withoutComments(stdGuiTilePresentHostCommand);
 const stdGuiTilePresentHostImport = read("stdlib/std/gui/tile_present_host_import.nepl");
 const stdGuiTilePresentHostImportImpl = withoutComments(stdGuiTilePresentHostImport);
+const stdGuiTilePresentHostExecution = read("stdlib/std/gui/tile_present_host_execution.nepl");
+const stdGuiTilePresentHostExecutionImpl = withoutComments(stdGuiTilePresentHostExecution);
 const stdGuiTilePresentVirtualDrain = read("stdlib/std/gui/tile_present_virtual_drain.nepl");
 const stdGuiTilePresentVirtualDrainImpl = withoutComments(stdGuiTilePresentVirtualDrain);
 const stdGuiTilePresentSchedule = read("stdlib/std/gui/tile_present_schedule.nepl");
@@ -193,6 +195,7 @@ const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
 const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
 const guiStdTilePresentHostImportTests = read("tests/stdlib/gui_std_tile_present_host_import.n.md");
+const guiStdTilePresentHostExecutionTests = read("tests/stdlib/gui_std_tile_present_host_execution.n.md");
 const guiStdTilePresentVirtualDrainTests = read("tests/stdlib/gui_std_tile_present_virtual_drain.n.md");
 const guiStdTilePresentScheduleTests = read("tests/stdlib/gui_std_tile_present_schedule.n.md");
 const guiStdTilePresentDispatchTests = read("tests/stdlib/gui_std_tile_present_dispatch.n.md");
@@ -20666,6 +20669,89 @@ assert(
         guiStdTilePresentDispatchLoopTests.includes("std_row_tile_rle_present_dispatch_loop_error_preserves_rollback_state_ok") &&
         guiStdTilePresentDispatchLoopTests.includes("std_row_tile_rle_present_dispatch_loop_no_direct_lower_no_raw_no_platform_no_fallback"),
     "F5cv std tile present dispatch loop focused doctest must cover dispatch-loop source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host execution action boundary") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostExecutionAction") &&
+            doc.includes("flat target x record action") &&
+            doc.includes("does not execute host imports") &&
+            doc.includes("F5cr request accessor"),
+        `F5cw ${name} must document host execution action decoding, F5cr authority, and no execution policy`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_execution" as *'), "std/gui facade must export F5cw tile present host execution action boundary");
+assert(
+    stdGuiTilePresentHostExecution.includes("pub struct GuiRgba8888RowTileRlePresentHostExecutionWindowBegin:") &&
+        stdGuiTilePresentHostExecution.includes("pub struct GuiRgba8888RowTileRlePresentHostExecutionWindowRun:") &&
+        stdGuiTilePresentHostExecution.includes("pub struct GuiRgba8888RowTileRlePresentHostExecutionWindowEnd:") &&
+        stdGuiTilePresentHostExecution.includes("pub enum GuiRgba8888RowTileRlePresentHostExecutionAction:") &&
+        stdGuiTilePresentHostExecution.includes("WindowBegin %GuiRgba8888RowTileRlePresentHostExecutionWindowBegin") &&
+        stdGuiTilePresentHostExecution.includes("WindowRun %GuiRgba8888RowTileRlePresentHostExecutionWindowRun") &&
+        stdGuiTilePresentHostExecution.includes("WindowEnd %GuiRgba8888RowTileRlePresentHostExecutionWindowEnd") &&
+        stdGuiTilePresentHostExecution.includes("OffscreenBegin %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentHostExecution.includes("OffscreenRun %GuiRgba8888RowTileRlePresentHostCommandRunRecord") &&
+        stdGuiTilePresentHostExecution.includes("DeviceEnd %GuiRgba8888RowTileRlePresentDescriptor"),
+    "std/gui/tile_present_host_execution F5cw must define flat target x record action variants",
+);
+assertMatch(
+    stdGuiTilePresentHostExecutionImpl,
+    /#import "std\/gui\/tile_present_host_import" as \*/,
+    "std/gui/tile_present_host_execution F5cw must consume F5cr host import requests",
+);
+assertMatch(
+    stdGuiTilePresentHostExecutionImpl,
+    /#import "std\/gui\/tile_present_host_command" as \*/,
+    "std/gui/tile_present_host_execution F5cw must read F5cq host-command records",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionImpl,
+    /tile_present_dispatch_loop|tile_present_dispatch|tile_present_schedule|tile_present_virtual_drain|tile_present_command_cursor|tile_present_run_cursor|\bgui_rgba8888_row_tile_rle_present_host_import_request\b|\bGuiHost\b|\bstd\/gui\/host\b|\brow_tile_rle_packet_record\b|\brow_tile_rle_storage\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiRuntimeCommand\b|\bTimerRequest\b|\btimer_request\b|\bscheduler\b|\bVec\b|\bqueue\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b/,
+    "std/gui/tile_present_host_execution F5cw must not call loops/schedulers/lower cursors/request constructors/raw/platform APIs or fallback",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutionImpl, "gui_rgba8888_row_tile_rle_present_host_execution_action"),
+    [
+        "gui_rgba8888_row_tile_rle_present_host_import_request_target request",
+        "gui_rgba8888_row_tile_rle_present_host_import_request_record request",
+        "GuiRgba8888RowTileRlePresentHostImportTarget::Window window:",
+        "gui_rgba8888_row_tile_rle_present_host_execution_action_for_window window record",
+        "GuiRgba8888RowTileRlePresentHostImportTarget::Offscreen:",
+        "gui_rgba8888_row_tile_rle_present_host_execution_action_for_offscreen record",
+        "GuiRgba8888RowTileRlePresentHostImportTarget::Device:",
+        "gui_rgba8888_row_tile_rle_present_host_execution_action_for_device record",
+    ],
+    "std/gui/tile_present_host_execution F5cw must decode F5cr target and F5cq record through public accessors",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostExecutionImpl, "gui_rgba8888_row_tile_rle_present_host_execution_action_for_window"),
+    [
+        "GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor:",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowBegin payload",
+        "GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowRun payload",
+        "GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor:",
+        "GuiRgba8888RowTileRlePresentHostExecutionAction::WindowEnd payload",
+    ],
+    "std/gui/tile_present_host_execution F5cw must preserve Window target across Begin Run End records",
+);
+assertNoMatch(
+    stdGuiTilePresentHostExecutionImpl,
+    /[()]/,
+    "std/gui/tile_present_host_execution F5cw implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_facade_ok") &&
+        guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_action_enum_ok") &&
+        guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_f5cr_request_only_ok") &&
+        guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_flat_target_record_mapping_ok") &&
+        guiStdTilePresentHostExecutionTests.includes("std_row_tile_rle_present_host_execution_no_f5cv_no_lower_no_platform_no_fallback"),
+    "F5cw std tile present host-execution focused doctest must cover action mapping and source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(
