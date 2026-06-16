@@ -132,6 +132,8 @@ const stdGuiTilePresentRunCursor = read("stdlib/std/gui/tile_present_run_cursor.
 const stdGuiTilePresentRunCursorImpl = withoutComments(stdGuiTilePresentRunCursor);
 const stdGuiTilePresentCommandCursor = read("stdlib/std/gui/tile_present_command_cursor.nepl");
 const stdGuiTilePresentCommandCursorImpl = withoutComments(stdGuiTilePresentCommandCursor);
+const stdGuiTilePresentHostCommand = read("stdlib/std/gui/tile_present_host_command.nepl");
+const stdGuiTilePresentHostCommandImpl = withoutComments(stdGuiTilePresentHostCommand);
 const allocRender2dComposite = read("stdlib/alloc/gui/render2d/composite.nepl");
 const allocRender2dCompositeImpl = withoutComments(allocRender2dComposite);
 const allocFontFacade = read("stdlib/alloc/gui/font.nepl");
@@ -179,6 +181,7 @@ const guiRender2dRowTileRlePacketRecordTests = read("tests/stdlib/gui_render2d_r
 const guiStdTilePresentTests = read("tests/stdlib/gui_std_tile_present.n.md");
 const guiStdTilePresentRunCursorTests = read("tests/stdlib/gui_std_tile_present_run_cursor.n.md");
 const guiStdTilePresentCommandCursorTests = read("tests/stdlib/gui_std_tile_present_command_cursor.n.md");
+const guiStdTilePresentHostCommandTests = read("tests/stdlib/gui_std_tile_present_host_command.n.md");
 const guiRender2dSourceOverAlphaMaskTests = read("tests/stdlib/gui_render2d_source_over_alpha_mask.n.md");
 const guiFontSfntPathTests = read("tests/stdlib/gui_font_sfnt_glyf_path.n.md");
 const guiFontSfntOutlineCapacityTests = read("tests/stdlib/gui_font_sfnt_glyf_outline_capacity.n.md");
@@ -20021,9 +20024,18 @@ assert(
         stdGuiTilePresentCommandCursor.includes("pub struct GuiRgba8888RowTileRlePresentCommandCursorOwner:") &&
         stdGuiTilePresentCommandCursor.includes("run_cursor %GuiRgba8888RowTileRlePresentRunCursorOwner") &&
         stdGuiTilePresentCommandCursor.includes("descriptor %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentCommandCursor.includes("pub fn gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor") &&
         stdGuiTilePresentCommandCursor.includes("RunCursorStartFailed %GuiRgba8888RowTileRlePresentRunCursorStartErrorKind") &&
         stdGuiTilePresentCommandCursor.includes("RunCursorStepFailed %GuiRgba8888RowTileRlePresentRunCursorStepErrorKind"),
     "std/gui/tile_present_command_cursor F5cp must define command stream, phase state, descriptor copy, and lower error wrappers",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentCommandCursorImpl, "gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor"),
+    [
+        "let owner %&GuiRgba8888RowTileRlePresentCommandCursorOwner field::get_ref step \"owner\"",
+        "gui_rgba8888_row_tile_rle_present_command_cursor_owner_descriptor owner",
+    ],
+    "std/gui/tile_present_command_cursor F5cp step descriptor accessor must keep owner field access inside F5cp",
 );
 assertNoMatch(
     stdGuiTilePresentCommandCursorImpl,
@@ -20092,6 +20104,75 @@ assert(
         guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_uses_f5co_ok") &&
         guiStdTilePresentCommandCursorTests.includes("std_row_tile_rle_present_command_cursor_no_raw_no_host_no_platform_no_fallback"),
     "F5cp std tile present command cursor focused doctest must cover command cursor source-policy labels",
+);
+for (const [name, doc] of [
+    ["font rendering spec", spec],
+    ["GUI standard library spec", guiStandardLibrarySpec],
+    ["font rendering detailed design", detailedDesign],
+    ["font rendering implementation plan", implementationPlan],
+]) {
+    assert(
+        doc.includes("std layer row tile RLE present host-command record") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostCommandRecord") &&
+            doc.includes("GuiRgba8888RowTileRlePresentHostCommandStepResult") &&
+            doc.includes("does not flatten to kind plus optional run") &&
+            doc.includes("does not bypass F5cp"),
+        `F5cq ${name} must document host-command records, invalid-state-free enum shape, and F5cp-only dependency`,
+    );
+}
+assert(stdGuiFacade.includes('pub #import "./gui/tile_present_host_command" as *'), "std/gui facade must export F5cq tile present host-command record boundary");
+assert(
+    stdGuiTilePresentHostCommand.includes("pub struct GuiRgba8888RowTileRlePresentHostCommandRunRecord:") &&
+        stdGuiTilePresentHostCommand.includes("descriptor %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentHostCommand.includes("run %GuiRgba8888RowTileRleRun") &&
+        stdGuiTilePresentHostCommand.includes("pub enum GuiRgba8888RowTileRlePresentHostCommandRecord:") &&
+        stdGuiTilePresentHostCommand.includes("BeginFrame %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentHostCommand.includes("RunRecord %GuiRgba8888RowTileRlePresentHostCommandRunRecord") &&
+        stdGuiTilePresentHostCommand.includes("EndFrame %GuiRgba8888RowTileRlePresentDescriptor") &&
+        stdGuiTilePresentHostCommand.includes("pub enum GuiRgba8888RowTileRlePresentHostCommandStepResult:") &&
+        stdGuiTilePresentHostCommand.includes("Record %GuiRgba8888RowTileRlePresentHostCommandRecord") &&
+        stdGuiTilePresentHostCommand.includes("Completed"),
+    "std/gui/tile_present_host_command F5cq must define invalid-state-free host-command records and terminal result",
+);
+assertNoMatch(
+    stdGuiTilePresentHostCommandImpl,
+    /\btile_present_run_cursor\b|\bgui_rgba8888_row_tile_rle_packet_record_at\b|\brow_tile_rle_packet_record\b|\bGuiRgba8888RowTileRlePacketOwner\b|\bGuiRgba8888RowTileRleEncodedOwner\b|\bRegionToken\b|\bMemPtr\b|\bload_u8\b|\bstore_u8\b|\bregion_ptr_at\b|\bmem_ptr_addr\b|\bGuiSurfacePresentCommand\b|\bPresentPixelFrame\b|\bGuiPixelBufferDescriptor\b|\bVec\b|\bplatform\b|\bCanvas\b|\bDOM\b|\bminifb\b|\bvideo_memory\b|\bRenderTarget\b|\bDrawTarget\b|\b#extern\b|\b#intrinsic\b|\bfallback\b|\bsilent no-op\b|field::get_ref step "owner"|field::get step "owner"/,
+    "std/gui/tile_present_host_command F5cq must not bypass F5cp, expose raw storage, call host/platform APIs, allocate Vec, or fallback",
+);
+assertMatch(
+    stdGuiTilePresentHostCommandImpl,
+    /#import "std\/gui\/tile_present_command_cursor" as \*/,
+    "std/gui/tile_present_host_command F5cq must depend on the F5cp command cursor boundary",
+);
+assertOrderedFragments(
+    functionSlice(stdGuiTilePresentHostCommandImpl, "gui_rgba8888_row_tile_rle_present_host_command_step_result"),
+    [
+        "gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor step",
+        "gui_rgba8888_row_tile_rle_present_command_cursor_step_result step",
+        "GuiRgba8888RowTileRlePresentCommandCursorStepResult::Command command:",
+        "GuiRgba8888RowTileRlePresentCommand::BeginFrame _frame_descriptor:",
+        "gui_rgba8888_row_tile_rle_present_host_command_record_begin descriptor",
+        "GuiRgba8888RowTileRlePresentCommand::Run run:",
+        "gui_rgba8888_row_tile_rle_present_host_command_record_run descriptor run",
+        "GuiRgba8888RowTileRlePresentCommand::EndFrame _frame_descriptor:",
+        "gui_rgba8888_row_tile_rle_present_host_command_record_end descriptor",
+        "GuiRgba8888RowTileRlePresentCommandCursorStepResult::Completed:",
+        "GuiRgba8888RowTileRlePresentHostCommandStepResult::Completed",
+    ],
+    "std/gui/tile_present_host_command F5cq step mapping must preserve F5cp order and explicit terminal state",
+);
+assertNoMatch(
+    stdGuiTilePresentHostCommandImpl,
+    /[()]/,
+    "std/gui/tile_present_host_command F5cq implementation must preserve NEPL prefix style without parentheses",
+);
+assert(
+    guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_facade_ok") &&
+        guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_record_enum_ok") &&
+        guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_step_mapping_ok") &&
+        guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_uses_f5cp_accessor_ok") &&
+        guiStdTilePresentHostCommandTests.includes("std_row_tile_rle_present_host_command_no_raw_no_host_no_platform_no_fallback"),
+    "F5cq std tile present host-command focused doctest must cover host-command source-policy labels",
 );
 const contourSpanWithTables = functionSlice(allocFontSfntGlyfImpl, "gui_sfnt_glyf_simple_contour_span_with_tables");
 assertNoMatch(

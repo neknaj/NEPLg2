@@ -1,3 +1,43 @@
+# 2026-06-17 Agent2 GUI font F5cq std row tile RLE present host-command record
+
+## scope
+
+- F5cp の `GuiRgba8888RowTileRlePresentCommandCursorStep` を、Web / native / bare / headless presenter が後続 ABI で受け取れる host-command record に写す。
+- actual host import、scheduler policy、video memory submit、platform presenter には進まず、std layer の record shape と F5cp accessor 境界を固定する。
+
+## plan_review
+
+- Dirac plan review は初回 `PLAN_BLOCKED`。`kind + Option run` では invalid state を表現でき、F5cp step descriptor を読むために private owner field へ触る危険があると指摘された。
+- 修正版計画は `APPROVED`。`BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` の enum record とし、F5cp に public step descriptor accessor を追加する方針が妥当と確認された。
+
+## implementation
+
+- `stdlib/std/gui/tile_present_command_cursor.nepl` に `gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor` を追加した。
+- `stdlib/std/gui/tile_present_host_command.nepl` を追加し、`GuiRgba8888RowTileRlePresentHostCommandRecord` と `GuiRgba8888RowTileRlePresentHostCommandStepResult` を定義した。
+- `RunRecord` payload は descriptor と `GuiRgba8888RowTileRleRun` の両方を保持し、kind + optional run へ flatten しない。
+- `gui_rgba8888_row_tile_rle_present_host_command_step_result` は F5cp の public accessor だけを使い、F5cp step 内部 owner field を直接読まない。
+- `stdlib/std/gui.nepl` facade、`tests/stdlib/gui_std_tile_present_host_command.n.md`、source policy、GUI/font docs を更新した。
+
+## verification_current
+
+- pass: `node --check nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `node nodesrc/test_web_gui_font_rendering_contract.js`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_host_command.n.md --no-tree -o tmp_gui_std_tile_present_host_command_f5cq.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i tests/stdlib/gui_std_tile_present_command_cursor.n.md --no-tree -o tmp_gui_std_tile_present_command_cursor_f5cq_regression.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_host_command.nepl --no-tree -o tmp_gui_std_tile_present_host_command_module_f5cq.json -j 1`
+- pass: `NEPL_TEST_CASE_TIMEOUT_MS=60000 node nodesrc/tests.js -i stdlib/std/gui/tile_present_command_cursor.nepl --no-tree -o tmp_gui_std_tile_present_command_cursor_module_f5cq_regression.json -j 1`
+- pass: `git diff --check` は空白 error なし。LF/CRLF warning は Git の working-copy 変換 warning である。
+
+## subagent_review
+
+- Dirac 初回 implementation review は `REVIEW_BLOCKED`。`Run` enum variant に 2 payload を直接置いたため parser error になると指摘された。
+- 指摘に従い、descriptor と run を保持する `GuiRgba8888RowTileRlePresentHostCommandRunRecord` を追加し、enum variant は single-payload `RunRecord` に修正した。
+- Dirac 再レビューは `REVIEW_APPROVED`。F5cq は invalid-state-free shape を維持し、F5cp accessor を経由し、F5co / raw packet storage / host / platform / video API / fallback を bypass していないと確認された。
+
+## residual
+
+- F5cq は std layer host-command record boundary までであり、formal Web / native / headless host import ABI、FHD 60fps scheduler、2D compositor drain、stroke / shadow rasterization は未実装である。
+
 # 2026-06-17 Agent2 GUI font F5cp std row tile RLE present command cursor
 
 ## scope

@@ -1,0 +1,125 @@
+//: # std/gui/tile_present_host_command
+//: RGBA8888 row tile RLE present command の host-record boundary
+//:
+//: ### [目的/もくてき]
+//: - F5cp の frame command cursor output を、Web / native / bare / headless presenter が[共通/きょうつう]で[受/う]け[取/と]れる typed host-command record に[写/うつ]します。
+//: - actual host import はまだ[呼/よ]ばず、record の[形/かたち]だけを std layer で[固定/こてい]します。
+//:
+//: ### [契約/けいやく]
+//: - record は enum であり、Run に descriptor と run の両方を[持/も]たせます。
+//: - kind と optional run の[組/く]み[合/あ]わせにはせず、不正な Run-without-run を[表現/ひょうげん]できない[形/かたち]にします。
+//: - F5cp step の descriptor accessor と step result accessor だけを[使/つか]い、step 内部 field を[直接/ちょくせつ][読/よ]みません。
+//:
+//: ### [注意/ちゅうい]
+//: - この module は F5cp を bypass しません。F5co run cursor、packet storage、raw memory、host import、platform API には[進/すす]みません。
+//:
+//: neplg2:test[skip]
+//: ```neplg2
+//:| #import "std/gui/tile_present_host_command" as *
+//: ```
+
+#indent 4
+
+#import "alloc/gui/render2d/row_tile_rle" as *
+#import "core/field" as field
+#import "core/gui/error" as *
+#import "core/result" as *
+#import "core/traits/copy" as *
+#import "std/gui/tile_present" as *
+#import "std/gui/tile_present_command_cursor" as *
+
+pub struct GuiRgba8888RowTileRlePresentHostCommandRunRecord:
+    descriptor %GuiRgba8888RowTileRlePresentDescriptor
+    run %GuiRgba8888RowTileRleRun
+
+impl Clone for GuiRgba8888RowTileRlePresentHostCommandRunRecord:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePresentHostCommandRunRecord \record:
+        *record
+
+impl Copy for GuiRgba8888RowTileRlePresentHostCommandRunRecord:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePresentHostCommandRunRecord \record:
+        record
+
+pub enum GuiRgba8888RowTileRlePresentHostCommandRecord:
+    BeginFrame %GuiRgba8888RowTileRlePresentDescriptor
+    RunRecord %GuiRgba8888RowTileRlePresentHostCommandRunRecord
+    EndFrame %GuiRgba8888RowTileRlePresentDescriptor
+
+impl Clone for GuiRgba8888RowTileRlePresentHostCommandRecord:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentHostCommandRecord \record:
+        *record
+
+impl Copy for GuiRgba8888RowTileRlePresentHostCommandRecord:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentHostCommandRecord \record:
+        record
+
+pub enum GuiRgba8888RowTileRlePresentHostCommandStepResult:
+    Record %GuiRgba8888RowTileRlePresentHostCommandRecord
+    Completed
+
+impl Clone for GuiRgba8888RowTileRlePresentHostCommandStepResult:
+    fn clone %fn &GuiRgba8888RowTileRlePresentHostCommandStepResult GuiRgba8888RowTileRlePresentHostCommandStepResult \result:
+        *result
+
+impl Copy for GuiRgba8888RowTileRlePresentHostCommandStepResult:
+    fn copy_mark %fn GuiRgba8888RowTileRlePresentHostCommandStepResult GuiRgba8888RowTileRlePresentHostCommandStepResult \result:
+        result
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_record_begin %fn GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePresentHostCommandRecord \descriptor:
+    GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_run_record %fn GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888RowTileRleRun GuiRgba8888RowTileRlePresentHostCommandRunRecord \descriptor\run:
+    GuiRgba8888RowTileRlePresentHostCommandRunRecord descriptor run
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_record_run %fn GuiRgba8888RowTileRlePresentDescriptor fn GuiRgba8888RowTileRleRun GuiRgba8888RowTileRlePresentHostCommandRecord \descriptor\run:
+    let run_record %GuiRgba8888RowTileRlePresentHostCommandRunRecord gui_rgba8888_row_tile_rle_present_host_command_run_record descriptor run
+    GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_record_end %fn GuiRgba8888RowTileRlePresentDescriptor GuiRgba8888RowTileRlePresentHostCommandRecord \descriptor:
+    GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRlePresentDescriptor \record:
+    *field::get_ref record "descriptor"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_run_record_run %fn &GuiRgba8888RowTileRlePresentHostCommandRunRecord GuiRgba8888RowTileRleRun \record:
+    *field::get_ref record "run"
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_record_descriptor %fn &GuiRgba8888RowTileRlePresentHostCommandRecord GuiRgba8888RowTileRlePresentDescriptor \record:
+    match *record:
+        GuiRgba8888RowTileRlePresentHostCommandRecord::BeginFrame descriptor:
+            descriptor
+        GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:
+            gui_rgba8888_row_tile_rle_present_host_command_run_record_descriptor &run_record
+        GuiRgba8888RowTileRlePresentHostCommandRecord::EndFrame descriptor:
+            descriptor
+
+pub fn gui_rgba8888_row_tile_rle_present_host_command_record_run_value %fn &GuiRgba8888RowTileRlePresentHostCommandRecord Result GuiRgba8888RowTileRleRun GuiError \record:
+    match *record:
+        GuiRgba8888RowTileRlePresentHostCommandRecord::RunRecord run_record:
+            Result::Ok gui_rgba8888_row_tile_rle_present_host_command_run_record_run &run_record
+        _:
+            Result::Err GuiError::InvalidCommand
+
+//: gui_rgba8888_row_tile_rle_present_host_command_step_result: F5cp step を host-command record に[写/うつ]す
+//:
+//: [契約/けいやく]:
+//: - descriptor は F5cp の public step descriptor accessor から[読/よ]みます。
+//: - F5cp step 内部の owner field はこの module から[読/よ]みません。
+//: - Completed は record ではなく terminal result として[保持/ほじ]します。
+pub fn gui_rgba8888_row_tile_rle_present_host_command_step_result %fn &GuiRgba8888RowTileRlePresentCommandCursorStep GuiRgba8888RowTileRlePresentHostCommandStepResult \step:
+    let descriptor %GuiRgba8888RowTileRlePresentDescriptor gui_rgba8888_row_tile_rle_present_command_cursor_step_descriptor step
+    let result %GuiRgba8888RowTileRlePresentCommandCursorStepResult gui_rgba8888_row_tile_rle_present_command_cursor_step_result step
+    match result:
+        GuiRgba8888RowTileRlePresentCommandCursorStepResult::Command command:
+            match command:
+                GuiRgba8888RowTileRlePresentCommand::BeginFrame _frame_descriptor:
+                    let record %GuiRgba8888RowTileRlePresentHostCommandRecord gui_rgba8888_row_tile_rle_present_host_command_record_begin descriptor
+                    GuiRgba8888RowTileRlePresentHostCommandStepResult::Record record
+                GuiRgba8888RowTileRlePresentCommand::Run run:
+                    let record %GuiRgba8888RowTileRlePresentHostCommandRecord gui_rgba8888_row_tile_rle_present_host_command_record_run descriptor run
+                    GuiRgba8888RowTileRlePresentHostCommandStepResult::Record record
+                GuiRgba8888RowTileRlePresentCommand::EndFrame _frame_descriptor:
+                    let record %GuiRgba8888RowTileRlePresentHostCommandRecord gui_rgba8888_row_tile_rle_present_host_command_record_end descriptor
+                    GuiRgba8888RowTileRlePresentHostCommandStepResult::Record record
+        GuiRgba8888RowTileRlePresentCommandCursorStepResult::Completed:
+            GuiRgba8888RowTileRlePresentHostCommandStepResult::Completed

@@ -7958,6 +7958,27 @@ The cursor keeps one typed output per public step. `BeginPending` emits `GuiRgba
 
 Start and step errors are owner-bearing. Lower start failure recovers the present owner through the F5co start error finish helper. Lower step failure recovers the lower run cursor owner, rebuilds `GuiRgba8888RowTileRlePresentCommandCursorOwner` with the saved descriptor and `RunPending`, and returns an owner-bearing command cursor error. The command cursor does not bypass F5co: it must not call the packet record reader, packet storage, `RegionToken`, `MemPtr`, byte load helpers, host imports, platform APIs, or fallback paths directly.
 
+## Std layer row tile RLE present host-command record
+
+F5cq introduces the std layer row tile RLE present host-command record. It is still not a host import and does not submit a frame. It converts the F5cp command-cursor step output into a record shape that Web, native, bare, and headless presenters can receive through a later formal ABI.
+
+```text
+GuiRgba8888RowTileRlePresentHostCommandRecord:
+    BeginFrame GuiRgba8888RowTileRlePresentDescriptor
+    RunRecord GuiRgba8888RowTileRlePresentHostCommandRunRecord
+    EndFrame GuiRgba8888RowTileRlePresentDescriptor
+
+GuiRgba8888RowTileRlePresentHostCommandRunRecord:
+    descriptor GuiRgba8888RowTileRlePresentDescriptor
+    run GuiRgba8888RowTileRleRun
+
+GuiRgba8888RowTileRlePresentHostCommandStepResult:
+    Record GuiRgba8888RowTileRlePresentHostCommandRecord
+    Completed
+```
+
+The record shape does not flatten to kind plus optional run. A host presenter can pattern-match a single enum and cannot observe an invalid state such as a `RunRecord` without a run payload or an `EndFrame` with one. The mapping function reads the descriptor through F5cp's public step descriptor accessor and the step output through F5cp's public step result accessor. It does not access the F5cp step owner field directly and does not bypass F5cp by reading F5co, packet records, raw storage, host imports, platform APIs, or fallback paths.
+
 ## Metrics fixed-point
 
 初期 core contract は i32 fixed-point value を使う。scale 単位は renderer/layout contract で決める。`GuiFontSize` は numerator/denominator を持つ。

@@ -608,6 +608,8 @@ platforms/gui:
 
 この表にない Web / native / mobile / embedded backend、flex / grid / scroll layout policy、text buffer と arena node の対応付け、stateful pointer capture / gesture、Web / native / mobile raw keyboard normalization、terminal の Function key などの追加 ANSI / CSI sequence と途中入力 buffering、text line break / text hash based cache invalidation、resource loading、real host presentation、formal host import ABI 上の tile / bitmap / row / RLE transport、persistent paint canvas、arbitrary-size Life board は未実装である。
 
+std layer row tile RLE present host-command record は F5cq の checkpoint である。`std/gui/tile_present_host_command` は F5cp の public step descriptor accessor と step result accessor だけを使い、`GuiRgba8888RowTileRlePresentHostCommandRecord` と `GuiRgba8888RowTileRlePresentHostCommandStepResult` を作る。record shape は `BeginFrame descriptor`、`RunRecord run_record`、`EndFrame descriptor` であり、run record は descriptor と run を保持し、does not flatten to kind plus optional run。これは enum / match による静的検査で不正状態を表現不能にするためである。この layer does not bypass F5cp。F5co run cursor、packet record reader、raw storage、host import、platform API、fallback には直接触れない。
+
 ## TUI Migration Contract
 
 既存 TUI は `features/tui` と `platforms/wasix/tui` に直接 helper が露出している。これを段階的に次へ移す。
