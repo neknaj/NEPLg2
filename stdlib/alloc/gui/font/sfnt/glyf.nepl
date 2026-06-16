@@ -22,6 +22,7 @@
 #indent 4
 
 #import "alloc/io" as *
+#import "alloc/gui/render2d" as *
 #import "alloc/collections/vec" as vec
 #import "core/cast" as *
 #import "core/field" as field
@@ -18658,6 +18659,253 @@ fn gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_prepare_comm
                             let paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_paint &record
                             let command %RenderCommand render_command_alpha_mask_rect mask_id rect paint
                             Result::Ok gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner resource command
+
+//: GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner: software surface drain cursor の開始 owner
+//:
+//: [目的/もくてき]:
+//: - prepared command owner と RGBA8888 software surface owner を同時に[消費/しょうひ]し、後続の bounded drain step が安全に進める cursor owner を[作/つく]ります。
+//: - この段階では pixel write や SourceOver 合成を実行せず、command payload と resource metadata と surface bounds の再検証だけを行います。
+//:
+//: neplg2:test[skip]
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner:
+    prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+    cell_index %i32
+
+enum GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind:
+    UnexpectedCommand
+    InvalidMaskId
+    ShapeInvalidWidth
+    ShapeInvalidHeight
+    ShapeInvalidSampleScale
+    ShapeCoverageMaxMismatch
+    ShapeCellCountMismatch
+    InvalidAlphaMax
+    AlphaCellCountMismatch
+    AlphaStorageLenMismatch
+    AlphaStorageCapacityMismatch
+    UnsupportedBlendMode
+    RectMetadataMismatch
+    PaintMetadataMismatch
+    ResourceRecordMismatch
+    UnexpectedTableRegisterState
+    CommandMaskIdMismatch
+    CommandRectMismatch
+    CommandPaintMismatch
+    RectInvalidOrigin
+    RectInvalidSize
+    RectRightOverflow
+    RectBottomOverflow
+    SurfaceInvalidGeometry
+    SurfaceBoundsMismatch
+    SurfaceFreeFailed
+
+impl Clone for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind:
+    fn clone %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \kind:
+        *kind
+
+impl Copy for GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind:
+    fn copy_mark %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \kind:
+        kind
+
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError:
+    kind %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind
+    prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+
+struct GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected:
+    prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner
+    surface %GuiRgba8888SoftwareSurfaceOwner
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner fn i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner \prepared\surface\cell_index:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner prepared surface cell_index
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn GuiRgba8888SoftwareSurfaceOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError \kind\prepared\surface:
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError kind prepared surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_kind %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
+    *field::get_ref error "kind"
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_rejected %fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected \error:
+    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get error "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get error "surface"
+    GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected prepared surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with <.R> %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected impure fn impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner impure fn GuiRgba8888SoftwareSurfaceOwner .R .R \rejected\callback:
+    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get rejected "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get rejected "surface"
+    callback prepared surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_error_kind_from_table_register %fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \kind:
+    match kind:
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::InvalidMaskId:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::InvalidMaskId
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeInvalidWidth:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeInvalidWidth
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeInvalidHeight:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeInvalidHeight
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeInvalidSampleScale:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeInvalidSampleScale
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeCoverageMaxMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeCoverageMaxMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::ShapeCellCountMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeCellCountMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::InvalidAlphaMax:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::InvalidAlphaMax
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::AlphaCellCountMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::AlphaCellCountMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::AlphaStorageLenMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::AlphaStorageLenMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::AlphaStorageCapacityMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::AlphaStorageCapacityMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::UnsupportedBlendMode:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::UnsupportedBlendMode
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::RectMetadataMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectMetadataMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::PaintMetadataMismatch:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::PaintMetadataMismatch
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::DuplicateMaskId:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::UnexpectedTableRegisterState
+        GuiSfntSimpleGlyphRenderFillAlphaMaskResourceTableRegisterErrorKind::TablePushFailed:
+            GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::UnexpectedTableRegisterState
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rederive_record %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \prepared:
+    let resource %&GuiSfntSimpleGlyphRenderFillAlphaMaskRegisteredResourceOwner field::get_ref prepared "resource"
+    let stored_record %GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord gui_sfnt_simple_glyph_render_fill_alpha_mask_registered_resource_owner_record resource
+    let reservation %&GuiSfntSimpleGlyphRenderFillAlphaMaskResourceReservationOwner field::get_ref resource "reservation"
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_record_from_reservation reservation:
+        Result::Err lower_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_error_kind_from_table_register lower_kind
+        Result::Ok expected_record:
+            if not gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_record_equal &stored_record &expected_record:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ResourceRecordMismatch
+                else Result::Ok expected_record
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_record_shape %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \record:
+    let width_px %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px record
+    if le width_px 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeInvalidWidth
+        else:
+            let height_px %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_height_px record
+            if le height_px 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeInvalidHeight
+                else:
+                    let max_i32 %i32 2147483647
+                    if gt width_px div_s max_i32 height_px:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeCellCountMismatch
+                        else:
+                            let expected_cell_count %i32 mul width_px height_px
+                            let record_cell_count %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_cell_count record
+                            if ne record_cell_count expected_cell_count:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::ShapeCellCountMismatch
+                                else:
+                                    let alpha_max %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_alpha_max record
+                                    if le alpha_max 0:
+                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::InvalidAlphaMax
+                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_command_payload %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \prepared\record:
+    let command %&RenderCommand field::get_ref prepared "command"
+    match *command:
+        RenderCommand::AlphaMaskRect payload:
+            let command_mask_id %AlphaMaskId alpha_mask_rect_command_mask_id &payload
+            let record_mask_id %AlphaMaskId gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_mask_id record
+            let command_raw %i32 alpha_mask_id_raw &command_mask_id
+            let record_raw %i32 alpha_mask_id_raw &record_mask_id
+            if ne command_raw record_raw:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CommandMaskIdMismatch
+                else:
+                    let command_rect %GuiRect alpha_mask_rect_command_rect &payload
+                    let record_rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect record
+                    if not gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_rect_equal command_rect record_rect:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CommandRectMismatch
+                        else:
+                            let command_paint %GuiPaint alpha_mask_rect_command_paint &payload
+                            let record_paint %GuiPaint gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_paint record
+                            if not gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_table_paint_equal command_paint record_paint:
+                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::CommandPaintMismatch
+                                else Result::Ok unit
+        _:
+            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::UnexpectedCommand
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_extent %fn i32 fn i32 fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind Result i32 GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \origin\extent\overflow_kind:
+    let max_i32 %i32 2147483647
+    let max_origin %i32 sub max_i32 extent
+    if gt origin max_origin:
+        then Result::Err overflow_kind
+        else Result::Ok add origin extent
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_rect_surface %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourceRecord fn &GuiRgba8888SoftwareSurfaceOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \record\surface:
+    let rect %GuiRect gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_rect record
+    let x %i32 gui_rect_x &rect
+    let y %i32 gui_rect_y &rect
+    if or lt x 0 lt y 0:
+        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectInvalidOrigin
+        else:
+            let width %i32 gui_rect_width &rect
+            let height %i32 gui_rect_height &rect
+            if or le width 0 le height 0:
+                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectInvalidSize
+                else:
+                    let record_width %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_width_px record
+                    let record_height %i32 gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_record_height_px record
+                    if or ne width record_width ne height record_height:
+                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectMetadataMismatch
+                        else:
+                            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_extent x width GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectRightOverflow:
+                                Result::Err error_kind:
+                                    Result::Err error_kind
+                                Result::Ok right:
+                                    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_checked_extent y height GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::RectBottomOverflow:
+                                        Result::Err error_kind:
+                                            Result::Err error_kind
+                                        Result::Ok bottom:
+                                            let surface_width %i32 gui_rgba8888_software_surface_width surface
+                                            let surface_height %i32 gui_rgba8888_software_surface_height surface
+                                            if or le surface_width 0 le surface_height 0:
+                                                then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceInvalidGeometry
+                                                else:
+                                                    if or gt right surface_width gt bottom surface_height:
+                                                        then Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceBoundsMismatch
+                                                        else Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start %fn &GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner fn &GuiRgba8888SoftwareSurfaceOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \prepared\surface:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rederive_record prepared:
+        Result::Err error_kind:
+            Result::Err error_kind
+        Result::Ok record:
+            match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_record_shape &record:
+                Result::Err error_kind:
+                    Result::Err error_kind
+                Result::Ok _:
+                    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_command_payload prepared &record:
+                        Result::Err error_kind:
+                            Result::Err error_kind
+                        Result::Ok _:
+                            gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_rect_surface &record surface
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner impure fn GuiRgba8888SoftwareSurfaceOwner Result GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError \prepared\surface:
+    match gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_validate_start &prepared &surface:
+        Result::Err error_kind:
+            Result::Err gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error error_kind prepared surface
+        Result::Ok _:
+            Result::Ok gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \owner:
+    let prepared %GuiSfntSimpleGlyphRenderFillAlphaMaskResourcePreparedCommandOwner field::get owner "prepared"
+    let surface %GuiRgba8888SoftwareSurfaceOwner field::get owner "surface"
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_resource_prepared_command_owner_free prepared
+    match gui_rgba8888_software_surface_free surface:
+        Result::Err _surface_kind:
+            Result::Err GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind::SurfaceFreeFailed
+        Result::Ok _:
+            Result::Ok unit
+
+fn gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_free %impure fn GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainStartError Result unit GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainErrorKind \error:
+    let rejected %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainRejected gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_start_error_rejected error
+    gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_rejected_with rejected \prepared\surface:
+        let owner %GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner prepared surface 0
+        gui_sfnt_simple_glyph_render_fill_alpha_mask_software_drain_owner_free owner
 
 //: GuiSfntSimpleGlyphCoordinateDelta: 1 coordinate delta と消費 byte 数
 //:

@@ -1,3 +1,38 @@
+# 2026-06-16 Agent2 GUI font F5bp SourceOver alpha-mask software drain-start owner boundary
+
+## scope
+
+- branch: `gui-render2d-alpha-mask-drain-f5bp-20260616`
+- plan_md: 確認のみ。人が編集する文書なので変更していない。
+- commit_policy: ユーザー指示に従い、F5bp の仕様、詳細設計、実装計画、source policy、stdlib、focused doctest、todo 更新、note 更新を 1 つの粗め checkpoint commit にまとめる。
+- zenn_policy: `Result` / enum / match による明示状態、platform independent core、fallback 禁止、contract と current implementation の分離、typed owner recovery、source policy による静的検査を守る。
+
+## plan review
+
+- Planck plan review 1 は `PLAN_BLOCKED`。completed drain ではなく drain-start / drain-cursor owner boundary と明記すること、paired recovery、private command field の start validation helper 限定、registered resource 再検証、checked geometry、pixel write 禁止が必要と指摘された。
+- 改訂実装では F5bp を start validation と cursor owner 作成に限定し、SourceOver pixel write、dirty region、tile / bitmap transport、host present は次 phase に残した。
+
+## implementation
+
+- `doc/neplg2/gui_font_rendering_spec.md`、`doc/neplg2/gui_font_rendering_detailed_design.md`、`doc/neplg2/gui_font_rendering_implementation_plan.md` に F5bp の drain-start contract、paired recovery、checked geometry、no pixel write scope を追加した。
+- `stdlib/alloc/gui/font/sfnt/glyf.nepl` に `GuiSfntSimpleGlyphRenderFillAlphaMaskSoftwareDrainOwner`、owner-bearing start error、paired rejected owner、record revalidation、command payload validation、checked rect / surface containment validation、free helper を追加した。
+- `nodesrc/test_web_gui_font_rendering_contract.js` に F5bp source policy を追加し、F5bn と F5bp の source policy region を分離した。
+- `tests/stdlib/gui_font_sfnt_glyf_outline_point_stream_item_collection_render_fill_alpha_mask_software_drain.n.md` を追加した。
+- `todo.md` は F5bp 後の bounded SourceOver drain step、alpha cell read、surface write recovery、dirty region、tile / bitmap transport、FHD 60fps batching へ進む残件へ更新した。
+
+## verification
+
+- node --check nodesrc/test_web_gui_font_rendering_contract.js: passed
+- node nodesrc/test_web_gui_font_rendering_contract.js: passed in 298s
+- F5bp focused doctest: passed 1 / 1
+- F5bn prepared command regression: passed 1 / 1
+- F5bo render2d software surface regression: passed 2 / 2
+- GUI core alpha mask regression: passed 1 / 1
+- stdlib/alloc/gui/font/sfnt/glyf.nepl doctest: passed 1138 / 1138
+- git diff --check: passed
+- Planck implementation review 1 は `REVIEW_BLOCKED`。実装自体は corrected plan の重要条件を満たすが、`note.n.md` の verification が未実行のままだったため commit blocker とされた。ここで実際の検証結果を追記した。
+- Planck implementation review 2 は `REVIEW_APPROVED`。前回 blocker は解消済みで、意図した tracked files と新規 focused doctest だけを stage し、`NUL` と `tmp_*` 生成物を stage しない条件で commit readiness acceptable とされた。
+
 # 2026-06-16 Agent2 GUI render2d F5bo software RGBA8888 surface owner boundary
 
 ## scope
